@@ -14,7 +14,7 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "sa_inmobiliaria"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "e30a586f-b692-4edb-b34e-cdc8be9eb24d"
 migrations_dir = "migrations"
 
 # --- R2 bucket (file/image storage, replaces local disk) ---
