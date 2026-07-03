@@ -1,33 +1,7 @@
 <template>
   <div>
     <!-- Hero -->
-    <section class="relative flex min-h-[78vh] items-center bg-ink">
-      <img
-        src="https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=2400&q=80"
-        alt=""
-        class="absolute inset-0 h-full w-full object-cover opacity-60"
-      />
-      <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30" />
-      <div class="relative mx-auto w-full max-w-screen-2xl px-6 lg:px-10">
-        <div class="max-w-2xl">
-          <p class="eyebrow !text-white/70">Off-plan · Secondary · Communities</p>
-          <h1 class="mt-5 font-serif text-5xl font-medium leading-[1.08] text-white md:text-6xl">
-            Find your place<br />in the extraordinary.
-          </h1>
-          <p class="mt-6 max-w-md text-[15px] leading-relaxed text-white/80">
-            A curated portfolio of residences from the region's most trusted developers.
-          </p>
-          <form class="mt-10 flex max-w-xl bg-white p-1.5" @submit.prevent="search">
-            <input
-              v-model="q"
-              class="w-full border-0 bg-transparent px-4 py-3 text-sm text-ink placeholder:text-stone-400 focus:outline-none focus:ring-0"
-              placeholder="Search by project or community…"
-            />
-            <button type="submit" class="btn-primary shrink-0 !px-8">Search</button>
-          </form>
-        </div>
-      </div>
-    </section>
+    <HeroSearch />
 
     <!-- Latest projects -->
     <section class="mx-auto max-w-screen-2xl px-6 py-20 lg:px-10">
@@ -136,9 +110,4 @@
 
 <script setup lang="ts">
 const { data } = await useFetch('/api/public/home')
-const q = ref('')
-const router = useRouter()
-function search() {
-  router.push({ path: '/properties', query: q.value ? { q: q.value } : {} })
-}
 </script>
