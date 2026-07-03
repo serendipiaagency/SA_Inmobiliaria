@@ -119,6 +119,21 @@ export const developerProperties = sqliteTable('developer_properties', {
   masterPlanDescription: text('master_plan_description'),
   floorPlanDescription: text('floor_plan_description'),
   locationMapDescription: text('location_map_description'),
+  // --- Search & filter attributes (added 0003) ---
+  propertyType: text('property_type_main'), // Apartment | Villa | Townhouse | Penthouse | Studio
+  bedrooms: integer('bedrooms'),
+  bathrooms: integer('bathrooms'),
+  area: real('area'), // built m²
+  yearBuilt: integer('year_built'),
+  energyRating: text('energy_rating'), // A..G
+  orientation: text('orientation'), // N, S, E, W, SE, SW, NE, NW
+  hasElevator: integer('has_elevator').notNull().default(0),
+  hasPool: integer('has_pool').notNull().default(0),
+  hasGarage: integer('has_garage').notNull().default(0),
+  hasTerrace: integer('has_terrace').notNull().default(0),
+  hasGarden: integer('has_garden').notNull().default(0),
+  petsAllowed: integer('pets_allowed').notNull().default(0),
+  accessible: integer('accessible').notNull().default(0),
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })

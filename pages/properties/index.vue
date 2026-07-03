@@ -1,62 +1,104 @@
 <template>
   <div>
-    <header class="border-b border-line bg-white">
-      <div class="mx-auto max-w-screen-2xl px-6 pb-8 pt-12 lg:px-10">
-        <p class="eyebrow">Portfolio</p>
-        <h1 class="heading-serif mt-3 text-4xl md:text-5xl">Off-plan projects</h1>
-        <p v-if="data" class="mt-3 text-sm text-stone-500">{{ data.total }} project(s) available</p>
-      </div>
-      <div class="mx-auto max-w-screen-2xl px-6 pb-6 lg:px-10">
-        <form class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6" @submit.prevent="apply">
-          <input v-model="filters.q" class="input lg:col-span-2" placeholder="Project name…" />
-          <input v-model="filters.community" class="input" placeholder="Community" />
-          <select v-model="filters.status" class="input">
-            <option value="">Any status</option>
-            <option value="new">New launch</option>
-            <option value="under_construction">Under construction</option>
-            <option value="ready">Ready</option>
-          </select>
-          <input v-model="filters.minPrice" type="number" class="input" placeholder="Min price (AED)" />
-          <div class="flex gap-2">
-            <input v-model="filters.maxPrice" type="number" class="input" placeholder="Max price" />
-            <button type="submit" class="btn-primary shrink-0 !px-6">Filter</button>
+    <!-- Search header -->
+    <header class="sticky top-[73px] z-30 border-b border-line bg-paper/95 backdrop-blur">
+      <div class="mx-auto max-w-screen-2xl px-6 py-4 lg:px-10">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div class="lg:flex-1">
+            <SmartSearch
+              v-model="q"
+              rounded
+              placeholder="Ciudad, barrio, calle o referencia…"
+              @select="onSelect"
+              @enter="applySearch"
+            />
           </div>
-        </form>
+          <div class="flex items-center gap-2">
+            <button class="filters-btn" @click="modalOpen = true">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" d="M3 5h18M6 12h12M10 19h4" />
+              </svg>
+              Filtros
+              <span v-if="activeCount" class="badge">{{ activeCount }}</span>
+            </button>
+            <div class="relative">
+              <select v-model="sort" class="sort-select" @change="applyPatch({ sort: sort || undefined, page: undefined })">
+                <option value="">Recomendado</option>
+                <option value="price_asc">Precio ↑</option>
+                <option value="price_desc">Precio ↓</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick chips -->
+        <div class="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            v-for="c in quickChips"
+            :key="c.key"
+            type="button"
+            class="quick-chip"
+            :class="{ 'quick-on': isChipOn(c) }"
+            @click="toggleChip(c)"
+          >
+            {{ c.label }}
+          </button>
+        </div>
       </div>
     </header>
 
-    <div class="mx-auto max-w-screen-2xl px-6 py-14 lg:px-10">
-      <div v-if="data?.rows?.length" class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <ProjectCard v-for="p in data.rows" :key="p.id" :project="p" />
+    <div class="mx-auto max-w-screen-2xl px-6 py-8 lg:px-10">
+      <div class="mb-6 flex items-baseline justify-between">
+        <p class="text-sm text-stone-500">
+          <span class="font-semibold text-ink">{{ data?.total ?? 0 }}</span>
+          propiedad{{ (data?.total ?? 0) === 1 ? '' : 'es' }}
+          <span v-if="q"> · “{{ q }}”</span>
+        </p>
+        <button v-if="activeCount || q" class="text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-ink" @click="clearAll">
+          Limpiar filtros
+        </button>
       </div>
+
+      <transition-group
+        v-if="data?.rows?.length"
+        name="grid"
+        tag="div"
+        class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      >
+        <ProjectCard v-for="p in data.rows" :key="p.id" :project="p" />
+      </transition-group>
       <div v-else class="py-24 text-center">
-        <p class="font-serif text-2xl text-stone-500">No projects match your filters.</p>
-        <button class="btn-quiet mt-6" @click="reset">Clear filters</button>
+        <p class="font-serif text-2xl text-stone-500">No hay propiedades que coincidan.</p>
+        <button class="btn-quiet mt-6" @click="clearAll">Limpiar filtros</button>
       </div>
 
       <div v-if="totalPages > 1" class="mt-14 flex items-center justify-center gap-4">
-        <button class="btn-quiet" :disabled="page <= 1" @click="go(page - 1)">← Previous</button>
+        <button class="btn-quiet" :disabled="page <= 1" @click="applyPatch({ page: String(page - 1) })">← Anterior</button>
         <span class="text-[11px] font-semibold uppercase tracking-widest text-stone-450">
-          Page {{ page }} of {{ totalPages }}
+          Página {{ page }} de {{ totalPages }}
         </span>
-        <button class="btn-quiet" :disabled="page >= totalPages" @click="go(page + 1)">Next →</button>
+        <button class="btn-quiet" :disabled="page >= totalPages" @click="applyPatch({ page: String(page + 1) })">Siguiente →</button>
       </div>
     </div>
+
+    <FiltersModal :open="modalOpen" :model-value="modalSeed" :q="q" @close="modalOpen = false" @apply="onApplyFilters" />
   </div>
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Off-plan projects — SA Inmobiliaria' })
+useHead({ title: 'Buscar propiedades — SA Inmobiliaria' })
 const route = useRoute()
 const router = useRouter()
 
-const filters = reactive({
-  q: String(route.query.q || ''),
-  community: String(route.query.community || ''),
-  status: String(route.query.status || ''),
-  minPrice: String(route.query.minPrice || ''),
-  maxPrice: String(route.query.maxPrice || ''),
-})
+const q = ref(String(route.query.q || ''))
+const sort = ref(String(route.query.sort || ''))
+const modalOpen = ref(false)
+
+watch(
+  () => route.query.q,
+  (v) => (q.value = String(v || '')),
+)
+
 const page = computed(() => Math.max(1, parseInt(String(route.query.page || '1'), 10) || 1))
 
 const { data } = await useFetch('/api/public/properties', {
@@ -64,16 +106,147 @@ const { data } = await useFetch('/api/public/properties', {
 })
 const totalPages = computed(() => Math.ceil((data.value?.total || 0) / (data.value?.perPage || 12)))
 
-function apply() {
-  const query: Record<string, string> = {}
-  for (const [k, v] of Object.entries(filters)) if (v) query[k] = v
+// Advanced filter keys that count toward the badge
+const ADV = ['minPrice','maxPrice','minArea','maxArea','bedrooms','bathrooms','type','status','orientation','minYear','energy','elevator','pool','garage','terrace','garden','pets','accessible']
+const activeCount = computed(() => ADV.filter((k) => route.query[k]).length)
+
+// Seed for the modal from current URL query
+const modalSeed = computed(() => {
+  const s: Record<string, any> = {}
+  for (const k of ['minPrice','maxPrice','minArea','maxArea','bedrooms','bathrooms','minYear'])
+    if (route.query[k]) s[k] = Number(route.query[k])
+  for (const k of ['type','status','orientation','energy']) if (route.query[k]) s[k] = String(route.query[k])
+  for (const k of ['elevator','pool','garage','terrace','garden','pets','accessible'])
+    if (route.query[k] === '1') s[k] = true
+  return s
+})
+
+// Quick chips
+const quickChips = [
+  { key: 'status', value: 'new', label: 'Obra nueva' },
+  { key: 'pool', value: '1', label: 'Piscina' },
+  { key: 'garage', value: '1', label: 'Garaje' },
+  { key: 'terrace', value: '1', label: 'Terraza' },
+  { key: 'garden', value: '1', label: 'Jardín' },
+]
+function isChipOn(c: { key: string; value: string }) {
+  return String(route.query[c.key] || '') === c.value
+}
+function toggleChip(c: { key: string; value: string }) {
+  const patch: Record<string, any> = { page: undefined }
+  patch[c.key] = isChipOn(c) ? undefined : c.value
+  applyPatch(patch)
+}
+
+function applyPatch(patch: Record<string, any>) {
+  const query: Record<string, any> = { ...route.query, ...patch }
+  Object.keys(query).forEach((k) => (query[k] == null || query[k] === '') && delete query[k])
   router.push({ query })
 }
-function reset() {
-  Object.keys(filters).forEach((k) => ((filters as any)[k] = ''))
+
+function onSelect(sel: { type: string; value: string; slug?: string }) {
+  if (sel.type === 'reference' && sel.slug) {
+    router.push(`/property-details/${sel.slug}`)
+    return
+  }
+  q.value = sel.value
+  applySearch()
+}
+function applySearch() {
+  applyPatch({ q: q.value || undefined, page: undefined })
+}
+
+function onApplyFilters(qy: Record<string, string>) {
+  modalOpen.value = false
+  // Preserve q & sort, replace advanced filters entirely with modal output
+  const query: Record<string, any> = { ...qy }
+  if (sort.value) query.sort = sort.value
+  router.push({ query })
+}
+
+function clearAll() {
+  q.value = ''
+  sort.value = ''
   router.push({ query: {} })
 }
-function go(p: number) {
-  router.push({ query: { ...route.query, page: String(p) } })
-}
 </script>
+
+<style scoped>
+.filters-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #16150f;
+  border-radius: 9999px;
+  padding: 0.65rem 1.1rem;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #16150f;
+  transition: all 0.2s;
+}
+.filters-btn:hover {
+  background: #16150f;
+  color: #fff;
+}
+.badge {
+  display: inline-flex;
+  height: 1.25rem;
+  min-width: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #16150f;
+  padding: 0 0.35rem;
+  font-size: 11px;
+  color: #fff;
+}
+.filters-btn:hover .badge {
+  background: #fff;
+  color: #16150f;
+}
+.sort-select {
+  border: 1px solid #e7e4de;
+  border-radius: 9999px;
+  padding: 0.65rem 1.1rem;
+  font-size: 13px;
+  color: #16150f;
+  background: #fff;
+}
+.sort-select:focus {
+  outline: none;
+  border-color: #16150f;
+}
+.quick-chip {
+  flex-shrink: 0;
+  white-space: nowrap;
+  border: 1px solid #e7e4de;
+  border-radius: 9999px;
+  padding: 0.5rem 1rem;
+  font-size: 13px;
+  color: #57534e;
+  background: #fff;
+  transition: all 0.18s;
+}
+.quick-chip:hover {
+  border-color: #16150f;
+  color: #16150f;
+}
+.quick-on {
+  background: #16150f;
+  border-color: #16150f;
+  color: #fff;
+}
+
+.grid-enter-active {
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.grid-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.grid-leave-active {
+  position: absolute;
+}
+</style>
