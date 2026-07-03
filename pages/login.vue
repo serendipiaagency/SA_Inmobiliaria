@@ -1,7 +1,7 @@
 <template>
   <div class="mx-auto flex max-w-md flex-col justify-center px-4 py-20">
-    <h1 class="text-center text-3xl font-bold">Sign in</h1>
-    <form class="card mt-8 space-y-4 p-6" @submit.prevent="submit">
+    <h1 class="text-center heading-serif text-4xl">Sign in</h1>
+    <form class="card mt-10 space-y-5 p-8" @submit.prevent="submit">
       <div>
         <label class="label">Email</label>
         <input v-model="email" type="email" class="input" required autocomplete="email" />

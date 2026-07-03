@@ -1,14 +1,14 @@
 <template>
   <article v-if="data" class="mx-auto max-w-3xl px-4 py-12">
-    <p class="text-xs uppercase text-emerald-700">{{ data.blog.targetAudience }}</p>
-    <h1 class="mt-1 text-3xl font-bold md:text-4xl">{{ current?.title || data.blog.slug }}</h1>
+    <p class="text-xs uppercase text-ink">{{ data.blog.targetAudience }}</p>
+    <h1 class="mt-1 heading-serif text-4xl md:text-4xl">{{ current?.title || data.blog.slug }}</h1>
 
     <div v-if="locales.length > 1" class="mt-4 flex gap-2">
       <button
         v-for="l in locales"
         :key="l"
         class="rounded-full px-3 py-1 text-xs font-semibold"
-        :class="l === locale ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600'"
+        :class="l === locale ? 'bg-ink text-white' : 'bg-slate-100 text-stone-500'"
         @click="locale = l"
       >
         {{ l.toUpperCase() }}
@@ -22,7 +22,7 @@
       class="mt-6 w-full rounded-xl object-cover"
     />
     <div
-      class="prose prose-slate mt-8 max-w-none whitespace-pre-line leading-relaxed text-slate-700"
+      class="prose prose-slate mt-8 max-w-none whitespace-pre-line leading-relaxed text-stone-600"
       :dir="locale === 'ar' ? 'rtl' : 'ltr'"
     >
       {{ stripHtml(current?.description || '') }}

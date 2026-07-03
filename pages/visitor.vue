@@ -1,9 +1,9 @@
 <template>
   <div class="mx-auto max-w-2xl px-4 py-14">
-    <h1 class="text-3xl font-bold">Visitor form</h1>
-    <p class="mt-2 text-slate-600">Tell us what you are looking for and attach the required documents.</p>
+    <h1 class="heading-serif text-4xl">Visitor form</h1>
+    <p class="mt-2 text-stone-500">Tell us what you are looking for and attach the required documents.</p>
 
-    <form class="card mt-8 space-y-4 p-6" @submit.prevent="submit">
+    <form class="card mt-10 space-y-5 p-8" @submit.prevent="submit">
       <div class="grid gap-4 sm:grid-cols-2">
         <div>
           <label class="label">Name *</label>
@@ -51,7 +51,7 @@
       </div>
 
       <fieldset class="space-y-3 rounded-lg border border-slate-200 p-4">
-        <legend class="px-1 text-sm font-semibold text-slate-700">Documents (PDF)</legend>
+        <legend class="px-1 text-sm font-semibold text-stone-600">Documents (PDF)</legend>
         <div v-for="doc in docs" :key="doc.field">
           <label class="label">{{ doc.label }}</label>
           <input type="file" accept="application/pdf" class="text-sm" @change="onFile(doc.field, $event)" />
@@ -61,7 +61,7 @@
       <button type="submit" class="btn-primary w-full" :disabled="sending">
         {{ sending ? 'Submitting…' : 'Submit' }}
       </button>
-      <p v-if="sent" class="text-center text-sm font-medium text-emerald-700">Submission received — thank you!</p>
+      <p v-if="sent" class="text-center text-sm font-medium text-ink">Submission received — thank you!</p>
       <p v-if="error" class="text-center text-sm font-medium text-red-600">{{ error }}</p>
     </form>
   </div>
