@@ -134,6 +134,14 @@ export const developerProperties = sqliteTable('developer_properties', {
   hasGarden: integer('has_garden').notNull().default(0),
   petsAllowed: integer('pets_allowed').notNull().default(0),
   accessible: integer('accessible').notNull().default(0),
+  // --- Card attributes (added 0005) ---
+  priceOld: real('price_old'),
+  isExclusive: integer('is_exclusive').notNull().default(0),
+  isReserved: integer('is_reserved').notNull().default(0),
+  hasTour: integer('has_tour').notNull().default(0),
+  rentalYield: real('rental_yield'),
+  publishedAt: text('published_at'),
+  aiSummary: text('ai_summary'),
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })

@@ -15,6 +15,14 @@
         </nav>
 
         <div class="flex items-center gap-4">
+          <NuxtLink to="/favoritos" class="relative hidden text-stone-500 transition hover:text-ink md:inline-flex" aria-label="Favoritos">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-9.3-9.2C1.2 8.7 2.7 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.3 0 4.8 3.2 3.3 6.3C19 16.5 12 21 12 21z" />
+            </svg>
+            <span v-if="favIds.length" class="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink px-1 text-[10px] font-semibold text-white">
+              {{ favIds.length }}
+            </span>
+          </NuxtLink>
           <NuxtLink
             to="/contact-us"
             class="hidden border border-ink px-5 py-2.5 text-[11px] font-semibold uppercase tracking-widest2 transition hover:bg-ink hover:text-white md:inline-flex"
@@ -61,6 +69,8 @@
     <main class="flex-1">
       <slot />
     </main>
+
+    <CompareBar />
 
     <footer class="border-t border-line bg-white">
       <div class="mx-auto max-w-screen-2xl px-6 py-16 lg:px-10">
@@ -109,7 +119,11 @@
 <script setup lang="ts">
 const open = ref(false)
 const { user, loaded, refresh } = useAuth()
+const { load: loadFav, ids: favIds } = useFavorites()
+const { load: loadCompare } = useCompare()
 onMounted(() => {
   if (!loaded.value) refresh()
+  loadFav()
+  loadCompare()
 })
 </script>

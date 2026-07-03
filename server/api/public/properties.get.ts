@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gte, like, lte, or, sql } from 'drizzle-orm'
 import { useDb, schema } from '../../utils/db'
+import { attachPhotos } from '../../utils/photos'
 
 const P = schema.developerProperties
 
@@ -92,10 +93,8 @@ export default defineEventHandler(async (event) => {
     .limit(perPage)
     .offset((page - 1) * perPage)
 
-  return {
-    rows: rows.map((r) => ({ ...r.project, developerName: r.developerName })),
-    total,
-    page,
-    perPage,
-  }
+  const merged = rows.map((r) => ({ ...r.project, developerName: r.developerName }))
+  const withPhotos = await attachPhotos(db, merged)
+
+  return { rows: withPhotos, total, page, perPage }
 })
