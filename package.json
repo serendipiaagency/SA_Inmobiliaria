@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@nuxtjs/tailwindcss": "^6.14.0",
+    "commander": "^13.1.0",
     "nitro-cloudflare-dev": "^0.2.2",
     "nuxt": "^3.17.5",
     "wrangler": "^4.20.0"
