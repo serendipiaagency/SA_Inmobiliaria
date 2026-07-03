@@ -1,238 +1,196 @@
 <template>
   <div v-if="data" class="bg-paper">
-    <!-- Photo mosaic (Compass-style) -->
-    <section class="mx-auto max-w-screen-2xl px-6 pt-6 lg:px-10">
-      <div class="grid gap-2 lg:grid-cols-5" :class="photos.length > 1 ? '' : 'lg:grid-cols-1'">
-        <button
-          class="relative col-span-3 block aspect-[4/3] w-full overflow-hidden bg-stone-100 lg:aspect-auto lg:h-[560px]"
-          @click="openLightbox(0)"
-        >
-          <img :src="photos[0]" :alt="data.project.name" class="h-full w-full object-cover" />
-        </button>
-        <div v-if="photos.length > 1" class="col-span-2 hidden grid-cols-2 grid-rows-2 gap-2 lg:grid">
-          <button
-            v-for="(p, i) in photos.slice(1, 5)"
-            :key="i"
-            class="relative block h-[276px] overflow-hidden bg-stone-100"
-            @click="openLightbox(i + 1)"
-          >
-            <img :src="p" :alt="`${data.project.name} photo ${i + 2}`" class="h-full w-full object-cover" loading="lazy" />
-            <span
-              v-if="i === 3 && photos.length > 5"
-              class="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-semibold uppercase tracking-widest2 text-white"
-            >
-              View all {{ photos.length }} photos
-            </span>
-          </button>
-        </div>
-      </div>
+    <!-- Gallery -->
+    <section id="fotos" class="mx-auto max-w-screen-2xl px-6 pt-6 lg:px-10">
+      <MediaGallery :photos="photos" :name="data.project.name" :has-tour="!!data.project.hasTour" :master-plan="masterPlan" />
     </section>
 
-    <!-- Lightbox -->
-    <div
-      v-if="lightbox !== null"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-6"
-      @click.self="lightbox = null"
-    >
-      <button class="absolute right-6 top-6 text-3xl leading-none text-white/70 hover:text-white" @click="lightbox = null">
-        ×
-      </button>
-      <button class="absolute left-4 p-4 text-4xl text-white/60 hover:text-white" @click.stop="step(-1)">‹</button>
-      <img :src="photos[lightbox]" class="max-h-[85vh] max-w-[85vw] object-contain" />
-      <button class="absolute right-4 p-4 text-4xl text-white/60 hover:text-white" @click.stop="step(1)">›</button>
-      <p class="absolute bottom-6 text-xs uppercase tracking-widest2 text-white/60">
-        {{ lightbox + 1 }} / {{ photos.length }}
-      </p>
-    </div>
+    <!-- Sticky section nav -->
+    <nav class="sticky top-[73px] z-30 mt-6 border-y border-line bg-paper/95 backdrop-blur">
+      <div class="mx-auto flex max-w-screen-2xl items-center gap-6 overflow-x-auto px-6 lg:px-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <a v-for="s in sections" :key="s.id" :href="`#${s.id}`" class="whitespace-nowrap py-4 text-[12px] font-semibold uppercase tracking-widest text-stone-500 transition hover:text-ink">
+          {{ s.label }}
+        </a>
+      </div>
+    </nav>
 
-    <!-- Body -->
-    <div class="mx-auto max-w-screen-2xl px-6 py-12 lg:px-10">
+    <div class="mx-auto max-w-screen-2xl px-6 py-10 lg:px-10">
       <div class="grid gap-14 lg:grid-cols-3">
-        <!-- Main column -->
-        <div class="space-y-14 lg:col-span-2">
-          <!-- Title block -->
+        <div class="space-y-16 lg:col-span-2">
+          <!-- Header -->
           <header>
-            <div class="flex flex-wrap items-center gap-3">
-              <span class="border border-line bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest2 text-stone-600">
-                {{ statusLabel }}
-              </span>
-              <span v-if="data.project.handoverDate" class="text-[11px] font-medium uppercase tracking-widest text-stone-450">
-                Handover {{ data.project.handoverDate }}
-              </span>
-            </div>
-            <h1 class="heading-serif mt-5 text-4xl leading-tight md:text-5xl">{{ data.project.name }}</h1>
-            <p class="mt-3 text-[15px] text-stone-500">
-              <span v-if="data.project.community">{{ data.project.community }}</span>
-              <span v-if="data.project.community && data.developer" class="mx-2 text-stone-300">|</span>
-              <span v-if="data.developer">Developed by {{ data.developer.name }}</span>
-            </p>
-            <div class="hairline mt-8 flex flex-wrap gap-x-12 gap-y-4 pt-8">
-              <div v-for="stat in stats" :key="stat.label">
-                <p class="text-xl font-semibold tracking-tight">{{ stat.value }}</p>
-                <p class="mt-0.5 text-[11px] font-medium uppercase tracking-widest text-stone-450">{{ stat.label }}</p>
+            <div class="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="border border-line bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest2 text-stone-600">{{ statusLabel }}</span>
+                  <span v-if="data.project.rentalYield" class="rounded-full bg-paper px-3 py-1.5 text-[11px] font-semibold ring-1 ring-line">{{ data.project.rentalYield }}% rentabilidad</span>
+                </div>
+                <h1 class="heading-serif mt-4 text-4xl leading-tight md:text-5xl">{{ data.project.name }}</h1>
+                <p class="mt-2 text-[15px] text-stone-500">
+                  <span v-if="data.project.community">{{ data.project.community }}</span>
+                  <span v-if="data.developer" class="mx-2 text-stone-300">·</span>
+                  <span v-if="data.developer">{{ data.developer.name }}</span>
+                </p>
               </div>
+              <div class="flex gap-2">
+                <button class="act2" :class="{ 'act2-on': fav }" @click="toggleFav(data.project.id)"><span v-html="heart" /></button>
+                <button class="act2" :class="{ 'act2-on': inCompare }" @click="doCompare"><span v-html="scale" /></button>
+                <button class="act2" @click="doShare">{{ shared ? '✓' : '↗' }}</button>
+              </div>
+            </div>
+            <div class="hairline mt-8 flex flex-wrap gap-x-12 gap-y-4 pt-8">
+              <div v-for="f in facts" :key="f.label"><p class="text-xl font-semibold">{{ f.value }}</p><p class="mt-0.5 text-[11px] font-medium uppercase tracking-widest text-stone-450">{{ f.label }}</p></div>
             </div>
           </header>
 
-          <!-- About -->
-          <section v-if="data.project.description">
-            <p class="eyebrow">About</p>
-            <h2 class="heading-serif mt-3 text-3xl">About this project</h2>
-            <p class="mt-6 max-w-3xl whitespace-pre-line text-[15px] leading-[1.9] text-stone-600">{{ data.project.description }}</p>
+          <!-- Resumen IA -->
+          <section id="resumen">
+            <div class="flex items-center gap-2">
+              <span class="rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">IA</span>
+              <p class="eyebrow !text-stone-450">Resumen inteligente</p>
+            </div>
+            <h2 class="heading-serif mt-3 text-3xl">Lo que debes saber</h2>
+            <p v-if="data.project.aiSummary" class="mt-5 max-w-3xl text-[15px] leading-[1.9] text-stone-600">{{ data.project.aiSummary }}</p>
+            <div class="mt-6 grid gap-4 sm:grid-cols-2">
+              <div class="rounded-2xl border border-line bg-white p-6">
+                <p class="mb-3 text-[11px] font-semibold uppercase tracking-widest text-emerald-700">Lo mejor</p>
+                <ul class="space-y-2.5">
+                  <li v-for="p in pros" :key="p" class="flex items-start gap-2.5 text-sm text-stone-700"><span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />{{ p }}</li>
+                </ul>
+              </div>
+              <div class="rounded-2xl border border-line bg-white p-6">
+                <p class="mb-3 text-[11px] font-semibold uppercase tracking-widest text-amber-700">A considerar</p>
+                <ul class="space-y-2.5">
+                  <li v-for="c in cons" :key="c" class="flex items-start gap-2.5 text-sm text-stone-700"><span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />{{ c }}</li>
+                </ul>
+              </div>
+            </div>
           </section>
 
-          <!-- Highlights -->
-          <section v-if="highlights.length">
-            <p class="eyebrow">Highlights</p>
-            <h2 class="heading-serif mt-3 text-3xl">Key highlights</h2>
-            <ul class="mt-6 grid gap-x-10 gap-y-4 sm:grid-cols-2">
-              <li v-for="(h, i) in highlights" :key="i" class="flex items-start gap-3 text-[15px] leading-relaxed text-stone-600">
-                <span class="mt-2.5 h-px w-5 shrink-0 bg-ink" />
-                {{ h }}
-              </li>
+          <!-- Descripción -->
+          <section v-if="data.project.description">
+            <p class="eyebrow">Descripción</p>
+            <h2 class="heading-serif mt-3 text-3xl">Sobre esta propiedad</h2>
+            <p class="mt-5 max-w-3xl whitespace-pre-line text-[15px] leading-[1.9] text-stone-600">{{ data.project.description }}</p>
+          </section>
+
+          <!-- Amenities -->
+          <section v-if="data.amenities.length">
+            <p class="eyebrow">Servicios del edificio</p>
+            <h2 class="heading-serif mt-3 text-3xl">Comodidades</h2>
+            <ul class="mt-6 grid gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+              <li v-for="a in data.amenities" :key="a.id" class="flex items-center gap-3 text-[15px] text-stone-600"><span class="h-1 w-1 rounded-full bg-ink" />{{ a.name }}</li>
             </ul>
           </section>
 
           <!-- Units -->
           <section v-if="data.unitTypes.length">
-            <p class="eyebrow">Residences</p>
-            <h2 class="heading-serif mt-3 text-3xl">Available residences</h2>
-            <div class="mt-6 border border-line bg-white">
+            <p class="eyebrow">Residencias</p>
+            <h2 class="heading-serif mt-3 text-3xl">Tipologías disponibles</h2>
+            <div class="mt-6 overflow-hidden rounded-2xl border border-line bg-white">
               <table class="w-full text-left text-sm">
-                <thead>
-                  <tr class="border-b border-line text-[11px] uppercase tracking-widest text-stone-450">
-                    <th class="px-6 py-4 font-semibold">Type</th>
-                    <th class="px-6 py-4 font-semibold">Unit</th>
-                    <th class="px-6 py-4 font-semibold">Size</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="u in data.unitTypes" :key="u.id" class="border-b border-line/60 last:border-0">
-                    <td class="px-6 py-4 font-medium">{{ u.propertyType }}</td>
-                    <td class="px-6 py-4 text-stone-600">{{ u.unitType }}</td>
-                    <td class="px-6 py-4 text-stone-600">{{ u.size }}</td>
-                  </tr>
-                </tbody>
+                <thead><tr class="border-b border-line text-[11px] uppercase tracking-widest text-stone-450"><th class="px-6 py-4 font-semibold">Tipo</th><th class="px-6 py-4 font-semibold">Unidad</th><th class="px-6 py-4 font-semibold">Superficie</th></tr></thead>
+                <tbody><tr v-for="u in data.unitTypes" :key="u.id" class="border-b border-line/60 last:border-0"><td class="px-6 py-4 font-medium">{{ u.propertyType }}</td><td class="px-6 py-4 text-stone-600">{{ u.unitType }}</td><td class="px-6 py-4 text-stone-600">{{ u.size }}</td></tr></tbody>
               </table>
             </div>
           </section>
 
-          <!-- Amenities -->
-          <section v-if="data.amenities.length">
-            <p class="eyebrow">Amenities</p>
-            <h2 class="heading-serif mt-3 text-3xl">Building amenities</h2>
-            <ul class="mt-6 grid gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-              <li v-for="a in data.amenities" :key="a.id" class="flex items-center gap-3 text-[15px] text-stone-600">
-                <span class="h-1 w-1 shrink-0 rounded-full bg-ink" />
-                {{ a.name }}
-              </li>
-            </ul>
-          </section>
-
-          <!-- Floor plans -->
-          <section v-if="data.floorPlans.length">
-            <p class="eyebrow">Layouts</p>
-            <h2 class="heading-serif mt-3 text-3xl">Floor plans</h2>
-            <p v-if="data.project.floorPlanDescription" class="mt-4 max-w-3xl text-[15px] leading-relaxed text-stone-600">
-              {{ data.project.floorPlanDescription }}
-            </p>
-            <div class="mt-6 grid gap-6 md:grid-cols-2">
-              <div v-for="fp in data.floorPlans" :key="fp.id" class="border border-line bg-white">
-                <div v-if="fp.image" class="aspect-[3/2] overflow-hidden bg-stone-100">
-                  <img :src="mediaUrl(fp.image)" class="h-full w-full object-cover" loading="lazy" />
+          <!-- Servicios cercanos -->
+          <section id="servicios">
+            <p class="eyebrow">El entorno</p>
+            <h2 class="heading-serif mt-3 text-3xl">Qué hay cerca</h2>
+            <div class="mt-6 grid gap-4 sm:grid-cols-2">
+              <div v-for="poi in nearby" :key="poi.name" class="flex items-center justify-between rounded-2xl border border-line bg-white px-5 py-4">
+                <div class="flex items-center gap-3">
+                  <span class="flex h-10 w-10 items-center justify-center rounded-full bg-paper text-stone-500" v-html="poi.icon" />
+                  <div><p class="text-sm font-medium">{{ poi.name }}</p><p class="text-[12px] text-stone-400">{{ poi.cat }}</p></div>
                 </div>
-                <div class="px-6 py-5">
-                  <p class="font-serif text-lg font-medium">{{ fp.category || fp.type }}</p>
-                  <p class="mt-1 text-[13px] text-stone-500">
-                    {{ [fp.unitType, fp.floorDetails, fp.sizes].filter(Boolean).join(' · ') }}
-                  </p>
+                <div class="text-right text-[12px] text-stone-500">
+                  <p>🚶 {{ poi.walk }} min</p>
+                  <p>🚗 {{ poi.drive }} min</p>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- Master plan -->
-          <section v-if="data.project.masterPlanImage">
-            <p class="eyebrow">Master plan</p>
-            <h2 class="heading-serif mt-3 text-3xl">The master plan</h2>
-            <p v-if="data.project.masterPlanDescription" class="mt-4 max-w-3xl text-[15px] leading-relaxed text-stone-600">
-              {{ data.project.masterPlanDescription }}
-            </p>
-            <img :src="mediaUrl(data.project.masterPlanImage)" class="mt-6 w-full border border-line" loading="lazy" />
+          <!-- Ubicación / mapa -->
+          <section id="ubicacion">
+            <p class="eyebrow">Ubicación</p>
+            <h2 class="heading-serif mt-3 text-3xl">Dónde está</h2>
+            <div class="relative mt-6 h-80 overflow-hidden rounded-2xl border border-line">
+              <div class="absolute inset-0 bg-gradient-to-br from-stone-200 to-stone-300" />
+              <div class="absolute inset-0" style="background-image:radial-gradient(circle,rgba(0,0,0,0.06) 1px,transparent 1px);background-size:26px 26px" />
+              <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-ink text-white shadow-lg ring-4 ring-white">●</span>
+              </div>
+              <span class="absolute bottom-4 left-4 rounded-full bg-white/90 px-4 py-2 text-[11px] uppercase tracking-widest2 text-stone-600 backdrop-blur">{{ data.project.community }} — mapa interactivo próximamente</span>
+            </div>
           </section>
 
-          <!-- Location -->
-          <section v-if="data.project.locationMap || data.locations.length">
-            <p class="eyebrow">Location</p>
-            <h2 class="heading-serif mt-3 text-3xl">Where you'll be</h2>
-            <p v-if="data.project.locationMapDescription" class="mt-4 max-w-3xl text-[15px] leading-relaxed text-stone-600">
-              {{ data.project.locationMapDescription }}
-            </p>
-            <img
-              v-if="data.project.locationMap"
-              :src="mediaUrl(data.project.locationMap)"
-              class="mt-6 w-full border border-line"
-              loading="lazy"
-            />
-            <ul v-if="data.locations.length" class="mt-6 divide-y divide-line border border-line bg-white">
-              <li v-for="l in data.locations" :key="l.id" class="flex items-center justify-between px-6 py-4 text-[15px]">
-                <span class="text-stone-700">{{ l.name }}</span>
-                <span v-if="l.distance !== null" class="text-[13px] font-medium text-stone-450">{{ l.distance }} min</span>
+          <!-- Decoración / Home Staging IA -->
+          <section>
+            <div class="flex items-center gap-2"><span class="rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">IA</span><p class="eyebrow !text-stone-450">Imagina tu hogar</p></div>
+            <h2 class="heading-serif mt-3 text-3xl">Visualiza el potencial</h2>
+            <div class="mt-6 grid gap-4 sm:grid-cols-2">
+              <div v-for="s in staging" :key="s.title" class="group relative overflow-hidden rounded-2xl border border-line bg-white">
+                <div class="aspect-[16/10] overflow-hidden bg-stone-100"><img :src="photos[s.i % photos.length]" class="h-full w-full object-cover transition duration-700 group-hover:scale-105" /></div>
+                <div class="flex items-center justify-between p-5">
+                  <div><p class="font-serif text-lg font-medium">{{ s.title }}</p><p class="text-[13px] text-stone-500">{{ s.desc }}</p></div>
+                  <NuxtLink to="/contact-us" class="shrink-0 rounded-full bg-ink px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-white">Generar</NuxtLink>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Hipoteca -->
+          <section id="hipoteca">
+            <p class="eyebrow">Financiación</p>
+            <h2 class="heading-serif mt-3 text-3xl">Hipoteca y costes</h2>
+            <div class="mt-6"><MortgageCalculator :price="data.project.price || 0" :rental-yield="data.project.rentalYield" /></div>
+          </section>
+
+          <!-- Historia / timeline -->
+          <section id="historia">
+            <p class="eyebrow">Trayectoria</p>
+            <h2 class="heading-serif mt-3 text-3xl">Historia del inmueble</h2>
+            <ol class="mt-6 space-y-6 border-l border-line pl-6">
+              <li v-for="(t, i) in timeline" :key="i" class="relative">
+                <span class="absolute -left-[31px] top-1 flex h-3 w-3 items-center justify-center rounded-full" :class="t.done ? 'bg-ink' : 'bg-white ring-2 ring-line'" />
+                <p class="text-sm font-semibold">{{ t.title }}</p>
+                <p class="text-[13px] text-stone-500">{{ t.detail }}</p>
               </li>
-            </ul>
+            </ol>
           </section>
         </div>
 
-        <!-- Sticky sidebar -->
+        <!-- Sidebar -->
         <aside>
-          <div class="lg:sticky lg:top-28 space-y-6">
-            <div class="border border-line bg-white p-8">
-              <p class="eyebrow">Starting from</p>
+          <div class="space-y-6 lg:sticky lg:top-32">
+            <div class="rounded-2xl border border-line bg-white p-8">
+              <p class="eyebrow">Desde</p>
               <p class="heading-serif mt-2 text-4xl">{{ formatPrice(data.project.price) }}</p>
-
-              <div v-if="paymentRows.length" class="hairline mt-7 pt-6">
-                <p class="eyebrow mb-4">Payment plan</p>
+              <p v-if="pricePerM2" class="mt-1 text-[13px] text-stone-400">{{ pricePerM2 }} / m²</p>
+              <div v-if="paymentRows.length" class="hairline mt-6 pt-5">
+                <p class="eyebrow mb-4">Plan de pago</p>
                 <ul class="space-y-3">
-                  <li v-for="(row, i) in paymentRows" :key="i" class="flex items-center justify-between text-sm">
-                    <span class="text-stone-500">{{ row.label }}</span>
-                    <span class="font-semibold">{{ row.value }}</span>
-                  </li>
+                  <li v-for="(r, i) in paymentRows" :key="i" class="flex justify-between text-sm"><span class="text-stone-500">{{ r.label }}</span><span class="font-semibold">{{ r.value }}</span></li>
                 </ul>
               </div>
-
-              <div class="mt-8 space-y-3">
-                <NuxtLink to="/contact-us" class="btn-primary w-full">Request information</NuxtLink>
-                <NuxtLink to="/visitor" class="btn-secondary w-full">Schedule a visit</NuxtLink>
+              <div class="mt-7 space-y-3">
+                <NuxtLink to="/contact-us" class="btn-primary w-full">Solicitar información</NuxtLink>
+                <NuxtLink to="/visitor" class="btn-secondary w-full">Agendar visita</NuxtLink>
               </div>
-              <p class="mt-5 text-center text-xs leading-relaxed text-stone-400">
-                No commitment — our advisors reply within one business day.
-              </p>
             </div>
-
-            <div v-if="data.developer" class="border border-line bg-white p-8">
-              <p class="eyebrow mb-4">Developed by</p>
+            <div v-if="data.developer" class="rounded-2xl border border-line bg-white p-8">
+              <p class="eyebrow mb-4">Promotora</p>
               <div class="flex items-center gap-4">
-                <div class="flex h-14 w-14 shrink-0 items-center justify-center border border-line bg-paper">
-                  <img
-                    v-if="data.developer.logo"
-                    :src="mediaUrl(data.developer.logo)"
-                    class="max-h-10 max-w-10 object-contain"
-                  />
+                <div class="flex h-14 w-14 items-center justify-center border border-line bg-paper">
+                  <img v-if="data.developer.logo" :src="mediaUrl(data.developer.logo)" class="max-h-10 object-contain" />
                   <span v-else class="font-serif text-xl">{{ data.developer.name.charAt(0) }}</span>
                 </div>
-                <div>
-                  <p class="font-serif text-lg font-medium leading-tight">{{ data.developer.name }}</p>
-                  <NuxtLink
-                    :to="{ path: '/properties', query: { developerId: data.developer.id } }"
-                    class="text-[11px] font-semibold uppercase tracking-widest text-stone-450 hover:text-ink"
-                  >
-                    View all projects
-                  </NuxtLink>
-                </div>
+                <p class="font-serif text-lg font-medium leading-tight">{{ data.developer.name }}</p>
               </div>
-              <p v-if="data.developer.description" class="mt-4 text-[13px] leading-relaxed text-stone-500">
-                {{ data.developer.description }}
-              </p>
+              <p v-if="data.developer.description" class="mt-4 text-[13px] leading-relaxed text-stone-500">{{ data.developer.description }}</p>
             </div>
           </div>
         </aside>
@@ -244,68 +202,148 @@
 <script setup lang="ts">
 const route = useRoute()
 const { data } = await useFetch(`/api/public/properties/${route.params.slug}`)
-if (!data.value) {
-  throw createError({ statusCode: 404, statusMessage: 'Project not found', fatal: true })
-}
+if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Project not found', fatal: true })
 useHead({ title: `${data.value.project.name} — SA Inmobiliaria` })
+
+const { isFavorite, toggle: toggleFav, load: loadFav } = useFavorites()
+const { has: hasCompare, toggle: toggleCompare, load: loadCompare } = useCompare()
+onMounted(() => { loadFav(); loadCompare() })
+const fav = computed(() => isFavorite(data.value!.project.id))
+const inCompare = computed(() => hasCompare(data.value!.project.id))
+function doCompare() {
+  const p = data.value!.project
+  toggleCompare({ id: p.id, slug: p.slug, name: p.name, cover: p.coverImage, price: p.price })
+}
+const shared = ref(false)
+async function doShare() {
+  const url = location.href
+  try { if (navigator.share) await navigator.share({ title: data.value!.project.name, url }); else await navigator.clipboard.writeText(url); shared.value = true; setTimeout(() => (shared.value = false), 1600) } catch {}
+}
 
 const photos = computed<string[]>(() => {
   const list = [data.value?.project.coverImage, ...(data.value?.gallery.map((g: any) => g.image) || [])]
-  return list.filter(Boolean).map((k: string) => mediaUrl(k))
+  return [...new Set(list.filter(Boolean))].map((k: string) => mediaUrl(k))
+})
+const masterPlan = computed(() => (data.value?.project.masterPlanImage ? mediaUrl(data.value.project.masterPlanImage) : null))
+
+const p = computed(() => data.value!.project)
+const statusLabel = computed(() => ({ new: 'Obra nueva', under_construction: 'En construcción', ready: 'Listo para entrar' }[p.value.status as string] || p.value.status))
+
+const sections = computed(() => {
+  const s = [{ id: 'fotos', label: 'Fotos' }, { id: 'resumen', label: 'Resumen IA' }, { id: 'servicios', label: 'Servicios' }, { id: 'ubicacion', label: 'Ubicación' }, { id: 'hipoteca', label: 'Hipoteca' }, { id: 'historia', label: 'Historia' }]
+  return s
 })
 
-const lightbox = ref<number | null>(null)
-function openLightbox(i: number) {
-  lightbox.value = i
-}
-function step(delta: number) {
-  if (lightbox.value === null) return
-  const n = photos.value.length
-  lightbox.value = (lightbox.value + delta + n) % n
-}
-
-const statusLabel = computed(() => {
-  const s = data.value?.project.status || 'new'
-  if (s === 'new') return 'New Launch'
-  if (s === 'ready') return 'Ready to move in'
-  return s.replace(/_/g, ' ')
-})
-
-const stats = computed(() => {
+const facts = computed(() => {
   const out: { label: string; value: string }[] = []
-  const p = data.value?.project
-  if (!p) return out
-  if (data.value?.unitTypes.length) out.push({ label: 'Residence types', value: String(data.value.unitTypes.length) })
-  if (p.handoverDate) out.push({ label: 'Handover', value: p.handoverDate })
-  if (p.downPercentage) out.push({ label: 'Down payment', value: `${p.downPercentage}%` })
-  if (data.value?.amenities.length) out.push({ label: 'Amenities', value: String(data.value.amenities.length) })
+  if (p.value.bedrooms != null) out.push({ label: 'Habitaciones', value: p.value.bedrooms || 'Estudio' })
+  if (p.value.bathrooms != null) out.push({ label: 'Baños', value: String(p.value.bathrooms) })
+  if (p.value.area) out.push({ label: 'Superficie', value: `${Math.round(p.value.area)} m²` })
+  if (p.value.energyRating) out.push({ label: 'Eficiencia', value: p.value.energyRating })
+  if (p.value.orientation) out.push({ label: 'Orientación', value: p.value.orientation })
   return out
 })
 
-const highlights = computed<string[]>(() =>
-  (data.value?.project.keyHighlights || '')
-    .split('\n')
-    .map((l: string) => l.replace(/^[-•\s]+/, '').trim())
-    .filter(Boolean),
-)
+const pricePerM2 = computed(() => (p.value.price && p.value.area ? `AED ${new Intl.NumberFormat('en-US').format(Math.round(p.value.price / p.value.area))}` : ''))
+
+const pros = computed(() => {
+  const o: string[] = []
+  if (p.value.hasPool) o.push('Piscina en la comunidad')
+  if (['S', 'SW', 'SE'].includes(p.value.orientation)) o.push('Muy luminoso — orientación sur')
+  if (['A', 'B'].includes(p.value.energyRating)) o.push(`Alta eficiencia energética (${p.value.energyRating})`)
+  if (p.value.rentalYield >= 6.5) o.push(`Rentabilidad destacada (${p.value.rentalYield}%)`)
+  if (p.value.hasGarage) o.push('Plaza de garaje incluida')
+  if (p.value.hasGarden) o.push('Jardín privado')
+  if (p.value.status === 'ready') o.push('Listo para entrar a vivir')
+  if (p.value.accessible) o.push('Vivienda accesible')
+  return o.length ? o.slice(0, 6) : ['Ubicación privilegiada', 'Acabados de calidad']
+})
+const cons = computed(() => {
+  const o: string[] = []
+  if (p.value.status === 'new') o.push('Entrega sobre plano — planifica la mudanza')
+  if (p.value.status === 'under_construction' && p.value.handoverDate) o.push(`Entrega prevista: ${p.value.handoverDate}`)
+  if (!p.value.hasElevator && (p.value.bedrooms || 0) >= 2) o.push('Consulta disponibilidad de ascensor')
+  if (['D', 'E', 'F', 'G'].includes(p.value.energyRating)) o.push('Eficiencia energética mejorable')
+  if (p.value.orientation === 'N') o.push('Orientación norte — menos luz directa')
+  return o.length ? o.slice(0, 4) : ['Recomendamos visita para valorar acabados']
+})
+
+// Nearby (deterministic demo POIs by project id)
+const nearby = computed(() => {
+  const seed = p.value.id
+  const mk = (name: string, cat: string, base: number, icon: string) => ({ name, cat, walk: base + (seed % 5), drive: Math.max(2, Math.round((base + (seed % 5)) / 3)), icon })
+  return [
+    mk('Colegio Internacional', 'Educación', 8, iconSvg('school')),
+    mk('Hospital / Clínica', 'Salud', 12, iconSvg('cross')),
+    mk('Supermercado gourmet', 'Compras', 5, iconSvg('cart')),
+    mk('Playa más cercana', 'Ocio', 14, iconSvg('wave')),
+  ]
+})
+
+const staging = [
+  { title: 'Decoración IA', desc: 'Reimagina los espacios en tu estilo', i: 1 },
+  { title: 'Home Staging IA', desc: 'Amuebla virtualmente cada estancia', i: 2 },
+]
+
+const timeline = computed(() => {
+  const t: { title: string; detail: string; done: boolean }[] = []
+  if (p.value.publishedAt) t.push({ title: 'Publicado en SA Inmobiliaria', detail: new Date(p.value.publishedAt.replace(' ', 'T') + 'Z').toLocaleDateString('es-ES'), done: true })
+  t.push({ title: 'Lanzamiento comercial', detail: 'Inicio de comercialización', done: true })
+  if (p.value.status !== 'new') t.push({ title: 'En construcción', detail: `Avance de obra ${p.value.constructionPercentage || ''}${p.value.constructionPercentage ? '%' : ''}`, done: p.value.status !== 'new' })
+  t.push({ title: 'Entrega de llaves', detail: p.value.handoverDate || 'Por confirmar', done: p.value.status === 'ready' })
+  return t
+})
 
 const paymentRows = computed<{ label: string; value: string }[]>(() => {
   try {
-    const parsed = JSON.parse(data.value?.project.paymentPlan || '[]')
-    if (Array.isArray(parsed) && parsed.length) {
-      return parsed.map((s: any, i: number) => ({
-        label: s.label || s.name || `Step ${i + 1}`,
-        value: s.value || s.percentage || '',
-      }))
-    }
-  } catch {
-    /* fall through */
-  }
-  const p = data.value?.project
-  const rows = []
-  if (p?.downPercentage) rows.push({ label: 'Down payment', value: `${p.downPercentage}%` })
-  if (p?.constructionPercentage) rows.push({ label: 'During construction', value: `${p.constructionPercentage}%` })
-  if (p?.handoverPercentage) rows.push({ label: 'On handover', value: `${p.handoverPercentage}%` })
-  return rows
+    const parsed = JSON.parse(p.value.paymentPlan || '[]')
+    if (Array.isArray(parsed) && parsed.length) return parsed.map((s: any, i: number) => ({ label: s.label || s.name || `Fase ${i + 1}`, value: s.value || s.percentage || '' }))
+  } catch {}
+  const r = []
+  if (p.value.downPercentage) r.push({ label: 'Entrada', value: `${p.value.downPercentage}%` })
+  if (p.value.constructionPercentage) r.push({ label: 'Durante obra', value: `${p.value.constructionPercentage}%` })
+  if (p.value.handoverPercentage) r.push({ label: 'En entrega', value: `${p.value.handoverPercentage}%` })
+  return r
 })
+
+const heart = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-9.3-9.2C1.2 8.7 2.7 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.3 0 4.8 3.2 3.3 6.3C19 16.5 12 21 12 21z"/></svg>'
+const scale = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M15 3v18M4 8h5M15 8h5M4 16h5M15 16h5"/></svg>'
+function iconSvg(k: string) {
+  const m: Record<string, string> = {
+    school: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 4l9 4-9 4-9-4 9-4zM6 10v5c0 1.5 6 3 6 3s6-1.5 6-3v-5"/>',
+    cross: '<path stroke-linecap="round" stroke-linejoin="round" d="M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6z"/>',
+    cart: '<path stroke-linecap="round" stroke-linejoin="round" d="M3 4h2l2 12h11l2-8H7M9 20a1 1 0 100-2 1 1 0 000 2zm9 0a1 1 0 100-2 1 1 0 000 2z"/>',
+    wave: '<path stroke-linecap="round" stroke-linejoin="round" d="M3 14c2 0 2-2 4.5-2s2.5 2 4.5 2 2-2 4.5-2 2.5 2 4.5 2M3 18c2 0 2-2 4.5-2s2.5 2 4.5 2 2-2 4.5-2 2.5 2 4.5 2"/>',
+  }
+  return `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">${m[k] || ''}</svg>`
+}
 </script>
+
+<style scoped>
+:global(html) {
+  scroll-behavior: smooth;
+}
+section[id] {
+  scroll-margin-top: 130px;
+}
+.act2 {
+  display: inline-flex;
+  height: 2.6rem;
+  width: 2.6rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1px solid #e7e4de;
+  background: #fff;
+  color: #16150f;
+  transition: all 0.2s;
+}
+.act2:hover {
+  border-color: #16150f;
+}
+.act2-on {
+  background: #16150f;
+  border-color: #16150f;
+  color: #fff;
+}
+</style>
