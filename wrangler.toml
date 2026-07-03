@@ -1,0 +1,31 @@
+# Cloudflare Workers configuration for SA Inmobiliaria
+name = "sa-inmobiliaria"
+main = "./.output/server/index.mjs"
+compatibility_date = "2026-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./.output/public"
+binding = "ASSETS"
+
+# --- D1 database (relational data, replaces MySQL) ---
+# Create it with:  wrangler d1 create sa_inmobiliaria
+# then paste the database_id below.
+[[d1_databases]]
+binding = "DB"
+database_name = "sa_inmobiliaria"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+# --- R2 bucket (file/image storage, replaces local disk) ---
+# Create it with:  wrangler r2 bucket create sa-inmobiliaria-media
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "sa-inmobiliaria-media"
+
+[vars]
+# Session cookie signing/config
+SESSION_TTL_DAYS = "7"
+
+[observability]
+enabled = true

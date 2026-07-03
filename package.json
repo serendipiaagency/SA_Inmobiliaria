@@ -1,18 +1,23 @@
 {
-    "private": true,
-    "type": "module",
-    "scripts": {
-        "dev": "vite",
-        "build": "vite build"
-    },
-    "devDependencies": {
-        "@tailwindcss/forms": "^0.5.2",
-        "alpinejs": "^3.4.2",
-        "autoprefixer": "^10.4.2",
-        "axios": "^1.6.4",
-        "laravel-vite-plugin": "^1.0.0",
-        "postcss": "^8.4.31",
-        "tailwindcss": "^3.1.0",
-        "vite": "^5.0.0"
-    }
+  "name": "sa-inmobiliaria",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "wrangler dev",
+    "deploy": "nuxt build && wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply sa_inmobiliaria --local",
+    "db:migrate": "wrangler d1 migrations apply sa_inmobiliaria --remote",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.44.2"
+  },
+  "devDependencies": {
+    "@nuxtjs/tailwindcss": "^6.14.0",
+    "nitro-cloudflare-dev": "^0.2.2",
+    "nuxt": "^3.17.5",
+    "wrangler": "^4.20.0"
+  }
 }
