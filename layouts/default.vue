@@ -1,36 +1,59 @@
 <template>
-  <div class="flex min-h-screen flex-col bg-slate-50 text-slate-900">
-    <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
-      <div class="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4">
-        <NuxtLink to="/" class="text-xl font-bold tracking-tight text-emerald-800">
-          SA <span class="text-slate-800">Inmobiliaria</span>
+  <div class="flex min-h-screen flex-col bg-paper text-ink">
+    <header class="sticky top-0 z-40 border-b border-line bg-white/95 backdrop-blur">
+      <div class="mx-auto flex max-w-screen-2xl items-center justify-between gap-8 px-6 py-5 lg:px-10">
+        <NuxtLink to="/" class="shrink-0">
+          <span class="font-serif text-2xl font-medium tracking-tight">SA Inmobiliaria</span>
         </NuxtLink>
-        <nav class="hidden items-center gap-6 text-sm font-medium text-slate-600 md:flex">
-          <NuxtLink to="/properties" class="hover:text-emerald-700">Off-plan</NuxtLink>
-          <NuxtLink to="/project-community" class="hover:text-emerald-700">Communities</NuxtLink>
-          <NuxtLink to="/developer-list" class="hover:text-emerald-700">Developers</NuxtLink>
-          <NuxtLink to="/leadership" class="hover:text-emerald-700">Team</NuxtLink>
-          <NuxtLink to="/blog" class="hover:text-emerald-700">Blog</NuxtLink>
-          <NuxtLink to="/contact-us" class="hover:text-emerald-700">Contact</NuxtLink>
+
+        <nav class="hidden items-center gap-9 text-[11px] font-semibold uppercase tracking-widest2 text-stone-500 lg:flex">
+          <NuxtLink to="/properties" class="transition hover:text-ink">Off-Plan</NuxtLink>
+          <NuxtLink to="/project-community" class="transition hover:text-ink">Communities</NuxtLink>
+          <NuxtLink to="/developer-list" class="transition hover:text-ink">Developers</NuxtLink>
+          <NuxtLink to="/leadership" class="transition hover:text-ink">Team</NuxtLink>
+          <NuxtLink to="/blog" class="transition hover:text-ink">Journal</NuxtLink>
         </nav>
-        <div class="flex items-center gap-3">
-          <NuxtLink v-if="user?.role === 'admin'" to="/admin" class="btn-secondary !py-2">Admin</NuxtLink>
-          <NuxtLink v-else to="/login" class="btn-secondary !py-2">Sign in</NuxtLink>
-          <button class="md:hidden" aria-label="Menu" @click="open = !open">
-            <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16" />
+
+        <div class="flex items-center gap-4">
+          <NuxtLink
+            to="/contact-us"
+            class="hidden border border-ink px-5 py-2.5 text-[11px] font-semibold uppercase tracking-widest2 transition hover:bg-ink hover:text-white md:inline-flex"
+          >
+            Contact
+          </NuxtLink>
+          <NuxtLink
+            v-if="user?.role === 'admin'"
+            to="/admin"
+            class="hidden text-[11px] font-semibold uppercase tracking-widest2 text-stone-500 hover:text-ink md:inline"
+          >
+            Admin
+          </NuxtLink>
+          <NuxtLink
+            v-else
+            to="/login"
+            class="hidden text-[11px] font-semibold uppercase tracking-widest2 text-stone-500 hover:text-ink md:inline"
+          >
+            Sign in
+          </NuxtLink>
+          <button class="lg:hidden" aria-label="Menu" @click="open = !open">
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16" />
             </svg>
           </button>
         </div>
       </div>
-      <nav v-if="open" class="border-t border-slate-200 bg-white px-4 py-3 md:hidden">
-        <div class="flex flex-col gap-3 text-sm font-medium text-slate-700">
-          <NuxtLink to="/properties" @click="open = false">Off-plan</NuxtLink>
+
+      <nav v-if="open" class="border-t border-line bg-white px-6 py-5 lg:hidden">
+        <div class="flex flex-col gap-4 text-[11px] font-semibold uppercase tracking-widest2 text-stone-600">
+          <NuxtLink to="/properties" @click="open = false">Off-Plan</NuxtLink>
           <NuxtLink to="/project-community" @click="open = false">Communities</NuxtLink>
           <NuxtLink to="/developer-list" @click="open = false">Developers</NuxtLink>
           <NuxtLink to="/leadership" @click="open = false">Team</NuxtLink>
-          <NuxtLink to="/blog" @click="open = false">Blog</NuxtLink>
+          <NuxtLink to="/blog" @click="open = false">Journal</NuxtLink>
           <NuxtLink to="/contact-us" @click="open = false">Contact</NuxtLink>
+          <NuxtLink :to="user?.role === 'admin' ? '/admin' : '/login'" @click="open = false">
+            {{ user?.role === 'admin' ? 'Admin' : 'Sign in' }}
+          </NuxtLink>
         </div>
       </nav>
     </header>
@@ -39,39 +62,45 @@
       <slot />
     </main>
 
-    <footer class="border-t border-slate-200 bg-white">
-      <div class="mx-auto grid max-w-7xl gap-8 px-4 py-10 text-sm text-slate-600 md:grid-cols-4">
-        <div>
-          <p class="mb-2 text-base font-bold text-emerald-800">SA Inmobiliaria</p>
-          <p>Property marketplace for off-plan projects, secondary sales and communities.</p>
+    <footer class="border-t border-line bg-white">
+      <div class="mx-auto max-w-screen-2xl px-6 py-16 lg:px-10">
+        <div class="grid gap-12 md:grid-cols-12">
+          <div class="md:col-span-5">
+            <p class="font-serif text-2xl font-medium">SA Inmobiliaria</p>
+            <p class="mt-4 max-w-sm text-sm leading-relaxed text-stone-500">
+              A curated marketplace of off-plan projects, secondary sales and residential communities from the
+              region's leading developers.
+            </p>
+          </div>
+          <div class="md:col-span-2">
+            <p class="eyebrow mb-5">Explore</p>
+            <ul class="space-y-3 text-sm text-stone-600">
+              <li><NuxtLink class="hover:text-ink" to="/properties">Off-plan projects</NuxtLink></li>
+              <li><NuxtLink class="hover:text-ink" to="/project-community">Communities</NuxtLink></li>
+              <li><NuxtLink class="hover:text-ink" to="/developer-list">Developers</NuxtLink></li>
+            </ul>
+          </div>
+          <div class="md:col-span-2">
+            <p class="eyebrow mb-5">Company</p>
+            <ul class="space-y-3 text-sm text-stone-600">
+              <li><NuxtLink class="hover:text-ink" to="/about-us">About us</NuxtLink></li>
+              <li><NuxtLink class="hover:text-ink" to="/leadership">Our team</NuxtLink></li>
+              <li><NuxtLink class="hover:text-ink" to="/blog">Journal</NuxtLink></li>
+            </ul>
+          </div>
+          <div class="md:col-span-3">
+            <p class="eyebrow mb-5">Services</p>
+            <ul class="space-y-3 text-sm text-stone-600">
+              <li><NuxtLink class="hover:text-ink" to="/visitor">Visitor form</NuxtLink></li>
+              <li><NuxtLink class="hover:text-ink" to="/vendors/registration">Vendor registration</NuxtLink></li>
+              <li><NuxtLink class="hover:text-ink" to="/complain">Complaints</NuxtLink></li>
+              <li><NuxtLink class="hover:text-ink" to="/contact-us">Contact us</NuxtLink></li>
+            </ul>
+          </div>
         </div>
-        <div>
-          <p class="mb-2 font-semibold text-slate-800">Explore</p>
-          <ul class="space-y-1">
-            <li><NuxtLink to="/properties">Off-plan projects</NuxtLink></li>
-            <li><NuxtLink to="/project-community">Communities</NuxtLink></li>
-            <li><NuxtLink to="/developer-list">Developers</NuxtLink></li>
-          </ul>
+        <div class="hairline mt-14 pt-6 text-center text-xs tracking-wide text-stone-400">
+          © {{ new Date().getFullYear() }} SA Inmobiliaria. All rights reserved.
         </div>
-        <div>
-          <p class="mb-2 font-semibold text-slate-800">Company</p>
-          <ul class="space-y-1">
-            <li><NuxtLink to="/about-us">About us</NuxtLink></li>
-            <li><NuxtLink to="/leadership">Our team</NuxtLink></li>
-            <li><NuxtLink to="/blog">Blog</NuxtLink></li>
-          </ul>
-        </div>
-        <div>
-          <p class="mb-2 font-semibold text-slate-800">Forms</p>
-          <ul class="space-y-1">
-            <li><NuxtLink to="/visitor">Visitor form</NuxtLink></li>
-            <li><NuxtLink to="/vendors/registration">Vendor registration</NuxtLink></li>
-            <li><NuxtLink to="/complain">Complaints</NuxtLink></li>
-          </ul>
-        </div>
-      </div>
-      <div class="border-t border-slate-100 py-4 text-center text-xs text-slate-400">
-        © {{ new Date().getFullYear() }} SA Inmobiliaria. All rights reserved.
       </div>
     </footer>
   </div>

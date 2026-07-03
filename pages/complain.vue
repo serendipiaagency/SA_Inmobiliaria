@@ -1,9 +1,9 @@
 <template>
   <div class="mx-auto max-w-xl px-4 py-14">
-    <h1 class="text-3xl font-bold">Submit a complaint</h1>
-    <p class="mt-2 text-slate-600">We take every complaint seriously and will follow up with you.</p>
+    <h1 class="heading-serif text-4xl">Submit a complaint</h1>
+    <p class="mt-2 text-stone-500">We take every complaint seriously and will follow up with you.</p>
 
-    <form class="card mt-8 space-y-4 p-6" @submit.prevent="submit">
+    <form class="card mt-10 space-y-5 p-8" @submit.prevent="submit">
       <div>
         <label class="label">Name *</label>
         <input v-model="form.name" class="input" required />
@@ -27,7 +27,7 @@
       <button type="submit" class="btn-primary w-full" :disabled="sending">
         {{ sending ? 'Sending…' : 'Submit complaint' }}
       </button>
-      <p v-if="sent" class="text-center text-sm font-medium text-emerald-700">Complaint received — thank you.</p>
+      <p v-if="sent" class="text-center text-sm font-medium text-ink">Complaint received — thank you.</p>
       <p v-if="error" class="text-center text-sm font-medium text-red-600">{{ error }}</p>
     </form>
   </div>
