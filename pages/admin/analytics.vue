@@ -10,7 +10,7 @@
       </div>
     </div>
 
-    <div v-if="pending" class="h-64 animate-pulse rounded-xl border border-line bg-white" />
+    <div v-if="pending" class="skeleton h-64 rounded-xl border border-line" />
 
     <template v-else-if="data">
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

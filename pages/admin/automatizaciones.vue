@@ -34,7 +34,7 @@
           </div>
         </div>
         <button
-          class="relative mt-1 h-6 w-11 shrink-0 rounded-full transition"
+          class="relative mt-1 h-6 w-11 shrink-0 rounded-full transition active:scale-95"
           :class="a.enabled ? 'bg-ink' : 'bg-stone-300'"
           role="switch"
           :aria-checked="!!a.enabled"
@@ -51,6 +51,7 @@
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Automatizaciones — SA Inmobiliaria' })
 const dt = useDash()
+const toast = useToast()
 
 const { data, refresh } = await useFetch<any>('/api/admin/saas/automations')
 const rows = computed<any[]>(() => data.value?.rows || [])
@@ -72,6 +73,7 @@ async function toggle(a: any) {
     await $fetch(`/api/admin/saas/automations/${a.id}`, { method: 'PATCH', body: { enabled: !!next } })
   } catch {
     a.enabled = next ? 0 : 1
+    toast.error('No se pudo actualizar la automatización')
     refresh()
   }
 }

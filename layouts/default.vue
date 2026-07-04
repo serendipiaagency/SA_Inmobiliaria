@@ -75,6 +75,7 @@
     </main>
 
     <CompareBar />
+    <ScrollTop />
 
     <footer class="border-t border-line bg-white">
       <div class="mx-auto max-w-screen-2xl px-6 py-16 lg:px-10">

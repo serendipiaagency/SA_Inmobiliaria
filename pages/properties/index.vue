@@ -59,17 +59,26 @@
         </button>
       </div>
 
-      <transition-group
-        v-if="data?.rows?.length"
-        name="grid"
-        tag="div"
-        class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-      >
-        <ProjectCard v-for="p in data.rows" :key="p.id" :project="p" />
-      </transition-group>
-      <div v-else class="py-24 text-center">
-        <p class="font-serif text-2xl text-stone-500">No hay propiedades que coincidan.</p>
-        <button class="btn-quiet mt-6" @click="clearAll">Limpiar filtros</button>
+      <div class="results-fade" :class="{ 'is-loading': pending }">
+        <transition-group
+          v-if="data?.rows?.length"
+          name="grid"
+          tag="div"
+          class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+        >
+          <ProjectCard v-for="p in data.rows" :key="p.id" :project="p" />
+        </transition-group>
+        <div v-else-if="!pending" class="py-24 text-center">
+          <p class="font-serif text-2xl text-stone-500">No hay propiedades que coincidan.</p>
+          <button class="btn-quiet mt-6" @click="clearAll">Limpiar filtros</button>
+        </div>
+        <div v-else class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div v-for="i in 8" :key="i" class="overflow-hidden rounded-2xl">
+            <div class="skeleton aspect-[4/3] rounded-2xl" />
+            <div class="skeleton mt-4 h-4 w-2/3 rounded" />
+            <div class="skeleton mt-2 h-5 w-1/2 rounded" />
+          </div>
+        </div>
       </div>
 
       <div v-if="totalPages > 1" class="mt-14 flex items-center justify-center gap-4">
@@ -101,7 +110,7 @@ watch(
 
 const page = computed(() => Math.max(1, parseInt(String(route.query.page || '1'), 10) || 1))
 
-const { data } = await useFetch('/api/public/properties', {
+const { data, pending } = await useFetch('/api/public/properties', {
   query: computed(() => ({ ...route.query, page: page.value })),
 })
 const totalPages = computed(() => Math.ceil((data.value?.total || 0) / (data.value?.perPage || 12)))
@@ -190,6 +199,9 @@ function clearAll() {
   background: #16150f;
   color: #fff;
 }
+.filters-btn:active {
+  transform: scale(0.96);
+}
 .badge {
   display: inline-flex;
   height: 1.25rem;
@@ -233,6 +245,9 @@ function clearAll() {
   border-color: #16150f;
   color: #16150f;
 }
+.quick-chip:active {
+  transform: scale(0.95);
+}
 .quick-on {
   background: #16150f;
   border-color: #16150f;
@@ -248,5 +263,12 @@ function clearAll() {
 }
 .grid-leave-active {
   position: absolute;
+}
+.results-fade {
+  transition: opacity 0.25s var(--ease-out);
+}
+.results-fade.is-loading {
+  opacity: 0.45;
+  pointer-events: none;
 }
 </style>

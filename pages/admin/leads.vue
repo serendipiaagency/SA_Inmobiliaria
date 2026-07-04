@@ -111,6 +111,7 @@
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Leads — SA Inmobiliaria' })
 const dt = useDash()
+const toast = useToast()
 
 const view = ref<'board' | 'table'>('board')
 const search = ref('')
@@ -158,6 +159,9 @@ async function onDrop(status: string) {
     await $fetch(`/api/admin/saas/leads/${id}`, { method: 'PATCH', body: { status } })
   } catch {
     lead.status = old
+    counts.value[status] = Math.max(0, (counts.value[status] || 1) - 1)
+    counts.value[old] = (counts.value[old] || 0) + 1
+    toast.error('No se pudo actualizar el lead')
     refresh()
   }
 }
