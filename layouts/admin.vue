@@ -17,6 +17,8 @@
         <NuxtLink v-for="item in inbox" :key="item.key" :to="`/admin/${item.key}`" class="nav-item">
           {{ item.label }}
         </NuxtLink>
+        <p class="px-2 pb-1 pt-4 text-xs font-semibold uppercase text-slate-400">IA</p>
+        <NuxtLink to="/admin/ai" class="nav-item">AI Studio</NuxtLink>
         <p class="px-2 pb-1 pt-4 text-xs font-semibold uppercase text-slate-400">System</p>
         <NuxtLink to="/admin/users" class="nav-item">Users</NuxtLink>
       </nav>

@@ -8,6 +8,7 @@
 
         <nav class="hidden items-center gap-9 text-[11px] font-semibold uppercase tracking-widest2 text-stone-500 lg:flex">
           <NuxtLink to="/properties" class="transition hover:text-ink">Off-Plan</NuxtLink>
+          <NuxtLink to="/mapa" class="transition hover:text-ink">Mapa</NuxtLink>
           <NuxtLink to="/project-community" class="transition hover:text-ink">Communities</NuxtLink>
           <NuxtLink to="/developer-list" class="transition hover:text-ink">Developers</NuxtLink>
           <NuxtLink to="/leadership" class="transition hover:text-ink">Team</NuxtLink>
@@ -54,6 +55,7 @@
       <nav v-if="open" class="border-t border-line bg-white px-6 py-5 lg:hidden">
         <div class="flex flex-col gap-4 text-[11px] font-semibold uppercase tracking-widest2 text-stone-600">
           <NuxtLink to="/properties" @click="open = false">Off-Plan</NuxtLink>
+          <NuxtLink to="/mapa" @click="open = false">Mapa</NuxtLink>
           <NuxtLink to="/project-community" @click="open = false">Communities</NuxtLink>
           <NuxtLink to="/developer-list" @click="open = false">Developers</NuxtLink>
           <NuxtLink to="/leadership" @click="open = false">Team</NuxtLink>

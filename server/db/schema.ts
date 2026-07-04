@@ -142,6 +142,8 @@ export const developerProperties = sqliteTable('developer_properties', {
   rentalYield: real('rental_yield'),
   publishedAt: text('published_at'),
   aiSummary: text('ai_summary'),
+  lat: real('lat'),
+  lng: real('lng'),
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })

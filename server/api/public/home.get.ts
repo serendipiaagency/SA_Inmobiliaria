@@ -5,7 +5,7 @@ import { attachPhotos } from '../../utils/photos'
 export default defineEventHandler(async (event) => {
   const db = useDb(event)
   const [projects, communities, developers, blogs] = await Promise.all([
-    db.select().from(schema.developerProperties).orderBy(desc(schema.developerProperties.id)).limit(8),
+    db.select().from(schema.developerProperties).orderBy(desc(schema.developerProperties.id)).limit(12),
     db.select().from(schema.communities).orderBy(desc(schema.communities.id)).limit(6),
     db
       .select()

@@ -9,7 +9,12 @@ export default defineNuxtConfig({
       nodeCompat: true,
     },
   },
-  css: ['~/assets/css/main.css'],
+  css: [
+    '~/assets/css/main.css',
+    'leaflet/dist/leaflet.css',
+    'leaflet.markercluster/dist/MarkerCluster.css',
+    'leaflet.markercluster/dist/MarkerCluster.Default.css',
+  ],
   app: {
     head: {
       title: 'SA Inmobiliaria — Property Marketplace',
