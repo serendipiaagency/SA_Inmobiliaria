@@ -54,6 +54,13 @@
             </div>
           </header>
 
+          <!-- Datos clave -->
+          <section v-if="hasQuickFacts" id="datos">
+            <p class="eyebrow">A simple vista</p>
+            <h2 class="heading-serif mt-3 text-3xl">Datos clave</h2>
+            <div class="mt-6"><QuickFacts :project="data.project" /></div>
+          </section>
+
           <!-- Resumen IA -->
           <section id="resumen">
             <div class="flex items-center gap-2">
@@ -253,8 +260,33 @@ const p = computed(() => data.value!.project)
 const statusLabel = computed(() => ({ new: 'Obra nueva', under_construction: 'En construcción', ready: 'Listo para entrar' }[p.value.status as string] || p.value.status))
 
 const sections = computed(() => {
-  const s = [{ id: 'fotos', label: 'Fotos' }, { id: 'resumen', label: 'Resumen IA' }, { id: 'servicios', label: 'Servicios' }, { id: 'ubicacion', label: 'Ubicación' }, { id: 'hipoteca', label: 'Hipoteca' }, { id: 'historia', label: 'Historia' }]
+  const s = [{ id: 'fotos', label: 'Fotos' }]
+  if (hasQuickFacts.value) s.push({ id: 'datos', label: 'Datos clave' })
+  s.push(
+    { id: 'resumen', label: 'Resumen IA' },
+    { id: 'servicios', label: 'Servicios' },
+    { id: 'ubicacion', label: 'Ubicación' },
+    { id: 'hipoteca', label: 'Hipoteca' },
+    { id: 'historia', label: 'Historia' },
+  )
   return s
+})
+
+const hasQuickFacts = computed(() => {
+  const q = p.value
+  return !!(
+    q.propertyType ||
+    q.yearBuilt ||
+    q.status ||
+    q.street ||
+    q.hasElevator ||
+    q.hasGarage ||
+    q.hasTerrace ||
+    q.hasGarden ||
+    q.hasPool ||
+    q.petsAllowed ||
+    q.accessible
+  )
 })
 
 const facts = computed(() => {
