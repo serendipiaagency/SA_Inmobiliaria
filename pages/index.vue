@@ -7,12 +7,12 @@
     <section v-reveal class="border-y border-line bg-white">
       <div class="mx-auto grid max-w-screen-2xl gap-10 px-6 py-16 lg:grid-cols-2 lg:items-center lg:px-10">
         <div>
-          <p class="eyebrow">Explora por zona</p>
-          <h2 class="heading-serif mt-3 text-3xl md:text-4xl">Encuentra tu barrio en el mapa</h2>
+          <p class="eyebrow">{{ t('home.map.eyebrow') }}</p>
+          <h2 class="heading-serif mt-3 text-3xl md:text-4xl">{{ t('home.map.title') }}</h2>
           <p class="mt-4 max-w-md text-[15px] leading-relaxed text-stone-500">
-            Descubre las propiedades por ubicación, con transporte, colegios y servicios a un vistazo.
+            {{ t('home.map.text') }}
           </p>
-          <NuxtLink to="/properties" class="btn-primary mt-8">Abrir el mapa</NuxtLink>
+          <NuxtLink to="/properties" class="btn-primary mt-8">{{ t('home.map.cta') }}</NuxtLink>
         </div>
         <NuxtLink to="/properties" class="group relative block h-72 overflow-hidden rounded-2xl border border-line md:h-96">
           <div class="absolute inset-0 bg-gradient-to-br from-stone-200 to-stone-300" />
@@ -31,11 +31,11 @@
     </section>
 
     <!-- 3 · Destacados -->
-    <SectionRow eyebrow="Selección" title="Destacados" :items="destacados" to="/properties" cta="Ver selección" />
+    <SectionRow :eyebrow="t('home.featured.eyebrow')" :title="t('home.featured.title')" :items="destacados" to="/properties" :cta="t('home.featured.cta')" />
 
     <!-- 4 · Últimas incorporaciones -->
     <div class="border-t border-line">
-      <SectionRow eyebrow="Recién llegadas" title="Últimas incorporaciones" :items="latest" to="/properties?sort=newest" />
+      <SectionRow :eyebrow="t('home.latest.eyebrow')" :title="t('home.latest.title')" :items="latest" to="/properties?sort=newest" />
     </div>
 
     <!-- 5 · Propiedades Premium -->
@@ -43,10 +43,10 @@
       <div class="mx-auto max-w-screen-2xl px-6 lg:px-10">
         <div class="mb-8 flex items-end justify-between">
           <div>
-            <p class="eyebrow !text-white/50">Colección exclusiva</p>
-            <h2 class="mt-3 font-serif text-3xl font-medium md:text-4xl">Propiedades Premium</h2>
+            <p class="eyebrow !text-white/50">{{ t('home.premium.eyebrow') }}</p>
+            <h2 class="mt-3 font-serif text-3xl font-medium md:text-4xl">{{ t('home.premium.title') }}</h2>
           </div>
-          <NuxtLink to="/properties?sort=price_desc" class="hidden shrink-0 border border-white/40 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-widest2 transition hover:bg-white hover:text-ink md:inline-flex">Ver todas</NuxtLink>
+          <NuxtLink to="/properties?sort=price_desc" class="hidden shrink-0 border border-white/40 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-widest2 transition hover:bg-white hover:text-ink md:inline-flex">{{ t('home.premium.cta') }}</NuxtLink>
         </div>
         <div class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
           <NuxtLink v-for="p in premium" :key="p.id" :to="`/property-details/${p.slug || p.id}`" class="group block">
@@ -63,8 +63,8 @@
 
     <!-- 6 · Barrios destacados -->
     <section v-reveal class="mx-auto max-w-screen-2xl px-6 py-16 lg:px-10">
-      <p class="eyebrow">Vive aquí</p>
-      <h2 class="heading-serif mt-3 text-3xl md:text-4xl">Barrios destacados</h2>
+      <p class="eyebrow">{{ t('home.neighborhoods.eyebrow') }}</p>
+      <h2 class="heading-serif mt-3 text-3xl md:text-4xl">{{ t('home.neighborhoods.title') }}</h2>
       <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         <NuxtLink v-for="c in (data?.communities || []).slice(0, 6)" :key="c.id" :to="`/community/${c.id}`" class="group relative block aspect-[3/2] overflow-hidden rounded-2xl bg-stone-100">
           <img :src="mediaUrl(c.image)" :alt="c.name" class="h-full w-full object-cover transition duration-700 group-hover:scale-105" loading="lazy" />
@@ -81,8 +81,8 @@
     <!-- 7 · Comunidades Autónomas -->
     <section v-reveal class="border-y border-line bg-white py-16">
       <div class="mx-auto max-w-screen-2xl px-6 lg:px-10">
-        <p class="eyebrow">Toda España</p>
-        <h2 class="heading-serif mt-3 text-3xl md:text-4xl">Explora por comunidad autónoma</h2>
+        <p class="eyebrow">{{ t('home.regions.eyebrow') }}</p>
+        <h2 class="heading-serif mt-3 text-3xl md:text-4xl">{{ t('home.regions.title') }}</h2>
         <div class="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           <NuxtLink v-for="r in regions" :key="r" :to="{ path: '/properties', query: { q: r } }" class="flex items-center justify-between rounded-xl border border-line px-5 py-4 text-sm transition hover:border-ink hover:bg-paper">
             <span class="font-medium">{{ r }}</span>
@@ -94,9 +94,9 @@
 
     <!-- 8 · Calculadora Hipoteca -->
     <section v-reveal class="mx-auto max-w-screen-2xl px-6 py-16 lg:px-10">
-      <p class="eyebrow">Planifica</p>
-      <h2 class="heading-serif mt-3 text-3xl md:text-4xl">Calcula tu hipoteca</h2>
-      <p class="mt-4 max-w-md text-[15px] text-stone-500">Estima tu cuota mensual y los costes de compra en segundos.</p>
+      <p class="eyebrow">{{ t('home.mortgage.eyebrow') }}</p>
+      <h2 class="heading-serif mt-3 text-3xl md:text-4xl">{{ t('home.mortgage.title') }}</h2>
+      <p class="mt-4 max-w-md text-[15px] text-stone-500">{{ t('home.mortgage.text') }}</p>
       <div class="mt-8"><MortgageCalculator :price="medianPrice" :rental-yield="6.5" /></div>
     </section>
 
@@ -104,10 +104,10 @@
     <section v-reveal class="border-t border-line bg-paper py-16">
       <div class="mx-auto max-w-screen-2xl px-6 lg:px-10">
         <div class="flex items-center gap-2">
-          <span class="rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">IA</span>
-          <p class="eyebrow !text-stone-450">Recomendado para ti</p>
+          <span class="rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">{{ t('badge.ai') }}</span>
+          <p class="eyebrow !text-stone-450">{{ t('home.ai.eyebrow') }}</p>
         </div>
-        <h2 class="heading-serif mt-3 text-3xl md:text-4xl">La IA selecciona por rentabilidad y valor</h2>
+        <h2 class="heading-serif mt-3 text-3xl md:text-4xl">{{ t('home.ai.title') }}</h2>
         <div class="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
           <ProjectCard v-for="p in recommended" :key="p.id" :project="p" />
         </div>
@@ -117,8 +117,8 @@
     <!-- 10 · Blog -->
     <section v-if="data?.blogs?.length" v-reveal class="mx-auto max-w-screen-2xl px-6 py-16 lg:px-10">
       <div class="mb-8 flex items-end justify-between">
-        <div><p class="eyebrow">Journal</p><h2 class="heading-serif mt-3 text-3xl md:text-4xl">Ideas e historias</h2></div>
-        <NuxtLink to="/blog" class="btn-quiet hidden md:inline-flex">Todos los artículos</NuxtLink>
+        <div><p class="eyebrow">{{ t('home.blog.eyebrow') }}</p><h2 class="heading-serif mt-3 text-3xl md:text-4xl">{{ t('home.blog.title') }}</h2></div>
+        <NuxtLink to="/blog" class="btn-quiet hidden md:inline-flex">{{ t('home.blog.cta') }}</NuxtLink>
       </div>
       <div class="grid gap-x-6 gap-y-10 md:grid-cols-3">
         <NuxtLink v-for="b in data.blogs" :key="b.id" :to="`/blog/${b.slug}`" class="group block">
@@ -132,8 +132,8 @@
     <!-- 11 · Testimonios -->
     <section v-reveal class="border-t border-line bg-white py-16">
       <div class="mx-auto max-w-screen-2xl px-6 lg:px-10">
-        <p class="eyebrow">Confianza</p>
-        <h2 class="heading-serif mt-3 text-3xl md:text-4xl">Lo que dicen nuestros clientes</h2>
+        <p class="eyebrow">{{ t('home.testimonials.eyebrow') }}</p>
+        <h2 class="heading-serif mt-3 text-3xl md:text-4xl">{{ t('home.testimonials.title') }}</h2>
         <div class="mt-8 grid gap-6 md:grid-cols-3">
           <figure v-for="t in testimonials" :key="t.name" class="rounded-2xl border border-line p-8">
             <div class="mb-4 text-amber-500">★★★★★</div>
@@ -147,6 +147,8 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n()
+const { format: formatPrice } = useCurrency()
 const { data } = await useFetch('/api/public/home')
 
 const projects = computed<any[]>(() => data.value?.projects || [])

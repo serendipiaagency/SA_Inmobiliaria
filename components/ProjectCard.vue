@@ -29,7 +29,7 @@
 
       <!-- Actions (top-right) -->
       <div class="absolute right-3 top-3 z-20 flex gap-1.5">
-        <button type="button" class="act" :class="{ 'act-on': fav }" :aria-label="fav ? 'Quitar de favoritos' : 'Guardar'" @click="onFav">
+        <button type="button" class="act" :class="{ 'act-on': fav }" :aria-label="fav ? t('card.saved') : t('card.save')" @click="onFav">
           <svg class="h-4 w-4" :fill="fav ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-9.3-9.2C1.2 8.7 2.7 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.3 0 4.8 3.2 3.3 6.3C19 16.5 12 21 12 21z" />
           </svg>
@@ -65,8 +65,8 @@
 
       <!-- Meta chips (bottom-left) -->
       <div class="pointer-events-none absolute bottom-3 left-3 z-20 flex gap-1.5">
-        <span v-if="project.hasTour" class="chip-glass"><span class="mr-1">◐</span>Tour 360°</span>
-        <span v-if="project.aiSummary" class="chip-glass">IA</span>
+        <span v-if="project.hasTour" class="chip-glass"><span class="mr-1">◐</span>{{ t('badge.tour') }}</span>
+        <span v-if="project.aiSummary" class="chip-glass">{{ t('badge.ai') }}</span>
       </div>
     </div>
 
@@ -96,11 +96,11 @@
       <div class="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-stone-500">
         <span v-if="project.bedrooms != null" class="inline-flex items-center gap-1.5">
           <svg class="h-4 w-4 text-stone-400" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18M3 12V7a2 2 0 012-2h14a2 2 0 012 2v5m-18 0v5m18-5v5M6 12V9h5v3"/></svg>
-          {{ project.bedrooms || 'Estudio' }}<span v-if="project.bedrooms"> hab.</span>
+          {{ project.bedrooms || t('card.studio') }}<span v-if="project.bedrooms"> {{ t('card.beds') }}</span>
         </span>
         <span v-if="project.bathrooms != null" class="inline-flex items-center gap-1.5">
           <svg class="h-4 w-4 text-stone-400" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12h16v3a4 4 0 01-4 4H8a4 4 0 01-4-4v-3zM6 12V6a2 2 0 012-2c1 0 1.5.5 1.7 1"/></svg>
-          {{ project.bathrooms }} baños
+          {{ project.bathrooms }} {{ t('card.baths') }}
         </span>
         <span v-if="project.area" class="inline-flex items-center gap-1.5">
           <svg class="h-4 w-4 text-stone-400" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v16H4zM4 9h5M4 15h5M15 4v5M9 15v5"/></svg>
@@ -111,7 +111,7 @@
       <!-- Footer: published + CTA -->
       <div class="mt-3 flex items-center justify-between">
         <span class="text-[11px] uppercase tracking-widest text-stone-400">{{ publishedLabel }}</span>
-        <NuxtLink :to="to" class="cta">Ver propiedad →</NuxtLink>
+        <NuxtLink :to="to" class="cta">{{ t('card.viewDetails') }}</NuxtLink>
       </div>
     </div>
   </div>
@@ -144,6 +144,8 @@ const props = defineProps<{
 
 const { isFavorite, toggle: toggleFav } = useFavorites()
 const { has: hasCompare, toggle: toggleCompare, full: compareFull } = useCompare()
+const { t } = useI18n()
+const { format: formatPrice } = useCurrency()
 
 const to = computed(() => `/property-details/${props.project.slug || props.project.id}`)
 const photos = computed(() => (props.project.photos?.length ? props.project.photos : [props.project.coverImage].filter(Boolean) as string[]))
@@ -205,15 +207,15 @@ const priceDrop = computed(() => {
 })
 const pricePerM2 = computed(() => {
   if (!props.project.price || !props.project.area) return ''
-  return `AED ${new Intl.NumberFormat('en-US').format(Math.round(props.project.price / props.project.area))}`
+  return formatPrice(Math.round(props.project.price / props.project.area))
 })
 
 const badges = computed(() => {
   const out: { text: string; cls: string }[] = []
-  if (props.project.isReserved) out.push({ text: 'Reservado', cls: 'badge-dark' })
-  if (props.project.status === 'new') out.push({ text: 'Obra Nueva', cls: 'badge-accent' })
-  if (priceDrop.value) out.push({ text: `Bajada ${priceDrop.value}%`, cls: 'badge-green' })
-  if (props.project.isExclusive) out.push({ text: 'Exclusiva', cls: 'badge-gold' })
+  if (props.project.isReserved) out.push({ text: t('badge.reserved'), cls: 'badge-dark' })
+  if (props.project.status === 'new') out.push({ text: t('badge.new'), cls: 'badge-accent' })
+  if (priceDrop.value) out.push({ text: `${t('badge.priceDrop')} ${priceDrop.value}%`, cls: 'badge-green' })
+  if (props.project.isExclusive) out.push({ text: t('badge.exclusive'), cls: 'badge-gold' })
   return out.slice(0, 3)
 })
 
@@ -221,10 +223,10 @@ const publishedLabel = computed(() => {
   const d = props.project.publishedAt
   if (!d) return ''
   const days = Math.max(0, Math.floor((Date.now() - new Date(d.replace(' ', 'T') + 'Z').getTime()) / 86400000))
-  if (days <= 1) return 'Nuevo hoy'
-  if (days < 7) return `Hace ${days} días`
-  if (days < 30) return `Hace ${Math.floor(days / 7)} sem.`
-  return `Hace ${Math.floor(days / 30)} mes${Math.floor(days / 30) > 1 ? 'es' : ''}`
+  if (days <= 1) return t('badge.newToday')
+  if (days < 7) return `${days} d`
+  if (days < 30) return `${Math.floor(days / 7)} sem.`
+  return `${Math.floor(days / 30)} mes${Math.floor(days / 30) > 1 ? 'es' : ''}`
 })
 </script>
 

@@ -19,17 +19,16 @@
     <!-- Content -->
     <div class="relative z-10 mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-6 lg:px-10">
       <div class="flex flex-1 flex-col justify-center pb-4 pt-16 md:pt-20">
-        <p class="rise eyebrow !text-white/70" :style="delay(0)">Real estate, elevated</p>
+        <p class="rise eyebrow !text-white/70" :style="delay(0)">{{ t('hero.eyebrow') }}</p>
         <h1
           class="rise mt-6 max-w-4xl font-serif text-[clamp(2.75rem,7vw,6rem)] font-medium leading-[1.02] text-white"
           :style="delay(1)"
         >
-          Espacios que<br class="hidden sm:block" />
-          <span class="italic">merecen ser vividos.</span>
+          {{ t('hero.title1') }}<br class="hidden sm:block" />
+          <span class="italic">{{ t('hero.title2') }}</span>
         </h1>
         <p class="rise mt-7 max-w-md text-base leading-relaxed text-white/80 md:text-lg" :style="delay(2)">
-          Una selección curada de propiedades excepcionales. Comprar, alquilar o invertir, con la
-          calma de quien elige bien.
+          {{ t('hero.subtitle') }}
         </p>
 
         <!-- Search — the protagonist -->
@@ -59,9 +58,9 @@
             <!-- Ubicación -->
             <div class="cell relative flex-[1.6]" :class="cellCls('location')">
               <button type="button" class="cell-btn" @click="toggle('location')">
-                <span class="cell-label">Ubicación</span>
+                <span class="cell-label">{{ t('hero.location') }}</span>
                 <span class="cell-value" :class="{ 'cell-placeholder': !form.location }">
-                  {{ form.location || '¿Dónde quieres vivir?' }}
+                  {{ form.location || t('hero.locationPlaceholder') }}
                 </span>
               </button>
               <transition name="pop">
@@ -70,7 +69,7 @@
                     ref="locInput"
                     v-model="form.location"
                     class="w-full border border-line px-4 py-3 text-sm focus:border-ink focus:outline-none"
-                    placeholder="Ciudad, zona o comunidad"
+                    :placeholder="t('hero.locationPlaceholder')"
                     @keyup.enter="submit"
                   />
                   <div v-if="suggestions.length" class="mt-3 flex flex-wrap gap-2">
@@ -93,9 +92,9 @@
             <!-- Precio -->
             <div class="cell relative flex-1" :class="cellCls('price')">
               <button type="button" class="cell-btn" @click="toggle('price')">
-                <span class="cell-label">Precio</span>
+                <span class="cell-label">{{ t('hero.price') }}</span>
                 <span class="cell-value" :class="{ 'cell-placeholder': !priceLabel }">
-                  {{ priceLabel || 'Añadir' }}
+                  {{ priceLabel || t('hero.any') }}
                 </span>
               </button>
               <transition name="pop">
@@ -104,14 +103,14 @@
                     <label class="pop-label">
                       Mínimo
                       <select v-model="form.priceMin" class="pop-select">
-                        <option value="">Sin mín.</option>
+                        <option value="">{{ t('hero.noMin') }}</option>
                         <option v-for="p in priceSteps" :key="p" :value="p">{{ money(p) }}</option>
                       </select>
                     </label>
                     <label class="pop-label">
                       Máximo
                       <select v-model="form.priceMax" class="pop-select">
-                        <option value="">Sin máx.</option>
+                        <option value="">{{ t('hero.noMax') }}</option>
                         <option v-for="p in priceSteps" :key="p" :value="p">{{ money(p) }}</option>
                       </select>
                     </label>
@@ -128,9 +127,9 @@
             <!-- Habitaciones -->
             <div class="cell relative flex-1" :class="cellCls('beds')">
               <button type="button" class="cell-btn" @click="toggle('beds')">
-                <span class="cell-label">Habitaciones</span>
+                <span class="cell-label">{{ t('hero.bedrooms') }}</span>
                 <span class="cell-value" :class="{ 'cell-placeholder': form.beds === '' }">
-                  {{ form.beds === '' ? 'Añadir' : bedLabel(form.beds) }}
+                  {{ form.beds === '' ? t('hero.any') : bedLabel(form.beds) }}
                 </span>
               </button>
               <transition name="pop">
@@ -156,9 +155,9 @@
             <!-- Baños -->
             <div class="cell relative flex-1" :class="cellCls('baths')">
               <button type="button" class="cell-btn" @click="toggle('baths')">
-                <span class="cell-label">Baños</span>
+                <span class="cell-label">{{ t('hero.bathrooms') }}</span>
                 <span class="cell-value" :class="{ 'cell-placeholder': form.baths === '' }">
-                  {{ form.baths === '' ? 'Añadir' : `${form.baths}+` }}
+                  {{ form.baths === '' ? t('hero.any') : `${form.baths}+` }}
                 </span>
               </button>
               <transition name="pop">
@@ -184,9 +183,9 @@
             <!-- Superficie -->
             <div class="cell relative flex-1" :class="cellCls('area')">
               <button type="button" class="cell-btn" @click="toggle('area')">
-                <span class="cell-label">Superficie</span>
+                <span class="cell-label">{{ t('hero.area') }}</span>
                 <span class="cell-value" :class="{ 'cell-placeholder': !form.areaMin }">
-                  {{ form.areaMin ? `${form.areaMin}+ m²` : 'Añadir' }}
+                  {{ form.areaMin ? `${form.areaMin}+ m²` : t('hero.any') }}
                 </span>
               </button>
               <transition name="pop">
@@ -213,7 +212,7 @@
                 <svg class="h-5 w-5 transition-transform duration-300 group-hover:scale-110" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.3-4.3m1.8-5.2a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <span class="ml-2 lg:hidden">Buscar</span>
+                <span class="ml-2 lg:hidden">{{ t('hero.search') }}</span>
               </button>
             </div>
           </div>
@@ -228,7 +227,7 @@
               <svg class="h-4 w-4 transition-transform duration-300" :class="{ 'rotate-180': moreOpen }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
-              Más filtros
+              {{ t('hero.more') }}
             </button>
             <button
               v-if="hasFilters"
@@ -236,7 +235,7 @@
               class="text-[11px] uppercase tracking-widest text-white/60 transition hover:text-white"
               @click="clearAll"
             >
-              Limpiar
+              {{ t('hero.clear') }}
             </button>
           </div>
 
@@ -284,6 +283,8 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n()
+const { format: money } = useCurrency()
 const router = useRouter()
 const root = ref<HTMLElement | null>(null)
 const locInput = ref<HTMLInputElement | null>(null)
@@ -294,15 +295,15 @@ const slides = [
   'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=2400&q=80',
 ]
 
-const tabs = [
-  { key: 'buy', label: 'Comprar' },
-  { key: 'rent', label: 'Alquilar' },
-  { key: 'new', label: 'Obra Nueva' },
-  { key: 'investment', label: 'Inversión' },
-  { key: 'commercial', label: 'Locales' },
-  { key: 'garage', label: 'Garajes' },
-  { key: 'land', label: 'Solares' },
-]
+const tabs = computed(() => [
+  { key: 'buy', label: t('tab.buy') },
+  { key: 'rent', label: t('tab.rent') },
+  { key: 'new', label: t('tab.new') },
+  { key: 'investment', label: t('tab.investment') },
+  { key: 'commercial', label: t('tab.commercial') },
+  { key: 'garage', label: t('tab.garage') },
+  { key: 'land', label: t('tab.land') },
+])
 const activeTab = ref('buy')
 function setTab(k: string) {
   activeTab.value = k
@@ -351,9 +352,6 @@ function pickLocation(s: string) {
 const buySteps = [250000, 500000, 750000, 1000000, 1500000, 2000000, 3000000, 5000000]
 const rentSteps = [30000, 60000, 90000, 120000, 180000, 250000, 400000]
 const priceSteps = computed(() => (isRent.value ? rentSteps : buySteps))
-function money(v: number) {
-  return `AED ${new Intl.NumberFormat('en-US').format(v)}`
-}
 const priceLabel = computed(() => {
   const min = form.priceMin
   const max = form.priceMax
