@@ -52,13 +52,13 @@
       </a>
     </div>
 
-    <a v-if="showBranding" :href="origin" target="_blank" rel="noopener" class="sa-brand">SA Inmobiliaria</a>
+    <a v-if="showBranding" :href="origin" target="_blank" rel="noopener" class="sa-brand">M&M Real Estate</a>
   </div>
 </template>
 
 <script setup lang="ts">
 definePageMeta({ layout: false, pageTransition: false })
-useHead({ title: 'SA Inmobiliaria — Widget' })
+useHead({ title: 'M&M Real Estate — Widget' })
 
 const route = useRoute()
 const q = route.query

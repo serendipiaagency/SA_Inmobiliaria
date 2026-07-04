@@ -147,6 +147,7 @@
 </template>
 
 <script setup lang="ts">
+definePageMeta({ transparentHero: true })
 const { t } = useI18n()
 const { format: formatPrice } = useCurrency()
 const { data } = await useFetch('/api/public/home')
@@ -179,5 +180,5 @@ const testimonials = [
   { quote: 'Atención de primer nivel y una selección de propiedades espectacular.', name: 'Sofía D.', role: 'Compradora' },
 ]
 
-useHead({ title: 'SA Inmobiliaria — Propiedades excepcionales' })
+useHead({ title: 'M&M Real Estate — Propiedades excepcionales' })
 </script>

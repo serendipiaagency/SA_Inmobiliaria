@@ -66,7 +66,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin' })
-useHead({ title: 'Configuración — SA Inmobiliaria' })
+useHead({ title: 'Configuración — M&M Real Estate' })
 
 const { data } = await useFetch<Record<string, string>>('/api/admin/saas/settings')
 const form = reactive({

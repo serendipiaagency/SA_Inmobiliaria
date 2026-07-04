@@ -60,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Vendor registration — SA Inmobiliaria' })
+useHead({ title: 'Vendor registration — M&M Real Estate' })
 
 const form = reactive({
   name: '',

@@ -38,7 +38,7 @@ if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Article no
 const locales = computed(() => data.value?.translations.map((t: any) => t.locale) || [])
 const locale = ref(locales.value.includes('en') ? 'en' : locales.value[0] || 'en')
 const current = computed(() => data.value?.translations.find((t: any) => t.locale === locale.value))
-useHead({ title: `${current.value?.title || 'Blog'} — SA Inmobiliaria` })
+useHead({ title: `${current.value?.title || 'Blog'} — M&M Real Estate` })
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '')

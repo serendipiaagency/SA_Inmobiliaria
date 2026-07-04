@@ -4,7 +4,8 @@
     <div ref="langRoot" class="relative">
       <button
         type="button"
-        class="flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest2 text-stone-500 transition hover:border-ink hover:text-ink"
+        class="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest2 transition"
+        :class="dark ? 'border-white/30 text-white/90 hover:border-white hover:text-white' : 'border-line text-stone-500 hover:border-ink hover:text-ink'"
         :aria-expanded="open === 'lang'"
         aria-label="Idioma"
         @click="toggle('lang')"
@@ -35,7 +36,8 @@
     <div ref="curRoot" class="relative">
       <button
         type="button"
-        class="flex items-center gap-1 rounded-full border border-line px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest2 text-stone-500 transition hover:border-ink hover:text-ink"
+        class="flex items-center gap-1 rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-widest2 transition"
+        :class="dark ? 'border-white/30 text-white/90 hover:border-white hover:text-white' : 'border-line text-stone-500 hover:border-ink hover:text-ink'"
         :aria-expanded="open === 'cur'"
         aria-label="Moneda"
         @click="toggle('cur')"
@@ -65,6 +67,8 @@
 </template>
 
 <script setup lang="ts">
+withDefaults(defineProps<{ dark?: boolean }>(), { dark: false })
+
 const { t, locale, locales, currentLocale, setLocale } = useI18n()
 const { code, current, currencies, setCurrency } = useCurrency()
 

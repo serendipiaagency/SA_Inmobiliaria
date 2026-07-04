@@ -33,7 +33,7 @@
 
 <script setup lang="ts">
 const { data } = await useFetch('/api/public/blogs')
-useHead({ title: 'Journal — SA Inmobiliaria' })
+useHead({ title: 'Journal — M&M Real Estate' })
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').slice(0, 220)
 }

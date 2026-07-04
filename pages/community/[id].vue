@@ -54,5 +54,5 @@
 const route = useRoute()
 const { data } = await useFetch(`/api/public/communities/${route.params.id}`)
 if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Community not found', fatal: true })
-useHead({ title: `${data.value.community.name} — SA Inmobiliaria` })
+useHead({ title: `${data.value.community.name} — M&M Real Estate` })
 </script>

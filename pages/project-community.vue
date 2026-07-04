@@ -31,5 +31,5 @@
 
 <script setup lang="ts">
 const { data } = await useFetch('/api/public/communities')
-useHead({ title: 'Communities — SA Inmobiliaria' })
+useHead({ title: 'Communities — M&M Real Estate' })
 </script>

@@ -1,4 +1,7 @@
-# Cloudflare Workers configuration for SA Inmobiliaria
+# Cloudflare Workers configuration for M&M Real Estate
+# NOTE: the Worker service name below is unchanged on purpose — renaming it
+# would move the deployment to a new *.workers.dev URL / require a domain
+# migration. Ask before changing `name` or the D1/R2 resource names.
 name = "sa-inmobiliaria"
 main = "./.output/server/index.mjs"
 compatibility_date = "2026-06-01"

@@ -42,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Comparar — SA Inmobiliaria' })
+useHead({ title: 'Comparar — M&M Real Estate' })
 const { items, load, remove, clear } = useCompare()
 const { data } = await useFetch('/api/public/properties', { query: { perPage: 48 } })
 onMounted(load)

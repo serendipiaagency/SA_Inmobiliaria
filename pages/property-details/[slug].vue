@@ -208,7 +208,7 @@
 const route = useRoute()
 const { data } = await useFetch(`/api/public/properties/${route.params.slug}`)
 if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Project not found', fatal: true })
-useHead({ title: `${data.value.project.name} — SA Inmobiliaria` })
+useHead({ title: `${data.value.project.name} — M&M Real Estate` })
 
 const { format: formatPrice } = useCurrency()
 const { isFavorite, toggle: toggleFav, load: loadFav } = useFavorites()
@@ -293,7 +293,7 @@ const staging = [
 
 const timeline = computed(() => {
   const t: { title: string; detail: string; done: boolean }[] = []
-  if (p.value.publishedAt) t.push({ title: 'Publicado en SA Inmobiliaria', detail: new Date(p.value.publishedAt.replace(' ', 'T') + 'Z').toLocaleDateString('es-ES'), done: true })
+  if (p.value.publishedAt) t.push({ title: 'Publicado en M&M Real Estate', detail: new Date(p.value.publishedAt.replace(' ', 'T') + 'Z').toLocaleDateString('es-ES'), done: true })
   t.push({ title: 'Lanzamiento comercial', detail: 'Inicio de comercialización', done: true })
   if (p.value.status !== 'new') t.push({ title: 'En construcción', detail: `Avance de obra ${p.value.constructionPercentage || ''}${p.value.constructionPercentage ? '%' : ''}`, done: p.value.status !== 'new' })
   t.push({ title: 'Entrega de llaves', detail: p.value.handoverDate || 'Por confirmar', done: p.value.status === 'ready' })

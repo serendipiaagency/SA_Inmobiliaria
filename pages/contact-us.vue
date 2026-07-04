@@ -34,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Contact us — SA Inmobiliaria' })
+useHead({ title: 'Contact us — M&M Real Estate' })
 const form = reactive({ name: '', email: '', phone: '', subject: '', message: '' })
 const sending = ref(false)
 const sent = ref(false)

@@ -30,5 +30,5 @@
 
 <script setup lang="ts">
 const { data } = await useFetch('/api/public/team')
-useHead({ title: 'Our team — SA Inmobiliaria' })
+useHead({ title: 'Our team — M&M Real Estate' })
 </script>

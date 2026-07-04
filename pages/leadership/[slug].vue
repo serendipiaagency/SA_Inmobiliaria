@@ -39,5 +39,5 @@
 const route = useRoute()
 const { data } = await useFetch(`/api/public/team/${route.params.slug}`)
 if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Team member not found', fatal: true })
-useHead({ title: `${data.value.member.name} — SA Inmobiliaria` })
+useHead({ title: `${data.value.member.name} — M&M Real Estate` })
 </script>

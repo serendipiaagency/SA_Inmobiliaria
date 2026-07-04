@@ -87,7 +87,7 @@ const isNew = computed(() => id.value === 'new')
 const { data: resources } = await useFetch<Record<string, any>>('/api/admin/resources')
 const meta = computed(() => resources.value?.[resource.value])
 if (!meta.value) throw createError({ statusCode: 404, statusMessage: 'Unknown resource', fatal: true })
-useHead({ title: computed(() => `${meta.value?.label || 'Admin'} — SA Inmobiliaria`) })
+useHead({ title: computed(() => `${meta.value?.label || 'Admin'} — M&M Real Estate`) })
 
 const form = reactive<Record<string, any>>({})
 const record = ref<Record<string, any>>({})

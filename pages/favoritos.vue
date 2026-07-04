@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Favoritos — SA Inmobiliaria' })
+useHead({ title: 'Favoritos — M&M Real Estate' })
 const { ids, load } = useFavorites()
 const { data } = await useFetch('/api/public/properties', { query: { perPage: 48 } })
 onMounted(load)
