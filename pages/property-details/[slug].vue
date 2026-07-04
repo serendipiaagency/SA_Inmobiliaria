@@ -2,7 +2,18 @@
   <div v-if="data" class="bg-paper">
     <!-- Gallery -->
     <section id="fotos" class="mx-auto max-w-screen-2xl px-6 pt-6 lg:px-10">
-      <MediaGallery :photos="photos" :name="data.project.name" :has-tour="!!data.project.hasTour" :master-plan="masterPlan" />
+      <MediaGallery
+        :photos="photos"
+        :name="data.project.name"
+        :has-tour="!!data.project.hasTour"
+        :master-plan="masterPlan"
+        :video-url="data.project.videoUrl"
+        :drone-photo="dronePhoto"
+        :night-photo="nightPhoto"
+        :before-photo="beforePhoto"
+        :after-photo="afterPhoto"
+        :ai-staged-photo="aiStagedPhoto"
+      />
     </section>
 
     <!-- Sticky section nav -->
@@ -232,6 +243,11 @@ const photos = computed<string[]>(() => {
   return [...new Set(list.filter(Boolean))].map((k: string) => mediaUrl(k))
 })
 const masterPlan = computed(() => (data.value?.project.masterPlanImage ? mediaUrl(data.value.project.masterPlanImage) : null))
+const dronePhoto = computed(() => (data.value?.project.dronePhoto ? mediaUrl(data.value.project.dronePhoto) : null))
+const nightPhoto = computed(() => (data.value?.project.nightPhoto ? mediaUrl(data.value.project.nightPhoto) : null))
+const beforePhoto = computed(() => (data.value?.project.beforePhoto ? mediaUrl(data.value.project.beforePhoto) : null))
+const afterPhoto = computed(() => (data.value?.project.afterPhoto ? mediaUrl(data.value.project.afterPhoto) : null))
+const aiStagedPhoto = computed(() => (data.value?.project.aiStagedPhoto ? mediaUrl(data.value.project.aiStagedPhoto) : null))
 
 const p = computed(() => data.value!.project)
 const statusLabel = computed(() => ({ new: 'Obra nueva', under_construction: 'En construcción', ready: 'Listo para entrar' }[p.value.status as string] || p.value.status))
