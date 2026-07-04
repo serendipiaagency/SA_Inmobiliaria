@@ -11,7 +11,11 @@ export function useAuth() {
 
   async function refresh() {
     try {
-      const res = await $fetch<{ user: SessionUser | null }>('/api/auth/me')
+      // useRequestFetch forwards the incoming request cookies during SSR so a
+      // hard load / refresh of an authenticated page keeps the session; on the
+      // client it behaves like a normal $fetch.
+      const req = useRequestFetch()
+      const res = await req<{ user: SessionUser | null }>('/api/auth/me')
       user.value = res.user
     } catch {
       user.value = null
