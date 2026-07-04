@@ -53,8 +53,9 @@ const rows = computed(() => {
   return items.value.map((i) => byId[i.id] || { id: i.id, name: i.name, coverImage: i.cover, slug: i.slug, price: i.price })
 })
 
+const { format: fmtCur } = useCurrency()
 function fmt(v: number | null | undefined) {
-  return v ? `AED ${new Intl.NumberFormat('en-US').format(v)}` : '—'
+  return v ? fmtCur(v) : '—'
 }
 const specs = [
   { key: 'price', label: 'Precio', get: (p: any) => fmt(p.price) },

@@ -103,9 +103,7 @@ const totalCosts = computed(() => costs.value.reduce((a, c) => a + c.value, 0))
 const annualRent = computed(() => (props.rentalYield ? Math.round((price.value * props.rentalYield) / 100) : 0))
 const rentalYield = computed(() => props.rentalYield)
 
-function money(v: number) {
-  return `AED ${new Intl.NumberFormat('en-US').format(v || 0)}`
-}
+const { format: money } = useCurrency()
 </script>
 
 <style scoped>

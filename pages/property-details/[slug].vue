@@ -210,6 +210,7 @@ const { data } = await useFetch(`/api/public/properties/${route.params.slug}`)
 if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Project not found', fatal: true })
 useHead({ title: `${data.value.project.name} — SA Inmobiliaria` })
 
+const { format: formatPrice } = useCurrency()
 const { isFavorite, toggle: toggleFav, load: loadFav } = useFavorites()
 const { has: hasCompare, toggle: toggleCompare, load: loadCompare } = useCompare()
 onMounted(() => { loadFav(); loadCompare() })

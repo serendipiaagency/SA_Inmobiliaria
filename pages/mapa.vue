@@ -53,6 +53,7 @@
 <script setup lang="ts">
 useHead({ title: 'Mapa — SA Inmobiliaria' })
 const router = useRouter()
+const { format: formatPrice } = useCurrency()
 const { data } = await useFetch('/api/public/properties', { query: { perPage: 48 } })
 const items = computed(() => (data.value?.rows || []).filter((p: any) => p.lat && p.lng))
 
