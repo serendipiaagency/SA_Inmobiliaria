@@ -144,6 +144,11 @@ export const developerProperties = sqliteTable('developer_properties', {
   aiSummary: text('ai_summary'),
   lat: real('lat'),
   lng: real('lng'),
+  // --- Address facets (added 0010) — postalCode stays null for markets
+  // without a postal/ZIP system (e.g. the UAE); the search simply won't
+  // surface that facet until a listing actually has one.
+  street: text('street'),
+  postalCode: text('postal_code'),
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })

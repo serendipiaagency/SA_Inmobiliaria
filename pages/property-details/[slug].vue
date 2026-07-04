@@ -186,6 +186,7 @@
                 <NuxtLink to="/visitor" class="btn-secondary w-full">Agendar visita</NuxtLink>
               </div>
             </div>
+            <AgentContactCard :property-name="data.project.name" />
             <div v-if="data.developer" class="rounded-2xl border border-line bg-white p-8">
               <p class="eyebrow mb-4">Promotora</p>
               <div class="flex items-center gap-4">

@@ -9,9 +9,10 @@ const ENERGY_ORDER = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 /**
  * Off-plan project search with advanced filters + live count.
  *
- * Filters: q, community, status, developerId, minPrice, maxPrice, minArea, maxArea,
- *   bedrooms (min), bathrooms (min), type, new, orientation, minYear, energy (max letter),
- *   and boolean features: elevator, pool, garage, terrace, garden, pets, accessible.
+ * Filters: q, community, street, postalCode, status, developerId, minPrice, maxPrice,
+ *   minArea, maxArea, bedrooms (min), bathrooms (min), type, new, orientation, minYear,
+ *   energy (max letter), and boolean features: elevator, pool, garage, terrace, garden,
+ *   pets, accessible.
  * Params: sort (price_asc|price_desc|newest), page, perPage, countOnly.
  */
 export default defineEventHandler(async (event) => {
@@ -23,8 +24,19 @@ export default defineEventHandler(async (event) => {
 
   const conds = []
   const q = String(query.q || '').trim()
-  if (q) conds.push(or(like(P.name, `%${q}%`), like(P.community, `%${q}%`)))
+  if (q)
+    conds.push(
+      or(
+        like(P.name, `%${q}%`),
+        like(P.community, `%${q}%`),
+        like(P.street, `%${q}%`),
+        like(P.postalCode, `%${q}%`),
+        like(P.slug, `%${q}%`),
+      ),
+    )
   if (query.community) conds.push(like(P.community, `%${String(query.community)}%`))
+  if (query.street) conds.push(like(P.street, `%${String(query.street)}%`))
+  if (query.postalCode) conds.push(like(P.postalCode, `%${String(query.postalCode)}%`))
   if (query.status) conds.push(eq(P.status, String(query.status)))
   if (String(query.new || '') === '1') conds.push(eq(P.status, 'new'))
   if (query.developerId) conds.push(eq(P.developerId, Number(query.developerId)))

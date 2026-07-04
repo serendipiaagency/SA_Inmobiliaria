@@ -212,17 +212,39 @@ function toQuery() {
   return q
 }
 
-// Live count (debounced)
+// Live count (debounced), with a short count-up tween so the number feels
+// alive rather than flickering — respects prefers-reduced-motion.
 const count = ref(0)
 const counting = ref(false)
 let t: any = null
+let countRaf = 0
+function animateCountTo(target: number) {
+  const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (reduced) {
+    count.value = target
+    return
+  }
+  cancelAnimationFrame(countRaf)
+  const from = count.value
+  const diff = target - from
+  if (!diff) return
+  const duration = 320
+  const start = performance.now()
+  function step(now: number) {
+    const p = Math.min(1, (now - start) / duration)
+    const eased = 1 - Math.pow(1 - p, 3)
+    count.value = Math.round(from + diff * eased)
+    if (p < 1) countRaf = requestAnimationFrame(step)
+  }
+  countRaf = requestAnimationFrame(step)
+}
 async function refreshCount() {
   counting.value = true
   try {
     const res = await $fetch<{ total: number }>('/api/public/properties', {
       query: { ...toQuery(), countOnly: '1' },
     })
-    count.value = res.total
+    animateCountTo(res.total)
   } catch {
     /* keep last */
   } finally {
@@ -295,6 +317,9 @@ function apply() {
 .pill:hover {
   border-color: #16150f;
 }
+.pill:active {
+  transform: scale(0.95);
+}
 .pill-on {
   background: #16150f;
   border-color: #16150f;
@@ -317,6 +342,9 @@ function apply() {
   border: 1px solid #d6d3d1;
   transition: all 0.18s;
 }
+.toggle:active .tg-box {
+  transform: scale(0.88);
+}
 .chip-e {
   height: 2.25rem;
   width: 2.25rem;
@@ -326,6 +354,9 @@ function apply() {
   font-weight: 600;
   color: #44403c;
   transition: all 0.18s;
+}
+.chip-e:active {
+  transform: scale(0.9);
 }
 .chip-e-on {
   background: #16150f;
