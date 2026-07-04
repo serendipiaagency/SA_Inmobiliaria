@@ -14,14 +14,41 @@
         <p class="font-serif text-2xl text-stone-500">Aún no has guardado ninguna propiedad.</p>
         <NuxtLink to="/properties" class="btn-primary mt-6">Explorar propiedades</NuxtLink>
       </div>
+
+      <div class="hairline mt-16 pt-14">
+        <h2 class="heading-serif text-2xl">{{ t('search.savedSearches') }}</h2>
+        <div v-if="searches.length" class="mt-6 space-y-3">
+          <div v-for="s in searches" :key="s.id" class="flex items-center justify-between gap-4 rounded-xl border border-line bg-white px-5 py-4">
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium capitalize">{{ s.label }}</p>
+              <p class="text-[12px] text-stone-400">{{ dt.relative(new Date(s.createdAt).toISOString()) }}</p>
+            </div>
+            <div class="flex shrink-0 items-center gap-4">
+              <NuxtLink :to="{ path: '/properties', query: s.query }" class="text-[11px] font-semibold uppercase tracking-widest text-ink hover:underline">
+                {{ t('search.viewResults') }}
+              </NuxtLink>
+              <button type="button" class="text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-rose-600" @click="removeSearch(s.id)">
+                {{ t('search.remove') }}
+              </button>
+            </div>
+          </div>
+        </div>
+        <p v-else class="mt-4 text-sm text-stone-500">{{ t('search.savedEmpty') }}</p>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 useHead({ title: 'Favoritos — M&M Real Estate' })
+const { t } = useI18n()
+const dt = useDash()
 const { ids, load } = useFavorites()
+const { items: searches, load: loadSearches, remove: removeSearch } = useSavedSearches()
 const { data } = await useFetch('/api/public/properties', { query: { perPage: 48 } })
-onMounted(load)
+onMounted(() => {
+  load()
+  loadSearches()
+})
 const saved = computed(() => (data.value?.rows || []).filter((p: any) => ids.value.includes(p.id)))
 </script>

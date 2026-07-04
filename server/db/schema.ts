@@ -149,6 +149,10 @@ export const developerProperties = sqliteTable('developer_properties', {
   // surface that facet until a listing actually has one.
   street: text('street'),
   postalCode: text('postal_code'),
+  // Optional showcase clip (added 0012) — null until a real walkthrough
+  // video is attached; the card's hover-video and "Vídeo" badge stay
+  // dormant until then rather than faking footage.
+  videoUrl: text('video_url'),
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })
