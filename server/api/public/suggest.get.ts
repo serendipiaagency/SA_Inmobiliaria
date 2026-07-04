@@ -1,10 +1,13 @@
-import { like, sql } from 'drizzle-orm'
+import { eq, like, or, sql } from 'drizzle-orm'
 import { useDb, schema } from '../../utils/db'
 
 /**
  * Autocomplete for the smart search box.
- * Returns grouped suggestions: cities/zones, neighbourhoods (communities),
- * and references (project names). Fast LIKE lookups, capped per group.
+ * Returns grouped suggestions: cities, neighbourhoods (communities), streets,
+ * postal codes and references (project name or slug). Fast LIKE lookups,
+ * capped per group. Postal codes only surface for listings that actually
+ * have one — most UAE communities don't use a postal/ZIP system, so that
+ * group simply stays empty until a listing in a market that does gets one.
  */
 export default defineEventHandler(async (event) => {
   const db = useDb(event)
@@ -24,7 +27,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const pat = `%${q}%`
-  const [cities, communities, refs, streets] = await Promise.all([
+  const P = schema.developerProperties
+  const [cities, communities, streets, postalCodes, refsByName, refsBySlug] = await Promise.all([
     db.select({ name: schema.locations.name }).from(schema.locations).where(like(schema.locations.name, pat)).limit(5),
     db
       .select({ name: schema.communities.name })
@@ -32,33 +36,45 @@ export default defineEventHandler(async (event) => {
       .where(like(schema.communities.name, pat))
       .limit(5),
     db
-      .select({ name: schema.developerProperties.name, slug: schema.developerProperties.slug })
-      .from(schema.developerProperties)
-      .where(like(schema.developerProperties.name, pat))
+      .select({ street: P.street })
+      .from(P)
+      .where(sql`${P.street} is not null and ${P.street} like ${pat}`)
+      .groupBy(P.street)
       .limit(6),
-    // "streets": distinct community values on projects that look like an address
     db
-      .select({ name: schema.developerProperties.community })
-      .from(schema.developerProperties)
-      .where(like(schema.developerProperties.community, pat))
-      .groupBy(schema.developerProperties.community)
-      .limit(4),
+      .select({ postalCode: P.postalCode })
+      .from(P)
+      .where(sql`${P.postalCode} is not null and ${P.postalCode} like ${pat}`)
+      .groupBy(P.postalCode)
+      .limit(6),
+    db.select({ name: P.name, slug: P.slug }).from(P).where(like(P.name, pat)).limit(6),
+    db.select({ name: P.name, slug: P.slug }).from(P).where(like(P.slug, pat)).limit(6),
   ])
+
+  const refMap = new Map<string, { name: string; slug: string | null }>()
+  for (const r of [...refsByName, ...refsBySlug]) if (r.slug) refMap.set(r.slug, r)
 
   const groups = [
     { type: 'city', label: 'Ciudades', items: cities.map((c) => c.name) },
     {
       type: 'neighbourhood',
       label: 'Barrios y zonas',
-      items: [...new Set([...communities.map((c) => c.name), ...streets.map((s) => s.name)].filter(Boolean))].slice(
-        0,
-        6,
-      ),
+      items: [...new Set(communities.map((c) => c.name).filter(Boolean))].slice(0, 6),
+    },
+    {
+      type: 'street',
+      label: 'Calles',
+      items: [...new Set(streets.map((s) => s.street).filter(Boolean))].slice(0, 6),
+    },
+    {
+      type: 'postal_code',
+      label: 'Código postal',
+      items: [...new Set(postalCodes.map((p) => p.postalCode).filter(Boolean))].slice(0, 6),
     },
     {
       type: 'reference',
       label: 'Propiedades',
-      items: refs.map((r) => ({ name: r.name, slug: r.slug })),
+      items: [...refMap.values()].slice(0, 6),
     },
   ].filter((g) => g.items.length)
 
