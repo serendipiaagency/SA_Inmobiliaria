@@ -54,9 +54,21 @@
           propiedad{{ (data?.total ?? 0) === 1 ? '' : 'es' }}
           <span v-if="q"> · “{{ q }}”</span>
         </p>
-        <button v-if="activeCount || q" class="text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-ink" @click="clearAll">
-          Limpiar filtros
-        </button>
+        <div class="flex items-center gap-4">
+          <button
+            v-if="activeCount || q"
+            type="button"
+            class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest transition"
+            :class="searchIsSaved ? 'text-ink' : 'text-stone-400 hover:text-ink'"
+            @click="onSaveSearch"
+          >
+            <svg class="h-3.5 w-3.5" :fill="searchIsSaved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
+            {{ searchIsSaved ? t('search.saved') : t('search.save') }}
+          </button>
+          <button v-if="activeCount || q" class="text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-ink" @click="clearAll">
+            {{ t('hero.clear') }}
+          </button>
+        </div>
       </div>
 
       <div class="results-fade" :class="{ 'is-loading': pending }">
@@ -96,6 +108,9 @@
 
 <script setup lang="ts">
 useHead({ title: 'Buscar propiedades — M&M Real Estate' })
+const { t } = useI18n()
+const toast = useToast()
+const { save: saveSearch, isSaved } = useSavedSearches()
 const route = useRoute()
 const router = useRouter()
 
@@ -118,6 +133,23 @@ const totalPages = computed(() => Math.ceil((data.value?.total || 0) / (data.val
 // Advanced filter keys that count toward the badge
 const ADV = ['minPrice','maxPrice','minArea','maxArea','bedrooms','bathrooms','type','status','orientation','minYear','energy','elevator','pool','garage','terrace','garden','pets','accessible']
 const activeCount = computed(() => ADV.filter((k) => route.query[k]).length)
+
+const searchIsSaved = computed(() => isSaved(route.query as Record<string, any>))
+function searchLabel() {
+  const parts: string[] = []
+  if (q.value) parts.push(q.value)
+  if (route.query.bedrooms) parts.push(`${route.query.bedrooms}+ hab.`)
+  if (route.query.minPrice || route.query.maxPrice) parts.push('presupuesto')
+  if (route.query.pool) parts.push('piscina')
+  if (route.query.status === 'new') parts.push('obra nueva')
+  if (!parts.length) parts.push('Todas las propiedades')
+  return parts.join(' · ')
+}
+function onSaveSearch() {
+  if (searchIsSaved.value) return
+  saveSearch(searchLabel(), route.query as Record<string, any>)
+  toast.success(t('search.saved'))
+}
 
 // Seed for the modal from current URL query
 const modalSeed = computed(() => {

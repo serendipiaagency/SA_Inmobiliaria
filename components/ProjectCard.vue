@@ -7,7 +7,7 @@
         v-for="(ph, i) in photos"
         :key="i"
         class="absolute inset-0 transition-opacity duration-500"
-        :style="{ opacity: i === index ? 1 : 0 }"
+        :style="{ opacity: i === index && !showVideo ? 1 : 0 }"
       >
         <img
           :src="mediaUrl(ph)"
@@ -17,6 +17,18 @@
           loading="lazy"
         />
       </div>
+      <!-- Hover video (only when the listing has a real showcase clip attached) -->
+      <video
+        v-if="project.videoUrl"
+        ref="videoEl"
+        class="absolute inset-0 h-full w-full object-cover transition-opacity duration-500"
+        :style="{ opacity: showVideo ? 1 : 0 }"
+        :src="project.videoUrl"
+        muted
+        loop
+        playsinline
+        preload="none"
+      />
       <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-black/10" />
 
       <!-- Stretched navigation link -->
@@ -53,6 +65,13 @@
             </svg>
           </button>
         </Tooltip>
+        <Tooltip :text="t('card.quickView')" side="bottom">
+          <button type="button" class="act" :aria-label="t('card.quickView')" @click="quickViewOpen = true">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12S6 5 12 5s9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7z" /><circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
+        </Tooltip>
       </div>
 
       <!-- Carousel arrows (hover, desktop) -->
@@ -72,6 +91,9 @@
       <!-- Meta chips (bottom-left) -->
       <div class="pointer-events-none absolute bottom-3 left-3 z-20 flex gap-1.5">
         <span v-if="project.hasTour" class="chip-glass"><span class="mr-1">◐</span>{{ t('badge.tour') }}</span>
+        <span v-if="project.videoUrl" class="chip-glass">
+          <svg class="mr-1 -mt-px inline h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>{{ t('badge.video') }}
+        </span>
         <span v-if="project.aiSummary" class="chip-glass">{{ t('badge.ai') }}</span>
       </div>
     </div>
@@ -102,7 +124,7 @@
       <div class="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-stone-500">
         <span v-if="project.bedrooms != null" class="inline-flex items-center gap-1.5">
           <svg class="h-4 w-4 text-stone-400" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12h18M3 12V7a2 2 0 012-2h14a2 2 0 012 2v5m-18 0v5m18-5v5M6 12V9h5v3"/></svg>
-          {{ project.bedrooms || t('card.studio') }}<span v-if="project.bedrooms"> {{ t('card.beds') }}</span>
+          {{ project.bedrooms || t('card.studio') }}<span v-if="project.bedrooms">{{ ' ' + t('card.beds') }}</span>
         </span>
         <span v-if="project.bathrooms != null" class="inline-flex items-center gap-1.5">
           <svg class="h-4 w-4 text-stone-400" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12h16v3a4 4 0 01-4 4H8a4 4 0 01-4-4v-3zM6 12V6a2 2 0 012-2c1 0 1.5.5 1.7 1"/></svg>
@@ -120,6 +142,8 @@
         <NuxtLink :to="to" class="cta">{{ t('card.viewDetails') }}</NuxtLink>
       </div>
     </div>
+
+    <QuickViewModal :open="quickViewOpen" :project="project" @close="quickViewOpen = false" />
   </div>
 </template>
 
@@ -145,6 +169,7 @@ const props = defineProps<{
     rentalYield?: number | null
     publishedAt?: string | null
     aiSummary?: string | null
+    videoUrl?: string | null
   }
 }>()
 
@@ -158,23 +183,41 @@ const photos = computed(() => (props.project.photos?.length ? props.project.phot
 
 const index = ref(0)
 const hovering = ref(false)
+const showVideo = ref(false)
+const quickViewOpen = ref(false)
+const videoEl = ref<HTMLVideoElement | null>(null)
 let timer: any = null
+let videoDwell: any = null
 function onEnter() {
   hovering.value = true
   if (photos.value.length > 1) {
     timer = setInterval(() => (index.value = (index.value + 1) % photos.value.length), 1400)
   }
+  // Small dwell delay before switching to video — avoids flashing it on a
+  // quick mouse pass-through, matches the Zillow/Redfin hover-video pattern.
+  if (props.project.videoUrl) {
+    videoDwell = setTimeout(() => {
+      showVideo.value = true
+      videoEl.value?.play().catch(() => {})
+    }, 500)
+  }
 }
 function onLeave() {
   hovering.value = false
   clearInterval(timer)
+  clearTimeout(videoDwell)
   index.value = 0
+  showVideo.value = false
+  videoEl.value?.pause()
 }
 function step(d: number) {
   const n = photos.value.length
   index.value = (index.value + d + n) % n
 }
-onBeforeUnmount(() => clearInterval(timer))
+onBeforeUnmount(() => {
+  clearInterval(timer)
+  clearTimeout(videoDwell)
+})
 
 const fav = computed(() => isFavorite(props.project.id))
 function onFav() {
