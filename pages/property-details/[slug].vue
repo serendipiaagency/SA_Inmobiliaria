@@ -67,6 +67,11 @@
             </div>
           </section>
 
+          <!-- Ask AI -->
+          <section>
+            <AskAI :slug="String(route.params.slug)" />
+          </section>
+
           <!-- Descripción -->
           <section v-if="data.project.description">
             <p class="eyebrow">Descripción</p>
