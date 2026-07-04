@@ -57,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: false })
+definePageMeta({ layout: false, pageTransition: false })
 useHead({ title: 'SA Inmobiliaria — Widget' })
 
 const route = useRoute()

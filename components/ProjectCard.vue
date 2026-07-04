@@ -29,24 +29,30 @@
 
       <!-- Actions (top-right) -->
       <div class="absolute right-3 top-3 z-20 flex gap-1.5">
-        <button type="button" class="act" :class="{ 'act-on': fav }" :aria-label="fav ? t('card.saved') : t('card.save')" @click="onFav">
-          <svg class="h-4 w-4" :fill="fav ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-9.3-9.2C1.2 8.7 2.7 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.3 0 4.8 3.2 3.3 6.3C19 16.5 12 21 12 21z" />
-          </svg>
-        </button>
-        <button type="button" class="act" :class="{ 'act-on': inCompare }" aria-label="Comparar" @click="onCompare">
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M15 3v18M4 8h5M15 8h5M4 16h5M15 16h5" />
-          </svg>
-        </button>
-        <button type="button" class="act" aria-label="Compartir" @click="onShare">
-          <svg v-if="!shared" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4M18 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM6 14.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM18 21a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
-          </svg>
-          <svg v-else class="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        </button>
+        <Tooltip :text="fav ? t('card.saved') : t('card.save')" side="bottom">
+          <button type="button" class="act" :class="{ 'act-on': fav }" :aria-label="fav ? t('card.saved') : t('card.save')" @click="onFav">
+            <svg class="h-4 w-4" :fill="fav ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-9.3-9.2C1.2 8.7 2.7 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.3 0 4.8 3.2 3.3 6.3C19 16.5 12 21 12 21z" />
+            </svg>
+          </button>
+        </Tooltip>
+        <Tooltip text="Comparar" side="bottom">
+          <button type="button" class="act" :class="{ 'act-on': inCompare }" aria-label="Comparar" @click="onCompare">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M15 3v18M4 8h5M15 8h5M4 16h5M15 16h5" />
+            </svg>
+          </button>
+        </Tooltip>
+        <Tooltip :text="shared ? '¡Copiado!' : 'Compartir'" side="bottom">
+          <button type="button" class="act" aria-label="Compartir" @click="onShare">
+            <svg v-if="!shared" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4M18 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM6 14.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM18 21a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+            </svg>
+            <svg v-else class="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </button>
+        </Tooltip>
       </div>
 
       <!-- Carousel arrows (hover, desktop) -->
@@ -278,6 +284,9 @@ const publishedLabel = computed(() => {
   color: #16150f;
   backdrop-filter: blur(4px);
   transition: transform 0.2s, background-color 0.2s, color 0.2s;
+}
+.act:active {
+  transform: scale(0.92);
 }
 .act:hover {
   transform: scale(1.08);

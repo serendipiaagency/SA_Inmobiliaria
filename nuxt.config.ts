@@ -16,6 +16,7 @@ export default defineNuxtConfig({
     'leaflet.markercluster/dist/MarkerCluster.Default.css',
   ],
   app: {
+    pageTransition: { name: 'page', mode: 'out-in' },
     head: {
       title: 'SA Inmobiliaria — Property Marketplace',
       meta: [

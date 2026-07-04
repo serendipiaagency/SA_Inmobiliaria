@@ -50,7 +50,7 @@
             <span class="block text-sm font-medium">Informe semanal por email</span>
             <span class="block text-xs text-stone-500">Recibe un resumen de métricas cada lunes</span>
           </span>
-          <button type="button" class="relative h-6 w-11 shrink-0 rounded-full transition" :class="form.weekly_report === 'on' ? 'bg-ink' : 'bg-stone-300'" @click="form.weekly_report = form.weekly_report === 'on' ? 'off' : 'on'">
+          <button type="button" class="relative h-6 w-11 shrink-0 rounded-full transition active:scale-95" :class="form.weekly_report === 'on' ? 'bg-ink' : 'bg-stone-300'" @click="form.weekly_report = form.weekly_report === 'on' ? 'off' : 'on'">
             <span class="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all" :class="form.weekly_report === 'on' ? 'left-[22px]' : 'left-0.5'" />
           </button>
         </label>

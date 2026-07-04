@@ -13,7 +13,7 @@
     </div>
 
     <div v-if="pending" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-      <div v-for="i in 5" :key="i" class="h-32 animate-pulse rounded-xl border border-line bg-white" />
+      <div v-for="i in 5" :key="i" class="skeleton h-32 rounded-xl border border-line" />
     </div>
 
     <template v-else-if="data">

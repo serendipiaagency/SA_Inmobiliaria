@@ -25,7 +25,7 @@
               <NuxtLink :to="`/admin/${resource}/${row.id}`" class="mr-3 font-medium text-emerald-700 hover:underline">
                 {{ meta.readonly ? 'View' : 'Edit' }}
               </NuxtLink>
-              <button class="font-medium text-red-600 hover:underline" @click="remove(row.id)">Delete</button>
+              <button class="font-medium text-red-600 transition hover:underline active:scale-95" @click="remove(row.id)">Delete</button>
             </td>
           </tr>
           <tr v-if="!data?.rows?.length">
@@ -68,9 +68,18 @@ watch(resource, () => {
   q.value = ''
 })
 
+const { confirm } = useConfirm()
+const toast = useToast()
+
 async function remove(id: number) {
-  if (!confirm('Delete this record? This cannot be undone.')) return
-  await $fetch(`/api/admin/${resource.value}/${id}`, { method: 'DELETE' })
-  await refresh()
+  const ok = await confirm('This cannot be undone.', { title: 'Delete this record?', confirmLabel: 'Delete', danger: true })
+  if (!ok) return
+  try {
+    await $fetch(`/api/admin/${resource.value}/${id}`, { method: 'DELETE' })
+    await refresh()
+    toast.success('Record deleted')
+  } catch (e: any) {
+    toast.error(e?.statusMessage || 'Could not delete the record')
+  }
 }
 </script>

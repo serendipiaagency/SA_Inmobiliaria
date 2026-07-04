@@ -2,25 +2,74 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Shared easing curves — Apple/Linear-style deceleration, never linear */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 @layer base {
+  html {
+    scroll-behavior: smooth;
+  }
   body {
     @apply bg-paper font-sans text-ink antialiased;
+  }
+  /* Consistent, visible-only-for-keyboard focus ring instead of the default outline */
+  :focus-visible {
+    outline: 2px solid theme('colors.ink');
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  ::selection {
+    background: theme('colors.ink');
+    color: #fff;
+  }
+  /* Thin, quiet scrollbar — Linear/Vercel style, opt in via .thin-scroll */
+  .thin-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.line') transparent;
+  }
+  .thin-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .thin-scroll::-webkit-scrollbar-thumb {
+    background: theme('colors.line');
+    border-radius: 999px;
+  }
+  .thin-scroll::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.stone.450');
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
 @layer components {
   /* Primary CTA — Compass-style rectangular black button */
   .btn-primary {
-    @apply inline-flex items-center justify-center bg-ink px-7 py-3.5 text-xs font-semibold uppercase tracking-widest2 text-white transition hover:bg-black disabled:opacity-40;
+    @apply inline-flex items-center justify-center bg-ink px-7 py-3.5 text-xs font-semibold uppercase tracking-widest2 text-white transition-all duration-200 ease-out hover:bg-black active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center border border-ink bg-transparent px-7 py-3.5 text-xs font-semibold uppercase tracking-widest2 text-ink transition hover:bg-ink hover:text-white disabled:opacity-40;
+    @apply inline-flex items-center justify-center border border-ink bg-transparent px-7 py-3.5 text-xs font-semibold uppercase tracking-widest2 text-ink transition-all duration-200 ease-out hover:bg-ink hover:text-white active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100;
   }
   .btn-quiet {
-    @apply inline-flex items-center justify-center border border-line bg-white px-5 py-2.5 text-xs font-medium uppercase tracking-widest text-stone-600 transition hover:border-ink hover:text-ink;
+    @apply inline-flex items-center justify-center border border-line bg-white px-5 py-2.5 text-xs font-medium uppercase tracking-widest text-stone-600 transition-all duration-200 ease-out hover:border-ink hover:text-ink active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100;
   }
   .input {
-    @apply w-full border border-line bg-white px-4 py-3 text-sm text-ink placeholder:text-stone-400 focus:border-ink focus:outline-none focus:ring-0;
+    @apply w-full border border-line bg-white px-4 py-3 text-sm text-ink placeholder:text-stone-400 transition-colors duration-150 focus:border-ink focus:outline-none focus:ring-0;
   }
   .label {
     @apply mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-stone-500;
@@ -38,6 +87,18 @@
   .hairline {
     @apply border-t border-line;
   }
+  /* Underline that draws in from the left on hover, instead of a hard flip */
+  .link-underline {
+    @apply relative;
+    background-image: linear-gradient(currentColor, currentColor);
+    background-size: 0% 1px;
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    transition: background-size 0.3s var(--ease-out);
+  }
+  .link-underline:hover {
+    background-size: 100% 1px;
+  }
 }
 
 /* Scroll reveal */
@@ -45,8 +106,8 @@
   opacity: 0;
   transform: translateY(26px);
   transition:
-    opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 0.8s var(--ease-out),
+    transform 0.8s var(--ease-out);
 }
 .reveal.is-visible {
   opacity: 1;
@@ -58,4 +119,39 @@
     transform: none;
     transition: none;
   }
+}
+
+/* Skeleton shimmer — replaces flat pulse blocks with a moving highlight,
+   like Linear/Vercel loading states. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: theme('colors.line');
+  isolation: isolate;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: skeleton-shimmer 1.6s infinite;
+}
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Route transitions — short fade + lift, never a jarring cut */
+.page-enter-active,
+.page-leave-active {
+  transition:
+    opacity 0.22s var(--ease-out),
+    transform 0.22s var(--ease-out);
+}
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
 }
