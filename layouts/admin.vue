@@ -137,7 +137,7 @@ const nav = [
       { label: 'Facturación', to: '/admin/facturacion', icon: 'invoice' },
       { label: 'Automatizaciones', to: '/admin/automatizaciones', icon: 'bolt' },
       { label: 'AI Studio', to: '/admin/ai', icon: 'sparkles' },
-      { label: 'Widgets', to: '/admin/widgets', icon: 'widget', tag: 'Soon' },
+      { label: 'Widgets', to: '/admin/widgets', icon: 'widget' },
       { label: 'Marketplace', to: '/admin/marketplace', icon: 'store' },
       { label: 'API', to: '/admin/api', icon: 'code' },
     ],
