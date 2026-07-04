@@ -362,3 +362,147 @@ export const contactMessages = sqliteTable(
   },
   (t) => [index('contact_messages_type').on(t.type)],
 )
+
+// ---------------------------------------------------------------------------
+// SaaS CRM & operations (Block 7)
+// ---------------------------------------------------------------------------
+
+export const leads = sqliteTable(
+  'leads',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    email: text('email'),
+    phone: text('phone'),
+    source: text('source').notNull().default('web'), // web | portal | referral | ads | social | call
+    status: text('status').notNull().default('new'), // new | contacted | qualified | proposal | won | lost
+    score: integer('score').notNull().default(0), // 0..100
+    budget: real('budget'),
+    propertyId: integer('property_id'),
+    propertyName: text('property_name'),
+    agentId: integer('agent_id'),
+    agentName: text('agent_name'),
+    notes: text('notes'),
+    lastContactAt: text('last_contact_at'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('leads_status').on(t.status), index('leads_source').on(t.source)],
+)
+
+export const clients = sqliteTable(
+  'clients',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    email: text('email'),
+    phone: text('phone'),
+    type: text('type').notNull().default('buyer'), // buyer | seller | tenant | investor
+    stage: text('stage').notNull().default('active'), // active | closed | inactive
+    lifetimeValue: real('lifetime_value').notNull().default(0),
+    dealsCount: integer('deals_count').notNull().default(0),
+    agentName: text('agent_name'),
+    location: text('location'),
+    notes: text('notes'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('clients_type').on(t.type), index('clients_stage').on(t.stage)],
+)
+
+export const visits = sqliteTable(
+  'visits',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    clientName: text('client_name').notNull(),
+    propertyId: integer('property_id'),
+    propertyName: text('property_name'),
+    agentName: text('agent_name'),
+    scheduledAt: text('scheduled_at').notNull(),
+    status: text('status').notNull().default('scheduled'), // scheduled | completed | cancelled | no_show
+    channel: text('channel').notNull().default('in_person'), // in_person | video | phone
+    notes: text('notes'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('visits_status').on(t.status)],
+)
+
+export const reservations = sqliteTable(
+  'reservations',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    reference: text('reference').notNull(),
+    clientName: text('client_name').notNull(),
+    propertyId: integer('property_id'),
+    propertyName: text('property_name'),
+    amount: real('amount').notNull().default(0),
+    deposit: real('deposit').notNull().default(0),
+    status: text('status').notNull().default('pending'), // pending | confirmed | cancelled | completed
+    reservedAt: text('reserved_at').notNull(),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('reservations_status').on(t.status)],
+)
+
+export const invoices = sqliteTable(
+  'invoices',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    number: text('number').notNull().unique(),
+    clientName: text('client_name').notNull(),
+    concept: text('concept'),
+    amount: real('amount').notNull().default(0),
+    tax: real('tax').notNull().default(0),
+    status: text('status').notNull().default('draft'), // draft | pending | paid | overdue | void
+    issuedAt: text('issued_at').notNull(),
+    dueAt: text('due_at'),
+    paidAt: text('paid_at'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('invoices_status').on(t.status)],
+)
+
+export const automations = sqliteTable('automations', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  description: text('description'),
+  trigger: text('trigger').notNull(), // lead.created | visit.completed | reservation.confirmed | ...
+  action: text('action').notNull(), // send_email | assign_agent | create_task | notify_slack | ...
+  enabled: integer('enabled').notNull().default(1),
+  runsCount: integer('runs_count').notNull().default(0),
+  lastRunAt: text('last_run_at'),
+  createdAt: text('created_at').notNull().default(''),
+})
+
+export const apiKeys = sqliteTable('api_keys', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  prefix: text('prefix').notNull(), // sa_live_xxxx (shown)
+  keyHash: text('key_hash').notNull(),
+  scopes: text('scopes').notNull().default('read'), // csv: read,write
+  environment: text('environment').notNull().default('live'), // live | test
+  lastUsedAt: text('last_used_at'),
+  revoked: integer('revoked').notNull().default(0),
+  createdAt: text('created_at').notNull().default(''),
+})
+
+export const metricsDaily = sqliteTable(
+  'metrics_daily',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    day: text('day').notNull().unique(), // YYYY-MM-DD
+    visitors: integer('visitors').notNull().default(0),
+    pageviews: integer('pageviews').notNull().default(0),
+    leads: integer('leads').notNull().default(0),
+    visitsBooked: integer('visits_booked').notNull().default(0),
+    reservations: integer('reservations').notNull().default(0),
+    revenue: real('revenue').notNull().default(0),
+  },
+  (t) => [index('metrics_daily_day').on(t.day)],
+)
+
+export const settings = sqliteTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value'),
+  updatedAt: text('updated_at').notNull().default(''),
+})
