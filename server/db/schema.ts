@@ -153,6 +153,15 @@ export const developerProperties = sqliteTable('developer_properties', {
   // video is attached; the card's hover-video and "Vídeo" badge stay
   // dormant until then rather than faking footage.
   videoUrl: text('video_url'),
+  // Optional premium gallery assets (added 0013) — all null until the real
+  // shot exists. The gallery shows a "request this" teaser (drone/night) or
+  // hides the tab entirely (before/after, AI staging) rather than reusing a
+  // regular photo under a misleading label.
+  dronePhoto: text('drone_photo'),
+  nightPhoto: text('night_photo'),
+  beforePhoto: text('before_photo'),
+  afterPhoto: text('after_photo'),
+  aiStagedPhoto: text('ai_staged_photo'),
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })
