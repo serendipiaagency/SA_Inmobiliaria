@@ -117,7 +117,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin' })
-useHead({ title: 'Widgets — SA Inmobiliaria' })
+useHead({ title: 'Widgets — M&M Real Estate' })
 
 const cfg = reactive({
   widget: 'grid',

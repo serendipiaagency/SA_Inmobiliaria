@@ -74,7 +74,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin' })
-useHead({ title: 'Clientes — SA Inmobiliaria' })
+useHead({ title: 'Clientes — M&M Real Estate' })
 const dt = useDash()
 
 const search = ref('')

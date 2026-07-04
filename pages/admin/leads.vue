@@ -109,7 +109,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin' })
-useHead({ title: 'Leads — SA Inmobiliaria' })
+useHead({ title: 'Leads — M&M Real Estate' })
 const dt = useDash()
 const toast = useToast()
 

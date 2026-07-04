@@ -47,7 +47,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin' })
-useHead({ title: 'AI Studio — SA Inmobiliaria' })
+useHead({ title: 'AI Studio — M&M Real Estate' })
 
 const { data } = await useFetch<any>('/api/public/properties', { query: { perPage: 48 } })
 const rows = computed(() => data.value?.rows || [])

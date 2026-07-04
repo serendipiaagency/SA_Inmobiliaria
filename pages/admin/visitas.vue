@@ -48,7 +48,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin' })
-useHead({ title: 'Visitas — SA Inmobiliaria' })
+useHead({ title: 'Visitas — M&M Real Estate' })
 const dt = useDash()
 
 const status = ref('all')

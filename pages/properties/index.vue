@@ -95,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Buscar propiedades — SA Inmobiliaria' })
+useHead({ title: 'Buscar propiedades — M&M Real Estate' })
 const route = useRoute()
 const router = useRouter()
 

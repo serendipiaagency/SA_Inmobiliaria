@@ -53,7 +53,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin' })
-useHead({ title: 'Facturación — SA Inmobiliaria' })
+useHead({ title: 'Facturación — M&M Real Estate' })
 const dt = useDash()
 
 const status = ref('all')

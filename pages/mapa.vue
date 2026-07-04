@@ -51,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Mapa — SA Inmobiliaria' })
+useHead({ title: 'Mapa — M&M Real Estate' })
 const router = useRouter()
 const { format: formatPrice } = useCurrency()
 const { data } = await useFetch('/api/public/properties', { query: { perPage: 48 } })

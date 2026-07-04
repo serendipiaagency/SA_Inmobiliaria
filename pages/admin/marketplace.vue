@@ -30,7 +30,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin' })
-useHead({ title: 'Marketplace — SA Inmobiliaria' })
+useHead({ title: 'Marketplace — M&M Real Estate' })
 
 const categories = [
   {

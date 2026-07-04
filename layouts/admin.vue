@@ -7,9 +7,9 @@
     >
       <!-- Brand / workspace -->
       <div class="flex items-center gap-2.5 border-b border-line px-4 py-3.5">
-        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-ink text-sm font-bold text-white">SA</span>
+        <Logo variant="mark" size="sm" />
         <div class="min-w-0 leading-tight">
-          <p class="truncate text-sm font-semibold">SA Inmobiliaria</p>
+          <p class="truncate text-sm font-semibold">M&M Real Estate</p>
           <p class="truncate text-[11px] text-stone-450">Workspace · Dubai</p>
         </div>
       </div>
@@ -65,7 +65,7 @@
         <button class="rounded-md p-1.5 hover:bg-stone-100" @click="open = true">
           <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
         </button>
-        <span class="text-sm font-semibold">SA Admin</span>
+        <span class="text-sm font-semibold">M&M Admin</span>
       </div>
 
       <main class="mx-auto max-w-[1180px] px-5 py-6 lg:px-8 lg:py-8">

@@ -62,7 +62,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin' })
-useHead({ title: 'API — SA Inmobiliaria' })
+useHead({ title: 'API — M&M Real Estate' })
 const dt = useDash()
 
 const { data } = await useFetch<any>('/api/admin/saas/apikeys')

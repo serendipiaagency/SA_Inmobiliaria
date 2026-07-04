@@ -1,40 +1,47 @@
 <template>
-  <section
-    ref="root"
-    class="hero relative flex flex-col overflow-hidden bg-ink"
-    :style="{ minHeight: 'calc(100svh - 74px)' }"
-  >
-    <!-- Cinematic background (crossfading, Ken Burns) -->
-    <div class="absolute inset-0" aria-hidden="true">
+  <section ref="root" class="hero relative flex flex-col overflow-hidden bg-ink" :style="{ minHeight: '100svh' }">
+    <!-- Cinematic background (crossfading, Ken Burns + subtle parallax) -->
+    <div class="absolute -inset-y-[7%] inset-x-0 will-change-transform" :style="parallaxStyle" aria-hidden="true">
       <div
         v-for="(img, i) in slides"
         :key="i"
         class="hero-slide absolute inset-0 bg-cover bg-center"
         :style="{ backgroundImage: `url(${img})`, animationDelay: `${i * 7}s` }"
       />
-      <div class="absolute inset-0 bg-gradient-to-b from-black/50 via-black/25 to-black/65" />
+      <div class="absolute inset-0 bg-gradient-to-b from-black/55 via-black/20 to-black/70" />
       <div class="absolute inset-0 bg-black/10" />
+      <div class="pointer-events-none absolute inset-0 hero-vignette" />
     </div>
 
     <!-- Content -->
     <div class="relative z-10 mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-6 lg:px-10">
-      <div class="flex flex-1 flex-col justify-center pb-4 pt-16 md:pt-20">
+      <div class="flex flex-1 flex-col justify-center pb-4 pt-24 md:pt-28">
         <p class="rise eyebrow !text-white/70" :style="delay(0)">{{ t('hero.eyebrow') }}</p>
         <h1
-          class="rise mt-6 max-w-4xl font-serif text-[clamp(2.75rem,7vw,6rem)] font-medium leading-[1.02] text-white"
+          class="rise mt-7 max-w-4xl font-serif text-[clamp(3rem,7.5vw,6.75rem)] font-medium leading-[1.01] tracking-[-0.01em] text-white"
           :style="delay(1)"
         >
-          {{ t('hero.title1') }}<br class="hidden sm:block" />
-          <span class="italic">{{ t('hero.title2') }}</span>
+          {{ t('hero.title1') }} <br class="hidden sm:block" /><span class="italic">{{ t('hero.title2') }}</span>
         </h1>
-        <p class="rise mt-7 max-w-md text-base leading-relaxed text-white/80 md:text-lg" :style="delay(2)">
+        <p class="rise mt-8 max-w-md text-base leading-relaxed text-white/80 md:text-lg" :style="delay(2)">
           {{ t('hero.subtitle') }}
         </p>
+
+        <!-- Secondary CTAs -->
+        <div class="rise mt-8 flex flex-wrap items-center gap-x-7 gap-y-3" :style="delay(2)">
+          <NuxtLink to="/properties" class="hero-cta-outline group">
+            {{ t('hero.exploreCta') }}
+            <svg class="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </NuxtLink>
+          <NuxtLink to="/contact-us" class="hero-cta-ghost">
+            {{ t('hero.advisorCta') }}
+          </NuxtLink>
+        </div>
 
         <!-- Search — the protagonist -->
         <div class="rise mt-12 w-full max-w-5xl" :style="delay(3)">
           <!-- Category tabs -->
-          <div class="mb-4 flex gap-1 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div class="tabs-fade -mx-1 mb-4 flex gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button
               v-for="t in tabs"
               :key="t.key"
@@ -45,6 +52,7 @@
                   ? 'bg-white text-ink shadow-lg'
                   : 'bg-white/10 text-white/85 backdrop-blur hover:bg-white/20'
               "
+              :aria-pressed="activeTab === t.key"
               @click="setTab(t.key)"
             >
               {{ t.label }}
@@ -208,7 +216,7 @@
 
             <!-- Search button -->
             <div class="flex items-center justify-end p-2 lg:pr-2">
-              <button type="button" class="search-btn group" @click="submit">
+              <button type="button" class="search-btn group" :aria-label="t('hero.search')" @click="submit">
                 <svg class="h-5 w-5 transition-transform duration-300 group-hover:scale-110" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.3-4.3m1.8-5.2a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -275,8 +283,11 @@
       </div>
 
       <!-- Scroll cue -->
-      <div class="rise pb-8 text-center" :style="delay(4)">
-        <span class="scroll-cue mx-auto block h-10 w-px bg-white/40" />
+      <div class="rise flex flex-col items-center gap-3 pb-10" :style="delay(4)">
+        <span class="text-[10px] font-semibold uppercase tracking-[0.3em] text-white/50">{{ t('hero.scrollCue') }}</span>
+        <span class="flex h-10 w-6 items-start justify-center rounded-full border border-white/30 p-1.5">
+          <span class="scroll-dot h-1.5 w-1.5 rounded-full bg-white/70" />
+        </span>
       </div>
     </div>
   </section>
@@ -295,6 +306,25 @@ const slides = [
   'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=2400&q=80',
 ]
 
+// Subtle parallax on the background layer — capped and respects
+// prefers-reduced-motion. The background wrapper is oversized (-inset-y-7%)
+// so it always has room to move without exposing its edges.
+const scrollY = ref(0)
+const reduceMotion = ref(false)
+let rafId = 0
+function onScroll() {
+  if (rafId) return
+  rafId = requestAnimationFrame(() => {
+    scrollY.value = window.scrollY
+    rafId = 0
+  })
+}
+const parallaxStyle = computed(() => {
+  if (reduceMotion.value) return {}
+  const offset = Math.min(scrollY.value * 0.28, 60)
+  return { transform: `translate3d(0, ${offset}px, 0)` }
+})
+
 const tabs = computed(() => [
   { key: 'buy', label: t('tab.buy') },
   { key: 'rent', label: t('tab.rent') },
@@ -302,7 +332,9 @@ const tabs = computed(() => [
   { key: 'investment', label: t('tab.investment') },
   { key: 'commercial', label: t('tab.commercial') },
   { key: 'garage', label: t('tab.garage') },
+  { key: 'plots', label: t('tab.plots') },
   { key: 'land', label: t('tab.land') },
+  { key: 'warehouse', label: t('tab.warehouse') },
 ])
 const activeTab = ref('buy')
 function setTab(k: string) {
@@ -428,10 +460,14 @@ function onKey(e: KeyboardEvent) {
 onMounted(() => {
   document.addEventListener('click', onDocClick)
   document.addEventListener('keydown', onKey)
+  reduceMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  if (!reduceMotion.value) window.addEventListener('scroll', onScroll, { passive: true })
 })
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocClick)
   document.removeEventListener('keydown', onKey)
+  window.removeEventListener('scroll', onScroll)
+  if (rafId) cancelAnimationFrame(rafId)
 })
 
 function delay(i: number) {
@@ -465,6 +501,47 @@ function delay(i: number) {
     opacity: 0;
     transform: scale(1.09);
   }
+}
+
+/* Soft radial vignette to keep focus on the centered content */
+.hero-vignette {
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.35) 100%);
+}
+
+/* Secondary CTAs */
+.hero-cta-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+  padding-bottom: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #fff;
+  transition: border-color 0.25s, opacity 0.25s;
+}
+.hero-cta-outline:hover {
+  border-color: #fff;
+  opacity: 0.85;
+}
+.hero-cta-ghost {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+  transition: color 0.25s;
+}
+.hero-cta-ghost:hover {
+  color: #fff;
+}
+
+/* Fade the edges of the horizontally-scrolling tab list on small screens */
+.tabs-fade {
+  mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 28px), transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 28px), transparent);
 }
 
 /* Entrance */
@@ -666,27 +743,33 @@ function delay(i: number) {
   transform: translateY(-8px);
 }
 
-/* Scroll cue */
-.scroll-cue {
-  transform-origin: top;
-  animation: cue 2.2s ease-in-out infinite;
+/* Scroll cue — mouse-wheel style indicator with a bouncing dot */
+.scroll-dot {
+  animation: scrollDot 1.8s ease-in-out infinite;
 }
-@keyframes cue {
-  0%,
-  100% {
-    transform: scaleY(0.3);
-    opacity: 0.3;
+@keyframes scrollDot {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
   }
-  50% {
-    transform: scaleY(1);
-    opacity: 0.8;
+  70% {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  71% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-slide,
   .rise,
-  .scroll-cue {
+  .scroll-dot {
     animation: none;
   }
   .hero-slide:first-child {

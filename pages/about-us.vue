@@ -10,7 +10,7 @@
     </section>
     <div class="mx-auto max-w-3xl space-y-8 px-6 py-20 text-[15px] leading-[1.9] text-stone-600 lg:px-0">
       <p>
-        SA Inmobiliaria showcases off-plan projects, secondary-sale properties and residential communities across the
+        M&M Real Estate showcases off-plan projects, secondary-sale properties and residential communities across the
         UAE. We work directly with developers and licensed agents so buyers can explore verified listings with
         transparent payment plans, floor plans and location maps.
       </p>
@@ -27,5 +27,5 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'About us — SA Inmobiliaria' })
+useHead({ title: 'About us — M&M Real Estate' })
 </script>

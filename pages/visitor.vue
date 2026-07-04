@@ -68,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Visitor form — SA Inmobiliaria' })
+useHead({ title: 'Visitor form — M&M Real Estate' })
 
 const form = reactive({
   name: '',

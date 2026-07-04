@@ -82,7 +82,7 @@ function fallback(kind: ContentKind, p: any): string {
     case 'title':
       return `${p.propertyType || 'Vivienda'} de ${beds} en ${loc}${area ? ` · ${area}` : ''}`
     case 'seo_title':
-      return `${p.propertyType || 'Propiedad'} en ${loc} desde ${price} | SA Inmobiliaria`.slice(0, 60)
+      return `${p.propertyType || 'Propiedad'} en ${loc} desde ${price} | M&M Real Estate`.slice(0, 60)
     case 'meta_description':
       return `${name}: ${p.propertyType || 'vivienda'} ${statusText(p.status)} en ${loc}. ${fx
         .slice(0, 3)
@@ -126,7 +126,7 @@ function fallback(kind: ContentKind, p: any): string {
         `Asunto: ${name} — tu próxima ${p.propertyType ? p.propertyType.toLowerCase() : 'vivienda'} en ${loc}\n\n` +
         `Hola,\n\nQuería presentarte ${name}, ${statusText(p.status)} en ${loc}. ` +
         `Cuenta con ${beds}${area ? `, ${area}` : ''} y ${fxText}, con un precio desde ${price}.${yieldTxt}\n\n` +
-        `Si quieres, te envío el dossier completo con planos y plan de pagos, o agendamos una visita cuando te venga bien.\n\nUn saludo,\nEquipo de SA Inmobiliaria`
+        `Si quieres, te envío el dossier completo con planos y plan de pagos, o agendamos una visita cuando te venga bien.\n\nUn saludo,\nEquipo de M&M Real Estate`
       )
   }
 }

@@ -56,7 +56,7 @@ const meta = computed(() => resources.value?.[resource.value])
 if (!meta.value) {
   throw createError({ statusCode: 404, statusMessage: 'Unknown resource', fatal: true })
 }
-useHead({ title: computed(() => `${meta.value?.label || 'Admin'} — SA Inmobiliaria`) })
+useHead({ title: computed(() => `${meta.value?.label || 'Admin'} — M&M Real Estate`) })
 
 const { data, refresh } = await useFetch<any>(() => `/api/admin/${resource.value}`, {
   query: computed(() => ({ page: page.value, q: q.value })),

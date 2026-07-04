@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Sign in — SA Inmobiliaria' })
+useHead({ title: 'Sign in — M&M Real Estate' })
 const { login, user } = useAuth()
 const router = useRouter()
 const email = ref('')

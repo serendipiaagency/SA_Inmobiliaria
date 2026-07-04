@@ -151,7 +151,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin' })
-useHead({ title: 'Dashboard — SA Inmobiliaria' })
+useHead({ title: 'Dashboard — M&M Real Estate' })
 const dt = useDash()
 
 const { data, pending } = await useFetch<any>('/api/admin/saas/overview')

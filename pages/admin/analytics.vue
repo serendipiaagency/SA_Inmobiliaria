@@ -52,7 +52,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin' })
-useHead({ title: 'Analytics — SA Inmobiliaria' })
+useHead({ title: 'Analytics — M&M Real Estate' })
 const dt = useDash()
 
 const ranges = [7, 30, 90]
