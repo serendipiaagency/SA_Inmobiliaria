@@ -2,7 +2,13 @@
   <div v-if="meta">
     <div class="mb-6 flex items-center justify-between">
       <h1 class="text-2xl font-bold">{{ isNew ? `New — ${meta.label}` : `Edit — ${meta.label} #${id}` }}</h1>
-      <NuxtLink :to="`/admin/${resource}`" class="btn-secondary">← Back</NuxtLink>
+      <div class="flex items-center gap-3">
+        <NuxtLink v-if="resource === 'developer-properties' && !isNew" :to="`/admin/ai?id=${id}`" class="btn-primary">
+          <span class="mr-1.5 rounded-full bg-white/20 px-1.5 py-0.5 text-[9px] font-bold">IA</span>
+          Generar contenido
+        </NuxtLink>
+        <NuxtLink :to="`/admin/${resource}`" class="btn-secondary">← Back</NuxtLink>
+      </div>
     </div>
 
     <!-- Readonly detail view -->
