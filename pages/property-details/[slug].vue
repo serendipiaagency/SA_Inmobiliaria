@@ -161,6 +161,15 @@
             </div>
           </section>
 
+          <!-- Sol y orientación -->
+          <section id="orientacion">
+            <p class="eyebrow">Luz natural</p>
+            <h2 class="heading-serif mt-3 text-3xl">Sol y orientación</h2>
+            <div class="mt-6 rounded-2xl border border-line bg-white p-6 sm:p-8">
+              <SunOrientation :orientation="data.project.orientation" :lat="data.project.lat" :lng="data.project.lng" />
+            </div>
+          </section>
+
           <!-- Decoración / Home Staging IA -->
           <section>
             <div class="flex items-center gap-2"><span class="rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">IA</span><p class="eyebrow !text-stone-450">Imagina tu hogar</p></div>
@@ -280,6 +289,7 @@ const sections = computed(() => {
     { id: 'precio', label: 'Precio' },
     { id: 'servicios', label: 'Servicios' },
     { id: 'ubicacion', label: 'Ubicación' },
+    { id: 'orientacion', label: 'Sol' },
     { id: 'hipoteca', label: 'Hipoteca' },
     { id: 'historia', label: 'Historia' },
   )
