@@ -32,7 +32,16 @@
       <div class="lg:col-span-2 space-y-4">
         <div v-for="k in kinds" :key="k.key" v-show="results[k.key]" class="rounded-2xl border border-line bg-white">
           <div class="flex items-center justify-between border-b border-line px-5 py-3">
-            <p class="text-[11px] font-semibold uppercase tracking-widest text-stone-500">{{ k.label }}</p>
+            <div class="flex items-center gap-2">
+              <p class="text-[11px] font-semibold uppercase tracking-widest text-stone-500">{{ k.label }}</p>
+              <span
+                v-if="engines[k.key]"
+                class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                :class="engines[k.key] === 'ai' ? 'bg-ink text-white' : 'bg-paper text-stone-500 ring-1 ring-line'"
+              >
+                {{ engines[k.key] === 'ai' ? 'Claude' : 'Reglas' }}
+              </span>
+            </div>
             <button class="text-[12px] font-semibold uppercase tracking-widest text-stone-500 hover:text-ink" @click="copy(k.key)">{{ copied === k.key ? '¡Copiado!' : 'Copiar' }}</button>
           </div>
           <pre class="whitespace-pre-wrap px-5 py-4 font-sans text-[14px] leading-relaxed text-stone-700">{{ results[k.key] }}</pre>
@@ -49,10 +58,19 @@
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'AI Studio — M&M Real Estate' })
 
+const route = useRoute()
 const { data } = await useFetch<any>('/api/public/properties', { query: { perPage: 48 } })
 const rows = computed(() => data.value?.rows || [])
 const selectedId = ref<number | null>(null)
-watch(rows, (r) => { if (r.length && !selectedId.value) selectedId.value = r[0].id }, { immediate: true })
+watch(
+  rows,
+  (r) => {
+    if (!r.length || selectedId.value) return
+    const fromQuery = Number(route.query.id)
+    selectedId.value = fromQuery && r.some((p: any) => p.id === fromQuery) ? fromQuery : r[0].id
+  },
+  { immediate: true },
+)
 
 const kinds = [
   { key: 'title', label: 'Título' },
@@ -68,18 +86,23 @@ const kinds = [
 ]
 
 const results = reactive<Record<string, string>>({})
+const engines = reactive<Record<string, 'ai' | 'rules'>>({})
 const active = ref('')
 const loading = ref(false)
 const copied = ref('')
 const engine = ref('')
 
-watch(selectedId, () => { Object.keys(results).forEach((k) => delete results[k]) })
+watch(selectedId, () => {
+  Object.keys(results).forEach((k) => delete results[k])
+  Object.keys(engines).forEach((k) => delete engines[k])
+})
 
 async function gen(kind: string) {
   if (!selectedId.value) return
   active.value = kind
   const res = await $fetch<any>('/api/admin/ai/generate', { method: 'POST', body: { id: selectedId.value, kind } })
   results[kind] = res.text
+  engines[kind] = res.engine
   engine.value = res.engine
 }
 async function genAll() {
