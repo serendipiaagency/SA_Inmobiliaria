@@ -2,7 +2,7 @@
   <Transition name="stickybar">
     <div
       v-if="visible"
-      class="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 backdrop-blur lg:hidden"
+      class="no-print fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 backdrop-blur lg:hidden"
       style="padding-bottom: env(safe-area-inset-bottom)"
     >
       <div class="mx-auto flex max-w-screen-2xl items-center justify-between gap-4 px-5 py-3">

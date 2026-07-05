@@ -167,6 +167,10 @@ export const developerProperties = sqliteTable('developer_properties', {
   // from genuine activity; never a fabricated "N viewing now" figure.
   viewCount: integer('view_count').notNull().default(0),
   favoriteCount: integer('favorite_count').notNull().default(0),
+  // Real annual service charge (added 0018) — null until a real figure is
+  // entered for that building; the decision panel shows "Consultar" rather
+  // than guessing a number when it's missing.
+  serviceChargeAnnual: real('service_charge_annual'),
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })
@@ -179,6 +183,20 @@ export const priceHistory = sqliteTable('price_history', {
   price: real('price').notNull(),
   recordedAt: text('recorded_at').notNull(),
 })
+
+// Per-view timestamp log (added 0018) — enables real time-windowed counts
+// ("vistas esta semana") rather than only an all-time total.
+export const propertyViews = sqliteTable(
+  'property_views',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    developerPropertyId: integer('developer_property_id')
+      .notNull()
+      .references(() => developerProperties.id, { onDelete: 'cascade' }),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [index('property_views_property_created').on(t.developerPropertyId, t.createdAt)],
+)
 
 export const images = sqliteTable('images', {
   id: integer('id').primaryKey({ autoIncrement: true }),

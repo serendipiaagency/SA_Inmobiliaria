@@ -1,7 +1,7 @@
 <template>
   <div class="flex min-h-screen flex-col bg-paper text-ink">
     <header
-      class="z-40 transition-colors duration-300"
+      class="no-print z-40 transition-colors duration-300"
       :class="[
         overlayNav ? 'fixed inset-x-0 top-0' : 'sticky top-0 border-b border-line bg-white/95 backdrop-blur',
         overlayNav && !navLight ? 'border-b border-line bg-white/95 backdrop-blur' : '',
@@ -92,7 +92,7 @@
     <CompareBar />
     <ScrollTop />
 
-    <footer class="border-t border-line bg-white">
+    <footer class="no-print border-t border-line bg-white">
       <div class="mx-auto max-w-screen-2xl px-6 py-16 lg:px-10">
         <div class="grid gap-12 md:grid-cols-12">
           <div class="md:col-span-5">
