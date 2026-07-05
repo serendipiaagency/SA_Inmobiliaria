@@ -310,3 +310,38 @@ export async function analyzeInvestment(event: H3Event, p: any, market: MarketSt
   if (ai) return { text: ai, engine: 'ai' }
   return { text: fallbackAnalysis(p, market), engine: 'rules' }
 }
+
+// --- similar properties -----------------------------------------------------
+
+export interface SimilarityFacts {
+  sameCommunity: boolean
+  priceDiffPct: number | null // positive = the alternative is pricier
+  bedroomDiff: number | null
+  areaDiffPct: number | null
+}
+
+function fallbackSimilarity(f: SimilarityFacts): string {
+  const parts: string[] = []
+  if (f.sameCommunity) parts.push('misma zona')
+  if (f.bedroomDiff === 0) parts.push('mismas habitaciones')
+  else if (f.bedroomDiff != null) parts.push(`${Math.abs(f.bedroomDiff)} hab. ${f.bedroomDiff > 0 ? 'más' : 'menos'}`)
+  if (f.priceDiffPct != null) {
+    parts.push(Math.abs(f.priceDiffPct) < 5 ? 'precio muy similar' : `${Math.abs(Math.round(f.priceDiffPct))}% ${f.priceDiffPct > 0 ? 'más cara' : 'más económica'}`)
+  }
+  return parts.length ? parts.join(' · ') : 'Atributos comparables.'
+}
+
+export async function explainSimilarity(event: H3Event, base: any, candidate: any, facts: SimilarityFacts): Promise<{ text: string; engine: 'ai' | 'rules' }> {
+  const system =
+    'Eres un asesor inmobiliario en español. En una sola frase muy breve (máximo 12 palabras) explica por qué esta alternativa es similar a la propiedad original, basándote solo en los hechos dados. No inventes ningún dato que no se te haya proporcionado.'
+  const user = [
+    `Propiedad original: ${base.name}`,
+    `Alternativa: ${candidate.name}`,
+    `Misma comunidad: ${facts.sameCommunity ? 'sí' : 'no'}`,
+    `Diferencia de precio: ${facts.priceDiffPct != null ? Math.round(facts.priceDiffPct) + '%' : 'sin datos'}`,
+    `Diferencia de habitaciones: ${facts.bedroomDiff ?? 'sin datos'}`,
+  ].join('\n')
+  const ai = await callClaude(event, system, user)
+  if (ai) return { text: ai, engine: 'ai' }
+  return { text: fallbackSimilarity(facts), engine: 'rules' }
+}

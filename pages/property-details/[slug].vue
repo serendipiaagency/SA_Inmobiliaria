@@ -246,6 +246,13 @@
         </aside>
       </div>
     </div>
+
+    <!-- Propiedades similares -->
+    <div id="similares" class="hairline mx-auto max-w-screen-2xl px-6 py-14 pt-14 lg:px-10">
+      <p class="eyebrow">Alternativas</p>
+      <h2 class="heading-serif mt-3 text-3xl">Propiedades similares</h2>
+      <div class="mt-8"><SimilarProperties :slug="String(route.params.slug)" /></div>
+    </div>
   </div>
 </template>
 
@@ -297,6 +304,7 @@ const sections = computed(() => {
     { id: 'orientacion', label: 'Sol' },
     { id: 'hipoteca', label: 'Hipoteca' },
     { id: 'historia', label: 'Historia' },
+    { id: 'similares', label: 'Similares' },
   )
   return s
 })
