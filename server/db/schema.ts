@@ -166,6 +166,15 @@ export const developerProperties = sqliteTable('developer_properties', {
   updatedAt: text('updated_at').notNull().default(''),
 })
 
+export const priceHistory = sqliteTable('price_history', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  developerPropertyId: integer('developer_property_id')
+    .notNull()
+    .references(() => developerProperties.id, { onDelete: 'cascade' }),
+  price: real('price').notNull(),
+  recordedAt: text('recorded_at').notNull(),
+})
+
 export const images = sqliteTable('images', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   developerPropertyId: integer('developer_property_id')

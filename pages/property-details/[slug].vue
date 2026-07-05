@@ -99,6 +99,13 @@
             </div>
           </section>
 
+          <!-- Evolución de precio -->
+          <section id="precio">
+            <p class="eyebrow">Histórico</p>
+            <h2 class="heading-serif mt-3 text-3xl">Evolución de precio</h2>
+            <div class="mt-6"><PriceChart :slug="String(route.params.slug)" /></div>
+          </section>
+
           <!-- Ask AI -->
           <section>
             <AskAI :slug="String(route.params.slug)" />
@@ -280,6 +287,7 @@ const sections = computed(() => {
   s.push(
     { id: 'resumen', label: 'Resumen IA' },
     { id: 'analisis', label: 'Análisis' },
+    { id: 'precio', label: 'Precio' },
     { id: 'servicios', label: 'Servicios' },
     { id: 'ubicacion', label: 'Ubicación' },
     { id: 'hipoteca', label: 'Hipoteca' },
