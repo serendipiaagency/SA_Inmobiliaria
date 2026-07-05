@@ -69,10 +69,13 @@
     @apply inline-flex items-center justify-center border border-line bg-white px-5 py-2.5 text-xs font-medium uppercase tracking-widest text-stone-600 transition-all duration-200 ease-out hover:border-ink hover:text-ink active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100;
   }
   .input {
-    @apply w-full border border-line bg-white px-4 py-3 text-sm text-ink placeholder:text-stone-400 transition-colors duration-150 focus:border-ink focus:outline-none focus:ring-0;
+    @apply w-full border border-line bg-white px-4 py-3 text-sm text-ink placeholder:text-stone-400 transition-colors duration-150 focus:border-ink disabled:cursor-not-allowed disabled:border-line disabled:bg-paper disabled:text-stone-400;
   }
   .label {
     @apply mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-stone-500;
+  }
+  .input[aria-invalid='true'] {
+    @apply border-red-400 focus:border-red-500;
   }
   .card {
     @apply overflow-hidden border border-line bg-white;

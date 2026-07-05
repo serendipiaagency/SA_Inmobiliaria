@@ -136,7 +136,10 @@ const { format: money } = useCurrency()
   appearance: none;
   border-radius: 9999px;
   background: #e7e4de;
-  outline: none;
+}
+.range:focus-visible {
+  outline: 2px solid #16150f;
+  outline-offset: 4px;
 }
 .range::-webkit-slider-thumb {
   appearance: none;

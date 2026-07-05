@@ -5,7 +5,7 @@
         <h1 class="text-2xl font-semibold tracking-tight">Facturación</h1>
         <p class="mt-1 text-sm text-stone-500">Facturas, cobros y pagos pendientes</p>
       </div>
-      <button class="dash-btn-primary">+ Nueva factura</button>
+      <button class="dash-btn-primary" @click="toast.info('La creación manual de facturas estará disponible próximamente')">+ Nueva factura</button>
     </div>
 
     <div v-if="data" class="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -55,6 +55,7 @@
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Facturación — M&M Real Estate' })
 const dt = useDash()
+const toast = useToast()
 
 const status = ref('all')
 const { data } = await useFetch<any>('/api/admin/saas/invoices', { query: { status } })
@@ -73,6 +74,6 @@ function isOverdue(inv: any) {
 
 <style scoped>
 .dash-btn-primary {
-  @apply inline-flex items-center rounded-lg bg-ink px-3.5 py-2 text-[13px] font-medium text-white transition hover:bg-black;
+  @apply inline-flex items-center rounded-lg bg-ink px-3.5 py-2 text-[13px] font-medium text-white transition hover:bg-black active:scale-[0.97];
 }
 </style>

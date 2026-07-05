@@ -259,8 +259,11 @@ function clearAll() {
   background: #fff;
 }
 .sort-select:focus {
-  outline: none;
   border-color: #16150f;
+}
+.sort-select:focus-visible {
+  outline: 2px solid #16150f;
+  outline-offset: 2px;
 }
 .quick-chip {
   flex-shrink: 0;

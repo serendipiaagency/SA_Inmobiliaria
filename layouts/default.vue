@@ -104,26 +104,26 @@
           <div class="md:col-span-2">
             <p class="eyebrow mb-5">{{ t('footer.explore') }}</p>
             <ul class="space-y-3 text-sm text-stone-600">
-              <li><NuxtLink class="hover:text-ink" to="/properties">{{ t('footer.offplan') }}</NuxtLink></li>
-              <li><NuxtLink class="hover:text-ink" to="/project-community">{{ t('footer.communities') }}</NuxtLink></li>
-              <li><NuxtLink class="hover:text-ink" to="/developer-list">{{ t('footer.developers') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/properties">{{ t('footer.offplan') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/project-community">{{ t('footer.communities') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/developer-list">{{ t('footer.developers') }}</NuxtLink></li>
             </ul>
           </div>
           <div class="md:col-span-2">
             <p class="eyebrow mb-5">{{ t('footer.company') }}</p>
             <ul class="space-y-3 text-sm text-stone-600">
-              <li><NuxtLink class="hover:text-ink" to="/about-us">{{ t('footer.about') }}</NuxtLink></li>
-              <li><NuxtLink class="hover:text-ink" to="/leadership">{{ t('footer.team') }}</NuxtLink></li>
-              <li><NuxtLink class="hover:text-ink" to="/blog">{{ t('footer.journal') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/about-us">{{ t('footer.about') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/leadership">{{ t('footer.team') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/blog">{{ t('footer.journal') }}</NuxtLink></li>
             </ul>
           </div>
           <div class="md:col-span-3">
             <p class="eyebrow mb-5">{{ t('footer.services') }}</p>
             <ul class="space-y-3 text-sm text-stone-600">
-              <li><NuxtLink class="hover:text-ink" to="/visitor">{{ t('footer.visitor') }}</NuxtLink></li>
-              <li><NuxtLink class="hover:text-ink" to="/vendors/registration">{{ t('footer.vendor') }}</NuxtLink></li>
-              <li><NuxtLink class="hover:text-ink" to="/complain">{{ t('footer.complaints') }}</NuxtLink></li>
-              <li><NuxtLink class="hover:text-ink" to="/contact-us">{{ t('footer.contactus') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/visitor">{{ t('footer.visitor') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/vendors/registration">{{ t('footer.vendor') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/complain">{{ t('footer.complaints') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/contact-us">{{ t('footer.contactus') }}</NuxtLink></li>
             </ul>
           </div>
         </div>

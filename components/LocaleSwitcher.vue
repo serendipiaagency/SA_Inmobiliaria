@@ -20,7 +20,7 @@
             v-for="l in locales"
             :key="l.code"
             type="button"
-            class="flex w-full items-center gap-2.5 px-3 py-2 text-sm transition hover:bg-stone-50"
+            class="flex w-full items-center gap-2.5 px-3 py-2 text-sm transition hover:bg-stone-50 active:bg-stone-100"
             :class="l.code === locale ? 'font-semibold text-ink' : 'text-stone-600'"
             @click="pickLang(l.code)"
           >
@@ -52,7 +52,7 @@
             v-for="c in currencies"
             :key="c.code"
             type="button"
-            class="flex w-full items-center gap-2.5 px-3 py-2 text-sm transition hover:bg-stone-50"
+            class="flex w-full items-center gap-2.5 px-3 py-2 text-sm transition hover:bg-stone-50 active:bg-stone-100"
             :class="c.code === code ? 'font-semibold text-ink' : 'text-stone-600'"
             @click="pickCur(c.code)"
           >

@@ -17,9 +17,9 @@
     <div class="mb-4 flex flex-wrap items-center gap-2">
       <div class="relative">
         <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></svg>
-        <input v-model="search" type="search" placeholder="Buscar por nombre, email o propiedad…" class="w-64 rounded-lg border border-line bg-white py-2 pl-9 pr-3 text-sm focus:border-ink focus:outline-none" />
+        <input v-model="search" type="search" placeholder="Buscar por nombre, email o propiedad…" class="w-64 rounded-lg border border-line bg-white py-2 pl-9 pr-3 text-sm focus:border-ink" />
       </div>
-      <select v-model="source" class="rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink focus:outline-none">
+      <select v-model="source" class="rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink">
         <option value="all">Todos los orígenes</option>
         <option v-for="s in sources" :key="s" :value="s">{{ s }}</option>
       </select>

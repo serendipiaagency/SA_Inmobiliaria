@@ -303,8 +303,11 @@ function apply() {
   background: #fff;
 }
 .fs:focus {
-  outline: none;
   border-color: #16150f;
+}
+.fs:focus-visible {
+  outline: 2px solid #16150f;
+  outline-offset: 2px;
 }
 .pill {
   border: 1px solid #e7e4de;

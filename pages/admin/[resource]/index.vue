@@ -29,7 +29,10 @@
             </td>
           </tr>
           <tr v-if="!data?.rows?.length">
-            <td :colspan="meta.listFields.length + 1" class="px-4 py-10 text-center text-slate-400">No records.</td>
+            <td :colspan="meta.listFields.length + 1" class="px-4 py-14 text-center">
+              <p class="text-sm font-medium text-slate-500">Sin resultados en {{ meta.label }}</p>
+              <p class="mt-1 text-xs text-slate-400">{{ q ? 'Prueba con otro término de búsqueda.' : 'Todavía no hay registros aquí.' }}</p>
+            </td>
           </tr>
         </tbody>
       </table>

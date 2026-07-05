@@ -67,6 +67,9 @@ async function ask(q: string) {
   border-color: #16150f;
   color: #16150f;
 }
+.chip:active {
+  transform: scale(0.95);
+}
 .dot {
   display: inline-block;
   height: 0.5rem;

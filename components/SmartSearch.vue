@@ -10,7 +10,7 @@
       <input
         ref="input"
         :value="modelValue"
-        class="w-full bg-transparent py-3 text-[15px] text-ink placeholder:text-stone-400 focus:outline-none"
+        class="w-full bg-transparent py-3 text-[15px] text-ink placeholder:text-stone-400"
         :placeholder="placeholder"
         autocomplete="off"
         @input="onInput"
