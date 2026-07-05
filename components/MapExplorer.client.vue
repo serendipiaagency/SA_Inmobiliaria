@@ -77,24 +77,43 @@ function makeIcon(p: any, active = false) {
   })
 }
 
+let poiFetchTimer: any = null
+let poiFetchSeq = 0
+
+// Real amenities near the current viewport, fetched live from OpenStreetMap
+// (Overpass API) — never a fabricated position or walking time. Debounced
+// so panning/zooming doesn't hammer the API.
 function renderPois() {
+  clearTimeout(poiFetchTimer)
+  poiFetchTimer = setTimeout(fetchAndRenderPois, 350)
+}
+
+async function fetchAndRenderPois() {
   if (!map) return
+  const active = poiTypes.filter((t) => poiOn[t.key])
+  if (!active.length) {
+    poiGroup.clearLayers()
+    return
+  }
+  const b = map.getBounds()
+  const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].join(',')
+  const seq = ++poiFetchSeq
+  let pois: any[] = []
+  try {
+    const res: any = await $fetch('/api/public/pois', { query: { bbox, types: active.map((t) => t.key).join(',') } })
+    pois = res.pois || []
+  } catch {
+    pois = []
+  }
+  if (seq !== poiFetchSeq) return // a newer request already superseded this one
   poiGroup.clearLayers()
-  const pts = props.items.filter((i) => i.lat && i.lng)
-  if (!pts.length) return
-  const c = pts[0]
-  for (const t of poiTypes) {
-    if (!poiOn[t.key]) continue
-    for (let k = 0; k < 3; k++) {
-      const seed = (c.id * 7 + k * 13 + t.key.length) % 20
-      const lat = c.lat + (seed - 10) * 0.0016 + (t.key.length % 3) * 0.001
-      const lng = c.lng + (k - 1) * 0.0021 + (seed - 10) * 0.0012
-      const walk = 4 + ((seed + k) % 12)
-      const m = L.marker([lat, lng], {
-        icon: L.divIcon({ className: '', html: `<span class="poi-dot" style="background:${t.color}"></span>`, iconSize: [14, 14], iconAnchor: [7, 7] }),
-      }).bindPopup(`<b>${t.label}</b><br>🚶 ${walk} min · 🚗 ${Math.max(2, Math.round(walk / 3))} min`)
-      poiGroup.addLayer(m)
-    }
+  for (const poi of pois) {
+    const t = poiTypes.find((pt) => pt.key === poi.type)
+    if (!t) continue
+    const m = L.marker([poi.lat, poi.lng], {
+      icon: L.divIcon({ className: '', html: `<span class="poi-dot" style="background:${t.color}"></span>`, iconSize: [14, 14], iconAnchor: [7, 7] }),
+    }).bindPopup(`<b>${poi.name}</b><br><span style="color:#78716c">${t.label}</span>`)
+    poiGroup.addLayer(m)
   }
 }
 
@@ -106,19 +125,26 @@ onMounted(async () => {
   baseLayers = { plano: tile('plano'), satelite: tile('satelite'), oscuro: tile('oscuro') }
   baseLayers.plano.addTo(map)
   poiGroup = L.layerGroup().addTo(map)
+  map.on('moveend', renderPois)
 
   cluster = (L as any).markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 48 })
   const bounds: any[] = []
   for (const p of pts) {
     const m = L.marker([p.lat, p.lng], { icon: makeIcon(p) })
     const sv = `https://www.google.com/maps?q=&layer=c&cbll=${p.lat},${p.lng}`
+    const href = `/property-details/${p.slug || p.id}`
+    const cover = p.coverImage ? mediaUrl(p.coverImage) : null
     m.bindPopup(
-      `<div style="width:190px"><a href="/property-details/${p.slug || p.id}" style="font-weight:600;color:#16150f">${p.name}</a>` +
-        `<div style="color:#78716c;font-size:12px">${p.community || ''}</div>` +
-        `<div style="font-weight:600;margin-top:4px">AED ${new Intl.NumberFormat('en-US').format(p.price || 0)}</div>` +
-        `<div style="margin-top:6px;display:flex;gap:8px;font-size:12px">` +
-        `<a href="/property-details/${p.slug || p.id}" style="color:#16150f;text-decoration:underline">Ver ficha</a>` +
-        `<a href="${sv}" target="_blank" rel="noopener" style="color:#2563eb">Street View</a></div></div>`,
+      `<div class="map-card">` +
+        (cover ? `<a href="${href}"><img src="${cover}" class="map-card-img" /></a>` : '') +
+        `<div class="map-card-body">` +
+        `<a href="${href}" class="map-card-name">${p.name}</a>` +
+        `<p class="map-card-loc">${p.community || ''}</p>` +
+        `<p class="map-card-price">AED ${new Intl.NumberFormat('en-US').format(p.price || 0)}</p>` +
+        `<div class="map-card-links">` +
+        `<a href="${href}">Ver ficha</a>` +
+        `<a href="${sv}" target="_blank" rel="noopener">Street View</a></div></div></div>`,
+      { className: 'map-popup', maxWidth: 220 },
     )
     m.on('click', () => emit('marker-click', p.id))
     m.on('mouseover', () => emit('marker-hover', p.id))
@@ -203,5 +229,65 @@ onBeforeUnmount(() => {
 }
 .leaflet-container {
   font-family: 'Inter', sans-serif;
+}
+
+.map-popup .leaflet-popup-content-wrapper {
+  padding: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.35);
+}
+.map-popup .leaflet-popup-content {
+  margin: 0;
+  width: 200px !important;
+}
+.map-popup .leaflet-popup-tip {
+  background: #fff;
+}
+.map-card-img {
+  display: block;
+  height: 96px;
+  width: 100%;
+  object-fit: cover;
+}
+.map-card-body {
+  padding: 12px 14px 14px;
+}
+.map-popup .map-card-name {
+  display: block;
+  font-family: 'Playfair Display', serif;
+  font-size: 15px;
+  font-weight: 500;
+  color: #16150f;
+}
+.map-popup .map-card-name:hover {
+  text-decoration: underline;
+}
+.map-card-loc {
+  margin-top: 1px;
+  font-size: 12px;
+  color: #78716c;
+}
+.map-card-price {
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #16150f;
+}
+.map-card-links {
+  margin-top: 8px;
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.map-card-links a:first-child {
+  color: #16150f;
+  text-decoration: underline;
+}
+.map-card-links a:last-child {
+  color: #2563eb;
 }
 </style>
