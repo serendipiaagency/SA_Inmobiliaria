@@ -85,6 +85,20 @@
             </div>
           </section>
 
+          <!-- Análisis de inversión IA -->
+          <section id="analisis">
+            <p class="eyebrow">Para inversores</p>
+            <h2 class="heading-serif mt-3 text-3xl">Análisis de inversión</h2>
+            <div class="mt-6">
+              <AIAnalysis
+                :slug="String(route.params.slug)"
+                :price="data.project.price"
+                :area="data.project.area"
+                :rental-yield="data.project.rentalYield"
+              />
+            </div>
+          </section>
+
           <!-- Ask AI -->
           <section>
             <AskAI :slug="String(route.params.slug)" />
@@ -264,6 +278,7 @@ const sections = computed(() => {
   if (hasQuickFacts.value) s.push({ id: 'datos', label: 'Datos clave' })
   s.push(
     { id: 'resumen', label: 'Resumen IA' },
+    { id: 'analisis', label: 'Análisis' },
     { id: 'servicios', label: 'Servicios' },
     { id: 'ubicacion', label: 'Ubicación' },
     { id: 'hipoteca', label: 'Hipoteca' },
