@@ -162,6 +162,11 @@ export const developerProperties = sqliteTable('developer_properties', {
   beforePhoto: text('before_photo'),
   afterPhoto: text('after_photo'),
   aiStagedPhoto: text('ai_staged_photo'),
+  // Cumulative engagement counters (added 0017) — real, server-incremented
+  // counts of page views and favorite actions. Start at 0 and only grow
+  // from genuine activity; never a fabricated "N viewing now" figure.
+  viewCount: integer('view_count').notNull().default(0),
+  favoriteCount: integer('favorite_count').notNull().default(0),
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })
