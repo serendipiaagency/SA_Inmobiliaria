@@ -190,7 +190,7 @@
           <section id="hipoteca">
             <p class="eyebrow">Financiación</p>
             <h2 class="heading-serif mt-3 text-3xl">Hipoteca y costes</h2>
-            <div class="mt-6"><MortgageCalculator :price="data.project.price || 0" :rental-yield="data.project.rentalYield" /></div>
+            <div class="mt-6"><MortgageCalculator :price="data.project.price || 0" :rental-yield="data.project.rentalYield" :status="data.project.status" /></div>
           </section>
 
           <!-- Historia / timeline -->

@@ -38,10 +38,10 @@
     <!-- Costs + rentability -->
     <div class="space-y-8">
       <div>
-        <h3 class="filter-title">Costes de compra estimados</h3>
+        <h3 class="filter-title">Costes de compra en Dubái (estimados)</h3>
         <ul class="divide-y divide-line border-y border-line">
           <li v-for="c in costs" :key="c.label" class="flex items-center justify-between py-3 text-sm">
-            <span class="text-stone-500">{{ c.label }}<span class="text-stone-400"> · {{ c.pct }}%</span></span>
+            <span class="text-stone-500">{{ c.label }}<span v-if="c.pct" class="text-stone-400"> · {{ c.pct }}%</span></span>
             <span class="font-medium">{{ money(c.value) }}</span>
           </li>
           <li class="flex items-center justify-between py-3 text-sm font-semibold">
@@ -49,6 +49,9 @@
             <span>{{ money(price + totalCosts) }}</span>
           </li>
         </ul>
+        <p class="mt-3 text-[12px] leading-relaxed text-stone-400">
+          A diferencia de España, en Dubái no existe un impuesto anual sobre la propiedad (equivalente al IBI) ni IVA sobre el precio de venta de vivienda residencial. Los gastos de comunidad (service charge) del edificio son un coste anual recurrente que varía según el edificio y no está incluido aquí.
+        </p>
       </div>
 
       <div v-if="rentalYield">
@@ -73,7 +76,8 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{ price: number; rentalYield?: number | null }>()
+const props = defineProps<{ price: number; rentalYield?: number | null; status?: string | null }>()
+const isOffPlan = computed(() => props.status === 'new' || props.status === 'under_construction')
 
 const downPct = ref(20)
 const rate = ref(4.5)
@@ -90,12 +94,23 @@ const monthly = computed(() => {
 })
 const totalInterest = computed(() => Math.max(0, monthly.value * years.value * 12 - loan.value))
 
+// Real Dubai Land Department cost structure — never Spanish tax terms (ITP,
+// notaría, IBI) on a Dubai-market site. Off-plan and ready-unit purchases go
+// through different registration processes (Oqood + trustee vs. DLD title
+// registration), so the breakdown branches on the property's real status.
 const costs = computed(() => {
-  const rows = [
-    { label: 'Impuesto de transmisión', pct: 4, value: Math.round(price.value * 0.04) },
-    { label: 'Notaría y registro', pct: 1.5, value: Math.round(price.value * 0.015) },
-    { label: 'Honorarios agencia', pct: 2, value: Math.round(price.value * 0.02) },
-  ]
+  const rows: { label: string; pct?: number; value: number }[] = [{ label: 'Tasa de transferencia (DLD)', pct: 4, value: Math.round(price.value * 0.04) }]
+  if (isOffPlan.value) {
+    rows.push({ label: 'Registro Oqood', value: 3000 })
+    rows.push({ label: 'Fideicomiso (trustee)', value: 4500 })
+  } else {
+    rows.push({ label: 'Registro DLD (título de propiedad)', value: 4200 })
+    rows.push({ label: 'Emisión del title deed', value: 580 })
+    rows.push({ label: 'Comisión de agencia (+ IVA 5%)', pct: 2.1, value: Math.round(price.value * 0.021) })
+  }
+  if (loan.value > 0) {
+    rows.push({ label: 'Registro de hipoteca', value: Math.round(loan.value * 0.0025) + 290 })
+  }
   return rows
 })
 const totalCosts = computed(() => costs.value.reduce((a, c) => a + c.value, 0))
