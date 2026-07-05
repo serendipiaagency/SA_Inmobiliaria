@@ -27,6 +27,9 @@
 
 <script setup lang="ts">
 const { items, clear, MAX } = useCompare()
+const { register } = useBottomBar()
+watchEffect(() => register('compare', items.value.length > 0))
+onBeforeUnmount(() => register('compare', false))
 </script>
 
 <style scoped>

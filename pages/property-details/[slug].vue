@@ -1,7 +1,7 @@
 <template>
   <div v-if="data" class="bg-paper">
     <!-- Gallery -->
-    <section id="fotos" class="mx-auto max-w-screen-2xl px-6 pt-6 lg:px-10">
+    <section id="fotos" ref="heroRef" class="mx-auto max-w-screen-2xl px-6 pt-6 lg:px-10">
       <MediaGallery
         :photos="photos"
         :name="data.project.name"
@@ -19,8 +19,15 @@
     <!-- Sticky section nav -->
     <nav class="sticky top-[73px] z-30 mt-6 border-y border-line bg-paper/95 backdrop-blur">
       <div class="mx-auto flex max-w-screen-2xl items-center gap-6 overflow-x-auto px-6 lg:px-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <a v-for="s in sections" :key="s.id" :href="`#${s.id}`" class="whitespace-nowrap py-4 text-[12px] font-semibold uppercase tracking-widest text-stone-500 transition hover:text-ink">
+        <a
+          v-for="s in sections"
+          :key="s.id"
+          :href="`#${s.id}`"
+          class="relative whitespace-nowrap py-4 text-[12px] font-semibold uppercase tracking-widest transition"
+          :class="activeSection === s.id ? 'text-ink' : 'text-stone-500 hover:text-ink'"
+        >
           {{ s.label }}
+          <span v-if="activeSection === s.id" class="absolute inset-x-0 -bottom-px h-[2px] bg-ink" />
         </a>
       </div>
     </nav>
@@ -215,7 +222,7 @@
         <!-- Sidebar -->
         <aside>
           <div class="space-y-6 lg:sticky lg:top-32">
-            <div class="rounded-2xl border border-line bg-white p-8">
+            <div id="contacto" ref="contactRef" class="rounded-2xl border border-line bg-white p-8">
               <p class="eyebrow">Desde</p>
               <p class="heading-serif mt-2 text-4xl">{{ formatPrice(data.project.price) }}</p>
               <p v-if="pricePerM2" class="mt-1 text-[13px] text-stone-400">{{ pricePerM2 }} / m²</p>
@@ -253,6 +260,8 @@
       <h2 class="heading-serif mt-3 text-3xl">Propiedades similares</h2>
       <div class="mt-8"><SimilarProperties :slug="String(route.params.slug)" /></div>
     </div>
+
+    <PropertyStickyBar :price="formatPrice(data.project.price)" :visible="showMobileBar" />
   </div>
 </template>
 
@@ -380,6 +389,46 @@ const paymentRows = computed<{ label: string; value: string }[]>(() => {
 
 const heart = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-9.3-9.2C1.2 8.7 2.7 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.3 0 4.8 3.2 3.3 6.3C19 16.5 12 21 12 21z"/></svg>'
 const scale = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M15 3v18M4 8h5M15 8h5M4 16h5M15 16h5"/></svg>'
+
+// Scroll-spy: resalta la sección activa en el nav sticky
+const activeSection = ref('fotos')
+let sectionObserver: IntersectionObserver | null = null
+
+// Barra CTA sticky en móvil: visible tras pasar el hero, hasta que aparece la tarjeta de contacto real
+const heroRef = ref<HTMLElement | null>(null)
+const contactRef = ref<HTMLElement | null>(null)
+const heroPassed = ref(false)
+const contactSeen = ref(false)
+let heroObserver: IntersectionObserver | null = null
+let contactObserver: IntersectionObserver | null = null
+const showMobileBar = computed(() => heroPassed.value && !contactSeen.value)
+
+onMounted(() => {
+  sectionObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((e) => { if (e.isIntersecting) activeSection.value = e.target.id })
+    },
+    { rootMargin: '-140px 0px -70% 0px', threshold: 0 },
+  )
+  sections.value.forEach((s) => {
+    const el = document.getElementById(s.id)
+    if (el) sectionObserver!.observe(el)
+  })
+
+  if (heroRef.value) {
+    heroObserver = new IntersectionObserver(([e]) => { heroPassed.value = !e.isIntersecting }, { threshold: 0 })
+    heroObserver.observe(heroRef.value)
+  }
+  if (contactRef.value) {
+    contactObserver = new IntersectionObserver(([e]) => { if (e.isIntersecting) contactSeen.value = true }, { threshold: 0 })
+    contactObserver.observe(contactRef.value)
+  }
+})
+onUnmounted(() => {
+  sectionObserver?.disconnect()
+  heroObserver?.disconnect()
+  contactObserver?.disconnect()
+})
 </script>
 
 <style scoped>
