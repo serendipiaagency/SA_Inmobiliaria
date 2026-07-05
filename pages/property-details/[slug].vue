@@ -190,13 +190,14 @@
           <section id="historia">
             <p class="eyebrow">Trayectoria</p>
             <h2 class="heading-serif mt-3 text-3xl">Historia del inmueble</h2>
-            <ol class="mt-6 space-y-6 border-l border-line pl-6">
-              <li v-for="(t, i) in timeline" :key="i" class="relative">
-                <span class="absolute -left-[31px] top-1 flex h-3 w-3 items-center justify-center rounded-full" :class="t.done ? 'bg-ink' : 'bg-white ring-2 ring-line'" />
-                <p class="text-sm font-semibold">{{ t.title }}</p>
-                <p class="text-[13px] text-stone-500">{{ t.detail }}</p>
-              </li>
-            </ol>
+            <div class="mt-10">
+              <PropertyTimeline
+                :published-at="data.project.publishedAt"
+                :status="data.project.status"
+                :construction-percentage="data.project.constructionPercentage"
+                :handover-date="data.project.handoverDate"
+              />
+            </div>
           </section>
         </div>
 
@@ -354,15 +355,6 @@ const staging = [
   { title: 'Decoración IA', desc: 'Reimagina los espacios en tu estilo', i: 1 },
   { title: 'Home Staging IA', desc: 'Amuebla virtualmente cada estancia', i: 2 },
 ]
-
-const timeline = computed(() => {
-  const t: { title: string; detail: string; done: boolean }[] = []
-  if (p.value.publishedAt) t.push({ title: 'Publicado en M&M Real Estate', detail: new Date(p.value.publishedAt.replace(' ', 'T') + 'Z').toLocaleDateString('es-ES'), done: true })
-  t.push({ title: 'Lanzamiento comercial', detail: 'Inicio de comercialización', done: true })
-  if (p.value.status !== 'new') t.push({ title: 'En construcción', detail: `Avance de obra ${p.value.constructionPercentage || ''}${p.value.constructionPercentage ? '%' : ''}`, done: p.value.status !== 'new' })
-  t.push({ title: 'Entrega de llaves', detail: p.value.handoverDate || 'Por confirmar', done: p.value.status === 'ready' })
-  return t
-})
 
 const paymentRows = computed<{ label: string; value: string }[]>(() => {
   try {
