@@ -78,14 +78,14 @@
       </div>
     </section>
 
-    <!-- 7 · Comunidades Autónomas -->
-    <section v-reveal class="border-y border-line bg-white py-16">
+    <!-- 7 · Por tipo de propiedad -->
+    <section v-if="propertyTypes.length" v-reveal class="border-y border-line bg-white py-16">
       <div class="mx-auto max-w-screen-2xl px-6 lg:px-10">
         <p class="eyebrow">{{ t('home.regions.eyebrow') }}</p>
         <h2 class="heading-serif mt-3 text-3xl md:text-4xl">{{ t('home.regions.title') }}</h2>
         <div class="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          <NuxtLink v-for="r in regions" :key="r" :to="{ path: '/properties', query: { q: r } }" class="flex items-center justify-between rounded-xl border border-line px-5 py-4 text-sm transition hover:border-ink hover:bg-paper">
-            <span class="font-medium">{{ r }}</span>
+          <NuxtLink v-for="pt in propertyTypes" :key="pt" :to="{ path: '/properties', query: { type: pt } }" class="flex items-center justify-between rounded-xl border border-line px-5 py-4 text-sm transition hover:border-ink hover:bg-paper">
+            <span class="font-medium">{{ pt }}</span>
             <span class="text-stone-400 transition group-hover:text-ink">→</span>
           </NuxtLink>
         </div>
@@ -128,21 +128,6 @@
         </NuxtLink>
       </div>
     </section>
-
-    <!-- 11 · Testimonios -->
-    <section v-reveal class="border-t border-line bg-white py-16">
-      <div class="mx-auto max-w-screen-2xl px-6 lg:px-10">
-        <p class="eyebrow">{{ t('home.testimonials.eyebrow') }}</p>
-        <h2 class="heading-serif mt-3 text-3xl md:text-4xl">{{ t('home.testimonials.title') }}</h2>
-        <div class="mt-8 grid gap-6 md:grid-cols-3">
-          <figure v-for="t in testimonials" :key="t.name" class="rounded-2xl border border-line p-8">
-            <div class="mb-4 text-amber-500">★★★★★</div>
-            <blockquote class="font-serif text-lg leading-relaxed text-ink">“{{ t.quote }}”</blockquote>
-            <figcaption class="mt-5 text-sm"><span class="font-semibold">{{ t.name }}</span><span class="text-stone-400"> · {{ t.role }}</span></figcaption>
-          </figure>
-        </div>
-      </div>
-    </section>
   </div>
 </template>
 
@@ -177,12 +162,7 @@ const pins = [
   { label: 'Palm', x: 44, y: 66 },
   { label: 'Creek', x: 72, y: 58 },
 ]
-const regions = ['Madrid', 'Cataluña', 'Andalucía', 'C. Valenciana', 'País Vasco', 'Baleares', 'Canarias', 'Galicia']
-const testimonials = [
-  { quote: 'Encontramos nuestra casa en una semana. El proceso fue impecable y muy transparente.', name: 'Laura M.', role: 'Compradora' },
-  { quote: 'La calculadora de hipoteca y los datos de rentabilidad me ayudaron a decidir con confianza.', name: 'Javier R.', role: 'Inversor' },
-  { quote: 'Atención de primer nivel y una selección de propiedades espectacular.', name: 'Sofía D.', role: 'Compradora' },
-]
+const propertyTypes = computed(() => [...new Set(projects.value.map((p) => p.propertyType).filter(Boolean))])
 
 useHead({ title: 'M&M Real Estate — Propiedades excepcionales' })
 </script>

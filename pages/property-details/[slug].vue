@@ -256,7 +256,42 @@
 const route = useRoute()
 const { data } = await useFetch(`/api/public/properties/${route.params.slug}`)
 if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Project not found', fatal: true })
-useHead({ title: `${data.value.project.name} — M&M Real Estate` })
+
+const seoTitle = `${data.value.project.name} — M&M Real Estate`
+const seoDescription = [
+  data.value.project.propertyType,
+  data.value.project.community ? `en ${data.value.project.community}` : null,
+  data.value.project.bedrooms != null ? `${data.value.project.bedrooms || 'Estudio'} hab.` : null,
+  data.value.project.area ? `${Math.round(data.value.project.area)} m²` : null,
+  data.value.project.price ? `desde AED ${new Intl.NumberFormat('en-US').format(data.value.project.price)}` : null,
+]
+  .filter(Boolean)
+  .join(' · ')
+const requestUrl = useRequestURL()
+const seoImage = data.value.project.coverImage ? `${requestUrl.origin}/api/media/${data.value.project.coverImage}` : `${requestUrl.origin}/placeholder.svg`
+const jsonLd = computed(() => ({
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: data.value!.project.name,
+  description: seoDescription,
+  image: seoImage,
+  offers: data.value!.project.price
+    ? { '@type': 'Offer', price: data.value!.project.price, priceCurrency: 'AED', availability: 'https://schema.org/InStock' }
+    : undefined,
+  address: data.value!.project.community ? { '@type': 'PostalAddress', addressLocality: data.value!.project.community, addressCountry: 'AE' } : undefined,
+}))
+useHead({
+  title: seoTitle,
+  meta: [
+    { name: 'description', content: seoDescription },
+    { property: 'og:title', content: seoTitle },
+    { property: 'og:description', content: seoDescription },
+    { property: 'og:image', content: seoImage },
+    { property: 'og:type', content: 'website' },
+    { name: 'twitter:card', content: 'summary_large_image' },
+  ],
+  script: [{ type: 'application/ld+json', innerHTML: JSON.stringify(jsonLd.value) }],
+})
 
 const { format: formatPrice } = useCurrency()
 const { isFavorite, toggle: toggleFav, load: loadFav } = useFavorites()

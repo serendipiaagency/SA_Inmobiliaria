@@ -50,13 +50,16 @@
 <script setup lang="ts">
 useHead({ title: 'Comparar — M&M Real Estate' })
 const { items, load, remove, clear } = useCompare()
-const { data } = await useFetch('/api/public/properties', { query: { perPage: 48 } })
-onMounted(load)
-
-const rows = computed(() => {
-  const byId: Record<number, any> = {}
-  for (const p of data.value?.rows || []) byId[p.id] = p
-  return items.value.map((i) => byId[i.id] || { id: i.id, name: i.name, coverImage: i.cover, slug: i.slug, price: i.price })
+const enriched = ref<Record<number, any>>({})
+const rows = computed(() => items.value.map((i) => enriched.value[i.id] || { id: i.id, name: i.name, coverImage: i.cover, slug: i.slug, price: i.price }))
+onMounted(async () => {
+  load()
+  if (items.value.length) {
+    const res = await $fetch<any>('/api/public/properties', { query: { ids: items.value.map((i) => i.id).join(',') } })
+    const byId: Record<number, any> = {}
+    for (const p of res.rows || []) byId[p.id] = p
+    enriched.value = byId
+  }
 })
 
 const { format: fmtCur } = useCurrency()
