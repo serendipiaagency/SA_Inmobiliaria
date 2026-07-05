@@ -319,6 +319,7 @@ export const teamMembers = sqliteTable('team_members', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   email: text('email').notNull().unique(),
+  phone: text('phone'),
   position: text('position').notNull(),
   description: text('description'),
   experience: text('experience'),
