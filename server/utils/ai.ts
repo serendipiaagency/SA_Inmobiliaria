@@ -1,4 +1,6 @@
 import type { H3Event } from 'h3'
+import type { MarketStats } from './market'
+export type { MarketStats }
 
 /**
  * AI content engine.
@@ -248,12 +250,6 @@ export async function answerQuestion(event: H3Event, question: string, p: any): 
 }
 
 // --- investment analysis -----------------------------------------------------
-
-export interface MarketStats {
-  comparableCount: number
-  avgPricePerM2: number | null
-  avgRentalYield: number | null
-}
 
 function fallbackAnalysis(p: any, m: MarketStats): string {
   const parts: string[] = []

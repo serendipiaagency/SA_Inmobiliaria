@@ -54,6 +54,11 @@
             </div>
           </header>
 
+          <!-- Serendipia Score -->
+          <section id="score">
+            <SerendipiaScore :slug="String(route.params.slug)" />
+          </section>
+
           <!-- Datos clave -->
           <section v-if="hasQuickFacts" id="datos">
             <p class="eyebrow">A simple vista</p>
@@ -281,7 +286,7 @@ const p = computed(() => data.value!.project)
 const statusLabel = computed(() => ({ new: 'Obra nueva', under_construction: 'En construcción', ready: 'Listo para entrar' }[p.value.status as string] || p.value.status))
 
 const sections = computed(() => {
-  const s = [{ id: 'fotos', label: 'Fotos' }]
+  const s = [{ id: 'fotos', label: 'Fotos' }, { id: 'score', label: 'Score' }]
   if (hasQuickFacts.value) s.push({ id: 'datos', label: 'Datos clave' })
   s.push(
     { id: 'resumen', label: 'Resumen IA' },
