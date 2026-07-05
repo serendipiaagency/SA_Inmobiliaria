@@ -1,24 +1,17 @@
 import { eq } from 'drizzle-orm'
 import { useDb, schema } from '../../../../utils/db'
-import { analyzeInvestment } from '../../../../utils/ai'
 import { getMarketStats } from '../../../../utils/market'
+import { computeSerendipiaScore } from '../../../../utils/score'
 
-/**
- * Investment analysis for a single property. Kept as its own lazy-loaded
- * endpoint (like /api/public/ask) so an optional LLM call never blocks the
- * main property page load.
- */
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug')
   if (!slug) throw createError({ statusCode: 400, statusMessage: 'Missing slug' })
 
   const db = useDb(event)
-  const P = schema.developerProperties
-  const rows = await db.select().from(P).where(eq(P.slug, slug)).limit(1)
+  const rows = await db.select().from(schema.developerProperties).where(eq(schema.developerProperties.slug, slug)).limit(1)
   const project = rows[0]
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
 
   const market = await getMarketStats(db, project)
-  const { text, engine } = await analyzeInvestment(event, project, market)
-  return { text, engine, market }
+  return computeSerendipiaScore(project, market)
 })
