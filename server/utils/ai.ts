@@ -246,3 +246,71 @@ export async function answerQuestion(event: H3Event, question: string, p: any): 
   if (ai) return { text: ai, engine: 'ai' }
   return { text: fallbackAnswer(question, p), engine: 'rules' }
 }
+
+// --- investment analysis -----------------------------------------------------
+
+export interface MarketStats {
+  comparableCount: number
+  avgPricePerM2: number | null
+  avgRentalYield: number | null
+}
+
+function fallbackAnalysis(p: any, m: MarketStats): string {
+  const parts: string[] = []
+  const pricePerM2 = p.price && p.area ? p.price / p.area : null
+  const comparablesText = m.comparableCount === 1 ? '1 propiedad comparable' : `${m.comparableCount} propiedades comparables`
+
+  if (pricePerM2 && m.avgPricePerM2 && m.comparableCount > 0) {
+    const diff = Math.round(((pricePerM2 - m.avgPricePerM2) / m.avgPricePerM2) * 100)
+    if (Math.abs(diff) < 5) {
+      parts.push(`El precio por m² está alineado con la media de ${comparablesText} en ${p.community || 'la zona'}.`)
+    } else if (diff < 0) {
+      parts.push(`El precio por m² es un ${Math.abs(diff)}% más bajo que la media de ${comparablesText} en ${p.community || 'la zona'}, lo que sugiere una oportunidad de entrada competitiva.`)
+    } else {
+      parts.push(`El precio por m² es un ${diff}% más alto que la media de ${comparablesText} en ${p.community || 'la zona'}; el diferencial suele justificarse por acabados, planta o vistas superiores.`)
+    }
+  } else {
+    parts.push(`No hay suficientes propiedades comparables en ${p.community || 'esta zona'} para contrastar el precio por m² con precisión.`)
+  }
+
+  if (p.rentalYield) {
+    if (m.avgRentalYield && m.comparableCount > 0) {
+      const diff = Math.round((p.rentalYield - m.avgRentalYield) * 10) / 10
+      parts.push(
+        diff > 0.2
+          ? `Su rentabilidad estimada (${p.rentalYield}%) supera en ${diff} puntos la media comparable (${m.avgRentalYield.toFixed(1)}%).`
+          : diff < -0.2
+            ? `Su rentabilidad estimada (${p.rentalYield}%) queda ${Math.abs(diff)} puntos por debajo de la media comparable (${m.avgRentalYield.toFixed(1)}%).`
+            : `Su rentabilidad estimada (${p.rentalYield}%) está en línea con la media comparable.`,
+      )
+    } else {
+      parts.push(`Rentabilidad bruta estimada del ${p.rentalYield}% anual.`)
+    }
+  }
+
+  if (p.priceOld && p.price && p.priceOld > p.price) {
+    parts.push(`El precio ya ha bajado desde ${money(p.priceOld)}, lo que puede indicar margen de negociación adicional.`)
+  }
+
+  parts.push(
+    p.status === 'ready'
+      ? 'Al estar lista para entrar a vivir, permite generar ingresos por alquiler de inmediato.'
+      : 'Al ser sobre plano, el capital se despliega de forma escalonada según el plan de pagos hasta la entrega.',
+  )
+
+  return parts.join(' ')
+}
+
+export async function analyzeInvestment(event: H3Event, p: any, market: MarketStats): Promise<{ text: string; engine: 'ai' | 'rules' }> {
+  const system =
+    'Eres un analista de inversión inmobiliaria en español. Escribes un análisis breve (3-5 frases), honesto y basado exclusivamente en los datos y estadísticas de mercado proporcionados. No inventes cifras que no se te den. Si un dato falta, dilo explícitamente en vez de suponerlo.'
+  const marketText = [
+    `Propiedades comparables en la misma zona: ${market.comparableCount}`,
+    `Precio medio por m² comparable: ${market.avgPricePerM2 ? money(Math.round(market.avgPricePerM2)) : 'sin datos suficientes'}`,
+    `Rentabilidad media comparable: ${market.avgRentalYield ? market.avgRentalYield.toFixed(1) + '%' : 'sin datos suficientes'}`,
+  ].join('\n')
+  const user = `Analiza esta propiedad como oportunidad de inversión.\n\nDatos de la propiedad:\n${propContext(p)}\n\nEstadísticas de mercado comparable:\n${marketText}`
+  const ai = await callClaude(event, system, user)
+  if (ai) return { text: ai, engine: 'ai' }
+  return { text: fallbackAnalysis(p, market), engine: 'rules' }
+}
