@@ -4,7 +4,8 @@
     <div class="flex items-center gap-4">
       <img :src="mediaUrl(photo)" :alt="name" class="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-line" loading="lazy" />
       <div class="min-w-0">
-        <p class="truncate font-serif text-lg font-medium leading-tight">{{ name }}</p>
+        <NuxtLink v-if="profileSlug" :to="`/leadership/${profileSlug}`" class="truncate font-serif text-lg font-medium leading-tight hover:underline">{{ name }}</NuxtLink>
+        <p v-else class="truncate font-serif text-lg font-medium leading-tight">{{ name }}</p>
         <p class="text-[13px] text-stone-500">{{ title }}</p>
         <div class="mt-1 flex items-center gap-1 text-[12px] text-stone-500">
           <svg class="h-3.5 w-3.5 text-amber-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.8L6 21l1.6-7L2.2 9.2l7.1-.6z" /></svg>
@@ -58,6 +59,7 @@ const props = withDefaults(
     responseTime?: string
     bio?: string
     propertyName?: string
+    profileSlug?: string
   }>(),
   {
     name: 'Perla Maria Melgarejo',
@@ -71,6 +73,7 @@ const props = withDefaults(
     responseTime: 'Responde en menos de 15 min',
     bio: 'Especialista en propiedades off-plan y de lujo en Dubái. Acompaño a compradores internacionales en cada paso, desde la selección hasta la entrega de llaves.',
     propertyName: '',
+    profileSlug: 'perla-maria-melgarejo',
   },
 )
 
