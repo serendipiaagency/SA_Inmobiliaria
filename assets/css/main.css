@@ -146,6 +146,15 @@
   }
 }
 
+/* "Descargar PDF" uses the browser's native print-to-PDF rather than a
+   fake button — this hides chrome/interactive-only UI so what prints is a
+   clean property dossier instead of the whole app shell. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
 /* Route transitions — short fade + lift, never a jarring cut */
 .page-enter-active,
 .page-leave-active {

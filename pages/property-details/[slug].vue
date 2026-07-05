@@ -17,7 +17,7 @@
     </section>
 
     <!-- Sticky section nav -->
-    <nav class="sticky top-[73px] z-30 mt-6 border-y border-line bg-paper/95 backdrop-blur">
+    <nav class="no-print sticky top-[73px] z-30 mt-6 border-y border-line bg-paper/95 backdrop-blur">
       <div class="mx-auto flex max-w-screen-2xl items-center gap-6 overflow-x-auto px-6 lg:px-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <a
           v-for="s in sections"
@@ -50,7 +50,7 @@
                   <span v-if="data.developer">{{ data.developer.name }}</span>
                 </p>
               </div>
-              <div class="flex gap-2">
+              <div class="no-print flex gap-2">
                 <button class="act2" :class="{ 'act2-on': fav }" @click="toggleFav(data.project.id)"><span v-html="heart" /></button>
                 <button class="act2" :class="{ 'act2-on': inCompare }" @click="doCompare"><span v-html="scale" /></button>
                 <button class="act2" @click="doShare">{{ shared ? '✓' : '↗' }}</button>
@@ -58,9 +58,6 @@
             </div>
             <div class="hairline mt-8 flex flex-wrap gap-x-12 gap-y-4 pt-8">
               <div v-for="f in facts" :key="f.label"><p class="text-xl font-semibold">{{ f.value }}</p><p class="mt-0.5 text-[11px] font-medium uppercase tracking-widest text-stone-450">{{ f.label }}</p></div>
-            </div>
-            <div class="mt-6">
-              <PropertyEngagement :slug="String(route.params.slug)" />
             </div>
           </header>
 
@@ -122,7 +119,7 @@
           </section>
 
           <!-- Ask AI -->
-          <section>
+          <section class="no-print">
             <AskAI :slug="String(route.params.slug)" />
           </section>
 
@@ -186,7 +183,7 @@
           </section>
 
           <!-- Decoración / Home Staging IA -->
-          <section>
+          <section class="no-print">
             <div class="flex items-center gap-2"><span class="rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">IA</span><p class="eyebrow !text-stone-450">Imagina tu hogar</p></div>
             <h2 class="heading-serif mt-3 text-3xl">Visualiza el potencial</h2>
             <div class="mt-6 grid gap-4 sm:grid-cols-2">
@@ -224,23 +221,10 @@
 
         <!-- Sidebar -->
         <aside>
-          <div class="space-y-6 lg:sticky lg:top-32">
-            <div id="contacto" ref="contactRef" class="rounded-2xl border border-line bg-white p-8">
-              <p class="eyebrow">Desde</p>
-              <p class="heading-serif mt-2 text-4xl">{{ formatPrice(data.project.price) }}</p>
-              <p v-if="pricePerM2" class="mt-1 text-[13px] text-stone-400">{{ pricePerM2 }} / m²</p>
-              <div v-if="paymentRows.length" class="hairline mt-6 pt-5">
-                <p class="eyebrow mb-4">Plan de pago</p>
-                <ul class="space-y-3">
-                  <li v-for="(r, i) in paymentRows" :key="i" class="flex justify-between text-sm"><span class="text-stone-500">{{ r.label }}</span><span class="font-semibold">{{ r.value }}</span></li>
-                </ul>
-              </div>
-              <div class="mt-7 space-y-3">
-                <NuxtLink to="/contact-us" class="btn-primary w-full">Solicitar información</NuxtLink>
-                <NuxtLink to="/visitor" class="btn-secondary w-full">Agendar visita</NuxtLink>
-              </div>
+          <div class="space-y-5 lg:sticky lg:top-32">
+            <div id="contacto" ref="contactRef">
+              <PropertyDecisionPanel :slug="String(route.params.slug)" :project="data.project" />
             </div>
-            <AgentContactCard :property-name="data.project.name" />
             <div v-if="data.developer" class="rounded-2xl border border-line bg-white p-8">
               <p class="eyebrow mb-4">Promotora</p>
               <div class="flex items-center gap-4">
@@ -258,7 +242,7 @@
     </div>
 
     <!-- Propiedades similares -->
-    <div id="similares" class="hairline mx-auto max-w-screen-2xl px-6 py-14 pt-14 lg:px-10">
+    <div id="similares" class="no-print hairline mx-auto max-w-screen-2xl px-6 py-14 pt-14 lg:px-10">
       <p class="eyebrow">Alternativas</p>
       <h2 class="heading-serif mt-3 text-3xl">Propiedades similares</h2>
       <div class="mt-8"><SimilarProperties :slug="String(route.params.slug)" /></div>
@@ -348,8 +332,6 @@ const facts = computed(() => {
   return out
 })
 
-const pricePerM2 = computed(() => (p.value.price && p.value.area ? `AED ${new Intl.NumberFormat('en-US').format(Math.round(p.value.price / p.value.area))}` : ''))
-
 const pros = computed(() => {
   const o: string[] = []
   if (p.value.hasPool) o.push('Piscina en la comunidad')
@@ -377,18 +359,6 @@ const staging = [
   { title: 'Decoración IA', desc: 'Reimagina los espacios en tu estilo', i: 1 },
   { title: 'Home Staging IA', desc: 'Amuebla virtualmente cada estancia', i: 2 },
 ]
-
-const paymentRows = computed<{ label: string; value: string }[]>(() => {
-  try {
-    const parsed = JSON.parse(p.value.paymentPlan || '[]')
-    if (Array.isArray(parsed) && parsed.length) return parsed.map((s: any, i: number) => ({ label: s.label || s.name || `Fase ${i + 1}`, value: s.value || s.percentage || '' }))
-  } catch {}
-  const r = []
-  if (p.value.downPercentage) r.push({ label: 'Entrada', value: `${p.value.downPercentage}%` })
-  if (p.value.constructionPercentage) r.push({ label: 'Durante obra', value: `${p.value.constructionPercentage}%` })
-  if (p.value.handoverPercentage) r.push({ label: 'En entrega', value: `${p.value.handoverPercentage}%` })
-  return r
-})
 
 const heart = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-9.3-9.2C1.2 8.7 2.7 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.3 0 4.8 3.2 3.3 6.3C19 16.5 12 21 12 21z"/></svg>'
 const scale = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M15 3v18M4 8h5M15 8h5M4 16h5M15 16h5"/></svg>'

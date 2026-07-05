@@ -1,6 +1,6 @@
 <template>
   <transition name="bar">
-    <div v-if="items.length" class="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-4">
+    <div v-if="items.length" class="no-print fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-4">
       <div class="flex w-full max-w-3xl items-center gap-4 rounded-2xl bg-ink px-4 py-3 text-white shadow-2xl">
         <div class="flex -space-x-3">
           <img

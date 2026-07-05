@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { useDb, schema } from '../../../../utils/db'
 import { getMarketStats } from '../../../../utils/market'
-import { computeSerendipiaScore } from '../../../../utils/score'
+import { computeSerendipiaScore, computeDecisionScores } from '../../../../utils/score'
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug')
@@ -13,5 +13,6 @@ export default defineEventHandler(async (event) => {
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
 
   const market = await getMarketStats(db, project)
-  return computeSerendipiaScore(project, market)
+  const serendipia = computeSerendipiaScore(project, market)
+  return { ...serendipia, decision: computeDecisionScores(project, market) }
 })
