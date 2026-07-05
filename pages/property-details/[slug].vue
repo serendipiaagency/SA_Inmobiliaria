@@ -142,19 +142,9 @@
           <!-- Servicios cercanos -->
           <section id="servicios">
             <p class="eyebrow">El entorno</p>
-            <h2 class="heading-serif mt-3 text-3xl">Qué hay cerca</h2>
-            <div class="mt-6 grid gap-4 sm:grid-cols-2">
-              <div v-for="poi in nearby" :key="poi.name" class="flex items-center justify-between rounded-2xl border border-line bg-white px-5 py-4">
-                <div class="flex items-center gap-3">
-                  <span class="flex h-10 w-10 items-center justify-center rounded-full bg-paper text-stone-500" v-html="poi.icon" />
-                  <div><p class="text-sm font-medium">{{ poi.name }}</p><p class="text-[12px] text-stone-400">{{ poi.cat }}</p></div>
-                </div>
-                <div class="text-right text-[12px] text-stone-500">
-                  <p>🚶 {{ poi.walk }} min</p>
-                  <p>🚗 {{ poi.drive }} min</p>
-                </div>
-              </div>
-            </div>
+            <h2 class="heading-serif mt-3 text-3xl">Estilo de vida</h2>
+            <p class="mt-3 max-w-2xl text-[13px] text-stone-500">Datos reales del entorno, obtenidos de OpenStreetMap dentro de un radio de 2 km.</p>
+            <div class="mt-6"><LifestyleBlock :slug="String(route.params.slug)" /></div>
           </section>
 
           <!-- Ubicación / mapa -->
@@ -348,17 +338,6 @@ const cons = computed(() => {
 })
 
 // Nearby (deterministic demo POIs by project id)
-const nearby = computed(() => {
-  const seed = p.value.id
-  const mk = (name: string, cat: string, base: number, icon: string) => ({ name, cat, walk: base + (seed % 5), drive: Math.max(2, Math.round((base + (seed % 5)) / 3)), icon })
-  return [
-    mk('Colegio Internacional', 'Educación', 8, iconSvg('school')),
-    mk('Hospital / Clínica', 'Salud', 12, iconSvg('cross')),
-    mk('Supermercado gourmet', 'Compras', 5, iconSvg('cart')),
-    mk('Playa más cercana', 'Ocio', 14, iconSvg('wave')),
-  ]
-})
-
 const staging = [
   { title: 'Decoración IA', desc: 'Reimagina los espacios en tu estilo', i: 1 },
   { title: 'Home Staging IA', desc: 'Amuebla virtualmente cada estancia', i: 2 },
@@ -378,15 +357,6 @@ const paymentRows = computed<{ label: string; value: string }[]>(() => {
 
 const heart = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-9.3-9.2C1.2 8.7 2.7 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.3 0 4.8 3.2 3.3 6.3C19 16.5 12 21 12 21z"/></svg>'
 const scale = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M15 3v18M4 8h5M15 8h5M4 16h5M15 16h5"/></svg>'
-function iconSvg(k: string) {
-  const m: Record<string, string> = {
-    school: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 4l9 4-9 4-9-4 9-4zM6 10v5c0 1.5 6 3 6 3s6-1.5 6-3v-5"/>',
-    cross: '<path stroke-linecap="round" stroke-linejoin="round" d="M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6z"/>',
-    cart: '<path stroke-linecap="round" stroke-linejoin="round" d="M3 4h2l2 12h11l2-8H7M9 20a1 1 0 100-2 1 1 0 000 2zm9 0a1 1 0 100-2 1 1 0 000 2z"/>',
-    wave: '<path stroke-linecap="round" stroke-linejoin="round" d="M3 14c2 0 2-2 4.5-2s2.5 2 4.5 2 2-2 4.5-2 2.5 2 4.5 2M3 18c2 0 2-2 4.5-2s2.5 2 4.5 2 2-2 4.5-2 2.5 2 4.5 2"/>',
-  }
-  return `<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">${m[k] || ''}</svg>`
-}
 </script>
 
 <style scoped>
