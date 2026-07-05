@@ -59,6 +59,9 @@
             <div class="hairline mt-8 flex flex-wrap gap-x-12 gap-y-4 pt-8">
               <div v-for="f in facts" :key="f.label"><p class="text-xl font-semibold">{{ f.value }}</p><p class="mt-0.5 text-[11px] font-medium uppercase tracking-widest text-stone-450">{{ f.label }}</p></div>
             </div>
+            <div class="mt-6">
+              <PropertyEngagement :slug="String(route.params.slug)" />
+            </div>
           </header>
 
           <!-- Serendipia Score -->

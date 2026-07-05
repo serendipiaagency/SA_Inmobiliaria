@@ -19,8 +19,10 @@ export function useFavorites() {
     return ids.value.includes(id)
   }
   function toggle(id: number) {
-    ids.value = isFavorite(id) ? ids.value.filter((x) => x !== id) : [...ids.value, id]
+    const on = !isFavorite(id)
+    ids.value = on ? [...ids.value, id] : ids.value.filter((x) => x !== id)
     persist()
+    if (import.meta.client) $fetch('/api/public/favorite', { method: 'POST', body: { id, on } }).catch(() => {})
   }
 
   return { ids, load, isFavorite, toggle }
