@@ -1,12 +1,13 @@
 <template>
   <transition name="st">
-    <button v-if="visible" type="button" class="st-btn" aria-label="Volver arriba" @click="toTop">
+    <button v-if="visible" type="button" class="st-btn" :class="{ 'st-btn-raised': hasActiveBar }" aria-label="Volver arriba" @click="toTop">
       <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
     </button>
   </transition>
 </template>
 
 <script setup lang="ts">
+const { hasActiveBar } = useBottomBar()
 const visible = ref(false)
 function onScroll() {
   visible.value = window.scrollY > 640
@@ -36,7 +37,10 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
   background: #16150f;
   color: #fff;
   box-shadow: 0 10px 26px -10px rgba(0, 0, 0, 0.5);
-  transition: transform 0.2s var(--ease-out), background-color 0.2s;
+  transition: transform 0.2s var(--ease-out), background-color 0.2s, bottom 0.25s var(--ease-out);
+}
+.st-btn-raised {
+  bottom: 88px;
 }
 .st-btn:hover {
   background: #000;
