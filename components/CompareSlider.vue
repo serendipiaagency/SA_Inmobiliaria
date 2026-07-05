@@ -5,7 +5,16 @@
       <img :src="beforeSrc" :alt="beforeLabel" class="cs-img" draggable="false" />
     </div>
     <div class="cs-handle" :style="{ left: `${pos}%` }">
-      <div class="cs-grip">
+      <div
+        class="cs-grip"
+        role="slider"
+        tabindex="0"
+        :aria-label="`Comparar ${beforeLabel} y ${afterLabel}`"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        :aria-valuenow="Math.round(pos)"
+        @keydown="onKeydown"
+      >
         <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7l-5 5 5 5M16 7l5 5-5 5" /></svg>
       </div>
     </div>
@@ -53,6 +62,16 @@ function onUp() {
   window.removeEventListener('pointerup', onUp)
 }
 onBeforeUnmount(onUp)
+
+function onKeydown(e: KeyboardEvent) {
+  const step = e.shiftKey ? 20 : 5
+  if (e.key === 'ArrowLeft') pos.value = Math.max(0, pos.value - step)
+  else if (e.key === 'ArrowRight') pos.value = Math.min(100, pos.value + step)
+  else if (e.key === 'Home') pos.value = 0
+  else if (e.key === 'End') pos.value = 100
+  else return
+  e.preventDefault()
+}
 </script>
 
 <style scoped>
@@ -100,6 +119,15 @@ onBeforeUnmount(onUp)
   background: #fff;
   color: #16150f;
   box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s var(--ease-out);
+  cursor: ew-resize;
+}
+.cs-grip:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+.cs-grip:focus-visible {
+  outline: 2px solid #16150f;
+  outline-offset: 3px;
 }
 .cs-tag {
   position: absolute;

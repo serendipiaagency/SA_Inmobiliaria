@@ -90,7 +90,7 @@ async function save() {
 
 <style scoped>
 .cfg-input {
-  @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink focus:outline-none;
+  @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink;
 }
 .dash-btn-primary {
   @apply inline-flex items-center rounded-lg bg-ink px-4 py-2 text-[13px] font-medium text-white transition hover:bg-black disabled:opacity-50;

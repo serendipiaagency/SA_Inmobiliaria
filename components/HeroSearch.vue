@@ -76,7 +76,7 @@
                   <input
                     ref="locInput"
                     v-model="form.location"
-                    class="w-full border border-line px-4 py-3 text-sm focus:border-ink focus:outline-none"
+                    class="w-full border border-line px-4 py-3 text-sm focus:border-ink"
                     :placeholder="t('hero.locationPlaceholder')"
                     @keyup.enter="submit"
                   />
@@ -719,8 +719,11 @@ function delay(i: number) {
   background: #fff;
 }
 .pop-select:focus {
-  outline: none;
   border-color: #16150f;
+}
+.pop-select:focus-visible {
+  outline: 2px solid #16150f;
+  outline-offset: 2px;
 }
 
 /* Popover transition */

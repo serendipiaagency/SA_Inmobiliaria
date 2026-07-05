@@ -210,5 +210,5 @@ async function copy() {
 
 <style scoped>
 .wl { @apply mb-1 block text-[12px] font-medium text-stone-600; }
-.wi { @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink focus:outline-none; }
+.wi { @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink; }
 </style>

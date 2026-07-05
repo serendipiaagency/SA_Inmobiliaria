@@ -23,7 +23,13 @@
                 <NuxtLink :to="`/property-details/${p.slug || p.id}`">
                   <img :src="mediaUrl(p.coverImage)" :alt="p.name" class="aspect-[4/3] w-full rounded-xl object-cover" />
                 </NuxtLink>
-                <button class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-ink shadow" @click="remove(p.id)">×</button>
+                <button
+                  class="act-remove absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-ink shadow"
+                  :aria-label="`Quitar ${p.name} del comparador`"
+                  @click="remove(p.id)"
+                >
+                  ×
+                </button>
                 <h3 class="mt-3 font-serif text-lg font-medium leading-tight">{{ p.name }}</h3>
                 <p class="text-[12px] text-stone-500">{{ p.community }}</p>
               </div>
@@ -71,3 +77,16 @@ const specs = [
   { key: 'orientation', label: 'Orientación', get: (p: any) => p.orientation || '—' },
 ]
 </script>
+
+<style scoped>
+.act-remove {
+  transition: transform 0.2s, background-color 0.2s;
+}
+.act-remove:hover {
+  transform: scale(1.08);
+  background: #fff;
+}
+.act-remove:active {
+  transform: scale(0.92);
+}
+</style>

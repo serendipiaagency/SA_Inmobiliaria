@@ -1,5 +1,6 @@
 <template>
   <div class="relative h-full w-full">
+    <div v-if="!ready" class="skeleton absolute inset-0 z-[400]" />
     <div ref="el" class="h-full w-full" />
 
     <!-- Layer / POI controls -->
@@ -26,6 +27,7 @@ const props = defineProps<{ items: any[]; activeId?: number | null }>()
 const emit = defineEmits<{ 'marker-click': [number]; 'marker-hover': [number | null] }>()
 
 const el = ref<HTMLElement | null>(null)
+const ready = ref(false)
 let map: any = null
 let cluster: any = null
 let baseLayers: Record<string, any> = {}
@@ -124,6 +126,8 @@ onMounted(async () => {
   map = L.map(el.value as HTMLElement, { zoomControl: true, scrollWheelZoom: true }).setView(center as any, 12)
   baseLayers = { plano: tile('plano'), satelite: tile('satelite'), oscuro: tile('oscuro') }
   baseLayers.plano.addTo(map)
+  baseLayers.plano.once('load', () => (ready.value = true))
+  setTimeout(() => (ready.value = true), 4000)
   poiGroup = L.layerGroup().addTo(map)
   map.on('moveend', renderPois)
 
