@@ -1,4 +1,4 @@
-import { eq, ne } from 'drizzle-orm'
+import { eq, ne, sql } from 'drizzle-orm'
 import { useDb, schema } from '../../../../utils/db'
 import { attachPhotos } from '../../../../utils/photos'
 import { explainSimilarity, type SimilarityFacts } from '../../../../utils/ai'
@@ -20,11 +20,16 @@ export default defineEventHandler(async (event) => {
   const base = rows[0]
   if (!base) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
 
+  // Bounded scan: same-community candidates first (they score highest anyway),
+  // capped well above what any realistic catalog needs to rank well, so this
+  // never degrades into a full-table pull as the catalog grows.
   const candidateRows = await db
     .select({ project: P, developerName: schema.developers.name })
     .from(P)
     .leftJoin(schema.developers, eq(P.developerId, schema.developers.id))
     .where(ne(P.id, base.id))
+    .orderBy(sql`case when ${P.community} = ${base.community} then 0 else 1 end`)
+    .limit(200)
   const candidates = candidateRows.map((r: any) => ({ ...r.project, developerName: r.developerName }))
 
   const scored = candidates

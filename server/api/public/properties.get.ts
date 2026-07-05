@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, like, lte, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, like, lte, or, sql } from 'drizzle-orm'
 import { useDb, schema } from '../../utils/db'
 import { attachPhotos } from '../../utils/photos'
 
@@ -42,6 +42,16 @@ export default defineEventHandler(async (event) => {
   if (query.developerId) conds.push(eq(P.developerId, Number(query.developerId)))
   if (query.type) conds.push(eq(P.propertyType, String(query.type)))
   if (query.orientation) conds.push(eq(P.orientation, String(query.orientation)))
+
+  // Fetch by exact ids (favorites/compare) — bypasses the normal page size
+  // cap so a saved item never silently disappears once the catalog grows
+  // past the default 48-item page.
+  const idList = String(query.ids || '')
+    .split(',')
+    .map((v) => Number(v))
+    .filter((v) => Number.isInteger(v) && v > 0)
+    .slice(0, 200)
+  if (idList.length) conds.push(inArray(P.id, idList))
 
   const minPrice = Number(query.minPrice)
   const maxPrice = Number(query.maxPrice)
@@ -96,14 +106,13 @@ export default defineEventHandler(async (event) => {
         ? desc(P.price)
         : desc(P.id)
 
-  const rows = await db
+  const baseQuery = db
     .select({ project: P, developerName: schema.developers.name })
     .from(P)
     .leftJoin(schema.developers, eq(P.developerId, schema.developers.id))
     .where(where as any)
     .orderBy(orderBy)
-    .limit(perPage)
-    .offset((page - 1) * perPage)
+  const rows = idList.length ? await baseQuery : await baseQuery.limit(perPage).offset((page - 1) * perPage)
 
   const merged = rows.map((r) => ({ ...r.project, developerName: r.developerName }))
   const withPhotos = await attachPhotos(db, merged)
