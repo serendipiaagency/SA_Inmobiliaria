@@ -97,7 +97,7 @@
       <p class="eyebrow">{{ t('home.mortgage.eyebrow') }}</p>
       <h2 class="heading-serif mt-3 text-3xl md:text-4xl">{{ t('home.mortgage.title') }}</h2>
       <p class="mt-4 max-w-md text-[15px] text-stone-500">{{ t('home.mortgage.text') }}</p>
-      <div class="mt-8"><MortgageCalculator :price="medianPrice" :rental-yield="6.5" /></div>
+      <div class="mt-8"><MortgageCalculator :price="medianPrice" :rental-yield="avgYield" /></div>
     </section>
 
     <!-- 9 · IA recomienda -->
@@ -165,6 +165,10 @@ const recommended = computed(() =>
 const medianPrice = computed(() => {
   const ps = projects.value.map((p) => p.price || 0).filter(Boolean).sort((a, b) => a - b)
   return ps.length ? ps[Math.floor(ps.length / 2)] : 1200000
+})
+const avgYield = computed(() => {
+  const ys = projects.value.map((p) => p.rentalYield).filter((y): y is number => !!y)
+  return ys.length ? Math.round((ys.reduce((a, y) => a + y, 0) / ys.length) * 10) / 10 : null
 })
 
 const pins = [
