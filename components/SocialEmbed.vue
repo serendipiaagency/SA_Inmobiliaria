@@ -7,7 +7,7 @@
       data-instgrm-version="14"
       style="background: #fff; border: 0; margin: 0; max-width: 340px; min-width: 280px; padding: 0; width: 100%"
     />
-    <blockquote v-else class="tiktok-embed" :cite="url" style="max-width: 340px; min-width: 280px">
+    <blockquote v-else class="tiktok-embed" :cite="url" :data-video-id="tiktokVideoId" style="max-width: 340px; min-width: 280px">
       <section><a target="_blank" rel="noopener" :href="url">Ver en TikTok</a></section>
     </blockquote>
     <p v-if="caption" class="mt-2 max-w-[280px] text-[12px] text-stone-500">{{ caption }}</p>
@@ -50,6 +50,11 @@ function scheduleTikTokScript() {
 
 <script setup lang="ts">
 const props = defineProps<{ platform: 'instagram' | 'tiktok'; url: string; caption?: string | null }>()
+
+// TikTok's embed script keys off data-video-id on the blockquote to know
+// which video to render — cite/href alone isn't enough for it to swap in
+// the real player, so it silently falls back to the plain link.
+const tiktokVideoId = computed(() => props.url.match(/\/video\/(\d+)/)?.[1] || '')
 
 onMounted(async () => {
   if (props.platform === 'instagram') {
