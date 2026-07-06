@@ -178,6 +178,21 @@ export const adminResources: Record<string, ResourceDef> = {
     hasTimestamps: true,
   },
 
+  'social-media': {
+    table: schema.propertySocialMedia,
+    label: 'Property social media',
+    fields: {
+      developerPropertyId: { type: 'number', label: 'Project ID', required: true },
+      platform: { type: 'select', label: 'Platform', options: ['instagram', 'tiktok'], required: true },
+      url: { type: 'text', label: 'Post/reel URL', required: true },
+      caption: { type: 'text', label: 'Caption' },
+      sortOrder: { type: 'number', label: 'Sort order' },
+    },
+    listFields: ['id', 'developerPropertyId', 'platform', 'url'],
+    searchFields: ['url', 'caption'],
+    hasTimestamps: true,
+  },
+
   'master-plans': {
     table: schema.masterPlans,
     label: 'Master plans',

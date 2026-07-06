@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm'
+import { asc, eq, inArray } from 'drizzle-orm'
 import { useDb, schema } from '../../../utils/db'
 
 export default defineEventHandler(async (event) => {
@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   const project = rows[0]
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
 
-  const [developer, gallery, floorPlans, unitTypes, amenityLinks, locationLinks] = await Promise.all([
+  const [developer, gallery, floorPlans, unitTypes, amenityLinks, locationLinks, socialMedia] = await Promise.all([
     db.select().from(schema.developers).where(eq(schema.developers.id, project.developerId)).limit(1),
     db.select().from(schema.images).where(eq(schema.images.developerPropertyId, project.id)),
     db.select().from(schema.floorPlans).where(eq(schema.floorPlans.developerPropertyId, project.id)),
@@ -27,6 +27,11 @@ export default defineEventHandler(async (event) => {
       .select()
       .from(schema.developerPropertyLocation)
       .where(eq(schema.developerPropertyLocation.developerPropertyId, project.id)),
+    db
+      .select()
+      .from(schema.propertySocialMedia)
+      .where(eq(schema.propertySocialMedia.developerPropertyId, project.id))
+      .orderBy(asc(schema.propertySocialMedia.sortOrder)),
   ])
 
   const amenityIds = amenityLinks.map((a) => a.amenityId)
@@ -50,5 +55,6 @@ export default defineEventHandler(async (event) => {
     unitTypes,
     amenities: projectAmenities,
     locations: projectLocations.map((l) => ({ ...l, distance: distances[l.id] ?? null })),
+    socialMedia,
   }
 })

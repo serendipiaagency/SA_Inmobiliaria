@@ -13,6 +13,7 @@
         :before-photo="beforePhoto"
         :after-photo="afterPhoto"
         :ai-staged-photo="aiStagedPhoto"
+        :social-media="data.socialMedia"
       />
     </section>
 
