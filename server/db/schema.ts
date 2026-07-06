@@ -198,6 +198,24 @@ export const propertyViews = sqliteTable(
   (t) => [index('property_views_property_created').on(t.developerPropertyId, t.createdAt)],
 )
 
+// Real Instagram/TikTok video embeds per property (added 0019) — admin
+// curated URLs to real public posts/reels, never scraped or fabricated.
+export const propertySocialMedia = sqliteTable(
+  'property_social_media',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    developerPropertyId: integer('developer_property_id')
+      .notNull()
+      .references(() => developerProperties.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull(), // 'instagram' | 'tiktok'
+    url: text('url').notNull(),
+    caption: text('caption'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [index('property_social_media_property').on(t.developerPropertyId, t.sortOrder)],
+)
+
 export const images = sqliteTable('images', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   developerPropertyId: integer('developer_property_id')

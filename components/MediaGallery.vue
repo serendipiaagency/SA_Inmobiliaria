@@ -29,6 +29,20 @@
       </div>
     </div>
 
+    <!-- Redes sociales -->
+    <div v-show="tab === 'redes'" class="h-[540px] overflow-hidden rounded-2xl bg-ink">
+      <div v-if="socialMedia?.length" class="flex h-full items-center gap-6 overflow-x-auto px-6 py-6 [scrollbar-width:thin]">
+        <SocialEmbed v-for="s in socialMedia" :key="s.url" :platform="s.platform" :url="s.url" :caption="s.caption" />
+      </div>
+      <div v-else class="flex h-full items-center justify-center text-center">
+        <div class="max-w-sm px-6 text-white/80">
+          <p class="font-serif text-2xl text-white">Vídeos en Instagram y TikTok</p>
+          <p class="mt-2 text-sm">Solicita que añadamos los vídeos de esta propiedad en redes sociales.</p>
+          <NuxtLink to="/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">Solicitar vídeos</NuxtLink>
+        </div>
+      </div>
+    </div>
+
     <!-- 360 -->
     <div v-show="tab === '360'" class="relative h-[540px] overflow-hidden rounded-2xl bg-ink">
       <div
@@ -145,12 +159,14 @@ const props = defineProps<{
   beforePhoto?: string | null
   afterPhoto?: string | null
   aiStagedPhoto?: string | null
+  socialMedia?: { platform: 'instagram' | 'tiktok'; url: string; caption?: string | null }[]
 }>()
 
 const tabs = computed(() => {
   const t: { key: string; label: string; icon: string }[] = [
     { key: 'fotos', label: 'Fotos', icon: ic('grid') },
   ]
+  t.push({ key: 'redes', label: 'Redes', icon: ic('social') })
   t.push({ key: 'video', label: 'Vídeo', icon: ic('play') })
   if (props.hasTour) t.push({ key: '360', label: '360°', icon: ic('globe') })
   t.push({ key: 'drone', label: 'Drone', icon: ic('drone') })
@@ -316,6 +332,7 @@ function ic(k: string) {
     night: '<path stroke-linecap="round" stroke-linejoin="round" d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/>',
     compare: '<path stroke-linecap="round" stroke-linejoin="round" d="M8 7l-5 5 5 5M16 7l5 5-5 5"/>',
     sparkle: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3l1.8 5.4L19 10l-5.2 1.6L12 17l-1.8-5.4L5 10l5.2-1.6z"/>',
+    social: '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/>',
   }
   return `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24" style="display:inline;vertical-align:-2px">${p[k] || ''}</svg>`
 }
