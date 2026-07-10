@@ -166,29 +166,35 @@ watch(
 
 const priceSteps = [250000, 500000, 750000, 1000000, 1500000, 2000000, 3000000, 5000000, 8000000]
 const areaSteps = [50, 75, 100, 150, 200, 300, 500, 800]
-const bedOpts = [
-  { v: 0, l: 'Cualquiera' }, { v: 1, l: '1+' }, { v: 2, l: '2+' }, { v: 3, l: '3+' }, { v: 4, l: '4+' }, { v: 5, l: '5+' },
-]
+const bedOpts = computed(() => [
+  { v: 0, l: t('hero.any', 'Cualquiera') }, { v: 1, l: '1+' }, { v: 2, l: '2+' }, { v: 3, l: '3+' }, { v: 4, l: '4+' }, { v: 5, l: '5+' },
+])
 const types = ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio']
-const statuses = [
-  { v: 'new', l: 'Obra nueva' },
-  { v: 'under_construction', l: 'En construcción' },
-  { v: 'ready', l: 'Listo para entrar' },
-]
-const features = [
-  { k: 'elevator', l: 'Ascensor' }, { k: 'pool', l: 'Piscina' }, { k: 'garage', l: 'Garaje' },
-  { k: 'terrace', l: 'Terraza' }, { k: 'garden', l: 'Jardín' }, { k: 'pets', l: 'Mascotas' },
-  { k: 'accessible', l: 'Accesible' },
-]
-const orientations = [
-  { v: 'N', l: 'Norte' }, { v: 'S', l: 'Sur' }, { v: 'E', l: 'Este' }, { v: 'W', l: 'Oeste' },
-  { v: 'SE', l: 'Sureste' }, { v: 'SW', l: 'Suroeste' }, { v: 'NE', l: 'Noreste' }, { v: 'NW', l: 'Noroeste' },
-]
+const statuses = computed(() => [
+  { v: 'new', l: t('filters.status.new', 'Obra nueva') },
+  { v: 'under_construction', l: t('filters.status.underConstruction', 'En construcción') },
+  { v: 'ready', l: t('filters.status.ready', 'Listo para entrar') },
+])
+const features = computed(() => [
+  { k: 'elevator', l: t('filters.feature.elevator', 'Ascensor') }, { k: 'pool', l: t('filters.feature.pool', 'Piscina') }, { k: 'garage', l: t('filters.feature.garage', 'Garaje') },
+  { k: 'terrace', l: t('filters.feature.terrace', 'Terraza') }, { k: 'garden', l: t('filters.feature.garden', 'Jardín') }, { k: 'pets', l: t('filters.feature.pets', 'Mascotas') },
+  { k: 'accessible', l: t('filters.feature.accessible', 'Accesible') },
+])
+const orientations = computed(() => [
+  { v: 'N', l: t('filters.orientation.north', 'Norte') }, { v: 'S', l: t('filters.orientation.south', 'Sur') }, { v: 'E', l: t('filters.orientation.east', 'Este') }, { v: 'W', l: t('filters.orientation.west', 'Oeste') },
+  { v: 'SE', l: t('filters.orientation.southeast', 'Sureste') }, { v: 'SW', l: t('filters.orientation.southwest', 'Suroeste') }, { v: 'NE', l: t('filters.orientation.northeast', 'Noreste') }, { v: 'NW', l: t('filters.orientation.northwest', 'Noroeste') },
+])
 const energies = ['A', 'B', 'C', 'D', 'E']
 const years = [2020, 2022, 2024, 2025, 2026, 2027, 2028]
 
-function typeLabel(t: string) {
-  return { Apartment: 'Apartamento', Villa: 'Villa', Townhouse: 'Adosado', Penthouse: 'Ático', Studio: 'Estudio' }[t] || t
+function typeLabel(ty: string) {
+  return {
+    Apartment: t('filters.type.apartment', 'Apartamento'),
+    Villa: t('filters.type.villa', 'Villa'),
+    Townhouse: t('filters.type.townhouse', 'Adosado'),
+    Penthouse: t('filters.type.penthouse', 'Ático'),
+    Studio: t('card.studio', 'Estudio'),
+  }[ty] || ty
 }
 function money(v: number) {
   return `AED ${new Intl.NumberFormat('en-US').format(v)}`

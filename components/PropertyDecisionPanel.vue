@@ -2,26 +2,26 @@
   <div class="space-y-5">
     <!-- PRECIO -->
     <div class="rounded-2xl border border-line bg-white p-6">
-      <p class="eyebrow">Precio</p>
+      <p class="eyebrow">{{ t('decisionPanel.price.eyebrow', 'Precio') }}</p>
       <p class="heading-serif mt-2 text-4xl">{{ formatPrice(project.price) }}</p>
 
       <div class="mt-4 grid grid-cols-2 gap-3 text-[13px]">
         <div v-if="priceVariation">
-          <p class="text-stone-450">Variación</p>
+          <p class="text-stone-450">{{ t('decisionPanel.price.variation', 'Variación') }}</p>
           <p class="mt-0.5 font-semibold" :class="priceVariation.dropped ? 'text-emerald-700' : 'text-ink'">{{ priceVariation.text }}</p>
         </div>
         <div v-if="pricePerM2">
-          <p class="text-stone-450">Precio / m²</p>
+          <p class="text-stone-450">{{ t('decisionPanel.price.perM2', 'Precio / m²') }}</p>
           <p class="mt-0.5 font-semibold text-ink">{{ pricePerM2 }}</p>
         </div>
         <div v-if="lastUpdated" class="col-span-2">
-          <p class="text-stone-450">Última actualización</p>
+          <p class="text-stone-450">{{ t('decisionPanel.price.lastUpdated', 'Última actualización') }}</p>
           <p class="mt-0.5 font-medium text-stone-600">{{ lastUpdated }}</p>
         </div>
       </div>
 
       <div v-if="paymentRows.length" class="hairline mt-5 pt-4">
-        <p class="mb-3 text-[11px] font-semibold uppercase tracking-widest text-stone-450">Plan de pago</p>
+        <p class="mb-3 text-[11px] font-semibold uppercase tracking-widest text-stone-450">{{ t('decisionPanel.price.paymentPlan', 'Plan de pago') }}</p>
         <ul class="space-y-2">
           <li v-for="(r, i) in paymentRows" :key="i" class="flex justify-between text-sm"><span class="text-stone-500">{{ r.label }}</span><span class="font-semibold">{{ r.value }}</span></li>
         </ul>
@@ -30,7 +30,7 @@
 
     <!-- INDICADORES -->
     <div class="rounded-2xl border border-line bg-white p-6">
-      <p class="eyebrow mb-4">Indicadores</p>
+      <p class="eyebrow mb-4">{{ t('decisionPanel.indicators.eyebrow', 'Indicadores') }}</p>
       <div v-if="engagementLoading" class="space-y-3">
         <div class="skeleton h-5 w-full rounded" />
         <div class="skeleton h-5 w-4/5 rounded" />
@@ -39,32 +39,32 @@
       <ul v-else class="space-y-3 text-[13px]">
         <li v-if="engagement?.viewsThisWeek" class="flex items-center gap-2.5">
           <svg class="h-4 w-4 shrink-0 text-stone-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12s3.5-7 9.5-7 9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7z" /><circle cx="12" cy="12" r="2.5" /></svg>
-          <span><strong class="font-semibold text-ink">{{ engagement.viewsThisWeek }}</strong> {{ engagement.viewsThisWeek === 1 ? 'vista esta semana' : 'vistas esta semana' }}</span>
+          <span><strong class="font-semibold text-ink">{{ engagement.viewsThisWeek }}</strong> {{ engagement.viewsThisWeek === 1 ? t('decisionPanel.indicators.viewSingular', 'vista esta semana') : t('decisionPanel.indicators.viewPlural', 'vistas esta semana') }}</span>
         </li>
         <li v-if="engagement?.favoriteCount" class="flex items-center gap-2.5">
           <svg class="h-4 w-4 shrink-0 text-stone-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-9.3-9.2C1.2 8.7 2.7 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.3 0 4.8 3.2 3.3 6.3C19 16.5 12 21 12 21z" /></svg>
-          <span><strong class="font-semibold text-ink">{{ engagement.favoriteCount }}</strong> {{ engagement.favoriteCount === 1 ? 'usuario la tiene guardada' : 'usuarios la tienen guardada' }}</span>
+          <span><strong class="font-semibold text-ink">{{ engagement.favoriteCount }}</strong> {{ engagement.favoriteCount === 1 ? t('decisionPanel.indicators.savedSingular', 'usuario la tiene guardada') : t('decisionPanel.indicators.savedPlural', 'usuarios la tienen guardada') }}</span>
         </li>
         <li v-if="engagement?.visitsBooked" class="flex items-center gap-2.5">
           <svg class="h-4 w-4 shrink-0 text-stone-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2" /><path stroke-linecap="round" d="M16 2.5v4M8 2.5v4M3 9.5h18" /></svg>
-          <span><strong class="font-semibold text-ink">{{ engagement.visitsBooked }}</strong> {{ engagement.visitsBooked === 1 ? 'visita reservada' : 'visitas reservadas' }}</span>
+          <span><strong class="font-semibold text-ink">{{ engagement.visitsBooked }}</strong> {{ engagement.visitsBooked === 1 ? t('decisionPanel.indicators.visitSingular', 'visita reservada') : t('decisionPanel.indicators.visitPlural', 'visitas reservadas') }}</span>
         </li>
         <li v-if="engagement?.priceDrop" class="flex items-center gap-2.5">
           <svg class="h-4 w-4 shrink-0 text-emerald-600" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7l6 6 4-4 8 8M21 13v6h-6" /></svg>
-          <span>Bajó <strong class="font-semibold text-emerald-700">{{ formatPrice(engagement.priceDrop.amount) }}</strong> el {{ formatDate(engagement.priceDrop.date) }}</span>
+          <span>{{ t('decisionPanel.indicators.droppedPrefix', 'Bajó') }} <strong class="font-semibold text-emerald-700">{{ formatPrice(engagement.priceDrop.amount) }}</strong> {{ t('decisionPanel.indicators.droppedOn', 'el') }} {{ formatDate(engagement.priceDrop.date) }}</span>
         </li>
         <li class="flex items-center gap-2.5">
           <svg class="h-4 w-4 shrink-0 text-stone-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 3" /></svg>
-          <span>{{ agentName }} responde en menos de 15 min</span>
+          <span>{{ agentName }} {{ t('decisionPanel.indicators.respondsFast', 'responde en menos de 15 min') }}</span>
         </li>
-        <li v-if="!hasAnyIndicator" class="text-stone-400">Todavía no hay actividad registrada en esta propiedad.</li>
+        <li v-if="!hasAnyIndicator" class="text-stone-400">{{ t('decisionPanel.indicators.empty', 'Todavía no hay actividad registrada en esta propiedad.') }}</li>
       </ul>
     </div>
 
     <!-- DECISIÓN RÁPIDA -->
     <div class="rounded-2xl border border-line bg-white p-6">
-      <p class="eyebrow">Decisión rápida</p>
-      <p class="mt-1 text-[12px] text-stone-450">Cada valoración se calcula a partir de datos reales de la propiedad — nunca es un número arbitrario.</p>
+      <p class="eyebrow">{{ t('decisionPanel.decision.eyebrow', 'Decisión rápida') }}</p>
+      <p class="mt-1 text-[12px] text-stone-450">{{ t('decisionPanel.decision.subtitle', 'Cada valoración se calcula a partir de datos reales de la propiedad — nunca es un número arbitrario.') }}</p>
       <div v-if="scoreLoading" class="mt-4 space-y-3">
         <div v-for="i in 5" :key="i" class="skeleton h-10 w-full rounded" />
       </div>
@@ -86,43 +86,43 @@
 
     <!-- COSTE MENSUAL -->
     <div class="rounded-2xl border border-line bg-white p-6">
-      <p class="eyebrow mb-4">Coste mensual estimado</p>
+      <p class="eyebrow mb-4">{{ t('decisionPanel.monthlyCost.eyebrow', 'Coste mensual estimado') }}</p>
       <ul class="divide-y divide-line">
         <li class="flex items-center justify-between py-2.5 text-sm">
-          <span class="text-stone-500">Hipoteca estimada</span>
+          <span class="text-stone-500">{{ t('decisionPanel.monthlyCost.mortgage', 'Hipoteca estimada') }}</span>
           <span class="font-semibold">{{ formatPrice(monthlyCost.mortgage) }}</span>
         </li>
         <li class="flex items-center justify-between py-2.5 text-sm">
-          <span class="text-stone-500">Comunidad (service charge)</span>
-          <span class="font-semibold">{{ monthlyCost.serviceCharge != null ? formatPrice(monthlyCost.serviceCharge) : 'Consultar' }}</span>
+          <span class="text-stone-500">{{ t('decisionPanel.monthlyCost.serviceCharge', 'Comunidad (service charge)') }}</span>
+          <span class="font-semibold">{{ monthlyCost.serviceCharge != null ? formatPrice(monthlyCost.serviceCharge) : t('decisionPanel.monthlyCost.consult', 'Consultar') }}</span>
         </li>
         <li class="flex items-center justify-between py-2.5 text-sm">
-          <span class="text-stone-500">Seguro (estimado)</span>
+          <span class="text-stone-500">{{ t('decisionPanel.monthlyCost.insurance', 'Seguro (estimado)') }}</span>
           <span class="font-semibold">{{ formatPrice(monthlyCost.insurance) }}</span>
         </li>
         <li class="flex items-center justify-between py-3 text-sm font-semibold">
-          <span>Total mensual{{ monthlyCost.serviceCharge == null ? '*' : '' }}</span>
+          <span>{{ t('decisionPanel.monthlyCost.total', 'Total mensual') }}{{ monthlyCost.serviceCharge == null ? '*' : '' }}</span>
           <span>{{ formatPrice(monthlyCost.total) }}</span>
         </li>
       </ul>
       <p class="mt-2 text-[11px] leading-relaxed text-stone-400">
-        Estimado con 20% de entrada, 4.5% de interés y 25 años · sin IBI ni impuesto anual sobre la propiedad, que no existen en Dubái.
-        {{ monthlyCost.serviceCharge == null ? '*Falta el dato de gastos de comunidad de este edificio.' : '' }}
+        {{ t('decisionPanel.monthlyCost.disclaimer', 'Estimado con 20% de entrada, 4.5% de interés y 25 años · sin IBI ni impuesto anual sobre la propiedad, que no existen en Dubái.') }}
+        {{ monthlyCost.serviceCharge == null ? t('decisionPanel.monthlyCost.missingServiceCharge', '*Falta el dato de gastos de comunidad de este edificio.') : '' }}
       </p>
     </div>
 
     <!-- BOTONES -->
     <div class="no-print rounded-2xl border border-line bg-white p-6">
       <div class="space-y-2.5">
-        <NuxtLink to="/contact-us" class="btn-primary w-full">Solicitar información</NuxtLink>
+        <NuxtLink to="/contact-us" class="btn-primary w-full">{{ t('decisionPanel.cta.requestInfo', 'Solicitar información') }}</NuxtLink>
         <div class="grid grid-cols-2 gap-2.5">
           <button class="agent-btn agent-btn-outline" @click="openVisit('in_person')">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2" /><path stroke-linecap="round" d="M16 2.5v4M8 2.5v4M3 9.5h18" /></svg>
-            Agendar visita
+            {{ t('decisionPanel.cta.scheduleVisit', 'Agendar visita') }}
           </button>
           <button class="agent-btn agent-btn-outline" @click="openVisit('video')">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.55-2.4A1 1 0 0 1 21 8.5v7a1 1 0 0 1-1.45.9L15 14M5 6h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" /></svg>
-            Videollamada
+            {{ t('decisionPanel.cta.videoCall', 'Videollamada') }}
           </button>
         </div>
         <a :href="whatsappHref" target="_blank" rel="noopener" class="agent-btn agent-btn-whatsapp">
@@ -132,31 +132,31 @@
         <div class="grid grid-cols-2 gap-2.5">
           <a :href="`tel:${agentPhone}`" class="agent-btn agent-btn-outline">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
-            Llamar
+            {{ t('decisionPanel.cta.call', 'Llamar') }}
           </a>
           <button class="agent-btn agent-btn-outline" @click="downloadPdf">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v11m0 0l-4-4m4 4l4-4M4 20h16" /></svg>
-            Descargar PDF
+            {{ t('decisionPanel.cta.downloadPdf', 'Descargar PDF') }}
           </button>
         </div>
         <div class="grid grid-cols-3 gap-2.5">
           <button class="agent-btn agent-btn-outline" @click="doShare">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14 3h7v7M21 3L10 14M21 14v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h6" /></svg>
-            {{ shared ? '✓' : 'Compartir' }}
+            {{ shared ? '✓' : t('decisionPanel.cta.share', 'Compartir') }}
           </button>
           <button class="agent-btn" :class="fav ? 'agent-btn-active' : 'agent-btn-outline'" @click="toggleFav(project.id)">
             <svg class="h-4 w-4" :fill="fav ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-9.3-9.2C1.2 8.7 2.7 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.3 0 4.8 3.2 3.3 6.3C19 16.5 12 21 12 21z" /></svg>
-            Guardar
+            {{ t('decisionPanel.cta.save', 'Guardar') }}
           </button>
           <button class="agent-btn" :class="inCompare ? 'agent-btn-active' : 'agent-btn-outline'" @click="doCompare">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M15 3v18M4 8h5M15 8h5M4 16h5M15 16h5" /></svg>
-            Comparar
+            {{ t('decisionPanel.cta.compare', 'Comparar') }}
           </button>
         </div>
       </div>
       <p class="hairline mt-5 flex items-center gap-2 pt-4 text-[12px] text-stone-500">
         <img :src="mediaUrl(agentPhoto)" :alt="agentName" class="h-6 w-6 rounded-full object-cover ring-1 ring-line" />
-        Atendido por <NuxtLink to="/leadership/perla-maria-melgarejo" class="font-medium text-ink hover:underline">{{ agentName }}</NuxtLink>
+        {{ t('decisionPanel.footer.attendedBy', 'Atendido por') }} <NuxtLink to="/leadership/perla-maria-melgarejo" class="font-medium text-ink hover:underline">{{ agentName }}</NuxtLink>
       </p>
     </div>
 
@@ -168,6 +168,7 @@
 const props = defineProps<{ slug: string; project: any }>()
 const project = computed(() => props.project)
 
+const { t } = useI18n()
 const { format: formatPrice } = useCurrency()
 const { isFavorite, toggle: toggleFav, load: loadFav } = useFavorites()
 const { has: hasCompare, toggle: toggleCompare } = useCompare()
@@ -196,7 +197,7 @@ const agentName = 'Perla Maria Melgarejo'
 const agentPhoto = '68725.png'
 const agentPhone = '+971504178823'
 const whatsappHref = computed(() => {
-  const msg = `Hola ${agentName.split(' ')[0]}, me interesa "${project.value.name}". ¿Podemos hablar?`
+  const msg = `${t('decisionPanel.whatsapp.greeting', 'Hola')} ${agentName.split(' ')[0]}, ${t('decisionPanel.whatsapp.interested', 'me interesa')} "${project.value.name}". ${t('decisionPanel.whatsapp.canWeTalk', '¿Podemos hablar?')}`
   return `https://wa.me/${agentPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`
 })
 
@@ -214,7 +215,7 @@ const priceVariation = computed(() => {
   const diff = p.price - p.priceOld
   const pct = Math.round((diff / p.priceOld) * 100)
   const dropped = diff < 0
-  return { dropped, text: `${dropped ? '−' : '+'}${Math.abs(pct)}% desde el lanzamiento` }
+  return { dropped, text: `${dropped ? '−' : '+'}${Math.abs(pct)}% ${t('decisionPanel.price.sinceLaunch', 'desde el lanzamiento')}` }
 })
 const lastUpdated = computed(() => formatDate(project.value.updatedAt))
 function formatDate(v: string | null | undefined) {
@@ -227,12 +228,12 @@ const paymentRows = computed<{ label: string; value: string }[]>(() => {
   const p = project.value
   try {
     const parsed = JSON.parse(p.paymentPlan || '[]')
-    if (Array.isArray(parsed) && parsed.length) return parsed.map((s: any, i: number) => ({ label: s.label || s.name || `Fase ${i + 1}`, value: s.value || s.percentage || '' }))
+    if (Array.isArray(parsed) && parsed.length) return parsed.map((s: any, i: number) => ({ label: s.label || s.name || `${t('decisionPanel.price.phase', 'Fase')} ${i + 1}`, value: s.value || s.percentage || '' }))
   } catch {}
   const r = []
-  if (p.downPercentage) r.push({ label: 'Entrada', value: `${p.downPercentage}%` })
-  if (p.constructionPercentage) r.push({ label: 'Durante obra', value: `${p.constructionPercentage}%` })
-  if (p.handoverPercentage) r.push({ label: 'En entrega', value: `${p.handoverPercentage}%` })
+  if (p.downPercentage) r.push({ label: t('decisionPanel.price.downPayment', 'Entrada'), value: `${p.downPercentage}%` })
+  if (p.constructionPercentage) r.push({ label: t('decisionPanel.price.duringConstruction', 'Durante obra'), value: `${p.constructionPercentage}%` })
+  if (p.handoverPercentage) r.push({ label: t('decisionPanel.price.onHandover', 'En entrega'), value: `${p.handoverPercentage}%` })
   return r
 })
 

@@ -88,7 +88,7 @@
 
     <!-- Antes / Después -->
     <div v-if="beforePhoto && afterPhoto" v-show="tab === 'antes-despues'" class="h-[540px] overflow-hidden rounded-2xl">
-      <CompareSlider :before-src="beforePhoto" :after-src="afterPhoto" :before-label="t('mediaGallery.compare.before', 'Antes')" :after-label="t('mediaGallery.compare.after', 'Después')" />
+      <CompareSlider :before-src="beforePhoto" :after-src="afterPhoto" />
     </div>
 
     <!-- Decoración IA -->
