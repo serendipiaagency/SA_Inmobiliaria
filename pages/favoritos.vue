@@ -2,8 +2,8 @@
   <div>
     <header class="border-b border-line bg-white">
       <div class="mx-auto max-w-screen-2xl px-6 pb-10 pt-12 lg:px-10">
-        <p class="eyebrow">Tu selección</p>
-        <h1 class="heading-serif mt-3 text-4xl md:text-5xl">Favoritos</h1>
+        <p class="eyebrow">{{ t('favoritos.eyebrow', 'Tu selección') }}</p>
+        <h1 class="heading-serif mt-3 text-4xl md:text-5xl">{{ t('nav.favorites', 'Favoritos') }}</h1>
       </div>
     </header>
     <div class="mx-auto max-w-screen-2xl px-6 py-14 lg:px-10">
@@ -14,8 +14,8 @@
         <ProjectCard v-for="p in saved" :key="p.id" :project="p" />
       </div>
       <div v-else class="py-24 text-center">
-        <p class="font-serif text-2xl text-stone-500">Aún no has guardado ninguna propiedad.</p>
-        <NuxtLink to="/properties" class="btn-primary mt-6">Explorar propiedades</NuxtLink>
+        <p class="font-serif text-2xl text-stone-500">{{ t('favoritos.empty', 'Aún no has guardado ninguna propiedad.') }}</p>
+        <NuxtLink to="/properties" class="btn-primary mt-6">{{ t('properties.exploreCta', 'Explorar propiedades') }}</NuxtLink>
       </div>
 
       <div class="hairline mt-16 pt-14">
@@ -43,8 +43,8 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Favoritos — M&M Real Estate' })
 const { t } = useI18n()
+useHead({ title: t('favoritos.head.title', 'Favoritos — M&M Real Estate') })
 const dt = useDash()
 const { ids, load } = useFavorites()
 const { items: searches, load: loadSearches, remove: removeSearch } = useSavedSearches()

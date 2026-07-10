@@ -8,8 +8,8 @@
         >
           <!-- Header -->
           <div class="flex items-center justify-between border-b border-line px-6 py-4">
-            <h2 class="font-serif text-xl font-medium">Filtros</h2>
-            <button class="text-stone-400 transition hover:text-ink" aria-label="Cerrar" @click="close">
+            <h2 class="font-serif text-xl font-medium">{{ t('filters.button', 'Filtros') }}</h2>
+            <button class="text-stone-400 transition hover:text-ink" :aria-label="t('filters.close', 'Cerrar')" @click="close">
               <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" d="M6 6l12 12M18 6L6 18" />
               </svg>
@@ -20,17 +20,17 @@
           <div class="flex-1 space-y-8 overflow-y-auto px-6 py-6">
             <!-- Precio -->
             <section>
-              <h3 class="filter-title">Precio (AED)</h3>
+              <h3 class="filter-title">{{ t('hero.price', 'Precio') }} (AED)</h3>
               <div class="grid grid-cols-2 gap-3">
-                <label class="ff">Mínimo
+                <label class="ff">{{ t('filters.min', 'Mínimo') }}
                   <select v-model.number="f.minPrice" class="fs">
-                    <option :value="0">Sin mín.</option>
+                    <option :value="0">{{ t('hero.noMin', 'Sin mín.') }}</option>
                     <option v-for="p in priceSteps" :key="p" :value="p">{{ money(p) }}</option>
                   </select>
                 </label>
-                <label class="ff">Máximo
+                <label class="ff">{{ t('filters.max', 'Máximo') }}
                   <select v-model.number="f.maxPrice" class="fs">
-                    <option :value="0">Sin máx.</option>
+                    <option :value="0">{{ t('hero.noMax', 'Sin máx.') }}</option>
                     <option v-for="p in priceSteps" :key="p" :value="p">{{ money(p) }}</option>
                   </select>
                 </label>
@@ -39,17 +39,17 @@
 
             <!-- Superficie -->
             <section>
-              <h3 class="filter-title">Superficie (m²)</h3>
+              <h3 class="filter-title">{{ t('hero.area', 'Superficie') }} (m²)</h3>
               <div class="grid grid-cols-2 gap-3">
-                <label class="ff">Desde
+                <label class="ff">{{ t('filters.from', 'Desde') }}
                   <select v-model.number="f.minArea" class="fs">
-                    <option :value="0">Sin mín.</option>
+                    <option :value="0">{{ t('hero.noMin', 'Sin mín.') }}</option>
                     <option v-for="a in areaSteps" :key="a" :value="a">{{ a }} m²</option>
                   </select>
                 </label>
-                <label class="ff">Hasta
+                <label class="ff">{{ t('filters.to', 'Hasta') }}
                   <select v-model.number="f.maxArea" class="fs">
-                    <option :value="0">Sin máx.</option>
+                    <option :value="0">{{ t('hero.noMax', 'Sin máx.') }}</option>
                     <option v-for="a in areaSteps" :key="a" :value="a">{{ a }} m²</option>
                   </select>
                 </label>
@@ -59,13 +59,13 @@
             <!-- Habitaciones / Baños -->
             <section class="grid gap-6 sm:grid-cols-2">
               <div>
-                <h3 class="filter-title">Habitaciones</h3>
+                <h3 class="filter-title">{{ t('hero.bedrooms', 'Habitaciones') }}</h3>
                 <div class="flex flex-wrap gap-2">
                   <button v-for="o in bedOpts" :key="o.v" type="button" class="pill" :class="{ 'pill-on': f.bedrooms === o.v }" @click="f.bedrooms = f.bedrooms === o.v ? 0 : o.v">{{ o.l }}</button>
                 </div>
               </div>
               <div>
-                <h3 class="filter-title">Baños</h3>
+                <h3 class="filter-title">{{ t('hero.bathrooms', 'Baños') }}</h3>
                 <div class="flex flex-wrap gap-2">
                   <button v-for="n in [1,2,3,4]" :key="n" type="button" class="pill" :class="{ 'pill-on': f.bathrooms === n }" @click="f.bathrooms = f.bathrooms === n ? 0 : n">{{ n }}+</button>
                 </div>
@@ -74,15 +74,15 @@
 
             <!-- Tipo -->
             <section>
-              <h3 class="filter-title">Tipo de propiedad</h3>
+              <h3 class="filter-title">{{ t('filters.propertyType', 'Tipo de propiedad') }}</h3>
               <div class="flex flex-wrap gap-2">
-                <button v-for="t in types" :key="t" type="button" class="pill" :class="{ 'pill-on': f.type === t }" @click="f.type = f.type === t ? '' : t">{{ typeLabel(t) }}</button>
+                <button v-for="ty in types" :key="ty" type="button" class="pill" :class="{ 'pill-on': f.type === ty }" @click="f.type = f.type === ty ? '' : ty">{{ typeLabel(ty) }}</button>
               </div>
             </section>
 
             <!-- Estado -->
             <section>
-              <h3 class="filter-title">Estado</h3>
+              <h3 class="filter-title">{{ t('compare.spec.status', 'Estado') }}</h3>
               <div class="flex flex-wrap gap-2">
                 <button v-for="s in statuses" :key="s.v" type="button" class="pill" :class="{ 'pill-on': f.status === s.v }" @click="f.status = f.status === s.v ? '' : s.v">{{ s.l }}</button>
               </div>
@@ -90,7 +90,7 @@
 
             <!-- Características -->
             <section>
-              <h3 class="filter-title">Características</h3>
+              <h3 class="filter-title">{{ t('filters.features', 'Características') }}</h3>
               <div class="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">
                 <label v-for="feat in features" :key="feat.k" class="toggle">
                   <input v-model="f[feat.k]" type="checkbox" class="sr-only peer" />
@@ -104,7 +104,7 @@
 
             <!-- Orientación -->
             <section>
-              <h3 class="filter-title">Orientación</h3>
+              <h3 class="filter-title">{{ t('compare.spec.orientation', 'Orientación') }}</h3>
               <div class="flex flex-wrap gap-2">
                 <button v-for="o in orientations" :key="o.v" type="button" class="pill" :class="{ 'pill-on': f.orientation === o.v }" @click="f.orientation = f.orientation === o.v ? '' : o.v">{{ o.l }}</button>
               </div>
@@ -113,16 +113,16 @@
             <!-- Año / Eficiencia -->
             <section class="grid gap-6 sm:grid-cols-2">
               <div>
-                <h3 class="filter-title">Año de construcción (desde)</h3>
+                <h3 class="filter-title">{{ t('filters.yearBuiltFrom', 'Año de construcción (desde)') }}</h3>
                 <label class="ff">
                   <select v-model.number="f.minYear" class="fs">
-                    <option :value="0">Cualquiera</option>
+                    <option :value="0">{{ t('hero.any', 'Cualquiera') }}</option>
                     <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
                   </select>
                 </label>
               </div>
               <div>
-                <h3 class="filter-title">Eficiencia energética (mín.)</h3>
+                <h3 class="filter-title">{{ t('filters.energyMin', 'Eficiencia energética (mín.)') }}</h3>
                 <div class="flex flex-wrap gap-2">
                   <button v-for="e in energies" :key="e" type="button" class="chip-e" :class="{ 'chip-e-on': f.energy === e }" @click="f.energy = f.energy === e ? '' : e">{{ e }}</button>
                 </div>
@@ -133,10 +133,10 @@
           <!-- Footer -->
           <div class="flex items-center justify-between gap-4 border-t border-line px-6 py-4">
             <button type="button" class="text-sm font-semibold uppercase tracking-widest text-stone-500 underline-offset-4 hover:text-ink hover:underline" @click="clearAll">
-              Limpiar todo
+              {{ t('filters.clearAll', 'Limpiar todo') }}
             </button>
             <button type="button" class="btn-primary min-w-[11rem]" @click="apply">
-              <span v-if="counting" class="count-dot" /> Ver {{ count }} resultado{{ count === 1 ? '' : 's' }}
+              <span v-if="counting" class="count-dot" /> {{ t('filters.viewResultsPrefix', 'Ver') }} {{ count }} {{ count === 1 ? t('filters.result', 'resultado') : t('filters.results', 'resultados') }}
             </button>
           </div>
         </div>
@@ -146,6 +146,7 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n()
 const props = defineProps<{ open: boolean; modelValue: Record<string, any>; q?: string }>()
 const emit = defineEmits<{ close: []; apply: [Record<string, any>] }>()
 
@@ -165,29 +166,35 @@ watch(
 
 const priceSteps = [250000, 500000, 750000, 1000000, 1500000, 2000000, 3000000, 5000000, 8000000]
 const areaSteps = [50, 75, 100, 150, 200, 300, 500, 800]
-const bedOpts = [
-  { v: 0, l: 'Cualquiera' }, { v: 1, l: '1+' }, { v: 2, l: '2+' }, { v: 3, l: '3+' }, { v: 4, l: '4+' }, { v: 5, l: '5+' },
-]
+const bedOpts = computed(() => [
+  { v: 0, l: t('hero.any', 'Cualquiera') }, { v: 1, l: '1+' }, { v: 2, l: '2+' }, { v: 3, l: '3+' }, { v: 4, l: '4+' }, { v: 5, l: '5+' },
+])
 const types = ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio']
-const statuses = [
-  { v: 'new', l: 'Obra nueva' },
-  { v: 'under_construction', l: 'En construcción' },
-  { v: 'ready', l: 'Listo para entrar' },
-]
-const features = [
-  { k: 'elevator', l: 'Ascensor' }, { k: 'pool', l: 'Piscina' }, { k: 'garage', l: 'Garaje' },
-  { k: 'terrace', l: 'Terraza' }, { k: 'garden', l: 'Jardín' }, { k: 'pets', l: 'Mascotas' },
-  { k: 'accessible', l: 'Accesible' },
-]
-const orientations = [
-  { v: 'N', l: 'Norte' }, { v: 'S', l: 'Sur' }, { v: 'E', l: 'Este' }, { v: 'W', l: 'Oeste' },
-  { v: 'SE', l: 'Sureste' }, { v: 'SW', l: 'Suroeste' }, { v: 'NE', l: 'Noreste' }, { v: 'NW', l: 'Noroeste' },
-]
+const statuses = computed(() => [
+  { v: 'new', l: t('filters.status.new', 'Obra nueva') },
+  { v: 'under_construction', l: t('filters.status.underConstruction', 'En construcción') },
+  { v: 'ready', l: t('filters.status.ready', 'Listo para entrar') },
+])
+const features = computed(() => [
+  { k: 'elevator', l: t('filters.feature.elevator', 'Ascensor') }, { k: 'pool', l: t('filters.feature.pool', 'Piscina') }, { k: 'garage', l: t('filters.feature.garage', 'Garaje') },
+  { k: 'terrace', l: t('filters.feature.terrace', 'Terraza') }, { k: 'garden', l: t('filters.feature.garden', 'Jardín') }, { k: 'pets', l: t('filters.feature.pets', 'Mascotas') },
+  { k: 'accessible', l: t('filters.feature.accessible', 'Accesible') },
+])
+const orientations = computed(() => [
+  { v: 'N', l: t('filters.orientation.north', 'Norte') }, { v: 'S', l: t('filters.orientation.south', 'Sur') }, { v: 'E', l: t('filters.orientation.east', 'Este') }, { v: 'W', l: t('filters.orientation.west', 'Oeste') },
+  { v: 'SE', l: t('filters.orientation.southeast', 'Sureste') }, { v: 'SW', l: t('filters.orientation.southwest', 'Suroeste') }, { v: 'NE', l: t('filters.orientation.northeast', 'Noreste') }, { v: 'NW', l: t('filters.orientation.northwest', 'Noroeste') },
+])
 const energies = ['A', 'B', 'C', 'D', 'E']
 const years = [2020, 2022, 2024, 2025, 2026, 2027, 2028]
 
-function typeLabel(t: string) {
-  return { Apartment: 'Apartamento', Villa: 'Villa', Townhouse: 'Adosado', Penthouse: 'Ático', Studio: 'Estudio' }[t] || t
+function typeLabel(ty: string) {
+  return {
+    Apartment: t('filters.type.apartment', 'Apartamento'),
+    Villa: t('filters.type.villa', 'Villa'),
+    Townhouse: t('filters.type.townhouse', 'Adosado'),
+    Penthouse: t('filters.type.penthouse', 'Ático'),
+    Studio: t('card.studio', 'Estudio'),
+  }[ty] || ty
 }
 function money(v: number) {
   return `AED ${new Intl.NumberFormat('en-US').format(v)}`
@@ -216,7 +223,7 @@ function toQuery() {
 // alive rather than flickering — respects prefers-reduced-motion.
 const count = ref(0)
 const counting = ref(false)
-let t: any = null
+let debounceTimer: any = null
 let countRaf = 0
 function animateCountTo(target: number) {
   const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -255,8 +262,8 @@ watch(
   () => JSON.stringify(f),
   () => {
     if (!props.open) return
-    clearTimeout(t)
-    t = setTimeout(refreshCount, 220)
+    clearTimeout(debounceTimer)
+    debounceTimer = setTimeout(refreshCount, 220)
   },
 )
 watch(() => props.open, (o) => { if (o) refreshCount() })

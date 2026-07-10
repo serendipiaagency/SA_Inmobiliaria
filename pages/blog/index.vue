@@ -2,8 +2,8 @@
   <div>
     <header class="border-b border-line bg-white">
       <div class="mx-auto max-w-screen-2xl px-6 pb-10 pt-12 lg:px-10">
-        <p class="eyebrow">Journal</p>
-        <h1 class="heading-serif mt-3 text-4xl md:text-5xl">Insights & stories</h1>
+        <p class="eyebrow">{{ t('home.blog.eyebrow', 'Journal') }}</p>
+        <h1 class="heading-serif mt-3 text-4xl md:text-5xl">{{ t('blog.hero.title', 'Ideas e historias') }}</h1>
       </div>
     </header>
     <div class="mx-auto max-w-screen-2xl px-6 py-14 lg:px-10">
@@ -26,12 +26,13 @@
           </p>
         </NuxtLink>
       </div>
-      <p v-else class="py-24 text-center font-serif text-2xl text-stone-500">No articles published yet.</p>
+      <p v-else class="py-24 text-center font-serif text-2xl text-stone-500">{{ t('blog.empty', 'Aún no hay artículos publicados.') }}</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n()
 const { data } = await useFetch('/api/public/blogs')
 useHead({ title: 'Journal — M&M Real Estate' })
 function stripHtml(html: string): string {

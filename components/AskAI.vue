@@ -1,8 +1,8 @@
 <template>
   <div class="rounded-2xl border border-line bg-white p-6">
     <div class="flex items-center gap-2">
-      <span class="rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">IA</span>
-      <h3 class="font-serif text-xl font-medium">Pregúntale a la IA sobre esta propiedad</h3>
+      <span class="rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">{{ t('askAI.badge', 'IA') }}</span>
+      <h3 class="font-serif text-xl font-medium">{{ t('askAI.title', 'Pregúntale a la IA sobre esta propiedad') }}</h3>
     </div>
 
     <div class="mt-4 flex flex-wrap gap-2">
@@ -10,17 +10,17 @@
     </div>
 
     <form class="mt-4 flex gap-2" @submit.prevent="ask(input)">
-      <input v-model="input" class="input" placeholder="Escribe tu pregunta…" maxlength="300" />
-      <button type="submit" class="btn-primary shrink-0" :disabled="loading">{{ loading ? '…' : 'Preguntar' }}</button>
+      <input v-model="input" class="input" :placeholder="t('askAI.placeholder', 'Escribe tu pregunta…')" maxlength="300" />
+      <button type="submit" class="btn-primary shrink-0" :disabled="loading">{{ loading ? '…' : t('askAI.ask', 'Preguntar') }}</button>
     </form>
 
     <transition name="fade">
       <div v-if="answer || loading" class="mt-5 rounded-xl bg-paper p-5">
-        <p v-if="loading" class="flex items-center gap-2 text-sm text-stone-500"><span class="dot" /> Pensando…</p>
+        <p v-if="loading" class="flex items-center gap-2 text-sm text-stone-500"><span class="dot" /> {{ t('askAI.thinking', 'Pensando…') }}</p>
         <template v-else>
           <p class="text-[15px] leading-relaxed text-stone-700">{{ answer }}</p>
           <p class="mt-3 text-[11px] uppercase tracking-widest text-stone-400">
-            {{ engine === 'ai' ? 'Respuesta generada por IA' : 'Respuesta orientativa · confírmala con un asesor' }}
+            {{ engine === 'ai' ? t('askAI.answerAi', 'Respuesta generada por IA') : t('askAI.answerHeuristic', 'Respuesta orientativa · confírmala con un asesor') }}
           </p>
         </template>
       </div>
@@ -30,7 +30,14 @@
 
 <script setup lang="ts">
 const props = defineProps<{ slug: string }>()
-const suggestions = ['¿Tiene mucha luz?', '¿Es buena inversión?', '¿Cuánto costaría reformarla?', '¿Qué colegios hay cerca?', '¿Qué orientación tiene?']
+const { t } = useI18n()
+const suggestions = computed(() => [
+  t('askAI.suggestionLight', '¿Tiene mucha luz?'),
+  t('askAI.suggestionInvestment', '¿Es buena inversión?'),
+  t('askAI.suggestionRenovation', '¿Cuánto costaría reformarla?'),
+  t('askAI.suggestionSchools', '¿Qué colegios hay cerca?'),
+  t('askAI.suggestionOrientation', '¿Qué orientación tiene?'),
+])
 const input = ref('')
 const answer = ref('')
 const engine = ref('')
@@ -47,7 +54,7 @@ async function ask(q: string) {
     answer.value = res.text
     engine.value = res.engine
   } catch {
-    answer.value = 'No he podido responder ahora mismo. Inténtalo de nuevo o contacta con un asesor.'
+    answer.value = t('askAI.error', 'No he podido responder ahora mismo. Inténtalo de nuevo o contacta con un asesor.')
   } finally {
     loading.value = false
   }

@@ -9,7 +9,7 @@
         class="cs-grip"
         role="slider"
         tabindex="0"
-        :aria-label="`Comparar ${beforeLabel} y ${afterLabel}`"
+        :aria-label="`${t('compareSlider.compare', 'Comparar')} ${beforeLabel} ${t('compareSlider.and', 'y')} ${afterLabel}`"
         aria-valuemin="0"
         aria-valuemax="100"
         :aria-valuenow="Math.round(pos)"
@@ -24,15 +24,16 @@
 </template>
 
 <script setup lang="ts">
-const props = withDefaults(
-  defineProps<{
-    beforeSrc: string
-    afterSrc: string
-    beforeLabel?: string
-    afterLabel?: string
-  }>(),
-  { beforeLabel: 'Antes', afterLabel: 'Después' },
-)
+const { t } = useI18n()
+const props = defineProps<{
+  beforeSrc: string
+  afterSrc: string
+  beforeLabel?: string
+  afterLabel?: string
+}>()
+
+const beforeLabel = computed(() => props.beforeLabel ?? t('compareSlider.before', 'Antes'))
+const afterLabel = computed(() => props.afterLabel ?? t('compareSlider.after', 'Después'))
 
 const root = ref<HTMLElement | null>(null)
 const pos = ref(50)

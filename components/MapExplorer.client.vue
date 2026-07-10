@@ -5,11 +5,11 @@
 
     <!-- Layer / POI controls -->
     <div class="absolute right-3 top-3 z-[500] w-52 rounded-2xl border border-line bg-white/95 p-3 shadow-xl backdrop-blur">
-      <p class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-stone-400">Vista</p>
+      <p class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-stone-400">{{ t('map.layers.title', 'Vista') }}</p>
       <div class="mb-3 grid grid-cols-3 gap-1">
         <button v-for="b in baseOptions" :key="b.key" class="lbtn" :class="{ 'lbtn-on': base === b.key }" @click="setBase(b.key)">{{ b.label }}</button>
       </div>
-      <p class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-stone-400">Cerca</p>
+      <p class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-stone-400">{{ t('map.poi.title', 'Cerca') }}</p>
       <label v-for="p in poiTypes" :key="p.key" class="flex cursor-pointer items-center gap-2 py-1 text-[13px]">
         <input type="checkbox" v-model="poiOn[p.key]" class="accent-ink" @change="renderPois" />
         <span class="inline-block h-2.5 w-2.5 rounded-full" :style="{ background: p.color }" />
@@ -23,6 +23,7 @@
 import L from 'leaflet'
 import 'leaflet.markercluster'
 
+const { t } = useI18n()
 const props = defineProps<{ items: any[]; activeId?: number | null }>()
 const emit = defineEmits<{ 'marker-click': [number]; 'marker-hover': [number | null] }>()
 
@@ -35,18 +36,18 @@ const markers: Record<number, any> = {}
 let poiGroup: any = null
 
 const base = ref('plano')
-const baseOptions = [
-  { key: 'plano', label: 'Plano' },
-  { key: 'satelite', label: 'Satélite' },
-  { key: 'oscuro', label: 'Oscuro' },
-]
-const poiTypes = [
-  { key: 'transporte', label: 'Transporte', color: '#2563eb' },
-  { key: 'colegios', label: 'Colegios', color: '#16a34a' },
-  { key: 'hospitales', label: 'Hospitales', color: '#dc2626' },
-  { key: 'super', label: 'Supermercados', color: '#d97706' },
-  { key: 'playas', label: 'Playas', color: '#0891b2' },
-]
+const baseOptions = computed(() => [
+  { key: 'plano', label: t('map.layers.standard', 'Plano') },
+  { key: 'satelite', label: t('map.layers.satellite', 'Satélite') },
+  { key: 'oscuro', label: t('map.layers.dark', 'Oscuro') },
+])
+const poiTypes = computed(() => [
+  { key: 'transporte', label: t('map.poi.transport', 'Transporte'), color: '#2563eb' },
+  { key: 'colegios', label: t('map.poi.schools', 'Colegios'), color: '#16a34a' },
+  { key: 'hospitales', label: t('map.poi.hospitals', 'Hospitales'), color: '#dc2626' },
+  { key: 'super', label: t('map.poi.supermarkets', 'Supermercados'), color: '#d97706' },
+  { key: 'playas', label: t('map.poi.beaches', 'Playas'), color: '#0891b2' },
+])
 const poiOn = reactive<Record<string, boolean>>({ transporte: false, colegios: false, hospitales: false, super: false, playas: false })
 
 function tile(key: string) {
@@ -92,7 +93,7 @@ function renderPois() {
 
 async function fetchAndRenderPois() {
   if (!map) return
-  const active = poiTypes.filter((t) => poiOn[t.key])
+  const active = poiTypes.value.filter((pt) => poiOn[pt.key])
   if (!active.length) {
     poiGroup.clearLayers()
     return
@@ -102,7 +103,7 @@ async function fetchAndRenderPois() {
   const seq = ++poiFetchSeq
   let pois: any[] = []
   try {
-    const res: any = await $fetch('/api/public/pois', { query: { bbox, types: active.map((t) => t.key).join(',') } })
+    const res: any = await $fetch('/api/public/pois', { query: { bbox, types: active.map((pt) => pt.key).join(',') } })
     pois = res.pois || []
   } catch {
     pois = []
@@ -110,11 +111,11 @@ async function fetchAndRenderPois() {
   if (seq !== poiFetchSeq) return // a newer request already superseded this one
   poiGroup.clearLayers()
   for (const poi of pois) {
-    const t = poiTypes.find((pt) => pt.key === poi.type)
-    if (!t) continue
+    const poiType = poiTypes.value.find((pt) => pt.key === poi.type)
+    if (!poiType) continue
     const m = L.marker([poi.lat, poi.lng], {
-      icon: L.divIcon({ className: '', html: `<span class="poi-dot" style="background:${t.color}"></span>`, iconSize: [14, 14], iconAnchor: [7, 7] }),
-    }).bindPopup(`<b>${poi.name}</b><br><span style="color:#78716c">${t.label}</span>`)
+      icon: L.divIcon({ className: '', html: `<span class="poi-dot" style="background:${poiType.color}"></span>`, iconSize: [14, 14], iconAnchor: [7, 7] }),
+    }).bindPopup(`<b>${poi.name}</b><br><span style="color:#78716c">${poiType.label}</span>`)
     poiGroup.addLayer(m)
   }
 }
@@ -146,8 +147,8 @@ onMounted(async () => {
         `<p class="map-card-loc">${p.community || ''}</p>` +
         `<p class="map-card-price">AED ${new Intl.NumberFormat('en-US').format(p.price || 0)}</p>` +
         `<div class="map-card-links">` +
-        `<a href="${href}">Ver ficha</a>` +
-        `<a href="${sv}" target="_blank" rel="noopener">Street View</a></div></div></div>`,
+        `<a href="${href}">${t('map.popup.viewDetails', 'Ver ficha')}</a>` +
+        `<a href="${sv}" target="_blank" rel="noopener">${t('map.popup.streetView', 'Street View')}</a></div></div></div>`,
       { className: 'map-popup', maxWidth: 220 },
     )
     m.on('click', () => emit('marker-click', p.id))

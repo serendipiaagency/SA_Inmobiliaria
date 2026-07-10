@@ -2,8 +2,8 @@
   <div>
     <header class="border-b border-line bg-white">
       <div class="mx-auto max-w-screen-2xl px-6 pb-10 pt-12 lg:px-10">
-        <p class="eyebrow">Neighbourhoods</p>
-        <h1 class="heading-serif mt-3 text-4xl md:text-5xl">Communities</h1>
+        <p class="eyebrow">{{ t('community.list.eyebrow', 'Vecindarios') }}</p>
+        <h1 class="heading-serif mt-3 text-4xl md:text-5xl">{{ t('community.list.title', 'Comunidades') }}</h1>
       </div>
     </header>
     <div class="mx-auto max-w-screen-2xl px-6 py-14 lg:px-10">
@@ -24,12 +24,13 @@
           <p v-if="c.description" class="mt-2 line-clamp-2 text-sm leading-relaxed text-stone-500">{{ c.description }}</p>
         </NuxtLink>
       </div>
-      <p v-else class="py-24 text-center font-serif text-2xl text-stone-500">No communities published yet.</p>
+      <p v-else class="py-24 text-center font-serif text-2xl text-stone-500">{{ t('community.list.empty', 'Aún no hay comunidades publicadas.') }}</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n()
 const { data } = await useFetch('/api/public/communities')
 useHead({ title: 'Communities — M&M Real Estate' })
 </script>

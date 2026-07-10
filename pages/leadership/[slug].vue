@@ -12,15 +12,15 @@
 
           <div class="mt-10 grid gap-4 sm:grid-cols-2">
             <div v-if="data.member.experience" class="rounded-2xl border border-line bg-white p-6">
-              <p class="eyebrow mb-2">Experiencia</p>
+              <p class="eyebrow mb-2">{{ t('leadership.detail.experience', 'Experiencia') }}</p>
               <p class="text-[15px] text-stone-700">{{ data.member.experience }}</p>
             </div>
             <div v-if="data.member.specialties" class="rounded-2xl border border-line bg-white p-6">
-              <p class="eyebrow mb-2">Especialidades</p>
+              <p class="eyebrow mb-2">{{ t('leadership.detail.specialties', 'Especialidades') }}</p>
               <p class="text-[15px] text-stone-700">{{ data.member.specialties }}</p>
             </div>
             <div v-if="data.member.languages" class="rounded-2xl border border-line bg-white p-6 sm:col-span-2">
-              <p class="eyebrow mb-3">Idiomas</p>
+              <p class="eyebrow mb-3">{{ t('leadership.detail.languages', 'Idiomas') }}</p>
               <div class="flex flex-wrap gap-1.5">
                 <span v-for="lang in languageList" :key="lang" class="rounded-full bg-paper px-3 py-1 text-[12px] font-medium text-stone-600 ring-1 ring-line">{{ lang }}</span>
               </div>
@@ -57,6 +57,7 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n()
 const route = useRoute()
 const { data } = await useFetch(`/api/public/team/${route.params.slug}`)
 if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Team member not found', fatal: true })

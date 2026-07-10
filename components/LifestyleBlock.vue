@@ -12,25 +12,26 @@
         </div>
       </div>
       <p class="mt-3 text-[13px] text-stone-500">
-        <span class="font-medium text-ink">{{ c.nearestName }}</span> a {{ formatDistance(c.nearestDistance) }}
+        <span class="font-medium text-ink">{{ c.nearestName }}</span> {{ t('lifestyleBlock.distanceConnector', 'a') }} {{ formatDistance(c.nearestDistance) }}
       </p>
     </div>
   </div>
-  <p v-else class="text-sm text-stone-500">No hay datos de entorno disponibles para esta ubicación.</p>
+  <p v-else class="text-sm text-stone-500">{{ t('lifestyleBlock.empty', 'No hay datos de entorno disponibles para esta ubicación.') }}</p>
 </template>
 
 <script setup lang="ts">
 const props = defineProps<{ slug: string }>()
+const { t } = useI18n()
 
 const loading = ref(true)
 const categories = ref<{ type: string; count: number; nearestName: string; nearestDistance: number }[]>([])
 
 const META: Record<string, { label: string; bg: string; color: string; icon: string }> = {
-  transporte: { label: 'Transporte', bg: '#eff6ff', color: '#2563eb', icon: ic('M4 16h16M6 16V8a2 2 0 012-2h8a2 2 0 012 2v8M8 20h.01M16 20h.01') },
-  colegios: { label: 'Colegios', bg: '#f0fdf4', color: '#16a34a', icon: ic('M12 3l9 4.5-9 4.5-9-4.5L12 3zM7 10.2V16c0 1.5 2.5 3 5 3s5-1.5 5-3v-5.8') },
-  hospitales: { label: 'Hospitales', bg: '#fef2f2', color: '#dc2626', icon: ic('M12 8v8M8 12h8M5 5h14a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z') },
-  super: { label: 'Supermercados', bg: '#fffbeb', color: '#d97706', icon: ic('M3 6h18M6 6l1 13a1 1 0 001 1h8a1 1 0 001-1l1-13M9 10v4M15 10v4') },
-  playas: { label: 'Playas', bg: '#ecfeff', color: '#0891b2', icon: ic('M3 17c1.5 1.3 3 1.3 4.5 0s3-1.3 4.5 0 3 1.3 4.5 0 3-1.3 4.5 0M5 13V6a2 2 0 012-2h10a2 2 0 012 2v7') },
+  transporte: { label: t('lifestyleBlock.transport', 'Transporte'), bg: '#eff6ff', color: '#2563eb', icon: ic('M4 16h16M6 16V8a2 2 0 012-2h8a2 2 0 012 2v8M8 20h.01M16 20h.01') },
+  colegios: { label: t('lifestyleBlock.schools', 'Colegios'), bg: '#f0fdf4', color: '#16a34a', icon: ic('M12 3l9 4.5-9 4.5-9-4.5L12 3zM7 10.2V16c0 1.5 2.5 3 5 3s5-1.5 5-3v-5.8') },
+  hospitales: { label: t('lifestyleBlock.hospitals', 'Hospitales'), bg: '#fef2f2', color: '#dc2626', icon: ic('M12 8v8M8 12h8M5 5h14a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V6a1 1 0 011-1z') },
+  super: { label: t('lifestyleBlock.supermarkets', 'Supermercados'), bg: '#fffbeb', color: '#d97706', icon: ic('M3 6h18M6 6l1 13a1 1 0 001 1h8a1 1 0 001-1l1-13M9 10v4M15 10v4') },
+  playas: { label: t('lifestyleBlock.beaches', 'Playas'), bg: '#ecfeff', color: '#0891b2', icon: ic('M3 17c1.5 1.3 3 1.3 4.5 0s3-1.3 4.5 0 3 1.3 4.5 0 3-1.3 4.5 0M5 13V6a2 2 0 012-2h10a2 2 0 012 2v7') },
 }
 function meta(type: string) {
   return META[type] || { label: type, bg: '#f5f5f4', color: '#57534e', icon: '' }

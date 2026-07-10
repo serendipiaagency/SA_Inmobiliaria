@@ -18,31 +18,32 @@
     </div>
 
     <div>
-      <p v-if="orientation" class="text-lg font-semibold">Orientación {{ orientationLabel(orientation).toLowerCase() }}</p>
-      <p v-if="orientation" class="mt-1 text-[14px] leading-relaxed text-stone-600">{{ orientationNote(orientation) }}</p>
-      <p v-else class="text-sm text-stone-500">Orientación no especificada para esta propiedad.</p>
+      <p v-if="orientation" class="text-lg font-semibold">{{ t('sunOrientation.orientationPrefix', 'Orientación') }} {{ orientationLabel(orientation, t).toLowerCase() }}</p>
+      <p v-if="orientation" class="mt-1 text-[14px] leading-relaxed text-stone-600">{{ orientationNote(orientation, t) }}</p>
+      <p v-else class="text-sm text-stone-500">{{ t('sunOrientation.notSpecified', 'Orientación no especificada para esta propiedad.') }}</p>
 
       <div class="mt-5 grid grid-cols-3 gap-3 text-center">
         <div class="rounded-xl border border-line p-3">
           <p class="font-serif text-xl">{{ formatHour(sun.sunriseHour) }}</p>
-          <p class="mt-0.5 text-[10px] uppercase tracking-widest text-stone-400">Amanecer hoy</p>
+          <p class="mt-0.5 text-[10px] uppercase tracking-widest text-stone-400">{{ t('sunOrientation.sunriseToday', 'Amanecer hoy') }}</p>
         </div>
         <div class="rounded-xl border border-line p-3">
           <p class="font-serif text-xl">{{ formatHour(sun.sunsetHour) }}</p>
-          <p class="mt-0.5 text-[10px] uppercase tracking-widest text-stone-400">Atardecer hoy</p>
+          <p class="mt-0.5 text-[10px] uppercase tracking-widest text-stone-400">{{ t('sunOrientation.sunsetToday', 'Atardecer hoy') }}</p>
         </div>
         <div class="rounded-xl border border-line p-3">
           <p class="font-serif text-xl">{{ sun.dayLengthHours.toFixed(1) }} h</p>
-          <p class="mt-0.5 text-[10px] uppercase tracking-widest text-stone-400">Horas de luz</p>
+          <p class="mt-0.5 text-[10px] uppercase tracking-widest text-stone-400">{{ t('sunOrientation.daylightHours', 'Horas de luz') }}</p>
         </div>
       </div>
-      <p class="mt-3 text-[11px] text-stone-400">Calculado para las coordenadas {{ usedFallbackCoords ? 'de Dubái' : 'reales de la propiedad' }} y la fecha de hoy.</p>
+      <p class="mt-3 text-[11px] text-stone-400">{{ usedFallbackCoords ? t('sunOrientation.calculatedForDubai', 'Calculado para las coordenadas de Dubái y la fecha de hoy.') : t('sunOrientation.calculatedForProperty', 'Calculado para las coordenadas reales de la propiedad y la fecha de hoy.') }}</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 const props = defineProps<{ orientation?: string | null; lat?: number | null; lng?: number | null }>()
+const { t } = useI18n()
 
 const DUBAI_LAT = 25.2048
 const DUBAI_LNG = 55.2708

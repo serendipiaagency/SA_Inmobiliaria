@@ -11,7 +11,7 @@
         ref="input"
         :value="modelValue"
         class="w-full bg-transparent py-3 text-[15px] text-ink placeholder:text-stone-400"
-        :placeholder="placeholder"
+        :placeholder="effectivePlaceholder"
         autocomplete="off"
         @input="onInput"
         @focus="onFocus"
@@ -24,7 +24,7 @@
         v-if="modelValue"
         type="button"
         class="shrink-0 text-stone-400 transition hover:text-ink"
-        aria-label="Limpiar"
+        :aria-label="t('hero.clear', 'Limpiar')"
         @click="clear"
       >
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -54,7 +54,7 @@
             </span>
             <span class="truncate text-ink">{{ label(item) }}</span>
             <span v-if="g.type === 'reference'" class="ml-auto text-[11px] uppercase tracking-widest text-stone-400">
-              Ver ficha →
+              {{ t('search.viewDetails', 'Ver ficha →') }}
             </span>
           </button>
         </div>
@@ -64,15 +64,18 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n()
 const props = withDefaults(
   defineProps<{ modelValue: string; placeholder?: string; rounded?: boolean; autofocus?: boolean }>(),
-  { placeholder: 'Ciudad, barrio, calle o referencia…', rounded: false, autofocus: false },
+  { placeholder: undefined, rounded: false, autofocus: false },
 )
 const emit = defineEmits<{
   'update:modelValue': [string]
   select: [{ type: string; value: string; slug?: string }]
   enter: []
 }>()
+
+const effectivePlaceholder = computed(() => props.placeholder || t('search.placeholder', 'Ciudad, barrio, calle o referencia…'))
 
 const root = ref<HTMLElement | null>(null)
 const input = ref<HTMLInputElement | null>(null)

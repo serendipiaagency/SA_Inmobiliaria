@@ -3,7 +3,7 @@
     <!-- List -->
     <div v-show="view === 'list' || isDesktop" class="flex w-full flex-col border-r border-line lg:w-[42%] xl:w-[38%]">
       <div class="border-b border-line px-6 py-4">
-        <p class="text-sm text-stone-500"><span class="font-semibold text-ink">{{ items.length }}</span> propiedades en el mapa</p>
+        <p class="text-sm text-stone-500"><span class="font-semibold text-ink">{{ items.length }}</span> {{ t('mapa.propertiesOnMap', 'propiedades en el mapa') }}</p>
       </div>
       <div ref="listEl" class="flex-1 overflow-y-auto px-4 py-4">
         <div class="grid gap-4 sm:grid-cols-2">
@@ -25,7 +25,7 @@
               <h3 class="truncate font-serif text-lg font-medium">{{ p.name }}</h3>
               <p class="truncate text-[13px] text-stone-500">{{ p.community }}</p>
               <p class="mt-1 text-[12px] text-stone-400">
-                {{ p.bedrooms || 'Estudio' }}<span v-if="p.bedrooms"> hab.</span> · {{ p.bathrooms }} baños · {{ Math.round(p.area || 0) }} m²
+                {{ p.bedrooms || t('card.studio', 'Estudio') }}<span v-if="p.bedrooms"> {{ t('card.beds', 'hab.') }}</span> · {{ p.bathrooms }} {{ t('card.baths', 'baños') }} · {{ Math.round(p.area || 0) }} m²
               </p>
             </div>
           </div>
@@ -38,20 +38,21 @@
       <ClientOnly>
         <MapExplorer :items="items" :active-id="active" @marker-hover="active = $event" @marker-click="onMarkerClick" />
         <template #fallback>
-          <div class="flex h-full items-center justify-center bg-stone-100 text-stone-400">Cargando mapa…</div>
+          <div class="flex h-full items-center justify-center bg-stone-100 text-stone-400">{{ t('mapa.loading', 'Cargando mapa…') }}</div>
         </template>
       </ClientOnly>
     </div>
 
     <!-- Mobile toggle -->
     <button class="fixed bottom-5 left-1/2 z-[600] -translate-x-1/2 rounded-full bg-ink px-6 py-3 text-[12px] font-semibold uppercase tracking-widest2 text-white shadow-xl lg:hidden" @click="view = view === 'map' ? 'list' : 'map'">
-      {{ view === 'map' ? 'Ver lista' : 'Ver mapa' }}
+      {{ view === 'map' ? t('mapa.viewList', 'Ver lista') : t('mapa.viewMap', 'Ver mapa') }}
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Mapa — M&M Real Estate' })
+const { t } = useI18n()
+useHead({ title: t('mapa.head.title', 'Mapa — M&M Real Estate') })
 const router = useRouter()
 const { format: formatPrice } = useCurrency()
 const { data } = await useFetch('/api/public/properties', { query: { perPage: 48 } })

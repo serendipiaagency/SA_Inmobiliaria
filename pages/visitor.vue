@@ -1,57 +1,57 @@
 <template>
   <div class="mx-auto max-w-2xl px-4 py-14">
-    <h1 class="heading-serif text-4xl">Visitor form</h1>
-    <p class="mt-2 text-stone-500">Tell us what you are looking for and attach the required documents.</p>
+    <h1 class="heading-serif text-4xl">{{ t('visitor.title', 'Formulario de visita') }}</h1>
+    <p class="mt-2 text-stone-500">{{ t('visitor.subtitle', 'Cuéntanos qué estás buscando y adjunta los documentos requeridos.') }}</p>
 
     <form class="card mt-10 space-y-5 p-8" @submit.prevent="submit">
       <div class="grid gap-4 sm:grid-cols-2">
         <div>
-          <label class="label">Name *</label>
+          <label class="label">{{ t('visitor.form.nameLabel', 'Nombre *') }}</label>
           <input v-model="form.name" class="input" required />
         </div>
         <div>
-          <label class="label">Email *</label>
+          <label class="label">{{ t('visitor.form.emailLabel', 'Email *') }}</label>
           <input v-model="form.email" type="email" class="input" required />
         </div>
         <div>
-          <label class="label">Phone number *</label>
+          <label class="label">{{ t('visitor.form.phoneLabel', 'Número de teléfono *') }}</label>
           <input v-model="form.phone_number" class="input" required />
         </div>
         <div>
-          <label class="label">Nationality *</label>
+          <label class="label">{{ t('visitor.form.nationalityLabel', 'Nacionalidad *') }}</label>
           <input v-model="form.nationality" class="input" required />
         </div>
         <div>
-          <label class="label">Property type</label>
-          <input v-model="form.property_type" class="input" placeholder="Apartment, villa…" />
+          <label class="label">{{ t('visitor.form.propertyTypeLabel', 'Tipo de propiedad') }}</label>
+          <input v-model="form.property_type" class="input" :placeholder="t('visitor.form.propertyTypePlaceholder', 'Apartamento, villa…')" />
         </div>
         <div>
-          <label class="label">Preferred location</label>
+          <label class="label">{{ t('visitor.form.preferredLocationLabel', 'Ubicación preferida') }}</label>
           <input v-model="form.preferred_location" class="input" />
         </div>
         <div>
-          <label class="label">Budget range</label>
-          <input v-model="form.budget_range" class="input" placeholder="e.g. 800k – 1.2M AED" />
+          <label class="label">{{ t('visitor.form.budgetRangeLabel', 'Rango de presupuesto') }}</label>
+          <input v-model="form.budget_range" class="input" :placeholder="t('visitor.form.budgetRangePlaceholder', 'p. ej. 800k – 1.2M AED')" />
         </div>
         <div>
-          <label class="label">Rent paid by</label>
+          <label class="label">{{ t('visitor.form.paymentForRentLabel', 'Alquiler pagado por') }}</label>
           <select v-model="form.payment_for_rent" class="input">
             <option>Personal</option>
             <option>Company</option>
           </select>
         </div>
         <div>
-          <label class="label">Family members</label>
+          <label class="label">{{ t('visitor.form.familyMembersLabel', 'Miembros de la familia') }}</label>
           <input v-model="form.number_of_family_members" type="number" min="0" class="input" />
         </div>
       </div>
       <div>
-        <label class="label">Specifications</label>
+        <label class="label">{{ t('visitor.form.specificationsLabel', 'Especificaciones') }}</label>
         <textarea v-model="form.specifications" class="input" rows="3" />
       </div>
 
       <fieldset class="space-y-3 rounded-lg border border-slate-200 p-4">
-        <legend class="px-1 text-sm font-semibold text-stone-600">Documents (PDF)</legend>
+        <legend class="px-1 text-sm font-semibold text-stone-600">{{ t('visitor.form.documentsLegend', 'Documentos (PDF)') }}</legend>
         <div v-for="doc in docs" :key="doc.field">
           <label class="label">{{ doc.label }}</label>
           <input type="file" accept="application/pdf" class="text-sm" @change="onFile(doc.field, $event)" />
@@ -59,15 +59,16 @@
       </fieldset>
 
       <button type="submit" class="btn-primary w-full" :disabled="sending">
-        {{ sending ? 'Submitting…' : 'Submit' }}
+        {{ sending ? t('visitor.form.sending', 'Enviando…') : t('visitor.form.submit', 'Enviar') }}
       </button>
-      <p v-if="sent" class="text-center text-sm font-medium text-ink">Submission received — thank you!</p>
+      <p v-if="sent" class="text-center text-sm font-medium text-ink">{{ t('visitor.form.success', 'Formulario recibido — ¡gracias!') }}</p>
       <p v-if="error" class="text-center text-sm font-medium text-red-600">{{ error }}</p>
     </form>
   </div>
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n()
 useHead({ title: 'Visitor form — M&M Real Estate' })
 
 const form = reactive({
@@ -84,12 +85,12 @@ const form = reactive({
 })
 
 const docs = [
-  { field: 'passport_pdf', label: 'Passport' },
-  { field: 'emirates_id_pdf', label: 'Emirates ID' },
-  { field: 'bank_statement_pdf', label: 'Bank statement' },
-  { field: 'trade_license_pdf', label: 'Trade license (companies)' },
-  { field: 'vat_registration_certificate_pdf', label: 'VAT registration certificate' },
-  { field: 'etihad_credit_bureau_pdf', label: 'Etihad Credit Bureau report' },
+  { field: 'passport_pdf', label: t('visitor.docs.passport', 'Pasaporte') },
+  { field: 'emirates_id_pdf', label: t('visitor.docs.emiratesId', 'Emirates ID') },
+  { field: 'bank_statement_pdf', label: t('visitor.docs.bankStatement', 'Extracto bancario') },
+  { field: 'trade_license_pdf', label: t('visitor.docs.tradeLicense', 'Licencia comercial (empresas)') },
+  { field: 'vat_registration_certificate_pdf', label: t('visitor.docs.vatCertificate', 'Certificado de registro de IVA') },
+  { field: 'etihad_credit_bureau_pdf', label: t('visitor.docs.etihadCreditBureau', 'Informe de Etihad Credit Bureau') },
 ]
 
 const files: Record<string, File> = {}
@@ -113,7 +114,7 @@ async function submit() {
     await $fetch('/api/public/visitor', { method: 'POST', body: fd })
     sent.value = true
   } catch (e: any) {
-    error.value = e?.statusMessage || 'Something went wrong. Please try again.'
+    error.value = e?.statusMessage || t('visitor.form.error', 'Algo salió mal. Por favor, inténtalo de nuevo.')
   } finally {
     sending.value = false
   }

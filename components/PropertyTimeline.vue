@@ -24,6 +24,8 @@ const props = defineProps<{
   handoverDate?: string | null
 }>()
 
+const { t } = useI18n()
+
 function ic(k: string) {
   const p: Record<string, string> = {
     flag: '<path stroke-linecap="round" stroke-linejoin="round" d="M6 21V4m0 1l11-1-3 5 3 5-11-1"/>',
@@ -42,24 +44,30 @@ const steps = computed(() => {
   const out: { title: string; detail: string; icon: string; done: boolean; active: boolean; progress?: number | null }[] = []
 
   out.push({
-    title: 'Publicado',
-    detail: props.publishedAt ? new Date(props.publishedAt.replace(' ', 'T') + 'Z').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Fecha no disponible',
+    title: t('propertyTimeline.published', 'Publicado'),
+    detail: props.publishedAt ? new Date(props.publishedAt.replace(' ', 'T') + 'Z').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }) : t('propertyTimeline.dateUnavailable', 'Fecha no disponible'),
     icon: ic('flag'),
     done: true,
     active: false,
   })
 
   out.push({
-    title: 'Lanzamiento comercial',
-    detail: 'Inicio de comercialización',
+    title: t('propertyTimeline.launch', 'Lanzamiento comercial'),
+    detail: t('propertyTimeline.launchDetail', 'Inicio de comercialización'),
     icon: ic('rocket'),
     done: true,
     active: false,
   })
 
   out.push({
-    title: 'En construcción',
-    detail: isReady ? 'Obra finalizada' : isUnderConstruction ? (constructionPct != null ? `${constructionPct}% de avance` : 'Avance de obra') : 'Aún no iniciada',
+    title: t('propertyTimeline.underConstruction', 'En construcción'),
+    detail: isReady
+      ? t('propertyTimeline.constructionDone', 'Obra finalizada')
+      : isUnderConstruction
+        ? constructionPct != null
+          ? `${constructionPct}% ${t('propertyTimeline.progressSuffix', 'de avance')}`
+          : t('propertyTimeline.constructionProgress', 'Avance de obra')
+        : t('propertyTimeline.notStarted', 'Aún no iniciada'),
     icon: ic('crane'),
     done: isUnderConstruction || isReady,
     active: isUnderConstruction,
@@ -67,8 +75,8 @@ const steps = computed(() => {
   })
 
   out.push({
-    title: 'Entrega de llaves',
-    detail: props.handoverDate || 'Por confirmar',
+    title: t('propertyTimeline.handover', 'Entrega de llaves'),
+    detail: props.handoverDate || t('propertyTimeline.tbc', 'Por confirmar'),
     icon: ic('key'),
     done: isReady,
     active: false,

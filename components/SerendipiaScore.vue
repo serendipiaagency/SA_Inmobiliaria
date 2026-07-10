@@ -8,9 +8,9 @@
         </div>
       </div>
       <div>
-        <p class="eyebrow">Serendipia Score</p>
+        <p class="eyebrow">{{ t('serendipiaScore.eyebrow', 'Serendipia Score') }}</p>
         <p class="mt-1 font-serif text-2xl">{{ qualityLabel(data.overall) }}</p>
-        <p class="mt-1 text-[12px] text-stone-450">Índice propio calculado de forma transparente a partir de datos reales — no es una caja negra.</p>
+        <p class="mt-1 text-[12px] text-stone-450">{{ t('serendipiaScore.description', 'Índice propio calculado de forma transparente a partir de datos reales — no es una caja negra.') }}</p>
       </div>
     </div>
 
@@ -27,21 +27,22 @@
       </div>
     </div>
   </div>
-  <p v-else class="text-sm text-stone-500">No hay suficientes datos de esta propiedad para calcular el Serendipia Score.</p>
+  <p v-else class="text-sm text-stone-500">{{ t('serendipiaScore.empty', 'No hay suficientes datos de esta propiedad para calcular el Serendipia Score.') }}</p>
 </template>
 
 <script setup lang="ts">
 const props = defineProps<{ slug: string }>()
+const { t } = useI18n()
 
 const loading = ref(true)
 const data = ref<{ overall: number | null; breakdown: { key: string; label: string; score: number; detail: string }[] } | null>(null)
 
 function qualityLabel(score: number) {
-  if (score >= 85) return 'Excelente'
-  if (score >= 70) return 'Muy buena'
-  if (score >= 55) return 'Buena'
-  if (score >= 40) return 'Aceptable'
-  return 'Mejorable'
+  if (score >= 85) return t('serendipiaScore.quality.excellent', 'Excelente')
+  if (score >= 70) return t('serendipiaScore.quality.veryGood', 'Muy buena')
+  if (score >= 55) return t('serendipiaScore.quality.good', 'Buena')
+  if (score >= 40) return t('serendipiaScore.quality.acceptable', 'Aceptable')
+  return t('serendipiaScore.quality.improvable', 'Mejorable')
 }
 
 onMounted(async () => {

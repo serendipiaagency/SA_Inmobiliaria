@@ -1,6 +1,6 @@
 <template>
   <div class="rounded-2xl border border-line bg-white p-8">
-    <p class="eyebrow mb-5">Tu consultora</p>
+    <p class="eyebrow mb-5">{{ t('agentCard.eyebrow', 'Tu consultora') }}</p>
     <div class="flex items-center gap-4">
       <img :src="mediaUrl(photo)" :alt="name" class="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-line" loading="lazy" />
       <div class="min-w-0">
@@ -10,7 +10,7 @@
         <div class="mt-1 flex items-center gap-1 text-[12px] text-stone-500">
           <svg class="h-3.5 w-3.5 text-amber-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.8L6 21l1.6-7L2.2 9.2l7.1-.6z" /></svg>
           <span class="font-semibold text-ink">{{ rating }}</span>
-          <span>· {{ reviews }} valoraciones</span>
+          <span>· {{ reviews }} {{ t('agentCard.reviews', 'valoraciones') }}</span>
         </div>
       </div>
     </div>
@@ -34,11 +34,11 @@
       <div class="grid grid-cols-2 gap-2.5">
         <a :href="`tel:${phone}`" class="agent-btn agent-btn-outline">
           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
-          Llamar
+          {{ t('agentCard.call', 'Llamar') }}
         </a>
         <a :href="`mailto:${email}`" class="agent-btn agent-btn-outline">
           <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h16v16H4zM4 6l8 7 8-7" /></svg>
-          Email
+          {{ t('agentCard.email', 'Email') }}
         </a>
       </div>
     </div>
@@ -77,10 +77,13 @@ const props = withDefaults(
   },
 )
 
+const { t } = useI18n()
+
 const whatsappHref = computed(() => {
+  const firstName = props.name.split(' ')[0]
   const msg = props.propertyName
-    ? `Hola ${props.name.split(' ')[0]}, me interesa "${props.propertyName}". ¿Podemos hablar?`
-    : `Hola ${props.name.split(' ')[0]}, me gustaría más información sobre una propiedad.`
+    ? `${t('agentCard.whatsapp.greeting', 'Hola')} ${firstName}${t('agentCard.whatsapp.interestedInProperty', ', me interesa')} "${props.propertyName}"${t('agentCard.whatsapp.canWeTalk', '. ¿Podemos hablar?')}`
+    : `${t('agentCard.whatsapp.greeting', 'Hola')} ${firstName}${t('agentCard.whatsapp.generalInquiry', ', me gustaría más información sobre una propiedad.')}`
   return `https://wa.me/${props.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(msg)}`
 })
 </script>
