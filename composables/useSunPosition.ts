@@ -63,33 +63,37 @@ export function formatHour(h: number): string {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
 }
 
-const ORIENTATION_LABELS: Record<string, string> = {
-  N: 'Norte',
-  S: 'Sur',
-  E: 'Este',
-  W: 'Oeste',
-  NE: 'Noreste',
-  NW: 'Noroeste',
-  SE: 'Sureste',
-  SW: 'Suroeste',
+const ORIENTATION_LABEL_KEYS: Record<string, [string, string]> = {
+  N: ['orientation.label.N', 'Norte'],
+  S: ['orientation.label.S', 'Sur'],
+  E: ['orientation.label.E', 'Este'],
+  W: ['orientation.label.W', 'Oeste'],
+  NE: ['orientation.label.NE', 'Noreste'],
+  NW: ['orientation.label.NW', 'Noroeste'],
+  SE: ['orientation.label.SE', 'Sureste'],
+  SW: ['orientation.label.SW', 'Suroeste'],
 }
 
-const ORIENTATION_NOTES: Record<string, string> = {
-  N: 'Luz difusa y estable durante todo el día, sin sol directo intenso — estancias más frescas.',
-  S: 'La orientación más solicitada en el hemisferio norte: recibe luz solar durante gran parte del día.',
-  E: 'Sol directo por la mañana; estancias frescas por la tarde.',
-  W: 'Sol directo por la tarde y al atardecer; más calor en las horas centrales del día.',
-  NE: 'Luz suave por la mañana, sin sol directo intenso.',
-  NW: 'Luz suave por la tarde, sin sol directo intenso.',
-  SE: 'Sol directo desde la mañana hasta mediodía.',
-  SW: 'Sol directo desde mediodía hasta el atardecer.',
+const ORIENTATION_NOTE_KEYS: Record<string, [string, string]> = {
+  N: ['orientation.note.N', 'Luz difusa y estable durante todo el día, sin sol directo intenso — estancias más frescas.'],
+  S: ['orientation.note.S', 'La orientación más solicitada en el hemisferio norte: recibe luz solar durante gran parte del día.'],
+  E: ['orientation.note.E', 'Sol directo por la mañana; estancias frescas por la tarde.'],
+  W: ['orientation.note.W', 'Sol directo por la tarde y al atardecer; más calor en las horas centrales del día.'],
+  NE: ['orientation.note.NE', 'Luz suave por la mañana, sin sol directo intenso.'],
+  NW: ['orientation.note.NW', 'Luz suave por la tarde, sin sol directo intenso.'],
+  SE: ['orientation.note.SE', 'Sol directo desde la mañana hasta mediodía.'],
+  SW: ['orientation.note.SW', 'Sol directo desde mediodía hasta el atardecer.'],
 }
 
-export function orientationLabel(code: string): string {
-  return ORIENTATION_LABELS[code] || code
+export function orientationLabel(code: string, t?: (key: string, fallback?: string) => string): string {
+  const entry = ORIENTATION_LABEL_KEYS[code]
+  if (!entry) return code
+  return t ? t(entry[0], entry[1]) : entry[1]
 }
-export function orientationNote(code: string): string {
-  return ORIENTATION_NOTES[code] || ''
+export function orientationNote(code: string, t?: (key: string, fallback?: string) => string): string {
+  const entry = ORIENTATION_NOTE_KEYS[code]
+  if (!entry) return ''
+  return t ? t(entry[0], entry[1]) : entry[1]
 }
 export function orientationAngle(code: string): number {
   const angles: Record<string, number> = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 }

@@ -2,15 +2,15 @@
   <div class="mx-auto max-w-screen-2xl px-6 py-12 lg:px-10">
     <div class="mb-8 flex items-center justify-between">
       <div>
-        <p class="eyebrow">Comparador</p>
-        <h1 class="heading-serif mt-3 text-4xl">Comparar propiedades</h1>
+        <p class="eyebrow">{{ t('compare.eyebrow', 'Comparador') }}</p>
+        <h1 class="heading-serif mt-3 text-4xl">{{ t('compare.title', 'Comparar propiedades') }}</h1>
       </div>
-      <button v-if="items.length" class="btn-quiet" @click="clear">Vaciar</button>
+      <button v-if="items.length" class="btn-quiet" @click="clear">{{ t('compare.clear', 'Vaciar') }}</button>
     </div>
 
     <div v-if="!items.length" class="py-24 text-center">
-      <p class="font-serif text-2xl text-stone-500">No has añadido propiedades para comparar.</p>
-      <NuxtLink to="/properties" class="btn-primary mt-6">Explorar propiedades</NuxtLink>
+      <p class="font-serif text-2xl text-stone-500">{{ t('compare.empty', 'No has añadido propiedades para comparar.') }}</p>
+      <NuxtLink to="/properties" class="btn-primary mt-6">{{ t('properties.exploreCta', 'Explorar propiedades') }}</NuxtLink>
     </div>
 
     <div v-else class="overflow-x-auto">
@@ -25,7 +25,7 @@
                 </NuxtLink>
                 <button
                   class="act-remove absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-ink shadow"
-                  :aria-label="`Quitar ${p.name} del comparador`"
+                  :aria-label="`${t('compare.removeAriaPrefix', 'Quitar')} ${p.name} ${t('compare.removeAriaSuffix', 'del comparador')}`"
                   @click="remove(p.id)"
                 >
                   ×
@@ -48,7 +48,8 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Comparar — M&M Real Estate' })
+const { t } = useI18n()
+useHead({ title: t('compare.head.title', 'Comparar — M&M Real Estate') })
 const { items, load, remove, clear } = useCompare()
 const enriched = ref<Record<number, any>>({})
 const rows = computed(() => items.value.map((i) => enriched.value[i.id] || { id: i.id, name: i.name, coverImage: i.cover, slug: i.slug, price: i.price }))
@@ -66,19 +67,19 @@ const { format: fmtCur } = useCurrency()
 function fmt(v: number | null | undefined) {
   return v ? fmtCur(v) : '—'
 }
-const specs = [
-  { key: 'price', label: 'Precio', get: (p: any) => fmt(p.price) },
-  { key: 'm2', label: 'Precio / m²', get: (p: any) => (p.price && p.area ? fmt(Math.round(p.price / p.area)) : '—') },
-  { key: 'type', label: 'Tipo', get: (p: any) => p.propertyType || '—' },
-  { key: 'beds', label: 'Habitaciones', get: (p: any) => p.bedrooms ?? '—' },
-  { key: 'baths', label: 'Baños', get: (p: any) => p.bathrooms ?? '—' },
-  { key: 'area', label: 'Superficie', get: (p: any) => (p.area ? `${Math.round(p.area)} m²` : '—') },
-  { key: 'status', label: 'Estado', get: (p: any) => ({ new: 'Obra nueva', under_construction: 'En construcción', ready: 'Listo' }[p.status as string] || '—') },
-  { key: 'energy', label: 'Eficiencia', get: (p: any) => p.energyRating || '—' },
-  { key: 'yield', label: 'Rentabilidad', get: (p: any) => (p.rentalYield ? `${p.rentalYield}%` : '—') },
-  { key: 'year', label: 'Año', get: (p: any) => p.yearBuilt || '—' },
-  { key: 'orientation', label: 'Orientación', get: (p: any) => p.orientation || '—' },
-]
+const specs = computed(() => [
+  { key: 'price', label: t('hero.price', 'Precio'), get: (p: any) => fmt(p.price) },
+  { key: 'm2', label: t('compare.spec.pricePerM2', 'Precio / m²'), get: (p: any) => (p.price && p.area ? fmt(Math.round(p.price / p.area)) : '—') },
+  { key: 'type', label: t('compare.spec.type', 'Tipo'), get: (p: any) => p.propertyType || '—' },
+  { key: 'beds', label: t('hero.bedrooms', 'Habitaciones'), get: (p: any) => p.bedrooms ?? '—' },
+  { key: 'baths', label: t('hero.bathrooms', 'Baños'), get: (p: any) => p.bathrooms ?? '—' },
+  { key: 'area', label: t('hero.area', 'Superficie'), get: (p: any) => (p.area ? `${Math.round(p.area)} m²` : '—') },
+  { key: 'status', label: t('compare.spec.status', 'Estado'), get: (p: any) => ({ new: t('filters.status.new', 'Obra nueva'), under_construction: t('filters.status.underConstruction', 'En construcción'), ready: t('compare.status.ready', 'Listo') }[p.status as string] || '—') },
+  { key: 'energy', label: t('compare.spec.efficiency', 'Eficiencia'), get: (p: any) => p.energyRating || '—' },
+  { key: 'yield', label: t('badge.yield', 'Rentabilidad'), get: (p: any) => (p.rentalYield ? `${p.rentalYield}%` : '—') },
+  { key: 'year', label: t('compare.spec.year', 'Año'), get: (p: any) => p.yearBuilt || '—' },
+  { key: 'orientation', label: t('compare.spec.orientation', 'Orientación'), get: (p: any) => p.orientation || '—' },
+])
 </script>
 
 <style scoped>

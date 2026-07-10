@@ -28,27 +28,29 @@ const props = defineProps<{
   }
 }>()
 
-const statusLabels: Record<string, string> = {
-  new: 'Obra nueva',
-  under_construction: 'En construcción',
-  ready: 'Listo para entrar',
-}
+const { t } = useI18n()
+
+const statusLabels = computed<Record<string, string>>(() => ({
+  new: t('quickFacts.statusNew', 'Obra nueva'),
+  under_construction: t('quickFacts.statusUnderConstruction', 'En construcción'),
+  ready: t('quickFacts.statusReady', 'Listo para entrar'),
+}))
 
 const facts = computed(() => {
   const p = props.project
   const out: { label: string; value: string; icon: string }[] = []
-  if (p.propertyType) out.push({ label: 'Tipo', value: p.propertyType, icon: ic('home') })
-  if (p.yearBuilt) out.push({ label: 'Año de construcción', value: String(p.yearBuilt), icon: ic('calendar') })
-  if (p.status === 'under_construction' && p.handoverDate) out.push({ label: 'Entrega prevista', value: p.handoverDate, icon: ic('key') })
-  else if (p.status) out.push({ label: 'Estado', value: statusLabels[p.status] || p.status, icon: ic('key') })
-  if (p.street) out.push({ label: 'Calle', value: p.street, icon: ic('pin') })
-  if (p.hasElevator) out.push({ label: 'Ascensor', value: 'Sí', icon: ic('elevator') })
-  if (p.hasGarage) out.push({ label: 'Garaje', value: 'Sí', icon: ic('garage') })
-  if (p.hasTerrace) out.push({ label: 'Terraza', value: 'Sí', icon: ic('terrace') })
-  if (p.hasGarden) out.push({ label: 'Jardín', value: 'Sí', icon: ic('garden') })
-  if (p.hasPool) out.push({ label: 'Piscina', value: 'Sí', icon: ic('pool') })
-  if (p.petsAllowed) out.push({ label: 'Mascotas', value: 'Admitidas', icon: ic('paw') })
-  if (p.accessible) out.push({ label: 'Accesible', value: 'Sí', icon: ic('accessible') })
+  if (p.propertyType) out.push({ label: t('quickFacts.type', 'Tipo'), value: p.propertyType, icon: ic('home') })
+  if (p.yearBuilt) out.push({ label: t('quickFacts.yearBuilt', 'Año de construcción'), value: String(p.yearBuilt), icon: ic('calendar') })
+  if (p.status === 'under_construction' && p.handoverDate) out.push({ label: t('quickFacts.handoverDate', 'Entrega prevista'), value: p.handoverDate, icon: ic('key') })
+  else if (p.status) out.push({ label: t('quickFacts.status', 'Estado'), value: statusLabels.value[p.status] || p.status, icon: ic('key') })
+  if (p.street) out.push({ label: t('quickFacts.street', 'Calle'), value: p.street, icon: ic('pin') })
+  if (p.hasElevator) out.push({ label: t('quickFacts.elevator', 'Ascensor'), value: t('quickFacts.yes', 'Sí'), icon: ic('elevator') })
+  if (p.hasGarage) out.push({ label: t('quickFacts.garage', 'Garaje'), value: t('quickFacts.yes', 'Sí'), icon: ic('garage') })
+  if (p.hasTerrace) out.push({ label: t('quickFacts.terrace', 'Terraza'), value: t('quickFacts.yes', 'Sí'), icon: ic('terrace') })
+  if (p.hasGarden) out.push({ label: t('quickFacts.garden', 'Jardín'), value: t('quickFacts.yes', 'Sí'), icon: ic('garden') })
+  if (p.hasPool) out.push({ label: t('quickFacts.pool', 'Piscina'), value: t('quickFacts.yes', 'Sí'), icon: ic('pool') })
+  if (p.petsAllowed) out.push({ label: t('quickFacts.pets', 'Mascotas'), value: t('quickFacts.petsAllowed', 'Admitidas'), icon: ic('paw') })
+  if (p.accessible) out.push({ label: t('quickFacts.accessible', 'Accesible'), value: t('quickFacts.yes', 'Sí'), icon: ic('accessible') })
   return out
 })
 

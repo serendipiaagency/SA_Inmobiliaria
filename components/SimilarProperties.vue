@@ -15,11 +15,12 @@
       </div>
     </div>
   </div>
-  <p v-else class="text-sm text-stone-500">No hay propiedades suficientemente parecidas en el catálogo ahora mismo.</p>
+  <p v-else class="text-sm text-stone-500">{{ t('similarProperties.empty', 'No hay propiedades suficientemente parecidas en el catálogo ahora mismo.') }}</p>
 </template>
 
 <script setup lang="ts">
 const props = defineProps<{ slug: string }>()
+const { t } = useI18n()
 
 const loading = ref(true)
 const results = ref<any[]>([])

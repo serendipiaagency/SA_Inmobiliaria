@@ -4,7 +4,7 @@
       <div v-if="open" class="qv-backdrop" @click.self="$emit('close')">
         <transition name="qv-pop" appear>
           <div v-if="open" class="qv-box">
-            <button type="button" class="qv-close" aria-label="Cerrar" @click="$emit('close')">
+            <button type="button" class="qv-close" :aria-label="t('quickView.close', 'Cerrar')" @click="$emit('close')">
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
             </button>
 
@@ -18,7 +18,7 @@
             <div class="qv-body">
               <p class="flex items-baseline gap-2">
                 <span class="text-xl font-semibold tracking-tight">{{ formatPrice(project.price) }}</span>
-                <span v-if="project.rentalYield" class="text-xs font-semibold text-emerald-600">{{ project.rentalYield }}% rent.</span>
+                <span v-if="project.rentalYield" class="text-xs font-semibold text-emerald-600">{{ project.rentalYield }}% {{ t('quickView.rentalYieldSuffix', 'rent.') }}</span>
               </p>
               <h3 class="mt-1 font-serif text-2xl font-medium">{{ project.name }}</h3>
               <p class="mt-0.5 text-[13px] text-stone-500">{{ project.community }}<span v-if="project.developerName"> · {{ project.developerName }}</span></p>

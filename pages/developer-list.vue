@@ -2,8 +2,8 @@
   <div>
     <header class="border-b border-line bg-white">
       <div class="mx-auto max-w-screen-2xl px-6 pb-10 pt-12 lg:px-10">
-        <p class="eyebrow">Partners</p>
-        <h1 class="heading-serif mt-3 text-4xl md:text-5xl">Developers</h1>
+        <p class="eyebrow">{{ t('developer.list.eyebrow', 'Socios') }}</p>
+        <h1 class="heading-serif mt-3 text-4xl md:text-5xl">{{ t('nav.developers', 'Promotores') }}</h1>
       </div>
     </header>
     <div class="mx-auto max-w-screen-2xl px-6 py-14 lg:px-10">
@@ -21,16 +21,17 @@
           <h3 class="mt-5 font-serif text-2xl font-medium group-hover:underline group-hover:underline-offset-4">
             {{ d.name }}
           </h3>
-          <p class="eyebrow mt-2">{{ d.projectCount }} project(s)</p>
+          <p class="eyebrow mt-2">{{ d.projectCount }} {{ t('developer.list.projectCount', 'proyecto(s)') }}</p>
           <p v-if="d.description" class="mt-3 line-clamp-3 text-sm leading-relaxed text-stone-500">{{ d.description }}</p>
         </NuxtLink>
       </div>
-      <p v-else class="py-24 text-center font-serif text-2xl text-stone-500">No developers published yet.</p>
+      <p v-else class="py-24 text-center font-serif text-2xl text-stone-500">{{ t('developer.list.empty', 'Aún no hay promotores publicados.') }}</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n()
 const { data } = await useFetch('/api/public/developers')
 useHead({ title: 'Developers — M&M Real Estate' })
 </script>

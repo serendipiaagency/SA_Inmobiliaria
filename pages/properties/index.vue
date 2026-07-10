@@ -8,7 +8,7 @@
             <SmartSearch
               v-model="q"
               rounded
-              placeholder="Ciudad, barrio, calle o referencia…"
+              :placeholder="t('search.placeholder', 'Ciudad, barrio, calle o referencia…')"
               @select="onSelect"
               @enter="applySearch"
             />
@@ -18,14 +18,14 @@
               <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" d="M3 5h18M6 12h12M10 19h4" />
               </svg>
-              Filtros
+              {{ t('filters.button', 'Filtros') }}
               <span v-if="activeCount" class="badge">{{ activeCount }}</span>
             </button>
             <div class="relative">
               <select v-model="sort" class="sort-select" @change="applyPatch({ sort: sort || undefined, page: undefined })">
-                <option value="">Recomendado</option>
-                <option value="price_asc">Precio ↑</option>
-                <option value="price_desc">Precio ↓</option>
+                <option value="">{{ t('properties.sort.recommended', 'Recomendado') }}</option>
+                <option value="price_asc">{{ t('properties.sort.priceAsc', 'Precio ↑') }}</option>
+                <option value="price_desc">{{ t('properties.sort.priceDesc', 'Precio ↓') }}</option>
               </select>
             </div>
           </div>
@@ -51,7 +51,7 @@
       <div class="mb-6 flex items-baseline justify-between">
         <p class="text-sm text-stone-500">
           <span class="font-semibold text-ink">{{ data?.total ?? 0 }}</span>
-          propiedad{{ (data?.total ?? 0) === 1 ? '' : 'es' }}
+          {{ (data?.total ?? 0) === 1 ? t('properties.count.singular', 'propiedad') : t('properties.count.plural', 'propiedades') }}
           <span v-if="q"> · “{{ q }}”</span>
         </p>
         <div class="flex items-center gap-4">
@@ -81,8 +81,8 @@
           <ProjectCard v-for="p in data.rows" :key="p.id" :project="p" />
         </transition-group>
         <div v-else-if="!pending" class="py-24 text-center">
-          <p class="font-serif text-2xl text-stone-500">No hay propiedades que coincidan.</p>
-          <button class="btn-quiet mt-6" @click="clearAll">Limpiar filtros</button>
+          <p class="font-serif text-2xl text-stone-500">{{ t('properties.empty.title', 'No hay propiedades que coincidan.') }}</p>
+          <button class="btn-quiet mt-6" @click="clearAll">{{ t('properties.clearFilters', 'Limpiar filtros') }}</button>
         </div>
         <div v-else class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <div v-for="i in 8" :key="i" class="overflow-hidden rounded-2xl">
@@ -94,11 +94,11 @@
       </div>
 
       <div v-if="totalPages > 1" class="mt-14 flex items-center justify-center gap-4">
-        <button class="btn-quiet" :disabled="page <= 1" @click="applyPatch({ page: String(page - 1) })">← Anterior</button>
+        <button class="btn-quiet" :disabled="page <= 1" @click="applyPatch({ page: String(page - 1) })">← {{ t('properties.pagination.prev', 'Anterior') }}</button>
         <span class="text-[11px] font-semibold uppercase tracking-widest text-stone-450">
-          Página {{ page }} de {{ totalPages }}
+          {{ t('properties.pagination.page', 'Página') }} {{ page }} {{ t('properties.pagination.of', 'de') }} {{ totalPages }}
         </span>
-        <button class="btn-quiet" :disabled="page >= totalPages" @click="applyPatch({ page: String(page + 1) })">Siguiente →</button>
+        <button class="btn-quiet" :disabled="page >= totalPages" @click="applyPatch({ page: String(page + 1) })">{{ t('properties.pagination.next', 'Siguiente') }} →</button>
       </div>
     </div>
 
@@ -107,8 +107,8 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Buscar propiedades — M&M Real Estate' })
 const { t } = useI18n()
+useHead({ title: t('properties.head.title', 'Buscar propiedades — M&M Real Estate') })
 const toast = useToast()
 const { save: saveSearch, isSaved } = useSavedSearches()
 const route = useRoute()
@@ -138,11 +138,11 @@ const searchIsSaved = computed(() => isSaved(route.query as Record<string, any>)
 function searchLabel() {
   const parts: string[] = []
   if (q.value) parts.push(q.value)
-  if (route.query.bedrooms) parts.push(`${route.query.bedrooms}+ hab.`)
-  if (route.query.minPrice || route.query.maxPrice) parts.push('presupuesto')
-  if (route.query.pool) parts.push('piscina')
-  if (route.query.status === 'new') parts.push('obra nueva')
-  if (!parts.length) parts.push('Todas las propiedades')
+  if (route.query.bedrooms) parts.push(`${route.query.bedrooms}+ ${t('card.beds', 'hab.')}`)
+  if (route.query.minPrice || route.query.maxPrice) parts.push(t('search.label.budget', 'presupuesto'))
+  if (route.query.pool) parts.push(t('search.label.pool', 'piscina'))
+  if (route.query.status === 'new') parts.push(t('search.label.newBuild', 'obra nueva'))
+  if (!parts.length) parts.push(t('search.label.allProperties', 'Todas las propiedades'))
   return parts.join(' · ')
 }
 function onSaveSearch() {
@@ -163,13 +163,13 @@ const modalSeed = computed(() => {
 })
 
 // Quick chips
-const quickChips = [
-  { key: 'status', value: 'new', label: 'Obra nueva' },
-  { key: 'pool', value: '1', label: 'Piscina' },
-  { key: 'garage', value: '1', label: 'Garaje' },
-  { key: 'terrace', value: '1', label: 'Terraza' },
-  { key: 'garden', value: '1', label: 'Jardín' },
-]
+const quickChips = computed(() => [
+  { key: 'status', value: 'new', label: t('filters.status.new', 'Obra nueva') },
+  { key: 'pool', value: '1', label: t('filters.feature.pool', 'Piscina') },
+  { key: 'garage', value: '1', label: t('filters.feature.garage', 'Garaje') },
+  { key: 'terrace', value: '1', label: t('filters.feature.terrace', 'Terraza') },
+  { key: 'garden', value: '1', label: t('filters.feature.garden', 'Jardín') },
+])
 function isChipOn(c: { key: string; value: string }) {
   return String(route.query[c.key] || '') === c.value
 }

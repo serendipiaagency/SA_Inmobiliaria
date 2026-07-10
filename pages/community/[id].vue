@@ -15,22 +15,22 @@
 
     <div class="mx-auto max-w-screen-2xl space-y-16 px-6 py-16 lg:px-10">
       <section v-if="data.community.description" class="max-w-3xl">
-        <p class="eyebrow">About</p>
-        <h2 class="heading-serif mt-3 text-3xl">The neighbourhood</h2>
+        <p class="eyebrow">{{ t('community.about.eyebrow', 'Acerca de') }}</p>
+        <h2 class="heading-serif mt-3 text-3xl">{{ t('community.about.title', 'El vecindario') }}</h2>
         <p class="mt-6 whitespace-pre-line text-[15px] leading-[1.9] text-stone-600">{{ data.community.description }}</p>
       </section>
 
       <section v-if="data.community.featureDescription" class="max-w-3xl">
-        <p class="eyebrow">Features</p>
-        <h2 class="heading-serif mt-3 text-3xl">What makes it special</h2>
+        <p class="eyebrow">{{ t('community.features.eyebrow', 'Características') }}</p>
+        <h2 class="heading-serif mt-3 text-3xl">{{ t('community.features.title', 'Qué la hace especial') }}</h2>
         <p class="mt-6 whitespace-pre-line text-[15px] leading-[1.9] text-stone-600">
           {{ data.community.featureDescription }}
         </p>
       </section>
 
       <section v-if="data.amenities.length">
-        <p class="eyebrow">Amenities</p>
-        <h2 class="heading-serif mt-3 text-3xl">Community amenities</h2>
+        <p class="eyebrow">{{ t('community.amenities.eyebrow', 'Comodidades') }}</p>
+        <h2 class="heading-serif mt-3 text-3xl">{{ t('community.amenities.title', 'Comodidades de la comunidad') }}</h2>
         <ul class="mt-6 grid gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
           <li v-for="a in data.amenities" :key="a.id" class="flex items-center gap-3 text-[15px] text-stone-600">
             <span class="h-1 w-1 shrink-0 rounded-full bg-ink" />
@@ -40,8 +40,8 @@
       </section>
 
       <section v-if="data.projects.length">
-        <p class="eyebrow">Portfolio</p>
-        <h2 class="heading-serif mt-3 text-3xl">Projects in {{ data.community.name }}</h2>
+        <p class="eyebrow">{{ t('community.portfolio.eyebrow', 'Portafolio') }}</p>
+        <h2 class="heading-serif mt-3 text-3xl">{{ t('community.portfolio.title', 'Proyectos en') }} {{ data.community.name }}</h2>
         <div class="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
           <ProjectCard v-for="p in data.projects" :key="p.id" :project="p" />
         </div>
@@ -51,6 +51,7 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n()
 const route = useRoute()
 const { data } = await useFetch(`/api/public/communities/${route.params.id}`)
 if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Community not found', fatal: true })

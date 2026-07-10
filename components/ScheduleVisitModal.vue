@@ -5,44 +5,44 @@
       <transition name="sheet" appear>
         <div class="relative flex max-h-[92vh] w-full flex-col bg-white sm:max-h-[86vh] sm:w-[480px] sm:rounded-2xl">
           <div class="flex items-center justify-between border-b border-line px-6 py-4">
-            <h2 class="font-serif text-xl font-medium">{{ channel === 'video' ? 'Agendar videollamada' : 'Agendar visita' }}</h2>
-            <button class="text-stone-400 transition hover:text-ink" aria-label="Cerrar" @click="close">
+            <h2 class="font-serif text-xl font-medium">{{ channel === 'video' ? t('scheduleVisit.titleVideo', 'Agendar videollamada') : t('scheduleVisit.titleInPerson', 'Agendar visita') }}</h2>
+            <button class="text-stone-400 transition hover:text-ink" :aria-label="t('scheduleVisit.close', 'Cerrar')" @click="close">
               <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
             </button>
           </div>
 
           <form v-if="!sent" class="flex-1 space-y-4 overflow-y-auto px-6 py-6" @submit.prevent="submit">
-            <p class="text-[13px] text-stone-500">{{ propertyName }} — {{ channel === 'video' ? 'te llamamos por videollamada en el horario que prefieras.' : 'te recibimos en persona en el horario que prefieras.' }}</p>
+            <p class="text-[13px] text-stone-500">{{ propertyName }} — {{ channel === 'video' ? t('scheduleVisit.subtitleVideo', 'te llamamos por videollamada en el horario que prefieras.') : t('scheduleVisit.subtitleInPerson', 'te recibimos en persona en el horario que prefieras.') }}</p>
             <div>
-              <label class="label">Nombre *</label>
+              <label class="label">{{ t('scheduleVisit.form.nameLabel', 'Nombre *') }}</label>
               <input v-model="form.name" class="input" required />
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="label">Email</label>
+                <label class="label">{{ t('scheduleVisit.form.emailLabel', 'Email') }}</label>
                 <input v-model="form.email" type="email" class="input" />
               </div>
               <div>
-                <label class="label">Teléfono</label>
+                <label class="label">{{ t('scheduleVisit.form.phoneLabel', 'Teléfono') }}</label>
                 <input v-model="form.phone" class="input" />
               </div>
             </div>
             <div>
-              <label class="label">Fecha y hora preferida *</label>
+              <label class="label">{{ t('scheduleVisit.form.dateLabel', 'Fecha y hora preferida *') }}</label>
               <input v-model="form.scheduledAt" type="datetime-local" class="input" required />
             </div>
             <div>
-              <label class="label">Notas</label>
+              <label class="label">{{ t('scheduleVisit.form.notesLabel', 'Notas') }}</label>
               <textarea v-model="form.notes" class="input" rows="2" />
             </div>
-            <button type="submit" class="btn-primary w-full" :disabled="sending">{{ sending ? 'Enviando…' : 'Confirmar' }}</button>
+            <button type="submit" class="btn-primary w-full" :disabled="sending">{{ sending ? t('scheduleVisit.form.sending', 'Enviando…') : t('scheduleVisit.form.confirm', 'Confirmar') }}</button>
             <p v-if="error" class="text-center text-sm font-medium text-red-600">{{ error }}</p>
           </form>
 
           <div v-else class="flex-1 px-6 py-14 text-center">
-            <p class="font-serif text-2xl">¡Solicitud enviada!</p>
-            <p class="mt-2 text-[14px] text-stone-500">Te confirmaremos la {{ channel === 'video' ? 'videollamada' : 'visita' }} en breve.</p>
-            <button class="btn-secondary mt-6" @click="close">Cerrar</button>
+            <p class="font-serif text-2xl">{{ t('scheduleVisit.success.title', '¡Solicitud enviada!') }}</p>
+            <p class="mt-2 text-[14px] text-stone-500">{{ t('scheduleVisit.success.textPrefix', 'Te confirmaremos la') }} {{ channel === 'video' ? t('scheduleVisit.success.video', 'videollamada') : t('scheduleVisit.success.visit', 'visita') }} {{ t('scheduleVisit.success.textSuffix', 'en breve.') }}</p>
+            <button class="btn-secondary mt-6" @click="close">{{ t('scheduleVisit.close', 'Cerrar') }}</button>
           </div>
         </div>
       </transition>
@@ -53,6 +53,7 @@
 <script setup lang="ts">
 const props = defineProps<{ open: boolean; slug: string; propertyName: string; channel: 'in_person' | 'video' }>()
 const emit = defineEmits<{ close: [] }>()
+const { t } = useI18n()
 
 const form = reactive({ name: '', email: '', phone: '', scheduledAt: '', notes: '' })
 const sending = ref(false)
@@ -76,7 +77,7 @@ async function submit() {
     })
     sent.value = true
   } catch (e: any) {
-    error.value = e?.data?.statusMessage || 'No se pudo enviar. Inténtalo de nuevo.'
+    error.value = e?.data?.statusMessage || t('scheduleVisit.error', 'No se pudo enviar. Inténtalo de nuevo.')
   } finally {
     sending.value = false
   }

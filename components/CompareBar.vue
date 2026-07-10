@@ -12,12 +12,12 @@
           />
         </div>
         <p class="hidden text-sm text-white/80 sm:block">
-          {{ items.length }} de {{ MAX }} seleccionadas para comparar
+          {{ items.length }} {{ t('compareBar.of', 'de') }} {{ MAX }} {{ t('compareBar.selectedForCompare', 'seleccionadas para comparar') }}
         </p>
         <div class="ml-auto flex items-center gap-2">
-          <button class="text-[11px] uppercase tracking-widest text-white/60 hover:text-white" @click="clear">Limpiar</button>
+          <button class="text-[11px] uppercase tracking-widest text-white/60 hover:text-white" @click="clear">{{ t('compareBar.clear', 'Limpiar') }}</button>
           <NuxtLink to="/compare" class="rounded-full bg-white px-5 py-2.5 text-[12px] font-semibold uppercase tracking-widest text-ink transition hover:bg-white/90">
-            Comparar
+            {{ t('compareBar.compare', 'Comparar') }}
           </NuxtLink>
         </div>
       </div>
@@ -26,6 +26,7 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n()
 const { items, clear, MAX } = useCompare()
 const { register } = useBottomBar()
 watchEffect(() => register('compare', items.value.length > 0))

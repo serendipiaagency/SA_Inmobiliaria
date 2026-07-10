@@ -8,8 +8,8 @@
         >
           <!-- Header -->
           <div class="flex items-center justify-between border-b border-line px-6 py-4">
-            <h2 class="font-serif text-xl font-medium">Filtros</h2>
-            <button class="text-stone-400 transition hover:text-ink" aria-label="Cerrar" @click="close">
+            <h2 class="font-serif text-xl font-medium">{{ t('filters.button', 'Filtros') }}</h2>
+            <button class="text-stone-400 transition hover:text-ink" :aria-label="t('filters.close', 'Cerrar')" @click="close">
               <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" d="M6 6l12 12M18 6L6 18" />
               </svg>
@@ -20,17 +20,17 @@
           <div class="flex-1 space-y-8 overflow-y-auto px-6 py-6">
             <!-- Precio -->
             <section>
-              <h3 class="filter-title">Precio (AED)</h3>
+              <h3 class="filter-title">{{ t('hero.price', 'Precio') }} (AED)</h3>
               <div class="grid grid-cols-2 gap-3">
-                <label class="ff">Mínimo
+                <label class="ff">{{ t('filters.min', 'Mínimo') }}
                   <select v-model.number="f.minPrice" class="fs">
-                    <option :value="0">Sin mín.</option>
+                    <option :value="0">{{ t('hero.noMin', 'Sin mín.') }}</option>
                     <option v-for="p in priceSteps" :key="p" :value="p">{{ money(p) }}</option>
                   </select>
                 </label>
-                <label class="ff">Máximo
+                <label class="ff">{{ t('filters.max', 'Máximo') }}
                   <select v-model.number="f.maxPrice" class="fs">
-                    <option :value="0">Sin máx.</option>
+                    <option :value="0">{{ t('hero.noMax', 'Sin máx.') }}</option>
                     <option v-for="p in priceSteps" :key="p" :value="p">{{ money(p) }}</option>
                   </select>
                 </label>
@@ -39,17 +39,17 @@
 
             <!-- Superficie -->
             <section>
-              <h3 class="filter-title">Superficie (m²)</h3>
+              <h3 class="filter-title">{{ t('hero.area', 'Superficie') }} (m²)</h3>
               <div class="grid grid-cols-2 gap-3">
-                <label class="ff">Desde
+                <label class="ff">{{ t('filters.from', 'Desde') }}
                   <select v-model.number="f.minArea" class="fs">
-                    <option :value="0">Sin mín.</option>
+                    <option :value="0">{{ t('hero.noMin', 'Sin mín.') }}</option>
                     <option v-for="a in areaSteps" :key="a" :value="a">{{ a }} m²</option>
                   </select>
                 </label>
-                <label class="ff">Hasta
+                <label class="ff">{{ t('filters.to', 'Hasta') }}
                   <select v-model.number="f.maxArea" class="fs">
-                    <option :value="0">Sin máx.</option>
+                    <option :value="0">{{ t('hero.noMax', 'Sin máx.') }}</option>
                     <option v-for="a in areaSteps" :key="a" :value="a">{{ a }} m²</option>
                   </select>
                 </label>
@@ -59,13 +59,13 @@
             <!-- Habitaciones / Baños -->
             <section class="grid gap-6 sm:grid-cols-2">
               <div>
-                <h3 class="filter-title">Habitaciones</h3>
+                <h3 class="filter-title">{{ t('hero.bedrooms', 'Habitaciones') }}</h3>
                 <div class="flex flex-wrap gap-2">
                   <button v-for="o in bedOpts" :key="o.v" type="button" class="pill" :class="{ 'pill-on': f.bedrooms === o.v }" @click="f.bedrooms = f.bedrooms === o.v ? 0 : o.v">{{ o.l }}</button>
                 </div>
               </div>
               <div>
-                <h3 class="filter-title">Baños</h3>
+                <h3 class="filter-title">{{ t('hero.bathrooms', 'Baños') }}</h3>
                 <div class="flex flex-wrap gap-2">
                   <button v-for="n in [1,2,3,4]" :key="n" type="button" class="pill" :class="{ 'pill-on': f.bathrooms === n }" @click="f.bathrooms = f.bathrooms === n ? 0 : n">{{ n }}+</button>
                 </div>
@@ -74,15 +74,15 @@
 
             <!-- Tipo -->
             <section>
-              <h3 class="filter-title">Tipo de propiedad</h3>
+              <h3 class="filter-title">{{ t('filters.propertyType', 'Tipo de propiedad') }}</h3>
               <div class="flex flex-wrap gap-2">
-                <button v-for="t in types" :key="t" type="button" class="pill" :class="{ 'pill-on': f.type === t }" @click="f.type = f.type === t ? '' : t">{{ typeLabel(t) }}</button>
+                <button v-for="ty in types" :key="ty" type="button" class="pill" :class="{ 'pill-on': f.type === ty }" @click="f.type = f.type === ty ? '' : ty">{{ typeLabel(ty) }}</button>
               </div>
             </section>
 
             <!-- Estado -->
             <section>
-              <h3 class="filter-title">Estado</h3>
+              <h3 class="filter-title">{{ t('compare.spec.status', 'Estado') }}</h3>
               <div class="flex flex-wrap gap-2">
                 <button v-for="s in statuses" :key="s.v" type="button" class="pill" :class="{ 'pill-on': f.status === s.v }" @click="f.status = f.status === s.v ? '' : s.v">{{ s.l }}</button>
               </div>
@@ -90,7 +90,7 @@
 
             <!-- Características -->
             <section>
-              <h3 class="filter-title">Características</h3>
+              <h3 class="filter-title">{{ t('filters.features', 'Características') }}</h3>
               <div class="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">
                 <label v-for="feat in features" :key="feat.k" class="toggle">
                   <input v-model="f[feat.k]" type="checkbox" class="sr-only peer" />

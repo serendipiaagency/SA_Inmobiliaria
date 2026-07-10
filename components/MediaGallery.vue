@@ -23,7 +23,7 @@
         <button v-for="(p, i) in photos.slice(1, 5)" :key="i" class="relative block h-[266px] overflow-hidden bg-stone-100" :class="{ 'rounded-tr-2xl': i === 1, 'rounded-br-2xl': i === 3 }" @click="openFull('photo', i + 1)">
           <img :src="p" :alt="`${name} ${i + 2}`" class="h-full w-full object-cover transition duration-700 hover:scale-105" loading="lazy" />
           <span v-if="i === 3 && photos.length > 5" class="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-semibold uppercase tracking-widest2 text-white">
-            +{{ photos.length - 5 }} fotos
+            +{{ photos.length - 5 }} {{ t('mediaGallery.photos.more', 'fotos') }}
           </span>
         </button>
       </div>
@@ -36,9 +36,9 @@
       </div>
       <div v-else class="flex h-full items-center justify-center text-center">
         <div class="max-w-sm px-6 text-white/80">
-          <p class="font-serif text-2xl text-white">Vídeos en Instagram y TikTok</p>
-          <p class="mt-2 text-sm">Solicita que añadamos los vídeos de esta propiedad en redes sociales.</p>
-          <NuxtLink to="/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">Solicitar vídeos</NuxtLink>
+          <p class="font-serif text-2xl text-white">{{ t('mediaGallery.social.title', 'Vídeos en Instagram y TikTok') }}</p>
+          <p class="mt-2 text-sm">{{ t('mediaGallery.social.desc', 'Solicita que añadamos los vídeos de esta propiedad en redes sociales.') }}</p>
+          <NuxtLink to="/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ t('mediaGallery.social.cta', 'Solicitar vídeos') }}</NuxtLink>
         </div>
       </div>
     </div>
@@ -52,7 +52,7 @@
         @pointerdown="startPan"
       />
       <div class="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-4 py-2 text-[11px] uppercase tracking-widest2 text-white backdrop-blur">
-        ◐ Arrastra para mirar alrededor
+        ◐ {{ t('mediaGallery.tour360.hint', 'Arrastra para mirar alrededor') }}
       </div>
     </div>
 
@@ -60,60 +60,60 @@
     <div v-show="tab === 'video'" class="flex h-[540px] items-center justify-center rounded-2xl bg-ink text-center">
       <video v-if="videoUrl" :src="videoUrl" controls class="h-full w-full rounded-2xl object-cover" />
       <div v-else class="max-w-sm px-6 text-white/80">
-        <p class="font-serif text-2xl text-white">Vídeo profesional</p>
-        <p class="mt-2 text-sm">Solicita el vídeo tour de esta propiedad y te lo enviamos en menos de 24 h.</p>
-        <NuxtLink to="/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">Solicitar vídeo</NuxtLink>
+        <p class="font-serif text-2xl text-white">{{ t('mediaGallery.video.title', 'Vídeo profesional') }}</p>
+        <p class="mt-2 text-sm">{{ t('mediaGallery.video.desc', 'Solicita el vídeo tour de esta propiedad y te lo enviamos en menos de 24 h.') }}</p>
+        <NuxtLink to="/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ t('mediaGallery.video.cta', 'Solicitar vídeo') }}</NuxtLink>
       </div>
     </div>
 
     <!-- Drone -->
     <div v-show="tab === 'drone'" class="relative flex h-[540px] items-center justify-center overflow-hidden rounded-2xl bg-ink text-center">
-      <img v-if="dronePhoto" :src="dronePhoto" :alt="`${name} vista aérea`" class="h-full w-full cursor-zoom-in object-cover" @click="openFull('drone')" />
+      <img v-if="dronePhoto" :src="dronePhoto" :alt="`${name} ${t('mediaGallery.drone.alt', 'vista aérea')}`" class="h-full w-full cursor-zoom-in object-cover" @click="openFull('drone')" />
       <div v-else class="max-w-sm px-6 text-white/80">
-        <p class="font-serif text-2xl text-white">Vista aérea con drone</p>
-        <p class="mt-2 text-sm">Solicita una toma aérea profesional de esta propiedad y su entorno.</p>
-        <NuxtLink to="/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">Solicitar vista aérea</NuxtLink>
+        <p class="font-serif text-2xl text-white">{{ t('mediaGallery.drone.title', 'Vista aérea con drone') }}</p>
+        <p class="mt-2 text-sm">{{ t('mediaGallery.drone.desc', 'Solicita una toma aérea profesional de esta propiedad y su entorno.') }}</p>
+        <NuxtLink to="/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ t('mediaGallery.drone.cta', 'Solicitar vista aérea') }}</NuxtLink>
       </div>
     </div>
 
     <!-- Noche -->
     <div v-show="tab === 'noche'" class="relative flex h-[540px] items-center justify-center overflow-hidden rounded-2xl bg-ink text-center">
-      <img v-if="nightPhoto" :src="nightPhoto" :alt="`${name} vista nocturna`" class="h-full w-full cursor-zoom-in object-cover" @click="openFull('night')" />
+      <img v-if="nightPhoto" :src="nightPhoto" :alt="`${name} ${t('mediaGallery.night.alt', 'vista nocturna')}`" class="h-full w-full cursor-zoom-in object-cover" @click="openFull('night')" />
       <div v-else class="max-w-sm px-6 text-white/80">
-        <p class="font-serif text-2xl text-white">Fotografía nocturna</p>
-        <p class="mt-2 text-sm">Solicita una sesión al atardecer o de noche para resaltar la iluminación de esta propiedad.</p>
-        <NuxtLink to="/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">Solicitar sesión nocturna</NuxtLink>
+        <p class="font-serif text-2xl text-white">{{ t('mediaGallery.night.title', 'Fotografía nocturna') }}</p>
+        <p class="mt-2 text-sm">{{ t('mediaGallery.night.desc', 'Solicita una sesión al atardecer o de noche para resaltar la iluminación de esta propiedad.') }}</p>
+        <NuxtLink to="/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ t('mediaGallery.night.cta', 'Solicitar sesión nocturna') }}</NuxtLink>
       </div>
     </div>
 
     <!-- Antes / Después -->
     <div v-if="beforePhoto && afterPhoto" v-show="tab === 'antes-despues'" class="h-[540px] overflow-hidden rounded-2xl">
-      <CompareSlider :before-src="beforePhoto" :after-src="afterPhoto" before-label="Antes" after-label="Después" />
+      <CompareSlider :before-src="beforePhoto" :after-src="afterPhoto" :before-label="t('mediaGallery.compare.before', 'Antes')" :after-label="t('mediaGallery.compare.after', 'Después')" />
     </div>
 
     <!-- Decoración IA -->
     <div v-show="tab === 'decoracion-ia'" class="h-[540px] overflow-hidden rounded-2xl bg-ink">
-      <CompareSlider v-if="aiStagedPhoto" :before-src="photos[0]" :after-src="aiStagedPhoto" before-label="Vacío" after-label="Con IA" />
+      <CompareSlider v-if="aiStagedPhoto" :before-src="photos[0]" :after-src="aiStagedPhoto" :before-label="t('mediaGallery.compare.emptyBefore', 'Vacío')" :after-label="t('mediaGallery.compare.withAi', 'Con IA')" />
       <div v-else class="flex h-full items-center justify-center text-center">
         <div class="max-w-sm px-6 text-white/80">
-          <p class="font-serif text-2xl text-white">Decoración virtual con IA</p>
-          <p class="mt-2 text-sm">Solicita una simulación de decoración con inteligencia artificial para visualizar el potencial de esta propiedad amueblada.</p>
-          <NuxtLink to="/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">Solicitar decoración IA</NuxtLink>
+          <p class="font-serif text-2xl text-white">{{ t('mediaGallery.aiDecor.title', 'Decoración virtual con IA') }}</p>
+          <p class="mt-2 text-sm">{{ t('mediaGallery.aiDecor.desc', 'Solicita una simulación de decoración con inteligencia artificial para visualizar el potencial de esta propiedad amueblada.') }}</p>
+          <NuxtLink to="/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ t('mediaGallery.aiDecor.cta', 'Solicitar decoración IA') }}</NuxtLink>
         </div>
       </div>
     </div>
 
     <!-- Plano -->
     <div v-show="tab === 'plano'" class="flex h-[540px] items-center justify-center overflow-hidden rounded-2xl border border-line bg-white">
-      <img v-if="masterPlan" :src="masterPlan" :alt="`${name} plano`" class="max-h-full max-w-full cursor-zoom-in object-contain p-4" @click="openFull('plano')" />
-      <p v-else class="text-stone-400">Plano no disponible</p>
+      <img v-if="masterPlan" :src="masterPlan" :alt="`${name} ${t('mediaGallery.plan.alt', 'plano')}`" class="max-h-full max-w-full cursor-zoom-in object-contain p-4" @click="openFull('plano')" />
+      <p v-else class="text-stone-400">{{ t('mediaGallery.plan.unavailable', 'Plano no disponible') }}</p>
     </div>
 
     <!-- Fullscreen viewer -->
     <Teleport to="body">
       <div v-if="full" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/95" @click.self="closeFull">
-        <button class="absolute right-6 top-6 z-10 text-3xl text-white/70 hover:text-white" aria-label="Cerrar" @click="closeFull">×</button>
-        <button v-if="full.kind === 'photo' && !zoomed" class="absolute left-4 top-1/2 z-10 -translate-y-1/2 p-4 text-4xl text-white/60 hover:text-white" aria-label="Anterior" @click.stop="fstep(-1)">‹</button>
+        <button class="absolute right-6 top-6 z-10 text-3xl text-white/70 hover:text-white" :aria-label="t('mediaGallery.viewer.close', 'Cerrar')" @click="closeFull">×</button>
+        <button v-if="full.kind === 'photo' && !zoomed" class="absolute left-4 top-1/2 z-10 -translate-y-1/2 p-4 text-4xl text-white/60 hover:text-white" :aria-label="t('mediaGallery.viewer.prev', 'Anterior')" @click.stop="fstep(-1)">‹</button>
         <div class="relative flex flex-1 items-center justify-center overflow-hidden" style="width: 92vw; max-height: 80vh">
           <img
             ref="fullImgEl"
@@ -125,7 +125,7 @@
             @pointerdown.stop="onImgPointerDown"
           />
         </div>
-        <button v-if="full.kind === 'photo' && !zoomed" class="absolute right-4 top-1/2 z-10 -translate-y-1/2 p-4 text-4xl text-white/60 hover:text-white" aria-label="Siguiente" @click.stop="fstep(1)">›</button>
+        <button v-if="full.kind === 'photo' && !zoomed" class="absolute right-4 top-1/2 z-10 -translate-y-1/2 p-4 text-4xl text-white/60 hover:text-white" :aria-label="t('mediaGallery.viewer.next', 'Siguiente')" @click.stop="fstep(1)">›</button>
         <p v-if="full.kind === 'photo'" class="mt-2 text-xs uppercase tracking-widest2 text-white/60">{{ full.index + 1 }} / {{ photos.length }}</p>
 
         <!-- Thumbnail strip -->
@@ -136,10 +136,10 @@
             type="button"
             class="fs-thumb"
             :class="{ 'fs-thumb-on': i === full.index }"
-            :aria-label="`Ver foto ${i + 1}`"
+            :aria-label="`${t('mediaGallery.viewer.viewPhoto', 'Ver foto')} ${i + 1}`"
             @click.stop="jumpTo(i)"
           >
-            <img :src="p" :alt="`Miniatura ${i + 1}`" loading="lazy" />
+            <img :src="p" :alt="`${t('mediaGallery.viewer.thumbnail', 'Miniatura')} ${i + 1}`" loading="lazy" />
           </button>
         </div>
       </div>
