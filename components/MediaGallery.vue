@@ -162,19 +162,21 @@ const props = defineProps<{
   socialMedia?: { platform: 'instagram' | 'tiktok'; url: string; caption?: string | null }[]
 }>()
 
+const { t } = useI18n()
+
 const tabs = computed(() => {
-  const t: { key: string; label: string; icon: string }[] = [
-    { key: 'fotos', label: 'Fotos', icon: ic('grid') },
+  const tb: { key: string; label: string; icon: string }[] = [
+    { key: 'fotos', label: t('mediaGallery.tabs.photos', 'Fotos'), icon: ic('grid') },
   ]
-  t.push({ key: 'redes', label: 'Redes', icon: ic('social') })
-  t.push({ key: 'video', label: 'Vídeo', icon: ic('play') })
-  if (props.hasTour) t.push({ key: '360', label: '360°', icon: ic('globe') })
-  t.push({ key: 'drone', label: 'Drone', icon: ic('drone') })
-  t.push({ key: 'noche', label: 'Noche', icon: ic('night') })
-  if (props.beforePhoto && props.afterPhoto) t.push({ key: 'antes-despues', label: 'Antes / Después', icon: ic('compare') })
-  t.push({ key: 'decoracion-ia', label: 'Decoración IA', icon: ic('sparkle') })
-  if (props.masterPlan) t.push({ key: 'plano', label: 'Plano', icon: ic('plan') })
-  return t
+  tb.push({ key: 'redes', label: t('mediaGallery.tabs.social', 'Redes'), icon: ic('social') })
+  tb.push({ key: 'video', label: t('mediaGallery.tabs.video', 'Vídeo'), icon: ic('play') })
+  if (props.hasTour) tb.push({ key: '360', label: t('mediaGallery.tabs.tour360', '360°'), icon: ic('globe') })
+  tb.push({ key: 'drone', label: t('mediaGallery.tabs.drone', 'Drone'), icon: ic('drone') })
+  tb.push({ key: 'noche', label: t('mediaGallery.tabs.night', 'Noche'), icon: ic('night') })
+  if (props.beforePhoto && props.afterPhoto) tb.push({ key: 'antes-despues', label: t('mediaGallery.tabs.beforeAfter', 'Antes / Después'), icon: ic('compare') })
+  tb.push({ key: 'decoracion-ia', label: t('mediaGallery.tabs.aiDecor', 'Decoración IA'), icon: ic('sparkle') })
+  if (props.masterPlan) tb.push({ key: 'plano', label: t('mediaGallery.tabs.plan', 'Plano'), icon: ic('plan') })
+  return tb
 })
 const tab = ref('fotos')
 

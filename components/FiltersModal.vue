@@ -104,7 +104,7 @@
 
             <!-- Orientación -->
             <section>
-              <h3 class="filter-title">Orientación</h3>
+              <h3 class="filter-title">{{ t('compare.spec.orientation', 'Orientación') }}</h3>
               <div class="flex flex-wrap gap-2">
                 <button v-for="o in orientations" :key="o.v" type="button" class="pill" :class="{ 'pill-on': f.orientation === o.v }" @click="f.orientation = f.orientation === o.v ? '' : o.v">{{ o.l }}</button>
               </div>
@@ -113,16 +113,16 @@
             <!-- Año / Eficiencia -->
             <section class="grid gap-6 sm:grid-cols-2">
               <div>
-                <h3 class="filter-title">Año de construcción (desde)</h3>
+                <h3 class="filter-title">{{ t('filters.yearBuiltFrom', 'Año de construcción (desde)') }}</h3>
                 <label class="ff">
                   <select v-model.number="f.minYear" class="fs">
-                    <option :value="0">Cualquiera</option>
+                    <option :value="0">{{ t('hero.any', 'Cualquiera') }}</option>
                     <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
                   </select>
                 </label>
               </div>
               <div>
-                <h3 class="filter-title">Eficiencia energética (mín.)</h3>
+                <h3 class="filter-title">{{ t('filters.energyMin', 'Eficiencia energética (mín.)') }}</h3>
                 <div class="flex flex-wrap gap-2">
                   <button v-for="e in energies" :key="e" type="button" class="chip-e" :class="{ 'chip-e-on': f.energy === e }" @click="f.energy = f.energy === e ? '' : e">{{ e }}</button>
                 </div>
@@ -133,10 +133,10 @@
           <!-- Footer -->
           <div class="flex items-center justify-between gap-4 border-t border-line px-6 py-4">
             <button type="button" class="text-sm font-semibold uppercase tracking-widest text-stone-500 underline-offset-4 hover:text-ink hover:underline" @click="clearAll">
-              Limpiar todo
+              {{ t('filters.clearAll', 'Limpiar todo') }}
             </button>
             <button type="button" class="btn-primary min-w-[11rem]" @click="apply">
-              <span v-if="counting" class="count-dot" /> Ver {{ count }} resultado{{ count === 1 ? '' : 's' }}
+              <span v-if="counting" class="count-dot" /> {{ t('filters.viewResultsPrefix', 'Ver') }} {{ count }} {{ count === 1 ? t('filters.result', 'resultado') : t('filters.results', 'resultados') }}
             </button>
           </div>
         </div>
@@ -146,6 +146,7 @@
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n()
 const props = defineProps<{ open: boolean; modelValue: Record<string, any>; q?: string }>()
 const emit = defineEmits<{ close: []; apply: [Record<string, any>] }>()
 
@@ -216,7 +217,7 @@ function toQuery() {
 // alive rather than flickering — respects prefers-reduced-motion.
 const count = ref(0)
 const counting = ref(false)
-let t: any = null
+let debounceTimer: any = null
 let countRaf = 0
 function animateCountTo(target: number) {
   const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -255,8 +256,8 @@ watch(
   () => JSON.stringify(f),
   () => {
     if (!props.open) return
-    clearTimeout(t)
-    t = setTimeout(refreshCount, 220)
+    clearTimeout(debounceTimer)
+    debounceTimer = setTimeout(refreshCount, 220)
   },
 )
 watch(() => props.open, (o) => { if (o) refreshCount() })
