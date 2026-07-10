@@ -25,15 +25,15 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
-const props = withDefaults(
-  defineProps<{
-    beforeSrc: string
-    afterSrc: string
-    beforeLabel?: string
-    afterLabel?: string
-  }>(),
-  { beforeLabel: () => t('compareSlider.before', 'Antes'), afterLabel: () => t('compareSlider.after', 'Después') },
-)
+const props = defineProps<{
+  beforeSrc: string
+  afterSrc: string
+  beforeLabel?: string
+  afterLabel?: string
+}>()
+
+const beforeLabel = computed(() => props.beforeLabel ?? t('compareSlider.before', 'Antes'))
+const afterLabel = computed(() => props.afterLabel ?? t('compareSlider.after', 'Después'))
 
 const root = ref<HTMLElement | null>(null)
 const pos = ref(50)
