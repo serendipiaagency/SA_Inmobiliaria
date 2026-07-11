@@ -64,7 +64,7 @@
 
           <!-- Serendipia Score -->
           <section id="score">
-            <SerendipiaScore :slug="String(route.params.slug)" />
+            <LazySerendipiaScore hydrate-on-visible :slug="String(route.params.slug)" />
           </section>
 
           <!-- Datos clave -->
@@ -103,7 +103,8 @@
             <p class="eyebrow">{{ t('propertyDetails.investment.eyebrow', 'Para inversores') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.investment.heading', 'Análisis de inversión') }}</h2>
             <div class="mt-6">
-              <AIAnalysis
+              <LazyAIAnalysis
+                hydrate-on-visible
                 :slug="String(route.params.slug)"
                 :price="data.project.price"
                 :area="data.project.area"
@@ -116,12 +117,12 @@
           <section id="precio">
             <p class="eyebrow">{{ t('propertyDetails.priceHistory.eyebrow', 'Histórico') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.priceHistory.heading', 'Evolución de precio') }}</h2>
-            <div class="mt-6"><PriceChart :slug="String(route.params.slug)" /></div>
+            <div class="mt-6"><LazyPriceChart hydrate-on-visible :slug="String(route.params.slug)" /></div>
           </section>
 
           <!-- Ask AI -->
           <section class="no-print">
-            <AskAI :slug="String(route.params.slug)" />
+            <LazyAskAI hydrate-on-visible :slug="String(route.params.slug)" />
           </section>
 
           <!-- Descripción -->
@@ -157,7 +158,7 @@
             <p class="eyebrow">{{ t('propertyDetails.lifestyle.eyebrow', 'El entorno') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.lifestyle.heading', 'Estilo de vida') }}</h2>
             <p class="mt-3 max-w-2xl text-[13px] text-stone-500">{{ t('propertyDetails.lifestyle.subtitle', 'Datos reales del entorno, obtenidos de OpenStreetMap dentro de un radio de 2 km.') }}</p>
-            <div class="mt-6"><LifestyleBlock :slug="String(route.params.slug)" /></div>
+            <div class="mt-6"><LazyLifestyleBlock hydrate-on-visible :slug="String(route.params.slug)" /></div>
           </section>
 
           <!-- Ubicación / mapa -->
@@ -179,7 +180,7 @@
             <p class="eyebrow">{{ t('propertyDetails.orientation.eyebrow', 'Luz natural') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.orientation.heading', 'Sol y orientación') }}</h2>
             <div class="mt-6 rounded-2xl border border-line bg-white p-6 sm:p-8">
-              <SunOrientation :orientation="data.project.orientation" :lat="data.project.lat" :lng="data.project.lng" />
+              <LazySunOrientation hydrate-on-visible :orientation="data.project.orientation" :lat="data.project.lat" :lng="data.project.lng" />
             </div>
           </section>
 
@@ -202,7 +203,7 @@
           <section id="hipoteca">
             <p class="eyebrow">{{ t('propertyDetails.mortgage.eyebrow', 'Financiación') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.mortgage.heading', 'Hipoteca y costes') }}</h2>
-            <div class="mt-6"><MortgageCalculator :price="data.project.price || 0" :rental-yield="data.project.rentalYield" :status="data.project.status" /></div>
+            <div class="mt-6"><LazyMortgageCalculator hydrate-on-visible :price="data.project.price || 0" :rental-yield="data.project.rentalYield" :status="data.project.status" /></div>
           </section>
 
           <!-- Historia / timeline -->
@@ -210,7 +211,8 @@
             <p class="eyebrow">{{ t('propertyDetails.history.eyebrow', 'Trayectoria') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.history.heading', 'Historia del inmueble') }}</h2>
             <div class="mt-10">
-              <PropertyTimeline
+              <LazyPropertyTimeline
+                hydrate-on-visible
                 :published-at="data.project.publishedAt"
                 :status="data.project.status"
                 :construction-percentage="data.project.constructionPercentage"
@@ -246,7 +248,7 @@
     <div id="similares" class="no-print hairline mx-auto max-w-screen-2xl px-6 py-14 pt-14 lg:px-10">
       <p class="eyebrow">{{ t('propertyDetails.similar.eyebrow', 'Alternativas') }}</p>
       <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.similar.heading', 'Propiedades similares') }}</h2>
-      <div class="mt-8"><SimilarProperties :slug="String(route.params.slug)" /></div>
+      <div class="mt-8"><LazySimilarProperties hydrate-on-visible :slug="String(route.params.slug)" /></div>
     </div>
 
     <PropertyStickyBar :price="formatPrice(data.project.price)" :visible="showMobileBar" />
