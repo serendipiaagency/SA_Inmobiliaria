@@ -265,13 +265,12 @@ async function fetchDecision() {
   }
 }
 
-let poll: ReturnType<typeof setInterval> | null = null
-onMounted(async () => {
-  await Promise.all([fetchEngagement(), fetchDecision()])
-  poll = setInterval(fetchEngagement, 25000)
-})
-onUnmounted(() => {
-  if (poll) clearInterval(poll)
+onMounted(() => {
+  // Fire the two panel fetches without blocking each other; a single load on
+  // mount is enough — no repeated polling that would drain battery/CPU/network
+  // while the visitor reads the page.
+  fetchEngagement()
+  fetchDecision()
 })
 
 // --- COSTE MENSUAL ---
