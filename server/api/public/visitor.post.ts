@@ -1,5 +1,6 @@
 import { useDb, schema, now } from '../../utils/db'
 import { storeFile } from '../../utils/media'
+import { upsertLead } from '../../utils/leads'
 
 const PDF_FIELDS = [
   'passport_pdf',
@@ -52,5 +53,19 @@ export default defineEventHandler(async (event) => {
     etihadCreditBureauPdf: files.etihad_credit_bureau_pdf || null,
     createdAt: now(),
   })
+
+  try {
+    await upsertLead(event, {
+      name: text.name,
+      email: text.email,
+      phone: text.phone_number,
+      source: 'web',
+      notes: [text.property_type, text.preferred_location, text.budget_range].filter(Boolean).join(' · ') || null,
+      scoreBump: 30,
+    })
+  } catch {
+    // Lead pipeline must never block the visitor form from being saved.
+  }
+
   return { ok: true }
 })
