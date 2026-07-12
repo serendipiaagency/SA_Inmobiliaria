@@ -33,5 +33,10 @@
 <script setup lang="ts">
 const { t } = useI18n()
 const { data } = await useFetch('/api/public/developers')
-useHead({ title: 'Developers — M&M Real Estate' })
+useHead(
+  seoHead({
+    title: 'Developers — M&M Real Estate',
+    description: 'Promotores autorizados que publican sus proyectos off-plan en M&M Real Estate.',
+  }),
+)
 </script>

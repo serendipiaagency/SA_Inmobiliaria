@@ -71,7 +71,12 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
-useHead({ title: t('mapa.head.title', 'Mapa — M&M Real Estate') })
+useHead(
+  seoHead({
+    title: t('mapa.head.title', 'Mapa — M&M Real Estate'),
+    description: 'Explora propiedades en Dubái sobre un mapa interactivo con amenidades y filtros por zona.',
+  }),
+)
 const router = useRouter()
 const route = useRoute()
 const { format: formatPrice } = useCurrency()

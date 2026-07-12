@@ -108,7 +108,12 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
-useHead({ title: t('properties.head.title', 'Buscar propiedades — M&M Real Estate') })
+useHead(
+  seoHead({
+    title: t('properties.head.title', 'Buscar propiedades — M&M Real Estate'),
+    description: 'Explora proyectos off-plan y propiedades de segunda venta en Dubái con filtros avanzados por comunidad, precio y tipo.',
+  }),
+)
 const toast = useToast()
 const { save: saveSearch, isSaved } = useSavedSearches()
 const route = useRoute()

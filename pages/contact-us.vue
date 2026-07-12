@@ -35,7 +35,12 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
-useHead({ title: 'Contact us — M&M Real Estate' })
+useHead(
+  seoHead({
+    title: 'Contact us — M&M Real Estate',
+    description: 'Ponte en contacto con el equipo de M&M Real Estate para resolver tus dudas sobre cualquier propiedad.',
+  }),
+)
 const form = reactive({ name: '', email: '', phone: '', subject: '', message: '' })
 const sending = ref(false)
 const sent = ref(false)

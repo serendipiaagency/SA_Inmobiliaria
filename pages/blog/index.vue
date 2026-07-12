@@ -34,7 +34,12 @@
 <script setup lang="ts">
 const { t } = useI18n()
 const { data } = await useFetch('/api/public/blogs')
-useHead({ title: 'Journal — M&M Real Estate' })
+useHead(
+  seoHead({
+    title: 'Journal — M&M Real Estate',
+    description: 'Artículos y guías sobre el mercado inmobiliario de Dubái: comunidades, tendencias e inversión.',
+  }),
+)
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').slice(0, 220)
 }

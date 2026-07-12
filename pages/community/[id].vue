@@ -55,5 +55,12 @@ const { t } = useI18n()
 const route = useRoute()
 const { data } = await useFetch(`/api/public/communities/${route.params.id}`)
 if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Community not found', fatal: true })
-useHead({ title: `${data.value.community.name} — M&M Real Estate` })
+const requestUrl = useRequestURL()
+useHead(
+  seoHead({
+    title: `${data.value.community.name} — M&M Real Estate`,
+    description: (data.value.community.description || `Descubre ${data.value.community.name}, una comunidad residencial en Dubái.`).slice(0, 200),
+    image: `${requestUrl.origin}${mediaUrl(data.value.community.image)}`,
+  }),
+)
 </script>

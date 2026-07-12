@@ -35,7 +35,12 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
-useHead({ title: 'Complaints — M&M Real Estate' })
+useHead(
+  seoHead({
+    title: 'Complaints — M&M Real Estate',
+    description: 'Envía una reclamación al equipo de M&M Real Estate.',
+  }),
+)
 const form = reactive({ name: '', email: '', phone: '', subject: '', message: '' })
 const sending = ref(false)
 const sent = ref(false)

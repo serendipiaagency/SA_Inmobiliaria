@@ -25,5 +25,10 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
-useHead({ title: 'About us — M&M Real Estate' })
+useHead(
+  seoHead({
+    title: 'About us — M&M Real Estate',
+    description: 'M&M Real Estate presenta proyectos off-plan, propiedades de segunda venta y comunidades residenciales en todos los Emiratos Árabes Unidos.',
+  }),
+)
 </script>
