@@ -61,7 +61,12 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
-useHead({ title: 'Vendor registration — M&M Real Estate' })
+useHead(
+  seoHead({
+    title: 'Vendor registration — M&M Real Estate',
+    description: 'Regístrate como proveedor y colabora con M&M Real Estate.',
+  }),
+)
 
 const form = reactive({
   name: '',

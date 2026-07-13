@@ -5,7 +5,7 @@
         <h1 class="text-2xl font-semibold tracking-tight">Automatizaciones</h1>
         <p class="mt-1 text-sm text-stone-500">Flujos que se ejecutan solos ante cada evento</p>
       </div>
-      <button class="dash-btn-primary">+ Crear flujo</button>
+      <button class="dash-btn-primary" @click="toast.info('El editor visual de flujos estará disponible próximamente')">+ Crear flujo</button>
     </div>
 
     <div v-if="data" class="mb-4 grid gap-4 sm:grid-cols-3">

@@ -164,5 +164,10 @@ const pins = [
 ]
 const propertyTypes = computed(() => [...new Set(projects.value.map((p) => p.propertyType).filter(Boolean))])
 
-useHead({ title: 'M&M Real Estate — Propiedades excepcionales' })
+useHead(
+  seoHead({
+    title: 'M&M Real Estate — Propiedades excepcionales',
+    description: 'Marketplace curado de proyectos off-plan, ventas de segunda mano y comunidades residenciales en los Emiratos Árabes Unidos.',
+  }),
+)
 </script>

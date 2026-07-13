@@ -35,5 +35,10 @@
 <script setup lang="ts">
 const { t } = useI18n()
 const { data } = await useFetch('/api/public/team')
-useHead({ title: 'Nuestro equipo — M&M Real Estate' })
+useHead(
+  seoHead({
+    title: 'Nuestro equipo — M&M Real Estate',
+    description: 'Conoce al equipo de agentes de M&M Real Estate que te acompaña en cada paso de tu compra en Dubái.',
+  }),
+)
 </script>

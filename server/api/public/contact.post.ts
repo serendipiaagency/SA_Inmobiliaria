@@ -1,4 +1,5 @@
 import { useDb, schema, now } from '../../utils/db'
+import { upsertLead } from '../../utils/leads'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<Record<string, any>>(event)
@@ -17,5 +18,21 @@ export default defineEventHandler(async (event) => {
     message: String(message).slice(0, 5000),
     createdAt: now(),
   })
+
+  // Sales enquiries become CRM leads; complaints are support issues, not prospects.
+  if (type === 'contact') {
+    try {
+      await upsertLead(event, {
+        name: String(name).slice(0, 200),
+        email: String(email).slice(0, 200),
+        phone: body.phone ? String(body.phone).slice(0, 50) : null,
+        source: 'web',
+        notes: body.subject ? String(body.subject).slice(0, 300) : null,
+      })
+    } catch {
+      // Lead pipeline must never block the visitor's message from being saved.
+    }
+  }
+
   return { ok: true }
 })

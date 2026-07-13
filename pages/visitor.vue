@@ -69,7 +69,12 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
-useHead({ title: 'Visitor form — M&M Real Estate' })
+useHead(
+  seoHead({
+    title: 'Visitor form — M&M Real Estate',
+    description: 'Regístrate como visitante para acreditar tu identidad ante el promotor antes de una visita.',
+  }),
+)
 
 const form = reactive({
   name: '',

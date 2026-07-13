@@ -61,7 +61,15 @@ const { t } = useI18n()
 const route = useRoute()
 const { data } = await useFetch(`/api/public/team/${route.params.slug}`)
 if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Team member not found', fatal: true })
-useHead({ title: `${data.value.member.name} — M&M Real Estate` })
+const requestUrl = useRequestURL()
+useHead(
+  seoHead({
+    title: `${data.value.member.name} — M&M Real Estate`,
+    description: (data.value.member.description || `${data.value.member.name}, ${data.value.member.position} en M&M Real Estate.`).slice(0, 200),
+    image: `${requestUrl.origin}${mediaUrl(data.value.member.image)}`,
+    type: 'profile',
+  }),
+)
 
 const languageList = computed(() => (data.value?.member.languages || '').split(',').map((l) => l.trim()).filter(Boolean))
 const socials = computed(() => {

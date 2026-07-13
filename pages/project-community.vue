@@ -32,5 +32,10 @@
 <script setup lang="ts">
 const { t } = useI18n()
 const { data } = await useFetch('/api/public/communities')
-useHead({ title: 'Communities — M&M Real Estate' })
+useHead(
+  seoHead({
+    title: 'Communities — M&M Real Estate',
+    description: 'Descubre las comunidades residenciales de Dubái: amenidades, ubicación y proyectos disponibles en cada una.',
+  }),
+)
 </script>

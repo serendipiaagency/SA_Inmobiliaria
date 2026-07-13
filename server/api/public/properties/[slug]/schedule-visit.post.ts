@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { useDb, schema, now } from '../../../../utils/db'
+import { upsertLead } from '../../../../utils/leads'
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug')
@@ -25,5 +26,21 @@ export default defineEventHandler(async (event) => {
     notes: [contactLine, body.notes].filter(Boolean).join('\n') || null,
     createdAt: now(),
   })
+
+  try {
+    await upsertLead(event, {
+      name: body.name,
+      email: body.email || null,
+      phone: body.phone || null,
+      source: 'web',
+      propertyId: project.id,
+      propertyName: project.name,
+      notes: `Visita agendada (${channel})`,
+      scoreBump: 25,
+    })
+  } catch {
+    // Lead pipeline must never block the visit request from being saved.
+  }
+
   return { ok: true }
 })

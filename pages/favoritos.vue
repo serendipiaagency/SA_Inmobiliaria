@@ -44,7 +44,12 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
-useHead({ title: t('favoritos.head.title', 'Favoritos — M&M Real Estate') })
+useHead(
+  seoHead({
+    title: t('favoritos.head.title', 'Favoritos — M&M Real Estate'),
+    description: 'Tus propiedades guardadas en M&M Real Estate.',
+  }),
+)
 const dt = useDash()
 const { ids, load } = useFavorites()
 const { items: searches, load: loadSearches, remove: removeSearch } = useSavedSearches()

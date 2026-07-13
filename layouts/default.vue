@@ -127,11 +127,15 @@
             </ul>
           </div>
         </div>
-        <div class="hairline mt-14 pt-6 text-center text-xs tracking-wide text-stone-400">
-          © {{ new Date().getFullYear() }} M&M Real Estate. {{ t('footer.rights') }}
+        <div class="hairline mt-14 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-6 text-center text-xs tracking-wide text-stone-400">
+          <span>© {{ new Date().getFullYear() }} M&M Real Estate. {{ t('footer.rights') }}</span>
+          <NuxtLink class="transition hover:text-ink" to="/privacy">{{ t('footer.privacy') }}</NuxtLink>
+          <NuxtLink class="transition hover:text-ink" to="/terms">{{ t('footer.terms') }}</NuxtLink>
         </div>
       </div>
     </footer>
+
+    <CookieConsent />
   </div>
 </template>
 

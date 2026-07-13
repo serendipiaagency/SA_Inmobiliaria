@@ -49,7 +49,12 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
-useHead({ title: t('compare.head.title', 'Comparar — M&M Real Estate') })
+useHead(
+  seoHead({
+    title: t('compare.head.title', 'Comparar — M&M Real Estate'),
+    description: 'Compara propiedades lado a lado por precio, superficie y características.',
+  }),
+)
 const { items, load, remove, clear } = useCompare()
 const enriched = ref<Record<number, any>>({})
 const rows = computed(() => items.value.map((i) => enriched.value[i.id] || { id: i.id, name: i.name, coverImage: i.cover, slug: i.slug, price: i.price }))
