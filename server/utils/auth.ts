@@ -35,6 +35,18 @@ export async function hashPassword(password: string): Promise<string> {
   return `pbkdf2$${PBKDF2_ITERATIONS}$${toB64(salt)}$${toB64(hash)}`
 }
 
+const DUMMY_SALT = new Uint8Array(16)
+
+/**
+ * Runs a PBKDF2 computation with the same cost as a real verification, without a user
+ * to check against. Call this on the "email not found" branch of login so that branch
+ * takes the same time as "email found, wrong password" — otherwise the two cases are
+ * distinguishable by response latency (user enumeration via timing).
+ */
+export async function dummyVerify(password: string): Promise<void> {
+  await pbkdf2(password, DUMMY_SALT, PBKDF2_ITERATIONS)
+}
+
 export async function verifyPassword(password: string, stored: string): Promise<boolean> {
   const parts = stored.split('$')
   if (parts.length !== 4 || parts[0] !== 'pbkdf2') return false

@@ -1,12 +1,17 @@
 import { useDb, schema, now } from '../../utils/db'
 import { upsertLead } from '../../utils/leads'
+import { rateLimit } from '../../utils/rateLimit'
+import { requireValidEmail } from '../../utils/validate'
 
 export default defineEventHandler(async (event) => {
+  await rateLimit(event, 'contact', { limit: 5, windowSeconds: 600 })
+
   const body = await readBody<Record<string, any>>(event)
-  const { name, email, message } = body || {}
-  if (!name || !email || !message) {
+  const { name, message } = body || {}
+  if (!name || !body?.email || !message) {
     throw createError({ statusCode: 422, statusMessage: 'name, email and message are required' })
   }
+  const email = requireValidEmail(body.email)
   const type = body.type === 'complaint' ? 'complaint' : 'contact'
   const db = useDb(event)
   await db.insert(schema.contactMessages).values({

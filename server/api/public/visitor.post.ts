@@ -1,6 +1,8 @@
 import { useDb, schema, now } from '../../utils/db'
 import { storeFile } from '../../utils/media'
 import { upsertLead } from '../../utils/leads'
+import { rateLimit } from '../../utils/rateLimit'
+import { isValidEmail } from '../../utils/validate'
 
 const PDF_FIELDS = [
   'passport_pdf',
@@ -12,6 +14,9 @@ const PDF_FIELDS = [
 ] as const
 
 export default defineEventHandler(async (event) => {
+  // Rejects abusive clients before we spend CPU/R2 storage parsing and uploading files.
+  await rateLimit(event, 'visitor', { limit: 5, windowSeconds: 600 })
+
   const parts = (await readMultipartFormData(event)) || []
   const text: Record<string, string> = {}
   const files: Record<string, string> = {}
@@ -20,7 +25,10 @@ export default defineEventHandler(async (event) => {
     if (!part.name) continue
     if (part.filename && part.data?.byteLength) {
       if ((PDF_FIELDS as readonly string[]).includes(part.name)) {
-        files[part.name] = await storeFile(event, part, 'visitor-docs')
+        // These are KYC identity/financial documents from an unauthenticated public form —
+        // only real PDFs are accepted (no SVG/HTML, which the shared upload allowlist permits
+        // for admin-side image uploads and would otherwise let an attacker store as a stored-XSS payload).
+        files[part.name] = await storeFile(event, part, 'visitor-docs', { 'application/pdf': 'pdf' })
       }
     } else {
       text[part.name] = new TextDecoder().decode(part.data)
@@ -32,6 +40,7 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 422, statusMessage: `Missing required field: ${required}` })
     }
   }
+  if (!isValidEmail(text.email)) throw createError({ statusCode: 422, statusMessage: 'Invalid email' })
 
   const db = useDb(event)
   await db.insert(schema.visitorSubmissions).values({

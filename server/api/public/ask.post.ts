@@ -1,8 +1,13 @@
 import { eq, or } from 'drizzle-orm'
 import { useDb, schema } from '../../utils/db'
 import { answerQuestion } from '../../utils/ai'
+import { rateLimit } from '../../utils/rateLimit'
 
 export default defineEventHandler(async (event) => {
+  // Each call can hit a paid LLM API (see server/utils/ai.ts) — cap it well before the
+  // rest of the form-abuse limits, since the cost per request is much higher here.
+  await rateLimit(event, 'ask', { limit: 15, windowSeconds: 3600 })
+
   const body = await readBody<{ slug?: string; id?: number; question?: string }>(event)
   const question = (body?.question || '').trim()
   if (!question) throw createError({ statusCode: 422, statusMessage: 'question is required' })
