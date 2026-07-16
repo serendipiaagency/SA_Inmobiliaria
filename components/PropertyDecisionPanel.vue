@@ -113,6 +113,17 @@
 
     <!-- BOTONES -->
     <div class="no-print rounded-2xl border border-line bg-white p-6">
+      <NuxtLink
+        to="/leadership/perla-maria-melgarejo"
+        class="mb-5 flex items-center gap-4 rounded-xl border border-line bg-paper p-4 transition hover:border-ink hover:shadow-sm"
+      >
+        <img :src="mediaUrl(agentPhoto)" :alt="agentName" class="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-white shadow" />
+        <div class="min-w-0">
+          <p class="eyebrow">{{ t('decisionPanel.footer.attendedBy', 'Atendido por') }}</p>
+          <p class="heading-serif mt-1 truncate text-xl leading-tight text-ink">{{ agentName }}</p>
+          <p class="mt-0.5 text-[12px] text-stone-500">{{ t('decisionPanel.indicators.respondsFast', 'responde en menos de 15 min') }}</p>
+        </div>
+      </NuxtLink>
       <div class="space-y-2.5">
         <NuxtLink to="/contact-us" class="btn-primary w-full">{{ t('decisionPanel.cta.requestInfo', 'Solicitar información') }}</NuxtLink>
         <div class="grid grid-cols-2 gap-2.5">
@@ -154,10 +165,6 @@
           </button>
         </div>
       </div>
-      <p class="hairline mt-5 flex items-center gap-2 pt-4 text-[12px] text-stone-500">
-        <img :src="mediaUrl(agentPhoto)" :alt="agentName" class="h-6 w-6 rounded-full object-cover ring-1 ring-line" />
-        {{ t('decisionPanel.footer.attendedBy', 'Atendido por') }} <NuxtLink to="/leadership/perla-maria-melgarejo" class="font-medium text-ink hover:underline">{{ agentName }}</NuxtLink>
-      </p>
     </div>
 
     <ScheduleVisitModal class="no-print" :open="visitModal.open" :slug="slug" :property-name="project.name" :channel="visitModal.channel" @close="visitModal.open = false" />
