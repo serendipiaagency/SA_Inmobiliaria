@@ -1,5 +1,5 @@
 <template>
-  <div class="rounded-2xl border border-line bg-white p-6 sm:p-8">
+  <div class="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-6 sm:p-8">
     <div v-if="loading" class="skeleton h-[200px] w-full rounded-xl" />
     <template v-else-if="points.length >= 2">
       <div class="mb-5 flex items-baseline justify-between">

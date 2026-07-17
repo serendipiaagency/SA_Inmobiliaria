@@ -1,8 +1,8 @@
 <template>
-  <div class="rounded-2xl border border-line bg-white p-6 sm:p-8">
+  <div class="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-6 sm:p-8">
     <div class="flex items-center gap-2">
-      <span class="rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">{{ t('aiAnalysis.badge', 'IA') }}</span>
-      <p class="eyebrow !text-stone-450">{{ t('aiAnalysis.eyebrow', 'Análisis de inversión') }}</p>
+      <span class="rounded-full bg-indigo-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">{{ t('aiAnalysis.badge', 'IA') }}</span>
+      <p class="eyebrow !text-emerald-700">{{ t('aiAnalysis.eyebrow', 'Análisis de inversión') }}</p>
     </div>
 
     <div v-if="loading" class="mt-6 space-y-3">
@@ -12,8 +12,8 @@
     </div>
 
     <template v-else-if="data">
-      <div v-if="hasComparison" class="mt-6 grid gap-4 sm:grid-cols-2">
-        <div v-if="pricePerM2 && data.market.avgPricePerM2" class="rounded-xl bg-paper p-5">
+      <div v-if="hasComparison" class="mt-7 grid gap-5 sm:grid-cols-2">
+        <div v-if="pricePerM2 && data.market.avgPricePerM2" class="rounded-xl border border-line bg-white p-5">
           <p class="text-[11px] font-semibold uppercase tracking-widest text-stone-450">{{ t('aiAnalysis.pricePerM2', 'Precio / m²') }}</p>
           <div class="mt-2 flex items-baseline gap-2">
             <span class="text-xl font-semibold">{{ formatPrice(Math.round(pricePerM2)) }}</span>
@@ -23,7 +23,7 @@
           </div>
           <p class="mt-1 text-[12px] text-stone-400">{{ t('aiAnalysis.averageOf', 'Media de') }} {{ comparablesLabel }}: {{ formatPrice(Math.round(data.market.avgPricePerM2)) }}</p>
         </div>
-        <div v-if="props.rentalYield && data.market.avgRentalYield" class="rounded-xl bg-paper p-5">
+        <div v-if="props.rentalYield && data.market.avgRentalYield" class="rounded-xl border border-line bg-white p-5">
           <p class="text-[11px] font-semibold uppercase tracking-widest text-stone-450">{{ t('aiAnalysis.profitability', 'Rentabilidad') }}</p>
           <div class="mt-2 flex items-baseline gap-2">
             <span class="text-xl font-semibold">{{ props.rentalYield }}%</span>
@@ -35,7 +35,7 @@
         </div>
       </div>
 
-      <p class="mt-6 max-w-3xl text-[15px] leading-[1.9] text-stone-600">{{ data.text }}</p>
+      <p class="mt-7 max-w-3xl text-[15px] leading-[1.9] text-stone-600">{{ data.text }}</p>
       <p class="mt-4 text-[11px] uppercase tracking-widest text-stone-400">
         {{ data.engine === 'ai' ? t('aiAnalysis.generatedByAi', 'Análisis generado por IA') : t('aiAnalysis.dataBasedGuidance', 'Análisis orientativo basado en datos · confírmalo con un asesor') }}
       </p>

@@ -1,21 +1,21 @@
 <template>
-  <div class="rounded-2xl border border-line bg-white p-6">
+  <div class="rounded-2xl border border-indigo-100 bg-indigo-50/30 p-6 sm:p-7">
     <div class="flex items-center gap-2">
-      <span class="rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">{{ t('askAI.badge', 'IA') }}</span>
+      <span class="rounded-full bg-indigo-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">{{ t('askAI.badge', 'IA') }}</span>
       <h3 class="font-serif text-xl font-medium">{{ t('askAI.title', 'Pregúntale a la IA sobre esta propiedad') }}</h3>
     </div>
 
-    <div class="mt-4 flex flex-wrap gap-2">
+    <div class="mt-5 flex flex-wrap gap-2">
       <button v-for="q in suggestions" :key="q" class="chip" @click="ask(q)">{{ q }}</button>
     </div>
 
     <form class="mt-4 flex gap-2" @submit.prevent="ask(input)">
-      <input v-model="input" class="input" :placeholder="t('askAI.placeholder', 'Escribe tu pregunta…')" maxlength="300" />
+      <input v-model="input" class="input bg-white" :placeholder="t('askAI.placeholder', 'Escribe tu pregunta…')" maxlength="300" />
       <button type="submit" class="btn-primary shrink-0" :disabled="loading">{{ loading ? '…' : t('askAI.ask', 'Preguntar') }}</button>
     </form>
 
     <transition name="fade">
-      <div v-if="answer || loading" class="mt-5 rounded-xl bg-paper p-5">
+      <div v-if="answer || loading" class="mt-5 rounded-xl border border-line bg-white p-5">
         <p v-if="loading" class="flex items-center gap-2 text-sm text-stone-500"><span class="dot" /> {{ t('askAI.thinking', 'Pensando…') }}</p>
         <template v-else>
           <p class="text-[15px] leading-relaxed text-stone-700">{{ answer }}</p>

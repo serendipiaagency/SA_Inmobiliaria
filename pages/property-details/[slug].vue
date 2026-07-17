@@ -35,7 +35,7 @@
 
     <div class="mx-auto max-w-screen-2xl px-6 py-10 lg:px-10">
       <div class="grid gap-14 lg:grid-cols-3">
-        <div class="space-y-16 lg:col-span-2">
+        <div class="space-y-20 lg:col-span-2">
           <!-- Header -->
           <header>
             <div class="flex flex-wrap items-start justify-between gap-4">
@@ -57,7 +57,7 @@
                 <button class="act2" @click="doShare">{{ shared ? '✓' : '↗' }}</button>
               </div>
             </div>
-            <div class="hairline mt-8 flex flex-wrap gap-x-12 gap-y-4 pt-8">
+            <div class="hairline mt-8 flex flex-wrap gap-x-14 gap-y-5 pt-9">
               <div v-for="f in facts" :key="f.label"><p class="text-xl font-semibold">{{ f.value }}</p><p class="mt-0.5 text-[11px] font-medium uppercase tracking-widest text-stone-450">{{ f.label }}</p></div>
             </div>
           </header>
@@ -69,29 +69,29 @@
 
           <!-- Datos clave -->
           <section v-if="hasQuickFacts" id="datos">
-            <p class="eyebrow">{{ t('propertyDetails.quickFacts.eyebrow', 'A simple vista') }}</p>
+            <p class="eyebrow !text-amber-700">{{ t('propertyDetails.quickFacts.eyebrow', 'A simple vista') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.quickFacts.heading', 'Datos clave') }}</h2>
-            <div class="mt-6"><QuickFacts :project="data.project" /></div>
+            <div class="mt-7"><QuickFacts :project="data.project" /></div>
           </section>
 
           <!-- Resumen IA -->
           <section id="resumen">
             <div class="flex items-center gap-2">
-              <span class="rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">{{ t('propertyDetails.badge.ai', 'IA') }}</span>
-              <p class="eyebrow !text-stone-450">{{ t('propertyDetails.aiSummary.eyebrow', 'Resumen inteligente') }}</p>
+              <span class="rounded-full bg-indigo-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">{{ t('propertyDetails.badge.ai', 'IA') }}</span>
+              <p class="eyebrow !text-indigo-600">{{ t('propertyDetails.aiSummary.eyebrow', 'Resumen inteligente') }}</p>
             </div>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.aiSummary.heading', 'Lo que debes saber') }}</h2>
             <p v-if="data.project.aiSummary" class="mt-5 max-w-3xl text-[15px] leading-[1.9] text-stone-600">{{ data.project.aiSummary }}</p>
-            <div class="mt-6 grid gap-4 sm:grid-cols-2">
-              <div class="rounded-2xl border border-line bg-white p-6">
-                <p class="mb-3 text-[11px] font-semibold uppercase tracking-widest text-emerald-700">{{ t('propertyDetails.aiSummary.pros', 'Lo mejor') }}</p>
-                <ul class="space-y-2.5">
+            <div class="mt-7 grid gap-5 sm:grid-cols-2">
+              <div class="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-7">
+                <p class="mb-4 text-[11px] font-semibold uppercase tracking-widest text-emerald-700">{{ t('propertyDetails.aiSummary.pros', 'Lo mejor') }}</p>
+                <ul class="space-y-3">
                   <li v-for="p in pros" :key="p" class="flex items-start gap-2.5 text-sm text-stone-700"><span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />{{ p }}</li>
                 </ul>
               </div>
-              <div class="rounded-2xl border border-line bg-white p-6">
-                <p class="mb-3 text-[11px] font-semibold uppercase tracking-widest text-amber-700">{{ t('propertyDetails.aiSummary.cons', 'A considerar') }}</p>
-                <ul class="space-y-2.5">
+              <div class="rounded-2xl border border-amber-100 bg-amber-50/50 p-7">
+                <p class="mb-4 text-[11px] font-semibold uppercase tracking-widest text-amber-700">{{ t('propertyDetails.aiSummary.cons', 'A considerar') }}</p>
+                <ul class="space-y-3">
                   <li v-for="c in cons" :key="c" class="flex items-start gap-2.5 text-sm text-stone-700"><span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />{{ c }}</li>
                 </ul>
               </div>
@@ -100,9 +100,9 @@
 
           <!-- Análisis de inversión IA -->
           <section id="analisis">
-            <p class="eyebrow">{{ t('propertyDetails.investment.eyebrow', 'Para inversores') }}</p>
+            <p class="eyebrow !text-emerald-700">{{ t('propertyDetails.investment.eyebrow', 'Para inversores') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.investment.heading', 'Análisis de inversión') }}</h2>
-            <div class="mt-6">
+            <div class="mt-7">
               <LazyAIAnalysis
                 hydrate-on-visible
                 :slug="String(route.params.slug)"
@@ -115,9 +115,9 @@
 
           <!-- Evolución de precio -->
           <section id="precio">
-            <p class="eyebrow">{{ t('propertyDetails.priceHistory.eyebrow', 'Histórico') }}</p>
+            <p class="eyebrow !text-emerald-700">{{ t('propertyDetails.priceHistory.eyebrow', 'Histórico') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.priceHistory.heading', 'Evolución de precio') }}</h2>
-            <div class="mt-6"><LazyPriceChart hydrate-on-visible :slug="String(route.params.slug)" /></div>
+            <div class="mt-7"><LazyPriceChart hydrate-on-visible :slug="String(route.params.slug)" /></div>
           </section>
 
           <!-- Ask AI -->
@@ -136,8 +136,8 @@
           <section v-if="data.amenities.length">
             <p class="eyebrow">{{ t('propertyDetails.amenities.eyebrow', 'Servicios del edificio') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.amenities.heading', 'Comodidades') }}</h2>
-            <ul class="mt-6 grid gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-              <li v-for="a in data.amenities" :key="a.id" class="flex items-center gap-3 text-[15px] text-stone-600"><span class="h-1 w-1 rounded-full bg-ink" />{{ a.name }}</li>
+            <ul class="mt-7 grid gap-x-10 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+              <li v-for="a in data.amenities" :key="a.id" class="flex items-center gap-3 text-[15px] text-stone-600"><span class="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />{{ a.name }}</li>
             </ul>
           </section>
 
@@ -145,9 +145,9 @@
           <section v-if="data.unitTypes.length">
             <p class="eyebrow">{{ t('propertyDetails.units.eyebrow', 'Residencias') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.units.heading', 'Tipologías disponibles') }}</h2>
-            <div class="mt-6 overflow-hidden rounded-2xl border border-line bg-white">
+            <div class="mt-7 overflow-hidden rounded-2xl border border-line bg-white">
               <table class="w-full text-left text-sm">
-                <thead><tr class="border-b border-line text-[11px] uppercase tracking-widest text-stone-450"><th class="px-6 py-4 font-semibold">{{ t('propertyDetails.units.type', 'Tipo') }}</th><th class="px-6 py-4 font-semibold">{{ t('propertyDetails.units.unit', 'Unidad') }}</th><th class="px-6 py-4 font-semibold">{{ t('propertyDetails.units.size', 'Superficie') }}</th></tr></thead>
+                <thead><tr class="border-b border-line bg-paper text-[11px] uppercase tracking-widest text-stone-450"><th class="px-6 py-4 font-semibold">{{ t('propertyDetails.units.type', 'Tipo') }}</th><th class="px-6 py-4 font-semibold">{{ t('propertyDetails.units.unit', 'Unidad') }}</th><th class="px-6 py-4 font-semibold">{{ t('propertyDetails.units.size', 'Superficie') }}</th></tr></thead>
                 <tbody><tr v-for="u in data.unitTypes" :key="u.id" class="border-b border-line/60 last:border-0"><td class="px-6 py-4 font-medium">{{ u.propertyType }}</td><td class="px-6 py-4 text-stone-600">{{ u.unitType }}</td><td class="px-6 py-4 text-stone-600">{{ u.size }}</td></tr></tbody>
               </table>
             </div>
@@ -155,21 +155,21 @@
 
           <!-- Servicios cercanos -->
           <section id="servicios">
-            <p class="eyebrow">{{ t('propertyDetails.lifestyle.eyebrow', 'El entorno') }}</p>
+            <p class="eyebrow !text-teal-700">{{ t('propertyDetails.lifestyle.eyebrow', 'El entorno') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.lifestyle.heading', 'Estilo de vida') }}</h2>
             <p class="mt-3 max-w-2xl text-[13px] text-stone-500">{{ t('propertyDetails.lifestyle.subtitle', 'Datos reales del entorno, obtenidos de OpenStreetMap dentro de un radio de 2 km.') }}</p>
-            <div class="mt-6"><LazyLifestyleBlock hydrate-on-visible :slug="String(route.params.slug)" /></div>
+            <div class="mt-7"><LazyLifestyleBlock hydrate-on-visible :slug="String(route.params.slug)" /></div>
           </section>
 
           <!-- Ubicación / mapa -->
           <section id="ubicacion">
-            <p class="eyebrow">{{ t('propertyDetails.location.eyebrow', 'Ubicación') }}</p>
+            <p class="eyebrow !text-blue-700">{{ t('propertyDetails.location.eyebrow', 'Ubicación') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.location.heading', 'Dónde está') }}</h2>
-            <div class="relative mt-6 h-80 overflow-hidden rounded-2xl border border-line">
-              <div class="absolute inset-0 bg-gradient-to-br from-stone-200 to-stone-300" />
-              <div class="absolute inset-0" style="background-image:radial-gradient(circle,rgba(0,0,0,0.06) 1px,transparent 1px);background-size:26px 26px" />
+            <div class="relative mt-7 h-80 overflow-hidden rounded-2xl border border-line">
+              <div class="absolute inset-0 bg-gradient-to-br from-blue-50 to-blue-100" />
+              <div class="absolute inset-0" style="background-image:radial-gradient(circle,rgba(30,64,175,0.08) 1px,transparent 1px);background-size:26px 26px" />
               <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-ink text-white shadow-lg ring-4 ring-white">●</span>
+                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-700 text-white shadow-lg ring-4 ring-white">●</span>
               </div>
               <span class="absolute bottom-4 left-4 rounded-full bg-white/90 px-4 py-2 text-[11px] uppercase tracking-widest2 text-stone-600 backdrop-blur">{{ data.project.community }} — {{ t('propertyDetails.location.mapComingSoon', 'mapa interactivo próximamente') }}</span>
             </div>
@@ -177,23 +177,23 @@
 
           <!-- Sol y orientación -->
           <section id="orientacion">
-            <p class="eyebrow">{{ t('propertyDetails.orientation.eyebrow', 'Luz natural') }}</p>
+            <p class="eyebrow !text-amber-700">{{ t('propertyDetails.orientation.eyebrow', 'Luz natural') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.orientation.heading', 'Sol y orientación') }}</h2>
-            <div class="mt-6 rounded-2xl border border-line bg-white p-6 sm:p-8">
+            <div class="mt-7 rounded-2xl border border-amber-100 bg-amber-50/40 p-6 sm:p-8">
               <LazySunOrientation hydrate-on-visible :orientation="data.project.orientation" :lat="data.project.lat" :lng="data.project.lng" />
             </div>
           </section>
 
           <!-- Decoración / Home Staging IA -->
           <section class="no-print">
-            <div class="flex items-center gap-2"><span class="rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">{{ t('propertyDetails.badge.ai', 'IA') }}</span><p class="eyebrow !text-stone-450">{{ t('propertyDetails.staging.eyebrow', 'Imagina tu hogar') }}</p></div>
+            <div class="flex items-center gap-2"><span class="rounded-full bg-indigo-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">{{ t('propertyDetails.badge.ai', 'IA') }}</span><p class="eyebrow !text-indigo-600">{{ t('propertyDetails.staging.eyebrow', 'Imagina tu hogar') }}</p></div>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.staging.heading', 'Visualiza el potencial') }}</h2>
-            <div class="mt-6 grid gap-4 sm:grid-cols-2">
+            <div class="mt-7 grid gap-5 sm:grid-cols-2">
               <div v-for="s in staging" :key="s.title" class="group relative overflow-hidden rounded-2xl border border-line bg-white">
                 <div class="aspect-[16/10] overflow-hidden bg-stone-100"><img :src="photos[s.i % photos.length]" class="h-full w-full object-cover transition duration-700 group-hover:scale-105" /></div>
                 <div class="flex items-center justify-between p-5">
                   <div><p class="font-serif text-lg font-medium">{{ s.title }}</p><p class="text-[13px] text-stone-500">{{ s.desc }}</p></div>
-                  <NuxtLink to="/contact-us" class="shrink-0 rounded-full bg-ink px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-white">{{ t('propertyDetails.staging.generate', 'Generar') }}</NuxtLink>
+                  <NuxtLink to="/contact-us" class="shrink-0 rounded-full bg-indigo-600 px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-white">{{ t('propertyDetails.staging.generate', 'Generar') }}</NuxtLink>
                 </div>
               </div>
             </div>
@@ -201,9 +201,9 @@
 
           <!-- Hipoteca -->
           <section id="hipoteca">
-            <p class="eyebrow">{{ t('propertyDetails.mortgage.eyebrow', 'Financiación') }}</p>
+            <p class="eyebrow !text-emerald-700">{{ t('propertyDetails.mortgage.eyebrow', 'Financiación') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.mortgage.heading', 'Hipoteca y costes') }}</h2>
-            <div class="mt-6"><LazyMortgageCalculator hydrate-on-visible :price="data.project.price || 0" :rental-yield="data.project.rentalYield" :status="data.project.status" /></div>
+            <div class="mt-7"><LazyMortgageCalculator hydrate-on-visible :price="data.project.price || 0" :rental-yield="data.project.rentalYield" :status="data.project.status" /></div>
           </section>
 
           <!-- Historia / timeline -->
@@ -224,7 +224,7 @@
 
         <!-- Sidebar -->
         <aside>
-          <div class="space-y-5 lg:sticky lg:top-32">
+          <div class="space-y-6 lg:sticky lg:top-32">
             <div id="contacto" ref="contactRef">
               <PropertyDecisionPanel :slug="String(route.params.slug)" :project="data.project" />
             </div>

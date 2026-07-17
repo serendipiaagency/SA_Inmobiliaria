@@ -76,7 +76,7 @@ function ic(k: string) {
 .qf-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 1rem;
 }
 @media (min-width: 640px) {
   .qf-grid {
@@ -86,22 +86,27 @@ function ic(k: string) {
 .qf-tile {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.85rem;
   border-radius: 1rem;
   border: 1px solid #e7e4de;
   background: #fff;
-  padding: 0.85rem 1rem;
+  padding: 1.1rem 1.15rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.qf-tile:hover {
+  border-color: #d3ad6a;
+  box-shadow: 0 2px 10px rgba(180, 140, 60, 0.08);
 }
 .qf-icon {
   display: flex;
-  height: 2.25rem;
-  width: 2.25rem;
+  height: 2.5rem;
+  width: 2.5rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  background: #fdfcfa;
-  color: #16150f;
+  background: #f6ead0;
+  color: #92650f;
 }
 .qf-value {
   font-size: 13px;

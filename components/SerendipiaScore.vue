@@ -1,27 +1,27 @@
 <template>
   <div v-if="loading" class="skeleton h-40 rounded-2xl" />
-  <div v-else-if="data && data.overall != null" class="rounded-2xl border border-line bg-white p-6 sm:p-8">
+  <div v-else-if="data && data.overall != null" class="rounded-2xl border border-amber-100 bg-amber-50/40 p-6 sm:p-8">
     <div class="flex items-center gap-5">
-      <div class="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full" :style="{ background: `conic-gradient(#16150f ${data.overall * 3.6}deg, #e7e4de 0deg)` }">
+      <div class="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full" :style="{ background: `conic-gradient(#b45309 ${data.overall * 3.6}deg, #f0e2c4 0deg)` }">
         <div class="flex h-[62px] w-[62px] items-center justify-center rounded-full bg-white">
           <span class="font-serif text-2xl">{{ data.overall }}</span>
         </div>
       </div>
       <div>
-        <p class="eyebrow">{{ t('serendipiaScore.eyebrow', 'Serendipia Score') }}</p>
+        <p class="eyebrow !text-amber-700">{{ t('serendipiaScore.eyebrow', 'Serendipia Score') }}</p>
         <p class="mt-1 font-serif text-2xl">{{ qualityLabel(data.overall) }}</p>
         <p class="mt-1 text-[12px] text-stone-450">{{ t('serendipiaScore.description', 'Índice propio calculado de forma transparente a partir de datos reales — no es una caja negra.') }}</p>
       </div>
     </div>
 
-    <div class="mt-6 space-y-4">
+    <div class="mt-7 space-y-5">
       <div v-for="b in data.breakdown" :key="b.key">
-        <div class="mb-1.5 flex items-baseline justify-between text-sm">
+        <div class="mb-2 flex items-baseline justify-between text-sm">
           <span class="font-medium">{{ b.label }}</span>
           <span class="text-stone-450">{{ b.score }}/100</span>
         </div>
-        <div class="h-1.5 overflow-hidden rounded-full bg-paper">
-          <div class="h-full rounded-full bg-ink transition-all duration-500" :style="{ width: b.score + '%' }" />
+        <div class="h-1.5 overflow-hidden rounded-full bg-white">
+          <div class="h-full rounded-full bg-amber-600 transition-all duration-500" :style="{ width: b.score + '%' }" />
         </div>
         <p class="mt-1 text-[12px] text-stone-450">{{ b.detail }}</p>
       </div>
