@@ -1,5 +1,5 @@
 <template>
-  <div class="grid gap-8 lg:grid-cols-2">
+  <div class="grid gap-8 rounded-2xl border border-emerald-100 bg-emerald-50/30 p-6 sm:p-8 lg:grid-cols-2">
     <!-- Mortgage -->
     <div>
       <h3 class="filter-title">{{ t('mortgage.title', 'Hipoteca') }}</h3>
@@ -26,7 +26,7 @@
           <input v-model.number="years" type="range" min="5" max="35" step="1" class="range" />
         </div>
       </div>
-      <div class="mt-6 rounded-2xl bg-ink p-6 text-white">
+      <div class="mt-6 rounded-2xl bg-emerald-800 p-6 text-white">
         <p class="text-[11px] uppercase tracking-widest2 text-white/60">{{ t('mortgage.estimatedMonthly', 'Cuota mensual estimada') }}</p>
         <p class="mt-1 font-serif text-4xl">{{ money(monthly) }}</p>
         <p class="mt-2 text-[13px] text-white/70">
@@ -39,12 +39,12 @@
     <div class="space-y-8">
       <div>
         <h3 class="filter-title">{{ t('mortgage.costsTitle', 'Costes de compra en Dubái (estimados)') }}</h3>
-        <ul class="divide-y divide-line border-y border-line">
-          <li v-for="c in costs" :key="c.label" class="flex items-center justify-between py-3 text-sm">
+        <ul class="divide-y divide-line border-y border-line bg-white/60">
+          <li v-for="c in costs" :key="c.label" class="flex items-center justify-between px-1 py-3.5 text-sm">
             <span class="text-stone-500">{{ c.label }}<span v-if="c.pct" class="text-stone-400"> · {{ c.pct }}%</span></span>
             <span class="font-medium">{{ money(c.value) }}</span>
           </li>
-          <li class="flex items-center justify-between py-3 text-sm font-semibold">
+          <li class="flex items-center justify-between px-1 py-3.5 text-sm font-semibold">
             <span>{{ t('mortgage.totalWithCosts', 'Total aproximado con gastos') }}</span>
             <span>{{ money(price + totalCosts) }}</span>
           </li>
@@ -57,15 +57,15 @@
       <div v-if="rentalYield">
         <h3 class="filter-title">{{ t('mortgage.rentability.title', 'Rentabilidad estimada') }}</h3>
         <div class="grid grid-cols-3 gap-3 text-center">
-          <div class="rounded-xl border border-line p-4">
+          <div class="rounded-xl border border-line bg-white p-4">
             <p class="font-serif text-2xl">{{ rentalYield }}%</p>
             <p class="mt-1 text-[11px] uppercase tracking-widest text-stone-400">{{ t('mortgage.rentability.grossAnnual', 'Bruta anual') }}</p>
           </div>
-          <div class="rounded-xl border border-line p-4">
+          <div class="rounded-xl border border-line bg-white p-4">
             <p class="font-serif text-2xl">{{ money(annualRent) }}</p>
             <p class="mt-1 text-[11px] uppercase tracking-widest text-stone-400">{{ t('mortgage.rentability.rentPerYear', 'Renta / año') }}</p>
           </div>
-          <div class="rounded-xl border border-line p-4">
+          <div class="rounded-xl border border-line bg-white p-4">
             <p class="font-serif text-2xl">{{ money(Math.round(annualRent / 12)) }}</p>
             <p class="mt-1 text-[11px] uppercase tracking-widest text-stone-400">{{ t('mortgage.rentability.rentPerMonth', 'Renta / mes') }}</p>
           </div>
@@ -147,7 +147,7 @@ const { format: money } = useCurrency()
   height: 20px;
   width: 20px;
   border-radius: 9999px;
-  background: #16150f;
+  background: #065f46;
   cursor: pointer;
   border: 3px solid #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
@@ -156,7 +156,7 @@ const { format: money } = useCurrency()
   height: 20px;
   width: 20px;
   border-radius: 9999px;
-  background: #16150f;
+  background: #065f46;
   cursor: pointer;
   border: 3px solid #fff;
 }

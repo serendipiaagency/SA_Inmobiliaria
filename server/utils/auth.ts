@@ -67,6 +67,8 @@ export interface SessionUser {
   name: string
   email: string
   role: string
+  /** Null only for 'super_admin', who belongs to no single organization. */
+  organizationId: number | null
 }
 
 export async function createSession(event: H3Event, userId: number): Promise<void> {
@@ -109,6 +111,7 @@ export async function getSessionUser(event: H3Event): Promise<SessionUser | null
       name: schema.users.name,
       email: schema.users.email,
       role: schema.users.role,
+      organizationId: schema.users.organizationId,
       expiresAt: schema.sessions.expiresAt,
     })
     .from(schema.sessions)
@@ -121,12 +124,51 @@ export async function getSessionUser(event: H3Event): Promise<SessionUser | null
     await db.delete(schema.sessions).where(eq(schema.sessions.id, token))
     return null
   }
-  return { id: row.id, name: row.name, email: row.email, role: row.role }
+  return { id: row.id, name: row.name, email: row.email, role: row.role, organizationId: row.organizationId }
 }
 
+/** Allows both org-scoped admins and the platform super_admin. */
 export async function requireAdmin(event: H3Event): Promise<SessionUser> {
   const user = await getSessionUser(event)
   if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthenticated' })
-  if (user.role !== 'admin') throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+  if (user.role !== 'admin' && user.role !== 'super_admin') throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
   return user
+}
+
+/** Platform owner only — for managing organizations themselves. */
+export async function requireSuperAdmin(event: H3Event): Promise<SessionUser> {
+  const user = await getSessionUser(event)
+  if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthenticated' })
+  if (user.role !== 'super_admin') throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+  return user
+}
+
+const ACTIVE_ORG_COOKIE = 'sa_active_org'
+
+/**
+ * Resolves which organization's data the current request should see. A
+ * super_admin has no fixed org, so they pick one via the org-switcher, which
+ * stores its choice in a cookie (like the session cookie, sent automatically
+ * on every request including SSR) — any value works since it only changes
+ * what they see, never grants access beyond their own already-total
+ * visibility. A regular org-scoped admin's org always comes from their own
+ * user row and can never be overridden by client-supplied input.
+ */
+export function resolveActiveOrgId(event: H3Event, user: SessionUser): number {
+  if (user.role === 'super_admin') {
+    const cookie = getCookie(event, ACTIVE_ORG_COOKIE)
+    const parsed = Number(cookie)
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : 1
+  }
+  if (user.organizationId == null) {
+    throw createError({ statusCode: 403, statusMessage: 'User has no organization assigned' })
+  }
+  return user.organizationId
+}
+
+/** Combines requireAdmin + resolveActiveOrgId — the standard guard for org-scoped admin routes. */
+export async function requireOrgScope(event: H3Event): Promise<{ user: SessionUser; orgId: number }> {
+  const user = await requireAdmin(event)
+  const orgId = resolveActiveOrgId(event, user)
+  return { user, orgId }
 }

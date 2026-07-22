@@ -1,19 +1,19 @@
-import { requireAdmin } from '../../../utils/auth'
+import { requireOrgScope } from '../../../utils/auth'
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const { orgId } = await requireOrgScope(event)
   const raw = (event.context as any).cloudflare.env.DB as D1Database
   const q = getQuery(event)
   const status = String(q.status || '')
   const source = String(q.source || '')
   const search = String(q.search || '').trim()
 
-  const where: string[] = []
-  const binds: any[] = []
+  const where: string[] = ['organization_id = ?']
+  const binds: any[] = [orgId]
   if (status && status !== 'all') { where.push('status = ?'); binds.push(status) }
   if (source && source !== 'all') { where.push('source = ?'); binds.push(source) }
   if (search) { where.push('(name LIKE ? OR email LIKE ? OR property_name LIKE ?)'); binds.push(`%${search}%`, `%${search}%`, `%${search}%`) }
-  const clause = where.length ? `WHERE ${where.join(' AND ')}` : ''
+  const clause = `WHERE ${where.join(' AND ')}`
 
   const rows = (
     await raw
@@ -27,7 +27,10 @@ export default defineEventHandler(async (event) => {
   ).results
 
   const byStatus = (
-    await raw.prepare('SELECT status, count(*) AS n FROM leads GROUP BY status').all<{ status: string; n: number }>()
+    await raw
+      .prepare('SELECT status, count(*) AS n FROM leads WHERE organization_id = ? GROUP BY status')
+      .bind(orgId)
+      .all<{ status: string; n: number }>()
   ).results
   const counts: Record<string, number> = {}
   for (const r of byStatus) counts[r.status] = r.n

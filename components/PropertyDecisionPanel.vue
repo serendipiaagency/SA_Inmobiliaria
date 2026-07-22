@@ -1,8 +1,8 @@
 <template>
-  <div class="space-y-5">
+  <div class="space-y-6">
     <!-- PRECIO -->
-    <div class="rounded-2xl border border-line bg-white p-6">
-      <p class="eyebrow">{{ t('decisionPanel.price.eyebrow', 'Precio') }}</p>
+    <div class="rounded-2xl border border-amber-100 bg-amber-50/40 p-7">
+      <p class="eyebrow !text-amber-700">{{ t('decisionPanel.price.eyebrow', 'Precio') }}</p>
       <p class="heading-serif mt-2 text-4xl">{{ formatPrice(project.price) }}</p>
 
       <div class="mt-4 grid grid-cols-2 gap-3 text-[13px]">
@@ -29,14 +29,14 @@
     </div>
 
     <!-- INDICADORES -->
-    <div class="rounded-2xl border border-line bg-white p-6">
+    <div class="rounded-2xl border border-line bg-white p-7">
       <p class="eyebrow mb-4">{{ t('decisionPanel.indicators.eyebrow', 'Indicadores') }}</p>
       <div v-if="engagementLoading" class="space-y-3">
         <div class="skeleton h-5 w-full rounded" />
         <div class="skeleton h-5 w-4/5 rounded" />
         <div class="skeleton h-5 w-3/5 rounded" />
       </div>
-      <ul v-else class="space-y-3 text-[13px]">
+      <ul v-else class="space-y-3.5 text-[13px]">
         <li v-if="engagement?.viewsThisWeek" class="flex items-center gap-2.5">
           <svg class="h-4 w-4 shrink-0 text-stone-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12s3.5-7 9.5-7 9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7z" /><circle cx="12" cy="12" r="2.5" /></svg>
           <span><strong class="font-semibold text-ink">{{ engagement.viewsThisWeek }}</strong> {{ engagement.viewsThisWeek === 1 ? t('decisionPanel.indicators.viewSingular', 'vista esta semana') : t('decisionPanel.indicators.viewPlural', 'vistas esta semana') }}</span>
@@ -62,18 +62,18 @@
     </div>
 
     <!-- DECISIÓN RÁPIDA -->
-    <div class="rounded-2xl border border-line bg-white p-6">
+    <div class="rounded-2xl border border-line bg-white p-7">
       <p class="eyebrow">{{ t('decisionPanel.decision.eyebrow', 'Decisión rápida') }}</p>
       <p class="mt-1 text-[12px] text-stone-450">{{ t('decisionPanel.decision.subtitle', 'Cada valoración se calcula a partir de datos reales de la propiedad — nunca es un número arbitrario.') }}</p>
       <div v-if="scoreLoading" class="mt-4 space-y-3">
         <div v-for="i in 5" :key="i" class="skeleton h-10 w-full rounded" />
       </div>
-      <ul v-else class="mt-4 space-y-3.5">
+      <ul v-else class="mt-5 space-y-4">
         <li v-for="d in decision" :key="d.key">
           <div class="flex items-center justify-between">
             <span class="text-sm font-medium text-ink">{{ d.label }}</span>
             <span v-if="d.stars != null" class="flex items-center gap-0.5">
-              <svg v-for="i in 5" :key="i" class="h-3.5 w-3.5" :class="i <= d.stars ? 'text-ink' : 'text-line'" :fill="i <= d.stars ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.4" viewBox="0 0 24 24">
+              <svg v-for="i in 5" :key="i" class="h-3.5 w-3.5" :class="i <= d.stars ? 'text-amber-500' : 'text-line'" :fill="i <= d.stars ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.4" viewBox="0 0 24 24">
                 <path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7-6.2-3.8L6 21l1.6-7L2.2 9.2l7.1-.6z" />
               </svg>
             </span>
@@ -85,22 +85,22 @@
     </div>
 
     <!-- COSTE MENSUAL -->
-    <div class="rounded-2xl border border-line bg-white p-6">
-      <p class="eyebrow mb-4">{{ t('decisionPanel.monthlyCost.eyebrow', 'Coste mensual estimado') }}</p>
-      <ul class="divide-y divide-line">
-        <li class="flex items-center justify-between py-2.5 text-sm">
+    <div class="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-7">
+      <p class="eyebrow !text-emerald-700 mb-4">{{ t('decisionPanel.monthlyCost.eyebrow', 'Coste mensual estimado') }}</p>
+      <ul class="divide-y divide-emerald-100/70">
+        <li class="flex items-center justify-between py-3 text-sm">
           <span class="text-stone-500">{{ t('decisionPanel.monthlyCost.mortgage', 'Hipoteca estimada') }}</span>
           <span class="font-semibold">{{ formatPrice(monthlyCost.mortgage) }}</span>
         </li>
-        <li class="flex items-center justify-between py-2.5 text-sm">
+        <li class="flex items-center justify-between py-3 text-sm">
           <span class="text-stone-500">{{ t('decisionPanel.monthlyCost.serviceCharge', 'Comunidad (service charge)') }}</span>
           <span class="font-semibold">{{ monthlyCost.serviceCharge != null ? formatPrice(monthlyCost.serviceCharge) : t('decisionPanel.monthlyCost.consult', 'Consultar') }}</span>
         </li>
-        <li class="flex items-center justify-between py-2.5 text-sm">
+        <li class="flex items-center justify-between py-3 text-sm">
           <span class="text-stone-500">{{ t('decisionPanel.monthlyCost.insurance', 'Seguro (estimado)') }}</span>
           <span class="font-semibold">{{ formatPrice(monthlyCost.insurance) }}</span>
         </li>
-        <li class="flex items-center justify-between py-3 text-sm font-semibold">
+        <li class="flex items-center justify-between py-3.5 text-sm font-semibold">
           <span>{{ t('decisionPanel.monthlyCost.total', 'Total mensual') }}{{ monthlyCost.serviceCharge == null ? '*' : '' }}</span>
           <span>{{ formatPrice(monthlyCost.total) }}</span>
         </li>
@@ -112,10 +112,10 @@
     </div>
 
     <!-- BOTONES -->
-    <div class="no-print rounded-2xl border border-line bg-white p-6">
+    <div class="no-print rounded-2xl border border-line bg-white p-7">
       <NuxtLink
         to="/leadership/perla-maria-melgarejo"
-        class="mb-5 flex items-center gap-4 rounded-xl border border-line bg-paper p-4 transition hover:border-ink hover:shadow-sm"
+        class="mb-6 flex items-center gap-4 rounded-xl border border-line bg-paper p-4 transition hover:border-ink hover:shadow-sm"
       >
         <img :src="mediaUrl(agentPhoto)" :alt="agentName" class="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-white shadow" />
         <div class="min-w-0">
