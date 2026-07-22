@@ -3,6 +3,7 @@ interface SessionUser {
   name: string
   email: string
   role: string
+  organizationId: number | null
 }
 
 export function useAuth() {

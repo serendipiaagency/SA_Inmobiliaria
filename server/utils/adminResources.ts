@@ -25,6 +25,14 @@ export interface ResourceDef {
   hasUpdatedAt?: boolean
   /** Readonly resources only allow list/show/delete. */
   readonly?: boolean
+  /** False for resources whose table has no organization_id column — child
+   *  tables that inherit tenant scoping transitively through their parent's
+   *  FK (e.g. floor plans belong to a developer property, which is itself
+   *  org-scoped). Defaults to true. */
+  orgScoped?: boolean
+  /** True only for the `organizations` resource itself — managed by the
+   *  platform super_admin, not by any single tenant's admin. */
+  superAdminOnly?: boolean
   /** Generate `slug` column from this field when missing. */
   slugFrom?: string
   /** Translation child table (locale/title/description pattern). */
@@ -34,6 +42,27 @@ export interface ResourceDef {
 }
 
 export const adminResources: Record<string, ResourceDef> = {
+  organizations: {
+    table: schema.organizations,
+    label: 'Empresas',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      slug: { type: 'text', label: 'Slug' },
+      domain: { type: 'text', label: 'Dominio' },
+      companyName: { type: 'text', label: 'Nombre comercial' },
+      logo: { type: 'image', label: 'Logo' },
+      brandColor: { type: 'text', label: 'Color de marca' },
+      status: { type: 'select', label: 'Estado', options: ['active', 'suspended'] },
+    },
+    listFields: ['id', 'name', 'domain', 'status', 'createdAt'],
+    searchFields: ['name', 'slug', 'domain'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    slugFrom: 'name',
+    orgScoped: false,
+    superAdminOnly: true,
+  },
+
   agents: {
     table: schema.agents,
     label: 'Agents',
@@ -138,6 +167,7 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'developerPropertyId', 'category', 'unitType', 'type'],
     searchFields: ['category', 'unitType', 'type'],
     hasTimestamps: true,
+    orgScoped: false,
   },
 
   'property-types': {
@@ -152,6 +182,7 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'developerPropertyId', 'propertyType', 'unitType', 'size'],
     searchFields: ['propertyType', 'unitType'],
     hasTimestamps: true,
+    orgScoped: false,
   },
 
   'project-images': {
@@ -164,6 +195,7 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'developerPropertyId', 'image'],
     searchFields: [],
     hasTimestamps: true,
+    orgScoped: false,
   },
 
   'gallery-images': {
@@ -176,6 +208,7 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'propertyId', 'image'],
     searchFields: [],
     hasTimestamps: true,
+    orgScoped: false,
   },
 
   'social-media': {
@@ -191,6 +224,7 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'developerPropertyId', 'platform', 'url'],
     searchFields: ['url', 'caption'],
     hasTimestamps: true,
+    orgScoped: false,
   },
 
   'master-plans': {

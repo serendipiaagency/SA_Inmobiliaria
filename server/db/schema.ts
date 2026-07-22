@@ -1,15 +1,40 @@
 import { sqliteTable, text, integer, real, uniqueIndex, index } from 'drizzle-orm/sqlite-core'
 
 // ---------------------------------------------------------------------------
+// Multi-tenant: organizations ("empresas")
+// ---------------------------------------------------------------------------
+// One shared D1 database serves every tenant. Every tenant-scoped table below
+// carries an `organizationId` column pointing here (app-level FK only — D1
+// doesn't enforce FKs added via ALTER TABLE). Org id 1 is the pre-existing
+// tenant ("M&M Real Estate"), created by the 0021 migration as part of the
+// backfill so historical data has a real row to point at.
+
+export const organizations = sqliteTable('organizations', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
+  domain: text('domain').unique(), // custom domain/subdomain once assigned; null until then
+  companyName: text('company_name'), // public-facing brand name; falls back to `name`
+  logo: text('logo'),
+  brandColor: text('brand_color'),
+  status: text('status').notNull().default('active'), // active | suspended
+  createdAt: text('created_at').notNull().default(''),
+  updatedAt: text('updated_at').notNull().default(''),
+})
+
+// ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
 
 export const users = sqliteTable('users', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  // Null only for 'super_admin' — the platform owner's account, which belongs
+  // to no single org and can view/manage every organization.
+  organizationId: integer('organization_id').references(() => organizations.id),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
   password: text('password').notNull(), // pbkdf2$<iterations>$<salt>$<hash>
-  role: text('role').notNull().default('user'), // 'admin' | 'user'
+  role: text('role').notNull().default('user'), // 'super_admin' | 'admin' | 'user'
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })
@@ -29,6 +54,7 @@ export const sessions = sqliteTable('sessions', {
 
 export const agents = sqliteTable('agents', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  organizationId: integer('organization_id').notNull().default(1),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
   phone: text('phone'),
@@ -42,6 +68,7 @@ export const agents = sqliteTable('agents', {
 
 export const agentProperties = sqliteTable('agent_properties', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  organizationId: integer('organization_id').notNull().default(1),
   slug: text('slug').unique(),
   location: text('location'),
   propertyType: text('property_type'),
@@ -85,6 +112,7 @@ export const propertyGalleryImages = sqliteTable('property_gallery_images', {
 
 export const developers = sqliteTable('developers', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  organizationId: integer('organization_id').notNull().default(1),
   name: text('name').notNull(),
   email: text('email').unique(),
   phone: text('phone'),
@@ -97,6 +125,7 @@ export const developers = sqliteTable('developers', {
 
 export const developerProperties = sqliteTable('developer_properties', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  organizationId: integer('organization_id').notNull().default(1),
   slug: text('slug').unique(),
   developerId: integer('developer_id')
     .notNull()
@@ -241,6 +270,7 @@ export const floorPlans = sqliteTable('floor_plans', {
 
 export const masterPlans = sqliteTable('master_plans', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  organizationId: integer('organization_id').notNull().default(1),
   name: text('name').notNull(),
   image: text('image').notNull(),
   createdAt: text('created_at').notNull().default(''),
@@ -273,6 +303,7 @@ export const propertyTypes = sqliteTable('property_types', {
 
 export const locations = sqliteTable('locations', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  organizationId: integer('organization_id').notNull().default(1),
   name: text('name').notNull(),
   image: text('image'),
   createdAt: text('created_at').notNull().default(''),
@@ -291,6 +322,7 @@ export const developerPropertyLocation = sqliteTable('developer_property_locatio
 
 export const amenities = sqliteTable('amenities', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  organizationId: integer('organization_id').notNull().default(1),
   name: text('name').notNull(),
   logo: text('logo'),
   description: text('description'),
@@ -309,6 +341,7 @@ export const amenityDeveloperProperty = sqliteTable('amenity_developer_property'
 
 export const communities = sqliteTable('communities', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  organizationId: integer('organization_id').notNull().default(1),
   name: text('name').notNull(),
   description: text('description'),
   featureDescription: text('feature_description'),
@@ -334,6 +367,7 @@ export const amenityCommunity = sqliteTable('amenity_community', {
 
 export const blogs = sqliteTable('blogs', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  organizationId: integer('organization_id').notNull().default(1),
   slug: text('slug').notNull().unique(),
   image: text('image'),
   targetAudience: text('target_audience').notNull().default('UAE'), // UAE | International
@@ -357,6 +391,7 @@ export const blogTranslations = sqliteTable(
 
 export const teamMembers = sqliteTable('team_members', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  organizationId: integer('organization_id').notNull().default(1),
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   email: text('email').notNull().unique(),
@@ -382,6 +417,7 @@ export const teamMembers = sqliteTable('team_members', {
 
 export const information = sqliteTable('information', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  organizationId: integer('organization_id').notNull().default(1),
   name: text('name'),
   email: text('email'),
   phoneNumber: text('phone_number'),
@@ -398,6 +434,7 @@ export const information = sqliteTable('information', {
 
 export const visitorSubmissions = sqliteTable('visitor_submissions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  organizationId: integer('organization_id').notNull().default(1),
   name: text('name').notNull(),
   email: text('email').notNull(),
   phoneNumber: text('phone_number').notNull(),
@@ -421,6 +458,7 @@ export const contactMessages = sqliteTable(
   'contact_messages',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull().default(1),
     type: text('type').notNull().default('contact'), // contact | complaint
     name: text('name').notNull(),
     email: text('email').notNull(),
@@ -440,6 +478,7 @@ export const leads = sqliteTable(
   'leads',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull().default(1),
     name: text('name').notNull(),
     email: text('email'),
     phone: text('phone'),
@@ -463,6 +502,7 @@ export const clients = sqliteTable(
   'clients',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull().default(1),
     name: text('name').notNull(),
     email: text('email'),
     phone: text('phone'),
@@ -483,6 +523,7 @@ export const visits = sqliteTable(
   'visits',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull().default(1),
     clientName: text('client_name').notNull(),
     propertyId: integer('property_id'),
     propertyName: text('property_name'),
@@ -500,6 +541,7 @@ export const reservations = sqliteTable(
   'reservations',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull().default(1),
     reference: text('reference').notNull(),
     clientName: text('client_name').notNull(),
     propertyId: integer('property_id'),
@@ -513,6 +555,8 @@ export const reservations = sqliteTable(
   (t) => [index('reservations_status').on(t.status)],
 )
 
+// Not org-scoped: billing stays centralized/global, managed by the platform
+// owner across all tenants (explicit decision — everything else is per-org).
 export const invoices = sqliteTable(
   'invoices',
   {
@@ -533,6 +577,7 @@ export const invoices = sqliteTable(
 
 export const automations = sqliteTable('automations', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  organizationId: integer('organization_id').notNull().default(1),
   name: text('name').notNull(),
   description: text('description'),
   trigger: text('trigger').notNull(), // lead.created | visit.completed | reservation.confirmed | ...
@@ -545,6 +590,7 @@ export const automations = sqliteTable('automations', {
 
 export const apiKeys = sqliteTable('api_keys', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  organizationId: integer('organization_id').notNull().default(1),
   name: text('name').notNull(),
   prefix: text('prefix').notNull(), // sa_live_xxxx (shown)
   keyHash: text('key_hash').notNull(),
@@ -555,6 +601,9 @@ export const apiKeys = sqliteTable('api_keys', {
   createdAt: text('created_at').notNull().default(''),
 })
 
+// Not org-scoped yet: metrics_daily's `day` column is globally unique, so
+// per-org aggregation would need unique(org_id, day) — deferred to the
+// documented follow-up phase alongside the rest of the bespoke SaaS surface.
 export const metricsDaily = sqliteTable(
   'metrics_daily',
   {
@@ -570,6 +619,9 @@ export const metricsDaily = sqliteTable(
   (t) => [index('metrics_daily_day').on(t.day)],
 )
 
+// Not org-scoped yet: a flat global key-value store used only by the admin's
+// own settings page today. Per-org branding (domain, logo, colors) is a
+// documented follow-up (see organizations table for where those fields land).
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value'),

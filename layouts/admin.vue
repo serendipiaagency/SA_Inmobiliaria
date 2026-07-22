@@ -14,6 +14,14 @@
         </div>
       </div>
 
+      <!-- Org switcher: super_admin only, lets them pick which company's data the panel shows -->
+      <div v-if="isSuperAdmin" class="border-b border-line px-3 py-2.5">
+        <label class="mb-1 block px-1 text-[10px] font-semibold uppercase tracking-widest text-stone-400">Empresa</label>
+        <select v-model="activeOrgId" class="w-full rounded-lg border border-line bg-white px-2.5 py-1.5 text-[13px] font-medium" @change="switchOrg">
+          <option v-for="org in orgs" :key="org.id" :value="org.id">{{ org.name }}</option>
+        </select>
+      </div>
+
       <nav class="flex-1 overflow-y-auto px-2.5 py-3">
         <template v-for="group in nav" :key="group.label">
           <p class="px-2.5 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-stone-400">{{ group.label }}</p>
@@ -165,6 +173,30 @@ const nav = [
     ],
   },
 ]
+
+const isSuperAdmin = computed(() => user.value?.role === 'super_admin')
+if (isSuperAdmin.value) {
+  nav[nav.length - 1].items.push({ label: 'Empresas', to: '/admin/organizations', icon: 'store' })
+}
+
+const orgs = ref<{ id: number; name: string }[]>([])
+const activeOrgId = ref<number | null>(null)
+const activeOrgCookie = useCookie<string | null>('sa_active_org')
+
+if (isSuperAdmin.value) {
+  const { data } = await useFetch<{ rows: { id: number; name: string }[] }>('/api/admin/organizations', {
+    query: { perPage: 100 },
+  })
+  orgs.value = data.value?.rows || []
+  activeOrgId.value = Number(activeOrgCookie.value) || orgs.value[0]?.id || null
+}
+
+async function switchOrg() {
+  if (!activeOrgId.value) return
+  await $fetch('/api/admin/active-org', { method: 'POST', body: { orgId: activeOrgId.value } })
+  activeOrgCookie.value = String(activeOrgId.value)
+  router.go(0) // reload so every already-fetched page re-queries under the new org
+}
 
 function isActive(to: string) {
   if (to === '/admin') return route.path === '/admin'
