@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { useDb, schema, cfEnv } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
@@ -42,6 +42,13 @@ export default defineEventHandler(async (event) => {
     if (keys.length) {
       const bucket = cfEnv(event).MEDIA
       await Promise.all(keys.map((k) => bucket.delete(k)))
+    }
+  }
+
+  if (key === 'cms-comments') {
+    const rows = await db.select({ status: schema.cmsComments.status, articleId: schema.cmsComments.articleId }).from(schema.cmsComments).where(where as any).limit(1)
+    if (rows[0]?.status === 'approved') {
+      await db.update(schema.cmsArticles).set({ commentCount: sql`max(${schema.cmsArticles.commentCount} - 1, 0)` }).where(eq(schema.cmsArticles.id, rows[0].articleId))
     }
   }
 

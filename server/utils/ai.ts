@@ -174,7 +174,7 @@ export function fallbackAnswer(question: string, p: any): string {
 
 // --- LLM (optional) ---------------------------------------------------------
 
-async function callClaude(event: H3Event, system: string, user: string): Promise<string | null> {
+async function callClaude(event: H3Event, system: string, user: string, maxTokens = 700): Promise<string | null> {
   const env = (event.context as any).cloudflare?.env || {}
   const key = env.AI_API_KEY
   if (!key) return null
@@ -188,7 +188,7 @@ async function callClaude(event: H3Event, system: string, user: string): Promise
       },
       body: JSON.stringify({
         model: env.AI_MODEL || 'claude-3-5-haiku-latest',
-        max_tokens: 700,
+        max_tokens: maxTokens,
         system,
         messages: [{ role: 'user', content: user }],
       }),
@@ -199,6 +199,23 @@ async function callClaude(event: H3Event, system: string, user: string): Promise
   } catch {
     return null
   }
+}
+
+/**
+ * Generic AI call for modules beyond the property content engine (e.g. Blog
+ * & CMS editorial actions) — same "AI if AI_API_KEY is set, null otherwise"
+ * contract as every other call in this file. Callers must supply their own
+ * deterministic fallback for the null case; there is no rules-based fallback
+ * here because editorial actions (rewrite/summarize/translate/...) don't have
+ * one generic non-AI equivalent the way property copy generation does.
+ */
+export async function callAI(event: H3Event, system: string, user: string, maxTokens = 900): Promise<string | null> {
+  return callClaude(event, system, user, maxTokens)
+}
+
+export function hasAiKey(event: H3Event): boolean {
+  const env = (event.context as any).cloudflare?.env || {}
+  return !!env.AI_API_KEY
 }
 
 function propContext(p: any): string {

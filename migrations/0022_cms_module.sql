@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS cms_articles (
   status TEXT NOT NULL DEFAULT 'draft',
   published_at TEXT,
   scheduled_at TEXT,
+  expires_at TEXT,
   reading_time_minutes INTEGER NOT NULL DEFAULT 0,
   view_count INTEGER NOT NULL DEFAULT 0,
   comment_count INTEGER NOT NULL DEFAULT 0,

@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { useDb, schema, now, slugify } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
-import { parseBlocks, blocksToPlainText, computeReadingTime, computeSeoScore } from '../../../../utils/cms'
+import { parseBlocks, blocksToPlainText, computeReadingTime, computeSeoScore, countLinks } from '../../../../utils/cms'
 
 export default defineEventHandler(async (event) => {
   const { orgId, user } = await requireOrgScope(event)
@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
   const focusKeyword = body?.focusKeyword !== undefined ? body.focusKeyword : existing.focusKeyword
   const coverImage = body?.coverImage !== undefined ? body.coverImage : existing.coverImage
 
-  const seoScore = computeSeoScore({ title, slug, excerpt, seoTitle, seoDescription, focusKeyword, coverImage, plainText })
+  const seoScore = computeSeoScore({ title, slug, excerpt, seoTitle, seoDescription, focusKeyword, coverImage, plainText, links: countLinks(blocks) })
 
   await db
     .update(schema.cmsArticles)
@@ -61,6 +61,7 @@ export default defineEventHandler(async (event) => {
       status,
       publishedAt: status === 'published' && !wasPublished ? nowTs : existing.publishedAt,
       scheduledAt: status === 'scheduled' ? body?.scheduledAt ?? existing.scheduledAt : null,
+      expiresAt: body?.expiresAt !== undefined ? body.expiresAt : existing.expiresAt,
       readingTimeMinutes: computeReadingTime(blocks),
       seoTitle,
       seoDescription,

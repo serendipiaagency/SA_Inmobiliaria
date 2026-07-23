@@ -430,6 +430,18 @@ export const adminResources: Record<string, ResourceDef> = {
     hasTimestamps: true,
   },
 
+  'cms-media-folders': {
+    table: schema.cmsMediaFolders,
+    label: 'Carpetas de media (Blog)',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      parentId: { type: 'number', label: 'Carpeta padre (ID)' },
+    },
+    listFields: ['id', 'name', 'parentId'],
+    searchFields: ['name'],
+    hasTimestamps: true,
+  },
+
   'visitor-submissions': {
     table: schema.visitorSubmissions,
     label: 'Visitor submissions',

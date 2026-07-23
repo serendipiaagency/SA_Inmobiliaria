@@ -22,13 +22,58 @@ export function parseBlocks(contentJson: string | null | undefined): CmsBlock[] 
   }
 }
 
-/** Flattens every block's text into one string — used for word counts and search. */
+/** Flattens every block's text into one string — used for word counts, SEO analysis and search. */
 export function blocksToPlainText(blocks: CmsBlock[]): string {
-  return blocks
-    .map((b) => b.text || '')
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+  const parts: string[] = []
+  for (const b of blocks) {
+    switch (b.type) {
+      case 'heading':
+      case 'paragraph':
+      case 'quote':
+      case 'callout':
+        if (b.text) parts.push(b.text)
+        if (b.author) parts.push(b.author)
+        break
+      case 'cta':
+        if (b.title) parts.push(b.title)
+        if (b.text) parts.push(b.text)
+        break
+      case 'columns':
+        if (b.left) parts.push(b.left)
+        if (b.right) parts.push(b.right)
+        break
+      case 'faq':
+        for (const item of b.items || []) {
+          if (item.q) parts.push(item.q)
+          if (item.a) parts.push(item.a)
+        }
+        break
+      case 'table':
+        for (const row of b.rows || []) parts.push(row.filter(Boolean).join(' '))
+        break
+      case 'image':
+      case 'gallery':
+        if (b.caption) parts.push(b.caption)
+        break
+      default:
+        if (b.text) parts.push(b.text)
+    }
+  }
+  return parts.join(' ').replace(/\s+/g, ' ').trim()
+}
+
+/** Counts internal (/ or same-origin) vs external links referenced by button/cta/video blocks — real SEO signal, not fabricated. */
+export function countLinks(blocks: CmsBlock[]): { internal: number; external: number } {
+  let internal = 0
+  let external = 0
+  for (const b of blocks) {
+    const urls = [b.url, b.buttonUrl].filter(Boolean) as string[]
+    for (const url of urls) {
+      if (url.startsWith('/') || url.startsWith('#')) internal++
+      else external++
+    }
+  }
+  return { internal, external }
 }
 
 /** Real word-count-based estimate (200 wpm), not a fabricated number. */
@@ -46,13 +91,14 @@ interface SeoInputs {
   focusKeyword?: string | null
   coverImage?: string | null
   plainText: string
+  links?: { internal: number; external: number }
 }
 
 /**
- * Basic, transparent heuristic (title/description length, focus keyword
- * presence, cover image, content length) — deliberately simple for Phase 1.
- * Fase 5 replaces this with the full analysis (keyword density, internal/
- * external links, readability) without changing the stored `seoScore` shape.
+ * Transparent, checkable heuristic — every point traces to a real, visible
+ * signal (title/description length, keyword placement, content length,
+ * internal linking). Not a black box, and not keyword-stuffing-friendly:
+ * density itself doesn't add points beyond "keyword present in content".
  */
 export function computeSeoScore(input: SeoInputs): number {
   let score = 0
@@ -61,23 +107,28 @@ export function computeSeoScore(input: SeoInputs): number {
   else if (title) score += 10
 
   const desc = input.seoDescription || input.excerpt || ''
-  if (desc.length >= 70 && desc.length <= 160) score += 20
-  else if (desc.length > 0) score += 10
+  if (desc.length >= 70 && desc.length <= 160) score += 15
+  else if (desc.length > 0) score += 8
 
   if (input.focusKeyword) {
-    score += 10
+    score += 8
     const kw = input.focusKeyword.toLowerCase()
-    if (title.toLowerCase().includes(kw)) score += 10
-    if (input.plainText.toLowerCase().includes(kw)) score += 10
+    if (title.toLowerCase().includes(kw)) score += 8
+    if (input.plainText.toLowerCase().includes(kw)) score += 8
   }
 
-  if (input.coverImage) score += 10
+  if (input.coverImage) score += 8
 
   const wordCount = input.plainText.split(' ').filter(Boolean).length
-  if (wordCount >= 300) score += 20
-  else if (wordCount >= 100) score += 10
+  if (wordCount >= 300) score += 17
+  else if (wordCount >= 100) score += 8
 
-  if (input.slug && input.slug.length <= 75) score += 10
+  if (input.slug && input.slug.length <= 75) score += 8
+
+  if (input.links) {
+    if (input.links.internal > 0) score += 5
+    if (input.links.internal + input.links.external > 0) score += 3
+  }
 
   return Math.min(100, score)
 }

@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { useDb, schema } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource, buildPayload, syncTranslations } from '../../../utils/adminResources'
@@ -35,6 +35,21 @@ export default defineEventHandler(async (event) => {
     const current = await db.select({ price: schema.developerProperties.price }).from(schema.developerProperties).where(where as any).limit(1)
     if (current[0] && current[0].price !== data.price) {
       await db.insert(schema.priceHistory).values({ developerPropertyId: id, price: data.price, recordedAt: new Date().toISOString() })
+    }
+  }
+
+  // The public article's comment_count only reflects visible (approved) comments —
+  // moderating one into/out of "approved" here must keep that counter honest.
+  if (key === 'cms-comments' && typeof data.status === 'string') {
+    const current = await db.select({ status: schema.cmsComments.status, articleId: schema.cmsComments.articleId }).from(schema.cmsComments).where(where as any).limit(1)
+    if (current[0] && current[0].status !== data.status) {
+      const wasApproved = current[0].status === 'approved'
+      const nowApproved = data.status === 'approved'
+      if (!wasApproved && nowApproved) {
+        await db.update(schema.cmsArticles).set({ commentCount: sql`${schema.cmsArticles.commentCount} + 1` }).where(eq(schema.cmsArticles.id, current[0].articleId))
+      } else if (wasApproved && !nowApproved) {
+        await db.update(schema.cmsArticles).set({ commentCount: sql`max(${schema.cmsArticles.commentCount} - 1, 0)` }).where(eq(schema.cmsArticles.id, current[0].articleId))
+      }
     }
   }
 

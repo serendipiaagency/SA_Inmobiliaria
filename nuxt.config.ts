@@ -8,6 +8,12 @@ export default defineNuxtConfig({
       deployConfig: false,
       nodeCompat: true,
     },
+    experimental: { tasks: true },
+    // Matches the cron in wrangler.toml's [triggers] — hourly is enough
+    // precision for auto-hiding an expired article, no need for per-minute.
+    scheduledTasks: {
+      '0 * * * *': ['cms:expire-articles'],
+    },
   },
   css: [
     '~/assets/css/main.css',

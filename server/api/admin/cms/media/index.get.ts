@@ -1,4 +1,4 @@
-import { and, desc, eq, like, sql } from 'drizzle-orm'
+import { and, desc, eq, isNull, like, sql } from 'drizzle-orm'
 import { useDb, schema } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
 
@@ -10,11 +10,16 @@ export default defineEventHandler(async (event) => {
   const perPage = Math.min(100, Math.max(1, parseInt(String(query.perPage || '40'), 10) || 40))
   const q = String(query.q || '').trim()
   const type = String(query.type || '')
+  const folderId = parseInt(String(query.folderId || ''), 10)
+  const favoriteOnly = String(query.favorite || '') === '1'
 
   const M = schema.cmsMedia
   const conds = [eq(M.organizationId, orgId)]
   if (q) conds.push(like(M.filename, `%${q}%`))
   if (type && type !== 'all') conds.push(eq(M.type, type))
+  if (Number.isInteger(folderId)) conds.push(eq(M.folderId, folderId))
+  else if (String(query.folderId || '') === 'root') conds.push(isNull(M.folderId))
+  if (favoriteOnly) conds.push(eq(M.favorite, 1))
   const where = and(...conds)
 
   const countRows = await db.select({ count: sql<number>`count(*)` }).from(M).where(where)

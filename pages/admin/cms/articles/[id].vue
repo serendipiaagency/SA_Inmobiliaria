@@ -6,6 +6,7 @@
         <p v-if="!isNew" class="mt-1 text-xs text-stone-450">Cada guardado crea una versión en el historial.</p>
       </div>
       <div class="flex items-center gap-3">
+        <a v-if="!isNew" :href="`/blog/preview/${idParam}`" target="_blank" class="btn-secondary">Vista previa</a>
         <NuxtLink to="/admin/cms/articles" class="btn-secondary">← Volver</NuxtLink>
         <button class="btn-primary" :disabled="saving" @click="save">{{ saving ? 'Guardando…' : 'Guardar' }}</button>
       </div>
@@ -37,43 +38,15 @@
           </div>
         </div>
 
-        <div class="card space-y-3 p-6">
-          <div class="flex items-center justify-between">
+        <div class="card p-6">
+          <div class="mb-3 flex items-center justify-between">
             <label class="label !mb-0">Contenido</label>
-            <span class="text-[11px] text-stone-400">Editor de bloques llega en la Fase 3 — por ahora, texto simple</span>
+            <span class="text-[11px] text-stone-400">{{ wordCount }} palabras · ~{{ readingTime }} min de lectura</span>
           </div>
-          <textarea v-model="bodyText" class="input" rows="16" placeholder="Escribe el contenido del artículo…" />
-          <p class="text-[11px] text-stone-450">{{ wordCount }} palabras · ~{{ Math.max(1, Math.round(wordCount / 200)) }} min de lectura</p>
+          <CmsBlockEditor v-model="blocks" />
         </div>
 
-        <div class="card space-y-4 p-6">
-          <h3 class="font-semibold">SEO</h3>
-          <div>
-            <label class="label">Título SEO</label>
-            <input v-model="form.seoTitle" class="input" :placeholder="form.title" />
-          </div>
-          <div>
-            <label class="label">Meta descripción</label>
-            <textarea v-model="form.seoDescription" class="input" rows="2" :placeholder="form.excerpt" />
-          </div>
-          <div class="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label class="label">Palabra clave objetivo</label>
-              <input v-model="form.focusKeyword" class="input" />
-            </div>
-            <div>
-              <label class="label">Canonical</label>
-              <input v-model="form.seoCanonical" class="input" placeholder="https://…" />
-            </div>
-          </div>
-          <div v-if="article" class="flex items-center gap-3 rounded-lg border border-line bg-stone-50 px-4 py-3">
-            <span class="text-2xl font-bold" :class="article.seoScore >= 70 ? 'text-emerald-600' : article.seoScore >= 40 ? 'text-amber-600' : 'text-rose-500'">{{ article.seoScore }}</span>
-            <div>
-              <p class="text-sm font-semibold">SEO Score</p>
-              <p class="text-xs text-stone-450">Se recalcula automáticamente al guardar</p>
-            </div>
-          </div>
-        </div>
+        <CmsSeoPanel v-model="seoForm" :plain-text="plainText" :article="article" />
       </div>
 
       <!-- Sidebar -->
@@ -92,6 +65,11 @@
             <input v-model="form.scheduledAt" type="datetime-local" class="input" />
           </div>
           <div>
+            <label class="label">Fecha de caducidad (opcional)</label>
+            <input v-model="form.expiresAt" type="datetime-local" class="input" />
+            <p class="mt-1 text-[11px] text-stone-450">Se oculta automáticamente pasada esta fecha.</p>
+          </div>
+          <div>
             <label class="label">Idioma</label>
             <select v-model="form.language" class="input">
               <option value="es">Español</option>
@@ -99,23 +77,45 @@
             </select>
           </div>
           <div>
-            <label class="label">Categoría (ID)</label>
-            <input v-model="form.categoryId" type="number" class="input" placeholder="ID de categoría" />
-            <p class="mt-1 text-[11px] text-stone-450">Gestiona categorías en <NuxtLink to="/admin/cms-categories" class="underline">Categorías</NuxtLink>.</p>
+            <label class="label">Categoría</label>
+            <select v-model="form.categoryId" class="input">
+              <option value="">Sin categoría</option>
+              <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+            </select>
           </div>
           <div>
-            <label class="label">Autor (ID)</label>
-            <input v-model="form.authorId" type="number" class="input" placeholder="ID de autor" />
-            <p class="mt-1 text-[11px] text-stone-450">Gestiona autores en <NuxtLink to="/admin/cms-authors" class="underline">Autores</NuxtLink>.</p>
+            <label class="label">Autor</label>
+            <select v-model="form.authorId" class="input">
+              <option value="">Sin autor</option>
+              <option v-for="a in authors" :key="a.id" :value="a.id">{{ a.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Etiquetas</label>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="t in tags"
+                :key="t.id"
+                type="button"
+                class="rounded-full border px-2.5 py-1 text-[11px] font-medium transition"
+                :class="selectedTagIds.includes(t.id) ? 'border-ink bg-ink text-white' : 'border-line text-stone-500'"
+                @click="toggleTag(t.id)"
+              >
+                {{ t.name }}
+              </button>
+              <p v-if="!tags.length" class="text-[11px] text-stone-450">Crea etiquetas en <NuxtLink to="/admin/cms-tags" class="underline">Etiquetas</NuxtLink>.</p>
+            </div>
           </div>
         </div>
+
+        <CmsAiPanel v-if="!isNew" :article-id="Number(idParam)" />
 
         <div v-if="!isNew" class="card p-5">
           <h3 class="mb-2 font-semibold">Historial de versiones</h3>
           <ul v-if="versions.length" class="max-h-64 space-y-2 overflow-y-auto text-sm">
             <li v-for="v in versions" :key="v.id" class="flex items-center justify-between border-b border-line pb-2 last:border-0">
-              <span class="text-stone-500">{{ new Date(v.createdAt).toLocaleString('es-ES') }}</span>
-              <span class="text-[11px] text-stone-400">{{ v.editorName || '—' }}</span>
+              <span class="text-stone-500">{{ new Date(v.createdAt).toLocaleString('es-ES') }} · {{ v.editorName || '—' }}</span>
+              <button class="text-[11px] font-medium text-emerald-700 hover:underline" @click="restoreVersion(v.id)">Restaurar</button>
             </li>
           </ul>
           <p v-else class="text-sm text-stone-450">Sin historial todavía.</p>
@@ -136,32 +136,59 @@ const toast = useToast()
 
 const form = reactive<Record<string, any>>({
   title: '', slug: '', excerpt: '', coverImage: '', status: 'draft', language: 'es',
-  scheduledAt: '', categoryId: '', authorId: '', seoTitle: '', seoDescription: '', focusKeyword: '', seoCanonical: '',
+  scheduledAt: '', expiresAt: '', categoryId: '', authorId: '',
 })
+const seoForm = reactive<Record<string, any>>({ seoTitle: '', seoDescription: '', focusKeyword: '', seoCanonical: '' })
 const article = ref<any>(null)
-const bodyText = ref('')
+const blocks = ref<any[]>([])
 const versions = ref<any[]>([])
+const selectedTagIds = ref<number[]>([])
 const saving = ref(false)
 
-const wordCount = computed(() => bodyText.value.trim().split(/\s+/).filter(Boolean).length)
+const { data: categories } = await useFetch<any>('/api/admin/cms-categories', { query: { perPage: 100 }, transform: (r: any) => r.rows })
+const { data: authors } = await useFetch<any>('/api/admin/cms-authors', { query: { perPage: 100 }, transform: (r: any) => r.rows })
+const { data: tags } = await useFetch<any>('/api/admin/cms-tags', { query: { perPage: 100 }, transform: (r: any) => r.rows })
 
-if (!isNew) {
-  const { data } = await useFetch<any>(`/api/admin/cms/articles/${idParam}`)
+const plainText = computed(() => blocksToPlainTextClient(blocks.value))
+const wordCount = computed(() => plainText.value.split(/\s+/).filter(Boolean).length)
+const readingTime = computed(() => Math.max(1, Math.round(wordCount.value / 200)))
+
+function blocksToPlainTextClient(bs: any[]): string {
+  const parts: string[] = []
+  for (const b of bs) {
+    if (b.text) parts.push(b.text)
+    if (b.title) parts.push(b.title)
+    if (b.left) parts.push(b.left)
+    if (b.right) parts.push(b.right)
+    if (Array.isArray(b.items)) for (const it of b.items) { if (it.q) parts.push(it.q); if (it.a) parts.push(it.a) }
+  }
+  return parts.join(' ')
+}
+
+async function load() {
+  const { data } = await useFetch<any>(`/api/admin/cms/articles/${idParam}`, { key: `cms-article-${idParam}-${Date.now()}` })
   if (data.value?.article) {
     article.value = data.value.article
     Object.assign(form, data.value.article)
+    Object.assign(seoForm, data.value.article)
     try {
-      const blocks = JSON.parse(data.value.article.contentJson || '[]')
-      bodyText.value = Array.isArray(blocks) ? blocks.map((b: any) => b.text || '').join('\n\n') : ''
+      const parsed = JSON.parse(data.value.article.contentJson || '[]')
+      blocks.value = Array.isArray(parsed) ? parsed : []
     } catch {
-      bodyText.value = ''
+      blocks.value = []
     }
+    selectedTagIds.value = (data.value.tags || []).map((t: any) => t.tagId)
   }
-  const { data: vData } = await useFetch<any>(`/api/admin/cms/articles/${idParam}/versions`)
+  const { data: vData } = await useFetch<any>(`/api/admin/cms/articles/${idParam}/versions`, { key: `cms-versions-${idParam}-${Date.now()}` })
   versions.value = vData.value?.rows || []
 }
+if (!isNew) await load()
 
 useHead({ title: computed(() => (isNew ? 'Nuevo artículo' : form.title) + ' — Blog & CMS') })
+
+function toggleTag(id: number) {
+  selectedTagIds.value = selectedTagIds.value.includes(id) ? selectedTagIds.value.filter((x) => x !== id) : [...selectedTagIds.value, id]
+}
 
 async function uploadCover(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
@@ -176,27 +203,39 @@ async function uploadCover(e: Event) {
   }
 }
 
+async function restoreVersion(versionId: number) {
+  await $fetch(`/api/admin/cms/articles/${idParam}/versions/${versionId}/restore`, { method: 'POST' })
+  toast.success('Versión restaurada')
+  await load()
+}
+
 async function save() {
   if (!form.title.trim()) {
     toast.error('El título es obligatorio')
     return
   }
   saving.value = true
-  const contentJson = JSON.stringify(
-    bodyText.value.split(/\n{2,}/).filter(Boolean).map((text) => ({ type: 'paragraph', text })),
-  )
-  const payload = { ...form, contentJson, categoryId: form.categoryId || null, authorId: form.authorId || null }
+  const contentJson = JSON.stringify(blocks.value)
+  const payload = {
+    ...form, ...seoForm, contentJson,
+    categoryId: form.categoryId || null,
+    authorId: form.authorId || null,
+    scheduledAt: form.scheduledAt || null,
+    expiresAt: form.expiresAt || null,
+  }
   try {
+    let id = idParam
     if (isNew) {
       const res = await $fetch<{ id: number }>('/api/admin/cms/articles', { method: 'POST', body: payload })
+      id = String(res.id)
       toast.success('Artículo creado')
-      router.push(`/admin/cms/articles/${res.id}`)
     } else {
       await $fetch(`/api/admin/cms/articles/${idParam}`, { method: 'PUT', body: payload })
       toast.success('Artículo guardado')
-      const { data } = await useFetch<any>(`/api/admin/cms/articles/${idParam}`)
-      if (data.value?.article) article.value = data.value.article
     }
+    await $fetch(`/api/admin/cms/articles/${id}/tags`, { method: 'PUT', body: { tagIds: selectedTagIds.value } })
+    if (isNew) router.push(`/admin/cms/articles/${id}`)
+    else await load()
   } catch (err: any) {
     toast.error(err?.data?.statusMessage || 'No se pudo guardar')
   } finally {

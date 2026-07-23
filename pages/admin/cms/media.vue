@@ -6,12 +6,20 @@
         <p class="mt-1 text-sm text-stone-500">{{ data?.total ?? 0 }} archivo(s) · imágenes, PDF y SVG</p>
       </div>
       <div class="flex gap-2">
-        <input v-model="q" class="input !w-56" placeholder="Buscar por nombre…" @keyup.enter="refresh" />
+        <input v-model="q" class="input !w-52" placeholder="Buscar por nombre…" @keyup.enter="refresh" />
+        <button class="btn-secondary" :class="{ '!bg-ink !text-white': favoriteOnly }" @click="favoriteOnly = !favoriteOnly">★ Favoritos</button>
         <label class="btn-primary cursor-pointer">
           {{ uploading ? 'Subiendo…' : '+ Subir archivo' }}
           <input type="file" class="hidden" accept="image/*,application/pdf" :disabled="uploading" @change="upload" />
         </label>
       </div>
+    </div>
+
+    <div class="mb-4 flex flex-wrap items-center gap-2 text-sm">
+      <button class="rounded-full px-3 py-1 font-medium" :class="folderId === 'root' ? 'bg-ink text-white' : 'bg-stone-100 text-stone-500'" @click="folderId = 'root'">Sin carpeta</button>
+      <button class="rounded-full px-3 py-1 font-medium" :class="!folderId ? 'bg-ink text-white' : 'bg-stone-100 text-stone-500'" @click="folderId = ''">Todo</button>
+      <button v-for="f in folders" :key="f.id" class="rounded-full px-3 py-1 font-medium" :class="folderId === f.id ? 'bg-ink text-white' : 'bg-stone-100 text-stone-500'" @click="folderId = f.id">📁 {{ f.name }}</button>
+      <button class="text-xs text-emerald-700 hover:underline" @click="newFolder">+ Carpeta</button>
     </div>
 
     <div v-if="data?.rows?.length" class="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
@@ -24,17 +32,15 @@
           <p class="truncate text-[11px] font-medium">{{ m.filename }}</p>
           <p class="text-[10px] text-stone-400">{{ (m.sizeBytes / 1024).toFixed(0) }} KB</p>
         </div>
-        <button
-          class="absolute right-1.5 top-1.5 hidden rounded-full bg-white/90 p-1.5 text-red-600 shadow group-hover:block"
-          title="Eliminar"
-          @click="remove(m.id)"
-        >
-          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M6 18L18 6" stroke-linecap="round" /></svg>
-        </button>
+        <div class="absolute right-1.5 top-1.5 hidden gap-1 group-hover:flex">
+          <button class="rounded-full bg-white/90 p-1.5 shadow" :class="m.favorite ? 'text-amber-500' : 'text-stone-400'" title="Favorito" @click="toggleFavorite(m)">★</button>
+          <button v-if="m.type === 'image'" class="rounded-full bg-white/90 p-1.5 text-stone-500 shadow" title="Editar" @click="editingImage = m">✎</button>
+          <button class="rounded-full bg-white/90 p-1.5 text-red-600 shadow" title="Eliminar" @click="remove(m.id)">✕</button>
+        </div>
       </div>
     </div>
     <div v-else class="card py-16 text-center">
-      <p class="text-sm font-medium text-slate-500">La biblioteca está vacía</p>
+      <p class="text-sm font-medium text-slate-500">No hay archivos en esta vista</p>
       <p class="mt-1 text-xs text-slate-400">Sube tu primera imagen o PDF.</p>
     </div>
 
@@ -43,6 +49,8 @@
       <span>{{ page }} / {{ totalPages }}</span>
       <button class="btn-secondary !py-1.5" :disabled="page >= totalPages" @click="page++">Siguiente →</button>
     </div>
+
+    <CmsImageEditor v-if="editingImage" :src="editingImage.url" @close="editingImage = null" @saved="onEdited" />
   </div>
 </template>
 
@@ -53,10 +61,18 @@ useHead({ title: 'Media Library — Blog & CMS' })
 const q = ref('')
 const page = ref(1)
 const uploading = ref(false)
+const favoriteOnly = ref(false)
+const folderId = ref<number | string>('')
+const editingImage = ref<any>(null)
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const { data, refresh } = await useFetch<any>('/api/admin/cms/media', { query: computed(() => ({ page: page.value, q: q.value })) })
+const { data: foldersData, refresh: refreshFolders } = await useFetch<any>('/api/admin/cms-media-folders', { query: { perPage: 100 } })
+const folders = computed(() => foldersData.value?.rows || [])
+
+const { data, refresh } = await useFetch<any>('/api/admin/cms/media', {
+  query: computed(() => ({ page: page.value, q: q.value, favorite: favoriteOnly.value ? '1' : '', folderId: folderId.value })),
+})
 const totalPages = computed(() => Math.ceil((data.value?.total || 0) / (data.value?.perPage || 40)))
 
 async function upload(e: Event) {
@@ -65,6 +81,7 @@ async function upload(e: Event) {
   uploading.value = true
   const fd = new FormData()
   fd.append('file', file)
+  if (typeof folderId.value === 'number') fd.append('folderId', String(folderId.value))
   try {
     await $fetch('/api/admin/cms/media', { method: 'POST', body: fd })
     toast.success('Archivo subido')
@@ -83,5 +100,22 @@ async function remove(id: number) {
   await $fetch(`/api/admin/cms/media/${id}`, { method: 'DELETE' })
   toast.success('Archivo eliminado')
   await refresh()
+}
+
+async function toggleFavorite(m: any) {
+  await $fetch(`/api/admin/cms/media/${m.id}`, { method: 'PATCH', body: { favorite: !m.favorite } })
+  await refresh()
+}
+
+async function newFolder() {
+  const name = window.prompt('Nombre de la carpeta:')
+  if (!name?.trim()) return
+  await $fetch('/api/admin/cms-media-folders', { method: 'POST', body: { name: name.trim() } })
+  await refreshFolders()
+}
+
+function onEdited() {
+  editingImage.value = null
+  refresh()
 }
 </script>

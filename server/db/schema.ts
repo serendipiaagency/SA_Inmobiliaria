@@ -708,6 +708,7 @@ export const cmsArticles = sqliteTable(
     status: text('status').notNull().default('draft'), // draft | scheduled | published
     publishedAt: text('published_at'),
     scheduledAt: text('scheduled_at'),
+    expiresAt: text('expires_at'), // auto-hidden past this date by a Cron Trigger (see server/cron/expire-articles.ts)
     readingTimeMinutes: integer('reading_time_minutes').notNull().default(0),
     viewCount: integer('view_count').notNull().default(0),
     commentCount: integer('comment_count').notNull().default(0),

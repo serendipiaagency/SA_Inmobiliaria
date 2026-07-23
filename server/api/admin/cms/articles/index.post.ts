@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { useDb, schema, now, slugify } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
-import { parseBlocks, blocksToPlainText, computeReadingTime, computeSeoScore } from '../../../../utils/cms'
+import { parseBlocks, blocksToPlainText, computeReadingTime, computeSeoScore, countLinks } from '../../../../utils/cms'
 
 export default defineEventHandler(async (event) => {
   const { orgId, user } = await requireOrgScope(event)
@@ -35,6 +35,7 @@ export default defineEventHandler(async (event) => {
     focusKeyword: body?.focusKeyword,
     coverImage: body?.coverImage,
     plainText,
+    links: countLinks(blocks),
   })
 
   const inserted = await db
@@ -52,6 +53,7 @@ export default defineEventHandler(async (event) => {
       status,
       publishedAt: status === 'published' ? nowTs : null,
       scheduledAt: status === 'scheduled' ? body?.scheduledAt || null : null,
+      expiresAt: body?.expiresAt || null,
       readingTimeMinutes: computeReadingTime(blocks),
       seoTitle: body?.seoTitle || null,
       seoDescription: body?.seoDescription || null,
