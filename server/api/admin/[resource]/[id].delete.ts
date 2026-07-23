@@ -55,10 +55,23 @@ export default defineEventHandler(async (event) => {
   // Soft-delete resources move to Papelera by default; ?hard=1 (used from
   // within Papelera itself) purges the row for real.
   const hard = String(getQuery(event).hard || '') === '1'
-  if (def.softDelete && !hard) {
-    await db.update(def.table).set({ deletedAt: now() }).where(where as any)
-  } else {
-    await db.delete(def.table).where(where as any)
+  try {
+    if (def.softDelete && !hard) {
+      await db.update(def.table).set({ deletedAt: now() }).where(where as any)
+    } else {
+      await db.delete(def.table).where(where as any)
+    }
+  } catch (err: any) {
+    // A hard delete can hit a real FK reference (e.g. a category still used by an
+    // article). Surface that as an honest, actionable error instead of a raw 500.
+    const msg = String(err?.cause?.message || err?.message || '')
+    if (msg.includes('FOREIGN KEY constraint failed')) {
+      throw createError({
+        statusCode: 409,
+        statusMessage: 'Este registro todavía está en uso por otros datos (por ejemplo, artículos u otros elementos que lo referencian). Reasígnalos o elimínalos primero.',
+      })
+    }
+    throw err
   }
   return { ok: true }
 })
