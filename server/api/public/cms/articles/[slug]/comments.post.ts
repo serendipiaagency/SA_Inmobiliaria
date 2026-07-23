@@ -30,9 +30,20 @@ export default defineEventHandler(async (event) => {
   if (!authorName || !content) throw createError({ statusCode: 422, statusMessage: 'authorName and content are required' })
   const authorEmail = body?.authorEmail ? requireValidEmail(String(body.authorEmail)) : null
 
+  let parentId: number | null = null
+  if (body?.parentId) {
+    const parent = await db
+      .select({ id: schema.cmsComments.id })
+      .from(schema.cmsComments)
+      .where(and(eq(schema.cmsComments.id, Number(body.parentId)), eq(schema.cmsComments.articleId, rows[0].id), eq(schema.cmsComments.status, 'approved')))
+      .limit(1)
+    if (parent[0]) parentId = parent[0].id
+  }
+
   await db.insert(schema.cmsComments).values({
     organizationId: orgId,
     articleId: rows[0].id,
+    parentId,
     authorName,
     authorEmail,
     content,

@@ -1,5 +1,5 @@
 import { and, eq, sql } from 'drizzle-orm'
-import { useDb, schema, cfEnv } from '../../../utils/db'
+import { useDb, schema, cfEnv, now } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
 
@@ -52,6 +52,13 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  await db.delete(def.table).where(where as any)
+  // Soft-delete resources move to Papelera by default; ?hard=1 (used from
+  // within Papelera itself) purges the row for real.
+  const hard = String(getQuery(event).hard || '') === '1'
+  if (def.softDelete && !hard) {
+    await db.update(def.table).set({ deletedAt: now() }).where(where as any)
+  } else {
+    await db.delete(def.table).where(where as any)
+  }
   return { ok: true }
 })

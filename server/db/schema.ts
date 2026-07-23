@@ -608,7 +608,8 @@ export const metricsDaily = sqliteTable(
   'metrics_daily',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    day: text('day').notNull().unique(), // YYYY-MM-DD
+    organizationId: integer('organization_id').notNull().default(1),
+    day: text('day').notNull(), // YYYY-MM-DD, unique per org (see metrics_daily_org_day)
     visitors: integer('visitors').notNull().default(0),
     pageviews: integer('pageviews').notNull().default(0),
     leads: integer('leads').notNull().default(0),
@@ -616,7 +617,7 @@ export const metricsDaily = sqliteTable(
     reservations: integer('reservations').notNull().default(0),
     revenue: real('revenue').notNull().default(0),
   },
-  (t) => [index('metrics_daily_day').on(t.day)],
+  (t) => [uniqueIndex('metrics_daily_org_day').on(t.organizationId, t.day), index('metrics_daily_day').on(t.day)],
 )
 
 // Not org-scoped yet: a flat global key-value store used only by the admin's
@@ -652,6 +653,7 @@ export const cmsCategories = sqliteTable(
     seoDescription: text('seo_description'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'), // soft delete → Papelera; null = active
   },
   (t) => [uniqueIndex('cms_categories_org_slug').on(t.organizationId, t.slug), index('cms_categories_org').on(t.organizationId)],
 )
@@ -664,6 +666,7 @@ export const cmsTags = sqliteTable(
     name: text('name').notNull(),
     slug: text('slug').notNull(),
     createdAt: text('created_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
   },
   (t) => [uniqueIndex('cms_tags_org_slug').on(t.organizationId, t.slug), index('cms_tags_org').on(t.organizationId)],
 )
@@ -685,6 +688,7 @@ export const cmsAuthors = sqliteTable(
     instagram: text('instagram'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
   },
   (t) => [uniqueIndex('cms_authors_org_slug').on(t.organizationId, t.slug), index('cms_authors_org').on(t.organizationId)],
 )
@@ -788,6 +792,7 @@ export const cmsMedia = sqliteTable(
     sizeBytes: integer('size_bytes').notNull().default(0),
     favorite: integer('favorite').notNull().default(0),
     createdAt: text('created_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
   },
   (t) => [index('cms_media_org').on(t.organizationId)],
 )

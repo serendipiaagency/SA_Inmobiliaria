@@ -12,9 +12,10 @@ export default defineEventHandler(async (event) => {
   const type = String(query.type || '')
   const folderId = parseInt(String(query.folderId || ''), 10)
   const favoriteOnly = String(query.favorite || '') === '1'
+  const trashed = String(query.trashed || '') === '1'
 
   const M = schema.cmsMedia
-  const conds = [eq(M.organizationId, orgId)]
+  const conds = [eq(M.organizationId, orgId), trashed ? sql`${M.deletedAt} is not null` : isNull(M.deletedAt)]
   if (q) conds.push(like(M.filename, `%${q}%`))
   if (type && type !== 'all') conds.push(eq(M.type, type))
   if (Number.isInteger(folderId)) conds.push(eq(M.folderId, folderId))

@@ -3,11 +3,12 @@
     <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">Media Library</h1>
-        <p class="mt-1 text-sm text-stone-500">{{ data?.total ?? 0 }} archivo(s) · imágenes, PDF y SVG</p>
+        <p class="mt-1 text-sm text-stone-500">{{ data?.total ?? 0 }} archivo(s){{ selected.length ? ` · ${selected.length} seleccionado(s)` : '' }}</p>
       </div>
       <div class="flex gap-2">
         <input v-model="q" class="input !w-52" placeholder="Buscar por nombre…" @keyup.enter="refresh" />
         <button class="btn-secondary" :class="{ '!bg-ink !text-white': favoriteOnly }" @click="favoriteOnly = !favoriteOnly">★ Favoritos</button>
+        <NuxtLink to="/admin/cms/papelera" class="btn-secondary">Papelera</NuxtLink>
         <label class="btn-primary cursor-pointer">
           {{ uploading ? 'Subiendo…' : '+ Subir archivo' }}
           <input type="file" class="hidden" accept="image/*,application/pdf" :disabled="uploading" @change="upload" />
@@ -22,8 +23,21 @@
       <button class="text-xs text-emerald-700 hover:underline" @click="newFolder">+ Carpeta</button>
     </div>
 
+    <!-- Bulk actions bar -->
+    <div v-if="selected.length" class="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-line bg-stone-50 px-4 py-2.5 text-sm">
+      <span class="font-medium">{{ selected.length }} seleccionado(s)</span>
+      <select class="input !w-48 !py-1" @change="bulkMove(($event.target as HTMLSelectElement).value)">
+        <option value="">Mover a carpeta…</option>
+        <option value="null">Sin carpeta</option>
+        <option v-for="f in folders" :key="f.id" :value="f.id">{{ f.name }}</option>
+      </select>
+      <button class="text-red-600 hover:underline" @click="bulkDelete">Eliminar</button>
+      <button class="ml-auto text-stone-450 hover:underline" @click="selected = []">Cancelar</button>
+    </div>
+
     <div v-if="data?.rows?.length" class="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
-      <div v-for="m in data.rows" :key="m.id" class="group relative overflow-hidden rounded-xl border border-line bg-white">
+      <div v-for="m in data.rows" :key="m.id" class="group relative overflow-hidden rounded-xl border border-line bg-white" :class="{ 'ring-2 ring-ink': selected.includes(m.id) }">
+        <input type="checkbox" class="absolute left-1.5 top-1.5 z-10 h-4 w-4" :checked="selected.includes(m.id)" @change="toggleOne(m.id)" />
         <div class="flex h-28 items-center justify-center bg-stone-50">
           <img v-if="m.type === 'image' || m.type === 'svg'" :src="m.url" class="h-full w-full object-cover" />
           <span v-else class="text-3xl">📄</span>
@@ -64,6 +78,7 @@ const uploading = ref(false)
 const favoriteOnly = ref(false)
 const folderId = ref<number | string>('')
 const editingImage = ref<any>(null)
+const selected = ref<number[]>([])
 const toast = useToast()
 const { confirm } = useConfirm()
 
@@ -74,6 +89,11 @@ const { data, refresh } = await useFetch<any>('/api/admin/cms/media', {
   query: computed(() => ({ page: page.value, q: q.value, favorite: favoriteOnly.value ? '1' : '', folderId: folderId.value })),
 })
 const totalPages = computed(() => Math.ceil((data.value?.total || 0) / (data.value?.perPage || 40)))
+watch(data, () => (selected.value = []))
+
+function toggleOne(id: number) {
+  selected.value = selected.value.includes(id) ? selected.value.filter((x) => x !== id) : [...selected.value, id]
+}
 
 async function upload(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
@@ -95,10 +115,28 @@ async function upload(e: Event) {
 }
 
 async function remove(id: number) {
-  const ok = await confirm('Esto no se puede deshacer.', { title: '¿Eliminar este archivo?', confirmLabel: 'Eliminar', danger: true })
+  const ok = await confirm('Se moverá a la Papelera (puedes restaurarlo).', { title: '¿Eliminar este archivo?', confirmLabel: 'Eliminar', danger: true })
   if (!ok) return
   await $fetch(`/api/admin/cms/media/${id}`, { method: 'DELETE' })
-  toast.success('Archivo eliminado')
+  toast.success('Archivo movido a la papelera')
+  await refresh()
+}
+
+async function bulkDelete() {
+  const ok = await confirm(`Se moverán ${selected.value.length} archivo(s) a la Papelera.`, { title: '¿Eliminar selección?', confirmLabel: 'Eliminar', danger: true })
+  if (!ok) return
+  await Promise.all(selected.value.map((id) => $fetch(`/api/admin/cms/media/${id}`, { method: 'DELETE' })))
+  toast.success('Movidos a la papelera')
+  selected.value = []
+  await refresh()
+}
+
+async function bulkMove(value: string) {
+  if (!value) return
+  const folderIdValue = value === 'null' ? null : Number(value)
+  await Promise.all(selected.value.map((id) => $fetch(`/api/admin/cms/media/${id}`, { method: 'PATCH', body: { folderId: folderIdValue } })))
+  toast.success('Archivos movidos')
+  selected.value = []
   await refresh()
 }
 

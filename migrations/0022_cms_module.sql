@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS cms_categories (
   seo_title TEXT,
   seo_description TEXT,
   created_at TEXT NOT NULL DEFAULT '',
-  updated_at TEXT NOT NULL DEFAULT ''
+  updated_at TEXT NOT NULL DEFAULT '',
+  deleted_at TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS cms_categories_org_slug ON cms_categories (organization_id, slug);
 CREATE INDEX IF NOT EXISTS cms_categories_org ON cms_categories (organization_id);
@@ -29,7 +30,8 @@ CREATE TABLE IF NOT EXISTS cms_tags (
   organization_id INTEGER NOT NULL,
   name TEXT NOT NULL,
   slug TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT ''
+  created_at TEXT NOT NULL DEFAULT '',
+  deleted_at TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS cms_tags_org_slug ON cms_tags (organization_id, slug);
 CREATE INDEX IF NOT EXISTS cms_tags_org ON cms_tags (organization_id);
@@ -48,7 +50,8 @@ CREATE TABLE IF NOT EXISTS cms_authors (
   linkedin TEXT,
   instagram TEXT,
   created_at TEXT NOT NULL DEFAULT '',
-  updated_at TEXT NOT NULL DEFAULT ''
+  updated_at TEXT NOT NULL DEFAULT '',
+  deleted_at TEXT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS cms_authors_org_slug ON cms_authors (organization_id, slug);
 CREATE INDEX IF NOT EXISTS cms_authors_org ON cms_authors (organization_id);
@@ -123,7 +126,8 @@ CREATE TABLE IF NOT EXISTS cms_media (
   height INTEGER,
   size_bytes INTEGER NOT NULL DEFAULT 0,
   favorite INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT ''
+  created_at TEXT NOT NULL DEFAULT '',
+  deleted_at TEXT
 );
 CREATE INDEX IF NOT EXISTS cms_media_org ON cms_media (organization_id);
 

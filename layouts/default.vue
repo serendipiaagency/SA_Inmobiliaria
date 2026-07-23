@@ -10,7 +10,7 @@
     >
       <div class="mx-auto flex max-w-screen-2xl items-center justify-between gap-8 px-6 py-5 lg:px-10">
         <NuxtLink to="/" class="shrink-0">
-          <Logo size="md" :dark="navLight" />
+          <Logo size="md" :dark="navLight" :company-name="tenant?.companyName" :logo-url="mediaUrl(tenant?.logo)" />
         </NuxtLink>
 
         <nav class="hidden items-center gap-9 text-[11px] font-semibold uppercase tracking-widest2 lg:flex" :class="navLight ? 'text-white/85' : 'text-stone-500'">
@@ -96,7 +96,7 @@
       <div class="mx-auto max-w-screen-2xl px-6 py-16 lg:px-10">
         <div class="grid gap-12 md:grid-cols-12">
           <div class="md:col-span-5">
-            <Logo size="md" />
+            <Logo size="md" :company-name="tenant?.companyName" :logo-url="mediaUrl(tenant?.logo)" />
             <p class="mt-5 max-w-sm text-sm leading-relaxed text-stone-500">
               {{ t('footer.tagline') }}
             </p>
@@ -145,6 +145,8 @@ const { t } = useI18n()
 const { user, loaded, refresh } = useAuth()
 const { load: loadFav, ids: favIds } = useFavorites()
 const { load: loadCompare } = useCompare()
+const { tenant, load: loadTenant } = useTenant()
+await loadTenant()
 
 // Pages that opt in (e.g. the home page, via definePageMeta({ transparentHero: true }))
 // get a nav that starts transparent over a fullscreen hero and solidifies on scroll.

@@ -82,6 +82,20 @@ export function computeReadingTime(blocks: CmsBlock[]): number {
   return Math.max(1, Math.round(words / 200))
 }
 
+/**
+ * Average-sentence-length heuristic (language-agnostic, no external NLP
+ * dependency available on Workers) — the same signal Yoast/most SEO tools
+ * use as their primary readability proxy. Not a full Flesch score, but a
+ * real, checkable number computed from the actual content.
+ */
+export function computeReadability(plainText: string): { avgWordsPerSentence: number; level: 'easy' | 'medium' | 'hard' } {
+  const sentences = plainText.split(/[.!?]+/).map((s) => s.trim()).filter(Boolean)
+  const words = plainText.split(/\s+/).filter(Boolean)
+  const avgWordsPerSentence = sentences.length ? Math.round((words.length / sentences.length) * 10) / 10 : 0
+  const level = avgWordsPerSentence <= 15 ? 'easy' : avgWordsPerSentence <= 25 ? 'medium' : 'hard'
+  return { avgWordsPerSentence, level }
+}
+
 interface SeoInputs {
   title: string
   slug: string
@@ -128,6 +142,12 @@ export function computeSeoScore(input: SeoInputs): number {
   if (input.links) {
     if (input.links.internal > 0) score += 5
     if (input.links.internal + input.links.external > 0) score += 3
+  }
+
+  if (input.plainText) {
+    const readability = computeReadability(input.plainText)
+    if (readability.level === 'easy') score += 5
+    else if (readability.level === 'medium') score += 2
   }
 
   return Math.min(100, score)

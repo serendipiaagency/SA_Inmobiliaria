@@ -21,6 +21,10 @@
 
     <img v-if="data.article.coverImage" :src="mediaUrl(data.article.coverImage)" :alt="data.article.title" class="mt-8 w-full rounded-xl object-cover" />
 
+    <div class="mt-8">
+      <CmsTableOfContents :blocks="blocks" />
+    </div>
+
     <CmsBlockRenderer :blocks="blocks" />
 
     <div v-if="data.tags?.length" class="mt-10 flex flex-wrap gap-2">
@@ -29,8 +33,14 @@
 
     <!-- Comments -->
     <section class="mt-14 border-t border-line pt-8">
-      <h2 class="font-serif text-2xl">Comentarios</h2>
-      <form class="mt-4 space-y-3" @submit.prevent="submitComment">
+      <h2 class="font-serif text-2xl">Comentarios{{ commentTree.length ? ` (${comments.length})` : '' }}</h2>
+
+      <div v-if="commentTree.length" class="mt-6 space-y-5">
+        <CmsCommentThread v-for="c in commentTree" :key="c.id" :comment="c" :replying-to="replyingTo" @reply="replyingTo = $event" @submit-reply="submitComment" />
+      </div>
+      <p v-else class="mt-4 text-sm text-stone-450">Sé el primero en comentar.</p>
+
+      <form v-if="!replyingTo" class="mt-8 space-y-3" @submit.prevent="submitComment(null)">
         <div class="grid gap-3 sm:grid-cols-2">
           <input v-model="commentForm.authorName" class="input" placeholder="Tu nombre" required />
           <input v-model="commentForm.authorEmail" type="email" class="input" placeholder="Email (opcional)" />
@@ -94,8 +104,11 @@ const locale = ref(locales.value.includes('en') ? 'en' : locales.value[0] || 'en
 const current = computed(() => (data.value?.source === 'legacy' ? data.value.translations.find((t: any) => t.locale === locale.value) : null))
 
 const requestUrl = useRequestURL()
-useHead(
-  seoHead({
+const canonicalUrl = computed(() =>
+  data.value?.source === 'cms' && data.value.article.seoCanonical ? data.value.article.seoCanonical : `${requestUrl.origin}/blog/${route.params.slug}`,
+)
+useHead(() => ({
+  ...seoHead({
     title:
       data.value?.source === 'cms'
         ? `${data.value.article.seoTitle || data.value.article.title} — M&M Real Estate`
@@ -106,8 +119,30 @@ useHead(
         : stripHtml(current.value?.description || '').slice(0, 200) || 'Artículos sobre el mercado inmobiliario de Dubái.',
     image: `${requestUrl.origin}${mediaUrl(data.value?.source === 'cms' ? data.value.article.coverImage : data.value?.blog.image)}`,
     type: 'article',
+    canonical: canonicalUrl.value,
+    robots: data.value?.source === 'cms' ? data.value.article.seoRobots : null,
   }),
-)
+  script:
+    data.value?.source === 'cms'
+      ? [
+          {
+            type: 'application/ld+json',
+            innerHTML: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Article',
+              headline: data.value.article.title,
+              description: data.value.article.seoDescription || data.value.article.excerpt || '',
+              image: data.value.article.coverImage ? `${requestUrl.origin}${mediaUrl(data.value.article.coverImage)}` : undefined,
+              datePublished: data.value.article.publishedAt,
+              dateModified: data.value.article.updatedAt,
+              author: data.value.author ? { '@type': 'Person', name: data.value.author.name } : undefined,
+              publisher: { '@type': 'Organization', name: 'M&M Real Estate' },
+              mainEntityOfPage: canonicalUrl.value,
+            }),
+          },
+        ]
+      : [],
+}))
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '')
@@ -119,21 +154,40 @@ onMounted(() => {
   }
 })
 
+const { data: commentsData, refresh: refreshComments } = await useFetch<any>(
+  () => (data.value?.source === 'cms' ? `/api/public/cms/articles/${route.params.slug}/comments` : null),
+)
+const comments = computed(() => commentsData.value?.rows || [])
+const commentTree = computed(() => {
+  const byId = new Map<number, any>(comments.value.map((c: any) => [c.id, { ...c, replies: [] }]))
+  const roots: any[] = []
+  for (const c of byId.values()) {
+    if (c.parentId && byId.has(c.parentId)) byId.get(c.parentId).replies.push(c)
+    else roots.push(c)
+  }
+  return roots
+})
+
 const commentForm = reactive({ authorName: '', authorEmail: '', content: '' })
+provide('cmsCommentForm', commentForm)
 const commentSending = ref(false)
 const commentNotice = ref('')
-async function submitComment() {
+const replyingTo = ref<number | null>(null)
+
+async function submitComment(parentId: number | null) {
   commentSending.value = true
   commentNotice.value = ''
   try {
     const res = await $fetch<{ pendingApproval: boolean }>(`/api/public/cms/articles/${route.params.slug}/comments`, {
       method: 'POST',
-      body: commentForm,
+      body: { ...commentForm, parentId },
     })
     commentNotice.value = res.pendingApproval ? 'Comentario enviado — se publicará tras moderación.' : '¡Comentario publicado!'
     commentForm.authorName = ''
     commentForm.authorEmail = ''
     commentForm.content = ''
+    replyingTo.value = null
+    if (!res.pendingApproval) await refreshComments()
   } catch (err: any) {
     commentNotice.value = err?.data?.statusMessage || 'No se pudo enviar el comentario.'
   } finally {

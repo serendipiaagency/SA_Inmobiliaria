@@ -1,8 +1,8 @@
 <template>
   <div class="cms-content">
     <template v-for="block in blocks" :key="block.id">
-      <h2 v-if="block.type === 'heading' && block.level === 2" class="mt-10 font-serif text-2xl font-medium">{{ block.text }}</h2>
-      <h3 v-else-if="block.type === 'heading'" class="mt-8 font-serif text-xl font-medium">{{ block.text }}</h3>
+      <h2 v-if="block.type === 'heading' && block.level === 2" :id="headingId(block)" class="mt-10 scroll-mt-24 font-serif text-2xl font-medium">{{ block.text }}</h2>
+      <h3 v-else-if="block.type === 'heading'" :id="headingId(block)" class="mt-8 scroll-mt-24 font-serif text-xl font-medium">{{ block.text }}</h3>
 
       <p v-else-if="block.type === 'paragraph'" class="mt-5 leading-relaxed text-stone-600">{{ block.text }}</p>
 
@@ -90,4 +90,7 @@ function youtubeId(url: string): string | null {
   const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{6,})/)
   return m ? m[1] : null
 }
+
+const headingId = cmsHeadingId
+
 </script>

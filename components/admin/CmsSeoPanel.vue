@@ -37,7 +37,7 @@
           <span :class="check.ok ? 'text-ink' : 'text-stone-500'">{{ check.label }}</span>
         </li>
       </ul>
-      <div class="mt-3 grid grid-cols-3 gap-3 border-t border-line pt-3 text-center text-xs">
+      <div class="mt-3 grid grid-cols-4 gap-3 border-t border-line pt-3 text-center text-xs">
         <div>
           <p class="text-lg font-semibold">{{ wordCount }}</p>
           <p class="text-stone-450">palabras</p>
@@ -49,6 +49,10 @@
         <div>
           <p class="text-lg font-semibold">{{ links.internal }} / {{ links.external }}</p>
           <p class="text-stone-450">enlaces int./ext.</p>
+        </div>
+        <div>
+          <p class="text-lg font-semibold" :class="readability.level === 'easy' ? 'text-emerald-600' : readability.level === 'medium' ? 'text-amber-600' : 'text-rose-500'">{{ readabilityLabel }}</p>
+          <p class="text-stone-450">legibilidad ({{ readability.avgWordsPerSentence }} pal./frase)</p>
         </div>
       </div>
     </div>
@@ -81,6 +85,16 @@ const links = computed(() => {
   return { internal, external }
 })
 
+// Mirrors server/utils/cms.ts's computeReadability — same average-sentence-length heuristic.
+const readability = computed(() => {
+  const sentences = props.plainText.split(/[.!?]+/).map((s) => s.trim()).filter(Boolean)
+  const words = props.plainText.split(/\s+/).filter(Boolean)
+  const avg = sentences.length ? Math.round((words.length / sentences.length) * 10) / 10 : 0
+  const level = avg <= 15 ? 'easy' : avg <= 25 ? 'medium' : 'hard'
+  return { avgWordsPerSentence: avg, level: level as 'easy' | 'medium' | 'hard' }
+})
+const readabilityLabel = computed(() => ({ easy: 'Fácil', medium: 'Media', hard: 'Difícil' })[readability.value.level])
+
 const checks = computed(() => [
   { label: 'Título SEO entre 30 y 65 caracteres', ok: titleLen.value >= 30 && titleLen.value <= 65 },
   { label: 'Meta descripción entre 70 y 160 caracteres', ok: descLen.value >= 70 && descLen.value <= 160 },
@@ -89,6 +103,7 @@ const checks = computed(() => [
   { label: 'Palabra clave presente en el contenido', ok: !!form.value.focusKeyword && props.plainText.toLowerCase().includes((form.value.focusKeyword || '').toLowerCase()) },
   { label: 'Al menos 300 palabras de contenido', ok: wordCount.value >= 300 },
   { label: 'Tiene imagen de portada', ok: !!props.article?.coverImage },
+  { label: 'Frases fáciles de leer (≤15 palabras de media)', ok: readability.value.level === 'easy' },
 ])
 
 const score = computed(() => {

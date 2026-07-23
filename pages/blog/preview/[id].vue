@@ -59,7 +59,7 @@ const blocks = computed(() => {
   }
 })
 
-useHead({ title: `Vista previa — ${article.value?.title || ''}` })
+useHead({ title: `Vista previa — ${article.value?.title || ''}`, meta: [{ name: 'robots', content: 'noindex, nofollow' }] })
 
 async function copyLink() {
   await navigator.clipboard.writeText(window.location.href)

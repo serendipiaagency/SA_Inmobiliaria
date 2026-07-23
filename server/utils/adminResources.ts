@@ -33,6 +33,10 @@ export interface ResourceDef {
   /** True only for the `organizations` resource itself — managed by the
    *  platform super_admin, not by any single tenant's admin. */
   superAdminOnly?: boolean
+  /** True for resources with a `deletedAt` column — DELETE moves the row to
+   *  Papelera instead of removing it; a `?hard=1` DELETE (from Papelera)
+   *  purges it for real. GET list excludes trashed rows unless `?trashed=1`. */
+  softDelete?: boolean
   /** Generate `slug` column from this field when missing. */
   slugFrom?: string
   /** Translation child table (locale/title/description pattern). */
@@ -365,6 +369,7 @@ export const adminResources: Record<string, ResourceDef> = {
     hasTimestamps: true,
     hasUpdatedAt: true,
     slugFrom: 'name',
+    softDelete: true,
   },
 
   'cms-tags': {
@@ -378,6 +383,7 @@ export const adminResources: Record<string, ResourceDef> = {
     searchFields: ['name', 'slug'],
     hasTimestamps: true,
     slugFrom: 'name',
+    softDelete: true,
   },
 
   'cms-authors': {
@@ -400,6 +406,7 @@ export const adminResources: Record<string, ResourceDef> = {
     hasTimestamps: true,
     hasUpdatedAt: true,
     slugFrom: 'name',
+    softDelete: true,
   },
 
   'cms-comments': {

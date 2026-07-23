@@ -7,10 +7,10 @@
     >
       <!-- Brand / workspace -->
       <div class="flex items-center gap-2.5 border-b border-line px-4 py-3.5">
-        <Logo variant="mark" size="sm" />
+        <Logo variant="mark" size="sm" :company-name="orgInfo?.companyName" :logo-url="mediaUrl(orgInfo?.logo)" />
         <div class="min-w-0 leading-tight">
-          <p class="truncate text-sm font-semibold">M&M Real Estate</p>
-          <p class="truncate text-[11px] text-stone-450">Workspace · Dubai</p>
+          <p class="truncate text-sm font-semibold">{{ orgInfo?.companyName || orgInfo?.name || 'M&M Real Estate' }}</p>
+          <p class="truncate text-[11px] text-stone-450">Workspace</p>
         </div>
       </div>
 
@@ -197,6 +197,8 @@ if (isSuperAdmin.value) {
 const orgs = ref<{ id: number; name: string }[]>([])
 const activeOrgId = ref<number | null>(null)
 const activeOrgCookie = useCookie<string | null>('sa_active_org')
+
+const { data: orgInfo } = await useFetch<any>('/api/admin/active-org-info')
 
 if (isSuperAdmin.value) {
   const { data } = await useFetch<{ rows: { id: number; name: string }[] }>('/api/admin/organizations', {

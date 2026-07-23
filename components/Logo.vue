@@ -1,16 +1,42 @@
 <template>
-  <span v-if="variant === 'mark'" class="mm-mark" :class="[markSizeCls, dark ? 'mm-mark-dark' : 'mm-mark-light']">M&amp;M</span>
+  <img v-if="logoUrl" :src="logoUrl" :alt="companyName" class="mm-logo-img" :class="markSizeCls" />
+  <span v-else-if="variant === 'mark'" class="mm-mark" :class="[markSizeCls, dark ? 'mm-mark-dark' : 'mm-mark-light']">{{ initials }}</span>
   <span v-else class="mm-full" :class="dark ? 'mm-full-dark' : 'mm-full-light'">
-    <span class="mm-word" :class="wordSizeCls">M&amp;M</span>
-    <span class="mm-sub" :class="subSizeCls">Real Estate</span>
+    <span class="mm-word" :class="wordSizeCls">{{ wordText }}</span>
+    <span v-if="subText" class="mm-sub" :class="subSizeCls">{{ subText }}</span>
   </span>
 </template>
 
 <script setup lang="ts">
-const props = withDefaults(defineProps<{ variant?: 'full' | 'mark'; size?: 'sm' | 'md' | 'lg'; dark?: boolean }>(), {
-  variant: 'full',
-  size: 'md',
-  dark: false,
+/**
+ * Defaults to the M&M brand (the pre-existing tenant) so nothing changes
+ * visually unless real per-organization branding is provided — pass
+ * `companyName`/`logoUrl` explicitly (e.g. from useTenant()) to brand this
+ * for a different client company.
+ */
+const props = withDefaults(
+  defineProps<{ variant?: 'full' | 'mark'; size?: 'sm' | 'md' | 'lg'; dark?: boolean; companyName?: string | null; logoUrl?: string | null }>(),
+  { variant: 'full', size: 'md', dark: false, companyName: null, logoUrl: null },
+)
+
+const wordText = computed(() => {
+  if (!props.companyName) return 'M&M'
+  const parts = props.companyName.trim().split(/\s+/)
+  return parts[0]
+})
+const subText = computed(() => {
+  if (!props.companyName) return 'Real Estate'
+  const parts = props.companyName.trim().split(/\s+/)
+  return parts.slice(1).join(' ') || null
+})
+const initials = computed(() => {
+  if (!props.companyName) return 'M&M'
+  return props.companyName
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join('')
 })
 
 const markSizeCls = computed(() => ({ sm: 'mm-mark-sm', md: 'mm-mark-md', lg: 'mm-mark-lg' }[props.size]))
@@ -19,6 +45,12 @@ const subSizeCls = computed(() => ({ sm: 'mm-sub-sm', md: 'mm-sub-md', lg: 'mm-s
 </script>
 
 <style scoped>
+.mm-logo-img {
+  display: inline-block;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 0.4em;
+}
 .mm-mark {
   display: inline-flex;
   align-items: center;
