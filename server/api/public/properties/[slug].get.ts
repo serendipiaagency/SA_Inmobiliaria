@@ -1,5 +1,5 @@
-import { asc, eq, inArray } from 'drizzle-orm'
-import { useDb, schema } from '../../../utils/db'
+import { and, asc, eq, inArray } from 'drizzle-orm'
+import { useDb, schema, resolvePublicOrgId } from '../../../utils/db'
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug')
@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
   const rows = await db
     .select()
     .from(schema.developerProperties)
-    .where(eq(schema.developerProperties.slug, slug))
+    .where(and(eq(schema.developerProperties.slug, slug), eq(schema.developerProperties.organizationId, resolvePublicOrgId(event))))
     .limit(1)
   const project = rows[0]
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })

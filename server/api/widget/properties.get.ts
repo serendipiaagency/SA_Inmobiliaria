@@ -1,5 +1,5 @@
 import { and, desc, eq, gt, like, sql } from 'drizzle-orm'
-import { useDb, schema } from '../../utils/db'
+import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { attachPhotos } from '../../utils/photos'
 
 const P = schema.developerProperties
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
   const city = String(q.city || '').trim()
   const limit = Math.min(24, Math.max(1, parseInt(String(q.limit || '6'), 10) || 6))
 
-  const conds: any[] = []
+  const conds: any[] = [eq(P.organizationId, resolvePublicOrgId(event))]
   if (city) conds.push(like(P.community, `%${city}%`))
   if (filter === 'featured') conds.push(eq(P.isExclusive, 1))
   if (filter === 'new') conds.push(eq(P.status, 'new'))
@@ -55,7 +55,7 @@ export default defineEventHandler(async (event) => {
       lng: P.lng,
     })
     .from(P)
-    .where(conds.length ? and(...conds) : undefined)
+    .where(and(...conds))
     .orderBy(order)
     .limit(limit)
 

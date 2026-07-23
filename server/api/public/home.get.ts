@@ -1,19 +1,20 @@
-import { desc, eq } from 'drizzle-orm'
-import { useDb, schema } from '../../utils/db'
+import { and, desc, eq } from 'drizzle-orm'
+import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { attachPhotos } from '../../utils/photos'
 
 export default defineEventHandler(async (event) => {
   const db = useDb(event)
+  const orgId = resolvePublicOrgId(event)
   const [projects, communities, developers, blogs] = await Promise.all([
-    db.select().from(schema.developerProperties).orderBy(desc(schema.developerProperties.id)).limit(12),
-    db.select().from(schema.communities).orderBy(desc(schema.communities.id)).limit(6),
+    db.select().from(schema.developerProperties).where(eq(schema.developerProperties.organizationId, orgId)).orderBy(desc(schema.developerProperties.id)).limit(12),
+    db.select().from(schema.communities).where(eq(schema.communities.organizationId, orgId)).orderBy(desc(schema.communities.id)).limit(6),
     db
       .select()
       .from(schema.developers)
-      .where(eq(schema.developers.status, 'active'))
+      .where(and(eq(schema.developers.status, 'active'), eq(schema.developers.organizationId, orgId)))
       .orderBy(desc(schema.developers.id))
       .limit(12),
-    db.select().from(schema.blogs).orderBy(desc(schema.blogs.id)).limit(3),
+    db.select().from(schema.blogs).where(eq(schema.blogs.organizationId, orgId)).orderBy(desc(schema.blogs.id)).limit(3),
   ])
 
   const blogIds = blogs.map((b) => b.id)

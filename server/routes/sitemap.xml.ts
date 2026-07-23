@@ -1,4 +1,5 @@
-import { useDb, schema } from '../utils/db'
+import { eq } from 'drizzle-orm'
+import { useDb, schema, resolvePublicOrgId } from '../utils/db'
 
 const STATIC_PATHS = [
   '/',
@@ -24,12 +25,13 @@ function xmlEscape(s: string): string {
 export default defineEventHandler(async (event) => {
   const db = useDb(event)
   const origin = getRequestURL(event).origin
+  const orgId = resolvePublicOrgId(event)
 
   const [properties, blogPosts, team, communities] = await Promise.all([
-    db.select({ slug: schema.developerProperties.slug }).from(schema.developerProperties).all(),
-    db.select({ slug: schema.blogs.slug }).from(schema.blogs).all(),
-    db.select({ slug: schema.teamMembers.slug }).from(schema.teamMembers).all(),
-    db.select({ id: schema.communities.id }).from(schema.communities).all(),
+    db.select({ slug: schema.developerProperties.slug }).from(schema.developerProperties).where(eq(schema.developerProperties.organizationId, orgId)).all(),
+    db.select({ slug: schema.blogs.slug }).from(schema.blogs).where(eq(schema.blogs.organizationId, orgId)).all(),
+    db.select({ slug: schema.teamMembers.slug }).from(schema.teamMembers).where(eq(schema.teamMembers.organizationId, orgId)).all(),
+    db.select({ id: schema.communities.id }).from(schema.communities).where(eq(schema.communities.organizationId, orgId)).all(),
   ])
 
   const urls: string[] = [...STATIC_PATHS.map((p) => `${origin}${p}`)]

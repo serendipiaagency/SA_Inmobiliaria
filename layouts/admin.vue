@@ -133,8 +133,8 @@ const nav = [
   {
     label: 'Catálogo',
     items: [
-      { label: 'Propiedades', to: '/admin/properties', icon: 'building' },
-      { label: 'Off-plan', to: '/admin/developer-properties', icon: 'layers' },
+      { label: 'Propiedades (web)', to: '/admin/developer-properties', icon: 'building' },
+      { label: 'Propiedades 2ª mano', to: '/admin/properties', icon: 'layers' },
       { label: 'Agentes', to: '/admin/agents', icon: 'badge' },
       { label: 'Comunidades', to: '/admin/communities', icon: 'store' },
     ],
