@@ -151,9 +151,24 @@ const nav = [
     ],
   },
   {
+    label: 'Blog & CMS',
+    items: [
+      { label: 'Dashboard', to: '/admin/cms', icon: 'sparkles' },
+      { label: 'Artículos', to: '/admin/cms/articles', icon: 'doc' },
+      { label: 'Categorías', to: '/admin/cms-categories', icon: 'layers' },
+      { label: 'Etiquetas', to: '/admin/cms-tags', icon: 'badge' },
+      { label: 'Autores', to: '/admin/cms-authors', icon: 'team' },
+      { label: 'Media Library', to: '/admin/cms/media', icon: 'widget' },
+      { label: 'Comentarios', to: '/admin/cms-comments', icon: 'contact' },
+      { label: 'Redirecciones', to: '/admin/cms-redirects', icon: 'code' },
+      { label: 'Papelera', to: '/admin/cms/papelera', icon: 'inbox' },
+      { label: 'Config. Blog', to: '/admin/cms/configuracion', icon: 'settings' },
+    ],
+  },
+  {
     label: 'Contenido',
     items: [
-      { label: 'Blog', to: '/admin/blogs', icon: 'doc' },
+      { label: 'Blog (legacy)', to: '/admin/blogs', icon: 'doc' },
       { label: 'Equipo', to: '/admin/team', icon: 'team' },
     ],
   },

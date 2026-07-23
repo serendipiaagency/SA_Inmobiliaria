@@ -346,6 +346,90 @@ export const adminResources: Record<string, ResourceDef> = {
     },
   },
 
+  'cms-categories': {
+    table: schema.cmsCategories,
+    label: 'Categorías (Blog)',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      slug: { type: 'text', label: 'Slug' },
+      parentId: { type: 'number', label: 'Categoría padre (ID)' },
+      color: { type: 'text', label: 'Color' },
+      icon: { type: 'text', label: 'Icono' },
+      image: { type: 'image', label: 'Imagen' },
+      description: { type: 'textarea', label: 'Descripción' },
+      seoTitle: { type: 'text', label: 'Título SEO' },
+      seoDescription: { type: 'textarea', label: 'Meta descripción SEO' },
+    },
+    listFields: ['id', 'name', 'slug', 'parentId'],
+    searchFields: ['name', 'slug'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    slugFrom: 'name',
+  },
+
+  'cms-tags': {
+    table: schema.cmsTags,
+    label: 'Etiquetas (Blog)',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      slug: { type: 'text', label: 'Slug' },
+    },
+    listFields: ['id', 'name', 'slug'],
+    searchFields: ['name', 'slug'],
+    hasTimestamps: true,
+    slugFrom: 'name',
+  },
+
+  'cms-authors': {
+    table: schema.cmsAuthors,
+    label: 'Autores (Blog)',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      slug: { type: 'text', label: 'Slug' },
+      userId: { type: 'number', label: 'Usuario vinculado (ID)' },
+      photo: { type: 'image', label: 'Foto' },
+      bio: { type: 'textarea', label: 'Biografía' },
+      specialty: { type: 'text', label: 'Especialidad' },
+      facebook: { type: 'text', label: 'Facebook' },
+      twitter: { type: 'text', label: 'Twitter' },
+      linkedin: { type: 'text', label: 'LinkedIn' },
+      instagram: { type: 'text', label: 'Instagram' },
+    },
+    listFields: ['id', 'name', 'slug', 'specialty'],
+    searchFields: ['name', 'specialty'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    slugFrom: 'name',
+  },
+
+  'cms-comments': {
+    table: schema.cmsComments,
+    label: 'Comentarios (Blog)',
+    fields: {
+      articleId: { type: 'number', label: 'Artículo (ID)', required: true },
+      authorName: { type: 'text', label: 'Nombre', required: true },
+      authorEmail: { type: 'text', label: 'Email' },
+      content: { type: 'textarea', label: 'Comentario', required: true },
+      status: { type: 'select', label: 'Estado', options: ['pending', 'approved', 'spam', 'trash'] },
+    },
+    listFields: ['id', 'articleId', 'authorName', 'status', 'createdAt'],
+    searchFields: ['authorName', 'authorEmail', 'content'],
+    hasTimestamps: true,
+  },
+
+  'cms-redirects': {
+    table: schema.cmsRedirects,
+    label: 'Redirecciones (Blog)',
+    fields: {
+      fromPath: { type: 'text', label: 'Desde (ruta)', required: true },
+      toPath: { type: 'text', label: 'Hacia (ruta)', required: true },
+      statusCode: { type: 'number', label: 'Código (301 o 302)' },
+    },
+    listFields: ['id', 'fromPath', 'toPath', 'statusCode', 'hits'],
+    searchFields: ['fromPath', 'toPath'],
+    hasTimestamps: true,
+  },
+
   'visitor-submissions': {
     table: schema.visitorSubmissions,
     label: 'Visitor submissions',
