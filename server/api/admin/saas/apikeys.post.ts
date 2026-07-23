@@ -1,4 +1,4 @@
-import { requireAdmin } from '../../../utils/auth'
+import { requireOrgScope } from '../../../utils/auth'
 import { now } from '../../../utils/db'
 
 async function sha256Hex(input: string): Promise<string> {
@@ -17,7 +17,7 @@ function randomHex(bytes: number): string {
 
 /** Generate a new API key. Returns the plaintext key once — only the hash is stored. */
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const { orgId } = await requireOrgScope(event)
   const raw = (event.context as any).cloudflare.env.DB as D1Database
   const body = await readBody<{ name?: string; environment?: string; scopes?: string }>(event)
 
@@ -33,10 +33,10 @@ export default defineEventHandler(async (event) => {
 
   const result = await raw
     .prepare(
-      `INSERT INTO api_keys (name, prefix, key_hash, scopes, environment, revoked, created_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6)`,
+      `INSERT INTO api_keys (organization_id, name, prefix, key_hash, scopes, environment, revoked, created_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7)`,
     )
-    .bind(name, prefix, keyHash, scopes, environment, createdAt)
+    .bind(orgId, name, prefix, keyHash, scopes, environment, createdAt)
     .run()
 
   return {

@@ -608,7 +608,8 @@ export const metricsDaily = sqliteTable(
   'metrics_daily',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    day: text('day').notNull().unique(), // YYYY-MM-DD
+    organizationId: integer('organization_id').notNull().default(1),
+    day: text('day').notNull(), // YYYY-MM-DD, unique per org (see metrics_daily_org_day)
     visitors: integer('visitors').notNull().default(0),
     pageviews: integer('pageviews').notNull().default(0),
     leads: integer('leads').notNull().default(0),
@@ -616,7 +617,7 @@ export const metricsDaily = sqliteTable(
     reservations: integer('reservations').notNull().default(0),
     revenue: real('revenue').notNull().default(0),
   },
-  (t) => [index('metrics_daily_day').on(t.day)],
+  (t) => [uniqueIndex('metrics_daily_org_day').on(t.organizationId, t.day), index('metrics_daily_day').on(t.day)],
 )
 
 // Not org-scoped yet: a flat global key-value store used only by the admin's
@@ -625,5 +626,216 @@ export const metricsDaily = sqliteTable(
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   value: text('value'),
+  updatedAt: text('updated_at').notNull().default(''),
+})
+
+// ---------------------------------------------------------------------------
+// Blog & CMS editorial module — multi-tenant from the start (organization_id
+// on every table). Phase 1 is the data architecture only: the article editor
+// stores its content as a JSON block array from day one (`contentJson`), even
+// though the premium block-based editor UI itself lands in a later phase —
+// this way nothing here needs a breaking migration once that UI exists.
+// ---------------------------------------------------------------------------
+
+export const cmsCategories = sqliteTable(
+  'cms_categories',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    parentId: integer('parent_id'), // self-referencing FK (app-level) for infinite hierarchy
+    name: text('name').notNull(),
+    slug: text('slug').notNull(),
+    color: text('color'),
+    icon: text('icon'),
+    image: text('image'),
+    description: text('description'),
+    seoTitle: text('seo_title'),
+    seoDescription: text('seo_description'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'), // soft delete → Papelera; null = active
+  },
+  (t) => [uniqueIndex('cms_categories_org_slug').on(t.organizationId, t.slug), index('cms_categories_org').on(t.organizationId)],
+)
+
+export const cmsTags = sqliteTable(
+  'cms_tags',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    slug: text('slug').notNull(),
+    createdAt: text('created_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [uniqueIndex('cms_tags_org_slug').on(t.organizationId, t.slug), index('cms_tags_org').on(t.organizationId)],
+)
+
+export const cmsAuthors = sqliteTable(
+  'cms_authors',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    userId: integer('user_id').references(() => users.id), // optional link to a real staff login
+    name: text('name').notNull(),
+    slug: text('slug').notNull(),
+    photo: text('photo'),
+    bio: text('bio'),
+    specialty: text('specialty'),
+    facebook: text('facebook'),
+    twitter: text('twitter'),
+    linkedin: text('linkedin'),
+    instagram: text('instagram'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [uniqueIndex('cms_authors_org_slug').on(t.organizationId, t.slug), index('cms_authors_org').on(t.organizationId)],
+)
+
+export const cmsArticles = sqliteTable(
+  'cms_articles',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    authorId: integer('author_id').references(() => cmsAuthors.id),
+    categoryId: integer('category_id').references(() => cmsCategories.id),
+    title: text('title').notNull(),
+    slug: text('slug').notNull(),
+    excerpt: text('excerpt'),
+    // JSON array of editor blocks, e.g. [{type:'paragraph',text:'...'}, ...].
+    // Phase 1 stores/reads it opaquely; the block editor (phase 3) is the
+    // first real writer of structured, multi-block content.
+    contentJson: text('content_json').notNull().default('[]'),
+    coverImage: text('cover_image'),
+    language: text('language').notNull().default('es'),
+    status: text('status').notNull().default('draft'), // draft | scheduled | published
+    publishedAt: text('published_at'),
+    scheduledAt: text('scheduled_at'),
+    expiresAt: text('expires_at'), // auto-hidden past this date by a Cron Trigger (see server/cron/expire-articles.ts)
+    readingTimeMinutes: integer('reading_time_minutes').notNull().default(0),
+    viewCount: integer('view_count').notNull().default(0),
+    commentCount: integer('comment_count').notNull().default(0),
+    // SEO (phase 5 builds the dedicated tab/UI; the columns exist from day one
+    // so nothing here needs a later migration).
+    seoTitle: text('seo_title'),
+    seoDescription: text('seo_description'),
+    seoCanonical: text('seo_canonical'),
+    seoRobots: text('seo_robots').notNull().default('index,follow'),
+    ogImage: text('og_image'),
+    focusKeyword: text('focus_keyword'),
+    seoScore: integer('seo_score').notNull().default(0), // 0..100, recomputed on save
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'), // soft delete → Papelera; null = active
+  },
+  (t) => [
+    uniqueIndex('cms_articles_org_slug').on(t.organizationId, t.slug),
+    index('cms_articles_org_status').on(t.organizationId, t.status),
+  ],
+)
+
+export const cmsArticleTags = sqliteTable(
+  'cms_article_tags',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    articleId: integer('article_id')
+      .notNull()
+      .references(() => cmsArticles.id, { onDelete: 'cascade' }),
+    tagId: integer('tag_id')
+      .notNull()
+      .references(() => cmsTags.id, { onDelete: 'cascade' }),
+  },
+  (t) => [uniqueIndex('cms_article_tags_unique').on(t.articleId, t.tagId)],
+)
+
+// Snapshot on every save — powers Fase 7's version history / restore / diff.
+export const cmsArticleVersions = sqliteTable(
+  'cms_article_versions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    articleId: integer('article_id')
+      .notNull()
+      .references(() => cmsArticles.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    contentJson: text('content_json').notNull().default('[]'),
+    editedBy: integer('edited_by').references(() => users.id),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('cms_article_versions_article').on(t.articleId, t.createdAt)],
+)
+
+export const cmsMediaFolders = sqliteTable(
+  'cms_media_folders',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    parentId: integer('parent_id'),
+    name: text('name').notNull(),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('cms_media_folders_org').on(t.organizationId)],
+)
+
+export const cmsMedia = sqliteTable(
+  'cms_media',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    folderId: integer('folder_id').references(() => cmsMediaFolders.id),
+    filename: text('filename').notNull(),
+    url: text('url').notNull(), // /api/media/<r2-key>
+    type: text('type').notNull(), // image | video | pdf | svg | doc
+    altText: text('alt_text'),
+    width: integer('width'),
+    height: integer('height'),
+    sizeBytes: integer('size_bytes').notNull().default(0),
+    favorite: integer('favorite').notNull().default(0),
+    createdAt: text('created_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [index('cms_media_org').on(t.organizationId)],
+)
+
+export const cmsComments = sqliteTable(
+  'cms_comments',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    articleId: integer('article_id')
+      .notNull()
+      .references(() => cmsArticles.id, { onDelete: 'cascade' }),
+    parentId: integer('parent_id'), // reply-to, self-referencing
+    authorName: text('author_name').notNull(),
+    authorEmail: text('author_email'),
+    content: text('content').notNull(),
+    status: text('status').notNull().default('pending'), // pending | approved | spam | trash
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('cms_comments_org_status').on(t.organizationId, t.status), index('cms_comments_article').on(t.articleId)],
+)
+
+export const cmsRedirects = sqliteTable(
+  'cms_redirects',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    fromPath: text('from_path').notNull(),
+    toPath: text('to_path').notNull(),
+    statusCode: integer('status_code').notNull().default(301),
+    hits: integer('hits').notNull().default(0),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('cms_redirects_org_from').on(t.organizationId, t.fromPath)],
+)
+
+// One row per organization — real module settings (Fase 1 scope: language
+// default and comment moderation policy), not a hardcoded stub.
+export const cmsSettings = sqliteTable('cms_settings', {
+  organizationId: integer('organization_id').primaryKey(),
+  defaultLanguage: text('default_language').notNull().default('es'),
+  commentsEnabled: integer('comments_enabled').notNull().default(1),
+  commentsRequireApproval: integer('comments_require_approval').notNull().default(1),
+  defaultAuthorId: integer('default_author_id').references(() => cmsAuthors.id),
   updatedAt: text('updated_at').notNull().default(''),
 })

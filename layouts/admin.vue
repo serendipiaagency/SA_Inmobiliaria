@@ -7,10 +7,10 @@
     >
       <!-- Brand / workspace -->
       <div class="flex items-center gap-2.5 border-b border-line px-4 py-3.5">
-        <Logo variant="mark" size="sm" />
+        <Logo variant="mark" size="sm" :company-name="orgInfo?.companyName" :logo-url="mediaUrl(orgInfo?.logo)" />
         <div class="min-w-0 leading-tight">
-          <p class="truncate text-sm font-semibold">M&M Real Estate</p>
-          <p class="truncate text-[11px] text-stone-450">Workspace · Dubai</p>
+          <p class="truncate text-sm font-semibold">{{ orgInfo?.companyName || orgInfo?.name || 'M&M Real Estate' }}</p>
+          <p class="truncate text-[11px] text-stone-450">Workspace</p>
         </div>
       </div>
 
@@ -133,8 +133,8 @@ const nav = [
   {
     label: 'Catálogo',
     items: [
-      { label: 'Propiedades', to: '/admin/properties', icon: 'building' },
-      { label: 'Off-plan', to: '/admin/developer-properties', icon: 'layers' },
+      { label: 'Propiedades (web)', to: '/admin/developer-properties', icon: 'building' },
+      { label: 'Propiedades 2ª mano', to: '/admin/properties', icon: 'layers' },
       { label: 'Agentes', to: '/admin/agents', icon: 'badge' },
       { label: 'Comunidades', to: '/admin/communities', icon: 'store' },
     ],
@@ -151,9 +151,24 @@ const nav = [
     ],
   },
   {
+    label: 'Blog & CMS',
+    items: [
+      { label: 'Dashboard', to: '/admin/cms', icon: 'sparkles' },
+      { label: 'Artículos', to: '/admin/cms/articles', icon: 'doc' },
+      { label: 'Categorías', to: '/admin/cms-categories', icon: 'layers' },
+      { label: 'Etiquetas', to: '/admin/cms-tags', icon: 'badge' },
+      { label: 'Autores', to: '/admin/cms-authors', icon: 'team' },
+      { label: 'Media Library', to: '/admin/cms/media', icon: 'widget' },
+      { label: 'Comentarios', to: '/admin/cms-comments', icon: 'contact' },
+      { label: 'Redirecciones', to: '/admin/cms-redirects', icon: 'code' },
+      { label: 'Papelera', to: '/admin/cms/papelera', icon: 'inbox' },
+      { label: 'Config. Blog', to: '/admin/cms/configuracion', icon: 'settings' },
+    ],
+  },
+  {
     label: 'Contenido',
     items: [
-      { label: 'Blog', to: '/admin/blogs', icon: 'doc' },
+      { label: 'Blog (legacy)', to: '/admin/blogs', icon: 'doc' },
       { label: 'Equipo', to: '/admin/team', icon: 'team' },
     ],
   },
@@ -182,6 +197,8 @@ if (isSuperAdmin.value) {
 const orgs = ref<{ id: number; name: string }[]>([])
 const activeOrgId = ref<number | null>(null)
 const activeOrgCookie = useCookie<string | null>('sa_active_org')
+
+const { data: orgInfo } = await useFetch<any>('/api/admin/active-org-info')
 
 if (isSuperAdmin.value) {
   const { data } = await useFetch<{ rows: { id: number; name: string }[] }>('/api/admin/organizations', {

@@ -1,5 +1,5 @@
-import { eq, like, or, sql } from 'drizzle-orm'
-import { useDb, schema } from '../../utils/db'
+import { and, eq, like, or, sql } from 'drizzle-orm'
+import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 
 /**
  * Autocomplete for the smart search box.
@@ -11,12 +11,13 @@ import { useDb, schema } from '../../utils/db'
  */
 export default defineEventHandler(async (event) => {
   const db = useDb(event)
+  const orgId = resolvePublicOrgId(event)
   const q = String(getQuery(event).q || '').trim()
   if (q.length < 1) {
     // Popular defaults when empty
     const [cities, communities] = await Promise.all([
-      db.select({ name: schema.locations.name }).from(schema.locations).limit(6),
-      db.select({ name: schema.communities.name }).from(schema.communities).limit(6),
+      db.select({ name: schema.locations.name }).from(schema.locations).where(eq(schema.locations.organizationId, orgId)).limit(6),
+      db.select({ name: schema.communities.name }).from(schema.communities).where(eq(schema.communities.organizationId, orgId)).limit(6),
     ])
     return {
       groups: [
@@ -28,27 +29,28 @@ export default defineEventHandler(async (event) => {
 
   const pat = `%${q}%`
   const P = schema.developerProperties
+  const orgCond = eq(P.organizationId, orgId)
   const [cities, communities, streets, postalCodes, refsByName, refsBySlug] = await Promise.all([
-    db.select({ name: schema.locations.name }).from(schema.locations).where(like(schema.locations.name, pat)).limit(5),
+    db.select({ name: schema.locations.name }).from(schema.locations).where(and(eq(schema.locations.organizationId, orgId), like(schema.locations.name, pat))).limit(5),
     db
       .select({ name: schema.communities.name })
       .from(schema.communities)
-      .where(like(schema.communities.name, pat))
+      .where(and(eq(schema.communities.organizationId, orgId), like(schema.communities.name, pat)))
       .limit(5),
     db
       .select({ street: P.street })
       .from(P)
-      .where(sql`${P.street} is not null and ${P.street} like ${pat}`)
+      .where(and(orgCond, sql`${P.street} is not null and ${P.street} like ${pat}`))
       .groupBy(P.street)
       .limit(6),
     db
       .select({ postalCode: P.postalCode })
       .from(P)
-      .where(sql`${P.postalCode} is not null and ${P.postalCode} like ${pat}`)
+      .where(and(orgCond, sql`${P.postalCode} is not null and ${P.postalCode} like ${pat}`))
       .groupBy(P.postalCode)
       .limit(6),
-    db.select({ name: P.name, slug: P.slug }).from(P).where(like(P.name, pat)).limit(6),
-    db.select({ name: P.name, slug: P.slug }).from(P).where(like(P.slug, pat)).limit(6),
+    db.select({ name: P.name, slug: P.slug }).from(P).where(and(orgCond, like(P.name, pat))).limit(6),
+    db.select({ name: P.name, slug: P.slug }).from(P).where(and(orgCond, like(P.slug, pat))).limit(6),
   ])
 
   const refMap = new Map<string, { name: string; slug: string | null }>()

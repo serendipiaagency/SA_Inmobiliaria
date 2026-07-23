@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gte, inArray, like, lte, or, sql } from 'drizzle-orm'
-import { useDb, schema } from '../../utils/db'
+import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { attachPhotos } from '../../utils/photos'
 
 const P = schema.developerProperties
@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   const perPage = Math.min(48, Math.max(1, parseInt(String(query.perPage || '12'), 10) || 12))
   const countOnly = String(query.countOnly || '') === '1'
 
-  const conds = []
+  const conds = [eq(P.organizationId, resolvePublicOrgId(event))]
   const q = String(query.q || '').trim()
   if (q)
     conds.push(

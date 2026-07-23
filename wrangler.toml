@@ -32,3 +32,8 @@ SESSION_TTL_DAYS = "7"
 
 [observability]
 enabled = true
+
+# Runs server/tasks/cms/expire-articles.ts hourly — auto-hides published
+# articles whose expires_at has passed (Blog & CMS Fase 7).
+[triggers]
+crons = ["0 * * * *"]

@@ -33,6 +33,10 @@ export interface ResourceDef {
   /** True only for the `organizations` resource itself — managed by the
    *  platform super_admin, not by any single tenant's admin. */
   superAdminOnly?: boolean
+  /** True for resources with a `deletedAt` column — DELETE moves the row to
+   *  Papelera instead of removing it; a `?hard=1` DELETE (from Papelera)
+   *  purges it for real. GET list excludes trashed rows unless `?trashed=1`. */
+  softDelete?: boolean
   /** Generate `slug` column from this field when missing. */
   slugFrom?: string
   /** Translation child table (locale/title/description pattern). */
@@ -344,6 +348,105 @@ export const adminResources: Record<string, ResourceDef> = {
       if (data.email) data.email = String(data.email).toLowerCase().trim()
       return data
     },
+  },
+
+  'cms-categories': {
+    table: schema.cmsCategories,
+    label: 'Categorías (Blog)',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      slug: { type: 'text', label: 'Slug' },
+      parentId: { type: 'number', label: 'Categoría padre (ID)' },
+      color: { type: 'text', label: 'Color' },
+      icon: { type: 'text', label: 'Icono' },
+      image: { type: 'image', label: 'Imagen' },
+      description: { type: 'textarea', label: 'Descripción' },
+      seoTitle: { type: 'text', label: 'Título SEO' },
+      seoDescription: { type: 'textarea', label: 'Meta descripción SEO' },
+    },
+    listFields: ['id', 'name', 'slug', 'parentId'],
+    searchFields: ['name', 'slug'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    slugFrom: 'name',
+    softDelete: true,
+  },
+
+  'cms-tags': {
+    table: schema.cmsTags,
+    label: 'Etiquetas (Blog)',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      slug: { type: 'text', label: 'Slug' },
+    },
+    listFields: ['id', 'name', 'slug'],
+    searchFields: ['name', 'slug'],
+    hasTimestamps: true,
+    slugFrom: 'name',
+    softDelete: true,
+  },
+
+  'cms-authors': {
+    table: schema.cmsAuthors,
+    label: 'Autores (Blog)',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      slug: { type: 'text', label: 'Slug' },
+      userId: { type: 'number', label: 'Usuario vinculado (ID)' },
+      photo: { type: 'image', label: 'Foto' },
+      bio: { type: 'textarea', label: 'Biografía' },
+      specialty: { type: 'text', label: 'Especialidad' },
+      facebook: { type: 'text', label: 'Facebook' },
+      twitter: { type: 'text', label: 'Twitter' },
+      linkedin: { type: 'text', label: 'LinkedIn' },
+      instagram: { type: 'text', label: 'Instagram' },
+    },
+    listFields: ['id', 'name', 'slug', 'specialty'],
+    searchFields: ['name', 'specialty'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    slugFrom: 'name',
+    softDelete: true,
+  },
+
+  'cms-comments': {
+    table: schema.cmsComments,
+    label: 'Comentarios (Blog)',
+    fields: {
+      articleId: { type: 'number', label: 'Artículo (ID)', required: true },
+      authorName: { type: 'text', label: 'Nombre', required: true },
+      authorEmail: { type: 'text', label: 'Email' },
+      content: { type: 'textarea', label: 'Comentario', required: true },
+      status: { type: 'select', label: 'Estado', options: ['pending', 'approved', 'spam', 'trash'] },
+    },
+    listFields: ['id', 'articleId', 'authorName', 'status', 'createdAt'],
+    searchFields: ['authorName', 'authorEmail', 'content'],
+    hasTimestamps: true,
+  },
+
+  'cms-redirects': {
+    table: schema.cmsRedirects,
+    label: 'Redirecciones (Blog)',
+    fields: {
+      fromPath: { type: 'text', label: 'Desde (ruta)', required: true },
+      toPath: { type: 'text', label: 'Hacia (ruta)', required: true },
+      statusCode: { type: 'number', label: 'Código (301 o 302)' },
+    },
+    listFields: ['id', 'fromPath', 'toPath', 'statusCode', 'hits'],
+    searchFields: ['fromPath', 'toPath'],
+    hasTimestamps: true,
+  },
+
+  'cms-media-folders': {
+    table: schema.cmsMediaFolders,
+    label: 'Carpetas de media (Blog)',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      parentId: { type: 'number', label: 'Carpeta padre (ID)' },
+    },
+    listFields: ['id', 'name', 'parentId'],
+    searchFields: ['name'],
+    hasTimestamps: true,
   },
 
   'visitor-submissions': {
