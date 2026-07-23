@@ -839,3 +839,237 @@ export const cmsSettings = sqliteTable('cms_settings', {
   defaultAuthorId: integer('default_author_id').references(() => cmsAuthors.id),
   updatedAt: text('updated_at').notNull().default(''),
 })
+
+// ---------------------------------------------------------------------------
+// Publication Scheduler — fully decoupled multi-channel publishing engine.
+// Every channel adapter (Idealista, Fotocasa, Facebook, WhatsApp, ...) has no
+// real API credentials configured anywhere yet, so publication_executions
+// honestly records `connected = 0` until real secrets are added — the engine
+// itself (scheduling, queueing, retries, dependencies, history) is real.
+// ---------------------------------------------------------------------------
+
+export const publicationChannelConfigs = sqliteTable(
+  'publication_channel_configs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    channelKey: text('channel_key').notNull(),
+    enabled: integer('enabled').notNull().default(1),
+    windowStart: text('window_start'),
+    windowEnd: text('window_end'),
+    defaultPriority: text('default_priority').notNull().default('normal'), // low | normal | high | urgent
+    defaultDelaySeconds: integer('default_delay_seconds').notNull().default(0),
+    maxRetries: integer('max_retries').notNull().default(3),
+    retryBackoffSeconds: integer('retry_backoff_seconds').notNull().default(300),
+    maxDurationSeconds: integer('max_duration_seconds').notNull().default(120),
+    dependsOnChannelKeys: text('depends_on_channel_keys'), // JSON array of channel_key
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('publication_channel_configs_org_channel').on(t.organizationId, t.channelKey)],
+)
+
+export const publicationTemplates = sqliteTable(
+  'publication_templates',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    stepsJson: text('steps_json').notNull().default('[]'), // [{channelKey, offsetMinutes, priority}]
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('publication_templates_org').on(t.organizationId)],
+)
+
+export const publicationSchedules = sqliteTable(
+  'publication_schedules',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    developerPropertyId: integer('developer_property_id')
+      .notNull()
+      .references(() => developerProperties.id, { onDelete: 'cascade' }),
+    templateId: integer('template_id').references(() => publicationTemplates.id),
+    name: text('name'),
+    baseScheduledAt: text('base_scheduled_at').notNull(),
+    timezone: text('timezone').notNull().default('Asia/Dubai'),
+    status: text('status').notNull().default('scheduled'), // draft | scheduled | running | completed | failed | cancelled
+    createdBy: integer('created_by').references(() => users.id),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('publication_schedules_org_status').on(t.organizationId, t.status), index('publication_schedules_property').on(t.developerPropertyId)],
+)
+
+export const publicationJobs = sqliteTable(
+  'publication_jobs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    scheduleId: integer('schedule_id')
+      .notNull()
+      .references(() => publicationSchedules.id, { onDelete: 'cascade' }),
+    channelKey: text('channel_key').notNull(),
+    runAt: text('run_at').notNull(),
+    // Set once at creation from the staged-launch step, never touched by
+    // retries/reschedules (which only mutate `runAt`) — duplicate.post.ts
+    // reads this to preserve the original stagger, not whatever `runAt`
+    // happens to be after a retry backoff shifted it.
+    offsetMinutes: integer('offset_minutes').notNull().default(0),
+    priority: text('priority').notNull().default('normal'),
+    priorityWeight: integer('priority_weight').notNull().default(50),
+    dependsOnJobId: integer('depends_on_job_id'),
+    conditionJson: text('condition_json'), // e.g. {"type":"min_photos","value":15}
+    status: text('status').notNull().default('pending'), // pending|queued|running|success|failed|retrying|cancelled|skipped|paused
+    action: text('action').notNull().default('publish'), // publish|update_images|update_text|unpublish
+    maxRetries: integer('max_retries').notNull().default(3),
+    retryCount: integer('retry_count').notNull().default(0),
+    retryBackoffSeconds: integer('retry_backoff_seconds').notNull().default(300),
+    maxDurationSeconds: integer('max_duration_seconds').notNull().default(120),
+    externalId: text('external_id'),
+    lastError: text('last_error'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('publication_jobs_dispatch').on(t.status, t.runAt), index('publication_jobs_schedule').on(t.scheduleId), index('publication_jobs_org').on(t.organizationId)],
+)
+
+export const publicationQueue = sqliteTable(
+  'publication_queue',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    jobId: integer('job_id')
+      .notNull()
+      .references(() => publicationJobs.id, { onDelete: 'cascade' }),
+    claimedAt: text('claimed_at'),
+    claimedBy: text('claimed_by'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('publication_queue_job').on(t.jobId), index('publication_queue_unclaimed').on(t.claimedAt)],
+)
+
+export const publicationExecutions = sqliteTable(
+  'publication_executions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    jobId: integer('job_id')
+      .notNull()
+      .references(() => publicationJobs.id, { onDelete: 'cascade' }),
+    attemptNumber: integer('attempt_number').notNull().default(1),
+    startedAt: text('started_at').notNull(),
+    finishedAt: text('finished_at'),
+    result: text('result'), // success | error
+    connected: integer('connected').notNull().default(0), // was a real channel adapter configured?
+    responseSummary: text('response_summary'),
+    errorMessage: text('error_message'),
+    durationMs: integer('duration_ms'),
+  },
+  (t) => [index('publication_executions_job').on(t.jobId)],
+)
+
+export const publicationRetries = sqliteTable(
+  'publication_retries',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    jobId: integer('job_id')
+      .notNull()
+      .references(() => publicationJobs.id, { onDelete: 'cascade' }),
+    attemptNumber: integer('attempt_number').notNull(),
+    scheduledAt: text('scheduled_at').notNull(),
+    backoffSeconds: integer('backoff_seconds').notNull(),
+    executed: integer('executed').notNull().default(0),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('publication_retries_job').on(t.jobId)],
+)
+
+export const publicationHistory = sqliteTable(
+  'publication_history',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    scheduleId: integer('schedule_id')
+      .notNull()
+      .references(() => publicationSchedules.id, { onDelete: 'cascade' }),
+    jobId: integer('job_id').references(() => publicationJobs.id),
+    event: text('event').notNull(),
+    message: text('message').notNull(),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('publication_history_schedule').on(t.scheduleId, t.createdAt)],
+)
+
+export const publicationLogs = sqliteTable(
+  'publication_logs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    level: text('level').notNull().default('info'), // info | warn | error
+    message: text('message').notNull(),
+    jobId: integer('job_id').references(() => publicationJobs.id),
+    scheduleId: integer('schedule_id').references(() => publicationSchedules.id),
+    actorUserId: integer('actor_user_id').references(() => users.id),
+    contextJson: text('context_json'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('publication_logs_org_created').on(t.organizationId, t.createdAt)],
+)
+
+export const publicationAutomationRules = sqliteTable(
+  'publication_automation_rules',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    triggerType: text('trigger_type').notNull(), // price_drop|photo_change|description_change|status_change
+    actionType: text('action_type').notNull(), // update_all|update_images|update_text|unpublish
+    enabled: integer('enabled').notNull().default(1),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('publication_automation_rules_org').on(t.organizationId)],
+)
+
+export const publicationNotifications = sqliteTable(
+  'publication_notifications',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    userId: integer('user_id').references(() => users.id),
+    scheduleId: integer('schedule_id').references(() => publicationSchedules.id),
+    jobId: integer('job_id').references(() => publicationJobs.id),
+    type: text('type').notNull(),
+    channel: text('channel').notNull().default('internal'), // internal|email|whatsapp|telegram|slack
+    delivered: integer('delivered').notNull().default(0),
+    message: text('message').notNull(),
+    readAt: text('read_at'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('publication_notifications_org_read').on(t.organizationId, t.readAt)],
+)
+
+export const publicationAiTimeSuggestions = sqliteTable(
+  'publication_ai_time_suggestions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    channelKey: text('channel_key').notNull(),
+    propertyType: text('property_type').notNull(),
+    suggestedHour: integer('suggested_hour').notNull(),
+    confidence: real('confidence').notNull().default(0),
+    sampleSize: integer('sample_size').notNull().default(0),
+    computedAt: text('computed_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('publication_ai_time_suggestions_key').on(t.organizationId, t.channelKey, t.propertyType)],
+)
+
+export const publicationAiTimeRules = sqliteTable('publication_ai_time_rules', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  organizationId: integer('organization_id').notNull().unique(),
+  autoApply: integer('auto_apply').notNull().default(0),
+  minConfidence: real('min_confidence').notNull().default(0.6),
+  minSampleSize: integer('min_sample_size').notNull().default(5),
+  createdAt: text('created_at').notNull().default(''),
+  updatedAt: text('updated_at').notNull().default(''),
+})

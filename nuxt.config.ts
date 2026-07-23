@@ -9,10 +9,13 @@ export default defineNuxtConfig({
       nodeCompat: true,
     },
     experimental: { tasks: true },
-    // Matches the cron in wrangler.toml's [triggers] — hourly is enough
-    // precision for auto-hiding an expired article, no need for per-minute.
+    // Matches the crons in wrangler.toml's [triggers] — hourly is enough
+    // precision for auto-hiding an expired article; the Publication
+    // Scheduler dispatcher needs per-minute granularity to hit staged-launch
+    // offsets (e.g. "+2 min", "+5 min") on time.
     scheduledTasks: {
       '0 * * * *': ['cms:expire-articles'],
+      '* * * * *': ['scheduler:dispatch'],
     },
   },
   css: [
