@@ -260,9 +260,9 @@ onBeforeUnmount(() => {
 }
 .map-popup .map-card-name {
   display: block;
-  font-family: 'Playfair Display', serif;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 700;
   color: #16150f;
 }
 .map-popup .map-card-name:hover {
