@@ -58,15 +58,15 @@
 }
 
 @layer components {
-  /* Primary CTA — Compass-style rectangular black button */
+  /* Primary CTA — solid black pill (RealHome-style reference) */
   .btn-primary {
-    @apply inline-flex items-center justify-center bg-ink px-7 py-3.5 text-xs font-semibold uppercase tracking-widest2 text-white transition-all duration-200 ease-out hover:bg-black active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100;
+    @apply inline-flex items-center justify-center rounded-full bg-ink px-7 py-3.5 text-xs font-semibold uppercase tracking-widest2 text-white transition-all duration-200 ease-out hover:bg-black active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center border border-ink bg-transparent px-7 py-3.5 text-xs font-semibold uppercase tracking-widest2 text-ink transition-all duration-200 ease-out hover:bg-ink hover:text-white active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100;
+    @apply inline-flex items-center justify-center rounded-full border border-ink bg-transparent px-7 py-3.5 text-xs font-semibold uppercase tracking-widest2 text-ink transition-all duration-200 ease-out hover:bg-ink hover:text-white active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100;
   }
   .btn-quiet {
-    @apply inline-flex items-center justify-center border border-line bg-white px-5 py-2.5 text-xs font-medium uppercase tracking-widest text-stone-600 transition-all duration-200 ease-out hover:border-ink hover:text-ink active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100;
+    @apply inline-flex items-center justify-center rounded-full border border-line bg-white px-5 py-2.5 text-xs font-medium uppercase tracking-widest text-stone-600 transition-all duration-200 ease-out hover:border-ink hover:text-ink active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100;
   }
   .input {
     @apply w-full border border-line bg-white px-4 py-3 text-sm text-ink placeholder:text-stone-400 transition-colors duration-150 focus:border-ink disabled:cursor-not-allowed disabled:border-line disabled:bg-paper disabled:text-stone-400;
@@ -78,14 +78,16 @@
     @apply border-red-400 focus:border-red-500;
   }
   .card {
-    @apply overflow-hidden border border-line bg-white;
+    @apply overflow-hidden rounded-2xl border border-line bg-surface;
   }
-  /* Small uppercase section label */
+  /* Small uppercase section label — terracotta pill badge (RealHome-style reference).
+     Text is accent-700, not -600: at this size/weight, -600 on accent-100 measures
+     2.64:1 and fails WCAG AA (needs 4.5:1) — -700 measures 6.33:1. */
   .eyebrow {
-    @apply text-[11px] font-semibold uppercase tracking-widest2 text-stone-450;
+    @apply inline-flex items-center rounded-full bg-accent-100 px-3.5 py-1 text-[11px] font-semibold uppercase tracking-widest2 text-accent-700;
   }
   .heading-serif {
-    @apply font-serif font-medium text-ink;
+    @apply font-serif font-bold tracking-tight text-ink;
   }
   .hairline {
     @apply border-t border-line;

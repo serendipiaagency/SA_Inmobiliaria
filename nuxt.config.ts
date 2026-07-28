@@ -9,10 +9,13 @@ export default defineNuxtConfig({
       nodeCompat: true,
     },
     experimental: { tasks: true },
-    // Matches the cron in wrangler.toml's [triggers] — hourly is enough
-    // precision for auto-hiding an expired article, no need for per-minute.
+    // Matches the crons in wrangler.toml's [triggers] — hourly is enough
+    // precision for auto-hiding an expired article; the Publication
+    // Scheduler dispatcher needs per-minute granularity to hit staged-launch
+    // offsets (e.g. "+2 min", "+5 min") on time.
     scheduledTasks: {
       '0 * * * *': ['cms:expire-articles'],
+      '* * * * *': ['scheduler:dispatch'],
     },
   },
   css: [
@@ -38,8 +41,10 @@ export default defineNuxtConfig({
         { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
         { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         {
+          // Playfair Display dropped — headings now use bold Inter (see
+          // tailwind.config.js `serif` token) instead of a serif face.
           rel: 'stylesheet',
-          href: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap',
+          href: 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap',
         },
       ],
     },

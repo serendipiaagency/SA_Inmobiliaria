@@ -56,8 +56,8 @@ const subSizeCls = computed(() => ({ sm: 'mm-sub-sm', md: 'mm-sub-md', lg: 'mm-s
   align-items: center;
   justify-content: center;
   border-radius: 0.55em;
-  font-family: 'Playfair Display', Georgia, serif;
-  font-weight: 700;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
   letter-spacing: -0.02em;
   flex-shrink: 0;
 }
@@ -91,9 +91,9 @@ const subSizeCls = computed(() => ({ sm: 'mm-sub-sm', md: 'mm-sub-md', lg: 'mm-s
   line-height: 1;
 }
 .mm-word {
-  font-family: 'Playfair Display', Georgia, serif;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 .mm-word-sm {
   font-size: 1.15rem;
