@@ -13,6 +13,7 @@
     "db:migrate": "wrangler d1 migrations apply sa_inmobiliaria --remote",
     "db:migrate:staging": "wrangler d1 migrations apply sa_inmobiliaria_staging --remote --env staging",
     "typecheck": "nuxi typecheck",
+    "test": "vitest run",
     "release": "wrangler d1 migrations apply sa_inmobiliaria --remote --env=\"\" && nuxt build && wrangler deploy --env=\"\"",
     "release:staging": "wrangler d1 migrations apply sa_inmobiliaria_staging --remote --env staging && nuxt build && wrangler deploy --env staging",
     "postinstall": "nuxt prepare"
@@ -30,6 +31,7 @@
     "nitro-cloudflare-dev": "^0.2.2",
     "nuxt": "^3.17.5",
     "typescript": "^5.9.3",
+    "vitest": "^4.1.10",
     "vue-tsc": "^3.3.8",
     "wrangler": "^4.20.0"
   }
