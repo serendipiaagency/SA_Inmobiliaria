@@ -14,7 +14,7 @@ export default defineNuxtConfig({
     // Scheduler dispatcher needs per-minute granularity to hit staged-launch
     // offsets (e.g. "+2 min", "+5 min") on time.
     scheduledTasks: {
-      '0 * * * *': ['cms:expire-articles'],
+      '0 * * * *': ['cms:expire-articles', 'system:cleanup-error-logs'],
       '* * * * *': ['scheduler:dispatch'],
     },
   },

@@ -1073,3 +1073,22 @@ export const publicationAiTimeRules = sqliteTable('publication_ai_time_rules', {
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })
+
+// ---------------------------------------------------------------------------
+// Platform error log (production monitoring) — see migrations/0027
+// ---------------------------------------------------------------------------
+export const errorLogs = sqliteTable(
+  'error_logs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    statusCode: integer('status_code').notNull().default(500),
+    message: text('message').notNull(),
+    stack: text('stack'),
+    method: text('method'),
+    path: text('path'),
+    organizationId: integer('organization_id'),
+    userId: integer('user_id'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('error_logs_created_at').on(t.createdAt), index('error_logs_status').on(t.statusCode)],
+)

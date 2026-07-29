@@ -67,6 +67,17 @@ export const adminResources: Record<string, ResourceDef> = {
     superAdminOnly: true,
   },
 
+  'error-logs': {
+    table: schema.errorLogs,
+    label: 'Errores (incidencias)',
+    fields: {},
+    listFields: ['id', 'statusCode', 'message', 'path', 'method', 'createdAt'],
+    searchFields: ['message', 'path'],
+    orgScoped: false,
+    superAdminOnly: true,
+    readonly: true,
+  },
+
   agents: {
     table: schema.agents,
     label: 'Agents',
