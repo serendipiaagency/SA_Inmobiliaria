@@ -138,6 +138,7 @@ const nav = [
       { label: 'Propiedades 2ª mano', to: '/admin/properties', icon: 'layers' },
       { label: 'Agentes', to: '/admin/agents', icon: 'badge' },
       { label: 'Comunidades', to: '/admin/communities', icon: 'store' },
+      { label: 'Publicación multicanal', to: '/admin/scheduler', icon: 'bolt' },
     ],
   },
   {
