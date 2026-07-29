@@ -3,6 +3,7 @@ import { useDb, schema } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource, buildPayload, syncTranslations } from '../../../utils/adminResources'
 import { logAdminAction } from '../../../utils/audit'
+import { fireAutomationRules } from '../../../utils/publication/automations'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -32,10 +33,27 @@ export default defineEventHandler(async (event) => {
 
   // Off-plan project prices are chartable on the public property page — every
   // real edit here becomes a real data point, never a fabricated one.
-  if (key === 'developer-properties' && typeof data.price === 'number') {
-    const current = await db.select({ price: schema.developerProperties.price }).from(schema.developerProperties).where(where as any).limit(1)
-    if (current[0] && current[0].price !== data.price) {
-      await db.insert(schema.priceHistory).values({ developerPropertyId: id, price: data.price, recordedAt: new Date().toISOString() })
+  // Also the two hooks for the Publication Scheduler's automation rules
+  // (Fase 11): a real price drop or status change here can fire a rule that
+  // re-publishes the property across its configured channels — see
+  // server/utils/publication/automations.ts.
+  let automationsFired = 0
+  if (key === 'developer-properties') {
+    const current = await db
+      .select({ price: schema.developerProperties.price, status: schema.developerProperties.status })
+      .from(schema.developerProperties)
+      .where(where as any)
+      .limit(1)
+    if (current[0]) {
+      if (typeof data.price === 'number' && current[0].price !== data.price) {
+        await db.insert(schema.priceHistory).values({ developerPropertyId: id, price: data.price, recordedAt: new Date().toISOString() })
+        if (data.price < current[0].price) {
+          automationsFired += await fireAutomationRules(db, orgId!, id, 'price_drop', `precio ${current[0].price} → ${data.price}`)
+        }
+      }
+      if (typeof data.status === 'string' && current[0].status !== data.status) {
+        automationsFired += await fireAutomationRules(db, orgId!, id, 'status_change', `estado ${current[0].status} → ${data.status}`)
+      }
     }
   }
 
@@ -59,5 +77,5 @@ export default defineEventHandler(async (event) => {
   }
   await syncTranslations(db, def, id, body?.translations)
   await logAdminAction(event, { user, orgId, action: 'update', resource: key, resourceId: id })
-  return { ok: true, id }
+  return { ok: true, id, automationsFired: automationsFired || undefined }
 })

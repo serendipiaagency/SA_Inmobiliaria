@@ -21,6 +21,37 @@
       </button>
     </div>
 
+    <!-- Automatizaciones -->
+    <div v-if="tab === 'automations'">
+      <p class="mb-3 text-sm text-stone-500">Cuando cambia el precio o el estado de una propiedad, dispara una republicación automática en los canales conectados.</p>
+      <div class="mb-3 flex justify-end">
+        <button class="dash-btn-primary" @click="openAutomationEditor()">+ Nueva regla</button>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div v-for="r in automations" :key="r.id" class="card flex items-start justify-between p-4">
+          <div>
+            <p class="font-semibold">{{ r.name }}</p>
+            <p class="mt-0.5 text-xs text-stone-500">
+              {{ TRIGGER_LABEL[r.triggerType] || r.triggerType }} → {{ ACTION_LABEL[r.actionType] || r.actionType }}
+            </p>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <button
+              class="relative h-5 w-9 shrink-0 rounded-full transition"
+              :class="r.enabled ? 'bg-ink' : 'bg-stone-300'"
+              role="switch"
+              :aria-checked="!!r.enabled"
+              @click="toggleAutomation(r)"
+            >
+              <span class="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all" :class="r.enabled ? 'left-[18px]' : 'left-0.5'" />
+            </button>
+            <button class="font-medium text-red-600 hover:underline" @click="deleteAutomation(r.id)">Eliminar</button>
+          </div>
+        </div>
+        <p v-if="!automations.length" class="text-sm text-stone-400">Sin reglas todavía.</p>
+      </div>
+    </div>
+
     <!-- Programaciones -->
     <div v-if="tab === 'list'">
       <div class="mb-3 flex gap-2">
@@ -208,6 +239,31 @@
       </div>
     </div>
 
+    <!-- Modal: nueva regla de automatización -->
+    <div v-if="automationEditor" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="automationEditor = null">
+      <div class="w-full max-w-md rounded-xl bg-white p-6">
+        <h2 class="mb-4 text-lg font-semibold">Nueva regla</h2>
+        <label class="label">Nombre</label>
+        <input v-model="automationEditor.name" class="input mb-3" placeholder="p. ej. Republicar en bajada de precio" />
+        <label class="label">Cuándo (disparador)</label>
+        <select v-model="automationEditor.triggerType" class="input mb-3">
+          <option value="price_drop">Bajada de precio</option>
+          <option value="status_change">Cambio de estado</option>
+        </select>
+        <label class="label">Qué hacer</label>
+        <select v-model="automationEditor.actionType" class="input mb-3">
+          <option value="update_all">Republicar todo</option>
+          <option value="update_images">Actualizar solo fotos</option>
+          <option value="update_text">Actualizar solo texto/precio</option>
+          <option value="unpublish">Despublicar</option>
+        </select>
+        <div class="mt-6 flex justify-end gap-2">
+          <button class="btn-secondary" @click="automationEditor = null">Cancelar</button>
+          <button class="btn-primary" @click="saveAutomation">Crear regla</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal: editor de plantilla -->
     <div v-if="templateEditor" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="templateEditor = null">
       <div class="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl bg-white p-6">
@@ -242,12 +298,16 @@ const toast = useToast()
 
 const PRIORITIES = ['low', 'normal', 'high', 'urgent']
 
-const tab = ref<'list' | 'calendar' | 'templates'>('list')
+const tab = ref<'list' | 'calendar' | 'templates' | 'automations'>('list')
 const tabs = [
   { key: 'list', label: 'Programaciones' },
   { key: 'calendar', label: 'Calendario' },
   { key: 'templates', label: 'Plantillas' },
+  { key: 'automations', label: 'Automatizaciones' },
 ]
+
+const TRIGGER_LABEL: Record<string, string> = { price_drop: 'Bajada de precio', status_change: 'Cambio de estado' }
+const ACTION_LABEL: Record<string, string> = { update_all: 'Republicar todo', update_images: 'Actualizar fotos', update_text: 'Actualizar texto/precio', unpublish: 'Despublicar' }
 
 const channels = ref<any[]>([])
 const templates = ref<any[]>([])
@@ -278,9 +338,47 @@ async function loadJobCounts() {
   jobCounts.value = { pending: pending.rows.length, failed: failed.rows.length }
 }
 
+const automations = ref<any[]>([])
+async function loadAutomations() {
+  const r = await $fetch<any>('/api/admin/scheduler/automations')
+  automations.value = r.rows
+}
+
 onMounted(async () => {
-  await Promise.all([loadChannels(), loadTemplates(), loadSchedules(), loadJobCounts(), loadCalendar()])
+  await Promise.all([loadChannels(), loadTemplates(), loadSchedules(), loadJobCounts(), loadCalendar(), loadAutomations()])
 })
+
+const automationEditor = ref<{ name: string; triggerType: string; actionType: string } | null>(null)
+function openAutomationEditor() {
+  automationEditor.value = { name: '', triggerType: 'price_drop', actionType: 'update_all' }
+}
+async function saveAutomation() {
+  if (!automationEditor.value) return
+  if (!automationEditor.value.name.trim()) return toast.error('El nombre es obligatorio')
+  try {
+    await $fetch('/api/admin/scheduler/automations', { method: 'POST', body: automationEditor.value })
+    toast.success('Regla creada')
+    automationEditor.value = null
+    await loadAutomations()
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'No se pudo crear la regla')
+  }
+}
+async function toggleAutomation(r: any) {
+  const next = r.enabled ? 0 : 1
+  r.enabled = next
+  try {
+    await $fetch(`/api/admin/scheduler/automations/${r.id}`, { method: 'PUT', body: { enabled: !!next } })
+  } catch {
+    r.enabled = next ? 0 : 1
+    toast.error('No se pudo actualizar la regla')
+  }
+}
+async function deleteAutomation(id: number) {
+  await $fetch(`/api/admin/scheduler/automations/${id}`, { method: 'DELETE' })
+  toast.info('Regla eliminada')
+  await loadAutomations()
+}
 
 // --- Crear programación ---
 const showCreate = ref(false)

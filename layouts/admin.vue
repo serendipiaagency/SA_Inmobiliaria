@@ -77,6 +77,9 @@
       </div>
 
       <main class="mx-auto max-w-[1180px] px-5 py-6 lg:px-8 lg:py-8">
+        <div class="mb-3 flex justify-end">
+          <AdminNotificationBell />
+        </div>
         <slot />
       </main>
     </div>
