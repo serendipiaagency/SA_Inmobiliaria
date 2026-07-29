@@ -16,6 +16,7 @@ export default defineNuxtConfig({
     scheduledTasks: {
       '0 * * * *': ['cms:expire-articles', 'system:cleanup-error-logs'],
       '* * * * *': ['scheduler:dispatch'],
+      '30 3 * * *': ['system:backup-d1'],
     },
   },
   css: [
