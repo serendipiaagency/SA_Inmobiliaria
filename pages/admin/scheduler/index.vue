@@ -179,6 +179,14 @@
             <button class="text-red-600" title="Quitar" @click="createForm.steps.splice(i, 1)">✕</button>
           </div>
           <button class="btn-quiet !px-3 !py-1.5" @click="createForm.steps.push({ channelKey: channels[0]?.key || 'own_web', offsetMinutes: 0, priority: 'normal' })">+ Añadir canal</button>
+
+          <div v-if="aiSuggestionsForProperty.length" class="mt-3 rounded-lg bg-stone-50 p-3 text-xs text-stone-600">
+            <p class="mb-1 font-semibold text-stone-500">Sugerencia de horario (basada en tu historial real de publicaciones)</p>
+            <p v-for="s in aiSuggestionsForProperty" :key="s.channelKey">
+              {{ CHANNEL_LABEL[s.channelKey] || s.channelKey }}: mejor resultado histórico a las {{ String(s.suggestedHour).padStart(2, '0') }}:00 UTC
+              ({{ Math.round(s.confidence * 100) }}% éxito, {{ s.sampleSize }} muestra{{ s.sampleSize === 1 ? '' : 's' }})
+            </p>
+          </div>
         </div>
 
         <div class="mt-6 flex justify-end gap-2">
@@ -345,7 +353,7 @@ async function loadAutomations() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadChannels(), loadTemplates(), loadSchedules(), loadJobCounts(), loadCalendar(), loadAutomations()])
+  await Promise.all([loadChannels(), loadTemplates(), loadSchedules(), loadJobCounts(), loadCalendar(), loadAutomations(), loadAiSuggestions()])
 })
 
 const automationEditor = ref<{ name: string; triggerType: string; actionType: string } | null>(null)
@@ -404,6 +412,17 @@ function searchProperties() {
     propertyResults.value = r.rows
   }, 250)
 }
+const aiSuggestions = ref<any[]>([])
+async function loadAiSuggestions() {
+  const r = await $fetch<any>('/api/admin/scheduler/ai-time-suggestions').catch(() => null)
+  if (r) aiSuggestions.value = r.rows
+}
+const aiSuggestionsForProperty = computed(() => {
+  const type = selectedProperty.value?.propertyType
+  if (!type) return []
+  return aiSuggestions.value.filter((s) => s.propertyType === type)
+})
+
 function selectProperty(p: any) {
   selectedProperty.value = p
   propertyResults.value = []

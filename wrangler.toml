@@ -53,8 +53,10 @@ enabled = true
 #                 dispatcher — every minute, so staged-launch offsets land on time)
 # "30 3 * * *" -> server/tasks/system/backup-d1.ts (daily JSON snapshot of
 #                 every D1 table to R2, kept 14 days — see that file for why)
+# "0 4 * * 1"  -> server/tasks/scheduler/recompute-ai-time.ts (weekly, refreshes
+#                 the "hora recomendada por IA" hint from real execution history)
 [triggers]
-crons = ["0 * * * *", "* * * * *", "30 3 * * *"]
+crons = ["0 * * * *", "* * * * *", "30 3 * * *", "0 4 * * 1"]
 
 # --- Staging environment ---
 # Own D1 + R2 so a build deployed here can never touch production data.
@@ -96,4 +98,4 @@ SESSION_TTL_DAYS = "7"
 enabled = true
 
 [env.staging.triggers]
-crons = ["0 * * * *", "* * * * *", "30 3 * * *"]
+crons = ["0 * * * *", "* * * * *", "30 3 * * *", "0 4 * * 1"]

@@ -17,6 +17,7 @@ export default defineNuxtConfig({
       '0 * * * *': ['cms:expire-articles', 'system:cleanup-error-logs'],
       '* * * * *': ['scheduler:dispatch'],
       '30 3 * * *': ['system:backup-d1'],
+      '0 4 * * 1': ['scheduler:recompute-ai-time'],
     },
   },
   css: [
