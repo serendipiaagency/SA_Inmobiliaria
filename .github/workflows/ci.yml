@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Typecheck
+        # Non-blocking for now: this repo had no tsconfig.json/typecheck step
+        # until this workflow was added, and turning it on surfaced ~35
+        # pre-existing type errors across pages/components/server routes.
+        # Flip this to blocking once that backlog is cleared — see the
+        # "Tests automatizados" / cleanup task in the project tracker.
+        run: npm run typecheck
+        continue-on-error: true

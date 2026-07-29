@@ -12,6 +12,9 @@
     "db:migrate:local": "wrangler d1 migrations apply sa_inmobiliaria --local",
     "db:migrate": "wrangler d1 migrations apply sa_inmobiliaria --remote",
     "db:migrate:staging": "wrangler d1 migrations apply sa_inmobiliaria_staging --remote --env staging",
+    "typecheck": "nuxi typecheck",
+    "release": "wrangler d1 migrations apply sa_inmobiliaria --remote --env=\"\" && nuxt build && wrangler deploy --env=\"\"",
+    "release:staging": "wrangler d1 migrations apply sa_inmobiliaria_staging --remote --env staging && nuxt build && wrangler deploy --env staging",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
@@ -20,10 +23,14 @@
     "leaflet.markercluster": "^1.5.3"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260702.1",
     "@nuxtjs/tailwindcss": "^6.14.0",
+    "@types/node": "^26.1.2",
     "commander": "^13.1.0",
     "nitro-cloudflare-dev": "^0.2.2",
     "nuxt": "^3.17.5",
+    "typescript": "^5.9.3",
+    "vue-tsc": "^3.3.8",
     "wrangler": "^4.20.0"
   }
 }

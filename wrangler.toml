@@ -11,6 +11,18 @@ compatibility_flags = ["nodejs_compat"]
 directory = "./.output/public"
 binding = "ASSETS"
 
+# --- Deploy pipeline ---
+# Cloudflare Workers Builds (Settings → Build → Deploy command) currently
+# just runs `npx wrangler deploy`, which deploys code WITHOUT applying any
+# pending D1 migration — this is exactly what caused the July schema-drift
+# incident (new code, old schema, every public/admin endpoint 500ing).
+# To close that gap, set the dashboard's Deploy command to:
+#   npm run release
+# (and the non-production branch deploy command, once enabled per the note
+# below, to `npm run release:staging`). Both run migrations, then build,
+# then deploy, in that order, so the new code never goes live before its
+# own schema does.
+
 # --- D1 database (relational data, replaces MySQL) ---
 # Create it with:  wrangler d1 create sa_inmobiliaria
 # then paste the database_id below.
