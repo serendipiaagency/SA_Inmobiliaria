@@ -1,10 +1,11 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { useDb, schema, now } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
+import { logAdminAction } from '../../../utils/audit'
 
 /** POST /api/admin/scheduler/pause — Fase 7/16. Body: {jobId} or {scheduleId}. Pausing a job just moves it out of the dispatcher's 'pending' pool — nothing extra to build, resume flips it right back. */
 export default defineEventHandler(async (event) => {
-  const { orgId } = await requireOrgScope(event)
+  const { user, orgId } = await requireOrgScope(event)
   const body = await readBody<{ jobId?: number; scheduleId?: number }>(event)
   const db = useDb(event)
   const nowTs = now()
@@ -16,6 +17,7 @@ export default defineEventHandler(async (event) => {
     if (!['pending', 'retrying'].includes(job.status)) throw createError({ statusCode: 422, statusMessage: `No se puede pausar un job en estado "${job.status}"` })
     await db.update(schema.publicationJobs).set({ status: 'paused', updatedAt: nowTs }).where(eq(schema.publicationJobs.id, job.id))
     await db.insert(schema.publicationHistory).values({ organizationId: orgId, scheduleId: job.scheduleId, jobId: job.id, event: 'job_paused', message: 'Job pausado manualmente.', createdAt: nowTs })
+    await logAdminAction(event, { user, orgId, action: 'pause', resource: 'scheduler-job', resourceId: job.id })
     return { ok: true, count: 1 }
   }
 
@@ -31,6 +33,7 @@ export default defineEventHandler(async (event) => {
         .where(inArray(schema.publicationJobs.id, jobs.map((j: any) => j.id)))
     }
     await db.insert(schema.publicationHistory).values({ organizationId: orgId, scheduleId: body.scheduleId, jobId: null, event: 'schedule_paused', message: `Programación pausada (${jobs.length} job(s)).`, createdAt: nowTs })
+    await logAdminAction(event, { user, orgId, action: 'pause', resource: 'scheduler-schedule', resourceId: body.scheduleId, detail: `${jobs.length} jobs` })
     return { ok: true, count: jobs.length }
   }
 

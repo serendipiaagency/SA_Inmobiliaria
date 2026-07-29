@@ -1092,3 +1092,26 @@ export const errorLogs = sqliteTable(
   },
   (t) => [index('error_logs_created_at').on(t.createdAt), index('error_logs_status').on(t.statusCode)],
 )
+
+// ---------------------------------------------------------------------------
+// Generic admin audit log — see migrations/0028
+// ---------------------------------------------------------------------------
+export const adminAuditLog = sqliteTable(
+  'admin_audit_log',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id'),
+    userId: integer('user_id').notNull(),
+    userEmail: text('user_email').notNull(),
+    action: text('action').notNull(),
+    resource: text('resource').notNull(),
+    resourceId: text('resource_id'),
+    detail: text('detail'),
+    ip: text('ip'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [
+    index('admin_audit_log_org_created').on(t.organizationId, t.createdAt),
+    index('admin_audit_log_resource').on(t.resource, t.resourceId),
+  ],
+)

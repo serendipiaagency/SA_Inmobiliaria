@@ -4,6 +4,7 @@ import { requireOrgScope } from '../../../utils/auth'
 import { isValidChannelKey } from '../../../utils/publication/channels'
 import { buildJobRows, type TemplateStep } from '../../../utils/publication/scheduling'
 import { ensureChannelConfigs } from '../../../utils/publication/defaults'
+import { logAdminAction } from '../../../utils/audit'
 
 /**
  * POST /api/admin/scheduler/create — Fase 4/5/16.
@@ -94,5 +95,6 @@ export default defineEventHandler(async (event) => {
     createdAt: nowTs,
   })
 
+  await logAdminAction(event, { user, orgId, action: 'create', resource: 'scheduler-schedule', resourceId: scheduleId })
   return { ok: true, id: scheduleId, jobIds: insertedIds }
 })

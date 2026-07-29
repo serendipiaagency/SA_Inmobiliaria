@@ -1,6 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { useDb, schema, now } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
+import { logAdminAction } from '../../../utils/audit'
 
 /**
  * POST /api/admin/scheduler/update — Fase 4 ("editar programación", "reprogramar").
@@ -9,7 +10,7 @@ import { requireOrgScope } from '../../../utils/auth'
  * offsets between channels stay intact.
  */
 export default defineEventHandler(async (event) => {
-  const { orgId } = await requireOrgScope(event)
+  const { user, orgId } = await requireOrgScope(event)
   const body = await readBody<{ scheduleId?: number; name?: string; baseScheduledAt?: string }>(event)
   const scheduleId = Number(body?.scheduleId)
   if (!scheduleId) throw createError({ statusCode: 422, statusMessage: 'scheduleId es obligatorio' })
@@ -42,5 +43,6 @@ export default defineEventHandler(async (event) => {
   }
 
   await db.update(schema.publicationSchedules).set(patch).where(eq(schema.publicationSchedules.id, scheduleId))
+  await logAdminAction(event, { user, orgId, action: 'update', resource: 'scheduler-schedule', resourceId: scheduleId })
   return { ok: true }
 })

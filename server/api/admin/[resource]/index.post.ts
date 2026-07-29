@@ -1,6 +1,7 @@
 import { useDb } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource, buildPayload, syncTranslations } from '../../../utils/adminResources'
+import { logAdminAction } from '../../../utils/audit'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -25,5 +26,6 @@ export default defineEventHandler(async (event) => {
   const inserted = await db.insert(def.table).values(data).returning({ id: def.table.id })
   const id = inserted[0]?.id
   await syncTranslations(db, def, id, body?.translations)
+  await logAdminAction(event, { user, orgId, action: 'create', resource: key, resourceId: id })
   return { ok: true, id }
 })

@@ -1,13 +1,14 @@
 import { and, eq } from 'drizzle-orm'
 import { useDb, schema, now } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
+import { logAdminAction } from '../../../../utils/audit'
 
 /**
  * Soft-deletes by default (moves to Papelera, recoverable). Pass ?hard=1 to
  * permanently delete — used by the Papelera page's "eliminar definitivamente".
  */
 export default defineEventHandler(async (event) => {
-  const { orgId } = await requireOrgScope(event)
+  const { user, orgId } = await requireOrgScope(event)
   const id = parseInt(getRouterParam(event, 'id') || '', 10)
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   const hard = String(getQuery(event).hard || '') === '1'
@@ -19,5 +20,6 @@ export default defineEventHandler(async (event) => {
   } else {
     await db.update(schema.cmsArticles).set({ deletedAt: now(), status: 'draft' }).where(where)
   }
+  await logAdminAction(event, { user, orgId, action: 'delete', resource: 'cms-articles', resourceId: id, detail: hard ? 'hard' : 'soft' })
   return { ok: true }
 })

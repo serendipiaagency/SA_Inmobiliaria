@@ -1,10 +1,11 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { useDb, schema, now } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
+import { logAdminAction } from '../../../utils/audit'
 
 /** POST /api/admin/scheduler/delete — Fase 4/16 ("cancelar programación"). Cancels the schedule and every non-terminal job in it; keeps history/executions for audit rather than hard-deleting. */
 export default defineEventHandler(async (event) => {
-  const { orgId } = await requireOrgScope(event)
+  const { user, orgId } = await requireOrgScope(event)
   const body = await readBody<{ scheduleId?: number }>(event)
   const scheduleId = Number(body?.scheduleId)
   if (!scheduleId) throw createError({ statusCode: 422, statusMessage: 'scheduleId es obligatorio' })
@@ -27,6 +28,7 @@ export default defineEventHandler(async (event) => {
   }
   await db.update(schema.publicationSchedules).set({ status: 'cancelled', updatedAt: nowTs }).where(eq(schema.publicationSchedules.id, scheduleId))
   await db.insert(schema.publicationHistory).values({ organizationId: orgId, scheduleId, jobId: null, event: 'schedule_cancelled', message: `Programación cancelada (${openJobs.length} job(s) cancelados).`, createdAt: nowTs })
+  await logAdminAction(event, { user, orgId, action: 'delete', resource: 'scheduler-schedule', resourceId: scheduleId, detail: `${openJobs.length} jobs cancelled` })
 
   return { ok: true, cancelledJobs: openJobs.length }
 })

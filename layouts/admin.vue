@@ -186,6 +186,8 @@ const nav = [
     items: [
       { label: 'Configuración', to: '/admin/configuracion', icon: 'settings' },
       { label: 'Usuarios', to: '/admin/users', icon: 'key' },
+      // Org-scoped: shows this org's own team activity (server/utils/audit.ts).
+      { label: 'Auditoría', to: '/admin/audit-log', icon: 'doc' },
     ],
   },
 ]

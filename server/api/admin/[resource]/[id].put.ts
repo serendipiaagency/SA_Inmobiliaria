@@ -2,6 +2,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import { useDb, schema } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource, buildPayload, syncTranslations } from '../../../utils/adminResources'
+import { logAdminAction } from '../../../utils/audit'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -57,5 +58,6 @@ export default defineEventHandler(async (event) => {
     await db.update(def.table).set(data).where(where as any)
   }
   await syncTranslations(db, def, id, body?.translations)
+  await logAdminAction(event, { user, orgId, action: 'update', resource: key, resourceId: id })
   return { ok: true, id }
 })

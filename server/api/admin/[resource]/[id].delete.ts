@@ -2,6 +2,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import { useDb, schema, cfEnv, now } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
+import { logAdminAction } from '../../../utils/audit'
 
 // visitor_submissions rows reference R2 keys for identity/financial PDFs. The DB row being
 // gone must mean the documents are gone too — otherwise "deleting" someone's passport scan
@@ -73,5 +74,6 @@ export default defineEventHandler(async (event) => {
     }
     throw err
   }
+  await logAdminAction(event, { user, orgId, action: 'delete', resource: key, resourceId: id, detail: hard ? 'hard' : 'soft' })
   return { ok: true }
 })
