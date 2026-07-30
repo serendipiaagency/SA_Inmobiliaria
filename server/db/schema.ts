@@ -1350,3 +1350,52 @@ export const exportBatchItems = sqliteTable(
   },
   (t) => [index('export_batch_items_batch').on(t.batchId)],
 )
+
+// A catalog is one combined PDF (cover + index + per-asset sections) built
+// from per-asset fragments — distinct from export_batches, which produces N
+// independent documents. Assembly happens with pdf-lib's copyPages once every
+// fragment has rendered (see server/utils/assetExport/catalogRenderer.ts).
+export const assetExportCatalogs = sqliteTable(
+  'asset_export_catalogs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    templateId: integer('template_id')
+      .notNull()
+      .references(() => assetExportTemplates.id),
+    formatKey: text('format_key').notNull(),
+    coverTitle: text('cover_title'),
+    status: text('status').notNull().default('pending'),
+    totalCount: integer('total_count').notNull().default(0),
+    completedCount: integer('completed_count').notNull().default(0),
+    failedCount: integer('failed_count').notNull().default(0),
+    r2Key: text('r2_key'),
+    fileSizeBytes: integer('file_size_bytes'),
+    errorMessage: text('error_message'),
+    requestedBy: integer('requested_by'),
+    createdAt: text('created_at').notNull().default(''),
+    completedAt: text('completed_at'),
+  },
+  (t) => [index('asset_export_catalogs_org').on(t.organizationId, t.createdAt)],
+)
+
+export const assetExportCatalogItems = sqliteTable(
+  'asset_export_catalog_items',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    catalogId: integer('catalog_id')
+      .notNull()
+      .references(() => assetExportCatalogs.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    assetId: integer('asset_id').notNull(),
+    status: text('status').notNull().default('pending'),
+    title: text('title'),
+    pageCount: integer('page_count'),
+    r2Key: text('r2_key'),
+    errorMessage: text('error_message'),
+    createdAt: text('created_at').notNull().default(''),
+    completedAt: text('completed_at'),
+  },
+  (t) => [index('asset_export_catalog_items_catalog').on(t.catalogId, t.position)],
+)
