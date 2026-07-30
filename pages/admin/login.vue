@@ -7,12 +7,12 @@
       </div>
       <form class="card space-y-5 p-8" @submit.prevent="submit">
         <div>
-          <label class="label">Email</label>
-          <input v-model="email" type="email" class="input" required autocomplete="email" autofocus />
+          <label class="label" for="admin-login-email">Email</label>
+          <input id="admin-login-email" v-model="email" type="email" class="input" required autocomplete="email" autofocus />
         </div>
         <div>
-          <label class="label">Contraseña</label>
-          <input v-model="password" type="password" class="input" required autocomplete="current-password" />
+          <label class="label" for="admin-login-password">Contraseña</label>
+          <input id="admin-login-password" v-model="password" type="password" class="input" required autocomplete="current-password" />
         </div>
         <button type="submit" class="btn-primary w-full" :disabled="loading">
           {{ loading ? 'Accediendo…' : 'Acceder al panel' }}
@@ -49,8 +49,10 @@ async function submit() {
       return
     }
     router.push('/admin')
-  } catch (e: any) {
-    error.value = e?.statusMessage || 'Credenciales inválidas'
+  } catch {
+    // The backend's statusMessage ("Invalid credentials") is an internal,
+    // English-only string — never surface it on this Spanish-language form.
+    error.value = 'Credenciales inválidas'
   } finally {
     loading.value = false
   }

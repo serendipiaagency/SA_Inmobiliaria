@@ -11,3 +11,6 @@ dist
 .DS_Store
 logs
 *.log
+playwright-report
+test-results
+blob-report

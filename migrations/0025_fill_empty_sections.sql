@@ -48,9 +48,17 @@ INSERT INTO master_plans (organization_id, name, image, created_at) VALUES
 (1, 'Master plan — Marina Vista', 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=1600', datetime('now')),
 (1, 'Master plan — Palm Grove', 'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?w=1600', datetime('now'));
 
-INSERT INTO developer_property_master_plan (developer_property_id, master_plan_id) VALUES
-((SELECT id FROM developer_properties WHERE slug = 'marina-crest-tower'), (SELECT id FROM master_plans WHERE name = 'Master plan — Marina Vista')),
-((SELECT id FROM developer_properties WHERE slug = 'palm-grove-residences'), (SELECT id FROM master_plans WHERE name = 'Master plan — Palm Grove'));
+-- SELECT-based (not VALUES) so this is a no-op instead of a NOT NULL failure
+-- when 'marina-crest-tower'/'palm-grove-residences' don't exist yet — e.g. a
+-- fresh D1 bootstrapped from migrations alone (CI, disaster recovery, a new
+-- developer's local DB) rather than from the hand-seeded production data
+-- this migration was originally written against.
+INSERT INTO developer_property_master_plan (developer_property_id, master_plan_id)
+SELECT dp.id, mp.id FROM developer_properties dp, master_plans mp
+WHERE dp.slug = 'marina-crest-tower' AND mp.name = 'Master plan — Marina Vista'
+UNION ALL
+SELECT dp.id, mp.id FROM developer_properties dp, master_plans mp
+WHERE dp.slug = 'palm-grove-residences' AND mp.name = 'Master plan — Palm Grove';
 
 -- ---------------------------------------------------------------------------
 -- CMS taxonomy (were empty: 0 categories/tags/authors/redirects)
