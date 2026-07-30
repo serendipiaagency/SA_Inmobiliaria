@@ -65,12 +65,20 @@
     </div>
 
     <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="editing = null">
-      <div class="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-5">
-        <h3 class="mb-1 text-sm font-semibold">Estructura — {{ editing.name }}</h3>
-        <p class="mb-3 text-xs text-stone-500">
-          Editor JSON temporal (páginas/elementos con x/y/w/h/binding). El lienzo visual de arrastrar y soltar es la Fase 5-6, todavía no construida.
-        </p>
-        <textarea v-model="editingJson" class="h-96 w-full rounded-lg border border-line bg-stone-50 p-3 font-mono text-xs" />
+      <div class="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-white p-5">
+        <div class="mb-3 flex items-center justify-between">
+          <h3 class="text-sm font-semibold">Estructura — {{ editing.name }}</h3>
+          <button type="button" class="text-xs font-medium text-stone-500 hover:underline" @click="showJson = !showJson">
+            {{ showJson ? 'Ver lienzo' : 'Ver JSON avanzado' }}
+          </button>
+        </div>
+
+        <AdminAssetExportCanvasEditor v-if="!showJson && editingStructure" :structure="editingStructure" :format-key="editing.formatKey" />
+
+        <template v-else>
+          <textarea v-model="editingJson" class="h-96 w-full rounded-lg border border-line bg-stone-50 p-3 font-mono text-xs" />
+        </template>
+
         <p v-if="editError" class="mt-2 text-xs font-medium text-red-600">{{ editError }}</p>
         <div class="mt-3 flex gap-3">
           <button type="button" class="dash-btn-primary" @click="saveStructure">Guardar</button>
@@ -167,25 +175,43 @@ async function setStatus(t: Template, status: 'published' | 'archived') {
   await refresh()
 }
 
+interface TemplateStructure {
+  pages: Array<{ id: string; elements: any[] }>
+}
+
 const editing = ref<Template | null>(null)
+const editingStructure = ref<TemplateStructure | null>(null)
 const editingJson = ref('')
 const editError = ref('')
+const showJson = ref(false)
 
 function editStructure(t: Template) {
   editing.value = t
-  editingJson.value = JSON.stringify(JSON.parse(t.structureJson), null, 2)
+  editingStructure.value = JSON.parse(t.structureJson)
+  editingJson.value = JSON.stringify(editingStructure.value, null, 2)
   editError.value = ''
+  showJson.value = false
 }
+
+// Keep the raw-JSON view in sync whenever it's shown, so switching back and
+// forth never silently discards edits made in the other view.
+watch(showJson, (show) => {
+  if (show && editingStructure.value) editingJson.value = JSON.stringify(editingStructure.value, null, 2)
+})
 
 async function saveStructure() {
   if (!editing.value) return
   editError.value = ''
   let structure: unknown
-  try {
-    structure = JSON.parse(editingJson.value)
-  } catch {
-    editError.value = 'JSON inválido'
-    return
+  if (showJson.value) {
+    try {
+      structure = JSON.parse(editingJson.value)
+    } catch {
+      editError.value = 'JSON inválido'
+      return
+    }
+  } else {
+    structure = editingStructure.value
   }
   try {
     await $fetch(`/api/admin/asset-export/templates/${editing.value.id}`, { method: 'PUT', body: { structure } })
