@@ -26,6 +26,18 @@
             <input v-model="createForm.category" class="cfg-input" placeholder="moderna, luxury, corporativa…" />
           </label>
           <label class="block">
+            <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Tipo de activo (opcional)</span>
+            <select v-model="createForm.assetTypeScope" class="cfg-input">
+              <option value="">Cualquier tipo</option>
+              <option value="vivienda">Vivienda</option>
+              <option value="terreno">Terreno</option>
+              <option value="local">Local comercial</option>
+              <option value="nave">Nave industrial</option>
+              <option value="garaje">Garaje / trastero</option>
+              <option value="promocion">Promoción</option>
+            </select>
+          </label>
+          <label class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Descripción</span>
             <input v-model="createForm.description" class="cfg-input" />
           </label>
@@ -48,6 +60,7 @@
           <p class="text-stone-500">{{ t.description || 'Sin descripción' }}</p>
           <div class="flex flex-wrap items-center gap-2">
             <span class="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600">{{ t.category }}</span>
+            <span v-if="t.assetTypeScope" class="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-700">{{ t.assetTypeScope }}</span>
             <span v-if="t.isSystem" class="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">Sistema</span>
             <span class="rounded-full px-2 py-0.5 text-[11px] font-medium" :class="statusClass(t.status)">{{ statusLabel(t.status) }}</span>
           </div>
@@ -100,6 +113,7 @@ interface Template {
   description: string | null
   category: string
   formatKey: string
+  assetTypeScope: string | null
   isSystem: number
   status: 'draft' | 'published' | 'archived'
   structureJson: string
@@ -137,7 +151,7 @@ function statusClass(status: string) {
 const showCreate = ref(false)
 const creating = ref(false)
 const error = ref('')
-const createForm = reactive({ name: '', formatKey: 'pdf_a4_portrait', category: 'moderna', description: '' })
+const createForm = reactive({ name: '', formatKey: 'pdf_a4_portrait', category: 'moderna', assetTypeScope: '', description: '' })
 
 async function create() {
   if (!createForm.name) {
