@@ -157,8 +157,20 @@
         </div>
         <p v-if="selectedProperty" class="mb-3 text-sm text-emerald-700">Seleccionada: {{ selectedProperty.name }}</p>
 
-        <label class="label">Fecha/hora de lanzamiento (canal base)</label>
-        <input v-model="createForm.baseScheduledAt" type="datetime-local" class="input mb-3" />
+        <label class="label">Fecha/hora de lanzamiento (canal base){{ aiTimeRule?.autoApply ? ' — opcional' : '' }}</label>
+        <input v-model="createForm.baseScheduledAt" type="datetime-local" class="input mb-1" />
+        <div class="mb-3 flex items-center gap-2 text-xs text-stone-500">
+          <button
+            class="relative h-4 w-7 shrink-0 rounded-full transition"
+            :class="aiTimeRule?.autoApply ? 'bg-ink' : 'bg-stone-300'"
+            role="switch"
+            :aria-checked="!!aiTimeRule?.autoApply"
+            @click="toggleAiTimeAutoApply"
+          >
+            <span class="absolute top-0.5 h-3 w-3 rounded-full bg-white transition" :class="aiTimeRule?.autoApply ? 'left-3.5' : 'left-0.5'" />
+          </button>
+          <span>Si dejas la fecha vacía, usar automáticamente la hora recomendada por IA (cuando haya suficiente historial).</span>
+        </div>
 
         <label class="label">Plantilla (opcional — o define los canales a mano abajo)</label>
         <select v-model="createForm.templateId" class="input mb-3">
@@ -352,8 +364,20 @@ async function loadAutomations() {
   automations.value = r.rows
 }
 
+const aiTimeRule = ref<{ autoApply: number; minConfidence: number; minSampleSize: number } | null>(null)
+async function loadAiTimeRule() {
+  const r = await $fetch<any>('/api/admin/scheduler/ai-time-rules').catch(() => null)
+  if (r) aiTimeRule.value = r.data
+}
+async function toggleAiTimeAutoApply() {
+  if (!aiTimeRule.value) return
+  aiTimeRule.value.autoApply = aiTimeRule.value.autoApply ? 0 : 1
+  await $fetch('/api/admin/scheduler/ai-time-rules', { method: 'PUT', body: { autoApply: !!aiTimeRule.value.autoApply } })
+  toast.success(aiTimeRule.value.autoApply ? 'Hora IA automática activada' : 'Hora IA automática desactivada')
+}
+
 onMounted(async () => {
-  await Promise.all([loadChannels(), loadTemplates(), loadSchedules(), loadJobCounts(), loadCalendar(), loadAutomations(), loadAiSuggestions()])
+  await Promise.all([loadChannels(), loadTemplates(), loadSchedules(), loadJobCounts(), loadCalendar(), loadAutomations(), loadAiSuggestions(), loadAiTimeRule()])
 })
 
 const automationEditor = ref<{ name: string; triggerType: string; actionType: string } | null>(null)
@@ -430,14 +454,14 @@ function selectProperty(p: any) {
 }
 async function submitCreate() {
   if (!selectedProperty.value) return toast.error('Elige una propiedad')
-  if (!createForm.value.baseScheduledAt) return toast.error('Indica la fecha/hora de lanzamiento')
+  if (!createForm.value.baseScheduledAt && !aiTimeRule.value?.autoApply) return toast.error('Indica la fecha/hora de lanzamiento o activa la hora IA automática')
   creating.value = true
   try {
     await $fetch('/api/admin/scheduler/create', {
       method: 'POST',
       body: {
         developerPropertyId: selectedProperty.value.id,
-        baseScheduledAt: createForm.value.baseScheduledAt.replace('T', ' ') + ':00',
+        baseScheduledAt: createForm.value.baseScheduledAt ? createForm.value.baseScheduledAt.replace('T', ' ') + ':00' : undefined,
         templateId: createForm.value.templateId || undefined,
         steps: createForm.value.templateId ? undefined : createForm.value.steps,
       },

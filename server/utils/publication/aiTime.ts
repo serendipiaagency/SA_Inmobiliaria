@@ -79,3 +79,59 @@ export async function computeAiTimeSuggestions(db: any, orgId: number): Promise<
   }
   return written
 }
+
+/**
+ * Auto-apply gate for a new schedule's base time. `publication_ai_time_rules`
+ * (auto_apply/min_confidence/min_sample_size) previously had no reader —
+ * suggestions only ever showed up as a hint the user could ignore. This is
+ * the missing consumer: when an org has opted in and didn't get an explicit
+ * time from the caller, it snaps the schedule to the next occurrence of the
+ * best-performing hour for the property's primary channel + type, provided
+ * the suggestion clears the org's own confidence/sample-size bar. Never
+ * overrides a time the caller actually chose.
+ */
+export async function maybeApplyAiTime(
+  db: any,
+  orgId: number,
+  developerPropertyId: number,
+  primaryChannelKey: string,
+  requestedBaseScheduledAt: string,
+  explicitTimeGiven: boolean,
+): Promise<{ baseScheduledAt: string; applied: boolean; suggestedHour?: number }> {
+  if (explicitTimeGiven) return { baseScheduledAt: requestedBaseScheduledAt, applied: false }
+
+  const ruleRows = await db.select().from(schema.publicationAiTimeRules).where(eq(schema.publicationAiTimeRules.organizationId, orgId)).limit(1)
+  const rule = ruleRows[0]
+  if (!rule || !rule.autoApply) return { baseScheduledAt: requestedBaseScheduledAt, applied: false }
+
+  const propRows = await db
+    .select({ propertyType: schema.developerProperties.propertyType })
+    .from(schema.developerProperties)
+    .where(eq(schema.developerProperties.id, developerPropertyId))
+    .limit(1)
+  const propertyType = propRows[0]?.propertyType
+  if (!propertyType) return { baseScheduledAt: requestedBaseScheduledAt, applied: false }
+
+  const sugRows = await db
+    .select()
+    .from(schema.publicationAiTimeSuggestions)
+    .where(
+      and(
+        eq(schema.publicationAiTimeSuggestions.organizationId, orgId),
+        eq(schema.publicationAiTimeSuggestions.channelKey, primaryChannelKey),
+        eq(schema.publicationAiTimeSuggestions.propertyType, propertyType),
+      ),
+    )
+    .limit(1)
+  const suggestion = sugRows[0]
+  if (!suggestion || suggestion.confidence < rule.minConfidence || suggestion.sampleSize < rule.minSampleSize) {
+    return { baseScheduledAt: requestedBaseScheduledAt, applied: false }
+  }
+
+  const base = new Date(`${requestedBaseScheduledAt.replace(' ', 'T')}Z`)
+  const candidate = new Date(base)
+  candidate.setUTCHours(suggestion.suggestedHour, 0, 0, 0)
+  if (candidate < base) candidate.setUTCDate(candidate.getUTCDate() + 1)
+
+  return { baseScheduledAt: candidate.toISOString().replace('T', ' ').slice(0, 19), applied: true, suggestedHour: suggestion.suggestedHour }
+}
