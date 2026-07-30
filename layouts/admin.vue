@@ -143,6 +143,7 @@ const nav = [
       { label: 'Comunidades', to: '/admin/communities', icon: 'store' },
       { label: 'Publicación multicanal', to: '/admin/scheduler', icon: 'bolt' },
       { label: 'Brand Kit', to: '/admin/asset-export/brand-kit', icon: 'sparkles' },
+      { label: 'Plantillas de Export', to: '/admin/asset-export/templates', icon: 'layers' },
     ],
   },
   {
