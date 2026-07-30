@@ -11,6 +11,8 @@ interface UpsertLeadInput {
   source: string
   propertyId?: number | null
   propertyName?: string | null
+  agentId?: number | null
+  agentName?: string | null
   budget?: number | null
   notes?: string | null
   scoreBump?: number
@@ -43,6 +45,7 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
           updatedAt: nowTs,
           score: Math.min(100, existing[0].score + bump),
           ...(input.propertyId ? { propertyId: input.propertyId, propertyName: input.propertyName || null } : {}),
+          ...(input.agentId ? { agentId: input.agentId, agentName: input.agentName || null } : {}),
           ...(input.phone ? { phone: input.phone } : {}),
           ...(input.budget ? { budget: input.budget } : {}),
         })
@@ -62,6 +65,8 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
     budget: input.budget || null,
     propertyId: input.propertyId || null,
     propertyName: input.propertyName || null,
+    agentId: input.agentId || null,
+    agentName: input.agentName || null,
     notes: input.notes || null,
     lastContactAt: nowTs,
     createdAt: nowTs,

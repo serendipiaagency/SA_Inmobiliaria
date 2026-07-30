@@ -407,6 +407,7 @@ export const teamMembers = sqliteTable('team_members', {
   twitter: text('twitter'),
   linkedin: text('linkedin'),
   instagram: text('instagram'),
+  slotDurationMinutes: integer('slot_duration_minutes').notNull().default(60),
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })
@@ -527,14 +528,46 @@ export const visits = sqliteTable(
     clientName: text('client_name').notNull(),
     propertyId: integer('property_id'),
     propertyName: text('property_name'),
+    agentId: integer('agent_id'),
     agentName: text('agent_name'),
     scheduledAt: text('scheduled_at').notNull(),
+    durationMinutes: integer('duration_minutes').notNull().default(60),
+    endsAt: text('ends_at'),
     status: text('status').notNull().default('scheduled'), // scheduled | completed | cancelled | no_show
     channel: text('channel').notNull().default('in_person'), // in_person | video | phone
     notes: text('notes'),
     createdAt: text('created_at').notNull().default(''),
   },
-  (t) => [index('visits_status').on(t.status)],
+  (t) => [index('visits_status').on(t.status), index('visits_agent_scheduled').on(t.agentId, t.scheduledAt)],
+)
+
+/** Weekly recurring working hours per agent — the real availability source for the appointment booker. */
+export const agentAvailability = sqliteTable(
+  'agent_availability',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    agentId: integer('agent_id').notNull(),
+    dayOfWeek: integer('day_of_week').notNull(), // 0=domingo .. 6=sábado
+    startTime: text('start_time').notNull(), // 'HH:MM'
+    endTime: text('end_time').notNull(),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('agent_availability_agent').on(t.agentId)],
+)
+
+/** One-off blocked dates (vacation, sick day) that override the weekly rule for that agent. */
+export const agentTimeOff = sqliteTable(
+  'agent_time_off',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    agentId: integer('agent_id').notNull(),
+    date: text('date').notNull(), // 'YYYY-MM-DD'
+    reason: text('reason'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('agent_time_off_agent_date').on(t.agentId, t.date)],
 )
 
 export const reservations = sqliteTable(
