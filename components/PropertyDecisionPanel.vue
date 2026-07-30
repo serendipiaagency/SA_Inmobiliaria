@@ -167,7 +167,16 @@
       </div>
     </div>
 
-    <ScheduleVisitModal class="no-print" :open="visitModal.open" :slug="slug" :property-name="project.name" :channel="visitModal.channel" @close="visitModal.open = false" />
+    <BookAppointmentModal
+      class="no-print"
+      :open="visitModal.open"
+      agent-slug="perla-maria-melgarejo"
+      :agent-name="agentName"
+      :property-id="project.id"
+      :property-name="project.name"
+      :channel="visitModal.channel"
+      @close="visitModal.open = false"
+    />
   </div>
 </template>
 

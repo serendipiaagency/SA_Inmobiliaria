@@ -13,8 +13,8 @@ export default defineEventHandler(async (event) => {
   const rows = (
     await raw
       .prepare(
-        `SELECT id, client_name AS clientName, property_name AS propertyName, agent_name AS agentName,
-                scheduled_at AS scheduledAt, status, channel
+        `SELECT id, client_name AS clientName, property_name AS propertyName, agent_id AS agentId, agent_name AS agentName,
+                scheduled_at AS scheduledAt, ends_at AS endsAt, status, channel
          FROM visits ${clause} ORDER BY scheduled_at DESC LIMIT 200`,
       )
       .bind(...binds)

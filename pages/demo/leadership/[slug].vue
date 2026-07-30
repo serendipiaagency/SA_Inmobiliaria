@@ -49,10 +49,13 @@
               :languages="languageList"
               profile-slug=""
             />
+            <button class="btn-primary w-full" @click="showBooking = true">{{ t('leadership.detail.bookAppointment', 'Reservar cita') }}</button>
           </div>
         </aside>
       </div>
     </div>
+
+    <BookAppointmentModal :open="showBooking" :agent-slug="data.member.slug" :agent-name="data.member.name" @close="showBooking = false" />
   </div>
 </template>
 
@@ -71,6 +74,7 @@ useHead(
   }),
 )
 
+const showBooking = ref(false)
 const languageList = computed(() => (data.value?.member.languages || '').split(',').map((l) => l.trim()).filter(Boolean))
 const socials = computed(() => {
   const m = data.value?.member
