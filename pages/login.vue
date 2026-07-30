@@ -33,7 +33,8 @@ async function submit() {
   error.value = ''
   try {
     await login(email.value, password.value)
-    router.push(user.value?.role === 'admin' ? '/admin' : '/demo')
+    const isStaff = user.value?.role === 'admin' || user.value?.role === 'super_admin'
+    router.push(isStaff ? '/admin' : '/demo')
   } catch (e: any) {
     error.value = e?.statusMessage || t('login.form.error', 'Credenciales inválidas')
   } finally {

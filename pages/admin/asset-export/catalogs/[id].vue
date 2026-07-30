@@ -9,11 +9,12 @@
       <div class="flex items-center justify-between">
         <div>
           <p class="text-sm font-medium">{{ statusHeadline }}</p>
-          <p v-if="catalog?.failedCount" class="mt-0.5 text-xs text-red-600">{{ catalog.failedCount }} activo(s) no se pudieron generar y quedarán fuera del catálogo</p>
+          <p v-if="catalog?.failedCount" class="mt-0.5 text-xs text-red-600">{{ catalog.failedCount }} activo(s) no se pudieron generar</p>
           <p v-if="catalog?.errorMessage" class="mt-0.5 text-xs text-red-600">{{ catalog.errorMessage }}</p>
         </div>
         <div class="flex items-center gap-3">
           <a v-if="isDownloadable" :href="`/api/admin/asset-export/catalogs/${catalogId}/download`" class="text-xs font-medium text-ink hover:underline" target="_blank">Descargar PDF</a>
+          <button v-if="canRetry" type="button" class="text-xs font-medium text-ink hover:underline" @click="retryFailed">Reintentar errores</button>
           <button v-if="isRunning" type="button" class="text-xs font-medium text-stone-500 hover:underline" @click="cancel">Cancelar</button>
         </div>
       </div>
@@ -68,6 +69,7 @@ const items = computed(() => catalog.value?.items || [])
 const progressPct = computed(() => (catalog.value?.totalCount ? Math.round(((catalog.value.completedCount + catalog.value.failedCount) / catalog.value.totalCount) * 100) : 0))
 const isRunning = computed(() => catalog.value && ['pending', 'running'].includes(catalog.value.status))
 const isDownloadable = computed(() => catalog.value && ['completed', 'completed_with_errors'].includes(catalog.value.status))
+const canRetry = computed(() => catalog.value && catalog.value.status === 'completed_with_errors' && catalog.value.failedCount > 0)
 const statusHeadline = computed(() => {
   if (!catalog.value) return ''
   if (catalog.value.status === 'completed' || catalog.value.status === 'completed_with_errors') return 'Catálogo generado'
@@ -93,6 +95,13 @@ async function cancel() {
   cancelled = true
   await $fetch(`/api/admin/asset-export/catalogs/${catalogId}/cancel`, { method: 'POST' })
   await load()
+}
+
+async function retryFailed() {
+  await $fetch(`/api/admin/asset-export/catalogs/${catalogId}/retry-failed`, { method: 'POST' })
+  cancelled = false
+  await load()
+  await processLoop()
 }
 
 onMounted(async () => {

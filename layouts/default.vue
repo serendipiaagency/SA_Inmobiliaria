@@ -45,7 +45,7 @@
             {{ t('nav.contact') }}
           </NuxtLink>
           <NuxtLink
-            v-if="user?.role === 'admin'"
+            v-if="isStaff"
             to="/admin"
             class="hidden text-[11px] font-semibold uppercase tracking-widest2 transition md:inline"
             :class="navLight ? 'text-white/85 hover:text-white' : 'text-stone-500 hover:text-ink'"
@@ -77,8 +77,8 @@
           <NuxtLink to="/demo/leadership" @click="open = false">{{ t('nav.team') }}</NuxtLink>
           <NuxtLink to="/demo/blog" @click="open = false">{{ t('nav.journal') }}</NuxtLink>
           <NuxtLink to="/demo/contact-us" @click="open = false">{{ t('nav.contact') }}</NuxtLink>
-          <NuxtLink :to="user?.role === 'admin' ? '/admin' : '/login'" @click="open = false">
-            {{ user?.role === 'admin' ? t('nav.admin') : t('nav.signin') }}
+          <NuxtLink :to="isStaff ? '/admin' : '/login'" @click="open = false">
+            {{ isStaff ? t('nav.admin') : t('nav.signin') }}
           </NuxtLink>
         </div>
         <div class="mt-5 border-t border-line pt-5"><LocaleSwitcher /></div>
@@ -143,6 +143,7 @@
 const open = ref(false)
 const { t } = useI18n()
 const { user, loaded, refresh } = useAuth()
+const isStaff = computed(() => user.value?.role === 'admin' || user.value?.role === 'super_admin')
 const { load: loadFav, ids: favIds } = useFavorites()
 const { load: loadCompare } = useCompare()
 const { tenant, load: loadTenant } = useTenant()

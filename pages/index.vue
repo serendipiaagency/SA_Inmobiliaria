@@ -15,7 +15,7 @@
         </nav>
 
         <div class="sa-header-actions">
-          <NuxtLink to="/login" class="sa-login">Acceder</NuxtLink>
+          <NuxtLink to="/admin/login" class="sa-login">Acceder</NuxtLink>
           <a href="#contacto" class="sa-button sa-button-small">Solicitar demo <span>↗</span></a>
           <button class="sa-menu" aria-label="Abrir menú" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen">
             <span /><span /><span />
@@ -27,7 +27,7 @@
         <a href="#inteligencia" @click="menuOpen = false">IA inmobiliaria</a>
         <a href="#activos" @click="menuOpen = false">Tipos de activo</a>
         <a href="#contacto" @click="menuOpen = false">Solicitar demo</a>
-        <NuxtLink to="/login" @click="menuOpen = false">Acceder al panel</NuxtLink>
+        <NuxtLink to="/admin/login" @click="menuOpen = false">Acceder al panel</NuxtLink>
       </nav>
     </header>
 
@@ -199,7 +199,7 @@
       </section>
     </main>
 
-    <footer class="sa-footer"><div class="sa-shell sa-footer-grid"><div><NuxtLink to="/" class="sa-brand"><span class="sa-brand-mark"><span>SA</span></span><span class="sa-brand-copy"><strong>Serendipia</strong><small>INMOBILIARIA</small></span></NuxtLink><p>Software para inmobiliarias, promotoras y equipos comerciales que quieren trabajar con una base preparada para crecer.</p></div><div><small>PLATAFORMA</small><a href="#plataforma">Producto</a><a href="#inteligencia">IA inmobiliaria</a><a href="#activos">Tipos de activo</a></div><div><small>EXPERIENCIAS</small><NuxtLink to="/demo/properties">Ver propiedades</NuxtLink><NuxtLink to="/demo/mapa">Explorar mapa</NuxtLink><NuxtLink to="/demo/contact-us">Contacto</NuxtLink></div><div><small>ACCESO</small><NuxtLink to="/login">Acceder al panel</NuxtLink><a href="#contacto">Solicitar demo</a><a href="mailto:info@serendipiaagency.com">Email directo</a></div></div><div class="sa-shell sa-footer-bottom"><span>© {{ new Date().getUTCFullYear() }} Serendipia Agency</span><span>Inmobiliaria digital, preparada para lo que viene.</span><NuxtLink to="/demo/privacy">Privacidad</NuxtLink></div></footer>
+    <footer class="sa-footer"><div class="sa-shell sa-footer-grid"><div><NuxtLink to="/" class="sa-brand"><span class="sa-brand-mark"><span>SA</span></span><span class="sa-brand-copy"><strong>Serendipia</strong><small>INMOBILIARIA</small></span></NuxtLink><p>Software para inmobiliarias, promotoras y equipos comerciales que quieren trabajar con una base preparada para crecer.</p></div><div><small>PLATAFORMA</small><a href="#plataforma">Producto</a><a href="#inteligencia">IA inmobiliaria</a><a href="#activos">Tipos de activo</a></div><div><small>EXPERIENCIAS</small><NuxtLink to="/demo/properties">Ver propiedades</NuxtLink><NuxtLink to="/demo/mapa">Explorar mapa</NuxtLink><NuxtLink to="/demo/contact-us">Contacto</NuxtLink></div><div><small>ACCESO</small><NuxtLink to="/admin/login">Acceder al panel</NuxtLink><a href="#contacto">Solicitar demo</a><a href="mailto:info@serendipiaagency.com">Email directo</a></div></div><div class="sa-shell sa-footer-bottom"><span>© {{ new Date().getUTCFullYear() }} Serendipia Agency</span><span>Inmobiliaria digital, preparada para lo que viene.</span><NuxtLink to="/demo/privacy">Privacidad</NuxtLink></div></footer>
   </div>
 </template>
 
