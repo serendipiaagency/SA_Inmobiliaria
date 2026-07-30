@@ -142,6 +142,7 @@ const nav = [
       { label: 'Agentes', to: '/admin/agents', icon: 'badge' },
       { label: 'Comunidades', to: '/admin/communities', icon: 'store' },
       { label: 'Publicación multicanal', to: '/admin/scheduler', icon: 'bolt' },
+      { label: 'Brand Kit', to: '/admin/asset-export/brand-kit', icon: 'sparkles' },
     ],
   },
   {
