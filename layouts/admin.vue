@@ -146,6 +146,7 @@ const nav = [
       { label: 'Plantillas de Export', to: '/admin/asset-export/templates', icon: 'layers' },
       { label: 'Piezas generadas', to: '/admin/asset-export/projects', icon: 'doc' },
       { label: 'Exportación masiva', to: '/admin/asset-export/batches', icon: 'bolt' },
+      { label: 'Catálogos combinados', to: '/admin/asset-export/catalogs', icon: 'doc' },
     ],
   },
   {

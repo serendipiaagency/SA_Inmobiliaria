@@ -14,6 +14,41 @@ function formatPrice(price: number | null | undefined): string {
   return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(price)
 }
 
+export interface TenantBindings {
+  website: string
+  legalText: string
+  phone: string
+  whatsapp: string
+  email: string
+  primaryColor: string
+  secondaryColor: string
+  logo: string | null
+  orgName: string
+}
+
+/** Resolves the org-level (not asset-level) Brand Kit fields — shared by resolveAssetBindings and the catalog cover/index pages, which have no single asset to hang off of. */
+export async function resolveTenantBindings(event: H3Event, orgId: number): Promise<TenantBindings> {
+  const db = useDb(event)
+  const brandKitRows = await db.select().from(schema.brandKits).where(eq(schema.brandKits.organizationId, orgId)).limit(1)
+  const brandKit = brandKitRows[0] || null
+
+  const orgRows = await db.select().from(schema.organizations).where(eq(schema.organizations.id, orgId)).limit(1)
+  const org = orgRows[0] || null
+
+  const origin = getRequestURL(event).origin
+  return {
+    website: org?.domain ? `https://${org.domain}` : origin,
+    legalText: brandKit?.legalText || '',
+    phone: brandKit?.phone || '',
+    whatsapp: brandKit?.whatsapp || '',
+    email: brandKit?.email || '',
+    primaryColor: brandKit?.colorPrimary || '#16150f',
+    secondaryColor: brandKit?.colorSecondary || '#B08D57',
+    logo: brandKit?.logo || org?.logo || null,
+    orgName: org?.name || '',
+  }
+}
+
 /**
  * Resolves every {{asset.*}} / {{tenant.*}} token a template can reference
  * against the real developer_properties row + the org's Brand Kit — no
@@ -34,11 +69,7 @@ export async function resolveAssetBindings(
   const asset = rows[0]
   if (!asset || asset.organizationId !== params.orgId) throw createError({ statusCode: 404, statusMessage: 'Asset not found' })
 
-  const brandKitRows = await db.select().from(schema.brandKits).where(eq(schema.brandKits.organizationId, params.orgId)).limit(1)
-  const brandKit = brandKitRows[0] || null
-
-  const orgRows = await db.select().from(schema.organizations).where(eq(schema.organizations.id, params.orgId)).limit(1)
-  const org = orgRows[0] || null
+  const tenant = await resolveTenantBindings(event, params.orgId)
 
   const origin = getRequestURL(event).origin
   const publicUrl = asset.slug ? `${origin}/property-details/${asset.slug}` : origin
@@ -58,18 +89,18 @@ export async function resolveAssetBindings(
     'asset.description': asset.description || '',
     'asset.publicUrl': publicUrl,
     'asset.qrCode': qrCodeUrl,
-    'tenant.website': org?.domain ? `https://${org.domain}` : origin,
-    'tenant.legalText': brandKit?.legalText || '',
-    'tenant.phone': brandKit?.phone || '',
-    'tenant.whatsapp': brandKit?.whatsapp || '',
-    'tenant.email': brandKit?.email || '',
-    'tenant.primaryColor': brandKit?.colorPrimary || '#16150f',
-    'tenant.secondaryColor': brandKit?.colorSecondary || '#B08D57',
+    'tenant.website': tenant.website,
+    'tenant.legalText': tenant.legalText,
+    'tenant.phone': tenant.phone,
+    'tenant.whatsapp': tenant.whatsapp,
+    'tenant.email': tenant.email,
+    'tenant.primaryColor': tenant.primaryColor,
+    'tenant.secondaryColor': tenant.secondaryColor,
   }
 
   const images: Record<string, string | null> = {
     'asset.mainImage': asset.coverImage || null,
-    'tenant.logo': brandKit?.logo || org?.logo || null,
+    'tenant.logo': tenant.logo,
   }
 
   return { values, images }

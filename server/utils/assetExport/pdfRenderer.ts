@@ -15,7 +15,7 @@ function resolveBindingText(binding: string | undefined, bindings: AssetBindings
   return bindings.values[match[1]] ?? ''
 }
 
-function hexToRgb(hex: string | undefined, fallback: RGB): RGB {
+export function hexToRgb(hex: string | undefined, fallback: RGB): RGB {
   if (!hex) return fallback
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
   if (!m) return fallback
@@ -32,7 +32,7 @@ function resolveColor(style: Record<string, unknown> | undefined, bindings: Asse
   return rgb(0.08, 0.08, 0.06)
 }
 
-function wrapText(text: string, font: PDFFont, fontSize: number, maxWidth: number): string[] {
+export function wrapText(text: string, font: PDFFont, fontSize: number, maxWidth: number): string[] {
   const words = text.replace(/\s+/g, ' ').trim().split(' ')
   const lines: string[] = []
   let current = ''
