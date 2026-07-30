@@ -72,7 +72,7 @@ export async function resolveAssetBindings(
   const tenant = await resolveTenantBindings(event, params.orgId)
 
   const origin = getRequestURL(event).origin
-  const publicUrl = asset.slug ? `${origin}/property-details/${asset.slug}` : origin
+  const publicUrl = asset.slug ? `${origin}/demo/property-details/${asset.slug}` : `${origin}/demo`
   const qrCodeUrl = await getOrCreateAssetQrUrl(event, { orgId: params.orgId, assetKind: params.assetKind, assetId: params.assetId, destinationUrl: publicUrl })
 
   const values: Record<string, string> = {

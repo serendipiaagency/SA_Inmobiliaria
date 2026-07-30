@@ -9,23 +9,23 @@
       ]"
     >
       <div class="mx-auto flex max-w-screen-2xl items-center justify-between gap-8 px-6 py-5 lg:px-10">
-        <NuxtLink to="/" class="shrink-0">
+        <NuxtLink to="/demo" class="shrink-0">
           <Logo size="md" :dark="navLight" :company-name="tenant?.companyName" :logo-url="mediaUrl(tenant?.logo)" />
         </NuxtLink>
 
         <nav class="hidden items-center gap-9 text-[11px] font-semibold uppercase tracking-widest2 lg:flex" :class="navLight ? 'text-white/85' : 'text-stone-500'">
-          <NuxtLink to="/properties" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.offplan') }}</NuxtLink>
-          <NuxtLink to="/mapa" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.map') }}</NuxtLink>
-          <NuxtLink to="/project-community" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.communities') }}</NuxtLink>
-          <NuxtLink to="/developer-list" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.developers') }}</NuxtLink>
-          <NuxtLink to="/leadership" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.team') }}</NuxtLink>
-          <NuxtLink to="/blog" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.journal') }}</NuxtLink>
+          <NuxtLink to="/demo/properties" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.offplan') }}</NuxtLink>
+          <NuxtLink to="/demo/mapa" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.map') }}</NuxtLink>
+          <NuxtLink to="/demo/project-community" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.communities') }}</NuxtLink>
+          <NuxtLink to="/demo/developer-list" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.developers') }}</NuxtLink>
+          <NuxtLink to="/demo/leadership" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.team') }}</NuxtLink>
+          <NuxtLink to="/demo/blog" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.journal') }}</NuxtLink>
         </nav>
 
         <div class="flex items-center gap-4">
           <LocaleSwitcher class="hidden md:flex" :dark="navLight" />
           <NuxtLink
-            to="/favoritos"
+            to="/demo/favoritos"
             class="relative hidden transition md:inline-flex"
             :class="navLight ? 'text-white/85 hover:text-white' : 'text-stone-500 hover:text-ink'"
             :aria-label="t('nav.favorites')"
@@ -38,7 +38,7 @@
             </span>
           </NuxtLink>
           <NuxtLink
-            to="/contact-us"
+            to="/demo/contact-us"
             class="hidden border px-5 py-2.5 text-[11px] font-semibold uppercase tracking-widest2 transition md:inline-flex"
             :class="navLight ? 'border-white/70 text-white hover:bg-white hover:text-ink' : 'border-ink text-ink hover:bg-ink hover:text-white'"
           >
@@ -70,13 +70,13 @@
 
       <nav v-if="open" class="border-t border-line bg-white px-6 py-5 lg:hidden">
         <div class="flex flex-col gap-4 text-[11px] font-semibold uppercase tracking-widest2 text-stone-600">
-          <NuxtLink to="/properties" @click="open = false">{{ t('nav.offplan') }}</NuxtLink>
-          <NuxtLink to="/mapa" @click="open = false">{{ t('nav.map') }}</NuxtLink>
-          <NuxtLink to="/project-community" @click="open = false">{{ t('nav.communities') }}</NuxtLink>
-          <NuxtLink to="/developer-list" @click="open = false">{{ t('nav.developers') }}</NuxtLink>
-          <NuxtLink to="/leadership" @click="open = false">{{ t('nav.team') }}</NuxtLink>
-          <NuxtLink to="/blog" @click="open = false">{{ t('nav.journal') }}</NuxtLink>
-          <NuxtLink to="/contact-us" @click="open = false">{{ t('nav.contact') }}</NuxtLink>
+          <NuxtLink to="/demo/properties" @click="open = false">{{ t('nav.offplan') }}</NuxtLink>
+          <NuxtLink to="/demo/mapa" @click="open = false">{{ t('nav.map') }}</NuxtLink>
+          <NuxtLink to="/demo/project-community" @click="open = false">{{ t('nav.communities') }}</NuxtLink>
+          <NuxtLink to="/demo/developer-list" @click="open = false">{{ t('nav.developers') }}</NuxtLink>
+          <NuxtLink to="/demo/leadership" @click="open = false">{{ t('nav.team') }}</NuxtLink>
+          <NuxtLink to="/demo/blog" @click="open = false">{{ t('nav.journal') }}</NuxtLink>
+          <NuxtLink to="/demo/contact-us" @click="open = false">{{ t('nav.contact') }}</NuxtLink>
           <NuxtLink :to="user?.role === 'admin' ? '/admin' : '/login'" @click="open = false">
             {{ user?.role === 'admin' ? t('nav.admin') : t('nav.signin') }}
           </NuxtLink>
@@ -104,33 +104,33 @@
           <div class="md:col-span-2">
             <p class="eyebrow mb-5">{{ t('footer.explore') }}</p>
             <ul class="space-y-3 text-sm text-stone-600">
-              <li><NuxtLink class="transition hover:text-ink" to="/properties">{{ t('footer.offplan') }}</NuxtLink></li>
-              <li><NuxtLink class="transition hover:text-ink" to="/project-community">{{ t('footer.communities') }}</NuxtLink></li>
-              <li><NuxtLink class="transition hover:text-ink" to="/developer-list">{{ t('footer.developers') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/demo/properties">{{ t('footer.offplan') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/demo/project-community">{{ t('footer.communities') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/demo/developer-list">{{ t('footer.developers') }}</NuxtLink></li>
             </ul>
           </div>
           <div class="md:col-span-2">
             <p class="eyebrow mb-5">{{ t('footer.company') }}</p>
             <ul class="space-y-3 text-sm text-stone-600">
-              <li><NuxtLink class="transition hover:text-ink" to="/about-us">{{ t('footer.about') }}</NuxtLink></li>
-              <li><NuxtLink class="transition hover:text-ink" to="/leadership">{{ t('footer.team') }}</NuxtLink></li>
-              <li><NuxtLink class="transition hover:text-ink" to="/blog">{{ t('footer.journal') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/demo/about-us">{{ t('footer.about') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/demo/leadership">{{ t('footer.team') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/demo/blog">{{ t('footer.journal') }}</NuxtLink></li>
             </ul>
           </div>
           <div class="md:col-span-3">
             <p class="eyebrow mb-5">{{ t('footer.services') }}</p>
             <ul class="space-y-3 text-sm text-stone-600">
-              <li><NuxtLink class="transition hover:text-ink" to="/visitor">{{ t('footer.visitor') }}</NuxtLink></li>
-              <li><NuxtLink class="transition hover:text-ink" to="/vendors/registration">{{ t('footer.vendor') }}</NuxtLink></li>
-              <li><NuxtLink class="transition hover:text-ink" to="/complain">{{ t('footer.complaints') }}</NuxtLink></li>
-              <li><NuxtLink class="transition hover:text-ink" to="/contact-us">{{ t('footer.contactus') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/demo/visitor">{{ t('footer.visitor') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/demo/vendors/registration">{{ t('footer.vendor') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/demo/complain">{{ t('footer.complaints') }}</NuxtLink></li>
+              <li><NuxtLink class="transition hover:text-ink" to="/demo/contact-us">{{ t('footer.contactus') }}</NuxtLink></li>
             </ul>
           </div>
         </div>
         <div class="hairline mt-14 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-6 text-center text-xs tracking-wide text-stone-400">
           <span>© {{ new Date().getFullYear() }} M&M Real Estate. {{ t('footer.rights') }}</span>
-          <NuxtLink class="transition hover:text-ink" to="/privacy">{{ t('footer.privacy') }}</NuxtLink>
-          <NuxtLink class="transition hover:text-ink" to="/terms">{{ t('footer.terms') }}</NuxtLink>
+          <NuxtLink class="transition hover:text-ink" to="/demo/privacy">{{ t('footer.privacy') }}</NuxtLink>
+          <NuxtLink class="transition hover:text-ink" to="/demo/terms">{{ t('footer.terms') }}</NuxtLink>
         </div>
       </div>
     </footer>

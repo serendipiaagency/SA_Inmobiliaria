@@ -1,6 +1,6 @@
 <template>
   <div class="flex min-h-screen flex-col items-center justify-center bg-paper px-6 text-center text-ink">
-    <NuxtLink to="/" class="mb-10">
+    <NuxtLink to="/demo" class="mb-10">
       <Logo size="md" />
     </NuxtLink>
 
@@ -18,7 +18,7 @@
 
     <div class="mt-9 flex flex-wrap justify-center gap-4">
       <button class="btn-primary" @click="handleClear">Volver al inicio</button>
-      <NuxtLink to="/properties" class="btn-secondary">Ver propiedades</NuxtLink>
+      <NuxtLink to="/demo/properties" class="btn-secondary">Ver propiedades</NuxtLink>
     </div>
   </div>
 </template>
@@ -30,6 +30,6 @@ const isNotFound = computed(() => props.error?.statusCode === 404)
 useHead({ title: isNotFound.value ? 'Página no encontrada — M&M Real Estate' : 'Error — M&M Real Estate' })
 
 function handleClear() {
-  clearError({ redirect: '/' })
+  clearError({ redirect: '/demo' })
 }
 </script>

@@ -56,7 +56,7 @@
             </svg>
           </button>
         </div>
-        <NuxtLink to="/" class="mt-1 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-stone-500 transition hover:bg-stone-100 hover:text-ink">
+        <NuxtLink to="/demo" class="mt-1 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-stone-500 transition hover:bg-stone-100 hover:text-ink">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg>
           Ver sitio público
         </NuxtLink>

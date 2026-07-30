@@ -2,7 +2,7 @@
   <!-- CMS article -->
   <article v-if="data?.source === 'cms'" class="mx-auto max-w-3xl px-4 py-12">
     <div class="flex items-center gap-2 text-xs text-stone-450">
-      <NuxtLink v-if="data.category" :to="`/blog?categoria=${data.category.slug}`" class="rounded-full bg-stone-100 px-2.5 py-1 font-semibold">{{ data.category.name }}</NuxtLink>
+      <NuxtLink v-if="data.category" :to="`/demo/blog?categoria=${data.category.slug}`" class="rounded-full bg-stone-100 px-2.5 py-1 font-semibold">{{ data.category.name }}</NuxtLink>
       <span>{{ data.article.readingTimeMinutes }} min de lectura</span>
       <span>·</span>
       <span>{{ data.article.viewCount }} vistas</span>
@@ -10,7 +10,7 @@
     <h1 class="mt-3 heading-serif text-4xl">{{ data.article.title }}</h1>
     <p v-if="data.article.excerpt" class="mt-3 text-lg text-stone-500">{{ data.article.excerpt }}</p>
 
-    <NuxtLink v-if="data.author" :to="`/blog/autor/${data.author.slug}`" class="mt-6 flex items-center gap-3">
+    <NuxtLink v-if="data.author" :to="`/demo/blog/autor/${data.author.slug}`" class="mt-6 flex items-center gap-3">
       <img v-if="data.author.photo" :src="mediaUrl(data.author.photo)" class="h-10 w-10 rounded-full object-cover" />
       <span v-else class="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-sm font-semibold text-white">{{ data.author.name?.[0] }}</span>
       <span>
@@ -105,7 +105,7 @@ const current = computed(() => (data.value?.source === 'legacy' ? data.value.tra
 
 const requestUrl = useRequestURL()
 const canonicalUrl = computed(() =>
-  data.value?.source === 'cms' && data.value.article.seoCanonical ? data.value.article.seoCanonical : `${requestUrl.origin}/blog/${route.params.slug}`,
+  data.value?.source === 'cms' && data.value.article.seoCanonical ? data.value.article.seoCanonical : `${requestUrl.origin}/demo/blog/${route.params.slug}`,
 )
 useHead(() => ({
   ...seoHead({

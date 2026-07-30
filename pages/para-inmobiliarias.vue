@@ -170,7 +170,7 @@
         </div>
         <div>
           <p class="lp-footer-head">Empresa</p>
-          <NuxtLink to="/">Ver un cliente real</NuxtLink>
+          <NuxtLink to="/demo">Ver un cliente real</NuxtLink>
           <NuxtLink to="/login">Acceder al panel</NuxtLink>
           <a href="mailto:hola@serendipiaagency.com">hola@serendipiaagency.com</a>
         </div>

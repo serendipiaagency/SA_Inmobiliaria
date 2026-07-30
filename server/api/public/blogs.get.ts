@@ -6,7 +6,7 @@ import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
  * public listing shape, so new editorial content shows up on the live site
  * without a breaking migration of the old posts. Legacy rows keep their
  * `source: 'legacy'` tag; CMS rows are tagged `source: 'cms'` — the detail
- * page (`/blog/[slug]`) uses that to pick the right renderer.
+ * page (`/demo/blog/[slug]`) uses that to pick the right renderer.
  */
 export default defineEventHandler(async (event) => {
   const db = useDb(event)

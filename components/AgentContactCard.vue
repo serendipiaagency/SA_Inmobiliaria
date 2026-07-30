@@ -4,7 +4,7 @@
     <div class="flex items-center gap-4">
       <img :src="mediaUrl(photo)" :alt="name" class="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-line" loading="lazy" />
       <div class="min-w-0">
-        <NuxtLink v-if="profileSlug" :to="`/leadership/${profileSlug}`" class="truncate font-serif text-lg font-medium leading-tight hover:underline">{{ name }}</NuxtLink>
+        <NuxtLink v-if="profileSlug" :to="`/demo/leadership/${profileSlug}`" class="truncate font-serif text-lg font-medium leading-tight hover:underline">{{ name }}</NuxtLink>
         <p v-else class="truncate font-serif text-lg font-medium leading-tight">{{ name }}</p>
         <p class="text-[13px] text-stone-500">{{ title }}</p>
         <div class="mt-1 flex items-center gap-1 text-[12px] text-stone-500">

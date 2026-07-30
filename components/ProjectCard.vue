@@ -178,7 +178,7 @@ const { has: hasCompare, toggle: toggleCompare, full: compareFull } = useCompare
 const { t } = useI18n()
 const { format: formatPrice } = useCurrency()
 
-const to = computed(() => `/property-details/${props.project.slug || props.project.id}`)
+const to = computed(() => `/demo/property-details/${props.project.slug || props.project.id}`)
 const photos = computed(() => (props.project.photos?.length ? props.project.photos : [props.project.coverImage].filter(Boolean) as string[]))
 
 const index = ref(0)

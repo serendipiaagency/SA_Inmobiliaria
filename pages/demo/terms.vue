@@ -76,12 +76,12 @@
         <h2 class="heading-serif mb-3 text-2xl text-ink">8. Contacto</h2>
         <p>
           Para cualquier duda sobre estos términos, escríbenos a través del
-          <NuxtLink to="/contact-us" class="underline hover:text-ink">formulario de contacto</NuxtLink>.
+          <NuxtLink to="/demo/contact-us" class="underline hover:text-ink">formulario de contacto</NuxtLink>.
         </p>
       </section>
 
       <div class="pt-4">
-        <NuxtLink to="/privacy" class="btn-secondary">Ver política de privacidad</NuxtLink>
+        <NuxtLink to="/demo/privacy" class="btn-secondary">Ver política de privacidad</NuxtLink>
       </div>
     </div>
   </div>

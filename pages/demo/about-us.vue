@@ -16,8 +16,8 @@
         {{ t('aboutUs.body.paragraph2', 'Ya sea que busques tu primera vivienda, una propiedad de inversión o un espacio para tu negocio, nuestro equipo está listo para guiarte en cada paso, desde la primera visita hasta la entrega.') }}
       </p>
       <div class="flex flex-wrap gap-4 pt-4">
-        <NuxtLink to="/properties" class="btn-primary">{{ t('aboutUs.cta.browse', 'Ver proyectos') }}</NuxtLink>
-        <NuxtLink to="/contact-us" class="btn-secondary">{{ t('aboutUs.cta.talk', 'Habla con nosotros') }}</NuxtLink>
+        <NuxtLink to="/demo/properties" class="btn-primary">{{ t('aboutUs.cta.browse', 'Ver proyectos') }}</NuxtLink>
+        <NuxtLink to="/demo/contact-us" class="btn-secondary">{{ t('aboutUs.cta.talk', 'Habla con nosotros') }}</NuxtLink>
       </div>
     </div>
   </div>

@@ -137,7 +137,7 @@ onMounted(async () => {
   for (const p of pts) {
     const m = L.marker([p.lat, p.lng], { icon: makeIcon(p) })
     const sv = `https://www.google.com/maps?q=&layer=c&cbll=${p.lat},${p.lng}`
-    const href = `/property-details/${p.slug || p.id}`
+    const href = `/demo/property-details/${p.slug || p.id}`
     const cover = p.coverImage ? mediaUrl(p.coverImage) : null
     m.bindPopup(
       `<div class="map-card">` +
