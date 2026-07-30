@@ -8,11 +8,14 @@
       <button type="button" class="palette-btn" @click="addElement('qr')">QR</button>
 
       <p class="mb-1 mt-4 text-[11px] font-semibold uppercase text-stone-400">Páginas</p>
-      <div v-for="(p, i) in structure.pages" :key="p.id" class="flex items-center gap-1">
+      <div v-for="(p, i) in structure.pages" :key="p.id" class="flex items-center gap-0.5">
         <button type="button" class="flex-1 rounded-lg border px-2 py-1 text-left text-xs" :class="i === activePageIndex ? 'border-ink bg-stone-50 font-medium' : 'border-line'" @click="activePageIndex = i">
           Página {{ i + 1 }}
         </button>
-        <button v-if="structure.pages.length > 1" type="button" class="text-xs text-red-500 hover:underline" @click="removePage(i)">✕</button>
+        <button type="button" class="px-0.5 text-xs text-stone-400 hover:text-ink disabled:opacity-30" :disabled="i === 0" title="Subir" @click="movePage(i, -1)">↑</button>
+        <button type="button" class="px-0.5 text-xs text-stone-400 hover:text-ink disabled:opacity-30" :disabled="i === structure.pages.length - 1" title="Bajar" @click="movePage(i, 1)">↓</button>
+        <button type="button" class="px-0.5 text-xs text-stone-400 hover:text-ink" title="Duplicar" @click="duplicatePage(i)">⧉</button>
+        <button v-if="structure.pages.length > 1" type="button" class="px-0.5 text-xs text-red-500 hover:underline" title="Eliminar" @click="removePage(i)">✕</button>
       </div>
       <button type="button" class="palette-btn" @click="addPage">+ Página</button>
     </div>
@@ -224,6 +227,19 @@ function addPage() {
 function removePage(i: number) {
   structure.pages.splice(i, 1)
   activePageIndex.value = Math.min(activePageIndex.value, structure.pages.length - 1)
+}
+function movePage(i: number, delta: number) {
+  const target = i + delta
+  if (target < 0 || target >= structure.pages.length) return
+  const [page] = structure.pages.splice(i, 1)
+  structure.pages.splice(target, 0, page)
+  if (activePageIndex.value === i) activePageIndex.value = target
+}
+function duplicatePage(i: number) {
+  const source = structure.pages[i]
+  const clone: TemplatePage = { id: newId('page'), elements: source.elements.map((el) => ({ ...el, id: newId(el.type), style: el.style ? { ...el.style } : undefined })) }
+  structure.pages.splice(i + 1, 0, clone)
+  activePageIndex.value = i + 1
 }
 
 // Pointer-based drag/resize — no external library, just mouse deltas
