@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { useDb, schema, now } from '../../../../utils/db'
+import { useDb, schema, now, resolvePublicOrgId } from '../../../../utils/db'
 import { upsertLead } from '../../../../utils/leads'
 import { rateLimit } from '../../../../utils/rateLimit'
 import { isValidEmail, isValidPhone } from '../../../../utils/validate'
@@ -27,8 +27,10 @@ export default defineEventHandler(async (event) => {
   const project = rows[0]
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
 
+  const orgId = resolvePublicOrgId(event)
   const contactLine = [body.email && `Email: ${body.email}`, body.phone && `Tel: ${body.phone}`].filter(Boolean).join(' · ')
   await db.insert(schema.visits).values({
+    organizationId: orgId,
     clientName: body.name,
     propertyId: project.id,
     propertyName: project.name,
@@ -41,6 +43,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     await upsertLead(event, {
+      organizationId: orgId,
       name: body.name,
       email: body.email || null,
       phone: body.phone || null,

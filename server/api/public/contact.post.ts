@@ -1,4 +1,4 @@
-import { useDb, schema, now } from '../../utils/db'
+import { useDb, schema, now, resolvePublicOrgId } from '../../utils/db'
 import { upsertLead } from '../../utils/leads'
 import { rateLimit } from '../../utils/rateLimit'
 import { requireValidEmail } from '../../utils/validate'
@@ -13,8 +13,10 @@ export default defineEventHandler(async (event) => {
   }
   const email = requireValidEmail(body.email)
   const type = body.type === 'complaint' ? 'complaint' : 'contact'
+  const orgId = resolvePublicOrgId(event)
   const db = useDb(event)
   await db.insert(schema.contactMessages).values({
+    organizationId: orgId,
     type,
     name: String(name).slice(0, 200),
     email: String(email).slice(0, 200),
@@ -28,6 +30,7 @@ export default defineEventHandler(async (event) => {
   if (type === 'contact') {
     try {
       await upsertLead(event, {
+        organizationId: orgId,
         name: String(name).slice(0, 200),
         email: String(email).slice(0, 200),
         phone: body.phone ? String(body.phone).slice(0, 50) : null,
