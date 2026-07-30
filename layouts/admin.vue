@@ -238,7 +238,7 @@ function isActive(to: string) {
 
 async function doLogout() {
   await logout()
-  router.push('/login')
+  router.push('/admin/login')
 }
 </script>
 

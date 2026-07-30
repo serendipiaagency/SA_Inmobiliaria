@@ -4,6 +4,7 @@ import { requireOrgScope } from '../../../utils/auth'
 import { isValidChannelKey } from '../../../utils/publication/channels'
 import { buildJobRows, type TemplateStep } from '../../../utils/publication/scheduling'
 import { ensureChannelConfigs } from '../../../utils/publication/defaults'
+import { maybeApplyAiTime } from '../../../utils/publication/aiTime'
 import { logAdminAction } from '../../../utils/audit'
 
 /**
@@ -26,7 +27,8 @@ export default defineEventHandler(async (event) => {
     .limit(1)
   if (!propertyRows[0]) throw createError({ statusCode: 404, statusMessage: 'Propiedad no encontrada' })
 
-  const baseScheduledAt = String(body?.baseScheduledAt || now())
+  const explicitTimeGiven = Boolean(body?.baseScheduledAt)
+  let baseScheduledAt = String(body?.baseScheduledAt || now())
 
   let steps: TemplateStep[] = []
   let templateId: number | null = null
@@ -45,6 +47,9 @@ export default defineEventHandler(async (event) => {
 
   steps = steps.filter((s) => isValidChannelKey(s.channelKey))
   if (!steps.length) throw createError({ statusCode: 422, statusMessage: 'Debes indicar al menos un canal (steps o templateId)' })
+
+  const aiTime = await maybeApplyAiTime(db, orgId, developerPropertyId, steps[0].channelKey, baseScheduledAt, explicitTimeGiven)
+  baseScheduledAt = aiTime.baseScheduledAt
 
   await ensureChannelConfigs(db, orgId)
   const configRows = await db.select().from(schema.publicationChannelConfigs).where(eq(schema.publicationChannelConfigs.organizationId, orgId))
@@ -91,10 +96,12 @@ export default defineEventHandler(async (event) => {
     scheduleId,
     jobId: null,
     event: 'schedule_created',
-    message: `Programación creada con ${steps.length} canal(es).`,
+    message: aiTime.applied
+      ? `Programación creada con ${steps.length} canal(es). Hora ajustada automáticamente a las ${aiTime.suggestedHour}:00 UTC (sugerencia IA).`
+      : `Programación creada con ${steps.length} canal(es).`,
     createdAt: nowTs,
   })
 
   await logAdminAction(event, { user, orgId, action: 'create', resource: 'scheduler-schedule', resourceId: scheduleId })
-  return { ok: true, id: scheduleId, jobIds: insertedIds }
+  return { ok: true, id: scheduleId, jobIds: insertedIds, baseScheduledAt, aiTimeApplied: aiTime.applied }
 })

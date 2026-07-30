@@ -14,7 +14,7 @@
           <a href="#faq" @click="menuOpen = false">Preguntas</a>
         </nav>
         <div class="lp-nav-actions">
-          <NuxtLink to="/login" class="lp-nav-login">Acceder</NuxtLink>
+          <NuxtLink to="/admin/login" class="lp-nav-login">Acceder</NuxtLink>
           <a href="#demo" class="lp-nav-cta">Pedir demo</a>
         </div>
         <button class="lp-burger" aria-label="Menú" @click="menuOpen = !menuOpen">
@@ -171,7 +171,7 @@
         <div>
           <p class="lp-footer-head">Empresa</p>
           <NuxtLink to="/demo">Ver un cliente real</NuxtLink>
-          <NuxtLink to="/login">Acceder al panel</NuxtLink>
+          <NuxtLink to="/admin/login">Acceder al panel</NuxtLink>
           <a href="mailto:hola@serendipiaagency.com">hola@serendipiaagency.com</a>
         </div>
       </div>

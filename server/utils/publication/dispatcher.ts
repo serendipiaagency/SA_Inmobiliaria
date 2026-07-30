@@ -5,6 +5,7 @@ import { runChannelAdapter } from './adapters'
 import { evaluateCondition } from './conditions'
 import { addBackoff } from './scheduling'
 import { CHANNEL_BY_KEY } from './channels'
+import { logPublicationEvent } from './logs'
 
 const BATCH_SIZE = 25
 
@@ -24,18 +25,18 @@ function isWithinWindow(date: Date, timeZone: string, start?: string | null, end
 }
 
 /** Dependency + condition + channel-enabled/window gates. Used by the automatic dispatcher only — a manual "run now" bypasses timing gates but still calls executeJob directly. */
-async function checkGates(db: any, job: any, nowDate: Date): Promise<{ pass: boolean; schedule?: any }> {
+export async function checkGates(db: any, job: any, nowDate: Date): Promise<{ pass: boolean; schedule?: any; reason?: string }> {
   if (job.dependsOnJobId) {
     const dep = await db.select({ status: schema.publicationJobs.status }).from(schema.publicationJobs).where(eq(schema.publicationJobs.id, job.dependsOnJobId)).limit(1)
-    if (!dep[0] || dep[0].status !== 'success') return { pass: false }
+    if (!dep[0] || dep[0].status !== 'success') return { pass: false, reason: 'dependency_not_met' }
   }
 
   const scheduleRows = await db.select().from(schema.publicationSchedules).where(eq(schema.publicationSchedules.id, job.scheduleId)).limit(1)
   const sched = scheduleRows[0]
-  if (!sched) return { pass: false }
+  if (!sched) return { pass: false, reason: 'schedule_not_found' }
 
   const cond = await evaluateCondition(db, sched.developerPropertyId, job.conditionJson)
-  if (!cond.met) return { pass: false, schedule: sched }
+  if (!cond.met) return { pass: false, schedule: sched, reason: `condition_not_met: ${cond.reason || ''}`.trim() }
 
   const cfgRows = await db
     .select()
@@ -43,8 +44,8 @@ async function checkGates(db: any, job: any, nowDate: Date): Promise<{ pass: boo
     .where(and(eq(schema.publicationChannelConfigs.organizationId, job.organizationId), eq(schema.publicationChannelConfigs.channelKey, job.channelKey)))
     .limit(1)
   const cfg = cfgRows[0]
-  if (cfg && !cfg.enabled) return { pass: false, schedule: sched }
-  if (cfg && !isWithinWindow(nowDate, sched.timezone || 'UTC', cfg.windowStart, cfg.windowEnd)) return { pass: false, schedule: sched }
+  if (cfg && !cfg.enabled) return { pass: false, schedule: sched, reason: 'channel_disabled' }
+  if (cfg && !isWithinWindow(nowDate, sched.timezone || 'UTC', cfg.windowStart, cfg.windowEnd)) return { pass: false, schedule: sched, reason: 'outside_window' }
 
   return { pass: true, schedule: sched }
 }
@@ -117,6 +118,14 @@ export async function executeJob(db: any, env: Record<string, any>, job: any, ru
       message: `${CHANNEL_BY_KEY[job.channelKey]?.label || job.channelKey}: ${result.message}`,
       createdAt: finishedAt,
     })
+    await logPublicationEvent(db, {
+      organizationId: job.organizationId,
+      scheduleId: job.scheduleId,
+      jobId: job.id,
+      level: 'info',
+      message: `job_success channel=${job.channelKey} attempt=${job.retryCount + 1}`,
+      context: { channelKey: job.channelKey, action: job.action, externalId: result.externalId || job.externalId },
+    })
     await db.insert(schema.publicationNotifications).values({
       organizationId: job.organizationId,
       scheduleId: job.scheduleId,
@@ -152,6 +161,14 @@ export async function executeJob(db: any, env: Record<string, any>, job: any, ru
       message: `${CHANNEL_BY_KEY[job.channelKey]?.label || job.channelKey}: fallo (${result.message}). Reintento ${nextAttempt}/${job.maxRetries} programado en ${Math.round(backoff / 60)} min.`,
       createdAt: finishedAt,
     })
+    await logPublicationEvent(db, {
+      organizationId: job.organizationId,
+      scheduleId: job.scheduleId,
+      jobId: job.id,
+      level: 'warn',
+      message: `job_retrying channel=${job.channelKey} attempt=${nextAttempt}/${job.maxRetries} backoff=${backoff}s`,
+      context: { channelKey: job.channelKey, error: result.message, nextRunAt },
+    })
     await db.insert(schema.publicationNotifications).values({
       organizationId: job.organizationId,
       scheduleId: job.scheduleId,
@@ -172,6 +189,14 @@ export async function executeJob(db: any, env: Record<string, any>, job: any, ru
       event: 'job_failed',
       message: `${CHANNEL_BY_KEY[job.channelKey]?.label || job.channelKey}: fallo definitivo tras ${job.maxRetries} reintentos (${result.message}).`,
       createdAt: finishedAt,
+    })
+    await logPublicationEvent(db, {
+      organizationId: job.organizationId,
+      scheduleId: job.scheduleId,
+      jobId: job.id,
+      level: 'error',
+      message: `job_failed channel=${job.channelKey} after ${job.maxRetries} retries`,
+      context: { channelKey: job.channelKey, error: result.message },
     })
     await db.insert(schema.publicationNotifications).values({
       organizationId: job.organizationId,
@@ -216,6 +241,14 @@ export async function runDispatchTick(db: any, env: Record<string, any>, runId: 
     const gate = await checkGates(db, job, nowDate)
     if (!gate.pass) {
       skipped++
+      await logPublicationEvent(db, {
+        organizationId: job.organizationId,
+        scheduleId: job.scheduleId,
+        jobId: job.id,
+        level: 'info',
+        message: `job_gate_skipped channel=${job.channelKey} reason=${gate.reason || 'unknown'}`,
+        context: { channelKey: job.channelKey, reason: gate.reason },
+      })
       continue
     }
 

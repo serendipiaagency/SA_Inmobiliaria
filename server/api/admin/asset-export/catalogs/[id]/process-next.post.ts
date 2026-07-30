@@ -102,11 +102,16 @@ export default defineEventHandler(async (event) => {
       const r2Key = `asset-export-catalogs/${orgId}/${catalogId}/final.pdf`
       await cfEnv(event).MEDIA.put(r2Key, finalBytes, { httpMetadata: { contentType: 'application/pdf' } })
 
-      // Best-effort cleanup of the per-asset fragments — the final combined PDF is the only deliverable from here on.
-      await Promise.all(completedItems.map((i) => cfEnv(event).MEDIA.delete(i.r2Key!).catch(() => null)))
-
       const completedAt = now()
       const finalStatus = catalog.failedCount > 0 ? 'completed_with_errors' : 'completed'
+
+      // Only clean up fragments once there's nothing left to retry — a
+      // completed_with_errors catalog can still have its failed items
+      // retried (.../retry-failed), which needs these fragments to
+      // reassemble without re-rendering every already-successful item.
+      if (finalStatus === 'completed') {
+        await Promise.all(completedItems.map((i) => cfEnv(event).MEDIA.delete(i.r2Key!).catch(() => null)))
+      }
       const [updated] = await db
         .update(schema.assetExportCatalogs)
         .set({ status: finalStatus, r2Key, fileSizeBytes: finalBytes.byteLength, completedAt })

@@ -162,7 +162,7 @@ const endpoints = [
   { method: 'GET', path: '/api/v1/properties', desc: 'Listar propiedades' },
   { method: 'GET', path: '/api/v1/properties/:id', desc: 'Detalle' },
   { method: 'GET', path: '/api/v1/communities', desc: 'Comunidades' },
-  { method: 'POST', path: '/api/v1/leads', desc: 'Crear lead' },
+  { method: 'POST', path: '/api/v1/leads', desc: 'Crear lead (requiere scope "write")' },
   { method: 'GET', path: '/api/v1/agents', desc: 'Agentes' },
   { method: 'GET', path: '/api/v1/scheduler/schedules', desc: 'Programaciones de publicación' },
   { method: 'GET', path: '/api/v1/scheduler/schedules/:id', desc: 'Detalle de una programación' },
@@ -173,10 +173,9 @@ const endpoints = [
   { method: 'GET', path: '/api/v1/asset-export/exports/:id/download', desc: 'Descargar el archivo generado' },
   { method: 'GET', path: '/api/v1/asset-export/qr-codes/:id/analytics', desc: 'Escaneos totales y únicos de un QR dinámico' },
 ]
-// NOTA: communities, leads y agents (arriba) siguen documentados pero sin
-// implementar — gap detectado y no resuelto en esta sesión (fuera del
-// alcance del Asset Export Studio); los endpoints de scheduler/ y
-// asset-export/ de esta lista sí existen y están verificados.
+// Todos los endpoints de esta lista existen y están verificados
+// (properties/:id, communities, leads y agents se implementaron después de
+// detectarse como gap: estaban documentados aquí desde antes de existir).
 </script>
 
 <style scoped>
