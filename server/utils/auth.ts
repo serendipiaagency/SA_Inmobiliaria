@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import type { H3Event } from 'h3'
+import { createError, deleteCookie, getCookie, setCookie, type H3Event } from 'h3'
 import { useDb, cfEnv, now, schema } from './db'
 
 const PBKDF2_ITERATIONS = 100_000

@@ -11,6 +11,18 @@ compatibility_flags = ["nodejs_compat"]
 directory = "./.output/public"
 binding = "ASSETS"
 
+# --- Deploy pipeline ---
+# Cloudflare Workers Builds (Settings → Build → Deploy command) currently
+# just runs `npx wrangler deploy`, which deploys code WITHOUT applying any
+# pending D1 migration — this is exactly what caused the July schema-drift
+# incident (new code, old schema, every public/admin endpoint 500ing).
+# To close that gap, set the dashboard's Deploy command to:
+#   npm run release
+# (and the non-production branch deploy command, once enabled per the note
+# below, to `npm run release:staging`). Both run migrations, then build,
+# then deploy, in that order, so the new code never goes live before its
+# own schema does.
+
 # --- D1 database (relational data, replaces MySQL) ---
 # Create it with:  wrangler d1 create sa_inmobiliaria
 # then paste the database_id below.
@@ -34,8 +46,56 @@ SESSION_TTL_DAYS = "7"
 enabled = true
 
 # "0 * * * *"  -> server/tasks/cms/expire-articles.ts (hourly, auto-hides
-#                 published articles whose expires_at has passed)
+#                 published articles whose expires_at has passed) and
+#                 server/tasks/system/cleanup-error-logs.ts (purges error_logs
+#                 older than 30 days)
 # "* * * *  *" -> server/tasks/scheduler/dispatch.ts (Publication Scheduler
 #                 dispatcher — every minute, so staged-launch offsets land on time)
+# "30 3 * * *" -> server/tasks/system/backup-d1.ts (daily JSON snapshot of
+#                 every D1 table to R2, kept 14 days — see that file for why)
+# "0 4 * * 1"  -> server/tasks/scheduler/recompute-ai-time.ts (weekly, refreshes
+#                 the "hora recomendada por IA" hint from real execution history)
 [triggers]
-crons = ["0 * * * *", "* * * * *"]
+crons = ["0 * * * *", "* * * * *", "30 3 * * *", "0 4 * * 1"]
+
+# --- Staging environment ---
+# Own D1 + R2 so a build deployed here can never touch production data.
+# Deploy with:      npm run deploy:staging   (wrangler deploy --env staging)
+# Preview locally:  npx wrangler dev --env staging
+#
+# To actually get preview URLs for non-production branches instead of every
+# push going straight to production, this also needs a one-time change in
+# the Cloudflare dashboard (not something Wrangler config can do on its own):
+#   Workers & Pages → sa-inmobiliaria → Settings → Build → Branch control
+#   1. Set "Production branch" to `main` (today it is effectively whichever
+#      branch is being pushed — that's the root cause of the schema-drift
+#      incident from July: every push, on any branch, deployed straight to
+#      production).
+#   2. Enable "Builds for non-production branches".
+#   3. Set the "Non-production branch deploy command" to:
+#        npx wrangler versions upload --env staging
+[env.staging]
+name = "sa-inmobiliaria-staging"
+
+[env.staging.assets]
+directory = "./.output/public"
+binding = "ASSETS"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "sa_inmobiliaria_staging"
+database_id = "baeebb44-e835-4cec-9568-2ce99d1b6d30"
+migrations_dir = "migrations"
+
+[[env.staging.r2_buckets]]
+binding = "MEDIA"
+bucket_name = "sa-inmobiliaria-media-staging"
+
+[env.staging.vars]
+SESSION_TTL_DAYS = "7"
+
+[env.staging.observability]
+enabled = true
+
+[env.staging.triggers]
+crons = ["0 * * * *", "* * * * *", "30 3 * * *", "0 4 * * 1"]

@@ -3,6 +3,7 @@ import { useDb, schema } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
 import { callAI, hasAiKey } from '../../../utils/ai'
 import { parseBlocks, blocksToPlainText } from '../../../utils/cms'
+import { rateLimit } from '../../../utils/rateLimit'
 
 export type CmsAiAction =
   | 'generate' | 'rewrite' | 'summarize' | 'expand' | 'correct' | 'translate' | 'tone'
@@ -79,6 +80,9 @@ function buildPrompt(action: CmsAiAction, input: Record<string, any>): { system:
  */
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireOrgScope(event)
+  // Real $ cost per call once AI_API_KEY is configured — bound it so a bug
+  // or a compromised session can't run up an unbounded AI bill.
+  await rateLimit(event, 'cms-ai', { limit: 40, windowSeconds: 600 })
   const body = await readBody<{ action: CmsAiAction; text?: string; articleId?: number } & Record<string, any>>(event)
   if (!body?.action) throw createError({ statusCode: 400, statusMessage: 'Missing action' })
 

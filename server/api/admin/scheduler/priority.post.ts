@@ -2,10 +2,11 @@ import { and, eq } from 'drizzle-orm'
 import { useDb, schema, now } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
 import { PRIORITIES, priorityWeight } from '../../../utils/publication/channels'
+import { logAdminAction } from '../../../utils/audit'
 
 /** POST /api/admin/scheduler/priority — Fase 7/10. Body: {jobId, priority}. */
 export default defineEventHandler(async (event) => {
-  const { orgId } = await requireOrgScope(event)
+  const { user, orgId } = await requireOrgScope(event)
   const body = await readBody<{ jobId?: number; priority?: string }>(event)
   const jobId = Number(body?.jobId)
   if (!jobId || !PRIORITIES.includes(body?.priority as any)) throw createError({ statusCode: 422, statusMessage: `jobId y priority (${PRIORITIES.join('|')}) son obligatorios` })
@@ -17,6 +18,7 @@ export default defineEventHandler(async (event) => {
   const nowTs = now()
   await db.update(schema.publicationJobs).set({ priority: body!.priority, priorityWeight: priorityWeight(body!.priority), updatedAt: nowTs }).where(eq(schema.publicationJobs.id, jobId))
   await db.insert(schema.publicationHistory).values({ organizationId: orgId, scheduleId: rows[0].scheduleId, jobId, event: 'job_priority_changed', message: `Prioridad cambiada a "${body!.priority}".`, createdAt: nowTs })
+  await logAdminAction(event, { user, orgId, action: 'priority', resource: 'scheduler-job', resourceId: jobId, detail: body!.priority })
 
   return { ok: true }
 })

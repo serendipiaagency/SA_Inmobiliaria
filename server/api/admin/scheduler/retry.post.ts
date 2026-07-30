@@ -2,10 +2,11 @@ import { and, eq } from 'drizzle-orm'
 import { useDb, schema, now } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
 import { CHANNEL_BY_KEY } from '../../../utils/publication/channels'
+import { logAdminAction } from '../../../utils/audit'
 
 /** POST /api/admin/scheduler/retry — Fase 7/12/16. Manually resets a failed job for another attempt, resetting its retry budget so it gets a fresh set of automatic retries too. */
 export default defineEventHandler(async (event) => {
-  const { orgId } = await requireOrgScope(event)
+  const { user, orgId } = await requireOrgScope(event)
   const body = await readBody<{ jobId?: number }>(event)
   const jobId = Number(body?.jobId)
   if (!jobId) throw createError({ statusCode: 422, statusMessage: 'jobId es obligatorio' })
@@ -26,6 +27,7 @@ export default defineEventHandler(async (event) => {
     message: `Reintento manual solicitado para ${CHANNEL_BY_KEY[job.channelKey]?.label || job.channelKey}.`,
     createdAt: nowTs,
   })
+  await logAdminAction(event, { user, orgId, action: 'retry', resource: 'scheduler-job', resourceId: jobId })
 
   return { ok: true }
 })

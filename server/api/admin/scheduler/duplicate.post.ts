@@ -3,6 +3,7 @@ import { useDb, schema, now } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
 import { buildJobRows, type TemplateStep } from '../../../utils/publication/scheduling'
 import { ensureChannelConfigs } from '../../../utils/publication/defaults'
+import { logAdminAction } from '../../../utils/audit'
 
 /** POST /api/admin/scheduler/duplicate — Fase 4/10 ("duplicar programación"). Copies a schedule's channel sequence (same relative offsets) onto a new base time. */
 export default defineEventHandler(async (event) => {
@@ -71,6 +72,7 @@ export default defineEventHandler(async (event) => {
   }
 
   await db.insert(schema.publicationHistory).values({ organizationId: orgId, scheduleId: newScheduleId, jobId: null, event: 'schedule_created', message: `Duplicada desde la programación #${scheduleId}.`, createdAt: nowTs })
+  await logAdminAction(event, { user, orgId, action: 'duplicate', resource: 'scheduler-schedule', resourceId: newScheduleId, detail: `from #${scheduleId}` })
 
   return { ok: true, id: newScheduleId }
 })

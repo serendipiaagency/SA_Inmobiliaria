@@ -1,8 +1,10 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, now } from './db'
 
 interface UpsertLeadInput {
+  /** Which tenant this lead belongs to — always the caller's resolved org, never client input. */
+  organizationId: number
   name: string
   email?: string | null
   phone?: string | null
@@ -17,7 +19,10 @@ interface UpsertLeadInput {
 /**
  * Creates or refreshes a CRM lead from a real inbound public action (contact form,
  * visit request, visitor verification form). Matches by email when available so
- * repeat contact from the same prospect updates one record instead of duplicating it.
+ * repeat contact from the same prospect updates one record instead of duplicating it —
+ * scoped to organizationId too, so two tenants sharing a prospect's email can never
+ * read or overwrite each other's lead (real bug found and fixed while building the
+ * public API: this used to match by email alone across every tenant).
  */
 export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
   const db = useDb(event)
@@ -28,7 +33,7 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
     const existing = await db
       .select({ id: schema.leads.id, score: schema.leads.score })
       .from(schema.leads)
-      .where(eq(schema.leads.email, input.email))
+      .where(and(eq(schema.leads.email, input.email), eq(schema.leads.organizationId, input.organizationId)))
       .limit(1)
     if (existing[0]) {
       await db
@@ -47,6 +52,7 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
   }
 
   await db.insert(schema.leads).values({
+    organizationId: input.organizationId,
     name: input.name.slice(0, 200),
     email: input.email || null,
     phone: input.phone || null,

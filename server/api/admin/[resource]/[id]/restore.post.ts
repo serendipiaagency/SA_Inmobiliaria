@@ -1,17 +1,19 @@
 import { and, eq } from 'drizzle-orm'
 import { useDb } from '../../../../utils/db'
-import { requireOrgScope, requireSuperAdmin } from '../../../../utils/auth'
+import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../../utils/auth'
 import { getResource } from '../../../../utils/adminResources'
+import { logAdminAction } from '../../../../utils/audit'
 
 /** Restores a soft-deleted row from Papelera. Only valid for softDelete resources. */
 export default defineEventHandler(async (event) => {
-  const { def } = getResource(event)
+  const { key, def } = getResource(event)
   if (!def.softDelete) throw createError({ statusCode: 400, statusMessage: 'This resource has no Papelera' })
   let orgId: number | null = null
+  let user: SessionUser
   if (def.superAdminOnly) {
-    await requireSuperAdmin(event)
+    user = await requireSuperAdmin(event)
   } else {
-    orgId = (await requireOrgScope(event)).orgId
+    ;({ user, orgId } = await requireOrgScope(event))
   }
   const id = parseInt(getRouterParam(event, 'id') || '', 10)
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
@@ -22,5 +24,6 @@ export default defineEventHandler(async (event) => {
   const where = orgCond ? and(idCond, orgCond) : idCond
 
   await db.update(def.table).set({ deletedAt: null }).where(where as any)
+  await logAdminAction(event, { user, orgId, action: 'restore', resource: key, resourceId: id })
   return { ok: true }
 })

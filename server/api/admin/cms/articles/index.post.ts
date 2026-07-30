@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { useDb, schema, now, slugify } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
 import { parseBlocks, blocksToPlainText, computeReadingTime, computeSeoScore, countLinks } from '../../../../utils/cms'
+import { logAdminAction } from '../../../../utils/audit'
 
 export default defineEventHandler(async (event) => {
   const { orgId, user } = await requireOrgScope(event)
@@ -67,6 +68,7 @@ export default defineEventHandler(async (event) => {
   const id = inserted[0]?.id
 
   await db.insert(schema.cmsArticleVersions).values({ articleId: id, title, contentJson, editedBy: user.id, createdAt: nowTs })
+  await logAdminAction(event, { user, orgId, action: 'create', resource: 'cms-articles', resourceId: id })
 
   return { ok: true, id, slug }
 })

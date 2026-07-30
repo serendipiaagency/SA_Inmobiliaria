@@ -1073,3 +1073,280 @@ export const publicationAiTimeRules = sqliteTable('publication_ai_time_rules', {
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })
+
+// ---------------------------------------------------------------------------
+// Platform error log (production monitoring) — see migrations/0027
+// ---------------------------------------------------------------------------
+export const errorLogs = sqliteTable(
+  'error_logs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    statusCode: integer('status_code').notNull().default(500),
+    message: text('message').notNull(),
+    stack: text('stack'),
+    method: text('method'),
+    path: text('path'),
+    organizationId: integer('organization_id'),
+    userId: integer('user_id'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('error_logs_created_at').on(t.createdAt), index('error_logs_status').on(t.statusCode)],
+)
+
+// ---------------------------------------------------------------------------
+// Generic admin audit log — see migrations/0028
+// ---------------------------------------------------------------------------
+export const adminAuditLog = sqliteTable(
+  'admin_audit_log',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id'),
+    userId: integer('user_id').notNull(),
+    userEmail: text('user_email').notNull(),
+    action: text('action').notNull(),
+    resource: text('resource').notNull(),
+    resourceId: text('resource_id'),
+    detail: text('detail'),
+    ip: text('ip'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [
+    index('admin_audit_log_org_created').on(t.organizationId, t.createdAt),
+    index('admin_audit_log_resource').on(t.resource, t.resourceId),
+  ],
+)
+
+// ---------------------------------------------------------------------------
+// Asset Export Studio — see migrations/0029 for full column rationale
+// ---------------------------------------------------------------------------
+
+export const brandKits = sqliteTable(
+  'brand_kits',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull().unique(),
+    logo: text('logo'),
+    logoAlt: text('logo_alt'),
+    logoLight: text('logo_light'),
+    logoDark: text('logo_dark'),
+    isotype: text('isotype'),
+    favicon: text('favicon'),
+    colorPrimary: text('color_primary'),
+    colorSecondary: text('color_secondary'),
+    colorAccentsJson: text('color_accents_json').notNull().default('[]'),
+    colorBackground: text('color_background'),
+    colorText: text('color_text'),
+    fontHeading: text('font_heading'),
+    fontBody: text('font_body'),
+    fontAlt: text('font_alt'),
+    buttonStyle: text('button_style'),
+    iconStyle: text('icon_style'),
+    cardStyle: text('card_style'),
+    phone: text('phone'),
+    whatsapp: text('whatsapp'),
+    email: text('email'),
+    website: text('website'),
+    socialLinksJson: text('social_links_json').notNull().default('{}'),
+    legalText: text('legal_text'),
+    updatedBy: integer('updated_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('brand_kits_org').on(t.organizationId)],
+)
+
+export const brandKitVersions = sqliteTable(
+  'brand_kit_versions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    brandKitId: integer('brand_kit_id')
+      .notNull()
+      .references(() => brandKits.id, { onDelete: 'cascade' }),
+    snapshotJson: text('snapshot_json').notNull(),
+    editedBy: integer('edited_by'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('brand_kit_versions_kit').on(t.brandKitId, t.createdAt)],
+)
+
+// organizationId NULL = system template (shipped by us, read-only — a tenant
+// duplicates it to get an editable copy; enforced in the API, see
+// server/api/admin/asset-export/templates.*).
+export const assetExportTemplates = sqliteTable(
+  'asset_export_templates',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id'),
+    name: text('name').notNull(),
+    description: text('description'),
+    category: text('category').notNull().default('modern'),
+    formatKey: text('format_key').notNull(),
+    assetTypeScope: text('asset_type_scope'),
+    isSystem: integer('is_system').notNull().default(0),
+    status: text('status').notNull().default('draft'),
+    structureJson: text('structure_json').notNull().default('{"pages":[]}'),
+    duplicatedFromId: integer('duplicated_from_id'),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('asset_export_templates_org').on(t.organizationId), index('asset_export_templates_format').on(t.formatKey)],
+)
+
+export const assetExportTemplateVersions = sqliteTable(
+  'asset_export_template_versions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    templateId: integer('template_id')
+      .notNull()
+      .references(() => assetExportTemplates.id, { onDelete: 'cascade' }),
+    structureJson: text('structure_json').notNull(),
+    editedBy: integer('edited_by'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('asset_export_template_versions_template').on(t.templateId, t.createdAt)],
+)
+
+// assetKind + assetId point at developer_properties or agent_properties —
+// two separate flat tables today (see audit), so this can't be a single FK.
+export const assetExportProjects = sqliteTable(
+  'asset_export_projects',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    templateId: integer('template_id').references(() => assetExportTemplates.id),
+    assetKind: text('asset_kind').notNull(),
+    assetId: integer('asset_id').notNull(),
+    name: text('name').notNull(),
+    formatKey: text('format_key').notNull(),
+    language: text('language').notNull().default('es'),
+    status: text('status').notNull().default('draft'),
+    structureJson: text('structure_json').notNull().default('{"pages":[]}'),
+    lockMode: text('lock_mode').notNull().default('live'),
+    priceAtCreation: real('price_at_creation'),
+    createdBy: integer('created_by'),
+    approvedBy: integer('approved_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('asset_export_projects_org').on(t.organizationId), index('asset_export_projects_asset').on(t.assetKind, t.assetId)],
+)
+
+export const assetExportProjectVersions = sqliteTable(
+  'asset_export_project_versions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    projectId: integer('project_id')
+      .notNull()
+      .references(() => assetExportProjects.id, { onDelete: 'cascade' }),
+    structureJson: text('structure_json').notNull(),
+    status: text('status').notNull(),
+    editedBy: integer('edited_by'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('asset_export_project_versions_project').on(t.projectId, t.createdAt)],
+)
+
+export const assetExportRenders = sqliteTable(
+  'asset_export_renders',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    projectId: integer('project_id')
+      .notNull()
+      .references(() => assetExportProjects.id, { onDelete: 'cascade' }),
+    outputType: text('output_type').notNull(),
+    formatKey: text('format_key').notNull(),
+    status: text('status').notNull().default('pending'),
+    r2Key: text('r2_key'),
+    fileSizeBytes: integer('file_size_bytes'),
+    errorMessage: text('error_message'),
+    requestedBy: integer('requested_by'),
+    createdAt: text('created_at').notNull().default(''),
+    completedAt: text('completed_at'),
+  },
+  (t) => [index('asset_export_renders_org').on(t.organizationId, t.createdAt), index('asset_export_renders_project').on(t.projectId)],
+)
+
+// The QR image always encodes a stable short URL of ours (/q/{code}), never
+// the destination directly, so the destination can change without
+// reprinting anything.
+export const dynamicQrCodes = sqliteTable(
+  'dynamic_qr_codes',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    code: text('code').notNull().unique(),
+    destinationUrl: text('destination_url').notNull(),
+    destinationType: text('destination_type').notNull().default('custom'),
+    assetKind: text('asset_kind'),
+    assetId: integer('asset_id'),
+    label: text('label'),
+    utmJson: text('utm_json').notNull().default('{}'),
+    styleJson: text('style_json').notNull().default('{}'),
+    active: integer('active').notNull().default(1),
+    expiresAt: text('expires_at'),
+    scanCount: integer('scan_count').notNull().default(0),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('dynamic_qr_codes_org').on(t.organizationId), uniqueIndex('dynamic_qr_codes_code').on(t.code)],
+)
+
+// No IP-geolocation provider is wired up (would need an external credential)
+// — ipHash exists for abuse/dedup only, never a raw IP, and there is no
+// country/city column so nothing here can be misread as real geo data that
+// was never actually looked up.
+export const qrScans = sqliteTable(
+  'qr_scans',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    qrCodeId: integer('qr_code_id')
+      .notNull()
+      .references(() => dynamicQrCodes.id, { onDelete: 'cascade' }),
+    organizationId: integer('organization_id').notNull(),
+    scannedAt: text('scanned_at').notNull().default(''),
+    userAgent: text('user_agent'),
+    referer: text('referer'),
+    ipHash: text('ip_hash'),
+  },
+  (t) => [index('qr_scans_qr').on(t.qrCodeId, t.scannedAt), index('qr_scans_org').on(t.organizationId, t.scannedAt)],
+)
+
+export const exportBatches = sqliteTable(
+  'export_batches',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    status: text('status').notNull().default('pending'),
+    totalCount: integer('total_count').notNull().default(0),
+    completedCount: integer('completed_count').notNull().default(0),
+    failedCount: integer('failed_count').notNull().default(0),
+    requestedBy: integer('requested_by'),
+    createdAt: text('created_at').notNull().default(''),
+    completedAt: text('completed_at'),
+  },
+  (t) => [index('export_batches_org').on(t.organizationId, t.createdAt)],
+)
+
+export const exportBatchItems = sqliteTable(
+  'export_batch_items',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    batchId: integer('batch_id')
+      .notNull()
+      .references(() => exportBatches.id, { onDelete: 'cascade' }),
+    assetKind: text('asset_kind').notNull(),
+    assetId: integer('asset_id').notNull(),
+    templateId: integer('template_id').references(() => assetExportTemplates.id),
+    formatKey: text('format_key').notNull(),
+    status: text('status').notNull().default('pending'),
+    renderId: integer('render_id').references(() => assetExportRenders.id),
+    errorMessage: text('error_message'),
+    createdAt: text('created_at').notNull().default(''),
+    completedAt: text('completed_at'),
+  },
+  (t) => [index('export_batch_items_batch').on(t.batchId)],
+)

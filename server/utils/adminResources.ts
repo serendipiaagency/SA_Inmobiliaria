@@ -67,6 +67,31 @@ export const adminResources: Record<string, ResourceDef> = {
     superAdminOnly: true,
   },
 
+  'error-logs': {
+    table: schema.errorLogs,
+    label: 'Errores (incidencias)',
+    fields: {},
+    listFields: ['id', 'statusCode', 'message', 'path', 'method', 'createdAt'],
+    searchFields: ['message', 'path'],
+    orgScoped: false,
+    superAdminOnly: true,
+    readonly: true,
+  },
+
+  'audit-log': {
+    table: schema.adminAuditLog,
+    label: 'Auditoría',
+    fields: {},
+    listFields: ['id', 'userEmail', 'action', 'resource', 'resourceId', 'createdAt'],
+    searchFields: ['userEmail', 'resource', 'resourceId'],
+    // Org-scoped on purpose (unlike error-logs): a tenant's own admin should
+    // see who on their team did what to their data. Rows logged for
+    // platform-level actions (organizationId null, e.g. managing "Empresas"
+    // itself) simply don't show here — those are superAdminOnly actions,
+    // not something a tenant admin needs visibility into anyway.
+    readonly: true,
+  },
+
   agents: {
     table: schema.agents,
     label: 'Agents',

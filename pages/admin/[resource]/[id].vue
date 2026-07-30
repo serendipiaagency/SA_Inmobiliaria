@@ -7,6 +7,7 @@
           <span class="mr-1.5 rounded-full bg-white/20 px-1.5 py-0.5 text-[9px] font-bold">IA</span>
           Generar contenido
         </NuxtLink>
+        <AdminAssetExportButton v-if="resource === 'developer-properties' && !isNew" :asset-id="Number(id)" :property-type="record.propertyType" />
         <NuxtLink :to="`/admin/${resource}`" class="btn-secondary">← Back</NuxtLink>
       </div>
     </div>

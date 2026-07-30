@@ -1,4 +1,4 @@
-import { useDb, schema, now } from '../../utils/db'
+import { useDb, schema, now, resolvePublicOrgId } from '../../utils/db'
 import { storeFile } from '../../utils/media'
 import { upsertLead } from '../../utils/leads'
 import { rateLimit } from '../../utils/rateLimit'
@@ -42,8 +42,10 @@ export default defineEventHandler(async (event) => {
   }
   if (!isValidEmail(text.email)) throw createError({ statusCode: 422, statusMessage: 'Invalid email' })
 
+  const orgId = resolvePublicOrgId(event)
   const db = useDb(event)
   await db.insert(schema.visitorSubmissions).values({
+    organizationId: orgId,
     name: text.name,
     email: text.email,
     phoneNumber: text.phone_number,
@@ -65,6 +67,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     await upsertLead(event, {
+      organizationId: orgId,
       name: text.name,
       email: text.email,
       phone: text.phone_number,
