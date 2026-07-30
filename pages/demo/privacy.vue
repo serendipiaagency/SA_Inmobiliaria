@@ -63,7 +63,7 @@
         <h2 class="heading-serif mb-3 text-2xl text-ink">6. Tus derechos</h2>
         <p>
           Puedes solicitar acceso, rectificación o eliminación de tus datos personales, así como oponerte a su
-          tratamiento, escribiéndonos a través del <NuxtLink to="/contact-us" class="underline hover:text-ink">formulario de contacto</NuxtLink>.
+          tratamiento, escribiéndonos a través del <NuxtLink to="/demo/contact-us" class="underline hover:text-ink">formulario de contacto</NuxtLink>.
           Responderemos a tu solicitud en un plazo razonable.
         </p>
       </section>
@@ -85,7 +85,7 @@
       </section>
 
       <div class="pt-4">
-        <NuxtLink to="/contact-us" class="btn-primary">Contactar sobre tus datos</NuxtLink>
+        <NuxtLink to="/demo/contact-us" class="btn-primary">Contactar sobre tus datos</NuxtLink>
       </div>
     </div>
   </div>

@@ -3,7 +3,7 @@
     <!-- Header (optional) -->
     <div v-if="showHeader" class="sa-head">
       <span class="sa-head-title">{{ headingText }}</span>
-      <a :href="`${origin}/properties`" target="_blank" rel="noopener" class="sa-head-link">{{ moreLabel }} →</a>
+      <a :href="`${origin}/demo/properties`" target="_blank" rel="noopener" class="sa-head-link">{{ moreLabel }} →</a>
     </div>
 
     <!-- Map layout -->
@@ -52,7 +52,7 @@
       </a>
     </div>
 
-    <a v-if="showBranding" :href="origin" target="_blank" rel="noopener" class="sa-brand">M&M Real Estate</a>
+    <a v-if="showBranding" :href="`${origin}/demo`" target="_blank" rel="noopener" class="sa-brand">M&M Real Estate</a>
   </div>
 </template>
 
@@ -96,7 +96,7 @@ function img(src: string | null | undefined) {
   return `${origin.value}${src.startsWith('/') ? '' : '/api/media/'}${src}`
 }
 function link(p: any) {
-  return `${origin.value}/property-details/${p.slug || p.id}`
+  return `${origin.value}/demo/property-details/${p.slug || p.id}`
 }
 function metaText(p: any) {
   const parts: string[] = []

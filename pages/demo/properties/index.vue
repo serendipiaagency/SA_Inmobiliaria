@@ -192,7 +192,7 @@ function applyPatch(patch: Record<string, any>) {
 
 function onSelect(sel: { type: string; value: string; slug?: string }) {
   if (sel.type === 'reference' && sel.slug) {
-    router.push(`/property-details/${sel.slug}`)
+    router.push(`/demo/property-details/${sel.slug}`)
     return
   }
   q.value = sel.value

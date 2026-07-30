@@ -29,11 +29,11 @@
 
         <!-- Secondary CTAs -->
         <div class="rise mt-8 flex flex-wrap items-center gap-x-7 gap-y-3" :style="delay(2)">
-          <NuxtLink to="/properties" class="hero-cta-outline group">
+          <NuxtLink to="/demo/properties" class="hero-cta-outline group">
             {{ t('hero.exploreCta') }}
             <svg class="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6" /></svg>
           </NuxtLink>
-          <NuxtLink to="/contact-us" class="hero-cta-ghost">
+          <NuxtLink to="/demo/contact-us" class="hero-cta-ghost">
             {{ t('hero.advisorCta') }}
           </NuxtLink>
         </div>
@@ -447,7 +447,7 @@ function submit() {
   if (form.subtype) q.type = form.subtype
   if (form.status) q.status = form.status
   if (form.sort) q.sort = form.sort
-  router.push({ path: '/properties', query: q })
+  router.push({ path: '/demo/properties', query: q })
 }
 
 // Close popovers on outside click / escape

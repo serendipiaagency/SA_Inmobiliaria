@@ -133,11 +133,11 @@ function onMarkerClick(id: number) {
   if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 function goTo(p: any) {
-  router.push(`/property-details/${p.slug || p.id}`)
+  router.push(`/demo/property-details/${p.slug || p.id}`)
 }
 function onSelect(sel: { type: string; value: string; slug?: string }) {
   if (sel.type === 'reference' && sel.slug) {
-    router.push(`/property-details/${sel.slug}`)
+    router.push(`/demo/property-details/${sel.slug}`)
     return
   }
   q.value = sel.value

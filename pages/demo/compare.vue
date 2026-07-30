@@ -10,7 +10,7 @@
 
     <div v-if="!items.length" class="py-24 text-center">
       <p class="font-serif text-2xl text-stone-500">{{ t('compare.empty', 'No has añadido propiedades para comparar.') }}</p>
-      <NuxtLink to="/properties" class="btn-primary mt-6">{{ t('properties.exploreCta', 'Explorar propiedades') }}</NuxtLink>
+      <NuxtLink to="/demo/properties" class="btn-primary mt-6">{{ t('properties.exploreCta', 'Explorar propiedades') }}</NuxtLink>
     </div>
 
     <div v-else class="overflow-x-auto">
@@ -20,7 +20,7 @@
             <th class="w-40" />
             <th v-for="p in rows" :key="p.id" class="p-3 align-top">
               <div class="relative">
-                <NuxtLink :to="`/property-details/${p.slug || p.id}`">
+                <NuxtLink :to="`/demo/property-details/${p.slug || p.id}`">
                   <img :src="mediaUrl(p.coverImage)" :alt="p.name" class="aspect-[4/3] w-full rounded-xl object-cover" />
                 </NuxtLink>
                 <button
