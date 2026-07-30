@@ -164,7 +164,19 @@ const endpoints = [
   { method: 'GET', path: '/api/v1/communities', desc: 'Comunidades' },
   { method: 'POST', path: '/api/v1/leads', desc: 'Crear lead' },
   { method: 'GET', path: '/api/v1/agents', desc: 'Agentes' },
+  { method: 'GET', path: '/api/v1/scheduler/schedules', desc: 'Programaciones de publicación' },
+  { method: 'GET', path: '/api/v1/scheduler/schedules/:id', desc: 'Detalle de una programación' },
+  { method: 'GET', path: '/api/v1/scheduler/channels', desc: 'Canales de publicación disponibles' },
+  { method: 'GET', path: '/api/v1/asset-export/templates', desc: 'Plantillas del Asset Export Studio' },
+  { method: 'POST', path: '/api/v1/asset-export/exports', desc: 'Generar un PDF a partir de una plantilla (requiere scope "write")' },
+  { method: 'GET', path: '/api/v1/asset-export/exports/:id', desc: 'Estado de una exportación' },
+  { method: 'GET', path: '/api/v1/asset-export/exports/:id/download', desc: 'Descargar el archivo generado' },
+  { method: 'GET', path: '/api/v1/asset-export/qr-codes/:id/analytics', desc: 'Escaneos totales y únicos de un QR dinámico' },
 ]
+// NOTA: communities, leads y agents (arriba) siguen documentados pero sin
+// implementar — gap detectado y no resuelto en esta sesión (fuera del
+// alcance del Asset Export Studio); los endpoints de scheduler/ y
+// asset-export/ de esta lista sí existen y están verificados.
 </script>
 
 <style scoped>
