@@ -50,6 +50,7 @@ export default defineEventHandler(async (event) => {
       .set({ status: 'completed', r2Key, fileSizeBytes: pdfBytes.byteLength, completedAt })
       .where(eq(schema.assetExportRenders.id, renderRow.id))
     await db.update(schema.assetExportProjects).set({ status: 'exported', updatedAt: completedAt }).where(eq(schema.assetExportProjects.id, projectId))
+    await db.insert(schema.assetExportProjectVersions).values({ projectId, structureJson: project.structureJson, status: 'exported', editedBy: user.id, createdAt: completedAt })
 
     await logAdminAction(event, { user, orgId, action: 'run', resource: 'asset-export-render', resourceId: renderRow.id })
     return { id: renderRow.id, status: 'completed', downloadUrl: `/api/admin/asset-export/renders/${renderRow.id}/download`, fileSizeBytes: pdfBytes.byteLength }
