@@ -59,6 +59,50 @@ describe('computeAvailableSlots', () => {
     const slots = await computeAvailableSlots(db, 1, 1, '2020-01-01', 60)
     expect(slots).toEqual([])
   })
+
+  it('extends the blocked window around an existing visit by the configured buffer', async () => {
+    const db = fakeDb([
+      [{ startTime: '09:00', endTime: '13:00' }],
+      [],
+      [{ scheduledAt: '2030-06-10 10:00:00', endsAt: '2030-06-10 11:00:00' }],
+    ])
+    // 60-min buffer: blocks 09:00 (ends 10:00, buffer pushes busy start back to 09:00) and 11:00 (buffer pushes busy end to 12:00)
+    const slots = await computeAvailableSlots(db, 1, 1, '2030-06-10', 60, { bufferMinutes: 60 })
+    expect(slots.map((s) => s.start)).toEqual(['2030-06-10 12:00:00'])
+  })
+
+  it('zero buffer only blocks the exact overlapping slot, unaffected by the option existing', async () => {
+    const db = fakeDb([
+      [{ startTime: '09:00', endTime: '12:00' }],
+      [],
+      [{ scheduledAt: '2030-06-10 10:00:00', endsAt: '2030-06-10 11:00:00' }],
+    ])
+    const slots = await computeAvailableSlots(db, 1, 1, '2030-06-10', 60, { bufferMinutes: 0 })
+    expect(slots.map((s) => s.start)).toEqual(['2030-06-10 09:00:00', '2030-06-10 11:00:00'])
+  })
+
+  it('returns nothing once the agent has reached their daily appointment cap', async () => {
+    const db = fakeDb([
+      [{ startTime: '09:00', endTime: '12:00' }],
+      [],
+      [
+        { scheduledAt: '2030-06-10 09:00:00', endsAt: '2030-06-10 09:30:00' },
+        { scheduledAt: '2030-06-10 10:00:00', endsAt: '2030-06-10 10:30:00' },
+      ],
+    ])
+    const slots = await computeAvailableSlots(db, 1, 1, '2030-06-10', 60, { maxAppointmentsPerDay: 2 })
+    expect(slots).toEqual([])
+  })
+
+  it('still offers slots below the daily appointment cap', async () => {
+    const db = fakeDb([
+      [{ startTime: '09:00', endTime: '12:00' }],
+      [],
+      [{ scheduledAt: '2030-06-10 09:00:00', endsAt: '2030-06-10 09:30:00' }],
+    ])
+    const slots = await computeAvailableSlots(db, 1, 1, '2030-06-10', 60, { maxAppointmentsPerDay: 2 })
+    expect(slots.length).toBeGreaterThan(0)
+  })
 })
 
 describe('isSlotAvailable', () => {

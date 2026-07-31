@@ -5,13 +5,46 @@
       <p class="mt-1 text-sm text-stone-500">Agenda de visitas y citas con agentes</p>
     </div>
 
-    <div class="mb-4 flex flex-wrap gap-1.5">
-      <button v-for="f in filters" :key="f.key" class="rounded-lg border px-3 py-1.5 text-xs font-medium transition" :class="status === f.key ? 'border-ink bg-ink text-white' : 'border-line bg-white text-stone-600 hover:border-stone-300'" @click="status = f.key">
-        {{ f.label }} <span class="ml-1 opacity-60">{{ f.key === 'all' ? totalCount : (counts[f.key] || 0) }}</span>
-      </button>
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex flex-wrap gap-1.5">
+        <button v-for="f in filters" :key="f.key" class="rounded-lg border px-3 py-1.5 text-xs font-medium transition" :class="status === f.key ? 'border-ink bg-ink text-white' : 'border-line bg-white text-stone-600 hover:border-stone-300'" @click="status = f.key">
+          {{ f.label }} <span class="ml-1 opacity-60">{{ f.key === 'all' ? totalCount : (counts[f.key] || 0) }}</span>
+        </button>
+      </div>
+      <div class="flex gap-1 rounded-lg border border-line p-0.5">
+        <button class="rounded-md px-3 py-1 text-xs font-medium transition" :class="view === 'list' ? 'bg-ink text-white' : 'text-stone-500'" @click="view = 'list'">Lista</button>
+        <button class="rounded-md px-3 py-1 text-xs font-medium transition" :class="view === 'calendar' ? 'bg-ink text-white' : 'text-stone-500'" @click="view = 'calendar'">Calendario</button>
+      </div>
     </div>
 
-    <AdminPanel :pad="false">
+    <div v-if="view === 'calendar'">
+      <div class="mb-3 flex items-center gap-3">
+        <button class="btn-quiet !px-3 !py-1.5" @click="shiftMonth(-1)">← Mes anterior</button>
+        <span class="font-semibold">{{ monthLabel }}</span>
+        <button class="btn-quiet !px-3 !py-1.5" @click="shiftMonth(1)">Mes siguiente →</button>
+      </div>
+      <div class="grid grid-cols-7 gap-1.5 text-xs">
+        <div v-for="d in weekdayLabels" :key="d" class="pb-1 text-center font-semibold uppercase text-stone-400">{{ d }}</div>
+        <div v-for="(cell, i) in calendarCells" :key="i" class="min-h-[84px] rounded-lg border border-line p-1.5" :class="cell.inMonth ? 'bg-white' : 'bg-stone-50 text-stone-300'">
+          <div class="mb-1 text-right font-medium">{{ cell.day }}</div>
+          <div class="space-y-0.5">
+            <button
+              v-for="v in cell.visits.slice(0, 3)"
+              :key="v.id"
+              class="block w-full truncate rounded px-1 py-0.5 text-left text-[10px]"
+              :class="visitDotClass(v.status)"
+              :title="`${v.clientName} · ${v.agentName || ''} · ${v.status}`"
+              @click="openReschedule(v)"
+            >
+              {{ v.scheduledAt.slice(11, 16) }} {{ v.clientName }}
+            </button>
+            <div v-if="cell.visits.length > 3" class="text-[10px] text-stone-400">+{{ cell.visits.length - 3 }} más</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <AdminPanel v-else :pad="false">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="border-b border-line bg-stone-50 text-left text-[11px] uppercase tracking-wide text-stone-400">
@@ -91,6 +124,37 @@ const filters = [
   { key: 'cancelled', label: 'Canceladas' },
   { key: 'no_show', label: 'No asistió' },
 ]
+const view = ref<'list' | 'calendar'>('list')
+const calendarMonth = ref(new Date())
+const weekdayLabels = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
+const monthLabel = computed(() => calendarMonth.value.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }))
+function shiftMonth(delta: number) {
+  calendarMonth.value = new Date(calendarMonth.value.getFullYear(), calendarMonth.value.getMonth() + delta, 1)
+}
+const calendarCells = computed(() => {
+  const y = calendarMonth.value.getFullYear()
+  const m = calendarMonth.value.getMonth()
+  const firstDay = new Date(y, m, 1)
+  const startOffset = (firstDay.getDay() + 6) % 7 // Monday-first grid
+  const daysInMonth = new Date(y, m + 1, 0).getDate()
+  const cells: { day: number; inMonth: boolean; date: string; visits: any[] }[] = []
+  for (let i = 0; i < startOffset; i++) cells.push({ day: 0, inMonth: false, date: '', visits: [] })
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    cells.push({ day: d, inMonth: true, date: dateStr, visits: rows.value.filter((v) => v.scheduledAt.slice(0, 10) === dateStr) })
+  }
+  return cells
+})
+function visitDotClass(status: string) {
+  return (
+    {
+      scheduled: 'bg-blue-50 text-blue-700',
+      completed: 'bg-emerald-50 text-emerald-700',
+      cancelled: 'bg-stone-100 text-stone-400',
+      no_show: 'bg-red-50 text-red-700',
+    }[status] || 'bg-stone-100 text-stone-500'
+  )
+}
 function channelLabel(c: string) {
   return { in_person: 'Presencial', video: 'Videollamada', phone: 'Teléfono' }[c] || c
 }

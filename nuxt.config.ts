@@ -12,10 +12,12 @@ export default defineNuxtConfig({
     // Matches the crons in wrangler.toml's [triggers] — hourly is enough
     // precision for auto-hiding an expired article; the Publication
     // Scheduler dispatcher needs per-minute granularity to hit staged-launch
-    // offsets (e.g. "+2 min", "+5 min") on time.
+    // offsets (e.g. "+2 min", "+5 min") on time. Appointment reminders piggyback
+    // on that same per-minute tick — a ±30min window plus a sent-once guard
+    // column means it never needs its own cron entry.
     scheduledTasks: {
       '0 * * * *': ['cms:expire-articles', 'system:cleanup-error-logs'],
-      '* * * * *': ['scheduler:dispatch'],
+      '* * * * *': ['scheduler:dispatch', 'appointments:reminders'],
       '30 3 * * *': ['system:backup-d1'],
       '0 4 * * 1': ['scheduler:recompute-ai-time'],
     },

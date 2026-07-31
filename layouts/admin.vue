@@ -131,6 +131,7 @@ const nav = [
       { label: 'Leads', to: '/admin/leads', icon: 'contact' },
       { label: 'Clientes', to: '/admin/clientes', icon: 'users' },
       { label: 'Visitas', to: '/admin/visitas', icon: 'calendar' },
+      { label: 'Analítica de citas', to: '/admin/citas-analytics', icon: 'chart' },
       { label: 'Reservas', to: '/admin/reservas', icon: 'bookmark' },
     ],
   },

@@ -67,6 +67,16 @@
                 <input id="book-appt-phone" v-model="form.phone" class="input" />
               </div>
             </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="label" for="book-appt-budget">{{ t('bookAppointment.budgetLabel', 'Presupuesto aprox. (AED)') }}</label>
+                <input id="book-appt-budget" v-model.number="form.budget" type="number" min="0" class="input" />
+              </div>
+              <div>
+                <label class="label" for="book-appt-interest">{{ t('bookAppointment.interestLabel', '¿Qué buscas?') }}</label>
+                <input id="book-appt-interest" v-model="form.interest" class="input" :placeholder="t('bookAppointment.interestPlaceholder', 'Ej: villa 3 hab. para invertir')" />
+              </div>
+            </div>
             <div>
               <label class="label" for="book-appt-notes">{{ t('scheduleVisit.form.notesLabel', 'Notas') }}</label>
               <textarea id="book-appt-notes" v-model="form.notes" class="input" rows="2" />
@@ -78,6 +88,11 @@
           <div v-else class="flex-1 px-6 py-14 text-center">
             <p class="font-serif text-2xl">{{ t('bookAppointment.success.title', '¡Cita confirmada!') }}</p>
             <p class="mt-2 text-[14px] text-stone-500">{{ selectedSlotLabel }} — {{ agentName }}</p>
+            <a v-if="videoLink" :href="videoLink" target="_blank" rel="noopener" class="mt-4 inline-block text-sm font-medium text-blue-600 underline">{{ t('bookAppointment.joinVideo', 'Enlace de la videollamada') }}</a>
+            <p v-if="manageUrl" class="mt-4 text-[12px] text-stone-400">
+              {{ t('bookAppointment.manageHint', 'Guarda este enlace para cancelar o cambiar la hora:') }}
+              <a :href="manageUrl" class="underline">{{ manageUrl }}</a>
+            </p>
             <button class="btn-secondary mt-6" @click="close">{{ t('scheduleVisit.close', 'Cerrar') }}</button>
           </div>
         </div>
@@ -99,10 +114,12 @@ const loadingDays = ref(false)
 const days = ref<DaySlots[]>([])
 const selectedDate = ref('')
 const selectedSlot = ref<Slot | null>(null)
-const form = reactive({ name: '', email: '', phone: '', notes: '' })
+const form = reactive({ name: '', email: '', phone: '', notes: '', budget: null as number | null, interest: '' })
 const sending = ref(false)
 const sent = ref(false)
 const error = ref('')
+const videoLink = ref('')
+const manageUrl = ref('')
 
 const selectedDaySlots = computed(() => days.value.find((d) => d.date === selectedDate.value)?.slots || [])
 const selectedSlotLabel = computed(() => (selectedSlot.value ? `${dayLabel(selectedSlot.value.start.slice(0, 10))} · ${timeLabel(selectedSlot.value.start)}` : ''))
@@ -132,6 +149,10 @@ watch(
       form.email = ''
       form.phone = ''
       form.notes = ''
+      form.budget = null
+      form.interest = ''
+      videoLink.value = ''
+      manageUrl.value = ''
       loadAvailability()
     }
   },
@@ -157,10 +178,12 @@ async function submit() {
   sending.value = true
   error.value = ''
   try {
-    await $fetch(`/api/public/agents/${props.agentSlug}/book`, {
+    const res = await $fetch<{ videoLink?: string; manageUrl?: string }>(`/api/public/agents/${props.agentSlug}/book`, {
       method: 'POST',
-      body: { ...form, startAt: selectedSlot.value.start, propertyId: props.propertyId, channel: props.channel },
+      body: { ...form, budget: form.budget || undefined, startAt: selectedSlot.value.start, propertyId: props.propertyId, channel: props.channel },
     })
+    videoLink.value = res.videoLink || ''
+    manageUrl.value = res.manageUrl || ''
     sent.value = true
   } catch (e: any) {
     error.value = e?.data?.statusMessage || t('scheduleVisit.error', 'No se pudo enviar. Inténtalo de nuevo.')

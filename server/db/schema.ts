@@ -408,6 +408,9 @@ export const teamMembers = sqliteTable('team_members', {
   linkedin: text('linkedin'),
   instagram: text('instagram'),
   slotDurationMinutes: integer('slot_duration_minutes').notNull().default(60),
+  bufferMinutes: integer('buffer_minutes').notNull().default(0),
+  maxAppointmentsPerDay: integer('max_appointments_per_day'),
+  icalToken: text('ical_token'),
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })
@@ -536,6 +539,14 @@ export const visits = sqliteTable(
     status: text('status').notNull().default('scheduled'), // scheduled | completed | cancelled | no_show
     channel: text('channel').notNull().default('in_person'), // in_person | video | phone
     notes: text('notes'),
+    clientEmail: text('client_email'),
+    clientPhone: text('client_phone'),
+    clientBudget: real('client_budget'),
+    clientInterest: text('client_interest'),
+    managementToken: text('management_token'),
+    reminder24hSentAt: text('reminder_24h_sent_at'),
+    reminder1hSentAt: text('reminder_1h_sent_at'),
+    videoLink: text('video_link'),
     createdAt: text('created_at').notNull().default(''),
   },
   (t) => [index('visits_status').on(t.status), index('visits_agent_scheduled').on(t.agentId, t.scheduledAt)],
@@ -568,6 +579,30 @@ export const agentTimeOff = sqliteTable(
     createdAt: text('created_at').notNull().default(''),
   },
   (t) => [index('agent_time_off_agent_date').on(t.agentId, t.date)],
+)
+
+/**
+ * Real trail for every appointment-related notice (confirmation, reminder,
+ * cancellation). `delivered` stays honestly 0 for channels with no connected
+ * provider (email/whatsapp) rather than pretending a send happened —
+ * `internal` is always available in the admin panel regardless.
+ */
+export const appointmentNotifications = sqliteTable(
+  'appointment_notifications',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    visitId: integer('visit_id').notNull(),
+    type: text('type').notNull(), // confirmation | reminder_24h | reminder_1h | cancelled | rescheduled
+    channel: text('channel').notNull().default('internal'), // internal | email | whatsapp
+    recipient: text('recipient'),
+    message: text('message').notNull(),
+    delivered: integer('delivered').notNull().default(0),
+    errorMessage: text('error_message'),
+    readAt: text('read_at'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('appointment_notifications_visit').on(t.visitId, t.createdAt), index('appointment_notifications_org_read').on(t.organizationId, t.readAt)],
 )
 
 export const reservations = sqliteTable(
