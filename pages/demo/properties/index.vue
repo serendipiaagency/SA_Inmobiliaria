@@ -22,6 +22,17 @@
               <span v-if="activeCount" class="badge">{{ activeCount }}</span>
             </button>
             <div class="relative">
+              <button class="filters-btn" @click="savingSearch = !savingSearch">🔔 Avísame</button>
+              <div v-if="savingSearch" class="absolute right-0 top-full z-40 mt-2 w-72 rounded-xl border border-line bg-white p-3 shadow-lg">
+                <p class="mb-2 text-xs text-stone-500">Te avisamos por email cuando aparezca una propiedad nueva que coincida con esta búsqueda.</p>
+                <input v-model="savedSearchEmail" type="email" placeholder="tu@email.com" class="w-full rounded-lg border border-line px-3 py-2 text-sm" />
+                <button type="button" class="mt-2 w-full rounded-lg bg-ink py-2 text-xs font-medium text-white disabled:opacity-50" :disabled="savingSearchPending" @click="subscribeSearchAlert">
+                  {{ savingSearchPending ? 'Guardando…' : 'Guardar búsqueda' }}
+                </button>
+                <p v-if="savedSearchDone" class="mt-2 text-xs font-medium text-emerald-700">¡Listo! Te avisaremos por email.</p>
+              </div>
+            </div>
+            <div class="relative">
               <select v-model="sort" class="sort-select" @change="applyPatch({ sort: sort || undefined, page: undefined })">
                 <option value="">{{ t('properties.sort.recommended', 'Recomendado') }}</option>
                 <option value="price_asc">{{ t('properties.sort.priceAsc', 'Precio ↑') }}</option>
@@ -121,6 +132,27 @@ const router = useRouter()
 
 const q = ref(String(route.query.q || ''))
 const sort = ref(String(route.query.sort || ''))
+
+// "Avísame" — server-side email alert for new matching listings, distinct
+// from useSavedSearches() above (client-only localStorage bookmarks with no
+// alerting). Named to avoid colliding with the `saveSearch` binding already
+// destructured from useSavedSearches().
+const savingSearch = ref(false)
+const savedSearchEmail = ref('')
+const savingSearchPending = ref(false)
+const savedSearchDone = ref(false)
+async function subscribeSearchAlert() {
+  if (!savedSearchEmail.value) return
+  savingSearchPending.value = true
+  try {
+    await $fetch('/api/public/saved-searches', { method: 'POST', body: { email: savedSearchEmail.value, filters: route.query } })
+    savedSearchDone.value = true
+  } catch {
+    toast.error('No se pudo guardar la búsqueda')
+  } finally {
+    savingSearchPending.value = false
+  }
+}
 const modalOpen = ref(false)
 
 watch(

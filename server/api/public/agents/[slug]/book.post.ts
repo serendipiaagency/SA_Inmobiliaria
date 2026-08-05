@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { useDb, schema, now, resolvePublicOrgId, cfEnv } from '../../../../utils/db'
 import { isSlotAvailable } from '../../../../utils/appointments/availability'
 import { notifyAppointment } from '../../../../utils/appointments/notifications'
+import { dispatchWebhook } from '../../../../utils/webhooks'
 import { generateVideoLink } from '../../../../utils/appointments/videoLink'
 import { upsertLead } from '../../../../utils/leads'
 import { rateLimit } from '../../../../utils/rateLimit'
@@ -151,6 +152,7 @@ export default defineEventHandler(async (event) => {
   } catch {
     // La cita ya quedó guardada — un fallo al notificar nunca debe deshacerla.
   }
+  await dispatchWebhook(event, orgId, 'visit.booked', { id: visit.id, agentName: agent.name, scheduledAt: visit.scheduledAt, clientName: name })
 
   return { ok: true, visitId: visit.id, scheduledAt: visit.scheduledAt, endsAt, videoLink, manageUrl }
 })

@@ -16,7 +16,7 @@ export default defineNuxtConfig({
     // on that same per-minute tick — a ±30min window plus a sent-once guard
     // column means it never needs its own cron entry.
     scheduledTasks: {
-      '0 * * * *': ['cms:expire-articles', 'system:cleanup-error-logs'],
+      '0 * * * *': ['cms:expire-articles', 'system:cleanup-error-logs', 'marketing:saved-search-alerts'],
       '* * * * *': ['scheduler:dispatch', 'appointments:reminders'],
       '30 3 * * *': ['system:backup-d1'],
       '0 4 * * 1': ['scheduler:recompute-ai-time'],

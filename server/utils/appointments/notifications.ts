@@ -1,6 +1,6 @@
 import * as schema from '../../db/schema'
 import { now } from '../db'
-import { sendEmail } from './emailAdapter'
+import { sendEmail } from '../email'
 
 export type NotificationType = 'confirmation' | 'reminder_24h' | 'reminder_1h' | 'cancelled' | 'rescheduled'
 

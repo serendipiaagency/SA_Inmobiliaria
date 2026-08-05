@@ -133,6 +133,7 @@ const nav = [
       { label: 'Visitas', to: '/admin/visitas', icon: 'calendar' },
       { label: 'Analítica de citas', to: '/admin/citas-analytics', icon: 'chart' },
       { label: 'Reservas', to: '/admin/reservas', icon: 'bookmark' },
+      { label: 'Referidos', to: '/admin/referidos', icon: 'sparkles' },
     ],
   },
   {
@@ -154,6 +155,11 @@ const nav = [
     label: 'Finanzas & Growth',
     items: [
       { label: 'Facturación', to: '/admin/facturacion', icon: 'invoice' },
+      { label: 'Operaciones', to: '/admin/operaciones', icon: 'invoice' },
+      { label: 'Ingresos', to: '/admin/ingresos', icon: 'chart' },
+      { label: 'Contratos', to: '/admin/contratos', icon: 'doc' },
+      { label: 'Depósitos', to: '/admin/depositos', icon: 'key' },
+      { label: 'Tasador (AVM)', to: '/admin/tasador', icon: 'badge' },
       { label: 'Automatizaciones', to: '/admin/automatizaciones', icon: 'bolt' },
       { label: 'AI Studio', to: '/admin/ai', icon: 'sparkles' },
       { label: 'Widgets', to: '/admin/widgets', icon: 'widget' },
@@ -196,6 +202,8 @@ const nav = [
     items: [
       { label: 'Configuración', to: '/admin/configuracion', icon: 'settings' },
       { label: 'Usuarios', to: '/admin/users', icon: 'key' },
+      { label: 'Webhooks', to: '/admin/webhooks', icon: 'code' },
+      { label: 'Privacidad (RGPD)', to: '/admin/privacidad', icon: 'alert' },
       // Org-scoped: shows this org's own team activity (server/utils/audit.ts).
       { label: 'Auditoría', to: '/admin/audit-log', icon: 'doc' },
     ],

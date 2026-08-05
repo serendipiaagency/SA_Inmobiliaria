@@ -53,6 +53,14 @@
             {{ t('nav.admin') }}
           </NuxtLink>
           <NuxtLink
+            v-else-if="user"
+            to="/demo/mi-cuenta"
+            class="hidden text-[11px] font-semibold uppercase tracking-widest2 transition md:inline"
+            :class="navLight ? 'text-white/85 hover:text-white' : 'text-stone-500 hover:text-ink'"
+          >
+            {{ t('nav.myAccount', 'Mi cuenta') }}
+          </NuxtLink>
+          <NuxtLink
             v-else
             to="/login"
             class="hidden text-[11px] font-semibold uppercase tracking-widest2 transition md:inline"
@@ -77,8 +85,8 @@
           <NuxtLink to="/demo/leadership" @click="open = false">{{ t('nav.team') }}</NuxtLink>
           <NuxtLink to="/demo/blog" @click="open = false">{{ t('nav.journal') }}</NuxtLink>
           <NuxtLink to="/demo/contact-us" @click="open = false">{{ t('nav.contact') }}</NuxtLink>
-          <NuxtLink :to="isStaff ? '/admin' : '/login'" @click="open = false">
-            {{ isStaff ? t('nav.admin') : t('nav.signin') }}
+          <NuxtLink :to="isStaff ? '/admin' : user ? '/demo/mi-cuenta' : '/login'" @click="open = false">
+            {{ isStaff ? t('nav.admin') : user ? t('nav.myAccount', 'Mi cuenta') : t('nav.signin') }}
           </NuxtLink>
         </div>
         <div class="mt-5 border-t border-line pt-5"><LocaleSwitcher /></div>
