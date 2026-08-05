@@ -135,6 +135,13 @@ export async function requireAdmin(event: H3Event): Promise<SessionUser> {
   return user
 }
 
+/** Any authenticated account, regardless of role — for the client-facing portal, which reads by email match rather than org-admin scope. */
+export async function requireUser(event: H3Event): Promise<SessionUser> {
+  const user = await getSessionUser(event)
+  if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthenticated' })
+  return user
+}
+
 /** Platform owner only — for managing organizations themselves. */
 export async function requireSuperAdmin(event: H3Event): Promise<SessionUser> {
   const user = await getSessionUser(event)

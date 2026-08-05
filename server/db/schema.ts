@@ -408,6 +408,9 @@ export const teamMembers = sqliteTable('team_members', {
   linkedin: text('linkedin'),
   instagram: text('instagram'),
   slotDurationMinutes: integer('slot_duration_minutes').notNull().default(60),
+  bufferMinutes: integer('buffer_minutes').notNull().default(0),
+  maxAppointmentsPerDay: integer('max_appointments_per_day'),
+  icalToken: text('ical_token'),
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })
@@ -536,6 +539,14 @@ export const visits = sqliteTable(
     status: text('status').notNull().default('scheduled'), // scheduled | completed | cancelled | no_show
     channel: text('channel').notNull().default('in_person'), // in_person | video | phone
     notes: text('notes'),
+    clientEmail: text('client_email'),
+    clientPhone: text('client_phone'),
+    clientBudget: real('client_budget'),
+    clientInterest: text('client_interest'),
+    managementToken: text('management_token'),
+    reminder24hSentAt: text('reminder_24h_sent_at'),
+    reminder1hSentAt: text('reminder_1h_sent_at'),
+    videoLink: text('video_link'),
     createdAt: text('created_at').notNull().default(''),
   },
   (t) => [index('visits_status').on(t.status), index('visits_agent_scheduled').on(t.agentId, t.scheduledAt)],
@@ -568,6 +579,30 @@ export const agentTimeOff = sqliteTable(
     createdAt: text('created_at').notNull().default(''),
   },
   (t) => [index('agent_time_off_agent_date').on(t.agentId, t.date)],
+)
+
+/**
+ * Real trail for every appointment-related notice (confirmation, reminder,
+ * cancellation). `delivered` stays honestly 0 for channels with no connected
+ * provider (email/whatsapp) rather than pretending a send happened —
+ * `internal` is always available in the admin panel regardless.
+ */
+export const appointmentNotifications = sqliteTable(
+  'appointment_notifications',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    visitId: integer('visit_id').notNull(),
+    type: text('type').notNull(), // confirmation | reminder_24h | reminder_1h | cancelled | rescheduled
+    channel: text('channel').notNull().default('internal'), // internal | email | whatsapp
+    recipient: text('recipient'),
+    message: text('message').notNull(),
+    delivered: integer('delivered').notNull().default(0),
+    errorMessage: text('error_message'),
+    readAt: text('read_at'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('appointment_notifications_visit').on(t.visitId, t.createdAt), index('appointment_notifications_org_read').on(t.organizationId, t.readAt)],
 )
 
 export const reservations = sqliteTable(
@@ -1295,6 +1330,8 @@ export const assetExportRenders = sqliteTable(
     fileSizeBytes: integer('file_size_bytes'),
     errorMessage: text('error_message'),
     requestedBy: integer('requested_by'),
+    /** JSON RenderValidationResult (server/utils/assetExport/renderValidation.ts) — real QR round-trip decode + PDF open/page-count check, null if never validated. */
+    validationJson: text('validation_json'),
     createdAt: text('created_at').notNull().default(''),
     completedAt: text('completed_at'),
   },
@@ -1407,6 +1444,7 @@ export const assetExportCatalogs = sqliteTable(
     fileSizeBytes: integer('file_size_bytes'),
     errorMessage: text('error_message'),
     requestedBy: integer('requested_by'),
+    validationJson: text('validation_json'),
     createdAt: text('created_at').notNull().default(''),
     completedAt: text('completed_at'),
   },
@@ -1427,8 +1465,215 @@ export const assetExportCatalogItems = sqliteTable(
     pageCount: integer('page_count'),
     r2Key: text('r2_key'),
     errorMessage: text('error_message'),
+    validationJson: text('validation_json'),
     createdAt: text('created_at').notNull().default(''),
     completedAt: text('completed_at'),
   },
   (t) => [index('asset_export_catalog_items_catalog').on(t.catalogId, t.position)],
+)
+
+// ---------------------------------------------------------------------------
+// 10 novedades (migration 0037): contratos, referidos, alertas de búsqueda,
+// operaciones cerradas (ingresos + comisiones), tasador (AVM), depósito
+// Stripe, webhooks salientes, RGPD.
+// ---------------------------------------------------------------------------
+
+export const contractTemplates = sqliteTable(
+  'contract_templates',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    type: text('type').notNull().default('reserva'), // reserva | arras | alquiler | compraventa
+    bodyTemplate: text('body_template').notNull().default(''),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('contract_templates_org').on(t.organizationId)],
+)
+
+export const contracts = sqliteTable(
+  'contracts',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    templateId: integer('template_id').references(() => contractTemplates.id),
+    title: text('title').notNull(),
+    assetKind: text('asset_kind'),
+    assetId: integer('asset_id'),
+    clientName: text('client_name').notNull(),
+    clientEmail: text('client_email'),
+    /** Bindings already resolved at creation time — a contract is a frozen snapshot, not a live template. */
+    bodyText: text('body_text').notNull(),
+    status: text('status').notNull().default('draft'), // draft | sent | accepted | void
+    managementToken: text('management_token'),
+    acceptedByName: text('accepted_by_name'),
+    acceptedIp: text('accepted_ip'),
+    acceptedUserAgent: text('accepted_user_agent'),
+    acceptedAt: text('accepted_at'),
+    r2Key: text('r2_key'),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('contracts_org').on(t.organizationId, t.createdAt)],
+)
+
+export const referralLinks = sqliteTable(
+  'referral_links',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    code: text('code').notNull(),
+    referrerType: text('referrer_type').notNull().default('client'), // client | agent
+    referrerName: text('referrer_name').notNull(),
+    referrerEmail: text('referrer_email'),
+    rewardType: text('reward_type').notNull().default('cash'), // cash | discount | commission
+    rewardAmount: real('reward_amount'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('referral_links_code').on(t.code), index('referral_links_org').on(t.organizationId)],
+)
+
+export const referrals = sqliteTable(
+  'referrals',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    referralLinkId: integer('referral_link_id')
+      .notNull()
+      .references(() => referralLinks.id, { onDelete: 'cascade' }),
+    refereeName: text('referee_name').notNull(),
+    refereeEmail: text('referee_email'),
+    refereePhone: text('referee_phone'),
+    leadId: integer('lead_id'),
+    status: text('status').notNull().default('pending'), // pending | converted | rewarded | expired
+    convertedAt: text('converted_at'),
+    rewardedAt: text('rewarded_at'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('referrals_org').on(t.organizationId, t.status), index('referrals_link').on(t.referralLinkId)],
+)
+
+export const savedSearches = sqliteTable(
+  'saved_searches',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    email: text('email').notNull(),
+    filtersJson: text('filters_json').notNull().default('{}'),
+    unsubscribeToken: text('unsubscribe_token').notNull(),
+    lastNotifiedAt: text('last_notified_at'),
+    active: integer('active').notNull().default(1),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('saved_searches_org').on(t.organizationId, t.active), uniqueIndex('saved_searches_unsubscribe_token').on(t.unsubscribeToken)],
+)
+
+export const deals = sqliteTable(
+  'deals',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    leadId: integer('lead_id'),
+    clientName: text('client_name').notNull(),
+    propertyId: integer('property_id'),
+    propertyName: text('property_name'),
+    agentId: integer('agent_id'),
+    agentName: text('agent_name'),
+    dealType: text('deal_type').notNull().default('sale'), // sale | rental
+    dealValue: real('deal_value').notNull(),
+    commissionRate: real('commission_rate').notNull().default(0),
+    commissionAmount: real('commission_amount').notNull().default(0),
+    commissionPaid: integer('commission_paid').notNull().default(0),
+    paidAt: text('paid_at'),
+    closedAt: text('closed_at').notNull(),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('deals_org').on(t.organizationId, t.closedAt), index('deals_agent').on(t.agentId)],
+)
+
+export const valuations = sqliteTable(
+  'valuations',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    propertyType: text('property_type'),
+    community: text('community'),
+    area: real('area').notNull(),
+    bedrooms: integer('bedrooms'),
+    estimatedLow: real('estimated_low'),
+    estimatedAvg: real('estimated_avg'),
+    estimatedHigh: real('estimated_high'),
+    pricePerSqmAvg: real('price_per_sqm_avg'),
+    comparablesJson: text('comparables_json').notNull().default('[]'),
+    requestedBy: integer('requested_by'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('valuations_org').on(t.organizationId, t.createdAt)],
+)
+
+export const depositPayments = sqliteTable(
+  'deposit_payments',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    contractId: integer('contract_id').references(() => contracts.id),
+    amount: real('amount').notNull(),
+    currency: text('currency').notNull().default('eur'),
+    status: text('status').notNull().default('pending'), // pending | not_connected | processing | paid | failed
+    stripePaymentIntentId: text('stripe_payment_intent_id'),
+    errorMessage: text('error_message'),
+    createdAt: text('created_at').notNull().default(''),
+    paidAt: text('paid_at'),
+  },
+  (t) => [index('deposit_payments_org').on(t.organizationId, t.createdAt)],
+)
+
+export const webhookEndpoints = sqliteTable(
+  'webhook_endpoints',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    url: text('url').notNull(),
+    secret: text('secret').notNull(),
+    eventsJson: text('events_json').notNull().default('[]'),
+    active: integer('active').notNull().default(1),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('webhook_endpoints_org').on(t.organizationId, t.active)],
+)
+
+export const webhookDeliveries = sqliteTable(
+  'webhook_deliveries',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    endpointId: integer('endpoint_id')
+      .notNull()
+      .references(() => webhookEndpoints.id, { onDelete: 'cascade' }),
+    event: text('event').notNull(),
+    payloadJson: text('payload_json').notNull(),
+    status: text('status').notNull().default('pending'), // pending | delivered | failed
+    responseCode: integer('response_code'),
+    errorMessage: text('error_message'),
+    attempts: integer('attempts').notNull().default(0),
+    createdAt: text('created_at').notNull().default(''),
+    deliveredAt: text('delivered_at'),
+  },
+  (t) => [index('webhook_deliveries_endpoint').on(t.endpointId, t.createdAt)],
+)
+
+export const gdprRequests = sqliteTable(
+  'gdpr_requests',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    requestType: text('request_type').notNull(), // export | delete
+    subjectEmail: text('subject_email').notNull(),
+    rowsAffected: integer('rows_affected').notNull().default(0),
+    requestedBy: integer('requested_by'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('gdpr_requests_org').on(t.organizationId, t.createdAt)],
 )

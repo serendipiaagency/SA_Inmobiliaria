@@ -1,7 +1,8 @@
 import { and, eq } from 'drizzle-orm'
-import { useDb, schema, now } from '../../../../utils/db'
+import { useDb, schema, now, cfEnv } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
 import { hasOverlappingVisit } from '../../../../utils/appointments/availability'
+import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { logAdminAction } from '../../../../utils/audit'
 
 const VALID_STATUSES = ['scheduled', 'completed', 'cancelled', 'no_show'] as const
@@ -69,5 +70,32 @@ export default defineEventHandler(async (event) => {
 
   await db.update(schema.visits).set(patch).where(eq(schema.visits.id, visitId))
   await logAdminAction(event, { user, orgId, action: 'update', resource: 'visit', resourceId: visitId })
+
+  try {
+    if (patch.status === 'cancelled') {
+      await notifyAppointment(db, cfEnv(event), {
+        organizationId: orgId,
+        visitId,
+        type: 'cancelled',
+        recipientEmail: visit.clientEmail,
+        recipientPhone: visit.clientPhone,
+        subject: `Cita cancelada con ${visit.agentName || 'tu agente'}`,
+        message: `Tu cita del ${visit.scheduledAt} con ${visit.agentName || 'tu agente'} ha sido cancelada.`,
+      })
+    } else if (patch.scheduledAt && patch.scheduledAt !== visit.scheduledAt) {
+      await notifyAppointment(db, cfEnv(event), {
+        organizationId: orgId,
+        visitId,
+        type: 'rescheduled',
+        recipientEmail: visit.clientEmail,
+        recipientPhone: visit.clientPhone,
+        subject: `Cita reprogramada con ${patch.agentName || visit.agentName || 'tu agente'}`,
+        message: `Tu cita ha sido reprogramada al ${patch.scheduledAt} con ${patch.agentName || visit.agentName || 'tu agente'}.`,
+      })
+    }
+  } catch {
+    // El cambio ya quedó guardado — un fallo al notificar nunca debe deshacerlo.
+  }
+
   return { ok: true }
 })

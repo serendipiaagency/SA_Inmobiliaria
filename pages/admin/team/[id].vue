@@ -33,11 +33,34 @@
         </div>
       </AdminPanel>
 
-      <AdminPanel title="Duración de cita">
-        <label class="label">Minutos por cita</label>
-        <input v-model.number="slotDurationMinutes" type="number" min="5" max="480" step="5" class="input" />
-        <p class="mt-2 text-xs text-stone-500">Cada hueco de la agenda pública durará exactamente esto — se usa tanto para calcular los huecos disponibles como para reservar.</p>
-      </AdminPanel>
+      <div class="space-y-6">
+        <AdminPanel title="Duración de cita">
+          <label class="label">Minutos por cita</label>
+          <input v-model.number="slotDurationMinutes" type="number" min="5" max="480" step="5" class="input" />
+          <p class="mt-2 text-xs text-stone-500">Cada hueco de la agenda pública durará exactamente esto — se usa tanto para calcular los huecos disponibles como para reservar.</p>
+        </AdminPanel>
+
+        <AdminPanel title="Margen entre citas" sub="Minutos de descanso/desplazamiento antes y después de cada cita">
+          <label class="label">Buffer (min)</label>
+          <input v-model.number="bufferMinutes" type="number" min="0" max="240" step="5" class="input" />
+        </AdminPanel>
+
+        <AdminPanel title="Tope diario" sub="Máximo de citas al día, aunque queden huecos libres en el horario">
+          <div class="flex items-center gap-2">
+            <input v-model="maxPerDayEnabled" type="checkbox" class="h-4 w-4" />
+            <input v-model.number="maxAppointmentsPerDay" type="number" min="1" max="100" class="input !w-24" :disabled="!maxPerDayEnabled" />
+            <span class="text-xs text-stone-500">citas/día</span>
+          </div>
+        </AdminPanel>
+
+        <AdminPanel v-if="icalUrl" title="Exportar calendario" sub="Suscríbete a esta URL en Google Calendar/Outlook ('Añadir por URL') para ver estas citas en tu calendario personal">
+          <div class="flex items-center gap-2">
+            <input :value="icalUrl" readonly class="input flex-1 text-xs" @click="($event.target as HTMLInputElement).select()" />
+            <button class="btn-quiet !px-3 !py-1.5 text-xs" @click="copyIcalUrl">{{ copied ? 'Copiado' : 'Copiar' }}</button>
+          </div>
+          <p class="mt-2 text-xs text-stone-500">Solo exporta — para que un cambio en tu Google Calendar bloquee huecos aquí haría falta conectar OAuth de Google/Microsoft, no disponible en este despliegue.</p>
+        </AdminPanel>
+      </div>
     </div>
 
     <AdminPanel title="Bloqueos puntuales" sub="Días concretos en los que este agente no está disponible (vacaciones, baja, etc.)" class="mt-6">
@@ -77,6 +100,11 @@ const agent = computed(() => data.value?.agent || null)
 useHead({ title: () => `${agent.value?.name || 'Agente'} — Horario` })
 
 const slotDurationMinutes = ref(60)
+const bufferMinutes = ref(0)
+const maxPerDayEnabled = ref(false)
+const maxAppointmentsPerDay = ref(8)
+const icalUrl = ref('')
+const copied = ref(false)
 const days = ref(DAY_LABELS.map((label, dayOfWeek) => ({ dayOfWeek, label, active: false, startTime: '09:00', endTime: '18:00' })))
 const timeOff = ref<any[]>([])
 
@@ -85,6 +113,10 @@ watch(
   (d) => {
     if (!d) return
     slotDurationMinutes.value = d.agent?.slotDurationMinutes || 60
+    bufferMinutes.value = d.agent?.bufferMinutes || 0
+    maxPerDayEnabled.value = d.agent?.maxAppointmentsPerDay != null
+    maxAppointmentsPerDay.value = d.agent?.maxAppointmentsPerDay || 8
+    if (d.agent?.icalToken) icalUrl.value = `${window.location.origin}/calendar/${d.agent.icalToken}.ics`
     for (const day of days.value) {
       const rule = (d.rules || []).find((r: any) => r.dayOfWeek === day.dayOfWeek)
       day.active = !!rule
@@ -103,13 +135,27 @@ async function save() {
   saving.value = true
   try {
     const rules = days.value.filter((d) => d.active).map((d) => ({ dayOfWeek: d.dayOfWeek, startTime: d.startTime, endTime: d.endTime }))
-    await $fetch(`/api/admin/saas/agents/${agentId}/availability`, { method: 'PUT', body: { slotDurationMinutes: slotDurationMinutes.value, rules } })
+    await $fetch(`/api/admin/saas/agents/${agentId}/availability`, {
+      method: 'PUT',
+      body: {
+        slotDurationMinutes: slotDurationMinutes.value,
+        bufferMinutes: bufferMinutes.value,
+        maxAppointmentsPerDay: maxPerDayEnabled.value ? maxAppointmentsPerDay.value : null,
+        rules,
+      },
+    })
     toast.success('Horario guardado')
   } catch (e: any) {
     toast.error(e?.data?.statusMessage || 'No se pudo guardar el horario')
   } finally {
     saving.value = false
   }
+}
+
+async function copyIcalUrl() {
+  await navigator.clipboard.writeText(icalUrl.value)
+  copied.value = true
+  setTimeout(() => (copied.value = false), 2000)
 }
 
 const timeOffForm = reactive({ date: '', reason: '' })

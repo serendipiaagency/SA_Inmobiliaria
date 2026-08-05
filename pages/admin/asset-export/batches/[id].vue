@@ -12,6 +12,9 @@
           <p v-if="batch?.failedCount" class="mt-0.5 text-xs text-red-600">{{ batch.failedCount }} con error</p>
         </div>
         <div class="flex gap-3">
+          <a v-if="batch?.completedCount" :href="`/api/admin/asset-export/batches/${batchId}/download-zip`" class="text-xs font-medium text-ink hover:underline" target="_blank">
+            Descargar todo (ZIP)
+          </a>
           <button v-if="isRunning" type="button" class="text-xs font-medium text-stone-500 hover:underline" @click="cancel">Cancelar</button>
           <button v-if="batch?.failedCount" type="button" class="text-xs font-medium text-ink hover:underline" @click="retryFailed">Reintentar errores</button>
         </div>

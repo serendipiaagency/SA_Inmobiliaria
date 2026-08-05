@@ -4,6 +4,7 @@ import { useDb, schema, now, cfEnv } from '../../../../../utils/db'
 import { logAdminAction } from '../../../../../utils/audit'
 import { resolveAssetBindings } from '../../../../../utils/assetExport/bindings'
 import { renderPdf } from '../../../../../utils/assetExport/pdfRenderer'
+import { validateRenderedPdf } from '../../../../../utils/assetExport/renderValidation'
 import { FORMAT_BY_KEY } from '../../../../../utils/assetExport/formats'
 import type { TemplateStructure } from '../../../../../utils/assetExport/types'
 
@@ -41,19 +42,35 @@ export default defineEventHandler(async (event) => {
     const structure = JSON.parse(project.structureJson) as TemplateStructure
     const pdfBytes = await renderPdf(event, structure, project.formatKey, bindings)
 
+    const validation = await validateRenderedPdf(pdfBytes, structure, bindings)
+    if (!validation.ok) {
+      const message = `Validación fallida: ${validation.errors.join('; ')}`
+      await db
+        .update(schema.assetExportRenders)
+        .set({ status: 'failed', errorMessage: message.slice(0, 500), validationJson: JSON.stringify(validation), completedAt: now() })
+        .where(eq(schema.assetExportRenders.id, renderRow.id))
+      throw createError({ statusCode: 422, statusMessage: message })
+    }
+
     const r2Key = `asset-export-renders/${orgId}/${projectId}/${renderRow.id}.pdf`
     await cfEnv(event).MEDIA.put(r2Key, pdfBytes, { httpMetadata: { contentType: 'application/pdf' } })
 
     const completedAt = now()
     await db
       .update(schema.assetExportRenders)
-      .set({ status: 'completed', r2Key, fileSizeBytes: pdfBytes.byteLength, completedAt })
+      .set({ status: 'completed', r2Key, fileSizeBytes: pdfBytes.byteLength, validationJson: JSON.stringify(validation), completedAt })
       .where(eq(schema.assetExportRenders.id, renderRow.id))
     await db.update(schema.assetExportProjects).set({ status: 'exported', updatedAt: completedAt }).where(eq(schema.assetExportProjects.id, projectId))
     await db.insert(schema.assetExportProjectVersions).values({ projectId, structureJson: project.structureJson, status: 'exported', editedBy: user.id, createdAt: completedAt })
 
     await logAdminAction(event, { user, orgId, action: 'run', resource: 'asset-export-render', resourceId: renderRow.id })
-    return { id: renderRow.id, status: 'completed', downloadUrl: `/api/admin/asset-export/renders/${renderRow.id}/download`, fileSizeBytes: pdfBytes.byteLength }
+    return {
+      id: renderRow.id,
+      status: 'completed',
+      downloadUrl: `/api/admin/asset-export/renders/${renderRow.id}/download`,
+      fileSizeBytes: pdfBytes.byteLength,
+      validationWarnings: validation.warnings,
+    }
   } catch (err: any) {
     const message = err?.statusMessage || err?.message || 'Render failed'
     await db.update(schema.assetExportRenders).set({ status: 'failed', errorMessage: String(message).slice(0, 500), completedAt: now() }).where(eq(schema.assetExportRenders.id, renderRow.id))

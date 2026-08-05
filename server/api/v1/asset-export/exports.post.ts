@@ -4,6 +4,7 @@ import { requireApiKey } from '../../../utils/apiAuth'
 import { rateLimit } from '../../../utils/rateLimit'
 import { resolveAssetBindings } from '../../../utils/assetExport/bindings'
 import { renderPdf } from '../../../utils/assetExport/pdfRenderer'
+import { validateRenderedPdf } from '../../../utils/assetExport/renderValidation'
 import { FORMAT_BY_KEY } from '../../../utils/assetExport/formats'
 import type { TemplateStructure } from '../../../utils/assetExport/types'
 import { cfEnv } from '../../../utils/db'
@@ -84,11 +85,24 @@ export default defineEventHandler(async (event) => {
     const structure = JSON.parse(project.structureJson) as TemplateStructure
     const pdfBytes = await renderPdf(event, structure, project.formatKey, bindings)
 
+    const validation = await validateRenderedPdf(pdfBytes, structure, bindings)
+    if (!validation.ok) {
+      const message = `Validación fallida: ${validation.errors.join('; ')}`
+      await db
+        .update(schema.assetExportRenders)
+        .set({ status: 'failed', errorMessage: message.slice(0, 500), validationJson: JSON.stringify(validation), completedAt: now() })
+        .where(eq(schema.assetExportRenders.id, renderRow.id))
+      throw createError({ statusCode: 422, statusMessage: message })
+    }
+
     const r2Key = `asset-export-renders/${orgId}/${project.id}/${renderRow.id}.pdf`
     await cfEnv(event).MEDIA.put(r2Key, pdfBytes, { httpMetadata: { contentType: 'application/pdf' } })
 
     const completedAt = now()
-    await db.update(schema.assetExportRenders).set({ status: 'completed', r2Key, fileSizeBytes: pdfBytes.byteLength, completedAt }).where(eq(schema.assetExportRenders.id, renderRow.id))
+    await db
+      .update(schema.assetExportRenders)
+      .set({ status: 'completed', r2Key, fileSizeBytes: pdfBytes.byteLength, validationJson: JSON.stringify(validation), completedAt })
+      .where(eq(schema.assetExportRenders.id, renderRow.id))
     await db.update(schema.assetExportProjects).set({ status: 'exported', updatedAt: completedAt }).where(eq(schema.assetExportProjects.id, project.id))
 
     return {
@@ -97,6 +111,7 @@ export default defineEventHandler(async (event) => {
       status: 'completed',
       downloadUrl: `/api/v1/asset-export/exports/${renderRow.id}/download`,
       fileSizeBytes: pdfBytes.byteLength,
+      validationWarnings: validation.warnings,
     }
   } catch (err: any) {
     const message = err?.statusMessage || err?.message || 'Render failed'

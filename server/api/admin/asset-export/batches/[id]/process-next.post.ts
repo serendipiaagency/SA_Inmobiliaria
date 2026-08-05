@@ -3,6 +3,7 @@ import { requireOrgScope } from '../../../../../utils/auth'
 import { useDb, schema, now, cfEnv } from '../../../../../utils/db'
 import { resolveAssetBindings } from '../../../../../utils/assetExport/bindings'
 import { renderPdf } from '../../../../../utils/assetExport/pdfRenderer'
+import { validateRenderedPdf } from '../../../../../utils/assetExport/renderValidation'
 import type { TemplateStructure } from '../../../../../utils/assetExport/types'
 
 /**
@@ -74,11 +75,17 @@ export default defineEventHandler(async (event) => {
     const structure = JSON.parse(project.structureJson) as TemplateStructure
     const pdfBytes = await renderPdf(event, structure, project.formatKey, bindings)
 
+    const validation = await validateRenderedPdf(pdfBytes, structure, bindings)
+    if (!validation.ok) throw createError({ statusCode: 422, statusMessage: `Validación fallida: ${validation.errors.join('; ')}` })
+
     const r2Key = `asset-export-renders/${orgId}/${project.id}/${renderRow.id}.pdf`
     await cfEnv(event).MEDIA.put(r2Key, pdfBytes, { httpMetadata: { contentType: 'application/pdf' } })
 
     const completedAt = now()
-    await db.update(schema.assetExportRenders).set({ status: 'completed', r2Key, fileSizeBytes: pdfBytes.byteLength, completedAt }).where(eq(schema.assetExportRenders.id, renderRow.id))
+    await db
+      .update(schema.assetExportRenders)
+      .set({ status: 'completed', r2Key, fileSizeBytes: pdfBytes.byteLength, validationJson: JSON.stringify(validation), completedAt })
+      .where(eq(schema.assetExportRenders.id, renderRow.id))
     await db.update(schema.assetExportProjects).set({ status: 'exported', updatedAt: completedAt }).where(eq(schema.assetExportProjects.id, project.id))
     await db.update(schema.exportBatchItems).set({ status: 'completed', renderId: renderRow.id, completedAt }).where(eq(schema.exportBatchItems.id, item.id))
     await db.update(schema.exportBatches).set({ completedCount: batch.completedCount + 1 }).where(eq(schema.exportBatches.id, batchId))

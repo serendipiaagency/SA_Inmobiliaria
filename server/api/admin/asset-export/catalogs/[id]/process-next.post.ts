@@ -5,6 +5,7 @@ import { logAdminAction } from '../../../../../utils/audit'
 import { resolveAssetBindings, resolveTenantBindings } from '../../../../../utils/assetExport/bindings'
 import { renderPdf } from '../../../../../utils/assetExport/pdfRenderer'
 import { assembleCatalogPdf } from '../../../../../utils/assetExport/catalogRenderer'
+import { validateRenderedPdf } from '../../../../../utils/assetExport/renderValidation'
 import { PDFDocument } from 'pdf-lib'
 import type { TemplateStructure } from '../../../../../utils/assetExport/types'
 
@@ -51,7 +52,10 @@ export default defineEventHandler(async (event) => {
     const bindings = await resolveAssetBindings(event, { orgId, assetKind: 'developer_property', assetId: item.assetId })
     const structure = JSON.parse(template.structureJson) as TemplateStructure
     const pdfBytes = await renderPdf(event, structure, catalog.formatKey, bindings)
-    const pageCount = (await PDFDocument.load(pdfBytes)).getPageCount()
+
+    const validation = await validateRenderedPdf(pdfBytes, structure, bindings)
+    if (!validation.ok) throw createError({ statusCode: 422, statusMessage: `Validación fallida: ${validation.errors.join('; ')}` })
+    const pageCount = validation.pageCount
 
     const r2Key = `asset-export-catalogs/${orgId}/${catalogId}/fragment-${item.id}.pdf`
     await cfEnv(event).MEDIA.put(r2Key, pdfBytes, { httpMetadata: { contentType: 'application/pdf' } })
@@ -59,7 +63,7 @@ export default defineEventHandler(async (event) => {
     const completedAt = now()
     await db
       .update(schema.assetExportCatalogItems)
-      .set({ status: 'completed', title, pageCount, r2Key, completedAt })
+      .set({ status: 'completed', title, pageCount, r2Key, validationJson: JSON.stringify(validation), completedAt })
       .where(eq(schema.assetExportCatalogItems.id, item.id))
     await db.update(schema.assetExportCatalogs).set({ completedCount: catalog.completedCount + 1 }).where(eq(schema.assetExportCatalogs.id, catalogId))
 
@@ -99,6 +103,27 @@ export default defineEventHandler(async (event) => {
       )
 
       const finalBytes = await assembleCatalogPdf(event, { formatKey: catalog.formatKey, coverTitle: catalog.coverTitle || catalog.name, tenant, fragments })
+
+      // Real sanity check on the assembled file — not per-element like
+      // validateRenderedPdf (fragments were already validated individually),
+      // just: does it open, and does it have at least as many pages as the
+      // fragments it was assembled from (cover/index pages only ever add,
+      // never remove — a lower count means assembly silently dropped pages).
+      const minExpectedPages = fragments.reduce((sum, f) => sum + f.pageCount, 0)
+      let finalPageCount = 0
+      const assemblyErrors: string[] = []
+      if (!finalBytes.byteLength) assemblyErrors.push('El catálogo ensamblado está vacío')
+      else {
+        try {
+          finalPageCount = (await PDFDocument.load(finalBytes)).getPageCount()
+        } catch {
+          assemblyErrors.push('El catálogo ensamblado no se puede abrir')
+        }
+      }
+      if (finalPageCount < minExpectedPages) assemblyErrors.push(`Páginas insuficientes en el catálogo ensamblado: ${finalPageCount} (mínimo esperado ${minExpectedPages})`)
+      if (assemblyErrors.length) throw createError({ statusCode: 500, statusMessage: assemblyErrors.join('; ') })
+      const assemblyValidation = { ok: true, pageCount: finalPageCount, minExpectedPages, errors: [], warnings: [] }
+
       const r2Key = `asset-export-catalogs/${orgId}/${catalogId}/final.pdf`
       await cfEnv(event).MEDIA.put(r2Key, finalBytes, { httpMetadata: { contentType: 'application/pdf' } })
 
@@ -114,7 +139,7 @@ export default defineEventHandler(async (event) => {
       }
       const [updated] = await db
         .update(schema.assetExportCatalogs)
-        .set({ status: finalStatus, r2Key, fileSizeBytes: finalBytes.byteLength, completedAt })
+        .set({ status: finalStatus, r2Key, fileSizeBytes: finalBytes.byteLength, validationJson: JSON.stringify(assemblyValidation), completedAt })
         .where(eq(schema.assetExportCatalogs.id, catalogId))
         .returning()
 

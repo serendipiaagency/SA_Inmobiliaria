@@ -28,6 +28,8 @@
             </select>
             <div class="flex gap-3">
               <button v-if="p.priceChanged" type="button" class="text-xs font-medium text-ink hover:underline" @click="refreshPrice(p)">Actualizar precio y volver a generar</button>
+              <button type="button" class="text-xs font-medium text-ink hover:underline" @click="openEditor(p)">Editar visualmente</button>
+              <button type="button" class="text-xs font-medium text-ink hover:underline" @click="render(p)">{{ rendering === p.id ? 'Generando…' : 'Generar PDF' }}</button>
               <button type="button" class="text-xs font-medium text-ink hover:underline" @click="toggleVersions(p)">
                 {{ expanded === p.id ? 'Ocultar historial' : 'Ver historial' }}
               </button>
@@ -46,6 +48,24 @@
         </div>
       </AdminPanel>
     </div>
+
+    <div v-if="editing" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="editing = null">
+      <div class="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-white p-5">
+        <div class="mb-3 flex items-center justify-between">
+          <h3 class="text-sm font-semibold">Editar — {{ editing.name }}</h3>
+        </div>
+
+        <AdminAssetExportCanvasEditor v-if="editingStructure" :structure="editingStructure" :format-key="editing.formatKey" />
+
+        <p v-if="editError" class="mt-2 text-xs font-medium text-red-600">{{ editError }}</p>
+        <div class="mt-3 flex gap-3">
+          <button type="button" class="rounded-lg bg-ink px-4 py-2 text-[13px] font-medium text-white transition hover:bg-black disabled:opacity-50" :disabled="saving" @click="saveStructure">
+            {{ saving ? 'Guardando…' : 'Guardar' }}
+          </button>
+          <button type="button" class="text-sm text-stone-500 hover:underline" @click="editing = null">Cerrar</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -59,6 +79,11 @@ interface Project {
   status: string
   updatedAt: string
   priceChanged: boolean
+  formatKey: string
+  structureJson: string
+}
+interface TemplateStructure {
+  pages: Array<{ id: string; elements: any[] }>
 }
 interface ProjectVersion {
   id: number
@@ -101,6 +126,45 @@ async function refreshPrice(p: Project) {
   await $fetch(`/api/admin/asset-export/projects/${p.id}`, { method: 'PUT', body: { refreshPriceSnapshot: true } })
   await $fetch(`/api/admin/asset-export/projects/${p.id}/render`, { method: 'POST' })
   await refresh()
+}
+
+const rendering = ref<number | null>(null)
+async function render(p: Project) {
+  rendering.value = p.id
+  try {
+    await $fetch(`/api/admin/asset-export/projects/${p.id}/render`, { method: 'POST' })
+    await refresh()
+  } catch (err: any) {
+    alert(err?.data?.statusMessage || err?.statusMessage || 'Error al generar el PDF')
+  } finally {
+    rendering.value = null
+  }
+}
+
+const editing = ref<Project | null>(null)
+const editingStructure = ref<TemplateStructure | null>(null)
+const editError = ref('')
+const saving = ref(false)
+
+function openEditor(p: Project) {
+  editing.value = p
+  editingStructure.value = JSON.parse(p.structureJson)
+  editError.value = ''
+}
+
+async function saveStructure() {
+  if (!editing.value || !editingStructure.value) return
+  saving.value = true
+  editError.value = ''
+  try {
+    await $fetch(`/api/admin/asset-export/projects/${editing.value.id}`, { method: 'PUT', body: { structure: editingStructure.value } })
+    editing.value = null
+    await refresh()
+  } catch (err: any) {
+    editError.value = err?.data?.statusMessage || err?.statusMessage || 'Error al guardar'
+  } finally {
+    saving.value = false
+  }
 }
 
 const expanded = ref<number | null>(null)
