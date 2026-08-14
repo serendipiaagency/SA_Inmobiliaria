@@ -9,12 +9,28 @@ export default defineEventHandler(async (event) => {
 
   const db = useDb(event)
   const agentRows = await db
-    .select({ id: schema.teamMembers.id, name: schema.teamMembers.name, slotDurationMinutes: schema.teamMembers.slotDurationMinutes })
+    .select({
+      id: schema.teamMembers.id,
+      name: schema.teamMembers.name,
+      slotDurationMinutes: schema.teamMembers.slotDurationMinutes,
+      bufferMinutes: schema.teamMembers.bufferMinutes,
+      maxAppointmentsPerDay: schema.teamMembers.maxAppointmentsPerDay,
+      icalToken: schema.teamMembers.icalToken,
+    })
     .from(schema.teamMembers)
     .where(and(eq(schema.teamMembers.id, agentId), eq(schema.teamMembers.organizationId, orgId)))
     .limit(1)
   const agent = agentRows[0]
   if (!agent) throw createError({ statusCode: 404, statusMessage: 'Agente no encontrado' })
+
+  // Lazily mint the private calendar-feed token on first request rather than at seed/creation time.
+  if (!agent.icalToken) {
+    const bytes = crypto.getRandomValues(new Uint8Array(20))
+    agent.icalToken = Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+    await db.update(schema.teamMembers).set({ icalToken: agent.icalToken }).where(eq(schema.teamMembers.id, agentId))
+  }
 
   const rules = await db
     .select({ id: schema.agentAvailability.id, dayOfWeek: schema.agentAvailability.dayOfWeek, startTime: schema.agentAvailability.startTime, endTime: schema.agentAvailability.endTime })

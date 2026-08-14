@@ -51,6 +51,8 @@ enabled = true
 #                 older than 30 days)
 # "* * * *  *" -> server/tasks/scheduler/dispatch.ts (Publication Scheduler
 #                 dispatcher — every minute, so staged-launch offsets land on time)
+#                 and server/tasks/appointments/reminders.ts (24h/1h
+#                 appointment reminders, same per-minute tick)
 # "30 3 * * *" -> server/tasks/system/backup-d1.ts (daily JSON snapshot of
 #                 every D1 table to R2, kept 14 days — see that file for why)
 # "0 4 * * 1"  -> server/tasks/scheduler/recompute-ai-time.ts (weekly, refreshes

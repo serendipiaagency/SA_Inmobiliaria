@@ -1,0 +1,58 @@
+import { eq } from 'drizzle-orm'
+import { useDb, schema, cfEnv, now } from '../../../../utils/db'
+import { rateLimit } from '../../../../utils/rateLimit'
+import { dispatchWebhook } from '../../../../utils/webhooks'
+import { renderContractPdf } from '../../../../utils/contracts/pdfRenderer'
+
+interface Body {
+  fullName?: string
+  confirm?: boolean
+}
+
+/** Simple e-signature: typed name + explicit checkbox + captured IP/user-agent/timestamp. NOT a qualified/eIDAS signature. */
+export default defineEventHandler(async (event) => {
+  await rateLimit(event, 'contract-accept', { limit: 10, windowSeconds: 60 })
+
+  const token = getRouterParam(event, 'token')
+  if (!token) throw createError({ statusCode: 400, statusMessage: 'Missing token' })
+
+  const body = await readBody<Body>(event)
+  if (!body?.fullName?.trim()) throw createError({ statusCode: 422, statusMessage: 'Indica tu nombre completo' })
+  if (!body.confirm) throw createError({ statusCode: 422, statusMessage: 'Debes confirmar la aceptación' })
+
+  const db = useDb(event)
+  const contract = (await db.select().from(schema.contracts).where(eq(schema.contracts.managementToken, token)).limit(1))[0]
+  if (!contract) throw createError({ statusCode: 404, statusMessage: 'Contrato no encontrado' })
+  if (contract.status === 'accepted') throw createError({ statusCode: 409, statusMessage: 'Este contrato ya fue aceptado' })
+  if (contract.status !== 'sent') throw createError({ statusCode: 409, statusMessage: 'Este contrato no está disponible para aceptación' })
+
+  const ip = getRequestHeader(event, 'cf-connecting-ip') || getRequestHeader(event, 'x-forwarded-for') || 'unknown'
+  const userAgent = getRequestHeader(event, 'user-agent') || 'unknown'
+  const acceptedAt = now()
+
+  const pdfBytes = await renderContractPdf({
+    title: contract.title,
+    bodyText: contract.bodyText,
+    clientName: contract.clientName,
+    acceptance: { byName: body.fullName.trim(), ip, userAgent, at: acceptedAt },
+  })
+  const r2Key = `contracts/${contract.organizationId}/${contract.id}-${Date.now()}.pdf`
+  await cfEnv(event).MEDIA.put(r2Key, pdfBytes, { httpMetadata: { contentType: 'application/pdf' } })
+
+  await db
+    .update(schema.contracts)
+    .set({
+      status: 'accepted',
+      acceptedByName: body.fullName.trim(),
+      acceptedIp: ip,
+      acceptedUserAgent: userAgent,
+      acceptedAt,
+      r2Key,
+      updatedAt: acceptedAt,
+    })
+    .where(eq(schema.contracts.id, contract.id))
+
+  await dispatchWebhook(event, contract.organizationId, 'contract.accepted', { id: contract.id, title: contract.title, clientName: contract.clientName, acceptedAt })
+
+  return { ok: true }
+})

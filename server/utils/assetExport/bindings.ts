@@ -100,6 +100,8 @@ export async function resolveAssetBindings(
 
   const images: Record<string, string | null> = {
     'asset.mainImage': asset.coverImage || null,
+    'asset.masterPlanImage': asset.masterPlanImage || null,
+    'asset.locationMapImage': asset.locationMap || null,
     'tenant.logo': tenant.logo,
   }
 

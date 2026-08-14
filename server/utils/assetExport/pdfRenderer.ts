@@ -6,9 +6,9 @@ import { fetchImageBytes } from './bindings'
 import { renderQrMatrix } from '../qr'
 import { FORMAT_BY_KEY } from './formats'
 
-const BINDING_RE = /^\{\{([a-zA-Z0-9_.]+)\}\}$/
+export const BINDING_RE = /^\{\{([a-zA-Z0-9_.]+)\}\}$/
 
-function resolveBindingText(binding: string | undefined, bindings: AssetBindings): string {
+export function resolveBindingText(binding: string | undefined, bindings: AssetBindings): string {
   if (!binding) return ''
   const match = BINDING_RE.exec(binding.trim())
   if (!match) return binding // static text — not a {{token}}

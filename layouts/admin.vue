@@ -115,6 +115,7 @@ const icons: Record<string, string> = {
   settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15H4.5a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 6 9.4a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 11 4.6h-.1a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 2.82 1.17l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 11v.1a2 2 0 0 1 0 4z',
   key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3',
   alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
+  help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4M12 17h.01',
 }
 
 const nav = [
@@ -131,7 +132,9 @@ const nav = [
       { label: 'Leads', to: '/admin/leads', icon: 'contact' },
       { label: 'Clientes', to: '/admin/clientes', icon: 'users' },
       { label: 'Visitas', to: '/admin/visitas', icon: 'calendar' },
+      { label: 'Analítica de citas', to: '/admin/citas-analytics', icon: 'chart' },
       { label: 'Reservas', to: '/admin/reservas', icon: 'bookmark' },
+      { label: 'Referidos', to: '/admin/referidos', icon: 'sparkles' },
     ],
   },
   {
@@ -153,6 +156,11 @@ const nav = [
     label: 'Finanzas & Growth',
     items: [
       { label: 'Facturación', to: '/admin/facturacion', icon: 'invoice' },
+      { label: 'Operaciones', to: '/admin/operaciones', icon: 'invoice' },
+      { label: 'Ingresos', to: '/admin/ingresos', icon: 'chart' },
+      { label: 'Contratos', to: '/admin/contratos', icon: 'doc' },
+      { label: 'Depósitos', to: '/admin/depositos', icon: 'key' },
+      { label: 'Tasador (AVM)', to: '/admin/tasador', icon: 'badge' },
       { label: 'Automatizaciones', to: '/admin/automatizaciones', icon: 'bolt' },
       { label: 'AI Studio', to: '/admin/ai', icon: 'sparkles' },
       { label: 'Widgets', to: '/admin/widgets', icon: 'widget' },
@@ -191,10 +199,16 @@ const nav = [
     ],
   },
   {
+    label: 'Ayuda',
+    items: [{ label: 'Ayuda y documentación', to: '/admin/ayuda', icon: 'help' }],
+  },
+  {
     label: 'Sistema',
     items: [
       { label: 'Configuración', to: '/admin/configuracion', icon: 'settings' },
       { label: 'Usuarios', to: '/admin/users', icon: 'key' },
+      { label: 'Webhooks', to: '/admin/webhooks', icon: 'code' },
+      { label: 'Privacidad (RGPD)', to: '/admin/privacidad', icon: 'alert' },
       // Org-scoped: shows this org's own team activity (server/utils/audit.ts).
       { label: 'Auditoría', to: '/admin/audit-log', icon: 'doc' },
     ],

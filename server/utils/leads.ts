@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, now } from './db'
+import { dispatchWebhook } from './webhooks'
 
 interface UpsertLeadInput {
   /** Which tenant this lead belongs to — always the caller's resolved org, never client input. */
@@ -54,22 +55,27 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
     }
   }
 
-  await db.insert(schema.leads).values({
-    organizationId: input.organizationId,
-    name: input.name.slice(0, 200),
-    email: input.email || null,
-    phone: input.phone || null,
-    source: input.source,
-    status: 'new',
-    score: bump,
-    budget: input.budget || null,
-    propertyId: input.propertyId || null,
-    propertyName: input.propertyName || null,
-    agentId: input.agentId || null,
-    agentName: input.agentName || null,
-    notes: input.notes || null,
-    lastContactAt: nowTs,
-    createdAt: nowTs,
-    updatedAt: nowTs,
-  })
+  const [row] = await db
+    .insert(schema.leads)
+    .values({
+      organizationId: input.organizationId,
+      name: input.name.slice(0, 200),
+      email: input.email || null,
+      phone: input.phone || null,
+      source: input.source,
+      status: 'new',
+      score: bump,
+      budget: input.budget || null,
+      propertyId: input.propertyId || null,
+      propertyName: input.propertyName || null,
+      agentId: input.agentId || null,
+      agentName: input.agentName || null,
+      notes: input.notes || null,
+      lastContactAt: nowTs,
+      createdAt: nowTs,
+      updatedAt: nowTs,
+    })
+    .returning()
+
+  await dispatchWebhook(event, input.organizationId, 'lead.created', { id: row.id, name: row.name, email: row.email, source: row.source, propertyName: row.propertyName })
 }

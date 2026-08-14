@@ -15,7 +15,13 @@ export default defineEventHandler(async (event) => {
   const db = useDb(event)
   const orgId = resolvePublicOrgId(event)
   const agentRows = await db
-    .select({ id: schema.teamMembers.id, name: schema.teamMembers.name, slotDurationMinutes: schema.teamMembers.slotDurationMinutes })
+    .select({
+      id: schema.teamMembers.id,
+      name: schema.teamMembers.name,
+      slotDurationMinutes: schema.teamMembers.slotDurationMinutes,
+      bufferMinutes: schema.teamMembers.bufferMinutes,
+      maxAppointmentsPerDay: schema.teamMembers.maxAppointmentsPerDay,
+    })
     .from(schema.teamMembers)
     .where(and(eq(schema.teamMembers.slug, slug), eq(schema.teamMembers.organizationId, orgId)))
     .limit(1)
@@ -27,12 +33,13 @@ export default defineEventHandler(async (event) => {
   const days = Math.min(MAX_DAYS, Math.max(1, Number(q.days) || 14))
 
   const fromDate = new Date(`${fromStr}T00:00:00Z`)
+  const options = { bufferMinutes: agent.bufferMinutes, maxAppointmentsPerDay: agent.maxAppointmentsPerDay }
   const results: { date: string; slots: { start: string; end: string }[] }[] = []
   for (let i = 0; i < days; i++) {
     const d = new Date(fromDate)
     d.setUTCDate(d.getUTCDate() + i)
     const dateStr = d.toISOString().slice(0, 10)
-    const slots = await computeAvailableSlots(db, orgId, agent.id, dateStr, agent.slotDurationMinutes)
+    const slots = await computeAvailableSlots(db, orgId, agent.id, dateStr, agent.slotDurationMinutes, options)
     results.push({ date: dateStr, slots })
   }
 

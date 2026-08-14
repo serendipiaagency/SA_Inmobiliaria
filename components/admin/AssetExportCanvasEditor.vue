@@ -1,11 +1,18 @@
 <template>
-  <div class="flex gap-4">
+  <div class="flex flex-col gap-4 lg:flex-row">
     <!-- Left: element palette -->
-    <div class="w-36 shrink-0 space-y-2">
-      <p class="mb-1 text-[11px] font-semibold uppercase text-stone-400">Añadir bloque</p>
-      <button type="button" class="palette-btn" @click="addElement('text')">Texto</button>
-      <button type="button" class="palette-btn" @click="addElement('image')">Imagen</button>
-      <button type="button" class="palette-btn" @click="addElement('qr')">QR</button>
+    <div class="w-full shrink-0 space-y-2 lg:w-36">
+      <div class="flex gap-2">
+        <button type="button" class="flex-1 rounded-lg border border-line px-2 py-1.5 text-xs font-medium disabled:opacity-30" :disabled="!canUndo" title="Deshacer (Ctrl+Z)" @click="undo">↺ Deshacer</button>
+        <button type="button" class="flex-1 rounded-lg border border-line px-2 py-1.5 text-xs font-medium disabled:opacity-30" :disabled="!canRedo" title="Rehacer (Ctrl+Shift+Z)" @click="redo">↻ Rehacer</button>
+      </div>
+
+      <p class="mb-1 mt-3 text-[11px] font-semibold uppercase text-stone-400">Añadir bloque</p>
+      <div class="grid grid-cols-3 gap-2 lg:grid-cols-1">
+        <button type="button" class="palette-btn" @click="addElement('text')">Texto</button>
+        <button type="button" class="palette-btn" @click="addElement('image')">Imagen</button>
+        <button type="button" class="palette-btn" @click="addElement('qr')">QR</button>
+      </div>
 
       <p class="mb-1 mt-4 text-[11px] font-semibold uppercase text-stone-400">Páginas</p>
       <div v-for="(p, i) in structure.pages" :key="p.id" class="flex items-center gap-0.5">
@@ -48,7 +55,7 @@
     </div>
 
     <!-- Right: properties -->
-    <div class="w-64 shrink-0">
+    <div class="w-full shrink-0 lg:w-64">
       <div v-if="!selectedElement" class="rounded-lg border border-dashed border-line px-4 py-8 text-center text-xs text-stone-400">
         Selecciona un bloque para editarlo
       </div>
@@ -150,7 +157,7 @@ const FORMATS: Record<string, { label: string; widthPt: number; heightPt: number
 }
 
 const ASSET_TOKENS = ['asset.title', 'asset.price', 'asset.location', 'asset.description', 'asset.bedrooms', 'asset.bathrooms', 'asset.builtArea', 'asset.propertyType', 'asset.publicUrl']
-const IMAGE_TOKENS = ['asset.mainImage', 'tenant.logo']
+const IMAGE_TOKENS = ['asset.mainImage', 'asset.masterPlanImage', 'asset.locationMapImage', 'tenant.logo']
 const QR_TOKENS = ['asset.qrCode']
 const TENANT_TOKENS = ['tenant.phone', 'tenant.whatsapp', 'tenant.email', 'tenant.legalText', 'tenant.website']
 
@@ -279,9 +286,88 @@ function onMouseUp() {
   window.removeEventListener('mousemove', onMouseMove)
   window.removeEventListener('mouseup', onMouseUp)
 }
+
+// --- Undo/redo ---------------------------------------------------------
+// A debounced deep watch on `structure` (rather than a manual snapshot()
+// call at every mutation site) means one undo step per burst of activity —
+// a whole drag gesture or a run of keystrokes in a text field — instead of
+// one step per pixel moved or per character typed, which is how every
+// mainstream editor's undo actually behaves. History holds plain JSON
+// strings (the structure is plain serializable data, no functions/dates),
+// so `structuredClone`-equivalent deep copies are just JSON.stringify/parse.
+const MAX_HISTORY = 50
+const history: string[] = []
+const future: string[] = []
+let lastSnapshot = JSON.stringify(structure)
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+let suppressWatch = false
+
+const canUndo = computed(() => history.length > 0)
+const canRedo = computed(() => future.length > 0)
+
+function commitPendingSnapshot() {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+  const current = JSON.stringify(structure)
+  if (current === lastSnapshot) return
+  history.push(lastSnapshot)
+  if (history.length > MAX_HISTORY) history.shift()
+  future.length = 0
+  lastSnapshot = current
+}
+
+watch(
+  structure,
+  () => {
+    if (suppressWatch) return
+    if (debounceTimer) clearTimeout(debounceTimer)
+    debounceTimer = setTimeout(commitPendingSnapshot, 500)
+  },
+  { deep: true },
+)
+
+function applySnapshot(json: string) {
+  suppressWatch = true
+  const parsed = JSON.parse(json) as TemplateStructure
+  structure.pages.splice(0, structure.pages.length, ...parsed.pages)
+  lastSnapshot = json
+  selected.value = null
+  activePageIndex.value = Math.min(activePageIndex.value, structure.pages.length - 1)
+  nextTick(() => {
+    suppressWatch = false
+  })
+}
+
+function undo() {
+  commitPendingSnapshot()
+  if (!history.length) return
+  future.push(lastSnapshot)
+  applySnapshot(history.pop()!)
+}
+function redo() {
+  if (!future.length) return
+  history.push(lastSnapshot)
+  applySnapshot(future.pop()!)
+}
+
+function onKeydown(e: KeyboardEvent) {
+  const target = e.target as HTMLElement | null
+  // Let native undo run inside text inputs — only drive the canvas
+  // undo/redo stack when focus is elsewhere (canvas, buttons, body).
+  if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return
+  if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z') return
+  e.preventDefault()
+  if (e.shiftKey) redo()
+  else undo()
+}
+onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => {
   window.removeEventListener('mousemove', onMouseMove)
   window.removeEventListener('mouseup', onMouseUp)
+  window.removeEventListener('keydown', onKeydown)
+  if (debounceTimer) clearTimeout(debounceTimer)
 })
 </script>
 
