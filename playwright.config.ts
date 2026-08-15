@@ -2,6 +2,9 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests/e2e',
+  // Signs the two test tenants in once and stores their cookies — see
+  // tests/e2e/global-setup.ts for why (login is IP rate-limited).
+  globalSetup: './tests/e2e/global-setup.ts',
   timeout: 30_000,
   fullyParallel: false,
   workers: 1,

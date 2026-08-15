@@ -2,6 +2,7 @@ import { and, desc, eq, isNull, like, or, sql } from 'drizzle-orm'
 import { useDb } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
+import { buildTenantWhere } from '../../../utils/tenantPolicy'
 
 export default defineEventHandler(async (event) => {
   const { def } = getResource(event)
@@ -20,7 +21,10 @@ export default defineEventHandler(async (event) => {
 
   const conds: any[] = []
   if (q && def.searchFields.length) conds.push(or(...def.searchFields.map((f) => like(def.table[f], `%${q}%`))))
-  if (def.orgScoped !== false && orgId != null) conds.push(eq(def.table.organizationId, orgId))
+  // Single source of truth for isolation — including child tables, which are
+  // filtered by an EXISTS on their parent rather than listed platform-wide.
+  const tenantWhere = buildTenantWhere(db, def.table, def.tenantPolicy, orgId)
+  if (tenantWhere) conds.push(tenantWhere)
   if (def.softDelete) conds.push(trashed ? sql`${def.table.deletedAt} is not null` : isNull(def.table.deletedAt))
   const where = conds.length ? and(...conds) : undefined
 

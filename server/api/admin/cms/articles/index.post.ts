@@ -3,6 +3,7 @@ import { useDb, schema, now, slugify } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
 import { parseBlocks, blocksToPlainText, computeReadingTime, computeSeoScore, countLinks } from '../../../../utils/cms'
 import { logAdminAction } from '../../../../utils/audit'
+import { assertOwnedReference } from '../../../../utils/tenantPolicy'
 
 export default defineEventHandler(async (event) => {
   const { orgId, user } = await requireOrgScope(event)
@@ -20,6 +21,16 @@ export default defineEventHandler(async (event) => {
     .where(and(eq(schema.cmsArticles.organizationId, orgId), eq(schema.cmsArticles.slug, slug)))
     .limit(1)
   if (existing[0]) slug = `${slug}-${Math.floor(Math.random() * 10000)}`
+
+  // authorId/categoryId are client-supplied ids into other tenant-scoped
+  // tables — an unchecked value would attach this article to another agency's
+  // author or category, and that link is rendered on the public blog.
+  const authorId = body?.authorId
+    ? await assertOwnedReference(db, { table: schema.cmsAuthors, id: body.authorId, orgId, label: 'Autor' })
+    : null
+  const categoryId = body?.categoryId
+    ? await assertOwnedReference(db, { table: schema.cmsCategories, id: body.categoryId, orgId, label: 'Categoría' })
+    : null
 
   const contentJson = typeof body?.contentJson === 'string' ? body.contentJson : JSON.stringify(body?.contentJson || [])
   const blocks = parseBlocks(contentJson)
@@ -43,8 +54,8 @@ export default defineEventHandler(async (event) => {
     .insert(schema.cmsArticles)
     .values({
       organizationId: orgId,
-      authorId: body?.authorId ? Number(body.authorId) : null,
-      categoryId: body?.categoryId ? Number(body.categoryId) : null,
+      authorId,
+      categoryId,
       title,
       slug,
       excerpt: body?.excerpt || null,

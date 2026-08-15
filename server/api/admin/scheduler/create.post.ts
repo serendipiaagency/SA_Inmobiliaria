@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { useDb, schema, now } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
 import { isValidChannelKey } from '../../../utils/publication/channels'
@@ -20,10 +20,13 @@ export default defineEventHandler(async (event) => {
 
   const developerPropertyId = Number(body?.developerPropertyId)
   if (!developerPropertyId) throw createError({ statusCode: 422, statusMessage: 'developerPropertyId es obligatorio' })
+  // Ownership, not mere existence: without the organization filter a tenant
+  // could schedule — and the dispatcher would then really publish — another
+  // tenant's project across its own configured channels.
   const propertyRows = await db
     .select({ id: schema.developerProperties.id })
     .from(schema.developerProperties)
-    .where(eq(schema.developerProperties.id, developerPropertyId))
+    .where(and(eq(schema.developerProperties.id, developerPropertyId), eq(schema.developerProperties.organizationId, orgId)))
     .limit(1)
   if (!propertyRows[0]) throw createError({ statusCode: 404, statusMessage: 'Propiedad no encontrada' })
 
@@ -33,8 +36,12 @@ export default defineEventHandler(async (event) => {
   let steps: TemplateStep[] = []
   let templateId: number | null = null
   if (body?.templateId) {
-    const tRows = await db.select().from(schema.publicationTemplates).where(eq(schema.publicationTemplates.id, Number(body.templateId))).limit(1)
-    if (!tRows[0] || tRows[0].organizationId !== orgId) throw createError({ statusCode: 404, statusMessage: 'Plantilla no encontrada' })
+    const tRows = await db
+      .select()
+      .from(schema.publicationTemplates)
+      .where(and(eq(schema.publicationTemplates.id, Number(body.templateId)), eq(schema.publicationTemplates.organizationId, orgId)))
+      .limit(1)
+    if (!tRows[0]) throw createError({ statusCode: 404, statusMessage: 'Plantilla no encontrada' })
     templateId = tRows[0].id
     try {
       steps = JSON.parse(tRows[0].stepsJson || '[]')

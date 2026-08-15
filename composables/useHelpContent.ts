@@ -488,6 +488,20 @@ export function useHelpContent() {
 
   const faqs: HelpFaq[] = [
     {
+      id: 'faq-tenant-isolation',
+      question: '¿Puede otra inmobiliaria de la plataforma ver mis datos?',
+      answer:
+        'No. Cada inmobiliaria es un inquilino aislado: todo lo que ves en el panel — catálogo, planos, galerías, leads, visitas, contratos, facturas, blog y documentos subidos — está filtrado por tu organización en el servidor, no en el navegador. Si alguien pidiera directamente el identificador de un registro de otra inmobiliaria, la plataforma responde "no encontrado", igual que si no existiera. Los documentos privados guardados en el almacenamiento (KYC de visitantes, PDF exportados, contratos firmados) exigen además comprobar que ese fichero es tuyo antes de servirlo.',
+      tags: ['seguridad', 'privacidad', 'multitenant', 'organizacion'],
+    },
+    {
+      id: 'faq-stats-scope',
+      question: 'Los números del Dashboard y de Facturación son más bajos que antes, ¿se han perdido datos?',
+      answer:
+        'No se ha perdido nada. Esos contadores y los totales de Facturación mostraban por error datos de toda la plataforma en vez de solo los tuyos. Ahora reflejan únicamente tu organización, así que las cifras son más bajas pero por fin son las tuyas de verdad. Puedes comprobarlo: los listados de cada sección coinciden con el contador.',
+      tags: ['dashboard', 'facturacion', 'analytics', 'seguridad'],
+    },
+    {
       id: 'faq-lead-source',
       question: '¿De dónde salen los leads que veo en el CRM?',
       answer:

@@ -1,6 +1,7 @@
 import { useDb, schema, now } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
 import { storeFile, mediaUrl } from '../../../../utils/media'
+import { assertOwnedReference } from '../../../../utils/tenantPolicy'
 
 /**
  * Upload endpoint for the Media Library. Reuses storeFile's magic-byte
@@ -14,18 +15,23 @@ export default defineEventHandler(async (event) => {
   const file = parts?.find((p) => p.name === 'file' && p.data?.byteLength)
   if (!file) throw createError({ statusCode: 422, statusMessage: 'No file provided' })
   const folderPart = parts?.find((p) => p.name === 'folderId')
-  const folderId = folderPart ? parseInt(new TextDecoder().decode(folderPart.data), 10) : null
+  const rawFolderId = folderPart ? parseInt(new TextDecoder().decode(folderPart.data), 10) : null
 
   const key = await storeFile(event, file, `cms/${orgId}`)
   const url = mediaUrl(key) as string
   const type = (file.type || '').startsWith('image/svg') ? 'svg' : (file.type || '').startsWith('image/') ? 'image' : 'pdf'
 
   const db = useDb(event)
+  // A folder id from the form must be one of this tenant's own folders.
+  const folderId =
+    rawFolderId && Number.isInteger(rawFolderId)
+      ? await assertOwnedReference(db, { table: schema.cmsMediaFolders, id: rawFolderId, orgId, label: 'Carpeta' })
+      : null
   const inserted = await db
     .insert(schema.cmsMedia)
     .values({
       organizationId: orgId,
-      folderId: folderId && Number.isInteger(folderId) ? folderId : null,
+      folderId,
       filename: file.filename || key.split('/').pop() || key,
       url,
       type,

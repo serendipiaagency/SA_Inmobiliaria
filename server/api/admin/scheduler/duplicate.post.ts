@@ -4,6 +4,7 @@ import { requireOrgScope } from '../../../utils/auth'
 import { buildJobRows, type TemplateStep } from '../../../utils/publication/scheduling'
 import { ensureChannelConfigs } from '../../../utils/publication/defaults'
 import { logAdminAction } from '../../../utils/audit'
+import { assertOwnedReference } from '../../../utils/tenantPolicy'
 
 /** POST /api/admin/scheduler/duplicate — Fase 4/10 ("duplicar programación"). Copies a schedule's channel sequence (same relative offsets) onto a new base time. */
 export default defineEventHandler(async (event) => {
@@ -39,7 +40,18 @@ export default defineEventHandler(async (event) => {
   const channelConfigByKey = Object.fromEntries(configRows.map((c: any) => [c.channelKey, c]))
 
   const nowTs = now()
-  const developerPropertyId = body?.developerPropertyId || source.developerPropertyId
+  // An override may point anywhere the caller likes, so it gets the same
+  // ownership check as scheduler/create; with no override we reuse the source
+  // schedule's property, which was already verified when it was created.
+  let developerPropertyId = source.developerPropertyId
+  if (body?.developerPropertyId) {
+    developerPropertyId = await assertOwnedReference(db, {
+      table: schema.developerProperties,
+      id: body.developerPropertyId,
+      orgId,
+      label: 'Propiedad',
+    })
+  }
   const scheduleInsert = await db
     .insert(schema.publicationSchedules)
     .values({

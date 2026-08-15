@@ -1,5 +1,5 @@
-import { eq, ne, sql } from 'drizzle-orm'
-import { useDb, schema } from '../../../../utils/db'
+import { and, eq, ne, sql } from 'drizzle-orm'
+import { useDb, schema, resolvePublicOrgId } from '../../../../utils/db'
 import { attachPhotos } from '../../../../utils/photos'
 import { explainSimilarity, type SimilarityFacts } from '../../../../utils/ai'
 
@@ -16,7 +16,8 @@ export default defineEventHandler(async (event) => {
 
   const db = useDb(event)
   const P = schema.developerProperties
-  const rows = await db.select().from(P).where(eq(P.slug, slug)).limit(1)
+  const orgId = resolvePublicOrgId(event)
+  const rows = await db.select().from(P).where(and(eq(P.slug, slug), eq(P.organizationId, orgId))).limit(1)
   const base = rows[0]
   if (!base) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
 
@@ -27,7 +28,10 @@ export default defineEventHandler(async (event) => {
     .select({ project: P, developerName: schema.developers.name })
     .from(P)
     .leftJoin(schema.developers, eq(P.developerId, schema.developers.id))
-    .where(ne(P.id, base.id))
+    // Candidates come from this tenant's own catalog only — a "similar
+    // property" from another agency would be both a leak and an advert for a
+    // competitor's listing.
+    .where(and(ne(P.id, base.id), eq(P.organizationId, orgId)))
     .orderBy(sql`case when ${P.community} = ${base.community} then 0 else 1 end`)
     .limit(200)
   const candidates = candidateRows.map((r: any) => ({ ...r.project, developerName: r.developerName }))

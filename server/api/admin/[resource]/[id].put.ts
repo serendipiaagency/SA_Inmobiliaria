@@ -1,9 +1,10 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { useDb, schema } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
-import { getResource, buildPayload, syncTranslations } from '../../../utils/adminResources'
+import { getResource, buildPayload, syncTranslations, assertPayloadReferences } from '../../../utils/adminResources'
 import { logAdminAction } from '../../../utils/audit'
 import { fireAutomationRules } from '../../../utils/publication/automations'
+import { authorizeRecord, buildTenantWhere } from '../../../utils/tenantPolicy'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -18,18 +19,32 @@ export default defineEventHandler(async (event) => {
   const id = parseInt(getRouterParam(event, 'id') || '', 10)
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   const db = useDb(event)
+
+  // Resolve-then-act: every later step (including translation sync) works from
+  // a record this tenant has been proven to own, instead of from a raw URL id.
+  const { row: existing, authorized } = await authorizeRecord(db, {
+    resourceKey: key,
+    table: def.table,
+    policy: def.tenantPolicy,
+    id,
+    orgId,
+  })
+
   const body = await readBody<Record<string, any>>(event)
   const data = await buildPayload(def, body || {}, false)
   delete data.organizationId // tenant ownership can't be reassigned via this endpoint
+  // Re-validate any FK the payload touches: an update must not be able to
+  // re-parent this row onto another tenant's record.
+  await assertPayloadReferences(db, def, data, orgId, { isCreate: false })
   // Only an existing super_admin may mint another one — otherwise an org
   // admin could self-escalate to platform-wide access via a raw API call.
   if (key === 'users' && data.role === 'super_admin' && user.role !== 'super_admin') {
     throw createError({ statusCode: 403, statusMessage: 'Only a super_admin can grant that role' })
   }
 
+  const tenantWhere = buildTenantWhere(db, def.table, def.tenantPolicy, orgId)
   const idCond = eq(def.table.id, id)
-  const orgCond = def.orgScoped !== false && orgId != null ? eq(def.table.organizationId, orgId) : undefined
-  const where = orgCond ? and(idCond, orgCond) : idCond
+  const where = tenantWhere ? and(idCond, tenantWhere) : idCond
 
   // Off-plan project prices are chartable on the public property page — every
   // real edit here becomes a real data point, never a fabricated one.
@@ -39,43 +54,37 @@ export default defineEventHandler(async (event) => {
   // server/utils/publication/automations.ts.
   let automationsFired = 0
   if (key === 'developer-properties') {
-    const current = await db
-      .select({ price: schema.developerProperties.price, status: schema.developerProperties.status })
-      .from(schema.developerProperties)
-      .where(where as any)
-      .limit(1)
-    if (current[0]) {
-      if (typeof data.price === 'number' && current[0].price !== data.price) {
-        await db.insert(schema.priceHistory).values({ developerPropertyId: id, price: data.price, recordedAt: new Date().toISOString() })
-        if (data.price < current[0].price) {
-          automationsFired += await fireAutomationRules(db, orgId!, id, 'price_drop', `precio ${current[0].price} → ${data.price}`)
-        }
+    if (typeof data.price === 'number' && existing.price !== data.price) {
+      await db.insert(schema.priceHistory).values({ developerPropertyId: id, price: data.price, recordedAt: new Date().toISOString() })
+      if (data.price < existing.price) {
+        automationsFired += await fireAutomationRules(db, orgId!, id, 'price_drop', `precio ${existing.price} → ${data.price}`)
       }
-      if (typeof data.status === 'string' && current[0].status !== data.status) {
-        automationsFired += await fireAutomationRules(db, orgId!, id, 'status_change', `estado ${current[0].status} → ${data.status}`)
-      }
+    }
+    if (typeof data.status === 'string' && existing.status !== data.status) {
+      automationsFired += await fireAutomationRules(db, orgId!, id, 'status_change', `estado ${existing.status} → ${data.status}`)
     }
   }
 
   // The public article's comment_count only reflects visible (approved) comments —
   // moderating one into/out of "approved" here must keep that counter honest.
-  if (key === 'cms-comments' && typeof data.status === 'string') {
-    const current = await db.select({ status: schema.cmsComments.status, articleId: schema.cmsComments.articleId }).from(schema.cmsComments).where(where as any).limit(1)
-    if (current[0] && current[0].status !== data.status) {
-      const wasApproved = current[0].status === 'approved'
-      const nowApproved = data.status === 'approved'
-      if (!wasApproved && nowApproved) {
-        await db.update(schema.cmsArticles).set({ commentCount: sql`${schema.cmsArticles.commentCount} + 1` }).where(eq(schema.cmsArticles.id, current[0].articleId))
-      } else if (wasApproved && !nowApproved) {
-        await db.update(schema.cmsArticles).set({ commentCount: sql`max(${schema.cmsArticles.commentCount} - 1, 0)` }).where(eq(schema.cmsArticles.id, current[0].articleId))
-      }
+  // The article is reached through this comment's own (tenant-verified) row, and
+  // `relations.articleId` guarantees it belongs to the same tenant.
+  if (key === 'cms-comments' && typeof data.status === 'string' && existing.status !== data.status) {
+    const articleId = data.articleId ?? existing.articleId
+    const wasApproved = existing.status === 'approved'
+    const nowApproved = data.status === 'approved'
+    const articleWhere = and(eq(schema.cmsArticles.id, articleId), eq(schema.cmsArticles.organizationId, orgId!))
+    if (!wasApproved && nowApproved) {
+      await db.update(schema.cmsArticles).set({ commentCount: sql`${schema.cmsArticles.commentCount} + 1` }).where(articleWhere)
+    } else if (wasApproved && !nowApproved) {
+      await db.update(schema.cmsArticles).set({ commentCount: sql`max(${schema.cmsArticles.commentCount} - 1, 0)` }).where(articleWhere)
     }
   }
 
   if (Object.keys(data).length) {
     await db.update(def.table).set(data).where(where as any)
   }
-  await syncTranslations(db, def, id, body?.translations)
+  await syncTranslations(db, def, authorized, body?.translations)
   await logAdminAction(event, { user, orgId, action: 'update', resource: key, resourceId: id })
   return { ok: true, id, automationsFired: automationsFired || undefined }
 })

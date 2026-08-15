@@ -3,6 +3,7 @@ import { useDb, schema, now, slugify } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
 import { parseBlocks, blocksToPlainText, computeReadingTime, computeSeoScore, countLinks } from '../../../../utils/cms'
 import { logAdminAction } from '../../../../utils/audit'
+import { assertOwnedReference } from '../../../../utils/tenantPolicy'
 
 export default defineEventHandler(async (event) => {
   const { orgId, user } = await requireOrgScope(event)
@@ -31,6 +32,21 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // Same ownership rule as create — an update must not be able to re-point an
+  // article at another tenant's author or category.
+  const authorId =
+    body?.authorId !== undefined
+      ? body.authorId
+        ? await assertOwnedReference(db, { table: schema.cmsAuthors, id: body.authorId, orgId, label: 'Autor' })
+        : null
+      : existing.authorId
+  const categoryId =
+    body?.categoryId !== undefined
+      ? body.categoryId
+        ? await assertOwnedReference(db, { table: schema.cmsCategories, id: body.categoryId, orgId, label: 'Categoría' })
+        : null
+      : existing.categoryId
+
   const contentJson = body?.contentJson !== undefined
     ? typeof body.contentJson === 'string' ? body.contentJson : JSON.stringify(body.contentJson)
     : existing.contentJson
@@ -56,8 +72,8 @@ export default defineEventHandler(async (event) => {
       excerpt,
       contentJson,
       coverImage,
-      authorId: body?.authorId !== undefined ? (body.authorId ? Number(body.authorId) : null) : existing.authorId,
-      categoryId: body?.categoryId !== undefined ? (body.categoryId ? Number(body.categoryId) : null) : existing.categoryId,
+      authorId,
+      categoryId,
       language: body?.language || existing.language,
       status,
       publishedAt: status === 'published' && !wasPublished ? nowTs : existing.publishedAt,

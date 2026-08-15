@@ -3,9 +3,10 @@ import { requireOrgScope } from '../../../utils/auth'
 /**
  * Dashboard overview: KPI cards with month-over-month deltas, a revenue/visitor
  * time series, the lead funnel, lead-source split, agent leaderboard and a
- * recent-activity feed. Everything is scoped to the active organization.
- * Invoices stay global by explicit decision — outstanding/pendingInvoices
- * intentionally still reflect platform-wide billing, not per-org billing.
+ * recent-activity feed. Everything is scoped to the active organization,
+ * invoices included since migration 0038 gave them an organization_id (they
+ * previously reported platform-wide outstanding balances on every tenant's
+ * dashboard).
  */
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireOrgScope(event)
@@ -74,9 +75,15 @@ export default defineEventHandler(async (event) => {
       ((await raw.prepare('SELECT count(*) AS n FROM developer_properties WHERE organization_id = ?1').bind(orgId).first<{ n: number }>())?.n || 0) +
       ((await raw.prepare('SELECT count(*) AS n FROM agent_properties WHERE organization_id = ?1').bind(orgId).first<{ n: number }>())?.n || 0),
     upcomingVisits: (await raw.prepare("SELECT count(*) AS n FROM visits WHERE organization_id = ?1 AND status='scheduled'").bind(orgId).first<{ n: number }>())?.n || 0,
-    pendingInvoices: (await raw.prepare("SELECT count(*) AS n FROM invoices WHERE status IN ('pending','overdue')").first<{ n: number }>())?.n || 0,
+    pendingInvoices:
+      (await raw.prepare("SELECT count(*) AS n FROM invoices WHERE organization_id = ?1 AND status IN ('pending','overdue')").bind(orgId).first<{ n: number }>())?.n || 0,
     outstanding:
-      (await raw.prepare("SELECT coalesce(sum(amount+tax),0) AS s FROM invoices WHERE status IN ('pending','overdue')").first<{ s: number }>())?.s || 0,
+      (
+        await raw
+          .prepare("SELECT coalesce(sum(amount+tax),0) AS s FROM invoices WHERE organization_id = ?1 AND status IN ('pending','overdue')")
+          .bind(orgId)
+          .first<{ s: number }>()
+      )?.s || 0,
   }
 
   // Recent activity feed (union of recent leads, reservations, visits)

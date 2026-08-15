@@ -629,6 +629,9 @@ export const invoices = sqliteTable(
   'invoices',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    // Added by 0038. 0021 left billing global; that made every tenant's
+    // /admin/facturacion list and total every other tenant's invoices.
+    organizationId: integer('organization_id').notNull().default(1),
     number: text('number').notNull().unique(),
     clientName: text('client_name').notNull(),
     concept: text('concept'),
@@ -640,7 +643,7 @@ export const invoices = sqliteTable(
     paidAt: text('paid_at'),
     createdAt: text('created_at').notNull().default(''),
   },
-  (t) => [index('invoices_status').on(t.status)],
+  (t) => [index('invoices_status').on(t.status), index('invoices_org').on(t.organizationId, t.status)],
 )
 
 export const automations = sqliteTable('automations', {

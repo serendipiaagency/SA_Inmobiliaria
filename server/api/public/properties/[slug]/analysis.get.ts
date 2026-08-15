@@ -1,5 +1,5 @@
-import { eq } from 'drizzle-orm'
-import { useDb, schema } from '../../../../utils/db'
+import { and, eq } from 'drizzle-orm'
+import { useDb, schema, resolvePublicOrgId } from '../../../../utils/db'
 import { analyzeInvestment } from '../../../../utils/ai'
 import { getMarketStats } from '../../../../utils/market'
 
@@ -14,7 +14,10 @@ export default defineEventHandler(async (event) => {
 
   const db = useDb(event)
   const P = schema.developerProperties
-  const rows = await db.select().from(P).where(eq(P.slug, slug)).limit(1)
+  // Slug lookups on the public site must be confined to the tenant that owns
+  // this hostname. Without the organization filter, any tenant's project could
+  // be read from any other tenant's public site just by knowing its slug.
+  const rows = await db.select().from(P).where(and(eq(P.slug, slug), eq(P.organizationId, resolvePublicOrgId(event)))).limit(1)
   const project = rows[0]
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
 

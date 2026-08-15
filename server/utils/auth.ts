@@ -173,7 +173,17 @@ export function resolveActiveOrgId(event: H3Event, user: SessionUser): number {
   return user.organizationId
 }
 
-/** Combines requireAdmin + resolveActiveOrgId — the standard guard for org-scoped admin routes. */
+/**
+ * Combines requireAdmin + resolveActiveOrgId — the standard guard for
+ * org-scoped admin routes.
+ *
+ * The returned `orgId` is always a concrete tenant, for a super_admin as much
+ * as for an org admin: platform-wide access is a separate capability
+ * (`requireSuperAdmin`), never a side effect of "no org resolved". Nothing
+ * downstream should interpret a super_admin session as permission to query
+ * across tenants — `buildTenantWhere()` fails closed rather than dropping the
+ * filter if it is ever handed a null org.
+ */
 export async function requireOrgScope(event: H3Event): Promise<{ user: SessionUser; orgId: number }> {
   const user = await requireAdmin(event)
   const orgId = resolveActiveOrgId(event, user)

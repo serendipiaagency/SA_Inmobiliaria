@@ -3,6 +3,7 @@ import { useDb } from '../../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../../utils/auth'
 import { getResource } from '../../../../utils/adminResources'
 import { logAdminAction } from '../../../../utils/audit'
+import { authorizeRecord, buildTenantWhere } from '../../../../utils/tenantPolicy'
 
 /** Restores a soft-deleted row from Papelera. Only valid for softDelete resources. */
 export default defineEventHandler(async (event) => {
@@ -19,9 +20,11 @@ export default defineEventHandler(async (event) => {
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   const db = useDb(event)
 
+  await authorizeRecord(db, { resourceKey: key, table: def.table, policy: def.tenantPolicy, id, orgId })
+
+  const tenantWhere = buildTenantWhere(db, def.table, def.tenantPolicy, orgId)
   const idCond = eq(def.table.id, id)
-  const orgCond = def.orgScoped !== false && orgId != null ? eq(def.table.organizationId, orgId) : undefined
-  const where = orgCond ? and(idCond, orgCond) : idCond
+  const where = tenantWhere ? and(idCond, tenantWhere) : idCond
 
   await db.update(def.table).set({ deletedAt: null }).where(where as any)
   await logAdminAction(event, { user, orgId, action: 'restore', resource: key, resourceId: id })

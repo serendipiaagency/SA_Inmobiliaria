@@ -1,5 +1,5 @@
-import { eq } from 'drizzle-orm'
-import { useDb, schema } from '../../../../utils/db'
+import { and, eq } from 'drizzle-orm'
+import { useDb, schema, resolvePublicOrgId } from '../../../../utils/db'
 import { POI_TAG_FILTERS, overpassAroundQuery, queryOverpass, distanceMeters } from '../../../../utils/pois'
 
 const RADIUS_METERS = 2000
@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   const rows = await db
     .select({ lat: schema.developerProperties.lat, lng: schema.developerProperties.lng })
     .from(schema.developerProperties)
-    .where(eq(schema.developerProperties.slug, slug))
+    .where(and(eq(schema.developerProperties.slug, slug), eq(schema.developerProperties.organizationId, resolvePublicOrgId(event))))
     .limit(1)
   const project = rows[0]
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
