@@ -8,6 +8,9 @@ import { validateRenderedPdf } from '../../../utils/assetExport/renderValidation
 import { FORMAT_BY_KEY } from '../../../utils/assetExport/formats'
 import type { TemplateStructure } from '../../../utils/assetExport/types'
 import { cfEnv } from '../../../utils/db'
+import { buildStructuredKey } from '../../../utils/media'
+import { registerGeneratedFile } from '../../../utils/mediaAssets'
+import { assertQuotaAvailable } from '../../../utils/mediaQuota'
 
 interface CreateExportBody {
   assetId?: number
@@ -95,8 +98,20 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 422, statusMessage: message })
     }
 
-    const r2Key = `asset-export-renders/${orgId}/${project.id}/${renderRow.id}.pdf`
+    await assertQuotaAvailable(db, orgId, pdfBytes.byteLength)
+    const r2Key = buildStructuredKey(orgId, 'export', 'pdf')
     await cfEnv(event).MEDIA.put(r2Key, pdfBytes, { httpMetadata: { contentType: 'application/pdf' } })
+    await registerGeneratedFile(db, {
+      organizationId: orgId,
+      r2Key,
+      bytes: pdfBytes,
+      mimeType: 'application/pdf',
+      extension: 'pdf',
+      visibility: 'private',
+      category: 'export',
+      entityType: 'asset_export_renders',
+      entityId: renderRow.id,
+    })
 
     const completedAt = now()
     await db

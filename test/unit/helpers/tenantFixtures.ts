@@ -28,16 +28,24 @@ export function createTestDb() {
     sqlite.exec(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'))
   }
 
+  function runOne(sql: string, params: any[], method: 'run' | 'all' | 'values' | 'get') {
+    const stmt = sqlite.prepare(sql)
+    if (method === 'run') {
+      stmt.run(...params)
+      return { rows: [] }
+    }
+    const rows = stmt.all(...params).map((r) => Object.values(r as Record<string, unknown>))
+    return { rows: method === 'get' ? (rows[0] ?? []) : rows }
+  }
+
   const db = drizzle(
-    async (sql, params, method) => {
-      const stmt = sqlite.prepare(sql)
-      if (method === 'run') {
-        stmt.run(...(params as any[]))
-        return { rows: [] }
-      }
-      const rows = stmt.all(...(params as any[])).map((r) => Object.values(r as Record<string, unknown>))
-      return { rows: method === 'get' ? (rows[0] ?? []) : rows }
-    },
+    async (sql, params, method) => runOne(sql, params as any[], method),
+    // Real D1 batches multiple statements atomically; node:sqlite has no
+    // native batch API, but this harness only needs to prove
+    // db.batch([...]) callers (registerMediaAsset, softDeleteMediaAsset) work
+    // against a real schema — running each statement in sequence inside the
+    // same in-memory connection is observably equivalent for that purpose.
+    async (queries) => queries.map((q) => runOne(q.sql, q.params, q.method)),
     { schema },
   )
 

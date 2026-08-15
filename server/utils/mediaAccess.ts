@@ -2,18 +2,18 @@ import { and, eq, or } from 'drizzle-orm'
 import { schema } from './db'
 
 /**
- * Access rules for the R2 bucket, kept out of the route handler so they can be
- * tested directly against a real database (see
- * test/unit/multitenant.mediaAccess.test.ts).
+ * LEGACY FALLBACK ONLY. The authoritative authorization boundary for R2
+ * objects is the `media_assets` table (`server/utils/mediaAssets.ts`) —
+ * `/api/media/*` looks up the object's row and decides from its
+ * `visibility` + `organizationId`, never from the key string. This module
+ * exists purely for objects written before that table existed (or, in
+ * principle, an object whose registration write failed after its R2 put
+ * succeeded): a narrow, path-based safety net so an unregistered sensitive
+ * object still can't be read across tenants, not the primary mechanism.
  *
- * The bucket mixes two kinds of object:
- *
- *  - PUBLIC content — property/community/blog/agent imagery (`uploads/…`,
- *    `cms/<org>/…`), meant to be hotlinked from the public site.
- *  - PRIVATE tenant documents — visitor KYC scans, generated export PDFs,
- *    combined catalogs and signed contracts.
- *
- * Only the first group may be served unauthenticated.
+ * Migration 0039 backfills every row this covers, so in steady state this
+ * code should rarely execute — but "should" isn't a security boundary,
+ * hence keeping it as the fallback rather than deleting it.
  */
 export const PRIVATE_MEDIA_PREFIXES = [
   'visitor-docs/',
@@ -24,6 +24,11 @@ export const PRIVATE_MEDIA_PREFIXES = [
 
 export function isPrivateMediaKey(key: string): boolean {
   return PRIVATE_MEDIA_PREFIXES.some((prefix) => key.startsWith(prefix))
+}
+
+/** Best-effort guess at the visibility an unregistered legacy key would have had, for access-log context only. */
+export function legacyVisibilityFor(key: string): 'confidential' | 'private' {
+  return key.startsWith('visitor-docs/') || key.startsWith('contracts/') ? 'confidential' : 'private'
 }
 
 /**

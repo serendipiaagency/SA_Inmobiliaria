@@ -19,6 +19,9 @@ export default defineNuxtConfig({
       '0 * * * *': ['cms:expire-articles', 'system:cleanup-error-logs', 'marketing:saved-search-alerts'],
       '* * * * *': ['scheduler:dispatch', 'appointments:reminders'],
       '30 3 * * *': ['system:backup-d1'],
+      // Runs after the D1 backup — purges media past its 30-day soft-delete
+      // grace period and reconciles per-tenant storage usage.
+      '0 5 * * *': ['system:media-lifecycle'],
       '0 4 * * 1': ['scheduler:recompute-ai-time'],
     },
   },

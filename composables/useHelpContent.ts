@@ -502,6 +502,27 @@ export function useHelpContent() {
       tags: ['dashboard', 'facturacion', 'analytics', 'seguridad'],
     },
     {
+      id: 'faq-svg-blocked',
+      question: 'Intento subir un logo en formato SVG y me da error, ¿por qué?',
+      answer:
+        'La subida de SVG está bloqueada temporalmente en toda la plataforma. Un SVG es XML con capacidad de incluir código (scripts, manejadores de eventos) y no existe todavía en la plataforma un sanitizador realmente fiable para neutralizarlo antes de guardarlo — permitirlo sin eso podría dejar pasar un archivo malicioso disfrazado de imagen. Usa PNG o WebP mientras tanto (ambos admiten fondo transparente, igual que un SVG); si necesitas convertir tu logo, cualquier editor de imágenes lo exporta a PNG en un paso.',
+      tags: ['media', 'svg', 'logo', 'seguridad', 'subida'],
+    },
+    {
+      id: 'faq-media-rejected',
+      question: 'Mi imagen o PDF se rechaza al subirlo aunque el archivo parece normal, ¿qué está pasando?',
+      answer:
+        'La plataforma valida el contenido real del archivo, no solo su nombre o extensión: comprueba que los bytes correspondan de verdad al tipo declarado, que el archivo no esté truncado o corrupto, y en imágenes, que sus dimensiones reales no superen el máximo permitido (8000 px por lado). Un archivo renombrado (por ejemplo, un .html guardado como .pdf) o descargado a medias falla esta comprobación. Si tu archivo es legítimo y sigue fallando, vuelve a exportarlo desde el programa original y prueba de nuevo.',
+      tags: ['media', 'subida', 'validacion', 'pdf', 'imagen'],
+    },
+    {
+      id: 'faq-storage-quota',
+      question: '¿Hay un límite de almacenamiento para los archivos que subo?',
+      answer:
+        'Sí, cada inmobiliaria tiene una cuota de almacenamiento (por defecto 5 GB) que cubre fotos, PDF de contratos, exportaciones del Asset Export Studio y documentos de visitantes. Si la superas, la subida se rechaza con un aviso indicando cuánto tienes usado — nunca se corta en silencio. Si necesitas más espacio, contacta con nosotros.',
+      tags: ['media', 'cuota', 'almacenamiento', 'storage'],
+    },
+    {
       id: 'faq-lead-source',
       question: '¿De dónde salen los leads que veo en el CRM?',
       answer:

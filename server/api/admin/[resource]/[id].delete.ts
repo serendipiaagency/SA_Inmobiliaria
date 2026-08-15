@@ -4,6 +4,7 @@ import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../u
 import { getResource } from '../../../utils/adminResources'
 import { logAdminAction } from '../../../utils/audit'
 import { authorizeRecord, buildTenantWhere } from '../../../utils/tenantPolicy'
+import { softDeleteMediaAssetByKey } from '../../../utils/mediaAssets'
 
 // visitor_submissions rows reference R2 keys for identity/financial PDFs. The DB row being
 // gone must mean the documents are gone too — otherwise "deleting" someone's passport scan
@@ -46,7 +47,14 @@ export default defineEventHandler(async (event) => {
     const keys = VISITOR_DOC_FIELDS.map((f) => record[f]).filter((v): v is string => !!v)
     if (keys.length) {
       const bucket = cfEnv(event).MEDIA
-      await Promise.all(keys.map((k) => bucket.delete(k)))
+      await Promise.all(
+        keys.map(async (k) => {
+          await bucket.delete(k)
+          // The R2 object is gone for real right now — reflect that in the
+          // tracked asset immediately, same as the catalog fragment cleanup.
+          await softDeleteMediaAssetByKey(db, k).catch(() => null)
+        }),
+      )
     }
   }
 
