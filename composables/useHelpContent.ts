@@ -114,10 +114,10 @@ export function useHelpContent() {
         'Marca el referido como "convertido" cuando cierre operación, y "recompensado" cuando le pagues/apliques la recompensa.',
       ],
     },
-    // --- Catálogo ------------------------------------------------------------
+    // --- Portal Web ------------------------------------------------------------
     {
       key: 'developer-properties',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Propiedades (web)',
       route: '/admin/developer-properties',
       summary: 'Catálogo principal de propiedades sobre plano/promociones que se muestran en la web pública.',
@@ -129,7 +129,7 @@ export function useHelpContent() {
     },
     {
       key: 'properties',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Propiedades 2ª mano',
       route: '/admin/properties',
       summary: 'Catálogo separado para propiedades de segunda mano/reventa (no promociones de obra nueva).',
@@ -137,7 +137,7 @@ export function useHelpContent() {
     },
     {
       key: 'agents',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Agentes',
       route: '/admin/agents',
       summary: 'Ficha pública de cada agente comercial, con su propia agenda de disponibilidad para reservar visitas.',
@@ -145,7 +145,7 @@ export function useHelpContent() {
     },
     {
       key: 'communities',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Comunidades',
       route: '/admin/communities',
       summary: 'Zonas o urbanizaciones que agrupan propiedades y alimentan los filtros de búsqueda.',
@@ -153,7 +153,7 @@ export function useHelpContent() {
     },
     {
       key: 'scheduler',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Publicación multicanal',
       route: '/admin/scheduler',
       summary: 'Programa la publicación automática de propiedades en portales externos (Idealista, Fotocasa) y redes sociales.',
@@ -164,7 +164,7 @@ export function useHelpContent() {
     },
     {
       key: 'brand-kit',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Brand Kit',
       route: '/admin/asset-export/brand-kit',
       summary: 'Logo, colores y datos de contacto de tu marca, usados en todas las piezas generadas automáticamente (PDFs, catálogos, contratos).',
@@ -172,7 +172,7 @@ export function useHelpContent() {
     },
     {
       key: 'asset-export-templates',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Plantillas de Export',
       route: '/admin/asset-export/templates',
       summary: 'Diseña plantillas visuales (ficha de propiedad, dossier, cartel) con un editor de arrastrar y soltar.',
@@ -180,7 +180,7 @@ export function useHelpContent() {
     },
     {
       key: 'asset-export-projects',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Piezas generadas',
       route: '/admin/asset-export/projects',
       summary: 'Piezas individuales (PDF) ya generadas a partir de una plantilla y una propiedad concreta.',
@@ -188,7 +188,7 @@ export function useHelpContent() {
     },
     {
       key: 'asset-export-batches',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Exportación masiva',
       route: '/admin/asset-export/batches',
       summary: 'Genera piezas para muchas propiedades a la vez y descárgalas todas juntas en un ZIP.',
@@ -196,7 +196,7 @@ export function useHelpContent() {
     },
     {
       key: 'asset-export-catalogs',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Catálogos combinados',
       route: '/admin/asset-export/catalogs',
       summary: 'Un único PDF-catálogo con portada, índice y varias propiedades combinadas.',
