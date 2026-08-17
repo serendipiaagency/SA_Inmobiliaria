@@ -114,10 +114,10 @@ export function useHelpContent() {
         'Marca el referido como "convertido" cuando cierre operación, y "recompensado" cuando le pagues/apliques la recompensa.',
       ],
     },
-    // --- Catálogo ------------------------------------------------------------
+    // --- Portal Web ------------------------------------------------------------
     {
       key: 'developer-properties',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Propiedades (web)',
       route: '/admin/developer-properties',
       summary: 'Catálogo principal de propiedades sobre plano/promociones que se muestran en la web pública.',
@@ -129,7 +129,7 @@ export function useHelpContent() {
     },
     {
       key: 'properties',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Propiedades 2ª mano',
       route: '/admin/properties',
       summary: 'Catálogo separado para propiedades de segunda mano/reventa (no promociones de obra nueva).',
@@ -137,7 +137,7 @@ export function useHelpContent() {
     },
     {
       key: 'agents',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Agentes',
       route: '/admin/agents',
       summary: 'Ficha pública de cada agente comercial, con su propia agenda de disponibilidad para reservar visitas.',
@@ -145,7 +145,7 @@ export function useHelpContent() {
     },
     {
       key: 'communities',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Comunidades',
       route: '/admin/communities',
       summary: 'Zonas o urbanizaciones que agrupan propiedades y alimentan los filtros de búsqueda.',
@@ -153,7 +153,7 @@ export function useHelpContent() {
     },
     {
       key: 'scheduler',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Publicación multicanal',
       route: '/admin/scheduler',
       summary: 'Programa la publicación automática de propiedades en portales externos (Idealista, Fotocasa) y redes sociales.',
@@ -164,7 +164,7 @@ export function useHelpContent() {
     },
     {
       key: 'brand-kit',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Brand Kit',
       route: '/admin/asset-export/brand-kit',
       summary: 'Logo, colores y datos de contacto de tu marca, usados en todas las piezas generadas automáticamente (PDFs, catálogos, contratos).',
@@ -172,7 +172,7 @@ export function useHelpContent() {
     },
     {
       key: 'asset-export-templates',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Plantillas de Export',
       route: '/admin/asset-export/templates',
       summary: 'Diseña plantillas visuales (ficha de propiedad, dossier, cartel) con un editor de arrastrar y soltar.',
@@ -180,7 +180,7 @@ export function useHelpContent() {
     },
     {
       key: 'asset-export-projects',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Piezas generadas',
       route: '/admin/asset-export/projects',
       summary: 'Piezas individuales (PDF) ya generadas a partir de una plantilla y una propiedad concreta.',
@@ -188,7 +188,7 @@ export function useHelpContent() {
     },
     {
       key: 'asset-export-batches',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Exportación masiva',
       route: '/admin/asset-export/batches',
       summary: 'Genera piezas para muchas propiedades a la vez y descárgalas todas juntas en un ZIP.',
@@ -196,7 +196,7 @@ export function useHelpContent() {
     },
     {
       key: 'asset-export-catalogs',
-      group: 'Catálogo',
+      group: 'Portal Web',
       title: 'Catálogos combinados',
       route: '/admin/asset-export/catalogs',
       summary: 'Un único PDF-catálogo con portada, índice y varias propiedades combinadas.',
@@ -487,6 +487,41 @@ export function useHelpContent() {
   ]
 
   const faqs: HelpFaq[] = [
+    {
+      id: 'faq-tenant-isolation',
+      question: '¿Puede otra inmobiliaria de la plataforma ver mis datos?',
+      answer:
+        'No. Cada inmobiliaria es un inquilino aislado: todo lo que ves en el panel — catálogo, planos, galerías, leads, visitas, contratos, facturas, blog y documentos subidos — está filtrado por tu organización en el servidor, no en el navegador. Si alguien pidiera directamente el identificador de un registro de otra inmobiliaria, la plataforma responde "no encontrado", igual que si no existiera. Los documentos privados guardados en el almacenamiento (KYC de visitantes, PDF exportados, contratos firmados) exigen además comprobar que ese fichero es tuyo antes de servirlo.',
+      tags: ['seguridad', 'privacidad', 'multitenant', 'organizacion'],
+    },
+    {
+      id: 'faq-stats-scope',
+      question: 'Los números del Dashboard y de Facturación son más bajos que antes, ¿se han perdido datos?',
+      answer:
+        'No se ha perdido nada. Esos contadores y los totales de Facturación mostraban por error datos de toda la plataforma en vez de solo los tuyos. Ahora reflejan únicamente tu organización, así que las cifras son más bajas pero por fin son las tuyas de verdad. Puedes comprobarlo: los listados de cada sección coinciden con el contador.',
+      tags: ['dashboard', 'facturacion', 'analytics', 'seguridad'],
+    },
+    {
+      id: 'faq-svg-blocked',
+      question: 'Intento subir un logo en formato SVG y me da error, ¿por qué?',
+      answer:
+        'La subida de SVG está bloqueada temporalmente en toda la plataforma. Un SVG es XML con capacidad de incluir código (scripts, manejadores de eventos) y no existe todavía en la plataforma un sanitizador realmente fiable para neutralizarlo antes de guardarlo — permitirlo sin eso podría dejar pasar un archivo malicioso disfrazado de imagen. Usa PNG o WebP mientras tanto (ambos admiten fondo transparente, igual que un SVG); si necesitas convertir tu logo, cualquier editor de imágenes lo exporta a PNG en un paso.',
+      tags: ['media', 'svg', 'logo', 'seguridad', 'subida'],
+    },
+    {
+      id: 'faq-media-rejected',
+      question: 'Mi imagen o PDF se rechaza al subirlo aunque el archivo parece normal, ¿qué está pasando?',
+      answer:
+        'La plataforma valida el contenido real del archivo, no solo su nombre o extensión: comprueba que los bytes correspondan de verdad al tipo declarado, que el archivo no esté truncado o corrupto, y en imágenes, que sus dimensiones reales no superen el máximo permitido (8000 px por lado). Un archivo renombrado (por ejemplo, un .html guardado como .pdf) o descargado a medias falla esta comprobación. Si tu archivo es legítimo y sigue fallando, vuelve a exportarlo desde el programa original y prueba de nuevo.',
+      tags: ['media', 'subida', 'validacion', 'pdf', 'imagen'],
+    },
+    {
+      id: 'faq-storage-quota',
+      question: '¿Hay un límite de almacenamiento para los archivos que subo?',
+      answer:
+        'Sí, cada inmobiliaria tiene una cuota de almacenamiento (por defecto 5 GB) que cubre fotos, PDF de contratos, exportaciones del Asset Export Studio y documentos de visitantes. Si la superas, la subida se rechaza con un aviso indicando cuánto tienes usado — nunca se corta en silencio. Si necesitas más espacio, contacta con nosotros.',
+      tags: ['media', 'cuota', 'almacenamiento', 'storage'],
+    },
     {
       id: 'faq-lead-source',
       question: '¿De dónde salen los leads que veo en el CRM?',

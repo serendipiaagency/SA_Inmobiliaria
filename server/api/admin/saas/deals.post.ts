@@ -2,6 +2,7 @@ import { requireOrgScope } from '../../../utils/auth'
 import { useDb, schema, now } from '../../../utils/db'
 import { logAdminAction } from '../../../utils/audit'
 import { dispatchWebhook } from '../../../utils/webhooks'
+import { assertOwnedReference } from '../../../utils/tenantPolicy'
 
 interface CreateDealBody {
   leadId?: number
@@ -30,16 +31,30 @@ export default defineEventHandler(async (event) => {
   const closedAt = body.closedAt || now().slice(0, 10)
 
   const db = useDb(event)
+
+  // Every foreign key here arrives from the client. An unchecked id would let
+  // a tenant book commission against another tenant's lead, property or agent
+  // — and those ids then surface in this org's revenue reports and webhooks.
+  const leadId = body.leadId
+    ? await assertOwnedReference(db, { table: schema.leads, id: body.leadId, orgId, label: 'Lead' })
+    : null
+  const propertyId = body.propertyId
+    ? await assertOwnedReference(db, { table: schema.developerProperties, id: body.propertyId, orgId, label: 'Propiedad' })
+    : null
+  const agentId = body.agentId
+    ? await assertOwnedReference(db, { table: schema.teamMembers, id: body.agentId, orgId, label: 'Agente' })
+    : null
+
   const nowTs = now()
   const [row] = await db
     .insert(schema.deals)
     .values({
       organizationId: orgId,
-      leadId: body.leadId || null,
+      leadId,
       clientName: body.clientName.trim().slice(0, 200),
-      propertyId: body.propertyId || null,
+      propertyId,
       propertyName: body.propertyName?.slice(0, 200) || null,
-      agentId: body.agentId || null,
+      agentId,
       agentName: body.agentName?.slice(0, 200) || null,
       dealType,
       dealValue,

@@ -55,10 +55,13 @@ enabled = true
 #                 appointment reminders, same per-minute tick)
 # "30 3 * * *" -> server/tasks/system/backup-d1.ts (daily JSON snapshot of
 #                 every D1 table to R2, kept 14 days — see that file for why)
+# "0 5 * * *"  -> server/tasks/system/media-lifecycle.ts (daily, purges media
+#                 past its 30-day soft-delete grace period and reconciles
+#                 per-tenant storage usage — see that file for why)
 # "0 4 * * 1"  -> server/tasks/scheduler/recompute-ai-time.ts (weekly, refreshes
 #                 the "hora recomendada por IA" hint from real execution history)
 [triggers]
-crons = ["0 * * * *", "* * * * *", "30 3 * * *", "0 4 * * 1"]
+crons = ["0 * * * *", "* * * * *", "30 3 * * *", "0 5 * * *", "0 4 * * 1"]
 
 # --- Staging environment ---
 # Own D1 + R2 so a build deployed here can never touch production data.
@@ -100,4 +103,4 @@ SESSION_TTL_DAYS = "7"
 enabled = true
 
 [env.staging.triggers]
-crons = ["0 * * * *", "* * * * *", "30 3 * * *", "0 4 * * 1"]
+crons = ["0 * * * *", "* * * * *", "30 3 * * *", "0 5 * * *", "0 4 * * 1"]

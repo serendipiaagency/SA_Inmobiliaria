@@ -1,5 +1,5 @@
-import { eq, sql } from 'drizzle-orm'
-import { useDb, schema } from '../../utils/db'
+import { and, eq, sql } from 'drizzle-orm'
+import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ id?: number; on?: boolean }>(event)
@@ -11,6 +11,8 @@ export default defineEventHandler(async (event) => {
   await db
     .update(schema.developerProperties)
     .set({ favoriteCount: sql`max(0, ${schema.developerProperties.favoriteCount} + ${delta})` })
-    .where(eq(schema.developerProperties.id, id))
+    // Scoped to this hostname's tenant: without it, anyone could drive the
+    // favourite counter of another agency's listing by posting its id.
+    .where(and(eq(schema.developerProperties.id, id), eq(schema.developerProperties.organizationId, resolvePublicOrgId(event))))
   return { ok: true }
 })

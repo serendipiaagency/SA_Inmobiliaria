@@ -1,5 +1,5 @@
-import { eq, or } from 'drizzle-orm'
-import { useDb, schema } from '../../utils/db'
+import { and, eq } from 'drizzle-orm'
+import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { answerQuestion } from '../../utils/ai'
 import { rateLimit } from '../../utils/rateLimit'
 
@@ -15,10 +15,15 @@ export default defineEventHandler(async (event) => {
 
   const db = useDb(event)
   const P = schema.developerProperties
+  // The answer quotes the project's real data back to the caller, so the
+  // lookup is confined to the tenant that owns this hostname — a bare slug/id
+  // would otherwise let anyone read another agency's listing through the
+  // assistant.
+  const orgId = resolvePublicOrgId(event)
   const rows = await db
     .select()
     .from(P)
-    .where(body?.slug ? eq(P.slug, String(body.slug)) : eq(P.id, Number(body?.id)))
+    .where(and(body?.slug ? eq(P.slug, String(body.slug)) : eq(P.id, Number(body?.id)), eq(P.organizationId, orgId)))
     .limit(1)
   const project = rows[0]
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })

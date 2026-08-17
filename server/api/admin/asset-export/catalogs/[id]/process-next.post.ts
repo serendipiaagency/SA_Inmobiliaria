@@ -8,6 +8,9 @@ import { assembleCatalogPdf } from '../../../../../utils/assetExport/catalogRend
 import { validateRenderedPdf } from '../../../../../utils/assetExport/renderValidation'
 import { PDFDocument } from 'pdf-lib'
 import type { TemplateStructure } from '../../../../../utils/assetExport/types'
+import { buildStructuredKey } from '../../../../../utils/media'
+import { registerGeneratedFile, softDeleteMediaAssetByKey } from '../../../../../utils/mediaAssets'
+import { assertQuotaAvailable } from '../../../../../utils/mediaQuota'
 
 /**
  * Renders exactly one pending fragment per call (same one-item-per-request
@@ -57,8 +60,20 @@ export default defineEventHandler(async (event) => {
     if (!validation.ok) throw createError({ statusCode: 422, statusMessage: `Validación fallida: ${validation.errors.join('; ')}` })
     const pageCount = validation.pageCount
 
-    const r2Key = `asset-export-catalogs/${orgId}/${catalogId}/fragment-${item.id}.pdf`
+    await assertQuotaAvailable(db, orgId, pdfBytes.byteLength)
+    const r2Key = buildStructuredKey(orgId, 'catalog', 'pdf')
     await cfEnv(event).MEDIA.put(r2Key, pdfBytes, { httpMetadata: { contentType: 'application/pdf' } })
+    await registerGeneratedFile(db, {
+      organizationId: orgId,
+      r2Key,
+      bytes: pdfBytes,
+      mimeType: 'application/pdf',
+      extension: 'pdf',
+      visibility: 'private',
+      category: 'catalog',
+      entityType: 'asset_export_catalog_items',
+      entityId: item.id,
+    })
 
     const completedAt = now()
     await db
@@ -124,8 +139,21 @@ export default defineEventHandler(async (event) => {
       if (assemblyErrors.length) throw createError({ statusCode: 500, statusMessage: assemblyErrors.join('; ') })
       const assemblyValidation = { ok: true, pageCount: finalPageCount, minExpectedPages, errors: [], warnings: [] }
 
-      const r2Key = `asset-export-catalogs/${orgId}/${catalogId}/final.pdf`
+      await assertQuotaAvailable(db, orgId, finalBytes.byteLength)
+      const r2Key = buildStructuredKey(orgId, 'catalog', 'pdf')
       await cfEnv(event).MEDIA.put(r2Key, finalBytes, { httpMetadata: { contentType: 'application/pdf' } })
+      await registerGeneratedFile(db, {
+        organizationId: orgId,
+        r2Key,
+        bytes: finalBytes,
+        mimeType: 'application/pdf',
+        extension: 'pdf',
+        visibility: 'private',
+        category: 'catalog',
+        entityType: 'asset_export_catalogs',
+        entityId: catalogId,
+        createdBy: user.id,
+      })
 
       const completedAt = now()
       const finalStatus = catalog.failedCount > 0 ? 'completed_with_errors' : 'completed'
@@ -135,7 +163,15 @@ export default defineEventHandler(async (event) => {
       // retried (.../retry-failed), which needs these fragments to
       // reassemble without re-rendering every already-successful item.
       if (finalStatus === 'completed') {
-        await Promise.all(completedItems.map((i) => cfEnv(event).MEDIA.delete(i.r2Key!).catch(() => null)))
+        await Promise.all(
+          completedItems.map(async (i) => {
+            await cfEnv(event).MEDIA.delete(i.r2Key!).catch(() => null)
+            // The R2 object is already gone — reflect that in the tracked
+            // asset immediately rather than waiting for the purge job to
+            // discover a no-op delete.
+            await softDeleteMediaAssetByKey(db, i.r2Key!).catch(() => null)
+          }),
+        )
       }
       const [updated] = await db
         .update(schema.assetExportCatalogs)

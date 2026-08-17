@@ -138,7 +138,7 @@ const nav = [
     ],
   },
   {
-    label: 'Catálogo',
+    label: 'Portal Web',
     items: [
       { label: 'Propiedades (web)', to: '/admin/developer-properties', icon: 'building' },
       { label: 'Propiedades 2ª mano', to: '/admin/properties', icon: 'layers' },

@@ -20,6 +20,9 @@ export const organizations = sqliteTable('organizations', {
   status: text('status').notNull().default('active'), // active | suspended
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
+  // Added by 0039. Reconciled from media_assets — see server/utils/mediaQuota.ts.
+  storageBytesUsed: integer('storage_bytes_used').notNull().default(0),
+  storageBytesLimit: integer('storage_bytes_limit').notNull().default(5_368_709_120), // 5 GiB
 })
 
 // ---------------------------------------------------------------------------
@@ -629,6 +632,9 @@ export const invoices = sqliteTable(
   'invoices',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
+    // Added by 0038. 0021 left billing global; that made every tenant's
+    // /admin/facturacion list and total every other tenant's invoices.
+    organizationId: integer('organization_id').notNull().default(1),
     number: text('number').notNull().unique(),
     clientName: text('client_name').notNull(),
     concept: text('concept'),
@@ -640,7 +646,7 @@ export const invoices = sqliteTable(
     paidAt: text('paid_at'),
     createdAt: text('created_at').notNull().default(''),
   },
-  (t) => [index('invoices_status').on(t.status)],
+  (t) => [index('invoices_status').on(t.status), index('invoices_org').on(t.organizationId, t.status)],
 )
 
 export const automations = sqliteTable('automations', {
@@ -1676,4 +1682,65 @@ export const gdprRequests = sqliteTable(
     createdAt: text('created_at').notNull().default(''),
   },
   (t) => [index('gdpr_requests_org').on(t.organizationId, t.createdAt)],
+)
+
+// ---------------------------------------------------------------------------
+// Media Asset Manager (migration 0039) — every R2 object that isn't
+// unconditionally public gets a row here. The row, not the R2 key, is the
+// authorization boundary: /api/media/* looks this table up before it will
+// ever stream bytes for a private or confidential key. See
+// docs/r2-architecture.md for the full design.
+// ---------------------------------------------------------------------------
+
+export const mediaAssets = sqliteTable(
+  'media_assets',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    r2Key: text('r2_key').notNull().unique(),
+    originalFilename: text('original_filename'),
+    mimeType: text('mime_type').notNull(),
+    extension: text('extension').notNull(),
+    sizeBytes: integer('size_bytes').notNull().default(0),
+    checksum: text('checksum'), // sha-256 hex of the real bytes
+    visibility: text('visibility').notNull().default('private'), // public | private | confidential
+    category: text('category').notNull().default('upload'), // property-photo | logo | blog-image | kyc-document | contract | export | catalog | upload
+    entityType: text('entity_type'),
+    entityId: integer('entity_id'),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'), // soft-delete: grace period before the purge job removes the R2 object
+    purgedAt: text('purged_at'),
+    metadata: text('metadata'), // free-form JSON (image dimensions, source, backfill markers…)
+  },
+  (t) => [
+    index('media_assets_org').on(t.organizationId, t.createdAt),
+    index('media_assets_visibility').on(t.visibility),
+    index('media_assets_entity').on(t.entityType, t.entityId),
+    index('media_assets_checksum').on(t.organizationId, t.checksum),
+    index('media_assets_purge').on(t.deletedAt, t.purgedAt),
+  ],
+)
+
+// Every read of a confidential object is logged — who, when, from where, and
+// whether it was actually allowed. `denied` rows matter as much as
+// `download` ones: a burst of denials against one tenant's documents is the
+// signal an incident investigation would look for.
+export const mediaAccessLog = sqliteTable(
+  'media_access_log',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    userId: integer('user_id'),
+    userEmail: text('user_email'),
+    mediaAssetId: integer('media_asset_id'),
+    r2Key: text('r2_key').notNull(),
+    action: text('action').notNull(), // download | denied
+    visibility: text('visibility'),
+    ip: text('ip'),
+    userAgent: text('user_agent'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('media_access_log_org').on(t.organizationId, t.createdAt), index('media_access_log_asset').on(t.mediaAssetId, t.createdAt)],
 )

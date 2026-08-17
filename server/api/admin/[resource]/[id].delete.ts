@@ -3,6 +3,8 @@ import { useDb, schema, cfEnv, now } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
 import { logAdminAction } from '../../../utils/audit'
+import { authorizeRecord, buildTenantWhere } from '../../../utils/tenantPolicy'
+import { softDeleteMediaAssetByKey } from '../../../utils/mediaAssets'
 
 // visitor_submissions rows reference R2 keys for identity/financial PDFs. The DB row being
 // gone must mean the documents are gone too — otherwise "deleting" someone's passport scan
@@ -32,25 +34,35 @@ export default defineEventHandler(async (event) => {
   }
   const db = useDb(event)
 
+  // Ownership first: a delete against another tenant's id must 404 before it
+  // touches R2 or any counter, not merely match zero rows on the way out.
+  const { row } = await authorizeRecord(db, { resourceKey: key, table: def.table, policy: def.tenantPolicy, id, orgId })
+
+  const tenantWhere = buildTenantWhere(db, def.table, def.tenantPolicy, orgId)
   const idCond = eq(def.table.id, id)
-  const orgCond = def.orgScoped !== false && orgId != null ? eq(def.table.organizationId, orgId) : undefined
-  const where = orgCond ? and(idCond, orgCond) : idCond
+  const where = tenantWhere ? and(idCond, tenantWhere) : idCond
 
   if (key === 'visitor-submissions') {
-    const rows = await db.select().from(schema.visitorSubmissions).where(where as any).limit(1)
-    const row = rows[0] as Record<string, string | null> | undefined
-    const keys = row ? VISITOR_DOC_FIELDS.map((f) => row[f]).filter((v): v is string => !!v) : []
+    const record = row as Record<string, string | null>
+    const keys = VISITOR_DOC_FIELDS.map((f) => record[f]).filter((v): v is string => !!v)
     if (keys.length) {
       const bucket = cfEnv(event).MEDIA
-      await Promise.all(keys.map((k) => bucket.delete(k)))
+      await Promise.all(
+        keys.map(async (k) => {
+          await bucket.delete(k)
+          // The R2 object is gone for real right now — reflect that in the
+          // tracked asset immediately, same as the catalog fragment cleanup.
+          await softDeleteMediaAssetByKey(db, k).catch(() => null)
+        }),
+      )
     }
   }
 
-  if (key === 'cms-comments') {
-    const rows = await db.select({ status: schema.cmsComments.status, articleId: schema.cmsComments.articleId }).from(schema.cmsComments).where(where as any).limit(1)
-    if (rows[0]?.status === 'approved') {
-      await db.update(schema.cmsArticles).set({ commentCount: sql`max(${schema.cmsArticles.commentCount} - 1, 0)` }).where(eq(schema.cmsArticles.id, rows[0].articleId))
-    }
+  if (key === 'cms-comments' && row.status === 'approved') {
+    await db
+      .update(schema.cmsArticles)
+      .set({ commentCount: sql`max(${schema.cmsArticles.commentCount} - 1, 0)` })
+      .where(and(eq(schema.cmsArticles.id, row.articleId), eq(schema.cmsArticles.organizationId, orgId!)))
   }
 
   // Soft-delete resources move to Papelera by default; ?hard=1 (used from

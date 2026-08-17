@@ -3,6 +3,9 @@ import { useDb, schema, cfEnv, now } from '../../../../utils/db'
 import { rateLimit } from '../../../../utils/rateLimit'
 import { dispatchWebhook } from '../../../../utils/webhooks'
 import { renderContractPdf } from '../../../../utils/contracts/pdfRenderer'
+import { buildStructuredKey } from '../../../../utils/media'
+import { registerGeneratedFile } from '../../../../utils/mediaAssets'
+import { assertQuotaAvailable } from '../../../../utils/mediaQuota'
 
 interface Body {
   fullName?: string
@@ -36,8 +39,25 @@ export default defineEventHandler(async (event) => {
     clientName: contract.clientName,
     acceptance: { byName: body.fullName.trim(), ip, userAgent, at: acceptedAt },
   })
-  const r2Key = `contracts/${contract.organizationId}/${contract.id}-${Date.now()}.pdf`
+
+  // A signed contract carries a name, an IP address and a signature
+  // timestamp — confidential from the moment it exists, same as a KYC
+  // document, and counted against the tenant's storage quota like any other
+  // real file.
+  await assertQuotaAvailable(db, contract.organizationId, pdfBytes.byteLength)
+  const r2Key = buildStructuredKey(contract.organizationId, 'contract', 'pdf')
   await cfEnv(event).MEDIA.put(r2Key, pdfBytes, { httpMetadata: { contentType: 'application/pdf' } })
+  await registerGeneratedFile(db, {
+    organizationId: contract.organizationId,
+    r2Key,
+    bytes: pdfBytes,
+    mimeType: 'application/pdf',
+    extension: 'pdf',
+    visibility: 'confidential',
+    category: 'contract',
+    entityType: 'contracts',
+    entityId: contract.id,
+  })
 
   await db
     .update(schema.contracts)

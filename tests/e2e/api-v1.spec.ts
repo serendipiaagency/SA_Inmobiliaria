@@ -1,29 +1,34 @@
-import { test, expect } from '@playwright/test'
-
-const ADMIN_EMAIL = 'admin@sa-inmobiliaria.com'
-const ADMIN_PASSWORD = 'ChangeMe123!'
+import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
+import { STATE_A } from './global-setup'
 
 test.describe('API pública /api/v1', () => {
   let readKey: string
   let writeKey: string
+  let admin: APIRequestContext
 
-  test.beforeAll(async ({ request }) => {
-    const login = await request.post('/api/auth/login', {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+  // Reuses the session from global-setup.ts rather than logging in again —
+  // /api/auth/login is IP rate-limited and the whole suite shares one address.
+  test.beforeAll(async () => {
+    admin = await pwRequest.newContext({
+      baseURL: process.env.E2E_BASE_URL || 'http://localhost:8788',
+      storageState: STATE_A,
     })
-    expect(login.ok()).toBeTruthy()
 
-    const readRes = await request.post('/api/admin/saas/apikeys', {
+    const readRes = await admin.post('/api/admin/saas/apikeys', {
       data: { name: 'e2e-read', scopes: 'read' },
     })
     expect(readRes.ok()).toBeTruthy()
     readKey = (await readRes.json()).plainKey
 
-    const writeRes = await request.post('/api/admin/saas/apikeys', {
+    const writeRes = await admin.post('/api/admin/saas/apikeys', {
       data: { name: 'e2e-write', scopes: 'write' },
     })
     expect(writeRes.ok()).toBeTruthy()
     writeKey = (await writeRes.json()).plainKey
+  })
+
+  test.afterAll(async () => {
+    await admin?.dispose()
   })
 
   test('GET /api/v1/communities responde 200 y escopa por organización', async ({ request }) => {

@@ -1,10 +1,11 @@
-import { and, eq } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { useDb } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
+import { authorizeRecord } from '../../../utils/tenantPolicy'
 
 export default defineEventHandler(async (event) => {
-  const { def } = getResource(event)
+  const { key, def } = getResource(event)
   let orgId: number | null = null
   if (def.superAdminOnly) {
     await requireSuperAdmin(event)
@@ -15,13 +16,10 @@ export default defineEventHandler(async (event) => {
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   const db = useDb(event)
 
-  const idCond = eq(def.table.id, id)
-  const orgCond = def.orgScoped !== false && orgId != null ? eq(def.table.organizationId, orgId) : undefined
-  const where = orgCond ? and(idCond, orgCond) : idCond
-
-  const rows = await db.select().from(def.table).where(where as any).limit(1)
-  const row = rows[0]
-  if (!row) throw createError({ statusCode: 404, statusMessage: 'Not found' })
+  // Throws 404 both when the record doesn't exist and when it belongs to
+  // another tenant — the two cases must stay indistinguishable, otherwise the
+  // status code alone confirms which ids are real elsewhere on the platform.
+  const { row } = await authorizeRecord(db, { resourceKey: key, table: def.table, policy: def.tenantPolicy, id, orgId })
 
   let translations: any[] = []
   if (def.translations) {

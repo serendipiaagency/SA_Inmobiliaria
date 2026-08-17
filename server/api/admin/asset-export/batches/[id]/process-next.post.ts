@@ -5,6 +5,9 @@ import { resolveAssetBindings } from '../../../../../utils/assetExport/bindings'
 import { renderPdf } from '../../../../../utils/assetExport/pdfRenderer'
 import { validateRenderedPdf } from '../../../../../utils/assetExport/renderValidation'
 import type { TemplateStructure } from '../../../../../utils/assetExport/types'
+import { buildStructuredKey } from '../../../../../utils/media'
+import { registerGeneratedFile } from '../../../../../utils/mediaAssets'
+import { assertQuotaAvailable } from '../../../../../utils/mediaQuota'
 
 /**
  * Renders exactly one pending item from the batch, then returns. The
@@ -78,8 +81,20 @@ export default defineEventHandler(async (event) => {
     const validation = await validateRenderedPdf(pdfBytes, structure, bindings)
     if (!validation.ok) throw createError({ statusCode: 422, statusMessage: `Validación fallida: ${validation.errors.join('; ')}` })
 
-    const r2Key = `asset-export-renders/${orgId}/${project.id}/${renderRow.id}.pdf`
+    await assertQuotaAvailable(db, orgId, pdfBytes.byteLength)
+    const r2Key = buildStructuredKey(orgId, 'export', 'pdf')
     await cfEnv(event).MEDIA.put(r2Key, pdfBytes, { httpMetadata: { contentType: 'application/pdf' } })
+    await registerGeneratedFile(db, {
+      organizationId: orgId,
+      r2Key,
+      bytes: pdfBytes,
+      mimeType: 'application/pdf',
+      extension: 'pdf',
+      visibility: 'private',
+      category: 'export',
+      entityType: 'export_batch_items',
+      entityId: item.id,
+    })
 
     const completedAt = now()
     await db

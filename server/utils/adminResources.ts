@@ -1,7 +1,14 @@
-import { eq } from 'drizzle-orm'
-import type { H3Event } from 'h3'
+import { and, eq } from 'drizzle-orm'
+import { createError, type H3Event } from 'h3'
 import { schema, now, slugify } from './db'
 import { hashPassword } from './auth'
+import {
+  assertOwnedReference,
+  assertPayloadParentOwnership,
+  buildTenantWhere,
+  type AuthorizedRecord,
+  type TenantPolicy,
+} from './tenantPolicy'
 
 export type FieldType = 'text' | 'textarea' | 'number' | 'image' | 'file' | 'select' | 'json'
 
@@ -10,6 +17,21 @@ export interface FieldDef {
   label: string
   required?: boolean
   options?: string[]
+}
+
+/**
+ * A foreign key on a tenant-scoped resource that points at ANOTHER
+ * tenant-scoped table. Declaring it here makes the CRUD verify, on every
+ * create and update, that the referenced row belongs to the caller's own
+ * organization — an id alone is never enough (see docs/multitenant-audit.md,
+ * "Fase 5").
+ */
+export interface RelationDef {
+  table: any
+  /** Tenant column on the referenced table. Defaults to `organizationId`. */
+  organizationField?: string
+  /** Used in the 404 message when the reference isn't owned. */
+  label: string
 }
 
 export interface ResourceDef {
@@ -25,11 +47,16 @@ export interface ResourceDef {
   hasUpdatedAt?: boolean
   /** Readonly resources only allow list/show/delete. */
   readonly?: boolean
-  /** False for resources whose table has no organization_id column — child
-   *  tables that inherit tenant scoping transitively through their parent's
-   *  FK (e.g. floor plans belong to a developer property, which is itself
-   *  org-scoped). Defaults to true. */
-  orgScoped?: boolean
+  /**
+   * REQUIRED. How this resource is confined to one tenant — `direct` (own
+   * organization_id column), `parent`/`nestedParent` (inherited through a FK
+   * chain) or `global` (platform-wide, with a written reason). See
+   * server/utils/tenantPolicy.ts. There is no default: a resource with no
+   * policy fails to compile rather than silently querying every tenant.
+   */
+  tenantPolicy: TenantPolicy
+  /** FKs into other tenant-scoped tables, validated on create/update. */
+  relations?: Record<string, RelationDef>
   /** True only for the `organizations` resource itself — managed by the
    *  platform super_admin, not by any single tenant's admin. */
   superAdminOnly?: boolean
@@ -63,7 +90,9 @@ export const adminResources: Record<string, ResourceDef> = {
     hasTimestamps: true,
     hasUpdatedAt: true,
     slugFrom: 'name',
-    orgScoped: false,
+    // The tenant registry itself: rows here ARE the organizations, so there is
+    // nothing to scope them by. Only the platform super_admin can reach it.
+    tenantPolicy: { type: 'global', reason: 'The organizations table is the tenant registry itself' },
     superAdminOnly: true,
   },
 
@@ -73,7 +102,10 @@ export const adminResources: Record<string, ResourceDef> = {
     fields: {},
     listFields: ['id', 'statusCode', 'message', 'path', 'method', 'createdAt'],
     searchFields: ['message', 'path'],
-    orgScoped: false,
+    // Platform incident log: rows are written by the error-logging plugin from
+    // requests that may have no session (and therefore no org) at all.
+    // super_admin only — a tenant admin never sees it.
+    tenantPolicy: { type: 'global', reason: 'Platform-wide incident log, super_admin only' },
     superAdminOnly: true,
     readonly: true,
   },
@@ -89,6 +121,7 @@ export const adminResources: Record<string, ResourceDef> = {
     // platform-level actions (organizationId null, e.g. managing "Empresas"
     // itself) simply don't show here — those are superAdminOnly actions,
     // not something a tenant admin needs visibility into anyway.
+    tenantPolicy: { type: 'direct' },
     readonly: true,
   },
 
@@ -108,6 +141,7 @@ export const adminResources: Record<string, ResourceDef> = {
     searchFields: ['name', 'email'],
     hasTimestamps: true,
     hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
   },
 
   developers: {
@@ -125,6 +159,7 @@ export const adminResources: Record<string, ResourceDef> = {
     searchFields: ['name', 'email'],
     hasTimestamps: true,
     hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
   },
 
   properties: {
@@ -146,6 +181,7 @@ export const adminResources: Record<string, ResourceDef> = {
     searchFields: ['slug', 'location', 'propertyType'],
     hasTimestamps: true,
     hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
     translations: { table: schema.propertyTranslations, foreignKey: 'propertyId' },
   },
 
@@ -178,6 +214,10 @@ export const adminResources: Record<string, ResourceDef> = {
     searchFields: ['name', 'slug', 'community'],
     hasTimestamps: true,
     hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    // developerId is client-supplied: without this, tenant A could attach its
+    // project to tenant B's developer record.
+    relations: { developerId: { table: schema.developers, label: 'Promotora' } },
     slugFrom: 'name',
   },
 
@@ -196,7 +236,12 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'developerPropertyId', 'category', 'unitType', 'type'],
     searchFields: ['category', 'unitType', 'type'],
     hasTimestamps: true,
-    orgScoped: false,
+    tenantPolicy: {
+      type: 'parent',
+      foreignKey: 'developerPropertyId',
+      parentTable: schema.developerProperties,
+      parentLabel: 'Proyecto',
+    },
   },
 
   'property-types': {
@@ -211,7 +256,12 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'developerPropertyId', 'propertyType', 'unitType', 'size'],
     searchFields: ['propertyType', 'unitType'],
     hasTimestamps: true,
-    orgScoped: false,
+    tenantPolicy: {
+      type: 'parent',
+      foreignKey: 'developerPropertyId',
+      parentTable: schema.developerProperties,
+      parentLabel: 'Proyecto',
+    },
   },
 
   'project-images': {
@@ -224,7 +274,12 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'developerPropertyId', 'image'],
     searchFields: [],
     hasTimestamps: true,
-    orgScoped: false,
+    tenantPolicy: {
+      type: 'parent',
+      foreignKey: 'developerPropertyId',
+      parentTable: schema.developerProperties,
+      parentLabel: 'Proyecto',
+    },
   },
 
   'gallery-images': {
@@ -237,7 +292,12 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'propertyId', 'image'],
     searchFields: [],
     hasTimestamps: true,
-    orgScoped: false,
+    tenantPolicy: {
+      type: 'parent',
+      foreignKey: 'propertyId',
+      parentTable: schema.agentProperties,
+      parentLabel: 'Propiedad',
+    },
   },
 
   'social-media': {
@@ -253,7 +313,12 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'developerPropertyId', 'platform', 'url'],
     searchFields: ['url', 'caption'],
     hasTimestamps: true,
-    orgScoped: false,
+    tenantPolicy: {
+      type: 'parent',
+      foreignKey: 'developerPropertyId',
+      parentTable: schema.developerProperties,
+      parentLabel: 'Proyecto',
+    },
   },
 
   'master-plans': {
@@ -266,6 +331,7 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'name', 'image'],
     searchFields: ['name'],
     hasTimestamps: true,
+    tenantPolicy: { type: 'direct' },
   },
 
   locations: {
@@ -278,6 +344,7 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'name'],
     searchFields: ['name'],
     hasTimestamps: true,
+    tenantPolicy: { type: 'direct' },
   },
 
   amenities: {
@@ -291,6 +358,7 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'name', 'description'],
     searchFields: ['name'],
     hasTimestamps: true,
+    tenantPolicy: { type: 'direct' },
   },
 
   communities: {
@@ -307,6 +375,7 @@ export const adminResources: Record<string, ResourceDef> = {
     searchFields: ['name', 'location'],
     hasTimestamps: true,
     hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
   },
 
   blogs: {
@@ -321,6 +390,7 @@ export const adminResources: Record<string, ResourceDef> = {
     searchFields: ['slug'],
     hasTimestamps: true,
     hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
     translations: { table: schema.blogTranslations, foreignKey: 'blogId' },
   },
 
@@ -346,6 +416,7 @@ export const adminResources: Record<string, ResourceDef> = {
     searchFields: ['name', 'position'],
     hasTimestamps: true,
     hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
     slugFrom: 'name',
   },
 
@@ -362,6 +433,7 @@ export const adminResources: Record<string, ResourceDef> = {
     searchFields: ['name', 'email'],
     hasTimestamps: true,
     hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
     prepare: async (data, isCreate) => {
       if (data.password) {
         data.password = await hashPassword(String(data.password))
@@ -393,6 +465,8 @@ export const adminResources: Record<string, ResourceDef> = {
     searchFields: ['name', 'slug'],
     hasTimestamps: true,
     hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    relations: { parentId: { table: schema.cmsCategories, label: 'Categoría padre' } },
     slugFrom: 'name',
     softDelete: true,
   },
@@ -407,6 +481,7 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'name', 'slug'],
     searchFields: ['name', 'slug'],
     hasTimestamps: true,
+    tenantPolicy: { type: 'direct' },
     slugFrom: 'name',
     softDelete: true,
   },
@@ -430,6 +505,9 @@ export const adminResources: Record<string, ResourceDef> = {
     searchFields: ['name', 'specialty'],
     hasTimestamps: true,
     hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    // A CMS author can only be linked to a user account of the same tenant.
+    relations: { userId: { table: schema.users, label: 'Usuario vinculado' } },
     slugFrom: 'name',
     softDelete: true,
   },
@@ -447,6 +525,11 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'articleId', 'authorName', 'status', 'createdAt'],
     searchFields: ['authorName', 'authorEmail', 'content'],
     hasTimestamps: true,
+    tenantPolicy: { type: 'direct' },
+    // Moderating a comment adjusts its article's comment_count — that article
+    // must belong to the same tenant, or the counter of another tenant's post
+    // could be driven from here.
+    relations: { articleId: { table: schema.cmsArticles, label: 'Artículo' } },
   },
 
   'cms-redirects': {
@@ -460,6 +543,7 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'fromPath', 'toPath', 'statusCode', 'hits'],
     searchFields: ['fromPath', 'toPath'],
     hasTimestamps: true,
+    tenantPolicy: { type: 'direct' },
   },
 
   'cms-media-folders': {
@@ -472,6 +556,8 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'name', 'parentId'],
     searchFields: ['name'],
     hasTimestamps: true,
+    tenantPolicy: { type: 'direct' },
+    relations: { parentId: { table: schema.cmsMediaFolders, label: 'Carpeta padre' } },
   },
 
   'visitor-submissions': {
@@ -481,6 +567,7 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'name', 'email', 'phoneNumber', 'nationality', 'paymentForRent', 'createdAt'],
     searchFields: ['name', 'email'],
     hasTimestamps: true,
+    tenantPolicy: { type: 'direct' },
     readonly: true,
   },
 
@@ -491,6 +578,7 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'name', 'email', 'phoneNumber', 'contactPersonName', 'createdAt'],
     searchFields: ['name', 'email'],
     hasTimestamps: true,
+    tenantPolicy: { type: 'direct' },
     readonly: true,
   },
 
@@ -501,6 +589,7 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'type', 'name', 'email', 'subject', 'createdAt'],
     searchFields: ['name', 'email', 'subject'],
     hasTimestamps: true,
+    tenantPolicy: { type: 'direct' },
     readonly: true,
   },
 }
@@ -545,15 +634,81 @@ export async function buildPayload(
   return def.prepare ? await def.prepare(data, isCreate) : data
 }
 
-/** Replaces translation rows ([{locale,title,description}]) for a record. */
+/**
+ * Verifies every client-supplied foreign key in a payload against the caller's
+ * own organization, for both `relations` (FKs from a direct-policy resource)
+ * and the parent FK of a `parent`/`nestedParent` resource.
+ *
+ * Called from create AND update. On update it matters just as much: without
+ * it, an admin could re-parent one of their own child rows onto another
+ * tenant's record, which moves the row across the tenant boundary in one step.
+ */
+export async function assertPayloadReferences(
+  db: any,
+  def: ResourceDef,
+  data: Record<string, any>,
+  orgId: number | null,
+  opts: { isCreate: boolean },
+): Promise<void> {
+  await assertPayloadParentOwnership(db, def.tenantPolicy, data, orgId, opts)
+
+  for (const [field, rel] of Object.entries(def.relations || {})) {
+    const value = data[field]
+    // Absent = not being changed; explicit null = clearing an optional link.
+    if (value === undefined || value === null) continue
+    await assertOwnedReference(db, {
+      table: rel.table,
+      organizationField: rel.organizationField,
+      id: value,
+      orgId,
+      label: rel.label,
+    })
+  }
+}
+
+/**
+ * Replaces translation rows ([{locale,title,description}]) for a record.
+ *
+ * Takes an `AuthorizedRecord` — not a bare id — on purpose. The previous
+ * signature accepted `recordId: number`, and the update handler called it with
+ * the id from the URL regardless of whether the org-scoped UPDATE had actually
+ * matched anything. A PUT against another tenant's property therefore changed
+ * no columns (correctly) but still wiped and rewrote that property's
+ * translation rows (an unauthorized write, and a destructive one).
+ *
+ * Ownership is now enforced twice, deliberately:
+ *  1. The `AuthorizedRecord` capability can only be minted by
+ *     `authorizeRecord()`, which resolves the row through the tenant policy —
+ *     so an unauthorized caller can't even construct the argument.
+ *  2. The DELETE and INSERT statements themselves carry an EXISTS guard on the
+ *     parent row, so even a mis-wired caller cannot touch translations whose
+ *     parent belongs to another tenant.
+ *
+ * We chose this (options A + B of the brief) over adding `organization_id` to
+ * the translation tables (option C). Denormalizing the tenant onto a child
+ * whose parent already carries it introduces a second copy that can drift —
+ * a re-parented or mis-seeded row would then have two disagreeing answers to
+ * "who owns this?", and any query that trusted the wrong one would be a leak.
+ * The parent's column stays the single source of truth.
+ */
 export async function syncTranslations(
   db: any,
   def: ResourceDef,
-  recordId: number,
+  authorized: AuthorizedRecord,
   translations: Array<{ locale: string; title: string; description?: string }> | undefined,
 ): Promise<void> {
   if (!def.translations || !Array.isArray(translations)) return
   const { table, foreignKey } = def.translations
+  const recordId = authorized.id
+
+  // Defence in depth (2): re-derive the tenant guard from the parent resource
+  // and apply it to the write itself.
+  const parentGuard = buildTenantWhere(db, def.table, def.tenantPolicy, authorized.orgId)
+  const ownsParent = parentGuard
+    ? (await db.select({ id: def.table.id }).from(def.table).where(and(eq(def.table.id, recordId), parentGuard)).limit(1))[0]
+    : (await db.select({ id: def.table.id }).from(def.table).where(eq(def.table.id, recordId)).limit(1))[0]
+  if (!ownsParent) throw createError({ statusCode: 404, statusMessage: 'Not found' })
+
   await db.delete(table).where(eq(table[foreignKey], recordId))
   for (const tr of translations) {
     if (!tr?.locale || !tr?.title) continue

@@ -1,7 +1,6 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, request as pwRequest } from '@playwright/test'
+import { STATE_A } from './global-setup'
 
-const ADMIN_EMAIL = 'admin@sa-inmobiliaria.com'
-const ADMIN_PASSWORD = 'ChangeMe123!'
 const AGENT_SLUG = 'perla-maria-melgarejo'
 
 /**
@@ -21,22 +20,27 @@ function randomFutureSlot() {
 }
 
 test.describe('Agenda de citas con agentes', () => {
-  test.beforeAll(async ({ request }) => {
-    const login = await request.post('/api/auth/login', { data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD } })
-    expect(login.ok()).toBeTruthy()
+  // Reuses the session from global-setup.ts rather than logging in again —
+  // /api/auth/login is IP rate-limited and the whole suite shares one address.
+  test.beforeAll(async () => {
+    const admin = await pwRequest.newContext({
+      baseURL: process.env.E2E_BASE_URL || 'http://localhost:8788',
+      storageState: STATE_A,
+    })
 
-    const agents = await request.get('/api/admin/saas/agents')
+    const agents = await admin.get('/api/admin/saas/agents')
     const { rows } = await agents.json()
     const agent = rows.find((a: any) => a.slug === AGENT_SLUG)
     expect(agent).toBeTruthy()
 
-    const put = await request.put(`/api/admin/saas/agents/${agent.id}/availability`, {
+    const put = await admin.put(`/api/admin/saas/agents/${agent.id}/availability`, {
       data: {
         slotDurationMinutes: 30,
         rules: [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({ dayOfWeek, startTime: '09:00', endTime: '18:00' })),
       },
     })
     expect(put.ok()).toBeTruthy()
+    await admin.dispose()
   })
 
   test('GET availability devuelve huecos reales dentro del horario configurado', async ({ request }) => {
