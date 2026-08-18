@@ -1744,3 +1744,47 @@ export const mediaAccessLog = sqliteTable(
   },
   (t) => [index('media_access_log_org').on(t.organizationId, t.createdAt), index('media_access_log_asset').on(t.mediaAssetId, t.createdAt)],
 )
+
+// ---------------------------------------------------------------------------
+// Constructor Web — el "Portal Web" (público) deja de ser una plantilla fija
+// por tenant y pasa a estar compuesto de bloques editables. `draftJson` es lo
+// que el builder edita; `publishedJson` es lo que sirve el sitio público.
+// Ambos son independientes a propósito: los datos dinámicos (propiedades,
+// comunidades, agentes) NUNCA se guardan aquí — los bloques solo guardan
+// criterios de selección, y se resuelven en vivo contra las tablas reales en
+// cada render. Ver docs/site-builder.md.
+// ---------------------------------------------------------------------------
+
+export const sitePages = sqliteTable(
+  'site_pages',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    pageKey: text('page_key').notNull().default('home'), // multi-página futura: hoy solo 'home'
+    draftJson: text('draft_json').notNull().default('{"blocks":[],"seo":{}}'),
+    publishedJson: text('published_json'), // null = nunca publicada
+    version: integer('version').notNull().default(0),
+    publishedAt: text('published_at'),
+    publishedBy: integer('published_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('site_pages_org_key').on(t.organizationId, t.pageKey)],
+)
+
+// Un snapshot por cada Publish (no por cada autoguardado) — mismo patrón que
+// cms_article_versions. Es la base para el historial/restauración futuros.
+export const sitePageVersions = sqliteTable(
+  'site_page_versions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    pageId: integer('page_id')
+      .notNull()
+      .references(() => sitePages.id, { onDelete: 'cascade' }),
+    version: integer('version').notNull(),
+    snapshotJson: text('snapshot_json').notNull(),
+    publishedBy: integer('published_by'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('site_page_versions_page').on(t.pageId, t.version)],
+)

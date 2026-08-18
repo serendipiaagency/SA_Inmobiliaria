@@ -16,25 +16,25 @@
     <!-- Content -->
     <div class="relative z-10 mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-6 lg:px-10">
       <div class="flex flex-1 flex-col justify-center pb-4 pt-24 md:pt-28">
-        <p class="rise eyebrow !text-white/70" :style="delay(0)">{{ t('hero.eyebrow') }}</p>
+        <p class="rise eyebrow !text-white/70" :style="delay(0)">{{ heroEyebrow }}</p>
         <h1
           class="rise mt-7 max-w-4xl font-serif text-[clamp(3rem,7.5vw,6.75rem)] font-medium leading-[1.01] tracking-[-0.01em] text-white"
           :style="delay(1)"
         >
-          {{ t('hero.title1') }} <br class="hidden sm:block" /><span class="italic">{{ t('hero.title2') }}</span>
+          {{ heroTitle1 }} <br class="hidden sm:block" /><span class="italic">{{ heroTitle2 }}</span>
         </h1>
         <p class="rise mt-8 max-w-md text-base leading-relaxed text-white/80 md:text-lg" :style="delay(2)">
-          {{ t('hero.subtitle') }}
+          {{ heroSubtitle }}
         </p>
 
         <!-- Secondary CTAs -->
         <div class="rise mt-8 flex flex-wrap items-center gap-x-7 gap-y-3" :style="delay(2)">
-          <NuxtLink to="/demo/properties" class="hero-cta-outline group">
-            {{ t('hero.exploreCta') }}
+          <NuxtLink :to="heroExploreCtaTo" class="hero-cta-outline group">
+            {{ heroExploreCta }}
             <svg class="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6" /></svg>
           </NuxtLink>
-          <NuxtLink to="/demo/contact-us" class="hero-cta-ghost">
-            {{ t('hero.advisorCta') }}
+          <NuxtLink :to="heroAdvisorCtaTo" class="hero-cta-ghost">
+            {{ heroAdvisorCta }}
           </NuxtLink>
         </div>
 
@@ -294,17 +294,43 @@
 </template>
 
 <script setup lang="ts">
+// Content props are all optional and default to the original hardcoded copy
+// (via i18n) so this component keeps working standalone. They exist so the
+// Website Builder's hero block editor can override the copy per tenant
+// without forking this component — the search form/tabs logic below stays
+// shared and untouched either way.
+const props = defineProps<{
+  eyebrow?: string
+  title1?: string
+  title2?: string
+  subtitle?: string
+  slides?: string[]
+  exploreCta?: string
+  exploreCtaTo?: string
+  advisorCta?: string
+  advisorCtaTo?: string
+}>()
+
 const { t } = useI18n()
 const { format: money } = useCurrency()
 const router = useRouter()
 const root = ref<HTMLElement | null>(null)
 const locInput = ref<HTMLInputElement | null>(null)
 
-const slides = [
+const defaultSlides = [
   'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=2400&q=80',
   'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=2400&q=80',
   'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=2400&q=80',
 ]
+const slides = computed(() => (props.slides?.length ? props.slides : defaultSlides))
+const heroEyebrow = computed(() => props.eyebrow || t('hero.eyebrow'))
+const heroTitle1 = computed(() => props.title1 || t('hero.title1'))
+const heroTitle2 = computed(() => props.title2 || t('hero.title2'))
+const heroSubtitle = computed(() => props.subtitle || t('hero.subtitle'))
+const heroExploreCta = computed(() => props.exploreCta || t('hero.exploreCta'))
+const heroExploreCtaTo = computed(() => props.exploreCtaTo || '/demo/properties')
+const heroAdvisorCta = computed(() => props.advisorCta || t('hero.advisorCta'))
+const heroAdvisorCtaTo = computed(() => props.advisorCtaTo || '/demo/contact-us')
 
 // Subtle parallax on the background layer — capped and respects
 // prefers-reduced-motion. The background wrapper is oversized (-inset-y-7%)

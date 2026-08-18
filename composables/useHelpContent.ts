@@ -128,6 +128,21 @@ export function useHelpContent() {
       ],
     },
     {
+      key: 'site-builder',
+      group: 'Portal Web',
+      title: 'Constructor Web',
+      route: '/admin/site-builder',
+      summary: 'Editor visual de la página de inicio de tu web pública — arrastra, edita y reordena secciones sin tocar código.',
+      steps: [
+        'Selecciona un bloque haciendo clic en él, en el lienzo o en la lista "Estructura" de la izquierda — el panel de la derecha muestra sus opciones.',
+        'Añade secciones nuevas con "+ Añadir bloque"; reordénalas arrastrando el icono de puntos en la lista de estructura.',
+        'Los bloques de Propiedades, Comunidades y Blog siempre muestran tus datos reales y actuales — edítalos aquí solo para cambiar textos, orden y qué mostrar, no propiedades una a una.',
+        'Cambia entre Escritorio/Tablet/Móvil arriba para comprobar cómo se ve en cada tamaño real, y usa el ojo de "Visible en" para ocultar un bloque en un dispositivo concreto.',
+        'Los cambios se autoguardan como borrador (verás "Guardando…"/"Guardado"). El sitio público no cambia hasta que pulses "Publicar cambios".',
+        'Deshacer/Rehacer (las flechas junto al selector de dispositivo) solo cubren la sesión actual del editor.',
+      ],
+    },
+    {
       key: 'properties',
       group: 'Portal Web',
       title: 'Propiedades 2ª mano',
@@ -590,6 +605,20 @@ export function useHelpContent() {
       question: 'Tengo un problema o una duda que no cubre esta guía, ¿qué hago?',
       answer: 'Escríbenos a hola@serendipiaagency.com contándonos qué intentabas hacer y, si puedes, una captura de pantalla. Te responderemos lo antes posible.',
       tags: ['soporte', 'contacto', 'ayuda'],
+    },
+    {
+      id: 'faq-site-builder-publish',
+      question: 'Edité la página de inicio en el Constructor Web pero la web pública no cambió, ¿por qué?',
+      answer:
+        'Los cambios en el Constructor Web se autoguardan como borrador, pero la web pública solo sirve la versión publicada. Pulsa "Publicar cambios" en la barra superior del editor para que se vean en el sitio real. Esto es intencional: puedes dejar cambios a medias sin miedo a que salgan en vivo por error.',
+      tags: ['constructor web', 'site builder', 'portal web', 'publicar'],
+    },
+    {
+      id: 'faq-site-builder-live-data',
+      question: 'Cambié una propiedad y apareció sola en la landing sin tocar el Constructor Web, ¿es un error?',
+      answer:
+        'No, es el comportamiento esperado. Los bloques de Propiedades, Comunidades y Blog de la página de inicio no guardan una copia de esos datos — siempre muestran tus propiedades, comunidades y artículos reales y actuales. Solo necesitas volver a publicar en el Constructor Web si cambias textos, orden o ajustes de la propia página, nunca por cambios en el contenido en sí.',
+      tags: ['constructor web', 'site builder', 'propiedades', 'sincronizacion'],
     },
   ]
 
