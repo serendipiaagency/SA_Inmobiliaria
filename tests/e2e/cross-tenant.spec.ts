@@ -239,4 +239,31 @@ test.describe('Aislamiento entre inmobiliarias (cross-tenant)', () => {
     })
     expect(lead.status(), 'la API v1 aceptó una propiedad de otro tenant').toBe(422)
   })
+
+  // Constructor Web: /api/admin/site-pages/home has no id in its URL at all —
+  // both tenants call the literal same path. Isolation here rests entirely on
+  // requireOrgScope resolving each session to its own row, never a shared or
+  // first-matching one.
+  test('el Constructor Web nunca mezcla el borrador de A con el de B', async () => {
+    const marker = `Marker-${RUN}`
+    const putB = await b.put('/api/admin/site-pages/home', {
+      data: { blocks: [{ id: 'hero', type: 'hero', version: 1, content: { title1: marker } }], seo: { title: marker } },
+    })
+    expect(putB.ok()).toBeTruthy()
+
+    const draftA = await (await a.get('/api/admin/site-pages/home')).json()
+    const titlesA = draftA.blocks.map((b: any) => b.content?.title1)
+    expect(titlesA, "el borrador de A contiene el bloque que B acaba de guardar").not.toContain(marker)
+    expect(draftA.seo?.title).not.toBe(marker)
+  })
+
+  test('publicar en B no cambia la versión ni lo publicado de A', async () => {
+    const beforeA = await (await a.get('/api/admin/site-pages/home')).json()
+    const pub = await b.post('/api/admin/site-pages/home/publish')
+    expect(pub.ok()).toBeTruthy()
+
+    const afterA = await (await a.get('/api/admin/site-pages/home')).json()
+    expect(afterA.version, 'publicar en B incrementó la versión de A').toBe(beforeA.version)
+    expect(afterA.publishedAt).toBe(beforeA.publishedAt)
+  })
 })

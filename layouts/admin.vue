@@ -141,6 +141,7 @@ const nav = [
     label: 'Portal Web',
     items: [
       { label: 'Propiedades (web)', to: '/admin/developer-properties', icon: 'building' },
+      { label: 'Constructor Web', to: '/admin/site-builder', icon: 'widget' },
       { label: 'Propiedades 2ª mano', to: '/admin/properties', icon: 'layers' },
       { label: 'Agentes', to: '/admin/agents', icon: 'badge' },
       { label: 'Comunidades', to: '/admin/communities', icon: 'store' },
