@@ -1,5 +1,11 @@
 <template>
-  <div v-if="meta">
+  <div>
+  <!-- Property Builder: a dedicated, sectioned editor replaces the flat generic
+       form for these two resources only — every other resource below is
+       untouched. See components/property-builder/. -->
+  <PropertyBuilder v-if="meta && isPropertyBuilderResource" :resource="resource as 'developer-properties' | 'properties'" :id="id" />
+
+  <div v-else-if="meta">
     <div class="mb-6 flex items-center justify-between">
       <h1 class="text-2xl font-bold">{{ isNew ? `New — ${meta.label}` : `Edit — ${meta.label} #${id}` }}</h1>
       <div class="flex items-center gap-3">
@@ -80,9 +86,12 @@
       </div>
     </form>
   </div>
+  </div>
 </template>
 
 <script setup lang="ts">
+import PropertyBuilder from '~/components/property-builder/PropertyBuilder.vue'
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const route = useRoute()
@@ -90,6 +99,7 @@ const router = useRouter()
 const resource = computed(() => String(route.params.resource))
 const id = computed(() => String(route.params.id))
 const isNew = computed(() => id.value === 'new')
+const isPropertyBuilderResource = computed(() => resource.value === 'developer-properties' || resource.value === 'properties')
 
 const { data: resources } = await useFetch<Record<string, any>>('/api/admin/resources')
 const meta = computed(() => resources.value?.[resource.value])
@@ -103,7 +113,9 @@ const translations = reactive([
   { locale: 'ar', title: '', description: '' },
 ])
 
-if (!isNew.value) {
+// PropertyBuilder does its own data loading for these two resources — skip
+// the generic form's fetch entirely rather than duplicating the request.
+if (!isNew.value && !isPropertyBuilderResource.value) {
   const res = await $fetch<any>(`/api/admin/${resource.value}/${id.value}`)
   record.value = res.row
   for (const field of Object.keys(meta.value.fields)) {

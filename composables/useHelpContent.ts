@@ -122,8 +122,10 @@ export function useHelpContent() {
       route: '/admin/developer-properties',
       summary: 'Catálogo principal de propiedades sobre plano/promociones que se muestran en la web pública.',
       steps: [
-        'Crea una propiedad con nombre, precio, ubicación, características y galería de imágenes.',
-        'Marca "Exclusiva" o "Reservada" para que aparezca destacada o bloqueada en la web.',
+        'Al crear o editar una propiedad se abre el Property Builder: un editor por secciones (Información básica, Ubicación, Precio, Características, Descripción, Multimedia, Galería, Planos, Tipos de unidad, Redes sociales, Comercial/Inversión) en vez de un formulario largo — navega entre ellas por la barra lateral (o las pestañas, en pantallas pequeñas).',
+        'La cabecera muestra si hay cambios sin guardar y el estado real de la propiedad; guarda con el botón "Guardar" cuando quieras.',
+        'La sección "Galería" admite varias imágenes con vista previa y borrado; "Planos", "Tipos de unidad" y "Redes sociales" funcionan como listas donde añades o quitas filas.',
+        'Marca "Exclusiva" o "Reservada" (sección Comercial/Inversión) para que aparezca destacada o bloqueada en la web.',
         'El estado (nueva / en construcción / lista) se refleja en la ficha pública automáticamente.',
       ],
     },
@@ -148,7 +150,10 @@ export function useHelpContent() {
       title: 'Propiedades 2ª mano',
       route: '/admin/properties',
       summary: 'Catálogo separado para propiedades de segunda mano/reventa (no promociones de obra nueva).',
-      steps: [],
+      steps: [
+        'Usa el mismo Property Builder por secciones que "Propiedades (web)", adaptado a los campos de este catálogo (más pequeño: sin planos, tipos de unidad ni redes sociales).',
+        'La descripción se edita en inglés y árabe desde la sección "Descripción" (son las traducciones que ve el público, no hay un texto en un idioma único).',
+      ],
     },
     {
       key: 'agents',
