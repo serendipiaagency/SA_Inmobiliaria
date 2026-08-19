@@ -12,6 +12,8 @@
       <PropertyTypesBlock v-else-if="block.type === 'property-types'" :content="block.content" :projects="homeData?.projects || []" />
       <MortgageBlock v-else-if="block.type === 'mortgage-calculator'" :content="block.content" :projects="homeData?.projects || []" />
       <BlogListBlock v-else-if="block.type === 'blog-list'" :content="block.content" :blogs="homeData?.blogs || []" />
+      <TextBlock v-else-if="block.type === 'text'" :content="block.content" />
+      <CtaBlock v-else-if="block.type === 'cta'" :content="block.content" />
       <div v-else-if="mode !== 'production'" class="mx-auto max-w-screen-2xl px-6 py-10 text-sm text-red-500">
         Tipo de bloque desconocido: {{ block.type }}
       </div>
@@ -28,6 +30,8 @@ import CommunitiesBlock from './blocks/CommunitiesBlock.vue'
 import PropertyTypesBlock from './blocks/PropertyTypesBlock.vue'
 import MortgageBlock from './blocks/MortgageBlock.vue'
 import BlogListBlock from './blocks/BlogListBlock.vue'
+import TextBlock from './blocks/TextBlock.vue'
+import CtaBlock from './blocks/CtaBlock.vue'
 
 /**
  * The one component that turns a page's block array into markup — used
@@ -66,14 +70,35 @@ const visibleBlocks = computed(() =>
   }),
 )
 
+const BACKGROUND_CLASS: Record<string, string> = { paper: 'bg-paper', white: 'bg-white', surface: 'bg-surface', ink: 'bg-ink' }
+const SPACING_REM: Record<string, string> = { sm: '1.5rem', lg: '3rem' }
+
+/**
+ * Applies the "Avanzado" common options (CommonBlockSettings.vue) — anchor,
+ * background, extra spacing — identically in every mode, since these are
+ * real published styling, not builder chrome. Only the selection outline,
+ * hover, and click-to-select wiring below are builder-only.
+ */
 function wrapperAttrs(block: SiteBlock) {
-  if (props.mode !== 'builder') return {}
+  const style = block.style || {}
+  const common: Record<string, any> = {}
+  if (style.anchorId) common.id = style.anchorId
+  const classes = ['relative', style.background ? BACKGROUND_CLASS[style.background] : '']
+  const inlineStyle: Record<string, string> = {}
+  if (style.paddingTop && SPACING_REM[style.paddingTop]) inlineStyle.paddingTop = SPACING_REM[style.paddingTop]
+  if (style.paddingBottom && SPACING_REM[style.paddingBottom]) inlineStyle.paddingBottom = SPACING_REM[style.paddingBottom]
+  if (Object.keys(inlineStyle).length) common.style = inlineStyle
+
+  if (props.mode !== 'builder') return { ...common, class: classes }
+
   const hiddenOnDevice = block.visibility && block.visibility[props.device] === false
   return {
+    ...common,
     'data-site-block-id': block.id,
     'data-site-block-type': block.type,
     class: [
-      'site-block-wrap relative outline-offset-[-2px] transition-[outline-color]',
+      ...classes,
+      'site-block-wrap outline-offset-[-2px] transition-[outline-color]',
       props.selectedBlockId === block.id ? 'outline outline-2 outline-blue-500' : 'outline outline-2 outline-transparent hover:outline-blue-300',
       hiddenOnDevice ? 'opacity-40' : '',
     ],

@@ -12,18 +12,35 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-1 rounded-full bg-stone-100 p-1">
-        <button
-          v-for="d in DEVICES"
-          :key="d.key"
-          type="button"
-          class="rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition"
-          :class="device === d.key ? 'bg-white text-ink shadow' : 'text-stone-400 hover:text-ink'"
-          :title="d.label"
-          @click="device = d.key"
-        >
-          {{ d.short }}
-        </button>
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1 rounded-full bg-stone-100 p-1">
+          <button
+            v-for="d in DEVICES"
+            :key="d.key"
+            type="button"
+            class="rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition"
+            :class="device === d.key ? 'bg-white text-ink shadow' : 'text-stone-400 hover:text-ink'"
+            :title="d.label"
+            @click="device = d.key"
+          >
+            {{ d.short }}
+          </button>
+        </div>
+
+        <!-- Zoom -->
+        <div class="flex items-center gap-0.5 rounded-full bg-stone-100 p-1">
+          <button type="button" class="toolbar-btn !h-6 !w-6" title="Alejar" :disabled="zoomMode !== 'auto' && zoomIndex <= 0" @click="stepZoom(-1)">−</button>
+          <button
+            type="button"
+            class="min-w-[3.2rem] rounded-full px-2 py-1 text-center text-[11px] font-semibold tabular-nums transition"
+            :class="zoomMode === 'auto' ? 'text-ink' : 'text-stone-500 hover:text-ink'"
+            title="Ajustar al área disponible"
+            @click="zoomMode = 'auto'"
+          >
+            {{ zoomMode === 'auto' ? `Ajustar · ${effectiveZoomPercent}%` : `${effectiveZoomPercent}%` }}
+          </button>
+          <button type="button" class="toolbar-btn !h-6 !w-6" title="Acercar" :disabled="zoomMode !== 'auto' && zoomIndex >= ZOOM_STEPS.length - 1" @click="stepZoom(1)">+</button>
+        </div>
       </div>
 
       <div class="flex items-center gap-2">
@@ -117,34 +134,40 @@
       </aside>
 
       <!-- Canvas -->
-      <main class="flex flex-1 justify-center overflow-auto bg-stone-200 py-8">
-        <div class="shrink-0 overflow-hidden rounded-xl bg-white shadow-2xl transition-[width] duration-200" :style="{ width: DEVICE_WIDTH[device] + 'px', height: 'calc(100vh - 7.5rem)' }">
-          <iframe ref="iframeEl" src="/admin/site-builder/canvas" class="h-full w-full border-0" title="Vista previa del Constructor Web" />
+      <main ref="canvasMainEl" class="flex flex-1 items-start justify-center overflow-auto bg-stone-200 py-8">
+        <div class="shrink-0" :style="{ width: outerWidthPx + 'px', height: outerHeightPx + 'px' }">
+          <div
+            class="origin-top-left overflow-hidden rounded-xl bg-white shadow-2xl"
+            :style="{ width: DEVICE_WIDTH[device] + 'px', height: frameHeightPx + 'px', transform: `scale(${scale})` }"
+          >
+            <iframe ref="iframeEl" src="/admin/site-builder/canvas" class="h-full w-full border-0" title="Vista previa del Constructor Web" />
+          </div>
         </div>
       </main>
 
-      <!-- Right panel: contextual editor -->
-      <aside v-if="!previewMode && selectedBlock" class="flex w-80 shrink-0 flex-col overflow-y-auto border-l border-line bg-white p-4" @focusin="onPanelFocusIn" @focusout="onPanelFocusOut">
+      <!-- Right panel: Block Inspector -->
+      <aside v-if="!previewMode && selectedBlock" class="flex w-96 shrink-0 flex-col overflow-y-auto border-l border-line bg-white p-4" @focusin="onPanelFocusIn" @focusout="onPanelFocusOut">
         <div class="mb-4 flex items-center justify-between">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-500">{{ blockLabel(selectedBlock.type) }}</p>
-          <button type="button" class="text-stone-300 hover:text-ink" @click="selectedBlockId = null">
+          <p class="truncate text-[11px] font-semibold uppercase tracking-wide text-stone-500">{{ breadcrumb }}</p>
+          <button type="button" class="shrink-0 text-stone-300 hover:text-ink" @click="selectedBlockId = null">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
         </div>
 
-        <component :is="editorFor(selectedBlock.type)" v-model:content="selectedBlock.content" />
+        <component
+          :is="inspectorFor(selectedBlock.type)?.component"
+          v-if="inspectorFor(selectedBlock.type)"
+          :content="selectedBlock.content"
+          :projects="previewData?.projects || []"
+          :communities="previewData?.communities || []"
+        />
+        <p v-else class="text-sm text-stone-400">Este tipo de bloque no tiene opciones adicionales todavía.</p>
 
-        <div class="mt-6 border-t border-line pt-4">
-          <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-500">Visible en</p>
-          <div class="flex gap-3">
-            <label v-for="d in DEVICES" :key="d.key" class="flex items-center gap-1.5 text-xs text-stone-600">
-              <input type="checkbox" :checked="!isHiddenOnDevice(selectedBlock, d.key)" @change="setVisible(selectedBlock, d.key, ($event.target as HTMLInputElement).checked)" />
-              {{ d.label }}
-            </label>
-          </div>
-        </div>
+        <InspectorSection title="Avanzado" :default-open="false">
+          <CommonBlockSettings :block="selectedBlock" />
+        </InspectorSection>
       </aside>
-      <aside v-else-if="!previewMode" class="flex w-80 shrink-0 items-center justify-center border-l border-line bg-white p-6 text-center text-sm text-stone-400">
+      <aside v-else-if="!previewMode" class="flex w-96 shrink-0 items-center justify-center border-l border-line bg-white p-6 text-center text-sm text-stone-400">
         Selecciona un bloque en el lienzo o en la estructura para editarlo.
       </aside>
     </div>
@@ -201,26 +224,29 @@
 
 <script setup lang="ts">
 import type { SiteBlock } from '~/server/utils/sitePages'
-import { BLOCK_PRESETS, BLOCK_CATEGORIES, blockLabel, newBlockId, type BlockPreset } from '~/composables/useSiteBuilderRegistry'
-import HeroEditor from '~/components/site-builder/editors/HeroEditor.vue'
-import MapTeaserEditor from '~/components/site-builder/editors/MapTeaserEditor.vue'
-import PropertiesEditor from '~/components/site-builder/editors/PropertiesEditor.vue'
-import CommunitiesEditor from '~/components/site-builder/editors/CommunitiesEditor.vue'
-import PropertyTypesEditor from '~/components/site-builder/editors/PropertyTypesEditor.vue'
-import MortgageEditor from '~/components/site-builder/editors/MortgageEditor.vue'
-import BlogListEditor from '~/components/site-builder/editors/BlogListEditor.vue'
+import { BLOCK_PRESETS, BLOCK_CATEGORIES, BLOCK_INSPECTORS, blockLabel, newBlockId, type BlockPreset } from '~/composables/useSiteBuilderRegistry'
+import InspectorSection from '~/components/site-builder/inspector/InspectorSection.vue'
+import CommonBlockSettings from '~/components/site-builder/inspector/CommonBlockSettings.vue'
 
 definePageMeta({ layout: false, middleware: 'admin' })
 
 const toast = useToast()
 const { confirm } = useConfirm()
 
+// Real breakpoints, not arbitrary device-store presets: this project ships
+// Tailwind's stock screens (tailwind.config.js has no `screens` override —
+// sm 640 / md 768 / lg 1024 / xl 1280 / 2xl 1536), and the site-builder's own
+// blocks only ever branch on `sm:`/`lg:`. Desktop (1440) sits above `lg` so
+// desktop styles win; tablet (768) is exactly the real `md` breakpoint value
+// (previously 834, an arbitrary iPad-logical-width guess with no relation to
+// any breakpoint this project actually uses); mobile (390) sits well below
+// `sm` so mobile-first styles win.
 const DEVICES = [
   { key: 'desktop' as const, label: 'Escritorio', short: 'PC' },
   { key: 'tablet' as const, label: 'Tablet', short: 'Tab' },
   { key: 'mobile' as const, label: 'Móvil', short: 'Móvil' },
 ]
-const DEVICE_WIDTH: Record<string, number> = { desktop: 1440, tablet: 834, mobile: 390 }
+const DEVICE_WIDTH: Record<string, number> = { desktop: 1440, tablet: 768, mobile: 390 }
 
 const blocks = ref<SiteBlock[]>([])
 const seo = reactive({ title: '', description: '' })
@@ -261,18 +287,32 @@ const presetsByCategory = computed(() => {
   return map
 })
 
-const EDITORS: Record<string, any> = {
-  hero: HeroEditor,
-  'map-teaser': MapTeaserEditor,
-  properties: PropertiesEditor,
-  communities: CommunitiesEditor,
-  'property-types': PropertyTypesEditor,
-  'mortgage-calculator': MortgageEditor,
-  'blog-list': BlogListEditor,
+// ---------------------------------------------------------------------------
+// Block Inspector — one component per block type (useSiteBuilderRegistry.ts),
+// never a shared field list with conditionals. "Avanzado" (CommonBlockSettings)
+// is appended once by this shell, so every block type gets it for free.
+// ---------------------------------------------------------------------------
+function inspectorFor(type: string) {
+  return BLOCK_INSPECTORS[type] || null
 }
-function editorFor(type: string) {
-  return EDITORS[type] || null
+const breadcrumb = computed(() => (selectedBlock.value ? blockLabel(selectedBlock.value.type) : ''))
+
+// Live catalogue data for the "Datos" sections (Propiedades/Comunidades
+// dynamic filters + manual selection) — fetched once here in the shell,
+// independently of the canvas iframe's own copy for rendering. Never
+// snapshotted into block content, exactly like the canvas's live data.
+const previewData = ref<{ projects: any[]; communities: any[]; blogs: any[] } | null>(null)
+const previewDataLoaded = ref(false)
+function ensurePreviewData() {
+  if (previewDataLoaded.value) return
+  previewDataLoaded.value = true
+  $fetch<{ projects: any[]; communities: any[]; blogs: any[] }>('/api/admin/site-pages/preview-data')
+    .then((data) => (previewData.value = data))
+    .catch(() => (previewData.value = { projects: [], communities: [], blogs: [] }))
 }
+watch(selectedBlock, (b) => {
+  if (b && inspectorFor(b.type)?.needsPreviewData) ensurePreviewData()
+})
 
 function isHiddenOnDevice(block: SiteBlock, d: 'desktop' | 'tablet' | 'mobile' = device.value) {
   return block.visibility?.[d] === false
@@ -456,6 +496,63 @@ async function publish() {
     publishing.value = false
   }
 }
+
+// ---------------------------------------------------------------------------
+// Canvas fit-to-scale + zoom — keeps the real logical width/height of the
+// selected breakpoint (Tailwind media queries inside the iframe still
+// evaluate against DEVICE_WIDTH, unchanged) and only visually scales the
+// device frame down with CSS transform so the full page fits the available
+// area without horizontal scrolling. Never touches the published site.
+// ---------------------------------------------------------------------------
+const canvasMainEl = ref<HTMLElement | null>(null)
+const canvasAvailable = reactive({ width: 0, height: 0 })
+const CANVAS_PADDING = 64 // matches the <main> element's py-8/px implicit breathing room
+
+const ZOOM_STEPS = [50, 60, 75, 90, 100, 125]
+const zoomMode = ref<'auto' | number>('auto')
+const zoomIndex = computed(() => {
+  if (zoomMode.value === 'auto') return -1
+  const i = ZOOM_STEPS.indexOf(zoomMode.value)
+  return i === -1 ? 3 : i
+})
+
+const autoScale = computed(() => {
+  const w = canvasAvailable.width - CANVAS_PADDING
+  const deviceWidth = DEVICE_WIDTH[device.value]
+  if (w <= 0 || !deviceWidth) return 1
+  return Math.min(1, Math.max(0.25, w / deviceWidth))
+})
+const effectiveZoomPercent = computed(() => (zoomMode.value === 'auto' ? Math.round(autoScale.value * 100) : zoomMode.value))
+const scale = computed(() => effectiveZoomPercent.value / 100)
+
+const outerWidthPx = computed(() => Math.round(DEVICE_WIDTH[device.value] * scale.value))
+// The unscaled frame is tall enough that, once scaled down, it visually fills
+// the available canvas height — same full-height feel as before, plus more
+// logical vertical room for the iframe's own internal scroll when zoomed out.
+const frameHeightPx = computed(() => {
+  const h = canvasAvailable.height - CANVAS_PADDING
+  return h > 0 ? Math.round(h / scale.value) : 0
+})
+const outerHeightPx = computed(() => Math.round(frameHeightPx.value * scale.value))
+
+function stepZoom(dir: 1 | -1) {
+  const from = zoomMode.value === 'auto' ? ZOOM_STEPS.findIndex((s) => s >= effectiveZoomPercent.value) : zoomIndex.value
+  const next = Math.min(ZOOM_STEPS.length - 1, Math.max(0, (from === -1 ? 0 : from) + dir))
+  zoomMode.value = ZOOM_STEPS[next]
+}
+
+let resizeObserver: ResizeObserver | null = null
+onMounted(() => {
+  if (!canvasMainEl.value) return
+  resizeObserver = new ResizeObserver((entries) => {
+    const entry = entries[0]
+    if (!entry) return
+    canvasAvailable.width = entry.contentRect.width
+    canvasAvailable.height = entry.contentRect.height
+  })
+  resizeObserver.observe(canvasMainEl.value)
+})
+onUnmounted(() => resizeObserver?.disconnect())
 
 // ---------------------------------------------------------------------------
 // Canvas <iframe> bridge

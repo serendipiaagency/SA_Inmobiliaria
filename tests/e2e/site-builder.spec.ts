@@ -92,4 +92,40 @@ test.describe('Constructor Web', () => {
     const page = await (await a.get('/api/public/site-pages/home')).json()
     expect(page.blocks[0].content.dynamicFilter, 'el bloque sigue guardando solo el criterio, nunca los datos').toBe('latest')
   })
+
+  /**
+   * The Block Inspector's ImageField/GalleryField (components/site-builder/
+   * inspector/fields/) upload through the same /api/admin/upload as every
+   * other admin form, then store the returned key on the block's content —
+   * this proves that round trip end to end: upload -> save draft -> "reload"
+   * (a fresh GET, same as re-opening the builder) -> publish -> the public
+   * page serves the new image. Mirrors the acceptance flow the redesigned
+   * Constructor Web inspector was built against.
+   */
+  test('una imagen subida al inspector persiste en el borrador y llega a lo publicado', async () => {
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64',
+    )
+    const upload = await a.post('/api/admin/upload', {
+      multipart: { file: { name: 'hero-slide.png', mimeType: 'image/png', buffer: png }, folder: 'site-builder' },
+    })
+    expect(upload.ok(), await upload.text()).toBeTruthy()
+    const { key } = await upload.json()
+
+    const put = await a.put('/api/admin/site-pages/home', {
+      data: { blocks: [{ id: 'hero', type: 'hero', version: 1, content: { title1: 'Imagen e2e', slides: [key] } }], seo: {} },
+    })
+    expect(put.ok()).toBeTruthy()
+
+    // "Reload the builder" == a fresh GET of the same draft endpoint.
+    const reloaded = await (await a.get('/api/admin/site-pages/home')).json()
+    expect(reloaded.blocks[0].content.slides).toEqual([key])
+
+    const publish = await a.post('/api/admin/site-pages/home/publish')
+    expect(publish.ok()).toBeTruthy()
+
+    const publicPage = await (await a.get('/api/public/site-pages/home')).json()
+    expect(publicPage.blocks[0].content.slides, 'la imagen subida en el inspector debe llegar a la página pública tras publicar').toEqual([key])
+  })
 })

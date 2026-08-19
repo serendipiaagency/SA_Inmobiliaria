@@ -25,14 +25,14 @@
           {{ content.cta }}
         </NuxtLink>
       </div>
-      <div class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="grid gap-x-6 gap-y-10" :class="gridClasses">
         <NuxtLink v-for="p in items" :key="p.id" :to="`/demo/property-details/${p.slug || p.id}`" class="group block">
           <div class="aspect-[4/3] overflow-hidden rounded-2xl bg-black/30">
             <img :src="mediaUrl(p.coverImage)" :alt="p.name" class="h-full w-full object-cover opacity-90 transition duration-700 group-hover:scale-105 group-hover:opacity-100" loading="lazy" />
           </div>
-          <p class="mt-4 text-lg font-semibold">{{ formatPrice(p.price) }}</p>
-          <h3 class="font-serif text-xl font-medium">{{ p.name }}</h3>
-          <p class="text-[13px] text-white/60">{{ p.community }}</p>
+          <p v-if="cardFields.price" class="mt-4 text-lg font-semibold">{{ formatPrice(p.price) }}</p>
+          <h3 v-if="cardFields.name" class="font-serif text-xl font-medium">{{ p.name }}</h3>
+          <p v-if="cardFields.community && p.community" class="text-[13px] text-white/60">{{ p.community }}</p>
         </NuxtLink>
       </div>
     </div>
@@ -46,7 +46,7 @@
         <p class="eyebrow !text-stone-450">{{ content.eyebrow }}</p>
       </div>
       <h2 class="heading-serif mt-3 text-3xl md:text-4xl">{{ content.title }}</h2>
-      <div class="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="mt-8 grid gap-x-6 gap-y-10" :class="gridClasses">
         <ProjectCard v-for="p in items" :key="p.id" :project="p" />
       </div>
     </div>
@@ -62,6 +62,11 @@ const props = defineProps<{
 const items = computed(() => {
   const all = props.projects || []
   const limit = Number(props.content.limit) || 4
+  if (props.content.source === 'manual') {
+    const ids: number[] = Array.isArray(props.content.manualIds) ? props.content.manualIds : []
+    const byId = new Map(all.map((p) => [p.id, p]))
+    return ids.map((id) => byId.get(id)).filter(Boolean).slice(0, limit)
+  }
   switch (props.content.dynamicFilter) {
     case 'featured': {
       const exclusive = all.filter((p) => p.isExclusive)
@@ -69,13 +74,39 @@ const items = computed(() => {
     }
     case 'premium':
       return [...all].sort((a, b) => (b.price || 0) - (a.price || 0)).slice(0, limit)
+    case 'affordable':
+      return [...all].sort((a, b) => (a.price || 0) - (b.price || 0)).slice(0, limit)
     case 'recommended':
       return [...all].sort((a, b) => (b.rentalYield || 0) - (a.rentalYield || 0)).slice(0, limit)
+    case 'community':
+      return all.filter((p) => p.community === props.content.dynamicCommunity).slice(0, limit)
+    case 'type':
+      return all.filter((p) => p.propertyType === props.content.dynamicType).slice(0, limit)
     case 'latest':
     default:
       return all.slice(0, limit)
   }
 })
+
+const cardFields = computed(() => ({
+  price: props.content.cardFields?.price !== false,
+  name: props.content.cardFields?.name !== false,
+  community: props.content.cardFields?.community !== false,
+}))
+
+// Tailwind's content scanner needs the full class string literally present
+// somewhere in this file (it doesn't execute JS), so every mobile/tablet/
+// desktop column count this block can produce is spelled out here, then
+// picked by number below — not built with string interpolation.
+const MOBILE_COLS: Record<number, string> = { 1: 'grid-cols-1', 2: 'grid-cols-2' }
+const TABLET_COLS: Record<number, string> = { 1: 'sm:grid-cols-1', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3' }
+const DESKTOP_COLS: Record<number, string> = { 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3', 4: 'lg:grid-cols-4' }
+const defaultCols = computed(() => (props.content.layout === 'ai-grid' ? { mobile: 1, tablet: 2, desktop: 4 } : { mobile: 1, tablet: 2, desktop: 3 }))
+const gridClasses = computed(() => [
+  MOBILE_COLS[Number(props.content.columnsMobile) || defaultCols.value.mobile] || MOBILE_COLS[defaultCols.value.mobile],
+  TABLET_COLS[Number(props.content.columnsTablet) || defaultCols.value.tablet] || TABLET_COLS[defaultCols.value.tablet],
+  DESKTOP_COLS[Number(props.content.columnsDesktop) || defaultCols.value.desktop] || DESKTOP_COLS[defaultCols.value.desktop],
+])
 
 const { format: formatPrice } = useCurrency()
 </script>
