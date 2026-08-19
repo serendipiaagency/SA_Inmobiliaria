@@ -1,3 +1,13 @@
+import HeroInspector from '~/components/site-builder/inspectors/HeroInspector.vue'
+import PropertiesInspector from '~/components/site-builder/inspectors/PropertiesInspector.vue'
+import MapTeaserInspector from '~/components/site-builder/inspectors/MapTeaserInspector.vue'
+import CommunitiesInspector from '~/components/site-builder/inspectors/CommunitiesInspector.vue'
+import PropertyTypesInspector from '~/components/site-builder/inspectors/PropertyTypesInspector.vue'
+import MortgageInspector from '~/components/site-builder/inspectors/MortgageInspector.vue'
+import BlogListInspector from '~/components/site-builder/inspectors/BlogListInspector.vue'
+import TextInspector from '~/components/site-builder/inspectors/TextInspector.vue'
+import CtaInspector from '~/components/site-builder/inspectors/CtaInspector.vue'
+
 /**
  * The Constructor Web's block catalogue — the single list that drives the
  * "+ Añadir bloque" library and the right-panel editor dispatch. A block's
@@ -121,6 +131,22 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     category: 'Contenido',
     createContent: () => ({ eyebrow: 'Journal', title: 'Ideas e historias', cta: 'Todos los artículos', ctaTo: '/demo/blog', source: 'dynamic', limit: 3 }),
   },
+  {
+    presetId: 'text',
+    type: 'text',
+    label: 'Texto',
+    description: 'Bloque de texto libre: eyebrow, título, subtítulo y cuerpo.',
+    category: 'Contenido',
+    createContent: () => ({ eyebrow: '', title: 'Un título para esta sección', subtitle: '', body: 'Escribe aquí el contenido de este bloque.', align: 'left', maxWidth: 'md', columns: 1 }),
+  },
+  {
+    presetId: 'cta',
+    type: 'cta',
+    label: 'Llamada a la acción',
+    description: 'Sección de cierre con título, descripción y hasta dos botones.',
+    category: 'Contenido',
+    createContent: () => ({ eyebrow: '', title: '¿Hablamos de tu próxima propiedad?', description: '', ctaPrimary: 'Contactar', ctaPrimaryTo: '/demo/contact-us', ctaSecondary: '', ctaSecondaryTo: '', align: 'center' }),
+  },
 ]
 
 export const BLOCK_TYPE_LABELS: Record<string, string> = {
@@ -131,8 +157,36 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
   'property-types': 'Tipos de propiedad',
   'mortgage-calculator': 'Calculadora de hipoteca',
   'blog-list': 'Últimos artículos',
+  text: 'Texto',
+  cta: 'Llamada a la acción',
 }
 
 export function blockLabel(type: string): string {
   return BLOCK_TYPE_LABELS[type] || type
+}
+
+/**
+ * The Block Inspector registry — each block `type` maps to its own inspector
+ * component (components/site-builder/inspectors/*.vue), never to one shared
+ * field list with conditionals. Adding a new block type later means adding
+ * one entry here plus its own component; nothing else in the builder shell
+ * needs to change. Some inspectors need live catalogue data (projects/
+ * communities) for their "Datos" section — `needsPreviewData` marks those so
+ * the shell only fetches it once, lazily, and only when actually used.
+ */
+export interface BlockInspectorEntry {
+  component: any
+  needsPreviewData?: boolean
+}
+
+export const BLOCK_INSPECTORS: Record<string, BlockInspectorEntry> = {
+  hero: { component: HeroInspector },
+  properties: { component: PropertiesInspector, needsPreviewData: true },
+  'map-teaser': { component: MapTeaserInspector },
+  communities: { component: CommunitiesInspector, needsPreviewData: true },
+  'property-types': { component: PropertyTypesInspector },
+  'mortgage-calculator': { component: MortgageInspector },
+  'blog-list': { component: BlogListInspector },
+  text: { component: TextInspector },
+  cta: { component: CtaInspector },
 }

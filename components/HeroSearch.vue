@@ -5,17 +5,19 @@
       <div
         v-for="(img, i) in slides"
         :key="i"
-        class="hero-slide absolute inset-0 bg-cover bg-center"
-        :style="{ backgroundImage: `url(${img})`, animationDelay: `${i * 7}s` }"
+        class="hero-slide absolute inset-0 bg-cover"
+        :style="{ backgroundImage: `url(${img})`, backgroundPosition: backgroundPosition, animationDelay: `${i * 7}s` }"
       />
       <div class="absolute inset-0 bg-gradient-to-b from-black/55 via-black/20 to-black/70" />
       <div class="absolute inset-0 bg-black/10" />
+      <!-- Builder-configurable extra scrim (Diseño > Overlay), on top of the fixed gradient above — 0 by default, pixel-identical to before this existed. -->
+      <div v-if="overlayOpacity > 0" class="absolute inset-0 bg-black" :style="{ opacity: overlayOpacity / 100 }" />
       <div class="pointer-events-none absolute inset-0 hero-vignette" />
     </div>
 
     <!-- Content -->
     <div class="relative z-10 mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-6 lg:px-10">
-      <div class="flex flex-1 flex-col justify-center pb-4 pt-24 md:pt-28">
+      <div class="flex flex-1 flex-col justify-center pb-4 pt-24 md:pt-28" :class="contentAlign === 'center' ? 'items-center text-center' : ''">
         <p class="rise eyebrow !text-white/70" :style="delay(0)">{{ heroEyebrow }}</p>
         <h1
           class="rise mt-7 max-w-4xl font-serif text-[clamp(3rem,7.5vw,6.75rem)] font-medium leading-[1.01] tracking-[-0.01em] text-white"
@@ -28,7 +30,7 @@
         </p>
 
         <!-- Secondary CTAs -->
-        <div class="rise mt-8 flex flex-wrap items-center gap-x-7 gap-y-3" :style="delay(2)">
+        <div class="rise mt-8 flex flex-wrap items-center gap-x-7 gap-y-3" :class="contentAlign === 'center' ? 'justify-center' : ''" :style="delay(2)">
           <NuxtLink :to="heroExploreCtaTo" class="hero-cta-outline group">
             {{ heroExploreCta }}
             <svg class="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6" /></svg>
@@ -309,6 +311,10 @@ const props = defineProps<{
   exploreCtaTo?: string
   advisorCta?: string
   advisorCtaTo?: string
+  /** Website Builder-only additive options — all default to today's fixed look. */
+  overlayOpacity?: number
+  backgroundPosition?: string
+  contentAlign?: 'left' | 'center'
 }>()
 
 const { t } = useI18n()
@@ -331,6 +337,9 @@ const heroExploreCta = computed(() => props.exploreCta || t('hero.exploreCta'))
 const heroExploreCtaTo = computed(() => props.exploreCtaTo || '/demo/properties')
 const heroAdvisorCta = computed(() => props.advisorCta || t('hero.advisorCta'))
 const heroAdvisorCtaTo = computed(() => props.advisorCtaTo || '/demo/contact-us')
+const overlayOpacity = computed(() => props.overlayOpacity || 0)
+const backgroundPosition = computed(() => props.backgroundPosition || 'center center')
+const contentAlign = computed(() => props.contentAlign || 'left')
 
 // Subtle parallax on the background layer — capped and respects
 // prefers-reduced-motion. The background wrapper is oversized (-inset-y-7%)
