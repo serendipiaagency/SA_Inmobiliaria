@@ -209,6 +209,45 @@ export const adminResources: Record<string, ResourceDef> = {
       masterPlanDescription: { type: 'textarea', label: 'Master plan description' },
       floorPlanDescription: { type: 'textarea', label: 'Floor plan description' },
       locationMapDescription: { type: 'textarea', label: 'Location map description' },
+      // The columns below (migrations 0003/0005/0010/0012/0013/0018) have
+      // always existed and are read by the public site — they just never had
+      // an editable field here, so an admin could never set them by hand.
+      // The Property Builder (components/property-builder/) is the first
+      // real editor for them; declaring them here is what lets its PUT
+      // requests persist. `type: 'number'` on the has*/is* flags is
+      // deliberate: buildPayload() coerces via Number(), so a JS boolean
+      // from the builder's checkboxes becomes the 0/1 these integer columns
+      // already store — there's no boolean FieldType in this generic CRUD.
+      propertyType: { type: 'select', label: 'Property type', options: ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio'] },
+      bedrooms: { type: 'number', label: 'Bedrooms' },
+      bathrooms: { type: 'number', label: 'Bathrooms' },
+      area: { type: 'number', label: 'Area (m²)' },
+      yearBuilt: { type: 'number', label: 'Year built' },
+      energyRating: { type: 'select', label: 'Energy rating', options: ['A', 'B', 'C', 'D', 'E', 'F', 'G'] },
+      orientation: { type: 'select', label: 'Orientation', options: ['N', 'S', 'E', 'W', 'SE', 'SW', 'NE', 'NW'] },
+      hasElevator: { type: 'number', label: 'Has elevator' },
+      hasPool: { type: 'number', label: 'Has pool' },
+      hasGarage: { type: 'number', label: 'Has garage' },
+      hasTerrace: { type: 'number', label: 'Has terrace' },
+      hasGarden: { type: 'number', label: 'Has garden' },
+      petsAllowed: { type: 'number', label: 'Pets allowed' },
+      accessible: { type: 'number', label: 'Accessible' },
+      priceOld: { type: 'number', label: 'Previous price (AED)' },
+      isExclusive: { type: 'number', label: 'Exclusive' },
+      isReserved: { type: 'number', label: 'Reserved' },
+      hasTour: { type: 'number', label: 'Has virtual tour' },
+      rentalYield: { type: 'number', label: 'Rental yield (%)' },
+      lat: { type: 'number', label: 'Latitude' },
+      lng: { type: 'number', label: 'Longitude' },
+      street: { type: 'text', label: 'Street' },
+      postalCode: { type: 'text', label: 'Postal code' },
+      videoUrl: { type: 'text', label: 'Video URL' },
+      dronePhoto: { type: 'image', label: 'Drone photo' },
+      nightPhoto: { type: 'image', label: 'Night photo' },
+      beforePhoto: { type: 'image', label: 'Before photo' },
+      afterPhoto: { type: 'image', label: 'After photo' },
+      aiStagedPhoto: { type: 'image', label: 'AI staged photo' },
+      serviceChargeAnnual: { type: 'number', label: 'Annual service charge (AED)' },
     },
     listFields: ['id', 'name', 'slug', 'community', 'price', 'status'],
     searchFields: ['name', 'slug', 'community'],
