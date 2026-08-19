@@ -62,12 +62,29 @@
 
     <div class="flex min-h-0 flex-1">
       <!-- Left panel: structure -->
-      <aside v-if="!previewMode" class="flex w-72 shrink-0 flex-col border-r border-line bg-white">
-        <div class="flex items-center justify-between border-b border-line px-4 py-3">
-          <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-500">Estructura</p>
-          <button type="button" class="text-[11px] font-semibold text-ink underline" @click="libraryOpen = true">+ Añadir bloque</button>
+      <aside
+        v-if="!previewMode"
+        class="flex shrink-0 flex-col overflow-hidden border-r border-line bg-white transition-[width] duration-200 ease-out"
+        :class="structureCollapsed ? 'w-11' : 'w-72'"
+      >
+        <div class="flex h-11 shrink-0 items-center border-b border-line" :class="structureCollapsed ? 'justify-center px-0' : 'justify-between px-4'">
+          <p v-show="!structureCollapsed" class="whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-stone-500">Estructura</p>
+          <div class="flex shrink-0 items-center gap-2">
+            <button v-show="!structureCollapsed" type="button" class="whitespace-nowrap text-[11px] font-semibold text-ink underline" @click="libraryOpen = true">+ Añadir bloque</button>
+            <button
+              type="button"
+              class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-400 transition hover:bg-stone-100 hover:text-ink"
+              :title="structureCollapsed ? 'Expandir estructura' : 'Contraer estructura'"
+              :aria-expanded="!structureCollapsed"
+              @click="toggleStructureCollapsed"
+            >
+              <svg class="h-3.5 w-3.5 transition-transform duration-200" :class="structureCollapsed ? 'rotate-180' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+          </div>
         </div>
-        <ul class="flex-1 overflow-y-auto p-2">
+        <ul v-show="!structureCollapsed" ref="structureListEl" class="flex-1 overflow-y-auto p-2">
           <li
             v-for="(block, i) in blocks"
             :key="block.id"
@@ -213,6 +230,26 @@ const previewMode = ref(false)
 const libraryOpen = ref(false)
 const seoOpen = ref(false)
 const dragOverId = ref<string | null>(null)
+
+// Session-only UI preference (not page state): read after mount to avoid an
+// SSR/client hydration mismatch, same pattern as useFavorites()/useCompare().
+// The list itself stays mounted (v-show, not v-if) so collapsing never loses
+// scroll position, selection, or block order, and never touches the canvas.
+const STRUCTURE_COLLAPSED_KEY = 'sa-builder-structure-collapsed'
+const structureCollapsed = ref(false)
+const structureListEl = ref<HTMLElement | null>(null)
+let structureScrollTop = 0
+
+function toggleStructureCollapsed() {
+  if (!structureCollapsed.value) structureScrollTop = structureListEl.value?.scrollTop ?? 0
+  structureCollapsed.value = !structureCollapsed.value
+  if (import.meta.client) sessionStorage.setItem(STRUCTURE_COLLAPSED_KEY, structureCollapsed.value ? '1' : '0')
+  if (!structureCollapsed.value) {
+    nextTick(() => {
+      if (structureListEl.value) structureListEl.value.scrollTop = structureScrollTop
+    })
+  }
+}
 const pageVersion = ref(0)
 const hasUnpublishedChanges = ref(false)
 const publishing = ref(false)
@@ -365,6 +402,8 @@ interface DraftResponse {
 }
 
 onMounted(async () => {
+  structureCollapsed.value = sessionStorage.getItem(STRUCTURE_COLLAPSED_KEY) === '1'
+
   const data = await $fetch<DraftResponse>('/api/admin/site-pages/home')
   blocks.value = data.blocks as SiteBlock[]
   seo.title = data.seo?.title || ''
