@@ -1003,6 +1003,11 @@ export const publicationJobs = sqliteTable(
     retryBackoffSeconds: integer('retry_backoff_seconds').notNull().default(300),
     maxDurationSeconds: integer('max_duration_seconds').notNull().default(120),
     externalId: text('external_id'),
+    // Filled in only by a real channel adapter on an actual successful
+    // publish — see server/utils/publication/adapters/types.ts PublishResult.
+    externalUrl: text('external_url'),
+    publishedAt: text('published_at'),
+    lastSyncAt: text('last_sync_at'),
     lastError: text('last_error'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
@@ -1147,6 +1152,28 @@ export const publicationAiTimeRules = sqliteTable('publication_ai_time_rules', {
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })
+
+// Per-organization channel credentials, AES-GCM encrypted at rest (see
+// server/utils/publication/credentials.ts) — for when a tenant connects its
+// own portal account instead of relying on the Worker-wide secret in
+// channels.ts `secretEnvVar`. Nothing reads from this table yet: no channel
+// has a real adapter to consume it, but the storage is real and tested so
+// wiring a real adapter later doesn't also require inventing this part.
+export const publicationChannelCredentials = sqliteTable(
+  'publication_channel_credentials',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    channelKey: text('channel_key').notNull(),
+    ciphertext: text('ciphertext').notNull(),
+    iv: text('iv').notNull(),
+    keyVersion: integer('key_version').notNull().default(1),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('publication_channel_credentials_org_channel').on(t.organizationId, t.channelKey)],
+)
 
 // ---------------------------------------------------------------------------
 // Platform error log (production monitoring) — see migrations/0027

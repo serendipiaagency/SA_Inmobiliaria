@@ -182,7 +182,9 @@
           <label class="label">Canales y orden de lanzamiento (offset en minutos desde el canal base)</label>
           <div v-for="(step, i) in createForm.steps" :key="i" class="mb-2 flex items-center gap-2">
             <select v-model="step.channelKey" class="input !w-40">
-              <option v-for="c in channels" :key="c.key" :value="c.key">{{ c.label }}{{ c.connected ? '' : ' (no conectado)' }}</option>
+              <option v-for="c in channels" :key="c.key" :value="c.key" :disabled="!c.implemented">
+                {{ c.label }}{{ !c.implemented ? ' (Próximamente)' : c.connected ? '' : ' (no conectado)' }}
+              </option>
             </select>
             <input v-model.number="step.offsetMinutes" type="number" class="input !w-24" placeholder="min" />
             <select v-model="step.priority" class="input !w-28">
@@ -295,7 +297,7 @@
         <label class="label">Canales</label>
         <div v-for="(step, i) in templateEditor.steps" :key="i" class="mb-2 flex items-center gap-2">
           <select v-model="step.channelKey" class="input !w-40">
-            <option v-for="c in channels" :key="c.key" :value="c.key">{{ c.label }}</option>
+            <option v-for="c in channels" :key="c.key" :value="c.key" :disabled="!c.implemented">{{ c.label }}{{ !c.implemented ? ' (Próximamente)' : '' }}</option>
           </select>
           <input v-model.number="step.offsetMinutes" type="number" class="input !w-24" placeholder="min" />
           <button class="text-red-600" @click="templateEditor.steps.splice(i, 1)">✕</button>
@@ -596,6 +598,7 @@ function jobDotClass(status: string) {
       running: 'bg-amber-50 text-amber-700',
       success: 'bg-emerald-50 text-emerald-700',
       failed: 'bg-red-50 text-red-700',
+      blocked: 'bg-stone-200 text-stone-600',
       paused: 'bg-stone-100 text-stone-500',
       retrying: 'bg-amber-50 text-amber-700',
       cancelled: 'bg-stone-100 text-stone-400',
