@@ -1,12 +1,24 @@
-name: CI
+name: CI & Deploy
 
+# Single pipeline for both validation and deployment — kept as one workflow
+# (not a separate deploy.yml) so a PR's build/test/typecheck never runs
+# twice. `validate` always runs; `deploy-staging` only for pull_request
+# events (never production data/credentials); `deploy-production` only for a
+# push to `main`. No step in this file uses continue-on-error: a failure
+# anywhere stops the pipeline before anything downstream (migrations,
+# deploy, smoke tests) runs — see docs/deployment.md for the full
+# rollback/runbook this pipeline is designed around.
 on:
   pull_request:
   push:
     branches: [main]
 
+concurrency:
+  group: ci-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,7 +28,21 @@ jobs:
           node-version: 22
           cache: npm
 
-      - run: npm ci
+      - name: Install (clean)
+        run: npm ci
+
+      - name: Dependency audit (production dependencies)
+        run: npm audit --omit=dev
+
+      - name: Typecheck
+        # Non-blocking for now: see the same note in the "Typecheck" step's
+        # history — flip to blocking once the pre-existing type-error
+        # backlog is cleared (tracked separately). This is the one
+        # intentional exception to "no continue-on-error" in this file: it's
+        # a known, tracked, pre-existing gap, not a validation being skipped
+        # silently.
+        run: npm run typecheck
+        continue-on-error: true
 
       - name: Unit tests
         run: npm test
@@ -24,19 +50,13 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Typecheck
-        # Non-blocking for now: this repo had no tsconfig.json/typecheck step
-        # until this workflow was added, and turning it on surfaced ~35
-        # pre-existing type errors across pages/components/server routes.
-        # Flip this to blocking once that backlog is cleared — see the
-        # "Tests automatizados" / cleanup task in the project tracker.
-        run: npm run typecheck
-        continue-on-error: true
+      - name: Validate migrations (sequence + clean apply on a fresh local D1)
+        run: npm run migrations:check
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: E2E tests (Playwright)
+      - name: E2E tests (Playwright, against a local build)
         run: npm run test:e2e
 
       - name: Upload Playwright report
@@ -46,3 +66,101 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  deploy-staging:
+    needs: validate
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - name: List pending staging migrations (visibility only — apply step below is authoritative)
+        run: npx wrangler d1 migrations list sa_inmobiliaria_staging --remote --env staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Apply pending migrations (staging D1)
+        run: npx wrangler d1 migrations apply sa_inmobiliaria_staging --remote --env staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy Worker (staging)
+        # Only reached if the migration step above succeeded — a failed
+        # migration stops the job here, so staging never runs new code
+        # against an old/partially-migrated schema.
+        run: npx wrangler deploy --env staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Smoke tests (staging)
+        run: npm run smoke-test -- "${{ vars.STAGING_URL }}"
+
+  deploy-production:
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - name: Backup D1 before migrating (wrangler export, kept as a workflow artifact)
+        # Independent of the existing daily cron backup
+        # (server/tasks/system/backup-d1.ts, JSON snapshots in R2) — this is
+        # a second, immediately-before-this-exact-deploy backup, in D1's own
+        # native SQL export format, so a rollback (docs/deployment.md) always
+        # has a restore point from the moment right before the migration
+        # that's about to run.
+        run: npx wrangler d1 export sa_inmobiliaria --remote --output=pre-deploy-backup.sql --env=""
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Upload pre-deploy D1 backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-deploy-backup-${{ github.sha }}
+          path: pre-deploy-backup.sql
+          retention-days: 30
+
+      - name: List pending production migrations (visibility only — apply step below is authoritative)
+        run: npx wrangler d1 migrations list sa_inmobiliaria --remote --env=""
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Apply pending migrations (production D1)
+        run: npx wrangler d1 migrations apply sa_inmobiliaria --remote --env=""
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy Worker (production)
+        # Only reached if the migration step above succeeded — see the
+        # staging job's equivalent step for why that ordering matters.
+        run: npx wrangler deploy --env=""
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Smoke tests (production)
+        run: npm run smoke-test -- "${{ vars.PRODUCTION_URL }}"
