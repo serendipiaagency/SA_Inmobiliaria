@@ -20,7 +20,7 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
-    "drizzle-orm": "^0.44.2",
+    "drizzle-orm": "^0.45.2",
     "jsqr": "^1.4.0",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
