@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { createError, type H3Event } from 'h3'
 import { schema, now, slugify } from './db'
 import { hashPassword } from './auth'
+import { normalizeHost, isReservedHost, isValidHostname } from './domain'
 import {
   assertOwnedReference,
   assertPayloadParentOwnership,
@@ -94,6 +95,26 @@ export const adminResources: Record<string, ResourceDef> = {
     // nothing to scope them by. Only the platform super_admin can reach it.
     tenantPolicy: { type: 'global', reason: 'The organizations table is the tenant registry itself' },
     superAdminOnly: true,
+    // Normalizes `domain` the same way server/middleware/00.tenant.ts
+    // normalizes an incoming Host header, so a saved "WWW.Example.com" or
+    // "example.com:443" still matches real request traffic. Also rejects the
+    // hosts that already mean "the default tenant" (*.workers.dev,
+    // localhost) — saving one of those as a *custom* domain would let this
+    // org silently hijack every dev/preview deploy's traffic away from the
+    // real default tenant.
+    async prepare(data) {
+      if (typeof data.domain === 'string') {
+        const normalized = normalizeHost(data.domain)
+        if (!normalized) {
+          data.domain = null
+        } else {
+          if (!isValidHostname(normalized)) throw createError({ statusCode: 422, statusMessage: 'Dominio inválido' })
+          if (isReservedHost(normalized)) throw createError({ statusCode: 422, statusMessage: 'Ese dominio está reservado por la plataforma y no puede asignarse a una organización' })
+          data.domain = normalized
+        }
+      }
+      return data
+    },
   },
 
   'error-logs': {

@@ -41,6 +41,12 @@ separados en `wrangler.toml` antes de este cambio.
 
 ## Ajustes manuales pendientes (no se pueden hacer desde código)
 
+Para dar de alta el dominio propio de una inmobiliaria (Custom Domain +
+registro DNS en Cloudflare, y el campo correspondiente en
+`/admin/organizations`), ver [`docs/multi-domain.md`](./multi-domain.md) — es
+un ajuste manual recurrente (uno por cliente nuevo), no de una sola vez como
+los dos de abajo.
+
 **1. Desactivar el auto-deploy de Cloudflare Workers Builds — el paso más
 importante.** Ahora mismo, Cloudflare tiene su propia integración con git
 que ejecuta `npx wrangler deploy` en cada push (a cualquier rama), sin

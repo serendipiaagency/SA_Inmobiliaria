@@ -38,6 +38,14 @@ bucket_name = "sa-inmobiliaria-media"
 [vars]
 # Session cookie signing/config
 SESSION_TTL_DAYS = "7"
+# Optional: the platform's own primary/marketing domain, if it has one
+# distinct from the *.workers.dev URL. Requests to this host (and to
+# *.workers.dev and localhost, always) serve the default tenant
+# (organization 1) — see server/utils/domain.ts and
+# server/middleware/00.tenant.ts. Leave unset if there is no such domain;
+# every OTHER tenant's own domain is set per-organization in
+# /admin/organizations, not here.
+# PRIMARY_DOMAIN = "sa-inmobiliaria.example"
 
 [observability]
 enabled = true

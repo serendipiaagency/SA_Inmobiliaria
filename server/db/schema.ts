@@ -69,22 +69,28 @@ export const agents = sqliteTable('agents', {
   updatedAt: text('updated_at').notNull().default(''),
 })
 
-export const agentProperties = sqliteTable('agent_properties', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
-  slug: text('slug').unique(),
-  location: text('location'),
-  propertyType: text('property_type'),
-  transactionType: text('transaction_type'), // sale | rent
-  price: real('price'),
-  area: real('area'),
-  bedrooms: integer('bedrooms'),
-  bathrooms: integer('bathrooms'),
-  mainImage: text('main_image'),
-  status: text('status').notNull().default('available'), // available | sold
-  createdAt: text('created_at').notNull().default(''),
-  updatedAt: text('updated_at').notNull().default(''),
-})
+// slug is scoped (organizationId, slug), not globally unique — migration
+// 0042. Two unrelated agencies can both use "downtown-loft".
+export const agentProperties = sqliteTable(
+  'agent_properties',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull().default(1),
+    slug: text('slug'),
+    location: text('location'),
+    propertyType: text('property_type'),
+    transactionType: text('transaction_type'), // sale | rent
+    price: real('price'),
+    area: real('area'),
+    bedrooms: integer('bedrooms'),
+    bathrooms: integer('bathrooms'),
+    mainImage: text('main_image'),
+    status: text('status').notNull().default('available'), // available | sold
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('agent_properties_org_slug').on(t.organizationId, t.slug), index('agent_properties_org').on(t.organizationId)],
+)
 
 export const propertyTranslations = sqliteTable(
   'property_translations',
@@ -126,86 +132,91 @@ export const developers = sqliteTable('developers', {
   updatedAt: text('updated_at').notNull().default(''),
 })
 
-export const developerProperties = sqliteTable('developer_properties', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
-  slug: text('slug').unique(),
-  developerId: integer('developer_id')
-    .notNull()
-    .references(() => developers.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  status: text('status').notNull().default('new'), // new | under_construction | ready
-  price: real('price'),
-  description: text('description'),
-  keyHighlights: text('key_highlights'),
-  paymentPlan: text('payment_plan'), // JSON string
-  handoverDate: text('handover_date'),
-  handoverPercentage: text('handover_percentage'),
-  downPercentage: text('down_percentage'),
-  constructionPercentage: text('construction_percentage'),
-  logo: text('logo'),
-  coverImage: text('cover_image'),
-  community: text('community'),
-  masterPlanImage: text('master_plan_image'),
-  locationMap: text('location_map'),
-  masterPlanDescription: text('master_plan_description'),
-  floorPlanDescription: text('floor_plan_description'),
-  locationMapDescription: text('location_map_description'),
-  // --- Search & filter attributes (added 0003) ---
-  propertyType: text('property_type_main'), // Apartment | Villa | Townhouse | Penthouse | Studio
-  bedrooms: integer('bedrooms'),
-  bathrooms: integer('bathrooms'),
-  area: real('area'), // built m²
-  yearBuilt: integer('year_built'),
-  energyRating: text('energy_rating'), // A..G
-  orientation: text('orientation'), // N, S, E, W, SE, SW, NE, NW
-  hasElevator: integer('has_elevator').notNull().default(0),
-  hasPool: integer('has_pool').notNull().default(0),
-  hasGarage: integer('has_garage').notNull().default(0),
-  hasTerrace: integer('has_terrace').notNull().default(0),
-  hasGarden: integer('has_garden').notNull().default(0),
-  petsAllowed: integer('pets_allowed').notNull().default(0),
-  accessible: integer('accessible').notNull().default(0),
-  // --- Card attributes (added 0005) ---
-  priceOld: real('price_old'),
-  isExclusive: integer('is_exclusive').notNull().default(0),
-  isReserved: integer('is_reserved').notNull().default(0),
-  hasTour: integer('has_tour').notNull().default(0),
-  rentalYield: real('rental_yield'),
-  publishedAt: text('published_at'),
-  aiSummary: text('ai_summary'),
-  lat: real('lat'),
-  lng: real('lng'),
-  // --- Address facets (added 0010) — postalCode stays null for markets
-  // without a postal/ZIP system (e.g. the UAE); the search simply won't
-  // surface that facet until a listing actually has one.
-  street: text('street'),
-  postalCode: text('postal_code'),
-  // Optional showcase clip (added 0012) — null until a real walkthrough
-  // video is attached; the card's hover-video and "Vídeo" badge stay
-  // dormant until then rather than faking footage.
-  videoUrl: text('video_url'),
-  // Optional premium gallery assets (added 0013) — all null until the real
-  // shot exists. The gallery shows a "request this" teaser (drone/night) or
-  // hides the tab entirely (before/after, AI staging) rather than reusing a
-  // regular photo under a misleading label.
-  dronePhoto: text('drone_photo'),
-  nightPhoto: text('night_photo'),
-  beforePhoto: text('before_photo'),
-  afterPhoto: text('after_photo'),
-  aiStagedPhoto: text('ai_staged_photo'),
-  // Cumulative engagement counters (added 0017) — real, server-incremented
-  // counts of page views and favorite actions. Start at 0 and only grow
-  // from genuine activity; never a fabricated "N viewing now" figure.
-  viewCount: integer('view_count').notNull().default(0),
-  favoriteCount: integer('favorite_count').notNull().default(0),
-  // Real annual service charge (added 0018) — null until a real figure is
-  // entered for that building; the decision panel shows "Consultar" rather
-  // than guessing a number when it's missing.
-  serviceChargeAnnual: real('service_charge_annual'),
-  createdAt: text('created_at').notNull().default(''),
-  updatedAt: text('updated_at').notNull().default(''),
-})
+// slug is scoped (organizationId, slug), not globally unique — migration 0042.
+export const developerProperties = sqliteTable(
+  'developer_properties',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull().default(1),
+    slug: text('slug'),
+    developerId: integer('developer_id')
+      .notNull()
+      .references(() => developers.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    status: text('status').notNull().default('new'), // new | under_construction | ready
+    price: real('price'),
+    description: text('description'),
+    keyHighlights: text('key_highlights'),
+    paymentPlan: text('payment_plan'), // JSON string
+    handoverDate: text('handover_date'),
+    handoverPercentage: text('handover_percentage'),
+    downPercentage: text('down_percentage'),
+    constructionPercentage: text('construction_percentage'),
+    logo: text('logo'),
+    coverImage: text('cover_image'),
+    community: text('community'),
+    masterPlanImage: text('master_plan_image'),
+    locationMap: text('location_map'),
+    masterPlanDescription: text('master_plan_description'),
+    floorPlanDescription: text('floor_plan_description'),
+    locationMapDescription: text('location_map_description'),
+    // --- Search & filter attributes (added 0003) ---
+    propertyType: text('property_type_main'), // Apartment | Villa | Townhouse | Penthouse | Studio
+    bedrooms: integer('bedrooms'),
+    bathrooms: integer('bathrooms'),
+    area: real('area'), // built m²
+    yearBuilt: integer('year_built'),
+    energyRating: text('energy_rating'), // A..G
+    orientation: text('orientation'), // N, S, E, W, SE, SW, NE, NW
+    hasElevator: integer('has_elevator').notNull().default(0),
+    hasPool: integer('has_pool').notNull().default(0),
+    hasGarage: integer('has_garage').notNull().default(0),
+    hasTerrace: integer('has_terrace').notNull().default(0),
+    hasGarden: integer('has_garden').notNull().default(0),
+    petsAllowed: integer('pets_allowed').notNull().default(0),
+    accessible: integer('accessible').notNull().default(0),
+    // --- Card attributes (added 0005) ---
+    priceOld: real('price_old'),
+    isExclusive: integer('is_exclusive').notNull().default(0),
+    isReserved: integer('is_reserved').notNull().default(0),
+    hasTour: integer('has_tour').notNull().default(0),
+    rentalYield: real('rental_yield'),
+    publishedAt: text('published_at'),
+    aiSummary: text('ai_summary'),
+    lat: real('lat'),
+    lng: real('lng'),
+    // --- Address facets (added 0010) — postalCode stays null for markets
+    // without a postal/ZIP system (e.g. the UAE); the search simply won't
+    // surface that facet until a listing actually has one.
+    street: text('street'),
+    postalCode: text('postal_code'),
+    // Optional showcase clip (added 0012) — null until a real walkthrough
+    // video is attached; the card's hover-video and "Vídeo" badge stay
+    // dormant until then rather than faking footage.
+    videoUrl: text('video_url'),
+    // Optional premium gallery assets (added 0013) — all null until the real
+    // shot exists. The gallery shows a "request this" teaser (drone/night) or
+    // hides the tab entirely (before/after, AI staging) rather than reusing a
+    // regular photo under a misleading label.
+    dronePhoto: text('drone_photo'),
+    nightPhoto: text('night_photo'),
+    beforePhoto: text('before_photo'),
+    afterPhoto: text('after_photo'),
+    aiStagedPhoto: text('ai_staged_photo'),
+    // Cumulative engagement counters (added 0017) — real, server-incremented
+    // counts of page views and favorite actions. Start at 0 and only grow
+    // from genuine activity; never a fabricated "N viewing now" figure.
+    viewCount: integer('view_count').notNull().default(0),
+    favoriteCount: integer('favorite_count').notNull().default(0),
+    // Real annual service charge (added 0018) — null until a real figure is
+    // entered for that building; the decision panel shows "Consultar" rather
+    // than guessing a number when it's missing.
+    serviceChargeAnnual: real('service_charge_annual'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('developer_properties_org_slug').on(t.organizationId, t.slug), index('developer_properties_org').on(t.organizationId)],
+)
 
 export const priceHistory = sqliteTable('price_history', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -368,15 +379,20 @@ export const amenityCommunity = sqliteTable('amenity_community', {
 // Content: blogs & team
 // ---------------------------------------------------------------------------
 
-export const blogs = sqliteTable('blogs', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
-  slug: text('slug').notNull().unique(),
-  image: text('image'),
-  targetAudience: text('target_audience').notNull().default('UAE'), // UAE | International
-  createdAt: text('created_at').notNull().default(''),
-  updatedAt: text('updated_at').notNull().default(''),
-})
+// slug is scoped (organizationId, slug), not globally unique — migration 0042.
+export const blogs = sqliteTable(
+  'blogs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull().default(1),
+    slug: text('slug').notNull(),
+    image: text('image'),
+    targetAudience: text('target_audience').notNull().default('UAE'), // UAE | International
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('blogs_org_slug').on(t.organizationId, t.slug), index('blogs_org').on(t.organizationId)],
+)
 
 export const blogTranslations = sqliteTable(
   'blog_translations',
@@ -392,31 +408,36 @@ export const blogTranslations = sqliteTable(
   (t) => [uniqueIndex('blog_translations_blog_locale').on(t.blogId, t.locale)],
 )
 
-export const teamMembers = sqliteTable('team_members', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
-  name: text('name').notNull(),
-  slug: text('slug').notNull().unique(),
-  email: text('email').notNull().unique(),
-  phone: text('phone'),
-  position: text('position').notNull(),
-  description: text('description'),
-  experience: text('experience'),
-  languages: text('languages'),
-  nid: text('nid'),
-  specialties: text('specialties'),
-  image: text('image'),
-  facebook: text('facebook'),
-  twitter: text('twitter'),
-  linkedin: text('linkedin'),
-  instagram: text('instagram'),
-  slotDurationMinutes: integer('slot_duration_minutes').notNull().default(60),
-  bufferMinutes: integer('buffer_minutes').notNull().default(0),
-  maxAppointmentsPerDay: integer('max_appointments_per_day'),
-  icalToken: text('ical_token'),
-  createdAt: text('created_at').notNull().default(''),
-  updatedAt: text('updated_at').notNull().default(''),
-})
+// slug is scoped (organizationId, slug), not globally unique — migration 0042.
+export const teamMembers = sqliteTable(
+  'team_members',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull().default(1),
+    name: text('name').notNull(),
+    slug: text('slug').notNull(),
+    email: text('email').notNull().unique(),
+    phone: text('phone'),
+    position: text('position').notNull(),
+    description: text('description'),
+    experience: text('experience'),
+    languages: text('languages'),
+    nid: text('nid'),
+    specialties: text('specialties'),
+    image: text('image'),
+    facebook: text('facebook'),
+    twitter: text('twitter'),
+    linkedin: text('linkedin'),
+    instagram: text('instagram'),
+    slotDurationMinutes: integer('slot_duration_minutes').notNull().default(60),
+    bufferMinutes: integer('buffer_minutes').notNull().default(0),
+    maxAppointmentsPerDay: integer('max_appointments_per_day'),
+    icalToken: text('ical_token'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('team_members_org_slug').on(t.organizationId, t.slug), index('team_members_org').on(t.organizationId)],
+)
 
 // ---------------------------------------------------------------------------
 // Forms: vendor registration, visitor submissions, contact/complaints

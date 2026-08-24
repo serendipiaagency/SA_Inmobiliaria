@@ -507,9 +507,29 @@ export function useHelpContent() {
       summary: 'Registro de qué usuario de tu equipo hizo qué acción y cuándo, dentro del panel.',
       steps: [],
     },
+    {
+      key: 'organizations',
+      group: 'Sistema',
+      title: 'Empresas',
+      route: '/admin/organizations',
+      summary: 'Solo super_admin. El registro de todas las inmobiliarias (tenants) de la plataforma: nombre, dominio propio, marca y estado.',
+      steps: [
+        'El campo "Dominio" es el que decide qué inmobiliaria se sirve en cada web pública — ver docs/multi-domain.md para los pasos completos en Cloudflare (Custom Domains) antes de guardarlo aquí.',
+        'Guarda el dominio exactamente como lo usará el visitante (con o sin "www." da igual, se trata como el mismo dominio).',
+        'No se puede usar un *.workers.dev ni "localhost" como dominio de una empresa — esos hosts ya están reservados para la organización por defecto.',
+        'Sin un dominio propio asignado aquí, la organización solo es accesible por su propio admin — no aparece en ninguna web pública.',
+      ],
+    },
   ]
 
   const faqs: HelpFaq[] = [
+    {
+      id: 'faq-unknown-domain-404',
+      question: 'Mi web pública da 404 en un dominio nuevo, ¿por qué?',
+      answer:
+        'Un dominio solo sirve el catálogo de una inmobiliaria cuando está guardado en el campo "Dominio" de esa organización (solo lo puede editar super_admin, en Empresas) y ese mismo dominio ya está añadido como Custom Domain en Cloudflare y apuntando a este Worker. Si falta cualquiera de los dos pasos, la plataforma responde 404 en vez de mostrar el catálogo de otra inmobiliaria por error — es la protección que evita que un dominio mal configurado filtre datos de la organización equivocada. El panel de administración (/admin) sigue siendo accesible en cualquier dominio, precisamente para poder entrar y completar la configuración. Detalles en docs/multi-domain.md.',
+      tags: ['dominio', 'multiagencia', 'seguridad', '404', 'dns'],
+    },
     {
       id: 'faq-tenant-isolation',
       question: '¿Puede otra inmobiliaria de la plataforma ver mis datos?',
