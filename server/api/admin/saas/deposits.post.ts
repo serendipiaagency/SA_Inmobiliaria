@@ -26,8 +26,8 @@ export default defineEventHandler(async (event) => {
     amount: body.amount,
     currency,
     description: `Fianza — ${contract.title}`,
-    successUrl: `${origin}/demo/mi-cuenta`,
-    cancelUrl: `${origin}/demo/mi-cuenta`,
+    successUrl: `${origin}/mi-cuenta`,
+    cancelUrl: `${origin}/mi-cuenta`,
   })
 
   const nowTs = now()
@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
       amount: body.amount,
       currency,
       status: !result.connected ? 'not_connected' : result.ok ? 'processing' : 'failed',
-      stripePaymentIntentId: result.sessionId || null,
+      stripeCheckoutSessionId: result.sessionId || null,
       errorMessage: result.ok ? null : result.message,
       createdAt: nowTs,
     })

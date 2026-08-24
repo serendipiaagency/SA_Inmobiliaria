@@ -18,6 +18,9 @@
           {{ loading ? 'Accediendo…' : 'Acceder al panel' }}
         </button>
         <p v-if="error" class="text-center text-sm font-medium text-red-600">{{ error }}</p>
+        <p class="text-center text-sm">
+          <NuxtLink to="/forgot-password" class="text-stone-500 hover:underline">¿Olvidaste tu contraseña?</NuxtLink>
+        </p>
       </form>
     </div>
   </div>

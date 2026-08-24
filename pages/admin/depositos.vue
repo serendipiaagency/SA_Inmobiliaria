@@ -7,7 +7,8 @@
 
     <div v-if="!stripeWarningDismissed" class="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
       Si Stripe no está conectado (falta el secreto <code>STRIPE_SECRET_KEY</code>), los depósitos se crean igualmente pero quedan marcados como
-      <strong>no conectado</strong> — sin enlace de pago real, para no fingir un cobro que no existe.
+      <strong>no conectado</strong> — sin enlace de pago real, para no fingir un cobro que no existe. El estado se confirma automáticamente por
+      webhook en cuanto Stripe procesa el pago; "Comprobar estado" es solo para forzar una consulta manual.
     </div>
 
     <AdminPanel title="Solicitar depósito" class="mb-6">
@@ -63,6 +64,30 @@
         </table>
       </div>
     </AdminPanel>
+
+    <div v-if="stripeEvents.length" class="mt-8">
+      <h2 class="mb-3 text-sm font-semibold text-stone-700">Historial de eventos de Stripe</h2>
+      <AdminPanel :pad="false">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="border-b border-line bg-stone-50 text-left text-[11px] uppercase tracking-wide text-stone-400">
+              <tr>
+                <th class="px-4 py-2.5 font-semibold">Fecha</th>
+                <th class="px-4 py-2.5 font-semibold">Tipo</th>
+                <th class="px-4 py-2.5 font-semibold">Resultado</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="ev in stripeEvents" :key="ev.id" class="border-b border-line/60 last:border-0">
+                <td class="px-4 py-2.5 text-xs text-stone-500">{{ ev.receivedAt }}</td>
+                <td class="px-4 py-2.5 font-mono text-xs">{{ ev.type }}</td>
+                <td class="px-4 py-2.5 text-xs">{{ ev.note }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </AdminPanel>
+    </div>
   </div>
 </template>
 
@@ -76,6 +101,9 @@ const { data: depositsData, refresh: refreshDeposits } = await useFetch<any[]>('
 const deposits = computed(() => depositsData.value || [])
 const { data: contractsData } = await useFetch<any[]>('/api/admin/saas/contracts')
 const contracts = computed(() => (contractsData.value || []).filter((c: any) => c.status === 'accepted' || c.status === 'sent'))
+
+const { data: stripeEventsData } = await useFetch<any[]>('/api/admin/saas/stripe-events')
+const stripeEvents = computed(() => stripeEventsData.value || [])
 
 const stripeWarningDismissed = ref(false)
 const form = reactive({ contractId: null as number | null, amount: 0 })
@@ -113,7 +141,7 @@ async function refresh(d: any) {
 }
 
 function statusLabel(s: string) {
-  return { pending: 'Pendiente', not_connected: 'No conectado', processing: 'En proceso', paid: 'Pagado', failed: 'Error' }[s] || s
+  return { pending: 'Pendiente', not_connected: 'No conectado', processing: 'En proceso', paid: 'Pagado', failed: 'Error', refunded: 'Reembolsado' }[s] || s
 }
 function statusClass(s: string) {
   return (
@@ -123,6 +151,7 @@ function statusClass(s: string) {
       processing: 'bg-sky-100 text-sky-700',
       paid: 'bg-emerald-100 text-emerald-700',
       failed: 'bg-red-100 text-red-700',
+      refunded: 'bg-violet-100 text-violet-700',
     }[s] || 'bg-stone-100 text-stone-600'
   )
 }

@@ -26,7 +26,7 @@
         </NuxtLink>
       </div>
       <div class="grid gap-x-6 gap-y-10" :class="gridClasses">
-        <NuxtLink v-for="p in items" :key="p.id" :to="`/demo/property-details/${p.slug || p.id}`" class="group block">
+        <NuxtLink v-for="p in items" :key="p.id" :to="`/propiedades/${p.slug || p.id}`" class="group block">
           <div class="aspect-[4/3] overflow-hidden rounded-2xl bg-black/30">
             <img :src="mediaUrl(p.coverImage)" :alt="p.name" class="h-full w-full object-cover opacity-90 transition duration-700 group-hover:scale-105 group-hover:opacity-100" loading="lazy" />
           </div>

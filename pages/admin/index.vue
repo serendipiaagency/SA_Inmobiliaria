@@ -63,7 +63,7 @@
                 <tr v-for="(a, i) in data.leaderboard" :key="a.agent" class="border-b border-line/60 last:border-0">
                   <td class="py-2.5">
                     <div class="flex items-center gap-2.5">
-                      <span class="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-white" :style="{ background: avatarColor(i) }">{{ dt.initials(a.agent) }}</span>
+                      <span class="flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold text-white" :style="{ background: avatarColor(Number(i)) }">{{ dt.initials(a.agent) }}</span>
                       <span class="font-medium">{{ a.agent }}</span>
                     </div>
                   </td>

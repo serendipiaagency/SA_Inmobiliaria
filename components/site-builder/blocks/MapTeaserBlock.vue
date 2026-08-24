@@ -5,9 +5,9 @@
         <p class="eyebrow">{{ content.eyebrow }}</p>
         <h2 class="heading-serif mt-3 text-3xl md:text-4xl">{{ content.title }}</h2>
         <p class="mt-4 max-w-md text-[15px] leading-relaxed text-stone-500">{{ content.text }}</p>
-        <NuxtLink v-if="content.cta" :to="content.ctaTo || '/demo/properties'" class="btn-primary mt-8">{{ content.cta }}</NuxtLink>
+        <NuxtLink v-if="content.cta" :to="content.ctaTo || '/propiedades'" class="btn-primary mt-8">{{ content.cta }}</NuxtLink>
       </div>
-      <NuxtLink :to="content.ctaTo || '/demo/properties'" class="group relative block h-72 overflow-hidden rounded-2xl border border-line md:h-96">
+      <NuxtLink :to="content.ctaTo || '/propiedades'" class="group relative block h-72 overflow-hidden rounded-2xl border border-line md:h-96">
         <div class="absolute inset-0 bg-gradient-to-br from-stone-200 to-stone-300" />
         <div class="absolute inset-0" style="background-image:radial-gradient(circle,rgba(0,0,0,0.06) 1px,transparent 1px);background-size:28px 28px" />
         <span

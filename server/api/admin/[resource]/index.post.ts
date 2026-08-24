@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   if (def.readonly) throw createError({ statusCode: 405, statusMessage: 'Resource is read-only' })
   const db = useDb(event)
   const body = await readBody<Record<string, any>>(event)
-  const data = await buildPayload(def, body || {}, true)
+  const data = await buildPayload(def, body || {}, true, event)
   // Tenant ownership is always server-resolved, never taken from client input —
   // for direct-policy resources it's the org column, for child resources it's
   // the parent FK, which must point at a row this tenant already owns.
@@ -38,5 +38,6 @@ export default defineEventHandler(async (event) => {
     await syncTranslations(db, def, authorized, body.translations)
   }
   await logAdminAction(event, { user, orgId, action: 'create', resource: key, resourceId: id })
+  if (def.afterCreate) await def.afterCreate(event, id, data)
   return { ok: true, id }
 })

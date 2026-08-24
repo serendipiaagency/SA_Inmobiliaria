@@ -56,10 +56,24 @@
             </svg>
           </button>
         </div>
-        <NuxtLink to="/demo" class="mt-1 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-stone-500 transition hover:bg-stone-100 hover:text-ink">
+        <a
+          v-if="publicSiteUrl"
+          :href="publicSiteUrl"
+          target="_blank"
+          rel="noopener"
+          class="mt-1 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-stone-500 transition hover:bg-stone-100 hover:text-ink"
+        >
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg>
           Ver sitio público
-        </NuxtLink>
+        </a>
+        <span
+          v-else
+          class="mt-1 flex cursor-not-allowed items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-stone-400"
+          title="Configura un dominio para esta organización para poder previsualizar el sitio público"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg>
+          Ver sitio público
+        </span>
       </div>
     </aside>
 
@@ -116,9 +130,19 @@ const icons: Record<string, string> = {
   key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3',
   alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
   help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4M12 17h.01',
+  mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
 }
 
-const nav = [
+interface NavItem {
+  label: string
+  to: string
+  icon: string
+  /** Not set by any item today — the template already supports it for a future per-item counter/notice. */
+  badge?: string
+  /** Not set by any item today — the template already supports it for a future "beta"/"nuevo" style label. */
+  tag?: string
+}
+const nav: { label: string; items: NavItem[] }[] = [
   {
     label: 'General',
     items: [
@@ -209,6 +233,7 @@ const nav = [
       { label: 'Configuración', to: '/admin/configuracion', icon: 'settings' },
       { label: 'Usuarios', to: '/admin/users', icon: 'key' },
       { label: 'Webhooks', to: '/admin/webhooks', icon: 'code' },
+      { label: 'Emails', to: '/admin/emails', icon: 'mail' },
       { label: 'Privacidad (RGPD)', to: '/admin/privacidad', icon: 'alert' },
       // Org-scoped: shows this org's own team activity (server/utils/audit.ts).
       { label: 'Auditoría', to: '/admin/audit-log', icon: 'doc' },
@@ -230,6 +255,10 @@ const activeOrgId = ref<number | null>(null)
 const activeOrgCookie = useCookie<string | null>('sa_active_org')
 
 const { data: orgInfo } = await useFetch<any>('/api/admin/active-org-info')
+// Org's own custom domain (server/utils/domain.ts) is where "/" resolves to
+// its real-estate portal home (see server/api/public/tenant.get.ts) — with
+// no domain configured there's no public URL to preview.
+const publicSiteUrl = computed(() => (orgInfo.value?.domain ? `https://${orgInfo.value.domain}/` : null))
 
 if (isSuperAdmin.value) {
   const { data } = await useFetch<{ rows: { id: number; name: string }[] }>('/api/admin/organizations', {

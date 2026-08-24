@@ -9,7 +9,7 @@ import { computeAiTimeSuggestions } from '../../utils/publication/aiTime'
  * a schedule so the hint in the create-schedule UI stays current without
  * anyone remembering to click "recalcular".
  */
-export default defineTask({
+export default defineTask<{ skipped: true; reason: string } | { organizations: number; suggestionsWritten: number }>({
   meta: {
     name: 'scheduler:recompute-ai-time',
     description: 'Recomputes AI publish-time suggestions for every organization',

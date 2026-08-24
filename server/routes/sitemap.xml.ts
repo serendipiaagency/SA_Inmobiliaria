@@ -1,20 +1,24 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../utils/db'
 
+// "/" only shows this org's portal home when the sitemap is fetched from
+// the org's own custom domain (see server/api/public/tenant.get.ts) — which
+// is the normal case, since that's the domain search engines crawl for a
+// given tenant.
 const STATIC_PATHS = [
-  '/demo',
-  '/demo/properties',
-  '/demo/mapa',
-  '/demo/project-community',
-  '/demo/developer-list',
-  '/demo/leadership',
-  '/demo/blog',
-  '/demo/about-us',
-  '/demo/contact-us',
-  '/demo/visitor',
-  '/demo/vendors/registration',
-  '/demo/privacy',
-  '/demo/terms',
+  '/',
+  '/propiedades',
+  '/mapa',
+  '/zonas',
+  '/promotoras',
+  '/equipo',
+  '/blog',
+  '/nosotros',
+  '/contacto',
+  '/visitante',
+  '/proveedores/registro',
+  '/privacidad',
+  '/terminos',
 ]
 
 function xmlEscape(s: string): string {
@@ -41,12 +45,12 @@ export default defineEventHandler(async (event) => {
   ])
 
   const urls: string[] = [...STATIC_PATHS.map((p) => `${origin}${p}`)]
-  for (const p of properties) if (p.slug) urls.push(`${origin}/demo/property-details/${p.slug}`)
-  for (const b of blogPosts) if (b.slug) urls.push(`${origin}/demo/blog/${b.slug}`)
-  for (const m of team) if (m.slug) urls.push(`${origin}/demo/leadership/${m.slug}`)
-  for (const c of communities) urls.push(`${origin}/demo/community/${c.id}`)
-  for (const a of cmsArticles) if (a.slug) urls.push(`${origin}/demo/blog/${a.slug}`)
-  for (const a of cmsAuthors) if (a.slug) urls.push(`${origin}/demo/blog/autor/${a.slug}`)
+  for (const p of properties) if (p.slug) urls.push(`${origin}/propiedades/${p.slug}`)
+  for (const b of blogPosts) if (b.slug) urls.push(`${origin}/blog/${b.slug}`)
+  for (const m of team) if (m.slug) urls.push(`${origin}/equipo/${m.slug}`)
+  for (const c of communities) urls.push(`${origin}/zonas/${c.id}`)
+  for (const a of cmsArticles) if (a.slug) urls.push(`${origin}/blog/${a.slug}`)
+  for (const a of cmsAuthors) if (a.slug) urls.push(`${origin}/blog/autor/${a.slug}`)
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

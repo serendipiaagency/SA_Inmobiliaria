@@ -1,6 +1,5 @@
 import type { H3Event } from 'h3'
 import type { MarketStats } from './market'
-export type { MarketStats }
 
 /**
  * AI content engine.
@@ -70,7 +69,8 @@ function statusText(s: string) {
 
 // --- rules-based fallback ---------------------------------------------------
 
-function fallback(kind: ContentKind, p: any): string {
+function fallback(kind: ContentKind, p: any, orgName?: string): string {
+  const brand = orgName || 'nuestra inmobiliaria'
   const name = p.name
   const price = money(p.price)
   const fx = features(p)
@@ -84,7 +84,7 @@ function fallback(kind: ContentKind, p: any): string {
     case 'title':
       return `${p.propertyType || 'Vivienda'} de ${beds} en ${loc}${area ? ` · ${area}` : ''}`
     case 'seo_title':
-      return `${p.propertyType || 'Propiedad'} en ${loc} desde ${price} | M&M Real Estate`.slice(0, 60)
+      return `${p.propertyType || 'Propiedad'} en ${loc} desde ${price} | ${brand}`.slice(0, 60)
     case 'meta_description':
       return `${name}: ${p.propertyType || 'vivienda'} ${statusText(p.status)} en ${loc}. ${fx
         .slice(0, 3)
@@ -128,7 +128,7 @@ function fallback(kind: ContentKind, p: any): string {
         `Asunto: ${name} — tu próxima ${p.propertyType ? p.propertyType.toLowerCase() : 'vivienda'} en ${loc}\n\n` +
         `Hola,\n\nQuería presentarte ${name}, ${statusText(p.status)} en ${loc}. ` +
         `Cuenta con ${beds}${area ? `, ${area}` : ''} y ${fxText}, con un precio desde ${price}.${yieldTxt}\n\n` +
-        `Si quieres, te envío el dossier completo con planos y plan de pagos, o agendamos una visita cuando te venga bien.\n\nUn saludo,\nEquipo de M&M Real Estate`
+        `Si quieres, te envío el dossier completo con planos y plan de pagos, o agendamos una visita cuando te venga bien.\n\nUn saludo,\nEquipo de ${brand}`
       )
   }
 }
@@ -248,13 +248,13 @@ const KIND_INSTRUCTIONS: Record<ContentKind, string> = {
   email: 'Redacta un email comercial con asunto y cuerpo, tono cercano y profesional.',
 }
 
-export async function generateContent(event: H3Event, kind: ContentKind, p: any): Promise<{ text: string; engine: 'ai' | 'rules' }> {
+export async function generateContent(event: H3Event, kind: ContentKind, p: any, orgName?: string): Promise<{ text: string; engine: 'ai' | 'rules' }> {
   const system =
     'Eres un copywriter inmobiliario experto en español. Escribes textos claros, atractivos y honestos, sin exagerar. Devuelve solo el texto pedido, sin comillas ni preámbulos.'
   const user = `${KIND_INSTRUCTIONS[kind]}\n\nDatos de la propiedad:\n${propContext(p)}`
   const ai = await callClaude(event, system, user)
   if (ai) return { text: ai, engine: 'ai' }
-  return { text: fallback(kind, p), engine: 'rules' }
+  return { text: fallback(kind, p, orgName), engine: 'rules' }
 }
 
 export async function answerQuestion(event: H3Event, question: string, p: any): Promise<{ text: string; engine: 'ai' | 'rules' }> {

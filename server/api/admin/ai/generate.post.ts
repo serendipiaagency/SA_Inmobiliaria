@@ -27,6 +27,9 @@ export default defineEventHandler(async (event) => {
   const project = rows[0]
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
 
-  const { text, engine } = await generateContent(event, kind, project)
+  const orgRows = await db.select({ companyName: schema.organizations.companyName, name: schema.organizations.name }).from(schema.organizations).where(eq(schema.organizations.id, orgId)).limit(1)
+  const orgName = orgRows[0]?.companyName || orgRows[0]?.name
+
+  const { text, engine } = await generateContent(event, kind, project, orgName)
   return { text, engine, kind }
 })

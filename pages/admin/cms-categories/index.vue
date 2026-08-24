@@ -59,7 +59,9 @@
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Categorías — Blog & CMS' })
 
-const { data, refresh } = await useFetch<any>('/api/admin/cms-categories', { query: { perPage: 200 } })
+const { data, refresh } = await useFetch<{ rows: { id: number; name: string; parentId: number | null }[] }>('/api/admin/cms-categories', {
+  query: { perPage: 200 },
+})
 const categories = computed(() => data.value?.rows || [])
 const toast = useToast()
 const { confirm } = useConfirm()

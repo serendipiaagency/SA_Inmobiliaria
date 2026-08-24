@@ -18,6 +18,10 @@ export default defineEventHandler(async (event) => {
   const rows = CHANNELS.map((c) => ({
     ...c,
     connected: isChannelConnected(c.key, env),
+    // `implemented` already sits on `c` (channels.ts) — kept explicit here
+    // so the UI never has to guess it from anything else (like `connected`,
+    // which only means "a secret exists", not "this channel can publish").
+    implemented: c.implemented,
     config: byKey[c.key] || null,
   }))
 

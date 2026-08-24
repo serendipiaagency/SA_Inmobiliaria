@@ -16,7 +16,7 @@ function fmt(d: Date): string {
  * scheduler:dispatch: a platform-level Cron Trigger has no single org's
  * request context.
  */
-export default defineTask({
+export default defineTask<{ skipped: true; reason: string } | { sent24h: number; sent1h: number }>({
   meta: {
     name: 'appointments:reminders',
     description: 'Sends 24h/1h reminders for upcoming scheduled appointments across every organization',
@@ -47,8 +47,9 @@ export default defineTask({
           type: 'reminder_24h',
           recipientEmail: visit.clientEmail,
           recipientPhone: visit.clientPhone,
-          subject: `Recordatorio: cita mañana con ${visit.agentName || 'tu agente'}`,
           message: `Recordatorio: tienes una cita el ${visit.scheduledAt} con ${visit.agentName || 'tu agente'}.`,
+          scheduledAt: visit.scheduledAt,
+          agentName: visit.agentName,
         })
         sent24h++
       }
@@ -75,8 +76,9 @@ export default defineTask({
           type: 'reminder_1h',
           recipientEmail: visit.clientEmail,
           recipientPhone: visit.clientPhone,
-          subject: 'Recordatorio: tu cita es en 1 hora',
           message: `Recordatorio: tu cita con ${visit.agentName || 'tu agente'} es a las ${visit.scheduledAt.slice(11, 16)}.`,
+          scheduledAt: visit.scheduledAt,
+          agentName: visit.agentName,
         })
         sent1h++
       }

@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { useDb, schema, now } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
-import { isValidChannelKey } from '../../../utils/publication/channels'
+import { isValidChannelKey, isChannelImplemented, CHANNEL_BY_KEY } from '../../../utils/publication/channels'
 import { buildJobRows, type TemplateStep } from '../../../utils/publication/scheduling'
 import { ensureChannelConfigs } from '../../../utils/publication/defaults'
 import { maybeApplyAiTime } from '../../../utils/publication/aiTime'
@@ -54,6 +54,19 @@ export default defineEventHandler(async (event) => {
 
   steps = steps.filter((s) => isValidChannelKey(s.channelKey))
   if (!steps.length) throw createError({ statusCode: 422, statusMessage: 'Debes indicar al menos un canal (steps o templateId)' })
+
+  // A channel with no real integration (see docs/publication-channels.md)
+  // can never actually publish, so it must never reach the dispatcher as a
+  // pending job — reject the whole request rather than silently dropping
+  // the step or creating a job that's guaranteed to come back "blocked".
+  const notImplemented = steps.filter((s) => !isChannelImplemented(s.channelKey))
+  if (notImplemented.length) {
+    const labels = [...new Set(notImplemented.map((s) => CHANNEL_BY_KEY[s.channelKey]?.label || s.channelKey))]
+    throw createError({
+      statusCode: 422,
+      statusMessage: `Estos canales todavía no tienen integración real y no se pueden programar: ${labels.join(', ')}.`,
+    })
+  }
 
   const aiTime = await maybeApplyAiTime(db, orgId, developerPropertyId, steps[0].channelKey, baseScheduledAt, explicitTimeGiven)
   baseScheduledAt = aiTime.baseScheduledAt

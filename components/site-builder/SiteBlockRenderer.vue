@@ -35,7 +35,7 @@ import CtaBlock from './blocks/CtaBlock.vue'
 
 /**
  * The one component that turns a page's block array into markup — used
- * identically by the public site (pages/demo/index.vue, mode="production")
+ * identically by the public site (pages/index.vue's portal branch, mode="production")
  * and by the builder's canvas (mode="builder"). Never fork this: a block
  * type that renders differently in the builder than in production is
  * exactly the bug this component exists to prevent.

@@ -104,7 +104,7 @@ async function create() {
 }
 
 function linkUrl(code: string) {
-  return `${useRequestURL().origin}/demo/referir/${code}`
+  return `${useRequestURL().origin}/referir/${code}`
 }
 const copied = ref('')
 function copy(code: string) {

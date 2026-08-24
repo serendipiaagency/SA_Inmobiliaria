@@ -87,7 +87,11 @@ export async function executeJob(db: any, env: Record<string, any>, job: any, ru
     action: job.action,
     property: property[0] || { id: sched.developerPropertyId, slug: null, name: 'Propiedad' },
     externalId: job.externalId,
+    idempotencyKey: `job-${job.id}-attempt-${job.retryCount + 1}`,
     env,
+    db,
+    organizationId: job.organizationId,
+    timeoutMs: (job.maxDurationSeconds || 120) * 1000,
   })
   const finishedAt = now()
 
@@ -97,18 +101,30 @@ export async function executeJob(db: any, env: Record<string, any>, job: any, ru
     startedAt,
     finishedAt,
     result: result.ok ? 'success' : 'error',
-    connected: result.connected ? 1 : 0,
-    responseSummary: result.ok ? result.message : null,
+    connected: result.state !== 'not_configured' && result.state !== 'not_implemented' ? 1 : 0,
+    responseSummary: result.responseSummary ?? (result.ok ? result.message : null),
     errorMessage: result.ok ? null : result.message,
     durationMs: Date.now() - t0,
   })
 
-  let outcome: 'success' | 'retrying' | 'failed'
+  // not_configured/not_implemented are gate failures, not something a retry
+  // could ever fix — they go straight to a terminal `blocked` status without
+  // touching retryCount, so the dispatcher never wastes a job's retry budget
+  // spinning on a channel that was never going to work.
+  let outcome: 'success' | 'retrying' | 'failed' | 'blocked'
   if (result.ok) {
     outcome = 'success'
     await db
       .update(schema.publicationJobs)
-      .set({ status: 'success', externalId: result.externalId || job.externalId, lastError: null, updatedAt: finishedAt })
+      .set({
+        status: 'success',
+        externalId: result.externalId || job.externalId,
+        externalUrl: result.externalUrl || null,
+        publishedAt: job.action === 'unpublish' ? job.publishedAt : finishedAt,
+        lastSyncAt: finishedAt,
+        lastError: null,
+        updatedAt: finishedAt,
+      })
       .where(eq(schema.publicationJobs.id, job.id))
     await db.insert(schema.publicationHistory).values({
       organizationId: job.organizationId,
@@ -134,6 +150,35 @@ export async function executeJob(db: any, env: Record<string, any>, job: any, ru
       channel: 'internal',
       delivered: 1,
       message: `${CHANNEL_BY_KEY[job.channelKey]?.label || job.channelKey} publicado correctamente.`,
+      createdAt: finishedAt,
+    })
+  } else if (!result.retryable) {
+    outcome = 'blocked'
+    await db.update(schema.publicationJobs).set({ status: 'blocked', lastError: result.message, updatedAt: finishedAt }).where(eq(schema.publicationJobs.id, job.id))
+    await db.insert(schema.publicationHistory).values({
+      organizationId: job.organizationId,
+      scheduleId: job.scheduleId,
+      jobId: job.id,
+      event: 'job_blocked',
+      message: `${CHANNEL_BY_KEY[job.channelKey]?.label || job.channelKey}: ${result.message}`,
+      createdAt: finishedAt,
+    })
+    await logPublicationEvent(db, {
+      organizationId: job.organizationId,
+      scheduleId: job.scheduleId,
+      jobId: job.id,
+      level: 'warn',
+      message: `job_blocked channel=${job.channelKey} state=${result.state}`,
+      context: { channelKey: job.channelKey, state: result.state, message: result.message },
+    })
+    await db.insert(schema.publicationNotifications).values({
+      organizationId: job.organizationId,
+      scheduleId: job.scheduleId,
+      jobId: job.id,
+      type: 'job_blocked',
+      channel: 'internal',
+      delivered: 1,
+      message: `${CHANNEL_BY_KEY[job.channelKey]?.label || job.channelKey}: ${result.message}`,
       createdAt: finishedAt,
     })
   } else if (job.retryCount < job.maxRetries) {
@@ -236,6 +281,7 @@ export async function runDispatchTick(db: any, env: Record<string, any>, runId: 
   let failed = 0
   let retried = 0
   let skipped = 0
+  let blocked = 0
 
   for (const job of due) {
     const gate = await checkGates(db, job, nowDate)
@@ -257,19 +303,20 @@ export async function runDispatchTick(db: any, env: Record<string, any>, runId: 
     if (outcome === 'success') succeeded++
     else if (outcome === 'retrying') retried++
     else if (outcome === 'failed') failed++
+    else if (outcome === 'blocked') blocked++
   }
 
-  return { processed, succeeded, failed, retried, skipped, dueCount: due.length }
+  return { processed, succeeded, failed, retried, blocked, skipped, dueCount: due.length }
 }
 
 /** Flips a schedule to completed/failed once every one of its jobs reaches a terminal state. */
 async function maybeCompleteSchedule(db: any, scheduleId: number, organizationId: number) {
   const jobs = await db.select({ status: schema.publicationJobs.status }).from(schema.publicationJobs).where(eq(schema.publicationJobs.scheduleId, scheduleId))
   if (!jobs.length) return
-  const terminal = new Set(['success', 'failed', 'cancelled', 'skipped'])
+  const terminal = new Set(['success', 'failed', 'blocked', 'cancelled', 'skipped'])
   if (!jobs.every((j: any) => terminal.has(j.status))) return
 
-  const anyFailed = jobs.some((j: any) => j.status === 'failed')
+  const anyFailed = jobs.some((j: any) => j.status === 'failed' || j.status === 'blocked')
   const nowTs = now()
   await db
     .update(schema.publicationSchedules)

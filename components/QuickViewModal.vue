@@ -48,7 +48,7 @@ const emit = defineEmits<{ close: [] }>()
 
 const { t } = useI18n()
 const { format: formatPrice } = useCurrency()
-const to = computed(() => `/demo/property-details/${props.project.slug || props.project.id}`)
+const to = computed(() => `/propiedades/${props.project.slug || props.project.id}`)
 
 const priceDrop = computed(() => {
   const o = props.project.priceOld

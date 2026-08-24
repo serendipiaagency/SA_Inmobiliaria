@@ -12,6 +12,10 @@
     "db:migrate:local": "wrangler d1 migrations apply sa_inmobiliaria --local",
     "db:migrate": "wrangler d1 migrations apply sa_inmobiliaria --remote",
     "db:migrate:staging": "wrangler d1 migrations apply sa_inmobiliaria_staging --remote --env staging",
+    "db:pending": "wrangler d1 migrations list sa_inmobiliaria --remote --env=\"\"",
+    "db:pending:staging": "wrangler d1 migrations list sa_inmobiliaria_staging --remote --env staging",
+    "migrations:check": "node scripts/check-migrations.mjs",
+    "smoke-test": "node scripts/smoke-test.mjs",
     "typecheck": "nuxi typecheck",
     "test": "vitest run",
     "test:e2e": "bash scripts/e2e.sh",
@@ -20,7 +24,7 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
-    "drizzle-orm": "^0.44.2",
+    "drizzle-orm": "^0.45.2",
     "jsqr": "^1.4.0",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
@@ -31,6 +35,7 @@
     "@cloudflare/workers-types": "^4.20260702.1",
     "@nuxtjs/tailwindcss": "^6.14.0",
     "@playwright/test": "^1.56.1",
+    "@types/leaflet": "^1.9.22",
     "@types/node": "^26.1.2",
     "@types/qrcode": "^1.5.6",
     "commander": "^13.1.0",

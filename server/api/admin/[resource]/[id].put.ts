@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
   })
 
   const body = await readBody<Record<string, any>>(event)
-  const data = await buildPayload(def, body || {}, false)
+  const data = await buildPayload(def, body || {}, false, event)
   delete data.organizationId // tenant ownership can't be reassigned via this endpoint
   // Re-validate any FK the payload touches: an update must not be able to
   // re-parent this row onto another tenant's record.

@@ -78,7 +78,9 @@ async function remove(id: number) {
   const ok = await confirm('This cannot be undone.', { title: 'Delete this record?', confirmLabel: 'Delete', danger: true })
   if (!ok) return
   try {
-    await $fetch(`/api/admin/${resource.value}/${id}`, { method: 'DELETE' })
+    // Explicit generic: a dynamic `resource` segment makes Nitro's typed-route
+    // inference match the wrong route's (GET/PUT-only) method union otherwise.
+    await $fetch<{ ok: true }>(`/api/admin/${resource.value}/${id}`, { method: 'DELETE' })
     await refresh()
     toast.success('Record deleted')
   } catch (e: any) {

@@ -79,8 +79,9 @@ export default defineEventHandler(async (event) => {
         type: 'cancelled',
         recipientEmail: visit.clientEmail,
         recipientPhone: visit.clientPhone,
-        subject: `Cita cancelada con ${visit.agentName || 'tu agente'}`,
         message: `Tu cita del ${visit.scheduledAt} con ${visit.agentName || 'tu agente'} ha sido cancelada.`,
+        scheduledAt: visit.scheduledAt,
+        agentName: visit.agentName,
       })
     } else if (patch.scheduledAt && patch.scheduledAt !== visit.scheduledAt) {
       await notifyAppointment(db, cfEnv(event), {
@@ -89,8 +90,9 @@ export default defineEventHandler(async (event) => {
         type: 'rescheduled',
         recipientEmail: visit.clientEmail,
         recipientPhone: visit.clientPhone,
-        subject: `Cita reprogramada con ${patch.agentName || visit.agentName || 'tu agente'}`,
         message: `Tu cita ha sido reprogramada al ${patch.scheduledAt} con ${patch.agentName || visit.agentName || 'tu agente'}.`,
+        scheduledAt: patch.scheduledAt,
+        agentName: patch.agentName || visit.agentName,
       })
     }
   } catch {

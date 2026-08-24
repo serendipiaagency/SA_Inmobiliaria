@@ -55,8 +55,9 @@ export default defineEventHandler(async (event) => {
       type: 'rescheduled',
       recipientEmail: visit.clientEmail,
       recipientPhone: visit.clientPhone,
-      subject: `Cita reprogramada con ${visit.agentName || 'tu agente'}`,
       message: `Tu cita con ${visit.agentName || 'tu agente'} ha sido reprogramada al ${body.startAt}.`,
+      scheduledAt: body.startAt,
+      agentName: visit.agentName,
     })
   } catch {
     // El cambio ya quedó guardado.

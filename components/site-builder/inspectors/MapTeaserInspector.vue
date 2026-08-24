@@ -7,7 +7,7 @@
     </InspectorSection>
     <InspectorSection title="Comportamiento">
       <TextField label="Botón" :model-value="content.cta || ''" placeholder="Texto (vacío = sin botón)" @update:model-value="(v) => (content.cta = v)" />
-      <TextField label="Enlace del botón" :model-value="content.ctaTo || ''" placeholder="/demo/properties" @update:model-value="(v) => (content.ctaTo = v)" />
+      <TextField label="Enlace del botón" :model-value="content.ctaTo || ''" placeholder="/propiedades" @update:model-value="(v) => (content.ctaTo = v)" />
     </InspectorSection>
     <InspectorSection title="Datos">
       <span class="label">Marcadores del mapa ilustrativo</span>

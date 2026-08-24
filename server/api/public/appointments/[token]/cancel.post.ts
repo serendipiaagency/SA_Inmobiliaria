@@ -25,8 +25,9 @@ export default defineEventHandler(async (event) => {
       type: 'cancelled',
       recipientEmail: visit.clientEmail,
       recipientPhone: visit.clientPhone,
-      subject: `Cita cancelada con ${visit.agentName || 'tu agente'}`,
       message: `Has cancelado tu cita del ${visit.scheduledAt} con ${visit.agentName || 'tu agente'}.`,
+      scheduledAt: visit.scheduledAt,
+      agentName: visit.agentName,
     })
   } catch {
     // La cancelación ya quedó guardada.

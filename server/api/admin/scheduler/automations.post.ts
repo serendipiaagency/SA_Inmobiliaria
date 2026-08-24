@@ -16,8 +16,10 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<{ name?: string; triggerType?: string; actionType?: string; enabled?: boolean }>(event)
   const name = String(body?.name || '').trim()
   if (!name) throw createError({ statusCode: 422, statusMessage: 'name es obligatorio' })
-  if (!TRIGGERS.includes(body?.triggerType || '')) throw createError({ statusCode: 422, statusMessage: `triggerType debe ser uno de: ${TRIGGERS.join(', ')}` })
-  if (!ACTIONS.includes(body?.actionType || '')) throw createError({ statusCode: 422, statusMessage: `actionType debe ser uno de: ${ACTIONS.join(', ')}` })
+  const triggerType = String(body?.triggerType || '')
+  if (!TRIGGERS.includes(triggerType)) throw createError({ statusCode: 422, statusMessage: `triggerType debe ser uno de: ${TRIGGERS.join(', ')}` })
+  const actionType = String(body?.actionType || '')
+  if (!ACTIONS.includes(actionType)) throw createError({ statusCode: 422, statusMessage: `actionType debe ser uno de: ${ACTIONS.join(', ')}` })
 
   const db = useDb(event)
   const inserted = await db
@@ -25,8 +27,8 @@ export default defineEventHandler(async (event) => {
     .values({
       organizationId: orgId,
       name,
-      triggerType: body!.triggerType,
-      actionType: body!.actionType,
+      triggerType,
+      actionType,
       enabled: body?.enabled === false ? 0 : 1,
       createdAt: now(),
     })

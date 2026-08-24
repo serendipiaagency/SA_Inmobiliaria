@@ -16,7 +16,9 @@
 const RETENTION_DAYS = 14
 const BACKUP_PREFIX = 'backups/'
 
-export default defineTask({
+export default defineTask<
+  { skipped: true; reason: string } | { tables: number; totalRows: number; key: string; sizeBytes: number; deletedOldBackups: number }
+>({
   meta: {
     name: 'system:backup-d1',
     description: 'Daily JSON snapshot of every D1 table, gzip-compressed, stored in R2',
@@ -40,8 +42,11 @@ export default defineTask({
     const dump: Record<string, unknown[]> = {}
     let totalRows = 0
     for (const table of tables) {
-      // Table names come from sqlite_master (the DB's own schema), never from
-      // user input, so interpolating them into the query is safe here.
+      // Table names come from sqlite_master (the DB's own schema), never
+      // from user input — but this loop is the one place in the codebase
+      // that interpolates an identifier into raw SQL, so it still gets an
+      // explicit allow-list check rather than trusting the source alone.
+      if (!isSafeIdentifier(table)) throw new Error(`Refusing to back up table with unexpected name: ${table}`)
       const rows = await db.prepare(`SELECT * FROM "${table}"`).all()
       dump[table] = rows.results
       totalRows += rows.results.length
@@ -59,6 +64,11 @@ export default defineTask({
     return { result: { tables: tables.length, totalRows, key, sizeBytes: compressed.byteLength, deletedOldBackups: deleted } }
   },
 })
+
+/** Plain snake_case SQLite identifiers only — the shape every real table in this schema has. */
+function isSafeIdentifier(name: string): boolean {
+  return /^[a-z_][a-z0-9_]*$/.test(name)
+}
 
 async function gzip(text: string): Promise<Uint8Array> {
   const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))

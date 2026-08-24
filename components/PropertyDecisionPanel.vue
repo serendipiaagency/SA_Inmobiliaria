@@ -114,7 +114,7 @@
     <!-- BOTONES -->
     <div class="no-print rounded-2xl border border-line bg-white p-7">
       <NuxtLink
-        to="/demo/leadership/perla-maria-melgarejo"
+        to="/equipo/perla-maria-melgarejo"
         class="mb-6 flex items-center gap-4 rounded-xl border border-line bg-paper p-4 transition hover:border-ink hover:shadow-sm"
       >
         <img :src="mediaUrl(agentPhoto)" :alt="agentName" class="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-white shadow" />
@@ -125,7 +125,7 @@
         </div>
       </NuxtLink>
       <div class="space-y-2.5">
-        <NuxtLink to="/demo/contact-us" class="btn-primary w-full">{{ t('decisionPanel.cta.requestInfo', 'Solicitar información') }}</NuxtLink>
+        <NuxtLink to="/contacto" class="btn-primary w-full">{{ t('decisionPanel.cta.requestInfo', 'Solicitar información') }}</NuxtLink>
         <div class="grid grid-cols-2 gap-2.5">
           <button class="agent-btn agent-btn-outline" @click="openVisit('in_person')">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="16" rx="2" /><path stroke-linecap="round" d="M16 2.5v4M8 2.5v4M3 9.5h18" /></svg>

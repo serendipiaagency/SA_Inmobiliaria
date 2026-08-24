@@ -23,6 +23,29 @@ export const organizations = sqliteTable('organizations', {
   // Added by 0039. Reconciled from media_assets — see server/utils/mediaQuota.ts.
   storageBytesUsed: integer('storage_bytes_used').notNull().default(0),
   storageBytesLimit: integer('storage_bytes_limit').notNull().default(5_368_709_120), // 5 GiB
+  // Added by 0044 — per-org email identity (server/utils/email/). All
+  // nullable/defaulted: an org with none of this set falls back to the
+  // platform defaults in server/utils/email/send.ts.
+  emailSenderName: text('email_sender_name'),
+  emailSenderAddress: text('email_sender_address'),
+  // Set by checking Resend's Domains API when emailSenderAddress is saved
+  // (server/utils/email/resendDomains.ts) — never a manual toggle.
+  emailSenderDomainVerified: integer('email_sender_domain_verified').notNull().default(0),
+  emailSenderDomainCheckedAt: text('email_sender_domain_checked_at'),
+  emailReplyTo: text('email_reply_to'),
+  // JSON array of staff email addresses notified on new leads/contact
+  // messages/complaints — internal-operations mail, not sent to the org's
+  // own public sender address.
+  emailInternalRecipientsJson: text('email_internal_recipients_json').notNull().default('[]'),
+  emailLocale: text('email_locale').notNull().default('es'), // es | en
+  // Added by 0045 — real data-controller identity for privacy/terms pages
+  // (pages/privacidad.vue, pages/terminos.vue). Nullable: those pages show
+  // "por confirmar" rather than a fabricated value until an org fills these in.
+  legalCompanyName: text('legal_company_name'),
+  taxId: text('tax_id'), // CIF/NIF or equivalent
+  legalAddress: text('legal_address'),
+  legalEmail: text('legal_email'),
+  legalPhone: text('legal_phone'),
 })
 
 // ---------------------------------------------------------------------------
@@ -69,22 +92,28 @@ export const agents = sqliteTable('agents', {
   updatedAt: text('updated_at').notNull().default(''),
 })
 
-export const agentProperties = sqliteTable('agent_properties', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
-  slug: text('slug').unique(),
-  location: text('location'),
-  propertyType: text('property_type'),
-  transactionType: text('transaction_type'), // sale | rent
-  price: real('price'),
-  area: real('area'),
-  bedrooms: integer('bedrooms'),
-  bathrooms: integer('bathrooms'),
-  mainImage: text('main_image'),
-  status: text('status').notNull().default('available'), // available | sold
-  createdAt: text('created_at').notNull().default(''),
-  updatedAt: text('updated_at').notNull().default(''),
-})
+// slug is scoped (organizationId, slug), not globally unique — migration
+// 0042. Two unrelated agencies can both use "downtown-loft".
+export const agentProperties = sqliteTable(
+  'agent_properties',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull().default(1),
+    slug: text('slug'),
+    location: text('location'),
+    propertyType: text('property_type'),
+    transactionType: text('transaction_type'), // sale | rent
+    price: real('price'),
+    area: real('area'),
+    bedrooms: integer('bedrooms'),
+    bathrooms: integer('bathrooms'),
+    mainImage: text('main_image'),
+    status: text('status').notNull().default('available'), // available | sold
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('agent_properties_org_slug').on(t.organizationId, t.slug), index('agent_properties_org').on(t.organizationId)],
+)
 
 export const propertyTranslations = sqliteTable(
   'property_translations',
@@ -126,86 +155,91 @@ export const developers = sqliteTable('developers', {
   updatedAt: text('updated_at').notNull().default(''),
 })
 
-export const developerProperties = sqliteTable('developer_properties', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
-  slug: text('slug').unique(),
-  developerId: integer('developer_id')
-    .notNull()
-    .references(() => developers.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  status: text('status').notNull().default('new'), // new | under_construction | ready
-  price: real('price'),
-  description: text('description'),
-  keyHighlights: text('key_highlights'),
-  paymentPlan: text('payment_plan'), // JSON string
-  handoverDate: text('handover_date'),
-  handoverPercentage: text('handover_percentage'),
-  downPercentage: text('down_percentage'),
-  constructionPercentage: text('construction_percentage'),
-  logo: text('logo'),
-  coverImage: text('cover_image'),
-  community: text('community'),
-  masterPlanImage: text('master_plan_image'),
-  locationMap: text('location_map'),
-  masterPlanDescription: text('master_plan_description'),
-  floorPlanDescription: text('floor_plan_description'),
-  locationMapDescription: text('location_map_description'),
-  // --- Search & filter attributes (added 0003) ---
-  propertyType: text('property_type_main'), // Apartment | Villa | Townhouse | Penthouse | Studio
-  bedrooms: integer('bedrooms'),
-  bathrooms: integer('bathrooms'),
-  area: real('area'), // built m²
-  yearBuilt: integer('year_built'),
-  energyRating: text('energy_rating'), // A..G
-  orientation: text('orientation'), // N, S, E, W, SE, SW, NE, NW
-  hasElevator: integer('has_elevator').notNull().default(0),
-  hasPool: integer('has_pool').notNull().default(0),
-  hasGarage: integer('has_garage').notNull().default(0),
-  hasTerrace: integer('has_terrace').notNull().default(0),
-  hasGarden: integer('has_garden').notNull().default(0),
-  petsAllowed: integer('pets_allowed').notNull().default(0),
-  accessible: integer('accessible').notNull().default(0),
-  // --- Card attributes (added 0005) ---
-  priceOld: real('price_old'),
-  isExclusive: integer('is_exclusive').notNull().default(0),
-  isReserved: integer('is_reserved').notNull().default(0),
-  hasTour: integer('has_tour').notNull().default(0),
-  rentalYield: real('rental_yield'),
-  publishedAt: text('published_at'),
-  aiSummary: text('ai_summary'),
-  lat: real('lat'),
-  lng: real('lng'),
-  // --- Address facets (added 0010) — postalCode stays null for markets
-  // without a postal/ZIP system (e.g. the UAE); the search simply won't
-  // surface that facet until a listing actually has one.
-  street: text('street'),
-  postalCode: text('postal_code'),
-  // Optional showcase clip (added 0012) — null until a real walkthrough
-  // video is attached; the card's hover-video and "Vídeo" badge stay
-  // dormant until then rather than faking footage.
-  videoUrl: text('video_url'),
-  // Optional premium gallery assets (added 0013) — all null until the real
-  // shot exists. The gallery shows a "request this" teaser (drone/night) or
-  // hides the tab entirely (before/after, AI staging) rather than reusing a
-  // regular photo under a misleading label.
-  dronePhoto: text('drone_photo'),
-  nightPhoto: text('night_photo'),
-  beforePhoto: text('before_photo'),
-  afterPhoto: text('after_photo'),
-  aiStagedPhoto: text('ai_staged_photo'),
-  // Cumulative engagement counters (added 0017) — real, server-incremented
-  // counts of page views and favorite actions. Start at 0 and only grow
-  // from genuine activity; never a fabricated "N viewing now" figure.
-  viewCount: integer('view_count').notNull().default(0),
-  favoriteCount: integer('favorite_count').notNull().default(0),
-  // Real annual service charge (added 0018) — null until a real figure is
-  // entered for that building; the decision panel shows "Consultar" rather
-  // than guessing a number when it's missing.
-  serviceChargeAnnual: real('service_charge_annual'),
-  createdAt: text('created_at').notNull().default(''),
-  updatedAt: text('updated_at').notNull().default(''),
-})
+// slug is scoped (organizationId, slug), not globally unique — migration 0042.
+export const developerProperties = sqliteTable(
+  'developer_properties',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull().default(1),
+    slug: text('slug'),
+    developerId: integer('developer_id')
+      .notNull()
+      .references(() => developers.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    status: text('status').notNull().default('new'), // new | under_construction | ready
+    price: real('price'),
+    description: text('description'),
+    keyHighlights: text('key_highlights'),
+    paymentPlan: text('payment_plan'), // JSON string
+    handoverDate: text('handover_date'),
+    handoverPercentage: text('handover_percentage'),
+    downPercentage: text('down_percentage'),
+    constructionPercentage: text('construction_percentage'),
+    logo: text('logo'),
+    coverImage: text('cover_image'),
+    community: text('community'),
+    masterPlanImage: text('master_plan_image'),
+    locationMap: text('location_map'),
+    masterPlanDescription: text('master_plan_description'),
+    floorPlanDescription: text('floor_plan_description'),
+    locationMapDescription: text('location_map_description'),
+    // --- Search & filter attributes (added 0003) ---
+    propertyType: text('property_type_main'), // Apartment | Villa | Townhouse | Penthouse | Studio
+    bedrooms: integer('bedrooms'),
+    bathrooms: integer('bathrooms'),
+    area: real('area'), // built m²
+    yearBuilt: integer('year_built'),
+    energyRating: text('energy_rating'), // A..G
+    orientation: text('orientation'), // N, S, E, W, SE, SW, NE, NW
+    hasElevator: integer('has_elevator').notNull().default(0),
+    hasPool: integer('has_pool').notNull().default(0),
+    hasGarage: integer('has_garage').notNull().default(0),
+    hasTerrace: integer('has_terrace').notNull().default(0),
+    hasGarden: integer('has_garden').notNull().default(0),
+    petsAllowed: integer('pets_allowed').notNull().default(0),
+    accessible: integer('accessible').notNull().default(0),
+    // --- Card attributes (added 0005) ---
+    priceOld: real('price_old'),
+    isExclusive: integer('is_exclusive').notNull().default(0),
+    isReserved: integer('is_reserved').notNull().default(0),
+    hasTour: integer('has_tour').notNull().default(0),
+    rentalYield: real('rental_yield'),
+    publishedAt: text('published_at'),
+    aiSummary: text('ai_summary'),
+    lat: real('lat'),
+    lng: real('lng'),
+    // --- Address facets (added 0010) — postalCode stays null for markets
+    // without a postal/ZIP system (e.g. the UAE); the search simply won't
+    // surface that facet until a listing actually has one.
+    street: text('street'),
+    postalCode: text('postal_code'),
+    // Optional showcase clip (added 0012) — null until a real walkthrough
+    // video is attached; the card's hover-video and "Vídeo" badge stay
+    // dormant until then rather than faking footage.
+    videoUrl: text('video_url'),
+    // Optional premium gallery assets (added 0013) — all null until the real
+    // shot exists. The gallery shows a "request this" teaser (drone/night) or
+    // hides the tab entirely (before/after, AI staging) rather than reusing a
+    // regular photo under a misleading label.
+    dronePhoto: text('drone_photo'),
+    nightPhoto: text('night_photo'),
+    beforePhoto: text('before_photo'),
+    afterPhoto: text('after_photo'),
+    aiStagedPhoto: text('ai_staged_photo'),
+    // Cumulative engagement counters (added 0017) — real, server-incremented
+    // counts of page views and favorite actions. Start at 0 and only grow
+    // from genuine activity; never a fabricated "N viewing now" figure.
+    viewCount: integer('view_count').notNull().default(0),
+    favoriteCount: integer('favorite_count').notNull().default(0),
+    // Real annual service charge (added 0018) — null until a real figure is
+    // entered for that building; the decision panel shows "Consultar" rather
+    // than guessing a number when it's missing.
+    serviceChargeAnnual: real('service_charge_annual'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('developer_properties_org_slug').on(t.organizationId, t.slug), index('developer_properties_org').on(t.organizationId)],
+)
 
 export const priceHistory = sqliteTable('price_history', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -368,15 +402,20 @@ export const amenityCommunity = sqliteTable('amenity_community', {
 // Content: blogs & team
 // ---------------------------------------------------------------------------
 
-export const blogs = sqliteTable('blogs', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
-  slug: text('slug').notNull().unique(),
-  image: text('image'),
-  targetAudience: text('target_audience').notNull().default('UAE'), // UAE | International
-  createdAt: text('created_at').notNull().default(''),
-  updatedAt: text('updated_at').notNull().default(''),
-})
+// slug is scoped (organizationId, slug), not globally unique — migration 0042.
+export const blogs = sqliteTable(
+  'blogs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull().default(1),
+    slug: text('slug').notNull(),
+    image: text('image'),
+    targetAudience: text('target_audience').notNull().default('UAE'), // UAE | International
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('blogs_org_slug').on(t.organizationId, t.slug), index('blogs_org').on(t.organizationId)],
+)
 
 export const blogTranslations = sqliteTable(
   'blog_translations',
@@ -392,31 +431,36 @@ export const blogTranslations = sqliteTable(
   (t) => [uniqueIndex('blog_translations_blog_locale').on(t.blogId, t.locale)],
 )
 
-export const teamMembers = sqliteTable('team_members', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
-  name: text('name').notNull(),
-  slug: text('slug').notNull().unique(),
-  email: text('email').notNull().unique(),
-  phone: text('phone'),
-  position: text('position').notNull(),
-  description: text('description'),
-  experience: text('experience'),
-  languages: text('languages'),
-  nid: text('nid'),
-  specialties: text('specialties'),
-  image: text('image'),
-  facebook: text('facebook'),
-  twitter: text('twitter'),
-  linkedin: text('linkedin'),
-  instagram: text('instagram'),
-  slotDurationMinutes: integer('slot_duration_minutes').notNull().default(60),
-  bufferMinutes: integer('buffer_minutes').notNull().default(0),
-  maxAppointmentsPerDay: integer('max_appointments_per_day'),
-  icalToken: text('ical_token'),
-  createdAt: text('created_at').notNull().default(''),
-  updatedAt: text('updated_at').notNull().default(''),
-})
+// slug is scoped (organizationId, slug), not globally unique — migration 0042.
+export const teamMembers = sqliteTable(
+  'team_members',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull().default(1),
+    name: text('name').notNull(),
+    slug: text('slug').notNull(),
+    email: text('email').notNull().unique(),
+    phone: text('phone'),
+    position: text('position').notNull(),
+    description: text('description'),
+    experience: text('experience'),
+    languages: text('languages'),
+    nid: text('nid'),
+    specialties: text('specialties'),
+    image: text('image'),
+    facebook: text('facebook'),
+    twitter: text('twitter'),
+    linkedin: text('linkedin'),
+    instagram: text('instagram'),
+    slotDurationMinutes: integer('slot_duration_minutes').notNull().default(60),
+    bufferMinutes: integer('buffer_minutes').notNull().default(0),
+    maxAppointmentsPerDay: integer('max_appointments_per_day'),
+    icalToken: text('ical_token'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('team_members_org_slug').on(t.organizationId, t.slug), index('team_members_org').on(t.organizationId)],
+)
 
 // ---------------------------------------------------------------------------
 // Forms: vendor registration, visitor submissions, contact/complaints
@@ -1003,6 +1047,11 @@ export const publicationJobs = sqliteTable(
     retryBackoffSeconds: integer('retry_backoff_seconds').notNull().default(300),
     maxDurationSeconds: integer('max_duration_seconds').notNull().default(120),
     externalId: text('external_id'),
+    // Filled in only by a real channel adapter on an actual successful
+    // publish — see server/utils/publication/adapters/types.ts PublishResult.
+    externalUrl: text('external_url'),
+    publishedAt: text('published_at'),
+    lastSyncAt: text('last_sync_at'),
     lastError: text('last_error'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
@@ -1147,6 +1196,28 @@ export const publicationAiTimeRules = sqliteTable('publication_ai_time_rules', {
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })
+
+// Per-organization channel credentials, AES-GCM encrypted at rest (see
+// server/utils/publication/credentials.ts) — for when a tenant connects its
+// own portal account instead of relying on the Worker-wide secret in
+// channels.ts `secretEnvVar`. Nothing reads from this table yet: no channel
+// has a real adapter to consume it, but the storage is real and tested so
+// wiring a real adapter later doesn't also require inventing this part.
+export const publicationChannelCredentials = sqliteTable(
+  'publication_channel_credentials',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    channelKey: text('channel_key').notNull(),
+    ciphertext: text('ciphertext').notNull(),
+    iv: text('iv').notNull(),
+    keyVersion: integer('key_version').notNull().default(1),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('publication_channel_credentials_org_channel').on(t.organizationId, t.channelKey)],
+)
 
 // ---------------------------------------------------------------------------
 // Platform error log (production monitoring) — see migrations/0027
@@ -1628,13 +1699,44 @@ export const depositPayments = sqliteTable(
     contractId: integer('contract_id').references(() => contracts.id),
     amount: real('amount').notNull(),
     currency: text('currency').notNull().default('eur'),
-    status: text('status').notNull().default('pending'), // pending | not_connected | processing | paid | failed
+    status: text('status').notNull().default('pending'), // pending | not_connected | processing | paid | failed | refunded
+    // The Checkout Session id (createDepositCheckout's sessionId) — set at
+    // creation, before Stripe has even created a PaymentIntent.
+    stripeCheckoutSessionId: text('stripe_checkout_session_id'),
+    // The real PaymentIntent id — only known once a checkout.session.completed
+    // webhook reveals it (server/api/stripe/webhook.post.ts). Needed to match
+    // later payment_intent.payment_failed / charge.refunded events, which key
+    // off the PaymentIntent, not the Checkout Session.
     stripePaymentIntentId: text('stripe_payment_intent_id'),
     errorMessage: text('error_message'),
     createdAt: text('created_at').notNull().default(''),
     paidAt: text('paid_at'),
+    refundedAt: text('refunded_at'),
   },
-  (t) => [index('deposit_payments_org').on(t.organizationId, t.createdAt)],
+  (t) => [
+    index('deposit_payments_org').on(t.organizationId, t.createdAt),
+    uniqueIndex('deposit_payments_session').on(t.stripeCheckoutSessionId),
+    index('deposit_payments_payment_intent').on(t.stripePaymentIntentId),
+  ],
+)
+
+export const stripeWebhookEvents = sqliteTable(
+  'stripe_webhook_events',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    // Stripe's event id (evt_...) — the idempotency key. A redelivered event
+    // (Stripe's delivery is at-least-once) hits this unique index and is
+    // recognized as already-processed rather than reapplied.
+    eventId: text('event_id').notNull().unique(),
+    type: text('type').notNull(),
+    organizationId: integer('organization_id'),
+    depositId: integer('deposit_id').references(() => depositPayments.id),
+    payloadJson: text('payload_json').notNull(),
+    processedOk: integer('processed_ok').notNull().default(1),
+    note: text('note'),
+    receivedAt: text('received_at').notNull().default(''),
+  },
+  (t) => [index('stripe_webhook_events_org').on(t.organizationId, t.receivedAt)],
 )
 
 export const webhookEndpoints = sqliteTable(
@@ -1787,4 +1889,84 @@ export const sitePageVersions = sqliteTable(
     createdAt: text('created_at').notNull().default(''),
   },
   (t) => [index('site_page_versions_page').on(t.pageId, t.version)],
+)
+
+// ---------------------------------------------------------------------------
+// Transactional email (0044) — see server/utils/email/
+// ---------------------------------------------------------------------------
+
+/**
+ * One row per send attempt. `status` only ever becomes 'delivered',
+ * 'bounced' or 'complained' via the Resend webhook
+ * (server/api/resend/webhook.post.ts) confirming it — never from the
+ * synchronous API call succeeding, which only proves Resend *accepted* the
+ * request, not that a mailbox received it. Also the retry queue: a failed
+ * attempt stays 'queued' with `nextRetryAt` set until `attempts` reaches the
+ * configured max, at which point it becomes permanently 'failed'.
+ */
+export const emailLog = sqliteTable(
+  'email_log',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    template: text('template').notNull(),
+    kind: text('kind').notNull().default('transactional'), // transactional | commercial
+    recipient: text('recipient').notNull(),
+    fromHeader: text('from_header').notNull(),
+    replyTo: text('reply_to'),
+    subject: text('subject').notNull(),
+    // The exact rendered HTML sent (or queued to send) — makes a retry
+    // self-contained and doubles as a real audit trail.
+    html: text('html').notNull(),
+    locale: text('locale').notNull().default('es'),
+    provider: text('provider').notNull().default('resend'),
+    status: text('status').notNull().default('queued'), // queued | sent | delivered | bounced | complained | failed
+    externalId: text('external_id'), // Resend's email id — how the webhook matches a delivery event back to this row
+    attempts: integer('attempts').notNull().default(0),
+    nextRetryAt: text('next_retry_at'),
+    errorMessage: text('error_message'),
+    sentAt: text('sent_at'),
+    deliveredAt: text('delivered_at'),
+    bouncedAt: text('bounced_at'),
+    complainedAt: text('complained_at'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [
+    index('email_log_org').on(t.organizationId, t.createdAt),
+    index('email_log_retry').on(t.status, t.nextRetryAt),
+    index('email_log_external_id').on(t.externalId),
+  ],
+)
+
+/** Idempotency for Resend's webhook deliveries (Svix event ids) — same claim-then-process pattern as stripe_webhook_events (0043). */
+export const resendWebhookEvents = sqliteTable(
+  'resend_webhook_events',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    svixId: text('svix_id').notNull().unique(),
+    type: text('type').notNull(),
+    emailLogId: integer('email_log_id').references(() => emailLog.id),
+    organizationId: integer('organization_id'),
+    payloadJson: text('payload_json').notNull(),
+    processedOk: integer('processed_ok').notNull().default(1),
+    note: text('note'),
+    receivedAt: text('received_at').notNull().default(''),
+  },
+  (t) => [index('resend_webhook_events_org').on(t.organizationId, t.receivedAt)],
+)
+
+/** The "recuperación de contraseña" email needs a real reset flow — only the token's SHA-256 hash is ever stored, same principle as api_keys. */
+export const passwordResetTokens = sqliteTable(
+  'password_reset_tokens',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: text('expires_at').notNull(),
+    usedAt: text('used_at'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('password_reset_tokens_user').on(t.userId, t.expiresAt)],
 )

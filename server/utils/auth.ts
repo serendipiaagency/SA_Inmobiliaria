@@ -189,3 +189,59 @@ export async function requireOrgScope(event: H3Event): Promise<{ user: SessionUs
   const orgId = resolveActiveOrgId(event, user)
   return { user, orgId }
 }
+
+// --- password reset tokens ("recuperación de contraseña" / "alta de usuario") ---
+
+async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+function randomTokenHex(): string {
+  const bytes = new Uint8Array(24)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
+const PASSWORD_RESET_TTL_MINUTES = 60
+
+/**
+ * Mints a password-reset/set-password token for a user — same underlying
+ * flow for "recuperación de contraseña" (an existing user requesting a
+ * reset) and "alta de usuario" (a newly created user's welcome email links
+ * here to set their first password, rather than ever emailing a plaintext
+ * password). Only the SHA-256 hash is stored, same principle as api_keys —
+ * the raw token exists only in the email, never at rest.
+ */
+export async function createPasswordResetToken(db: any, userId: number): Promise<string> {
+  const raw = randomTokenHex()
+  const tokenHash = await sha256Hex(raw)
+  const nowTs = now()
+  await db.insert(schema.passwordResetTokens).values({
+    userId,
+    tokenHash,
+    expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MINUTES * 60_000).toISOString().replace('T', ' ').slice(0, 19),
+    createdAt: nowTs,
+  })
+  return raw
+}
+
+/**
+ * Consumes a reset token: valid only if unused and unexpired. Marks it used
+ * immediately (never reusable, even if the password update after this call
+ * somehow fails) and returns the userId to update, or null if the token is
+ * invalid/expired/already used.
+ */
+export async function consumePasswordResetToken(db: any, rawToken: string): Promise<number | null> {
+  const tokenHash = await sha256Hex(rawToken)
+  const rows = await db.select().from(schema.passwordResetTokens).where(eq(schema.passwordResetTokens.tokenHash, tokenHash)).limit(1)
+  const row = rows[0]
+  if (!row || row.usedAt) return null
+  if (row.expiresAt < now()) return null
+  await db.update(schema.passwordResetTokens).set({ usedAt: now() }).where(eq(schema.passwordResetTokens.id, row.id))
+  return row.userId
+}

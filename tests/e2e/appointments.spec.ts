@@ -83,7 +83,7 @@ test.describe('Agenda de citas con agentes', () => {
   })
 
   test('el perfil público del agente abre el selector de citas y permite reservar de extremo a extremo', async ({ page }) => {
-    await page.goto(`/demo/leadership/${AGENT_SLUG}`)
+    await page.goto(`/equipo/${AGENT_SLUG}`)
     await page.getByRole('button', { name: /reservar cita/i }).click()
 
     const slotButton = page.locator('button').filter({ hasText: /^\d{2}:\d{2}$/ }).first()

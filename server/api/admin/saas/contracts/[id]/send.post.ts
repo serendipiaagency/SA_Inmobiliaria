@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm'
 import { requireOrgScope } from '../../../../../utils/auth'
-import { useDb, schema, now } from '../../../../../utils/db'
+import { useDb, schema, now, cfEnv } from '../../../../../utils/db'
 import { logAdminAction } from '../../../../../utils/audit'
+import { sendTransactionalEmail } from '../../../../../utils/email/send'
 
 function randomToken(): string {
   const bytes = new Uint8Array(20)
@@ -22,6 +23,15 @@ export default defineEventHandler(async (event) => {
   const managementToken = contract.managementToken || randomToken()
   await db.update(schema.contracts).set({ status: 'sent', managementToken, updatedAt: now() }).where(eq(schema.contracts.id, id))
   await logAdminAction(event, { user, orgId, action: 'update', resource: 'contract', resourceId: id })
+
+  if (contract.clientEmail) {
+    try {
+      const url = `${getRequestURL(event).origin}/contratos/${managementToken}`
+      await sendTransactionalEmail(db, cfEnv(event), { organizationId: orgId, template: 'contract_sent', to: contract.clientEmail, data: { title: contract.title, url } })
+    } catch {
+      // The contract is already marked sent — a notification failure must never undo that.
+    }
+  }
 
   return (await db.select().from(schema.contracts).where(eq(schema.contracts.id, id)).limit(1))[0]
 })

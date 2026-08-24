@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, like, lte, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, like, lte, or, sql, type SQL } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { attachPhotos } from '../../utils/photos'
 
@@ -22,7 +22,11 @@ export default defineEventHandler(async (event) => {
   const perPage = Math.min(48, Math.max(1, parseInt(String(query.perPage || '12'), 10) || 12))
   const countOnly = String(query.countOnly || '') === '1'
 
-  const conds = [eq(P.organizationId, resolvePublicOrgId(event))]
+  // `or()`/`and()` are typed to return `SQL | undefined` (they can, with
+  // zero real conditions) even though every call site here always passes
+  // at least one — `conds` has to accept that possibility to hold their
+  // result, and `and(...conds)` below already filters out `undefined` entries.
+  const conds: (SQL<unknown> | undefined)[] = [eq(P.organizationId, resolvePublicOrgId(event))]
   const q = String(query.q || '').trim()
   if (q)
     conds.push(
@@ -96,7 +100,11 @@ export default defineEventHandler(async (event) => {
   const countRows = await db.select({ count: sql<number>`count(*)` }).from(P).where(where as any)
   const total = countRows[0]?.count ?? 0
 
-  if (countOnly) return { total }
+  // Always the same response shape (rows: [] for countOnly, never an
+  // omitted field) — a union return type here is exactly what forces every
+  // caller to type-guard before touching `.rows`/`.perPage` for no runtime
+  // benefit, since countOnly callers already know to ignore `rows`.
+  if (countOnly) return { rows: [], total, page, perPage }
 
   const sortKey = String(query.sort || '')
   const orderBy =

@@ -4,7 +4,7 @@
       <div v-for="i in limit" :key="i" class="skeleton aspect-[4/3] rounded-2xl" />
     </div>
     <div v-else-if="rows.length" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      <NuxtLink v-for="p in rows" :key="p.id" :to="`/demo/property-details/${p.slug}`" class="block">
+      <NuxtLink v-for="p in rows" :key="p.id" :to="`/propiedades/${p.slug}`" class="block">
         <div class="aspect-[4/3] overflow-hidden rounded-2xl bg-stone-100">
           <img :src="mediaUrl(p.coverImage)" :alt="p.name" class="h-full w-full object-cover" loading="lazy" />
         </div>

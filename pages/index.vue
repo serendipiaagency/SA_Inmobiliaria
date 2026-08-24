@@ -1,5 +1,6 @@
 <template>
-  <div class="sa-landing">
+  <SiteBlockRenderer v-if="isPortal" :blocks="page?.blocks || []" :home-data="data" mode="production" />
+  <div v-else class="sa-landing">
     <header class="sa-header">
       <div class="sa-shell sa-header-inner">
         <NuxtLink to="/" class="sa-brand" aria-label="Serendipia Inmobiliaria, inicio">
@@ -144,7 +145,7 @@
             <button v-for="tab in publicTabs" :key="tab.id" :class="{ 'is-active': activePublicTab === tab.id }" role="tab" :aria-selected="activePublicTab === tab.id" @click="activePublicTab = tab.id"><span>{{ tab.number }}</span>{{ tab.label }}</button>
           </div>
           <div class="sa-public-panel">
-            <div class="sa-public-copy"><p class="sa-eyebrow">{{ currentPublicTab.kicker }}</p><h3>{{ currentPublicTab.title }}</h3><p>{{ currentPublicTab.text }}</p><ul><li v-for="point in currentPublicTab.points" :key="point"><span>✓</span>{{ point }}</li></ul><NuxtLink to="/demo/properties" class="sa-text-link">Ver el portal de propiedades <span>↗</span></NuxtLink></div>
+            <div class="sa-public-copy"><p class="sa-eyebrow">{{ currentPublicTab.kicker }}</p><h3>{{ currentPublicTab.title }}</h3><p>{{ currentPublicTab.text }}</p><ul><li v-for="point in currentPublicTab.points" :key="point"><span>✓</span>{{ point }}</li></ul><NuxtLink to="/propiedades" class="sa-text-link">Ver el portal de propiedades <span>↗</span></NuxtLink></div>
             <div class="sa-public-visual">
               <div v-if="activePublicTab === 'search'" class="sa-portal-mock"><div class="sa-portal-bar"><b>MARINA PROPERTIES</b><span>Explorar · Comunidades · Nosotros</span><i>⌕</i></div><div class="sa-portal-search"><small>¿Dónde quieres vivir?</small><strong>Valencia, España</strong><button>Buscar propiedades →</button></div><div class="sa-portal-cards"><div v-for="card in portalCards.slice(0, 3)" :key="card.title" class="sa-portal-card"><span :style="{ backgroundImage: `url(${card.image})` }" /><small>{{ card.tag }}</small><strong>{{ card.title }}</strong><b>{{ card.price }}</b></div></div></div>
               <div v-else-if="activePublicTab === 'property'" class="sa-detail-mock"><div class="sa-detail-gallery"><span class="sa-detail-image" /><span class="sa-detail-image small" /><span class="sa-detail-image small second" /><i>1 / 24</i></div><div class="sa-detail-bottom"><div><small>VILLA MARINA 04 · VALENCIA</small><strong>425.000 €</strong><span>3 habitaciones · 2 baños · 124 m²</span></div><button>Solicitar visita ↗</button></div></div>
@@ -199,26 +200,56 @@
       </section>
     </main>
 
-    <footer class="sa-footer"><div class="sa-shell sa-footer-grid"><div><NuxtLink to="/" class="sa-brand"><span class="sa-brand-mark"><span>SA</span></span><span class="sa-brand-copy"><strong>Serendipia</strong><small>INMOBILIARIA</small></span></NuxtLink><p>Software para inmobiliarias, promotoras y equipos comerciales que quieren trabajar con una base preparada para crecer.</p></div><div><small>PLATAFORMA</small><a href="#plataforma">Producto</a><a href="#inteligencia">IA inmobiliaria</a><a href="#activos">Tipos de activo</a></div><div><small>EXPERIENCIAS</small><NuxtLink to="/demo/properties">Ver propiedades</NuxtLink><NuxtLink to="/demo/mapa">Explorar mapa</NuxtLink><NuxtLink to="/demo/contact-us">Contacto</NuxtLink></div><div><small>ACCESO</small><NuxtLink to="/admin/login">Acceder al panel</NuxtLink><a href="#contacto">Solicitar demo</a><a href="mailto:info@serendipiaagency.com">Email directo</a></div></div><div class="sa-shell sa-footer-bottom"><span>© {{ new Date().getUTCFullYear() }} Serendipia Agency</span><span>Inmobiliaria digital, preparada para lo que viene.</span><NuxtLink to="/demo/privacy">Privacidad</NuxtLink></div></footer>
+    <footer class="sa-footer"><div class="sa-shell sa-footer-grid"><div><NuxtLink to="/" class="sa-brand"><span class="sa-brand-mark"><span>SA</span></span><span class="sa-brand-copy"><strong>Serendipia</strong><small>INMOBILIARIA</small></span></NuxtLink><p>Software para inmobiliarias, promotoras y equipos comerciales que quieren trabajar con una base preparada para crecer.</p></div><div><small>PLATAFORMA</small><a href="#plataforma">Producto</a><a href="#inteligencia">IA inmobiliaria</a><a href="#activos">Tipos de activo</a></div><div><small>EXPERIENCIAS</small><NuxtLink to="/propiedades">Ver propiedades</NuxtLink><NuxtLink to="/mapa">Explorar mapa</NuxtLink><NuxtLink to="/contacto">Contacto</NuxtLink></div><div><small>ACCESO</small><NuxtLink to="/admin/login">Acceder al panel</NuxtLink><a href="#contacto">Solicitar demo</a><a href="mailto:info@serendipiaagency.com">Email directo</a></div></div><div class="sa-shell sa-footer-bottom"><span>© {{ new Date().getUTCFullYear() }} Serendipia Agency</span><span>Inmobiliaria digital, preparada para lo que viene.</span><NuxtLink to="/privacidad">Privacidad</NuxtLink></div></footer>
   </div>
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: false })
+import SiteBlockRenderer from '~/components/site-builder/SiteBlockRenderer.vue'
 
-useHead({
-  title: 'Serendipia Inmobiliaria | El sistema operativo de la inmobiliaria moderna',
-  meta: [
-    { name: 'description', content: 'La plataforma inmobiliaria preparada para los nuevos tiempos: portal, CRM, CMS, IA, publicación multicanal y Asset Export Studio en un solo sistema.' },
-    { property: 'og:title', content: 'Serendipia Inmobiliaria | La inmobiliaria preparada para la próxima década' },
-    { property: 'og:description', content: 'Un solo sistema para publicar propiedades, captar leads, trabajar el contenido y ayudar a decidir con datos.' },
-  ],
-  link: [
-    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
-    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
-    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&family=Space+Mono:wght@400;700&display=swap' },
-  ],
-})
+// "/" is host-aware (see server/api/public/tenant.get.ts): the primary/default
+// host keeps this SaaS marketing landing page, while a resolved tenant custom
+// domain gets that org's own real-estate portal home instead. definePageMeta
+// can't branch at runtime, so both branches live in this one page under the
+// 'root' layout (layouts/root.vue), which does the equivalent branching for
+// the surrounding chrome (site header/footer vs. none).
+definePageMeta({ layout: 'root', transparentHero: true })
+
+const { tenant, load: loadTenant } = useTenant()
+await loadTenant()
+const isPortal = computed(() => tenant.value?.isCustomDomain === true)
+
+let data = ref<any>(null)
+let page = ref<any>(null)
+if (isPortal.value) {
+  ;({ data } = await useFetch('/api/public/home'))
+  ;({ data: page } = await useFetch('/api/public/site-pages/home'))
+}
+
+if (isPortal.value) {
+  useHead(
+    seoHead({
+      title: page.value?.seo?.title || `${tenant.value?.companyName || tenant.value?.name} — Propiedades excepcionales`,
+      description:
+        page.value?.seo?.description ||
+        'Marketplace curado de proyectos off-plan, ventas de segunda mano y comunidades residenciales.',
+    }),
+  )
+} else {
+  useHead({
+    title: 'Serendipia Inmobiliaria | El sistema operativo de la inmobiliaria moderna',
+    meta: [
+      { name: 'description', content: 'La plataforma inmobiliaria preparada para los nuevos tiempos: portal, CRM, CMS, IA, publicación multicanal y Asset Export Studio en un solo sistema.' },
+      { property: 'og:title', content: 'Serendipia Inmobiliaria | La inmobiliaria preparada para la próxima década' },
+      { property: 'og:description', content: 'Un solo sistema para publicar propiedades, captar leads, trabajar el contenido y ayudar a decidir con datos.' },
+    ],
+    link: [
+      { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+      { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+      { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&family=Space+Mono:wght@400;700&display=swap' },
+    ],
+  })
+}
 
 const menuOpen = ref(false)
 const activePublicTab = ref('search')

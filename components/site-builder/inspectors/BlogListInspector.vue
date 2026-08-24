@@ -13,7 +13,7 @@
     </InspectorSection>
     <InspectorSection title="Comportamiento">
       <TextField label="Botón" :model-value="content.cta || ''" placeholder="Texto (vacío = sin botón)" @update:model-value="(v) => (content.cta = v)" />
-      <TextField label="Enlace del botón" :model-value="content.ctaTo || ''" placeholder="/demo/blog" @update:model-value="(v) => (content.ctaTo = v)" />
+      <TextField label="Enlace del botón" :model-value="content.ctaTo || ''" placeholder="/blog" @update:model-value="(v) => (content.ctaTo = v)" />
     </InspectorSection>
   </div>
 </template>

@@ -6,7 +6,7 @@
         <p v-if="!isNew" class="mt-1 text-xs text-stone-450">Cada guardado crea una versión en el historial.</p>
       </div>
       <div class="flex items-center gap-3">
-        <a v-if="!isNew" :href="`/demo/blog/preview/${idParam}`" target="_blank" class="btn-secondary">Vista previa</a>
+        <a v-if="!isNew" :href="`/admin/cms/articles/preview/${idParam}`" target="_blank" class="btn-secondary">Vista previa</a>
         <NuxtLink to="/admin/cms/articles" class="btn-secondary">← Volver</NuxtLink>
         <button class="btn-primary" :disabled="saving" @click="save">{{ saving ? 'Guardando…' : 'Guardar' }}</button>
       </div>

@@ -145,9 +145,11 @@ export default defineEventHandler(async (event) => {
       type: 'confirmation',
       recipientEmail: body.email || null,
       recipientPhone: body.phone || null,
-      subject: `Cita confirmada con ${agent.name}`,
       message: `Cita confirmada con ${agent.name} el ${body.startAt}. Gestiona tu cita aquí: ${manageUrl}`,
-      html: `<p>Hola ${name},</p><p>Tu cita con <strong>${agent.name}</strong> el <strong>${body.startAt}</strong> está confirmada.</p>${videoLink ? `<p>Videollamada: <a href="${videoLink}">${videoLink}</a></p>` : ''}<p>Puedes gestionar tu cita (cancelar o reprogramar) aquí: <a href="${manageUrl}">${manageUrl}</a></p>`,
+      scheduledAt: body.startAt,
+      agentName: agent.name,
+      manageUrl,
+      videoLink,
     })
   } catch {
     // La cita ya quedó guardada — un fallo al notificar nunca debe deshacerla.

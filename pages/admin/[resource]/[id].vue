@@ -61,7 +61,7 @@
             <span class="truncate text-xs text-slate-500">{{ form[field] }}</span>
             <button type="button" class="text-sm text-red-600 hover:underline" @click="form[field] = ''">Remove</button>
           </div>
-          <input type="file" :accept="fd.type === 'image' ? 'image/*' : undefined" class="text-sm" @change="upload(field, $event)" />
+          <input type="file" :accept="fd.type === 'image' ? 'image/*' : undefined" class="text-sm" @change="upload(String(field), $event)" />
           <p v-if="uploading === field" class="text-xs text-slate-400">Uploading…</p>
         </div>
 

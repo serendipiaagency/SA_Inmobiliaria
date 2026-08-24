@@ -145,6 +145,7 @@ export function useHelpContent() {
         'Cambia entre Escritorio/Tablet/Móvil arriba para comprobar cómo se ve en cada tamaño real.',
         'Los cambios se autoguardan como borrador (verás "Guardando…"/"Guardado"). El sitio público no cambia hasta que pulses "Publicar cambios".',
         'Deshacer/Rehacer (las flechas junto al selector de zoom) solo cubren la sesión actual del editor.',
+        'El icono "Abrir sitio publicado" de la barra superior lleva al dominio propio de tu organización — si todavía no tienes uno asignado en Empresas (Sistema → Empresas), el icono aparece deshabilitado hasta que lo configures.',
       ],
     },
     {
@@ -273,11 +274,13 @@ export function useHelpContent() {
       group: 'Finanzas & Growth',
       title: 'Depósitos',
       route: '/admin/depositos',
-      summary: 'Cobro de fianzas o señales asociadas a un contrato, a través de Stripe Checkout.',
+      summary: 'Cobro de fianzas o señales asociadas a un contrato, a través de Stripe Checkout, con confirmación automática por webhook.',
       steps: [
         'Elige el contrato y el importe, y pulsa "Solicitar pago" para generar un enlace de pago real de Stripe.',
         'Si el enlace no se genera y aparece "no conectado", significa que falta activar el secreto STRIPE_SECRET_KEY en el Worker — contacta con nosotros para configurarlo.',
-        'Usa "Comprobar estado" para consultar directamente a Stripe si el pago ya se ha completado.',
+        'El estado pasa a "Pagado" solo (automáticamente) en cuanto Stripe confirma el pago por webhook — nunca porque el cliente haya vuelto a la página de éxito, que no es una prueba de pago.',
+        '"Comprobar estado" fuerza una consulta manual a Stripe, por si quieres verificar antes de que llegue el webhook o la reconciliación horaria.',
+        'El historial de eventos de Stripe, debajo de la lista de depósitos, muestra cada notificación recibida y qué se hizo con ella — útil si un cliente dice haber pagado y no se refleja.',
       ],
     },
     {
@@ -472,7 +475,7 @@ export function useHelpContent() {
       title: 'Usuarios',
       route: '/admin/users',
       summary: 'Cuentas de acceso al panel (rol admin) y cuentas de cliente (rol usuario) que pueden entrar a "Mi cuenta".',
-      steps: ['Crea una cuenta con rol "usuario" y el mismo email que un cliente para que pueda ver sus propias visitas y contratos desde /demo/mi-cuenta.'],
+      steps: ['Crea una cuenta con rol "usuario" y el mismo email que un cliente para que pueda ver sus propias visitas y contratos desde /mi-cuenta.'],
     },
     {
       key: 'webhooks',
@@ -485,6 +488,19 @@ export function useHelpContent() {
         'Guarda el secreto que se muestra al crearlo — solo se ve una vez, y sirve para verificar que la notificación viene realmente de esta plataforma (firma HMAC).',
         'Usa "Probar" para enviar un evento de prueba real y comprobar que tu sistema lo recibe.',
         'El histórico de entregas muestra cada intento real, incluidos los fallos, con el código de respuesta que devolvió tu servidor.',
+      ],
+    },
+    {
+      key: 'emails',
+      group: 'Sistema',
+      title: 'Emails',
+      route: '/admin/emails',
+      summary: 'Historial real de los emails transaccionales que envía la plataforma (leads, citas, contratos, depósitos, contraseñas…) vía Resend.',
+      steps: [
+        'El estado solo pasa a "Entregado" cuando Resend lo confirma — "Enviado" únicamente significa que Resend aceptó la petición, no que llegó a un buzón real.',
+        '"Rebotado" y "Reclamación" también los confirma Resend por webhook, nunca se marcan por adelantado.',
+        'Un envío fallido se reintenta automáticamente (hasta 5 veces, con espera creciente) antes de marcarse "Fallido" de forma definitiva.',
+        'El destinatario, la plantilla y el tipo (transaccional o comercial) de cada fila corresponden exactamente a lo que se envió — nada se resume ni se inventa.',
       ],
     },
     {
@@ -507,9 +523,31 @@ export function useHelpContent() {
       summary: 'Registro de qué usuario de tu equipo hizo qué acción y cuándo, dentro del panel.',
       steps: [],
     },
+    {
+      key: 'organizations',
+      group: 'Sistema',
+      title: 'Empresas',
+      route: '/admin/organizations',
+      summary: 'Solo super_admin. El registro de todas las inmobiliarias (tenants) de la plataforma: nombre, dominio propio, marca, email y estado.',
+      steps: [
+        'El campo "Dominio" es el que decide qué inmobiliaria se sirve en cada web pública — ver docs/multi-domain.md para los pasos completos en Cloudflare (Custom Domains) antes de guardarlo aquí.',
+        'Guarda el dominio exactamente como lo usará el visitante (con o sin "www." da igual, se trata como el mismo dominio).',
+        'No se puede usar un *.workers.dev ni "localhost" como dominio de una empresa — esos hosts ya están reservados para la organización por defecto.',
+        'Sin un dominio propio asignado aquí, la organización solo es accesible por su propio admin — no aparece en ninguna web pública.',
+        'Los campos "Email — …" configuran desde qué dirección envía esta organización sus emails y quién recibe las notificaciones internas (nuevo lead, mensaje de contacto…) — ver docs/resend-email.md para los pasos de verificación de dominio en Resend. "Dominio verificado" es de solo lectura: se recalcula solo, nunca se marca a mano.',
+        'Los campos "Legal — …" (razón social, CIF/NIF, dirección, email y teléfono) son el responsable del tratamiento real de esta organización y aparecen en sus páginas públicas de Privacidad y Términos (/privacidad, /terminos) — mientras estén vacíos, esas páginas muestran "Por confirmar" en su lugar.',
+      ],
+    },
   ]
 
   const faqs: HelpFaq[] = [
+    {
+      id: 'faq-unknown-domain-404',
+      question: 'Mi web pública da 404 en un dominio nuevo, ¿por qué?',
+      answer:
+        'Un dominio solo sirve el catálogo de una inmobiliaria cuando está guardado en el campo "Dominio" de esa organización (solo lo puede editar super_admin, en Empresas) y ese mismo dominio ya está añadido como Custom Domain en Cloudflare y apuntando a este Worker. Si falta cualquiera de los dos pasos, la plataforma responde 404 en vez de mostrar el catálogo de otra inmobiliaria por error — es la protección que evita que un dominio mal configurado filtre datos de la organización equivocada. El panel de administración (/admin) sigue siendo accesible en cualquier dominio, precisamente para poder entrar y completar la configuración. Detalles en docs/multi-domain.md.',
+      tags: ['dominio', 'multiagencia', 'seguridad', '404', 'dns'],
+    },
     {
       id: 'faq-tenant-isolation',
       question: '¿Puede otra inmobiliaria de la plataforma ver mis datos?',
@@ -565,6 +603,20 @@ export function useHelpContent() {
       answer:
         'Que el secreto de Stripe (STRIPE_SECRET_KEY) todavía no está configurado en tu Worker. La plataforma nunca simula un cobro que no ha ocurrido de verdad — te lo dice explícitamente en vez de fingir que el pago se ha iniciado. Contacta con nosotros para activarlo.',
       tags: ['depositos', 'pagos', 'stripe'],
+    },
+    {
+      id: 'faq-email-sent-not-delivered',
+      question: 'Un email dice "Enviado" en /admin/emails pero el destinatario dice que no le llegó, ¿qué pasa?',
+      answer:
+        '"Enviado" solo significa que Resend aceptó la petición — no que un buzón real la recibió. El estado pasa a "Entregado" (o "Rebotado"/"Reclamación") únicamente cuando Resend lo confirma de vuelta por webhook. Si un email lleva mucho tiempo en "Enviado" sin pasar a "Entregado", lo más probable es que el webhook de Resend no esté configurado en este Worker — contacta con nosotros para revisarlo (RESEND_WEBHOOK_SECRET). Mientras tanto, revisa también la carpeta de spam del destinatario: un email "Enviado" que nunca llega a la bandeja principal suele ser justamente lo que "Rebotado"/"Reclamación" existen para detectar, en cuanto el webhook esté activo.',
+      tags: ['emails', 'resend', 'webhook', 'entregas'],
+    },
+    {
+      id: 'faq-stripe-webhook-not-updating',
+      question: 'Un cliente dice que ya pagó pero el depósito sigue "En proceso", ¿qué hago?',
+      answer:
+        'Primero, pulsa "Comprobar estado" en esa fila — consulta directamente a Stripe y actualiza el depósito al momento si ya está pagado. Si sigue sin cambiar, revisa el historial de eventos de Stripe debajo de la lista: si no aparece ningún evento reciente, es que el webhook de Stripe (Dashboard → Developers → Webhooks) no está entregando a esta plataforma — contacta con nosotros para revisar la configuración (STRIPE_WEBHOOK_SECRET). Aun sin webhook, una tarea automática revisa cada hora los depósitos pendientes y los corrige, así que en el peor caso se resuelve solo dentro de esa hora.',
+      tags: ['depositos', 'pagos', 'stripe', 'webhook'],
     },
     {
       id: 'faq-avm-no-data',

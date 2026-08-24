@@ -14,13 +14,18 @@
         {{ loading ? t('login.form.signingIn', 'Accediendo…') : t('login.form.submit', 'Acceder') }}
       </button>
       <p v-if="error" class="text-center text-sm font-medium text-red-600">{{ error }}</p>
+      <p class="text-center text-sm">
+        <NuxtLink to="/forgot-password" class="text-stone-500 hover:underline">{{ t('login.form.forgotPassword', '¿Olvidaste tu contraseña?') }}</NuxtLink>
+      </p>
     </form>
   </div>
 </template>
 
 <script setup lang="ts">
 const { t } = useI18n()
-useHead({ title: 'Sign in — M&M Real Estate' })
+const { tenant, load: loadTenant } = useTenant()
+await loadTenant()
+useHead({ title: `Sign in — ${tenant.value?.companyName || tenant.value?.name}` })
 const { login, user } = useAuth()
 const router = useRouter()
 const email = ref('')
@@ -34,7 +39,7 @@ async function submit() {
   try {
     await login(email.value, password.value)
     const isStaff = user.value?.role === 'admin' || user.value?.role === 'super_admin'
-    router.push(isStaff ? '/admin' : '/demo')
+    router.push(isStaff ? '/admin' : '/mi-cuenta')
   } catch {
     // The backend's statusMessage ("Invalid credentials") is an internal,
     // English-only string — never surface it on this localized form.

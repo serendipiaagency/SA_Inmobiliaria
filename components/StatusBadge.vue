@@ -14,6 +14,7 @@ const LABELS: Record<string, string> = {
   running: 'Ejecutando',
   success: 'Publicado',
   failed: 'Fallido',
+  blocked: 'Bloqueado (no implementado)',
   paused: 'Pausado',
   retrying: 'Reintentando',
 }
@@ -27,6 +28,7 @@ const CLASSES: Record<string, string> = {
   running: 'bg-amber-50 text-amber-700',
   success: 'bg-emerald-50 text-emerald-700',
   failed: 'bg-red-50 text-red-700',
+  blocked: 'bg-stone-200 text-stone-600',
   paused: 'bg-stone-100 text-stone-500',
   retrying: 'bg-amber-50 text-amber-700',
 }
