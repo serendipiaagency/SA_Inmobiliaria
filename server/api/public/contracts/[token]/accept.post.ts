@@ -6,6 +6,7 @@ import { renderContractPdf } from '../../../../utils/contracts/pdfRenderer'
 import { buildStructuredKey } from '../../../../utils/media'
 import { registerGeneratedFile } from '../../../../utils/mediaAssets'
 import { assertQuotaAvailable } from '../../../../utils/mediaQuota'
+import { sendInternalNotification } from '../../../../utils/email/send'
 
 interface Body {
   fullName?: string
@@ -73,6 +74,12 @@ export default defineEventHandler(async (event) => {
     .where(eq(schema.contracts.id, contract.id))
 
   await dispatchWebhook(event, contract.organizationId, 'contract.accepted', { id: contract.id, title: contract.title, clientName: contract.clientName, acceptedAt })
+
+  try {
+    await sendInternalNotification(db, cfEnv(event), contract.organizationId, 'contract_accepted', { title: contract.title, clientName: contract.clientName, acceptedAt })
+  } catch {
+    // The acceptance is already saved — a notification failure must never undo that.
+  }
 
   return { ok: true }
 })

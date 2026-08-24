@@ -1,5 +1,7 @@
 import { eq } from 'drizzle-orm'
 import * as schema from '../db/schema'
+import { sendTransactionalEmail } from './email/send'
+import type { TemplateKey } from './email/templates'
 
 interface StripeCheckoutResult {
   ok: boolean
@@ -132,12 +134,25 @@ export interface StripeApplyResult {
  * trustworthy (Stripe, not the browser, is the one calling this endpoint,
  * and the signature proves that).
  */
-export async function applyStripeEvent(db: any, type: string, object: any): Promise<StripeApplyResult> {
+export async function applyStripeEvent(db: any, env: Record<string, any>, type: string, object: any): Promise<StripeApplyResult> {
   const nowIso = new Date().toISOString().replace('T', ' ').slice(0, 19)
 
   const findBySession = async (sessionId: string) => (await db.select().from(schema.depositPayments).where(eq(schema.depositPayments.stripeCheckoutSessionId, sessionId)).limit(1))[0]
   const findByPaymentIntent = async (paymentIntentId: string) =>
     (await db.select().from(schema.depositPayments).where(eq(schema.depositPayments.stripePaymentIntentId, paymentIntentId)).limit(1))[0]
+
+  // "depósito recibido" / "pago fallido" — best-effort: the deposit's own
+  // status is already correctly updated regardless of whether the client
+  // can be emailed at all (no contract, no clientEmail on it).
+  const notifyClient = async (deposit: any, template: TemplateKey) => {
+    if (!deposit.contractId) return
+    try {
+      const [contract] = await db.select({ clientEmail: schema.contracts.clientEmail }).from(schema.contracts).where(eq(schema.contracts.id, deposit.contractId)).limit(1)
+      if (contract?.clientEmail) await sendTransactionalEmail(db, env, { organizationId: deposit.organizationId, template, to: contract.clientEmail, data: { amount: deposit.amount } })
+    } catch {
+      // The deposit's own status is already saved — a notification failure must never undo that.
+    }
+  }
 
   switch (type) {
     case 'checkout.session.completed':
@@ -153,12 +168,14 @@ export async function applyStripeEvent(db: any, type: string, object: any): Prom
           stripePaymentIntentId: object.payment_intent || deposit.stripePaymentIntentId,
         })
         .where(eq(schema.depositPayments.id, deposit.id))
+      if (paid) await notifyClient(deposit, 'deposit_received')
       return { status: 'processed', depositId: deposit.id, organizationId: deposit.organizationId, note: paid ? 'Marcado como pagado' : 'Sesión completada, pago aún pendiente' }
     }
     case 'checkout.session.async_payment_failed': {
       const deposit = await findBySession(object.id)
       if (!deposit) return { status: 'ignored', note: 'No hay depósito con esa sesión de Checkout' }
       await db.update(schema.depositPayments).set({ status: 'failed', errorMessage: 'El pago asíncrono no se completó' }).where(eq(schema.depositPayments.id, deposit.id))
+      await notifyClient(deposit, 'payment_failed')
       return { status: 'processed', depositId: deposit.id, organizationId: deposit.organizationId, note: 'Marcado como fallido (pago asíncrono)' }
     }
     case 'payment_intent.payment_failed': {
@@ -166,6 +183,7 @@ export async function applyStripeEvent(db: any, type: string, object: any): Prom
       if (!deposit) return { status: 'ignored', note: 'No hay depósito con ese payment_intent' }
       const reason = object.last_payment_error?.message || 'El pago falló'
       await db.update(schema.depositPayments).set({ status: 'failed', errorMessage: reason }).where(eq(schema.depositPayments.id, deposit.id))
+      await notifyClient(deposit, 'payment_failed')
       return { status: 'processed', depositId: deposit.id, organizationId: deposit.organizationId, note: `Marcado como fallido: ${reason}` }
     }
     case 'charge.refunded': {

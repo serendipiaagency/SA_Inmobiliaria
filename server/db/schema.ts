@@ -23,6 +23,21 @@ export const organizations = sqliteTable('organizations', {
   // Added by 0039. Reconciled from media_assets — see server/utils/mediaQuota.ts.
   storageBytesUsed: integer('storage_bytes_used').notNull().default(0),
   storageBytesLimit: integer('storage_bytes_limit').notNull().default(5_368_709_120), // 5 GiB
+  // Added by 0044 — per-org email identity (server/utils/email/). All
+  // nullable/defaulted: an org with none of this set falls back to the
+  // platform defaults in server/utils/email/send.ts.
+  emailSenderName: text('email_sender_name'),
+  emailSenderAddress: text('email_sender_address'),
+  // Set by checking Resend's Domains API when emailSenderAddress is saved
+  // (server/utils/email/resendDomains.ts) — never a manual toggle.
+  emailSenderDomainVerified: integer('email_sender_domain_verified').notNull().default(0),
+  emailSenderDomainCheckedAt: text('email_sender_domain_checked_at'),
+  emailReplyTo: text('email_reply_to'),
+  // JSON array of staff email addresses notified on new leads/contact
+  // messages/complaints — internal-operations mail, not sent to the org's
+  // own public sender address.
+  emailInternalRecipientsJson: text('email_internal_recipients_json').notNull().default('[]'),
+  emailLocale: text('email_locale').notNull().default('es'), // es | en
 })
 
 // ---------------------------------------------------------------------------
@@ -1866,4 +1881,84 @@ export const sitePageVersions = sqliteTable(
     createdAt: text('created_at').notNull().default(''),
   },
   (t) => [index('site_page_versions_page').on(t.pageId, t.version)],
+)
+
+// ---------------------------------------------------------------------------
+// Transactional email (0044) — see server/utils/email/
+// ---------------------------------------------------------------------------
+
+/**
+ * One row per send attempt. `status` only ever becomes 'delivered',
+ * 'bounced' or 'complained' via the Resend webhook
+ * (server/api/resend/webhook.post.ts) confirming it — never from the
+ * synchronous API call succeeding, which only proves Resend *accepted* the
+ * request, not that a mailbox received it. Also the retry queue: a failed
+ * attempt stays 'queued' with `nextRetryAt` set until `attempts` reaches the
+ * configured max, at which point it becomes permanently 'failed'.
+ */
+export const emailLog = sqliteTable(
+  'email_log',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    template: text('template').notNull(),
+    kind: text('kind').notNull().default('transactional'), // transactional | commercial
+    recipient: text('recipient').notNull(),
+    fromHeader: text('from_header').notNull(),
+    replyTo: text('reply_to'),
+    subject: text('subject').notNull(),
+    // The exact rendered HTML sent (or queued to send) — makes a retry
+    // self-contained and doubles as a real audit trail.
+    html: text('html').notNull(),
+    locale: text('locale').notNull().default('es'),
+    provider: text('provider').notNull().default('resend'),
+    status: text('status').notNull().default('queued'), // queued | sent | delivered | bounced | complained | failed
+    externalId: text('external_id'), // Resend's email id — how the webhook matches a delivery event back to this row
+    attempts: integer('attempts').notNull().default(0),
+    nextRetryAt: text('next_retry_at'),
+    errorMessage: text('error_message'),
+    sentAt: text('sent_at'),
+    deliveredAt: text('delivered_at'),
+    bouncedAt: text('bounced_at'),
+    complainedAt: text('complained_at'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [
+    index('email_log_org').on(t.organizationId, t.createdAt),
+    index('email_log_retry').on(t.status, t.nextRetryAt),
+    index('email_log_external_id').on(t.externalId),
+  ],
+)
+
+/** Idempotency for Resend's webhook deliveries (Svix event ids) — same claim-then-process pattern as stripe_webhook_events (0043). */
+export const resendWebhookEvents = sqliteTable(
+  'resend_webhook_events',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    svixId: text('svix_id').notNull().unique(),
+    type: text('type').notNull(),
+    emailLogId: integer('email_log_id').references(() => emailLog.id),
+    organizationId: integer('organization_id'),
+    payloadJson: text('payload_json').notNull(),
+    processedOk: integer('processed_ok').notNull().default(1),
+    note: text('note'),
+    receivedAt: text('received_at').notNull().default(''),
+  },
+  (t) => [index('resend_webhook_events_org').on(t.organizationId, t.receivedAt)],
+)
+
+/** The "recuperación de contraseña" email needs a real reset flow — only the token's SHA-256 hash is ever stored, same principle as api_keys. */
+export const passwordResetTokens = sqliteTable(
+  'password_reset_tokens',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: text('expires_at').notNull(),
+    usedAt: text('used_at'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('password_reset_tokens_user').on(t.userId, t.expiresAt)],
 )

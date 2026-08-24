@@ -54,9 +54,11 @@ enabled = true
 #                 published articles whose expires_at has passed),
 #                 server/tasks/system/cleanup-error-logs.ts (purges error_logs
 #                 older than 30 days), server/tasks/marketing/saved-search-alerts.ts
-#                 (emails saved-search subscribers about new matches) and
+#                 (emails saved-search subscribers about new matches),
 #                 server/tasks/payments/reconcile-deposits.ts (polls Stripe for
-#                 any deposit the webhook never confirmed)
+#                 any deposit the webhook never confirmed) and
+#                 server/tasks/notifications/retry-email-queue.ts (retries
+#                 any transactional email that failed to send)
 # "* * * *  *" -> server/tasks/scheduler/dispatch.ts (Publication Scheduler
 #                 dispatcher — every minute, so staged-launch offsets land on time)
 #                 and server/tasks/appointments/reminders.ts (24h/1h

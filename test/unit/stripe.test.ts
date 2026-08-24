@@ -65,7 +65,7 @@ describe('applyStripeEvent', () => {
     const a = await seedTenant(db, 'Stripe1')
     const deposit = await seedDeposit(db, a.orgId, { stripeCheckoutSessionId: 'cs_test_1' })
 
-    const result = await applyStripeEvent(db, 'checkout.session.completed', { id: 'cs_test_1', payment_status: 'paid', payment_intent: 'pi_test_1' })
+    const result = await applyStripeEvent(db, {}, 'checkout.session.completed', { id: 'cs_test_1', payment_status: 'paid', payment_intent: 'pi_test_1' })
     expect(result.status).toBe('processed')
     expect(result.depositId).toBe(deposit.id)
 
@@ -80,7 +80,7 @@ describe('applyStripeEvent', () => {
     const a = await seedTenant(db, 'Stripe2')
     const deposit = await seedDeposit(db, a.orgId, { stripeCheckoutSessionId: 'cs_test_2' })
 
-    await applyStripeEvent(db, 'checkout.session.completed', { id: 'cs_test_2', payment_status: 'unpaid', payment_intent: 'pi_test_2' })
+    await applyStripeEvent(db, {}, 'checkout.session.completed', { id: 'cs_test_2', payment_status: 'unpaid', payment_intent: 'pi_test_2' })
 
     const [updated] = await db.select().from(schema.depositPayments).where(eq(schema.depositPayments.id, deposit.id))
     expect(updated.status).toBe('processing')
@@ -92,7 +92,7 @@ describe('applyStripeEvent', () => {
     const a = await seedTenant(db, 'Stripe3')
     const deposit = await seedDeposit(db, a.orgId, { stripeCheckoutSessionId: 'cs_test_3' })
 
-    await applyStripeEvent(db, 'checkout.session.async_payment_failed', { id: 'cs_test_3' })
+    await applyStripeEvent(db, {}, 'checkout.session.async_payment_failed', { id: 'cs_test_3' })
 
     const [updated] = await db.select().from(schema.depositPayments).where(eq(schema.depositPayments.id, deposit.id))
     expect(updated.status).toBe('failed')
@@ -103,7 +103,7 @@ describe('applyStripeEvent', () => {
     const a = await seedTenant(db, 'Stripe4')
     const deposit = await seedDeposit(db, a.orgId, { stripeCheckoutSessionId: 'cs_test_4', stripePaymentIntentId: 'pi_test_4' })
 
-    const result = await applyStripeEvent(db, 'payment_intent.payment_failed', { id: 'pi_test_4', last_payment_error: { message: 'Your card was declined.' } })
+    const result = await applyStripeEvent(db, {}, 'payment_intent.payment_failed', { id: 'pi_test_4', last_payment_error: { message: 'Your card was declined.' } })
     expect(result.status).toBe('processed')
 
     const [updated] = await db.select().from(schema.depositPayments).where(eq(schema.depositPayments.id, deposit.id))
@@ -116,7 +116,7 @@ describe('applyStripeEvent', () => {
     const a = await seedTenant(db, 'Stripe5')
     const deposit = await seedDeposit(db, a.orgId, { stripeCheckoutSessionId: 'cs_test_5', stripePaymentIntentId: 'pi_test_5', status: 'paid', paidAt: '2026-01-02 00:00:00' })
 
-    const result = await applyStripeEvent(db, 'charge.refunded', { id: 'ch_test_5', payment_intent: 'pi_test_5' })
+    const result = await applyStripeEvent(db, {}, 'charge.refunded', { id: 'ch_test_5', payment_intent: 'pi_test_5' })
     expect(result.status).toBe('processed')
 
     const [updated] = await db.select().from(schema.depositPayments).where(eq(schema.depositPayments.id, deposit.id))
@@ -128,13 +128,13 @@ describe('applyStripeEvent', () => {
     const { db } = createTestDb()
     await seedTenant(db, 'Stripe6')
 
-    const result = await applyStripeEvent(db, 'checkout.session.completed', { id: 'cs_never_seen', payment_status: 'paid' })
+    const result = await applyStripeEvent(db, {}, 'checkout.session.completed', { id: 'cs_never_seen', payment_status: 'paid' })
     expect(result.status).toBe('ignored')
   })
 
   it('an unrecognized event type is ignored, not errored', async () => {
     const { db } = createTestDb()
-    const result = await applyStripeEvent(db, 'customer.created', { id: 'cus_123' })
+    const result = await applyStripeEvent(db, {}, 'customer.created', { id: 'cus_123' })
     expect(result.status).toBe('ignored')
   })
 
@@ -144,7 +144,7 @@ describe('applyStripeEvent', () => {
     const deposit = await seedDeposit(db, a.orgId, { stripeCheckoutSessionId: 'cs_test_7', amount: 500 })
 
     // A malicious/buggy payload with a different amount must never change what we charge for.
-    await applyStripeEvent(db, 'checkout.session.completed', { id: 'cs_test_7', payment_status: 'paid', amount_total: 999999, payment_intent: 'pi_test_7' })
+    await applyStripeEvent(db, {}, 'checkout.session.completed', { id: 'cs_test_7', payment_status: 'paid', amount_total: 999999, payment_intent: 'pi_test_7' })
 
     const [updated] = await db.select().from(schema.depositPayments).where(eq(schema.depositPayments.id, deposit.id))
     expect(updated.amount).toBe(500)

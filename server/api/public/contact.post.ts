@@ -1,7 +1,8 @@
-import { useDb, schema, now, resolvePublicOrgId } from '../../utils/db'
+import { useDb, schema, now, resolvePublicOrgId, cfEnv } from '../../utils/db'
 import { upsertLead } from '../../utils/leads'
 import { rateLimit } from '../../utils/rateLimit'
 import { requireValidEmail } from '../../utils/validate'
+import { sendInternalNotification } from '../../utils/email/send'
 
 export default defineEventHandler(async (event) => {
   await rateLimit(event, 'contact', { limit: 5, windowSeconds: 600 })
@@ -26,7 +27,9 @@ export default defineEventHandler(async (event) => {
     createdAt: now(),
   })
 
-  // Sales enquiries become CRM leads; complaints are support issues, not prospects.
+  // Sales enquiries become CRM leads (which sends its own internal
+  // notification, see server/utils/leads.ts); complaints are support issues,
+  // not prospects, so they get their own internal notification here instead.
   if (type === 'contact') {
     try {
       await upsertLead(event, {
@@ -39,6 +42,17 @@ export default defineEventHandler(async (event) => {
       })
     } catch {
       // Lead pipeline must never block the visitor's message from being saved.
+    }
+    try {
+      await sendInternalNotification(db, cfEnv(event), orgId, 'contact_message', { name, email, phone: body.phone, subject: body.subject, message })
+    } catch {
+      // The message is already saved — a notification failure must never undo that.
+    }
+  } else {
+    try {
+      await sendInternalNotification(db, cfEnv(event), orgId, 'complaint', { name, email, phone: body.phone, message })
+    } catch {
+      // The complaint is already saved — a notification failure must never undo that.
     }
   }
 

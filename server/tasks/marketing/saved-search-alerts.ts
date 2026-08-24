@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/d1'
 import { and, eq, gte } from 'drizzle-orm'
 import * as schema from '../../db/schema'
-import { sendEmail } from '../../utils/email'
+import { sendTransactionalEmail } from '../../utils/email/send'
 
 function fmt(d: Date): string {
   return d.toISOString().replace('T', ' ').slice(0, 19)
@@ -61,16 +61,17 @@ export default defineTask<{ skipped: true; reason: string } | { checked: number;
       if (matches.length) {
         const org = (await db.select({ domain: schema.organizations.domain }).from(schema.organizations).where(eq(schema.organizations.id, search.organizationId)).limit(1))[0]
         const origin = org?.domain ? `https://${org.domain}` : 'https://sa-inmobiliaria.com'
-        const list = matches
+        const items = matches
           .slice(0, 10)
-          .map((p) => `<li>${p.name}${p.community ? ` — ${p.community}` : ''}${p.price ? ` — ${new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(p.price)}` : ''}</li>`)
-          .join('')
-        const result = await sendEmail(env, {
+          .map((p) => `${p.name}${p.community ? ` — ${p.community}` : ''}${p.price ? ` — ${new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(p.price)}` : ''}`)
+        const [result] = await sendTransactionalEmail(db, env, {
+          organizationId: search.organizationId,
+          template: 'saved_search_alert',
           to: search.email,
-          subject: `${matches.length} propiedad${matches.length > 1 ? 'es' : ''} nueva${matches.length > 1 ? 's' : ''} que coincide${matches.length > 1 ? 'n' : ''} con tu búsqueda`,
-          html: `<p>Hola,</p><p>Han aparecido ${matches.length} propiedades nuevas que coinciden con tu búsqueda guardada:</p><ul>${list}</ul><p style="color:#888;font-size:12px">Si no quieres recibir más avisos, <a href="${origin}/unsub/${search.unsubscribeToken}">cancela aquí</a>.</p>`,
+          data: { count: matches.length, items },
+          unsubscribeUrl: `${origin}/unsub/${search.unsubscribeToken}`,
         })
-        if (result.ok) emailsSent++
+        if (result?.ok) emailsSent++
       }
 
       await db.update(schema.savedSearches).set({ lastNotifiedAt: fmt(now) }).where(eq(schema.savedSearches.id, search.id))

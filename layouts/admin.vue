@@ -116,6 +116,7 @@ const icons: Record<string, string> = {
   key: 'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3',
   alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
   help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4M12 17h.01',
+  mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
 }
 
 interface NavItem {
@@ -218,6 +219,7 @@ const nav: { label: string; items: NavItem[] }[] = [
       { label: 'Configuración', to: '/admin/configuracion', icon: 'settings' },
       { label: 'Usuarios', to: '/admin/users', icon: 'key' },
       { label: 'Webhooks', to: '/admin/webhooks', icon: 'code' },
+      { label: 'Emails', to: '/admin/emails', icon: 'mail' },
       { label: 'Privacidad (RGPD)', to: '/admin/privacidad', icon: 'alert' },
       // Org-scoped: shows this org's own team activity (server/utils/audit.ts).
       { label: 'Auditoría', to: '/admin/audit-log', icon: 'doc' },

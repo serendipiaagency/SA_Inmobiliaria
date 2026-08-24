@@ -24,10 +24,14 @@ echo "==> Applying D1 migrations (local)"
 npx wrangler d1 migrations apply sa_inmobiliaria --local
 
 echo "==> Starting wrangler dev on port ${PORT}"
-# STRIPE_WEBHOOK_SECRET here is a fixed, non-secret placeholder for
-# tests/e2e/stripe-webhook.spec.ts to sign its own synthetic events against —
-# never a real Stripe value, and never used for a real webhook endpoint.
-npx wrangler dev --local --port "${PORT}" --var STRIPE_WEBHOOK_SECRET:whsec_e2e_test_placeholder >"${LOG_FILE}" 2>&1 &
+# STRIPE_WEBHOOK_SECRET / RESEND_WEBHOOK_SECRET here are fixed, non-secret
+# placeholders for tests/e2e/stripe-webhook.spec.ts and
+# tests/e2e/resend-webhook.spec.ts to sign their own synthetic events
+# against — never real values, never used for a real webhook endpoint.
+npx wrangler dev --local --port "${PORT}" \
+  --var STRIPE_WEBHOOK_SECRET:whsec_e2e_test_placeholder \
+  --var RESEND_WEBHOOK_SECRET:whsec_ZTJlX3Rlc3RfcGxhY2Vob2xkZXJfMzJieXRlcw== \
+  >"${LOG_FILE}" 2>&1 &
 PID=$!
 
 echo "==> Waiting for ${BASE_URL} to respond"

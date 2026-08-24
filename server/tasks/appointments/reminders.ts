@@ -47,8 +47,9 @@ export default defineTask<{ skipped: true; reason: string } | { sent24h: number;
           type: 'reminder_24h',
           recipientEmail: visit.clientEmail,
           recipientPhone: visit.clientPhone,
-          subject: `Recordatorio: cita mañana con ${visit.agentName || 'tu agente'}`,
           message: `Recordatorio: tienes una cita el ${visit.scheduledAt} con ${visit.agentName || 'tu agente'}.`,
+          scheduledAt: visit.scheduledAt,
+          agentName: visit.agentName,
         })
         sent24h++
       }
@@ -75,8 +76,9 @@ export default defineTask<{ skipped: true; reason: string } | { sent24h: number;
           type: 'reminder_1h',
           recipientEmail: visit.clientEmail,
           recipientPhone: visit.clientPhone,
-          subject: 'Recordatorio: tu cita es en 1 hora',
           message: `Recordatorio: tu cita con ${visit.agentName || 'tu agente'} es a las ${visit.scheduledAt.slice(11, 16)}.`,
+          scheduledAt: visit.scheduledAt,
+          agentName: visit.agentName,
         })
         sent1h++
       }

@@ -1,8 +1,10 @@
 import { and, eq } from 'drizzle-orm'
 import { createError, type H3Event } from 'h3'
-import { schema, now, slugify } from './db'
-import { hashPassword } from './auth'
+import { schema, now, slugify, useDb, cfEnv } from './db'
+import { hashPassword, createPasswordResetToken } from './auth'
 import { normalizeHost, isReservedHost, isValidHostname } from './domain'
+import { sendTransactionalEmail } from './email/send'
+import { checkResendDomainVerified } from './email/resendClient'
 import {
   assertOwnedReference,
   assertPayloadParentOwnership,
@@ -69,8 +71,10 @@ export interface ResourceDef {
   slugFrom?: string
   /** Translation child table (locale/title/description pattern). */
   translations?: { table: any; foreignKey: string }
-  /** Transform payload before insert/update. */
-  prepare?: (data: Record<string, any>, isCreate: boolean) => Promise<Record<string, any>>
+  /** Transform payload before insert/update. `event` is available for prepare hooks that need Worker bindings (e.g. checking a domain against Resend's API). */
+  prepare?: (data: Record<string, any>, isCreate: boolean, event?: H3Event) => Promise<Record<string, any>>
+  /** Side effect after a successful create (e.g. the welcome email for a new user) — never blocks or fails the create itself. */
+  afterCreate?: (event: H3Event, id: number, data: Record<string, any>) => Promise<void>
 }
 
 export const adminResources: Record<string, ResourceDef> = {
@@ -85,8 +89,17 @@ export const adminResources: Record<string, ResourceDef> = {
       logo: { type: 'image', label: 'Logo' },
       brandColor: { type: 'text', label: 'Color de marca' },
       status: { type: 'select', label: 'Estado', options: ['active', 'suspended'] },
+      emailSenderName: { type: 'text', label: 'Email — nombre del remitente' },
+      emailSenderAddress: { type: 'text', label: 'Email — dirección del remitente' },
+      emailReplyTo: { type: 'text', label: 'Email — responder a' },
+      // A JSON array of staff addresses, e.g. ["ops@empresa.com","ventas@empresa.com"] — notified on new leads/contact messages/complaints.
+      emailInternalRecipientsJson: { type: 'json', label: 'Email — destinatarios internos (JSON)' },
+      emailLocale: { type: 'select', label: 'Email — idioma', options: ['es', 'en'] },
     },
-    listFields: ['id', 'name', 'domain', 'status', 'createdAt'],
+    // emailSenderDomainVerified/emailSenderDomainCheckedAt are deliberately
+    // NOT in `fields` above — they're never client-editable, only ever set
+    // by the real Resend check in `prepare` below, visible here read-only.
+    listFields: ['id', 'name', 'domain', 'status', 'emailSenderAddress', 'emailSenderDomainVerified', 'createdAt'],
     searchFields: ['name', 'slug', 'domain'],
     hasTimestamps: true,
     hasUpdatedAt: true,
@@ -102,7 +115,7 @@ export const adminResources: Record<string, ResourceDef> = {
     // localhost) — saving one of those as a *custom* domain would let this
     // org silently hijack every dev/preview deploy's traffic away from the
     // real default tenant.
-    async prepare(data) {
+    async prepare(data, _isCreate, event) {
       if (typeof data.domain === 'string') {
         const normalized = normalizeHost(data.domain)
         if (!normalized) {
@@ -112,6 +125,18 @@ export const adminResources: Record<string, ResourceDef> = {
           if (isReservedHost(normalized)) throw createError({ statusCode: 422, statusMessage: 'Ese dominio está reservado por la plataforma y no puede asignarse a una organización' })
           data.domain = normalized
         }
+      }
+      // "email remitente validado" — a real check against Resend's Domains
+      // API (Dashboard → Domains), never a manual toggle: whenever the
+      // sender address changes, re-derive its domain and ask Resend whether
+      // that domain is verified. Runs on every save (not just when it looks
+      // "new") so fixing DNS/SPF/DKIM after the fact and re-saving the same
+      // address picks up the now-verified status too.
+      if (typeof data.emailSenderAddress === 'string' && data.emailSenderAddress.includes('@') && event) {
+        const domain = data.emailSenderAddress.split('@')[1]?.toLowerCase()
+        const verified = domain ? await checkResendDomainVerified(cfEnv(event), domain) : null
+        data.emailSenderDomainVerified = verified === true ? 1 : 0
+        data.emailSenderDomainCheckedAt = verified === null ? null : now()
       }
       return data
     },
@@ -505,6 +530,26 @@ export const adminResources: Record<string, ResourceDef> = {
       if (data.email) data.email = String(data.email).toLowerCase().trim()
       return data
     },
+    // "alta de usuario" — never emails the password the admin just typed
+    // (poor practice even for an account you control): instead a
+    // set-password link, the same reset-token flow "recuperación de
+    // contraseña" uses, so the new user's first real action is choosing
+    // their own password.
+    afterCreate: async (event, id, data) => {
+      try {
+        const db = useDb(event)
+        const token = await createPasswordResetToken(db, id)
+        const setPasswordUrl = `${getRequestURL(event).origin}/reset-password/${token}`
+        await sendTransactionalEmail(db, cfEnv(event), {
+          organizationId: data.organizationId,
+          template: 'user_welcome',
+          to: data.email,
+          data: { name: data.name, email: data.email, setPasswordUrl },
+        })
+      } catch {
+        // The account is already created — a welcome-email failure must never undo that.
+      }
+    },
   },
 
   'cms-categories': {
@@ -666,6 +711,7 @@ export async function buildPayload(
   def: ResourceDef,
   body: Record<string, any>,
   isCreate: boolean,
+  event?: H3Event,
 ): Promise<Record<string, any>> {
   const data: Record<string, any> = {}
   for (const [field, fd] of Object.entries(def.fields)) {
@@ -691,7 +737,7 @@ export async function buildPayload(
   }
   if (def.hasTimestamps && isCreate) data.createdAt = now()
   if (def.hasUpdatedAt) data.updatedAt = now()
-  return def.prepare ? await def.prepare(data, isCreate) : data
+  return def.prepare ? await def.prepare(data, isCreate, event) : data
 }
 
 /**

@@ -16,7 +16,7 @@ export default defineNuxtConfig({
     // on that same per-minute tick — a ±30min window plus a sent-once guard
     // column means it never needs its own cron entry.
     scheduledTasks: {
-      '0 * * * *': ['cms:expire-articles', 'system:cleanup-error-logs', 'marketing:saved-search-alerts', 'payments:reconcile-deposits'],
+      '0 * * * *': ['cms:expire-articles', 'system:cleanup-error-logs', 'marketing:saved-search-alerts', 'payments:reconcile-deposits', 'notifications:retry-email-queue'],
       '* * * * *': ['scheduler:dispatch', 'appointments:reminders'],
       '30 3 * * *': ['system:backup-d1'],
       // Runs after the D1 backup — purges media past its 30-day soft-delete

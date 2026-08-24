@@ -70,7 +70,7 @@ export default defineEventHandler(async (event) => {
     throw e
   }
 
-  const result = await applyStripeEvent(db, type, object)
+  const result = await applyStripeEvent(db, env, type, object)
 
   await db
     .update(schema.stripeWebhookEvents)
