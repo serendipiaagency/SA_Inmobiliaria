@@ -15,7 +15,7 @@
       </div>
       <div v-else class="py-24 text-center">
         <p class="font-serif text-2xl text-stone-500">{{ t('favoritos.empty', 'Aún no has guardado ninguna propiedad.') }}</p>
-        <NuxtLink to="/demo/properties" class="btn-primary mt-6">{{ t('properties.exploreCta', 'Explorar propiedades') }}</NuxtLink>
+        <NuxtLink to="/propiedades" class="btn-primary mt-6">{{ t('properties.exploreCta', 'Explorar propiedades') }}</NuxtLink>
       </div>
 
       <div class="hairline mt-16 pt-14">
@@ -27,7 +27,7 @@
               <p class="text-[12px] text-stone-400">{{ dt.relative(new Date(s.createdAt).toISOString()) }}</p>
             </div>
             <div class="flex shrink-0 items-center gap-4">
-              <NuxtLink :to="{ path: '/demo/properties', query: s.query }" class="text-[11px] font-semibold uppercase tracking-widest text-ink hover:underline">
+              <NuxtLink :to="{ path: '/propiedades', query: s.query }" class="text-[11px] font-semibold uppercase tracking-widest text-ink hover:underline">
                 {{ t('search.viewResults') }}
               </NuxtLink>
               <button type="button" class="text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-rose-600" @click="removeSearch(s.id)">
@@ -44,10 +44,12 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
+const { tenant, load: loadTenant } = useTenant()
+await loadTenant()
 useHead(
   seoHead({
-    title: t('favoritos.head.title', 'Favoritos — M&M Real Estate'),
-    description: 'Tus propiedades guardadas en M&M Real Estate.',
+    title: `${t('favoritos.head.title', 'Favoritos')} — ${tenant.value?.companyName || tenant.value?.name}`,
+    description: `Tus propiedades guardadas en ${tenant.value?.companyName || tenant.value?.name}.`,
   }),
 )
 const dt = useDash()

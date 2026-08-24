@@ -18,17 +18,28 @@
       </section>
 
       <section>
-        <h2 class="heading-serif mb-3 text-2xl text-ink">2. Naturaleza del servicio</h2>
+        <h2 class="heading-serif mb-3 text-2xl text-ink">2. Identificación de la empresa</h2>
+        <ul class="mt-3 list-disc space-y-2 pl-5">
+          <li><strong>Empresa:</strong> {{ tenant?.legalCompanyName || companyName }}</li>
+          <li><strong>CIF / identificador fiscal:</strong> {{ tenant?.taxId || 'Por confirmar' }}</li>
+          <li><strong>Dirección:</strong> {{ tenant?.legalAddress || 'Por confirmar' }}</li>
+          <li><strong>Email de contacto:</strong> {{ tenant?.legalEmail || 'Por confirmar' }}</li>
+          <li><strong>Teléfono:</strong> {{ tenant?.legalPhone || 'Por confirmar' }}</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="heading-serif mb-3 text-2xl text-ink">3. Naturaleza del servicio</h2>
         <p>
-          M&M Real Estate es un marketplace que muestra proyectos off-plan, propiedades de segunda venta y
-          comunidades residenciales de promotores y agentes autorizados en los Emiratos Árabes Unidos. No somos
-          propietarios de los inmuebles listados salvo que se indique expresamente; actuamos como intermediarios
-          entre compradores y promotores/agentes.
+          {{ companyName }} es un marketplace que muestra proyectos off-plan, propiedades de segunda venta y
+          comunidades residenciales de promotores y agentes autorizados. No somos propietarios de los inmuebles
+          listados salvo que se indique expresamente; actuamos como intermediarios entre compradores y
+          promotores/agentes.
         </p>
       </section>
 
       <section>
-        <h2 class="heading-serif mb-3 text-2xl text-ink">3. Precisión de la información</h2>
+        <h2 class="heading-serif mb-3 text-2xl text-ink">4. Precisión de la información</h2>
         <p>
           Los precios, disponibilidad, plazos de entrega y características de cada propiedad se muestran de la forma
           más precisa posible, pero pueden cambiar sin previo aviso por parte del promotor. Cualquier análisis,
@@ -38,16 +49,16 @@
       </section>
 
       <section>
-        <h2 class="heading-serif mb-3 text-2xl text-ink">4. Uso del sitio</h2>
+        <h2 class="heading-serif mb-3 text-2xl text-ink">5. Uso del sitio</h2>
         <ul class="mt-3 list-disc space-y-2 pl-5">
           <li>Debes proporcionar información veraz en los formularios de contacto, visita y registro de proveedor.</li>
           <li>No está permitido usar el sitio para fines fraudulentos, de scraping masivo no autorizado, o para interferir con su funcionamiento normal.</li>
-          <li>El contenido del sitio (textos, imágenes, diseño) es propiedad de M&M Real Estate o de sus licenciantes y no puede reproducirse sin autorización.</li>
+          <li>El contenido del sitio (textos, imágenes, diseño) es propiedad de {{ companyName }} o de sus licenciantes y no puede reproducirse sin autorización.</li>
         </ul>
       </section>
 
       <section>
-        <h2 class="heading-serif mb-3 text-2xl text-ink">5. Reservas y visitas</h2>
+        <h2 class="heading-serif mb-3 text-2xl text-ink">6. Reservas y visitas</h2>
         <p>
           Agendar una visita o enviar una solicitud de reserva a través del sitio no constituye un contrato de
           compraventa. Cualquier acuerdo vinculante se formaliza directamente con el promotor o agente correspondiente,
@@ -56,16 +67,16 @@
       </section>
 
       <section>
-        <h2 class="heading-serif mb-3 text-2xl text-ink">6. Limitación de responsabilidad</h2>
+        <h2 class="heading-serif mb-3 text-2xl text-ink">7. Limitación de responsabilidad</h2>
         <p>
-          M&M Real Estate no se hace responsable de decisiones de inversión tomadas exclusivamente en base al
+          {{ companyName }} no se hace responsable de decisiones de inversión tomadas exclusivamente en base al
           contenido del sitio, ni de incumplimientos por parte de terceros promotores o agentes listados en la
           plataforma.
         </p>
       </section>
 
       <section>
-        <h2 class="heading-serif mb-3 text-2xl text-ink">7. Modificaciones</h2>
+        <h2 class="heading-serif mb-3 text-2xl text-ink">8. Modificaciones</h2>
         <p>
           Podemos actualizar estos términos en cualquier momento. El uso continuado del sitio tras un cambio implica
           la aceptación de los nuevos términos.
@@ -73,24 +84,28 @@
       </section>
 
       <section>
-        <h2 class="heading-serif mb-3 text-2xl text-ink">8. Contacto</h2>
+        <h2 class="heading-serif mb-3 text-2xl text-ink">9. Contacto</h2>
         <p>
           Para cualquier duda sobre estos términos, escríbenos a través del
-          <NuxtLink to="/demo/contact-us" class="underline hover:text-ink">formulario de contacto</NuxtLink>.
+          <NuxtLink to="/contacto" class="underline hover:text-ink">formulario de contacto</NuxtLink>.
         </p>
       </section>
 
       <div class="pt-4">
-        <NuxtLink to="/demo/privacy" class="btn-secondary">Ver política de privacidad</NuxtLink>
+        <NuxtLink to="/privacidad" class="btn-secondary">Ver política de privacidad</NuxtLink>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+const { tenant, load: loadTenant } = useTenant()
+await loadTenant()
+const companyName = computed(() => tenant.value?.legalCompanyName || tenant.value?.companyName || tenant.value?.name)
+
 useHead({
-  title: 'Términos y condiciones — M&M Real Estate',
-  meta: [{ name: 'description', content: 'Términos y condiciones de uso del marketplace M&M Real Estate.' }],
+  title: `Términos y condiciones — ${companyName.value}`,
+  meta: [{ name: 'description', content: `Términos y condiciones de uso del marketplace ${companyName.value}.` }],
 })
 const lastUpdated = '12 de julio de 2026'
 </script>

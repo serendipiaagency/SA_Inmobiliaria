@@ -18,7 +18,7 @@ describe('validateQrRoundTrip', () => {
   })
 
   it('round-trips a longer, realistic public URL', () => {
-    const url = 'https://sa-inmobiliaria.example.com/demo/property-details/atico-de-lujo-en-marbella-con-vistas-al-mar'
+    const url = 'https://sa-inmobiliaria.example.com/propiedades/atico-de-lujo-en-marbella-con-vistas-al-mar'
     const result = validateQrRoundTrip(url)
     expect(result.ok).toBe(true)
     expect(result.decoded).toBe(url)

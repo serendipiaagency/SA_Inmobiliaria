@@ -11,7 +11,7 @@
         <NuxtLink
           v-for="d in data.rows"
           :key="d.id"
-          :to="{ path: '/demo/properties', query: { developerId: d.id } }"
+          :to="{ path: '/propiedades', query: { developerId: d.id } }"
           class="group border border-line bg-white p-8 transition hover:border-ink"
         >
           <div class="flex h-16 w-16 items-center justify-center border border-line bg-paper">

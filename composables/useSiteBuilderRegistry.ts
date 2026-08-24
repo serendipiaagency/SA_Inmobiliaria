@@ -49,9 +49,9 @@ export const BLOCK_PRESETS: BlockPreset[] = [
       subtitle: 'Una selección curada de propiedades excepcionales.',
       slides: [],
       exploreCta: 'Explorar catálogo',
-      exploreCtaTo: '/demo/properties',
+      exploreCtaTo: '/propiedades',
       advisorCta: 'Hablar con un asesor',
-      advisorCtaTo: '/demo/contact-us',
+      advisorCtaTo: '/contacto',
     }),
   },
   {
@@ -61,7 +61,7 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     description: 'Una fila de propiedades en tarjetas, con enlace "Ver todas".',
     category: 'Propiedades',
     createContent: () => ({
-      eyebrow: 'Selección', title: 'Propiedades', cta: 'Ver todas', ctaTo: '/demo/properties',
+      eyebrow: 'Selección', title: 'Propiedades', cta: 'Ver todas', ctaTo: '/propiedades',
       source: 'dynamic', dynamicFilter: 'latest', limit: 4, layout: 'row',
     }),
   },
@@ -72,7 +72,7 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     description: 'Sección de fondo oscuro para una colección premium.',
     category: 'Propiedades',
     createContent: () => ({
-      eyebrow: 'Colección exclusiva', title: 'Propiedades Premium', cta: 'Ver todas', ctaTo: '/demo/properties?sort=price_desc',
+      eyebrow: 'Colección exclusiva', title: 'Propiedades Premium', cta: 'Ver todas', ctaTo: '/propiedades?sort=price_desc',
       source: 'dynamic', dynamicFilter: 'premium', limit: 3, layout: 'dark-grid',
     }),
   },
@@ -96,7 +96,7 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     createContent: () => ({
       eyebrow: 'Explora por zona', title: 'Encuentra tu barrio en el mapa',
       text: 'Descubre las propiedades por ubicación, con transporte, colegios y servicios a un vistazo.',
-      cta: 'Abrir el mapa', ctaTo: '/demo/properties', pins: [],
+      cta: 'Abrir el mapa', ctaTo: '/propiedades', pins: [],
     }),
   },
   {
@@ -129,7 +129,7 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     label: 'Últimos artículos',
     description: 'Últimos artículos del blog en tarjetas.',
     category: 'Contenido',
-    createContent: () => ({ eyebrow: 'Journal', title: 'Ideas e historias', cta: 'Todos los artículos', ctaTo: '/demo/blog', source: 'dynamic', limit: 3 }),
+    createContent: () => ({ eyebrow: 'Journal', title: 'Ideas e historias', cta: 'Todos los artículos', ctaTo: '/blog', source: 'dynamic', limit: 3 }),
   },
   {
     presetId: 'text',
@@ -145,7 +145,7 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     label: 'Llamada a la acción',
     description: 'Sección de cierre con título, descripción y hasta dos botones.',
     category: 'Contenido',
-    createContent: () => ({ eyebrow: '', title: '¿Hablamos de tu próxima propiedad?', description: '', ctaPrimary: 'Contactar', ctaPrimaryTo: '/demo/contact-us', ctaSecondary: '', ctaSecondaryTo: '', align: 'center' }),
+    createContent: () => ({ eyebrow: '', title: '¿Hablamos de tu próxima propiedad?', description: '', ctaPrimary: 'Contactar', ctaPrimaryTo: '/contacto', ctaSecondary: '', ctaSecondaryTo: '', align: 'center' }),
   },
 ]
 

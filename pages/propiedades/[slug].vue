@@ -193,7 +193,7 @@
                 <div class="aspect-[16/10] overflow-hidden bg-stone-100"><img :src="photos[s.i % photos.length]" class="h-full w-full object-cover transition duration-700 group-hover:scale-105" /></div>
                 <div class="flex items-center justify-between p-5">
                   <div><p class="font-serif text-lg font-medium">{{ s.title }}</p><p class="text-[13px] text-stone-500">{{ s.desc }}</p></div>
-                  <NuxtLink to="/demo/contact-us" class="shrink-0 rounded-full bg-indigo-600 px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-white">{{ t('propertyDetails.staging.generate', 'Generar') }}</NuxtLink>
+                  <NuxtLink to="/contacto" class="shrink-0 rounded-full bg-indigo-600 px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-white">{{ t('propertyDetails.staging.generate', 'Generar') }}</NuxtLink>
                 </div>
               </div>
             </div>

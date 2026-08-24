@@ -56,10 +56,24 @@
             </svg>
           </button>
         </div>
-        <NuxtLink to="/demo" class="mt-1 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-stone-500 transition hover:bg-stone-100 hover:text-ink">
+        <a
+          v-if="publicSiteUrl"
+          :href="publicSiteUrl"
+          target="_blank"
+          rel="noopener"
+          class="mt-1 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-stone-500 transition hover:bg-stone-100 hover:text-ink"
+        >
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg>
           Ver sitio público
-        </NuxtLink>
+        </a>
+        <span
+          v-else
+          class="mt-1 flex cursor-not-allowed items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-stone-400"
+          title="Configura un dominio para esta organización para poder previsualizar el sitio público"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg>
+          Ver sitio público
+        </span>
       </div>
     </aside>
 
@@ -241,6 +255,10 @@ const activeOrgId = ref<number | null>(null)
 const activeOrgCookie = useCookie<string | null>('sa_active_org')
 
 const { data: orgInfo } = await useFetch<any>('/api/admin/active-org-info')
+// Org's own custom domain (server/utils/domain.ts) is where "/" resolves to
+// its real-estate portal home (see server/api/public/tenant.get.ts) — with
+// no domain configured there's no public URL to preview.
+const publicSiteUrl = computed(() => (orgInfo.value?.domain ? `https://${orgInfo.value.domain}/` : null))
 
 if (isSuperAdmin.value) {
   const { data } = await useFetch<{ rows: { id: number; name: string }[] }>('/api/admin/organizations', {

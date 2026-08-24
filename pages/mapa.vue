@@ -71,9 +71,11 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
+const { tenant, load: loadTenant } = useTenant()
+await loadTenant()
 useHead(
   seoHead({
-    title: t('mapa.head.title', 'Mapa — M&M Real Estate'),
+    title: `${t('mapa.head.title', 'Mapa')} — ${tenant.value?.companyName || tenant.value?.name}`,
     description: 'Explora propiedades en Dubái sobre un mapa interactivo con amenidades y filtros por zona.',
   }),
 )
@@ -133,11 +135,11 @@ function onMarkerClick(id: number) {
   if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' })
 }
 function goTo(p: any) {
-  router.push(`/demo/property-details/${p.slug || p.id}`)
+  router.push(`/propiedades/${p.slug || p.id}`)
 }
 function onSelect(sel: { type: string; value: string; slug?: string }) {
   if (sel.type === 'reference' && sel.slug) {
-    router.push(`/demo/property-details/${sel.slug}`)
+    router.push(`/propiedades/${sel.slug}`)
     return
   }
   q.value = sel.value

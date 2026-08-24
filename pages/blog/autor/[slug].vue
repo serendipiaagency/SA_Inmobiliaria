@@ -19,7 +19,7 @@
 
     <h2 class="mt-12 font-serif text-2xl">Artículos de {{ data.author.name }}</h2>
     <div v-if="data.articles.length" class="mt-6 grid gap-x-6 gap-y-10 sm:grid-cols-2">
-      <NuxtLink v-for="a in data.articles" :key="a.id" :to="`/demo/blog/${a.slug}`" class="group block">
+      <NuxtLink v-for="a in data.articles" :key="a.id" :to="`/blog/${a.slug}`" class="group block">
         <div v-if="a.coverImage" class="aspect-[3/2] overflow-hidden rounded-lg bg-stone-100">
           <img :src="mediaUrl(a.coverImage)" :alt="a.title" class="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" />
         </div>

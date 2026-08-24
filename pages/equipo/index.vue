@@ -9,7 +9,7 @@
     </header>
     <div class="mx-auto max-w-screen-2xl px-6 py-14 lg:px-10">
       <div v-if="data?.rows?.length" class="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
-        <NuxtLink v-for="m in data.rows" :key="m.id" :to="`/demo/leadership/${m.slug}`" class="group block">
+        <NuxtLink v-for="m in data.rows" :key="m.id" :to="`/equipo/${m.slug}`" class="group block">
           <div class="aspect-[3/4] overflow-hidden rounded-2xl bg-stone-100">
             <img
               :src="mediaUrl(m.image)"
@@ -26,7 +26,7 @@
       </div>
       <div v-else class="py-24 text-center">
         <p class="font-serif text-2xl text-stone-500">{{ t('leadership.empty.title', 'El equipo se está incorporando.') }}</p>
-        <NuxtLink to="/demo/contact-us" class="btn-primary mt-6">{{ t('footer.contactus', 'Contáctanos') }}</NuxtLink>
+        <NuxtLink to="/contacto" class="btn-primary mt-6">{{ t('footer.contactus', 'Contáctanos') }}</NuxtLink>
       </div>
     </div>
   </div>

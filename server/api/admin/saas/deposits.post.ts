@@ -26,8 +26,8 @@ export default defineEventHandler(async (event) => {
     amount: body.amount,
     currency,
     description: `Fianza — ${contract.title}`,
-    successUrl: `${origin}/demo/mi-cuenta`,
-    cancelUrl: `${origin}/demo/mi-cuenta`,
+    successUrl: `${origin}/mi-cuenta`,
+    cancelUrl: `${origin}/mi-cuenta`,
   })
 
   const nowTs = now()

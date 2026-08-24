@@ -119,9 +119,11 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
+const { tenant, load: loadTenant } = useTenant()
+await loadTenant()
 useHead(
   seoHead({
-    title: t('properties.head.title', 'Buscar propiedades — M&M Real Estate'),
+    title: `${t('properties.head.title', 'Buscar propiedades')} — ${tenant.value?.companyName || tenant.value?.name}`,
     description: 'Explora proyectos off-plan y propiedades de segunda venta en Dubái con filtros avanzados por comunidad, precio y tipo.',
   }),
 )
@@ -224,7 +226,7 @@ function applyPatch(patch: Record<string, any>) {
 
 function onSelect(sel: { type: string; value: string; slug?: string }) {
   if (sel.type === 'reference' && sel.slug) {
-    router.push(`/demo/property-details/${sel.slug}`)
+    router.push(`/propiedades/${sel.slug}`)
     return
   }
   q.value = sel.value

@@ -334,9 +334,9 @@ const heroTitle1 = computed(() => props.title1 || t('hero.title1'))
 const heroTitle2 = computed(() => props.title2 || t('hero.title2'))
 const heroSubtitle = computed(() => props.subtitle || t('hero.subtitle'))
 const heroExploreCta = computed(() => props.exploreCta || t('hero.exploreCta'))
-const heroExploreCtaTo = computed(() => props.exploreCtaTo || '/demo/properties')
+const heroExploreCtaTo = computed(() => props.exploreCtaTo || '/propiedades')
 const heroAdvisorCta = computed(() => props.advisorCta || t('hero.advisorCta'))
-const heroAdvisorCtaTo = computed(() => props.advisorCtaTo || '/demo/contact-us')
+const heroAdvisorCtaTo = computed(() => props.advisorCtaTo || '/contacto')
 const overlayOpacity = computed(() => props.overlayOpacity || 0)
 const backgroundPosition = computed(() => props.backgroundPosition || 'center center')
 const contentAlign = computed(() => props.contentAlign || 'left')
@@ -482,7 +482,7 @@ function submit() {
   if (form.subtype) q.type = form.subtype
   if (form.status) q.status = form.status
   if (form.sort) q.sort = form.sort
-  router.push({ path: '/demo/properties', query: q })
+  router.push({ path: '/propiedades', query: q })
 }
 
 // Close popovers on outside click / escape

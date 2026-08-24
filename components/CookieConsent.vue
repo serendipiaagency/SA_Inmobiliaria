@@ -10,7 +10,7 @@
       <div class="mx-auto flex max-w-screen-2xl flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between lg:px-10">
         <p class="max-w-2xl text-[13px] leading-relaxed text-stone-600">
           {{ t('cookie.message') }}
-          <NuxtLink to="/demo/privacy" class="underline underline-offset-2 hover:text-ink">{{ t('cookie.learnMore') }}</NuxtLink>
+          <NuxtLink to="/privacidad" class="underline underline-offset-2 hover:text-ink">{{ t('cookie.learnMore') }}</NuxtLink>
         </p>
         <div class="flex shrink-0 gap-2.5">
           <button class="border border-line px-4 py-2.5 text-[11px] font-semibold uppercase tracking-widest2 text-stone-600 transition hover:border-stone-300" @click="reject">

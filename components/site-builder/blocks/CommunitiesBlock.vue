@@ -8,7 +8,7 @@
       <NuxtLink v-if="content.cta && content.ctaTo" :to="content.ctaTo" class="btn-quiet hidden shrink-0 md:inline-flex">{{ content.cta }}</NuxtLink>
     </div>
     <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      <NuxtLink v-for="c in items" :key="c.id" :to="`/demo/community/${c.id}`" class="group relative block aspect-[3/2] overflow-hidden rounded-2xl bg-stone-100">
+      <NuxtLink v-for="c in items" :key="c.id" :to="`/zonas/${c.id}`" class="group relative block aspect-[3/2] overflow-hidden rounded-2xl bg-stone-100">
         <img :src="mediaUrl(c.image)" :alt="c.name" class="h-full w-full object-cover transition duration-700 group-hover:scale-105" loading="lazy" />
         <div class="absolute inset-0 flex items-end bg-gradient-to-t from-black/70 via-black/10 to-transparent p-6">
           <div>

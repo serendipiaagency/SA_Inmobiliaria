@@ -41,7 +41,7 @@ onMounted(async () => {
       }),
     })
     m.bindPopup(
-      `<div style="width:170px;font-family:Inter,sans-serif"><a href="${props.origin || ''}/property-details/${p.slug || p.id}" target="_blank" rel="noopener" style="font-weight:600;color:#16150f;text-decoration:none">${p.name}</a>` +
+      `<div style="width:170px;font-family:Inter,sans-serif"><a href="${props.origin || ''}/propiedades/${p.slug || p.id}" target="_blank" rel="noopener" style="font-weight:600;color:#16150f;text-decoration:none">${p.name}</a>` +
         `<div style="color:#78716c;font-size:12px">${p.community || ''}</div>` +
         `<div style="font-weight:700;margin-top:3px;color:${accent}">${priceShort(p.price)}</div></div>`,
     )

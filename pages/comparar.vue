@@ -10,7 +10,7 @@
 
     <div v-if="!items.length" class="py-24 text-center">
       <p class="font-serif text-2xl text-stone-500">{{ t('compare.empty', 'No has añadido propiedades para comparar.') }}</p>
-      <NuxtLink to="/demo/properties" class="btn-primary mt-6">{{ t('properties.exploreCta', 'Explorar propiedades') }}</NuxtLink>
+      <NuxtLink to="/propiedades" class="btn-primary mt-6">{{ t('properties.exploreCta', 'Explorar propiedades') }}</NuxtLink>
     </div>
 
     <div v-else class="overflow-x-auto">
@@ -20,7 +20,7 @@
             <th class="w-40" />
             <th v-for="p in rows" :key="p.id" class="p-3 align-top">
               <div class="relative">
-                <NuxtLink :to="`/demo/property-details/${p.slug || p.id}`">
+                <NuxtLink :to="`/propiedades/${p.slug || p.id}`">
                   <img :src="mediaUrl(p.coverImage)" :alt="p.name" class="aspect-[4/3] w-full rounded-xl object-cover" />
                 </NuxtLink>
                 <button
@@ -49,9 +49,11 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
+const { tenant, load: loadTenant } = useTenant()
+await loadTenant()
 useHead(
   seoHead({
-    title: t('compare.head.title', 'Comparar — M&M Real Estate'),
+    title: `${t('compare.head.title', 'Comparar')} — ${tenant.value?.companyName || tenant.value?.name}`,
     description: 'Compara propiedades lado a lado por precio, superficie y características.',
   }),
 )

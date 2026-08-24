@@ -8,7 +8,7 @@
     </header>
     <div class="mx-auto max-w-screen-2xl px-6 py-14 lg:px-10">
       <div v-if="data?.rows?.length" class="grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
-        <NuxtLink v-for="b in data.rows" :key="b.id" :to="`/demo/blog/${b.slug}`" class="group block">
+        <NuxtLink v-for="b in data.rows" :key="b.id" :to="`/blog/${b.slug}`" class="group block">
           <div class="aspect-[3/2] overflow-hidden bg-stone-100">
             <img
               :src="mediaUrl(b.image)"

@@ -38,6 +38,14 @@ export const organizations = sqliteTable('organizations', {
   // own public sender address.
   emailInternalRecipientsJson: text('email_internal_recipients_json').notNull().default('[]'),
   emailLocale: text('email_locale').notNull().default('es'), // es | en
+  // Added by 0045 — real data-controller identity for privacy/terms pages
+  // (pages/privacidad.vue, pages/terminos.vue). Nullable: those pages show
+  // "por confirmar" rather than a fabricated value until an org fills these in.
+  legalCompanyName: text('legal_company_name'),
+  taxId: text('tax_id'), // CIF/NIF or equivalent
+  legalAddress: text('legal_address'),
+  legalEmail: text('legal_email'),
+  legalPhone: text('legal_phone'),
 })
 
 // ---------------------------------------------------------------------------

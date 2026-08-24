@@ -20,11 +20,15 @@ organización sirve esa petición:
    `PRIMARY_DOMAIN` opcional configurado en `wrangler.toml` → sirve la
    organización por defecto (id 1).
 3. **Dominio desconocido** — cualquier otro host → **404** en toda la
-   superficie pública (sitio `/demo/*`, `/api/public/*`, `/sitemap.xml`,
+   superficie pública (sitio público, `/api/public/*`, `/sitemap.xml`,
    `/robots.txt`). El panel admin (`/admin/*`, `/api/admin/*`) y los assets
    estáticos siguen accesibles desde cualquier host — un super_admin tiene
    que poder entrar a asignar un dominio *antes* de que ese dominio esté
    configurado en ningún sitio.
+
+En el dominio propio de una organización, `/` sirve directamente el portal
+inmobiliario de esa organización (ver `docs/url-migration.md`); en el host
+primario sigue mostrando la landing SaaS de la plataforma.
 
 Antes de esto, cualquier host no reconocido caía silenciosamente al tenant
 por defecto: un DNS mal configurado, un dominio retirado de una organización

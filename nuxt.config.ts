@@ -34,7 +34,9 @@ export default defineNuxtConfig({
   app: {
     pageTransition: { name: 'page', mode: 'out-in' },
     head: {
-      title: 'M&M Real Estate — Property Marketplace',
+      // Static build-time fallback only — every real page overrides this via
+      // its own useHead() with the resolved tenant's name (useTenant()).
+      title: 'Portal Inmobiliario',
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         {

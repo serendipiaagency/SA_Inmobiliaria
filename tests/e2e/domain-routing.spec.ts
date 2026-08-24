@@ -50,7 +50,26 @@ test.describe('Resolución de tenant por dominio', () => {
   test('a primary host (no Host override -> localhost) still serves the default tenant', async () => {
     const res = await anon.get('/api/public/tenant')
     expect(res.ok()).toBeTruthy()
-    expect((await res.json()).id).toBe(1)
+    const body = await res.json()
+    expect(body.id).toBe(1)
+    expect(body.isCustomDomain).toBe(false)
+  })
+
+  test('a known org custom domain flags isCustomDomain, driving "/" to serve the tenant portal instead of the SaaS landing', async () => {
+    const res = await anon.get('/api/public/tenant', { headers: { host: ORG2_DOMAIN } })
+    expect(res.ok()).toBeTruthy()
+    expect((await res.json()).isCustomDomain).toBe(true)
+
+    // Checked against rendered TEXT, not a CSS class name — pages/index.vue's
+    // <style scoped> block ships with the page bundle either way, so a class
+    // like ".sa-landing" appears in the response's <head> regardless of which
+    // template branch actually rendered. The SaaS landing's own visible copy
+    // only ends up in the body if that branch rendered.
+    const home = await anon.get('/', { headers: { host: ORG2_DOMAIN } })
+    expect(home.ok()).toBeTruthy()
+    const homeBody = await home.text()
+    expect(homeBody).not.toContain('sistema operativo de la inmobiliaria moderna')
+    expect(homeBody).toContain('Skyline Estates')
   })
 
   test('an unrecognized host is refused with 404 on the public API', async () => {
@@ -67,7 +86,7 @@ test.describe('Resolución de tenant por dominio', () => {
     const res = await anon.get('/sitemap.xml', { headers: { host: ORG2_DOMAIN } })
     expect(res.ok()).toBeTruthy()
     const body = await res.text()
-    expect(body).toContain(`http://${ORG2_DOMAIN}/demo`)
+    expect(body).toContain(`http://${ORG2_DOMAIN}/propiedades`)
   })
 
   test('robots.txt points at the requesting domain\'s own sitemap and 404s on an unrecognized host', async () => {

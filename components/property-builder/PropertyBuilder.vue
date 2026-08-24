@@ -21,7 +21,7 @@
             <span class="mr-1.5 rounded-full bg-ink px-1.5 py-0.5 text-[9px] font-bold text-white">IA</span>Generar contenido
           </NuxtLink>
           <AdminAssetExportButton v-if="resource === 'developer-properties' && !isNew" :asset-id="recordId!" :property-type="form.propertyType" />
-          <a v-if="!isNew" :href="`/demo/property-details/${form.slug || recordId}`" target="_blank" rel="noopener" class="btn-quiet">Vista previa</a>
+          <a v-if="!isNew" :href="`/propiedades/${form.slug || recordId}`" target="_blank" rel="noopener" class="btn-quiet">Vista previa</a>
           <button type="button" class="btn-primary" :disabled="saving" @click="save">{{ saving ? 'Guardando…' : 'Guardar' }}</button>
         </div>
       </div>

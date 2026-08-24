@@ -60,9 +60,23 @@
         >
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
         </button>
-        <a :href="`/demo?preview=${pageVersion}`" target="_blank" rel="noopener" class="toolbar-btn" title="Abrir sitio publicado">
+        <a
+          v-if="publishedSiteUrl"
+          :href="publishedSiteUrl"
+          target="_blank"
+          rel="noopener"
+          class="toolbar-btn"
+          title="Abrir sitio publicado"
+        >
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
         </a>
+        <span
+          v-else
+          class="toolbar-btn cursor-not-allowed opacity-40"
+          title="Configura un dominio para esta organización para poder abrir el sitio publicado"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
+        </span>
         <button type="button" class="toolbar-btn" title="SEO de la página" @click="seoOpen = true">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8" /><path stroke-linecap="round" d="m21 21-4.3-4.3" /></svg>
         </button>
@@ -279,6 +293,14 @@ function toggleStructureCollapsed() {
 const pageVersion = ref(0)
 const hasUnpublishedChanges = ref(false)
 const publishing = ref(false)
+
+// "/" only serves this org's published home on its own custom domain (see
+// server/api/public/tenant.get.ts) — without one there's no public URL to
+// open a preview of.
+const { data: orgInfo } = await useFetch<any>('/api/admin/active-org-info')
+const publishedSiteUrl = computed(() =>
+  orgInfo.value?.domain ? `https://${orgInfo.value.domain}/?preview=${pageVersion.value}` : null,
+)
 
 const selectedBlock = computed(() => blocks.value.find((b) => b.id === selectedBlockId.value) || null)
 const presetsByCategory = computed(() => {

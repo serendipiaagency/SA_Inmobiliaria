@@ -145,6 +145,7 @@ export function useHelpContent() {
         'Cambia entre Escritorio/Tablet/Móvil arriba para comprobar cómo se ve en cada tamaño real.',
         'Los cambios se autoguardan como borrador (verás "Guardando…"/"Guardado"). El sitio público no cambia hasta que pulses "Publicar cambios".',
         'Deshacer/Rehacer (las flechas junto al selector de zoom) solo cubren la sesión actual del editor.',
+        'El icono "Abrir sitio publicado" de la barra superior lleva al dominio propio de tu organización — si todavía no tienes uno asignado en Empresas (Sistema → Empresas), el icono aparece deshabilitado hasta que lo configures.',
       ],
     },
     {
@@ -474,7 +475,7 @@ export function useHelpContent() {
       title: 'Usuarios',
       route: '/admin/users',
       summary: 'Cuentas de acceso al panel (rol admin) y cuentas de cliente (rol usuario) que pueden entrar a "Mi cuenta".',
-      steps: ['Crea una cuenta con rol "usuario" y el mismo email que un cliente para que pueda ver sus propias visitas y contratos desde /demo/mi-cuenta.'],
+      steps: ['Crea una cuenta con rol "usuario" y el mismo email que un cliente para que pueda ver sus propias visitas y contratos desde /mi-cuenta.'],
     },
     {
       key: 'webhooks',
@@ -534,6 +535,7 @@ export function useHelpContent() {
         'No se puede usar un *.workers.dev ni "localhost" como dominio de una empresa — esos hosts ya están reservados para la organización por defecto.',
         'Sin un dominio propio asignado aquí, la organización solo es accesible por su propio admin — no aparece en ninguna web pública.',
         'Los campos "Email — …" configuran desde qué dirección envía esta organización sus emails y quién recibe las notificaciones internas (nuevo lead, mensaje de contacto…) — ver docs/resend-email.md para los pasos de verificación de dominio en Resend. "Dominio verificado" es de solo lectura: se recalcula solo, nunca se marca a mano.',
+        'Los campos "Legal — …" (razón social, CIF/NIF, dirección, email y teléfono) son el responsable del tratamiento real de esta organización y aparecen en sus páginas públicas de Privacidad y Términos (/privacidad, /terminos) — mientras estén vacíos, esas páginas muestran "Por confirmar" en su lugar.',
       ],
     },
   ]

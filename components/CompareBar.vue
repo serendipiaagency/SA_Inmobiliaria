@@ -16,7 +16,7 @@
         </p>
         <div class="ml-auto flex items-center gap-2">
           <button class="text-[11px] uppercase tracking-widest text-white/60 hover:text-white" @click="clear">{{ t('compareBar.clear', 'Limpiar') }}</button>
-          <NuxtLink to="/demo/compare" class="rounded-full bg-white px-5 py-2.5 text-[12px] font-semibold uppercase tracking-widest text-ink transition hover:bg-white/90">
+          <NuxtLink to="/comparar" class="rounded-full bg-white px-5 py-2.5 text-[12px] font-semibold uppercase tracking-widest text-ink transition hover:bg-white/90">
             {{ t('compareBar.compare', 'Comparar') }}
           </NuxtLink>
         </div>

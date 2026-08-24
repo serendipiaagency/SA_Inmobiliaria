@@ -38,7 +38,7 @@
         <div class="max-w-sm px-6 text-white/80">
           <p class="font-serif text-2xl text-white">{{ t('mediaGallery.social.title', 'Vídeos en Instagram y TikTok') }}</p>
           <p class="mt-2 text-sm">{{ t('mediaGallery.social.desc', 'Solicita que añadamos los vídeos de esta propiedad en redes sociales.') }}</p>
-          <NuxtLink to="/demo/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ t('mediaGallery.social.cta', 'Solicitar vídeos') }}</NuxtLink>
+          <NuxtLink to="/contacto" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ t('mediaGallery.social.cta', 'Solicitar vídeos') }}</NuxtLink>
         </div>
       </div>
     </div>
@@ -62,7 +62,7 @@
       <div v-else class="max-w-sm px-6 text-white/80">
         <p class="font-serif text-2xl text-white">{{ t('mediaGallery.video.title', 'Vídeo profesional') }}</p>
         <p class="mt-2 text-sm">{{ t('mediaGallery.video.desc', 'Solicita el vídeo tour de esta propiedad y te lo enviamos en menos de 24 h.') }}</p>
-        <NuxtLink to="/demo/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ t('mediaGallery.video.cta', 'Solicitar vídeo') }}</NuxtLink>
+        <NuxtLink to="/contacto" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ t('mediaGallery.video.cta', 'Solicitar vídeo') }}</NuxtLink>
       </div>
     </div>
 
@@ -72,7 +72,7 @@
       <div v-else class="max-w-sm px-6 text-white/80">
         <p class="font-serif text-2xl text-white">{{ t('mediaGallery.drone.title', 'Vista aérea con drone') }}</p>
         <p class="mt-2 text-sm">{{ t('mediaGallery.drone.desc', 'Solicita una toma aérea profesional de esta propiedad y su entorno.') }}</p>
-        <NuxtLink to="/demo/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ t('mediaGallery.drone.cta', 'Solicitar vista aérea') }}</NuxtLink>
+        <NuxtLink to="/contacto" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ t('mediaGallery.drone.cta', 'Solicitar vista aérea') }}</NuxtLink>
       </div>
     </div>
 
@@ -82,7 +82,7 @@
       <div v-else class="max-w-sm px-6 text-white/80">
         <p class="font-serif text-2xl text-white">{{ t('mediaGallery.night.title', 'Fotografía nocturna') }}</p>
         <p class="mt-2 text-sm">{{ t('mediaGallery.night.desc', 'Solicita una sesión al atardecer o de noche para resaltar la iluminación de esta propiedad.') }}</p>
-        <NuxtLink to="/demo/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ t('mediaGallery.night.cta', 'Solicitar sesión nocturna') }}</NuxtLink>
+        <NuxtLink to="/contacto" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ t('mediaGallery.night.cta', 'Solicitar sesión nocturna') }}</NuxtLink>
       </div>
     </div>
 
@@ -98,7 +98,7 @@
         <div class="max-w-sm px-6 text-white/80">
           <p class="font-serif text-2xl text-white">{{ t('mediaGallery.aiDecor.title', 'Decoración virtual con IA') }}</p>
           <p class="mt-2 text-sm">{{ t('mediaGallery.aiDecor.desc', 'Solicita una simulación de decoración con inteligencia artificial para visualizar el potencial de esta propiedad amueblada.') }}</p>
-          <NuxtLink to="/demo/contact-us" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ t('mediaGallery.aiDecor.cta', 'Solicitar decoración IA') }}</NuxtLink>
+          <NuxtLink to="/contacto" class="mt-5 inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ t('mediaGallery.aiDecor.cta', 'Solicitar decoración IA') }}</NuxtLink>
         </div>
       </div>
     </div>

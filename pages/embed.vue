@@ -3,7 +3,7 @@
     <!-- Header (optional) -->
     <div v-if="showHeader" class="sa-head">
       <span class="sa-head-title">{{ headingText }}</span>
-      <a :href="`${origin}/demo/properties`" target="_blank" rel="noopener" class="sa-head-link">{{ moreLabel }} →</a>
+      <a :href="`${origin}/propiedades`" target="_blank" rel="noopener" class="sa-head-link">{{ moreLabel }} →</a>
     </div>
 
     <!-- Map layout -->
@@ -52,13 +52,16 @@
       </a>
     </div>
 
-    <a v-if="showBranding" :href="`${origin}/demo`" target="_blank" rel="noopener" class="sa-brand">M&M Real Estate</a>
+    <a v-if="showBranding" :href="`${origin}/`" target="_blank" rel="noopener" class="sa-brand">{{ tenant?.companyName || tenant?.name || 'Propiedades' }}</a>
   </div>
 </template>
 
 <script setup lang="ts">
 definePageMeta({ layout: false, pageTransition: false })
-useHead({ title: 'M&M Real Estate — Widget' })
+
+const { tenant, load: loadTenant } = useTenant()
+await loadTenant()
+useHead({ title: `${tenant.value?.companyName || tenant.value?.name || 'Propiedades'} — Widget` })
 
 const route = useRoute()
 const q = route.query
@@ -96,7 +99,7 @@ function img(src: string | null | undefined) {
   return `${origin.value}${src.startsWith('/') ? '' : '/api/media/'}${src}`
 }
 function link(p: any) {
-  return `${origin.value}/demo/property-details/${p.slug || p.id}`
+  return `${origin.value}/propiedades/${p.slug || p.id}`
 }
 function metaText(p: any) {
   const parts: string[] = []

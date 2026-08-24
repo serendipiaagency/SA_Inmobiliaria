@@ -49,8 +49,7 @@ async function main() {
 
   await check('Home', '/', (res) => expectStatus(res, 200))
   await check('Login de administración carga', '/admin/login', (res) => expectStatus(res, 200))
-  await check('Portal público carga', '/demo', (res) => expectStatus(res, 200))
-  await check('Catálogo de propiedades carga', '/demo/properties', (res) => expectStatus(res, 200))
+  await check('Catálogo de propiedades carga', '/propiedades', (res) => expectStatus(res, 200))
 
   // API pública + binding D1: si el binding estuviera roto esto daría 500,
   // no un array vacío — un catálogo vacío es un resultado válido, un error
@@ -64,7 +63,7 @@ async function main() {
   })
 
   if (firstSlug) {
-    await check('Ficha de propiedad real carga', `/demo/property-details/${firstSlug}`, (res) => expectStatus(res, 200))
+    await check('Ficha de propiedad real carga', `/propiedades/${firstSlug}`, (res) => expectStatus(res, 200))
   } else {
     console.log('… (sin propiedades publicadas todavía — se omite la comprobación de ficha de propiedad)')
   }

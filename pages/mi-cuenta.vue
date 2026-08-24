@@ -44,7 +44,9 @@
 
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
-useHead({ title: 'Mi cuenta — M&M Real Estate' })
+const { tenant, load: loadTenant } = useTenant()
+await loadTenant()
+useHead({ title: `Mi cuenta — ${tenant.value?.companyName || tenant.value?.name}` })
 const { user } = useAuth()
 const { data } = await useFetch<any>('/api/client/dashboard')
 

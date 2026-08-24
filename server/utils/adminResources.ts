@@ -95,6 +95,11 @@ export const adminResources: Record<string, ResourceDef> = {
       // A JSON array of staff addresses, e.g. ["ops@empresa.com","ventas@empresa.com"] — notified on new leads/contact messages/complaints.
       emailInternalRecipientsJson: { type: 'json', label: 'Email — destinatarios internos (JSON)' },
       emailLocale: { type: 'select', label: 'Email — idioma', options: ['es', 'en'] },
+      legalCompanyName: { type: 'text', label: 'Legal — razón social' },
+      taxId: { type: 'text', label: 'Legal — CIF/NIF' },
+      legalAddress: { type: 'text', label: 'Legal — dirección' },
+      legalEmail: { type: 'text', label: 'Legal — email de contacto' },
+      legalPhone: { type: 'text', label: 'Legal — teléfono' },
     },
     // emailSenderDomainVerified/emailSenderDomainCheckedAt are deliberately
     // NOT in `fields` above — they're never client-editable, only ever set
