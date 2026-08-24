@@ -6,7 +6,7 @@
         <p class="mt-1 text-sm text-stone-500">{{ data?.total ?? 0 }} archivo(s){{ selected.length ? ` · ${selected.length} seleccionado(s)` : '' }}</p>
       </div>
       <div class="flex gap-2">
-        <input v-model="q" class="input !w-52" placeholder="Buscar por nombre…" @keyup.enter="refresh" />
+        <input v-model="q" class="input !w-52" placeholder="Buscar por nombre…" @keyup.enter="() => refresh()" />
         <button class="btn-secondary" :class="{ '!bg-ink !text-white': favoriteOnly }" @click="favoriteOnly = !favoriteOnly">★ Favoritos</button>
         <NuxtLink to="/admin/cms/papelera" class="btn-secondary">Papelera</NuxtLink>
         <label class="btn-primary cursor-pointer">

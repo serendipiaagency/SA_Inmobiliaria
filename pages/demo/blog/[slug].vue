@@ -154,9 +154,12 @@ onMounted(() => {
   }
 })
 
-const { data: commentsData, refresh: refreshComments } = await useFetch<any>(
-  () => (data.value?.source === 'cms' ? `/api/public/cms/articles/${route.params.slug}/comments` : null),
-)
+// See the equivalent cast in pages/admin/cms/papelera.vue for why this is
+// safe: useFetch's request getter type has no "skip" case, but neither does
+// its actual implementation special-case a falsy request — this only fixes
+// the type, the one wasted initial fetch for non-CMS articles is pre-existing.
+const commentsUrl = (() => (data.value?.source === 'cms' ? `/api/public/cms/articles/${route.params.slug}/comments` : undefined)) as () => string
+const { data: commentsData, refresh: refreshComments } = await useFetch<{ rows: any[] }>(commentsUrl)
 const comments = computed(() => commentsData.value?.rows || [])
 const commentTree = computed(() => {
   const byId = new Map<number, any>(comments.value.map((c: any) => [c.id, { ...c, replies: [] }]))

@@ -35,14 +35,7 @@ jobs:
         run: npm audit --omit=dev
 
       - name: Typecheck
-        # Non-blocking for now: see the same note in the "Typecheck" step's
-        # history — flip to blocking once the pre-existing type-error
-        # backlog is cleared (tracked separately). This is the one
-        # intentional exception to "no continue-on-error" in this file: it's
-        # a known, tracked, pre-existing gap, not a validation being skipped
-        # silently.
         run: npm run typecheck
-        continue-on-error: true
 
       - name: Unit tests
         run: npm test

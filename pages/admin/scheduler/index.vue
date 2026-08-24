@@ -326,7 +326,7 @@ const tabs = [
   { key: 'calendar', label: 'Calendario' },
   { key: 'templates', label: 'Plantillas' },
   { key: 'automations', label: 'Automatizaciones' },
-]
+] as const
 
 const TRIGGER_LABEL: Record<string, string> = { price_drop: 'Bajada de precio', status_change: 'Cambio de estado' }
 const ACTION_LABEL: Record<string, string> = { update_all: 'Republicar todo', update_images: 'Actualizar fotos', update_text: 'Actualizar texto/precio', unpublish: 'Despublicar' }

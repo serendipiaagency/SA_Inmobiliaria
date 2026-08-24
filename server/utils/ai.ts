@@ -1,6 +1,5 @@
 import type { H3Event } from 'h3'
 import type { MarketStats } from './market'
-export type { MarketStats }
 
 /**
  * AI content engine.

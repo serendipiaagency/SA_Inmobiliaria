@@ -23,8 +23,9 @@ deploy-production   (solo push a main, needs: validate)
   → npm run smoke-test -- $PRODUCTION_URL
 ```
 
-Ningún paso usa `continue-on-error` excepto el typecheck (deuda técnica ya
-documentada — ver la nota en el propio workflow). Cada paso solo se ejecuta
+Ningún paso usa `continue-on-error` — el typecheck también es bloqueante
+(los 43 errores preexistentes que lo mantenían en modo informativo se
+corrigieron en un bloque de trabajo posterior). Cada paso solo se ejecuta
 si el anterior tuvo éxito: si `migrations apply` falla, el job se detiene
 ahí — `wrangler deploy` nunca llega a ejecutarse con una migración a medias.
 Esto es lo que impide un despliegue parcial (código nuevo sobre esquema

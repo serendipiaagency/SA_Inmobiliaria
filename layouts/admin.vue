@@ -118,7 +118,16 @@ const icons: Record<string, string> = {
   help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4M12 17h.01',
 }
 
-const nav = [
+interface NavItem {
+  label: string
+  to: string
+  icon: string
+  /** Not set by any item today — the template already supports it for a future per-item counter/notice. */
+  badge?: string
+  /** Not set by any item today — the template already supports it for a future "beta"/"nuevo" style label. */
+  tag?: string
+}
+const nav: { label: string; items: NavItem[] }[] = [
   {
     label: 'General',
     items: [

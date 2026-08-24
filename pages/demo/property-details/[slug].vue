@@ -13,7 +13,7 @@
         :before-photo="beforePhoto"
         :after-photo="afterPhoto"
         :ai-staged-photo="aiStagedPhoto"
-        :social-media="data.socialMedia"
+        :social-media="socialMediaForGallery"
       />
     </section>
 
@@ -261,6 +261,15 @@ const { t } = useI18n()
 const { data } = await useFetch(`/api/public/properties/${route.params.slug}`)
 if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Project not found', fatal: true })
 
+// property_social_media.platform is a free-form DB column; MediaGallery only
+// knows how to render the two platforms it actually embeds, so narrow here
+// rather than widening the component's prop type to accept every string.
+const socialMediaForGallery = computed(() =>
+  (data.value?.socialMedia || [])
+    .filter((s): s is typeof s & { platform: 'instagram' | 'tiktok' } => s.platform === 'instagram' || s.platform === 'tiktok')
+    .map((s) => ({ platform: s.platform, url: s.url, caption: s.caption })),
+)
+
 const seoTitle = `${data.value.project.name} — M&M Real Estate`
 const seoDescription = [
   data.value.project.propertyType,
@@ -363,7 +372,7 @@ const hasQuickFacts = computed(() => {
 
 const facts = computed(() => {
   const out: { label: string; value: string }[] = []
-  if (p.value.bedrooms != null) out.push({ label: t('propertyDetails.facts.bedrooms', 'Habitaciones'), value: p.value.bedrooms || t('card.studio', 'Estudio') })
+  if (p.value.bedrooms != null) out.push({ label: t('propertyDetails.facts.bedrooms', 'Habitaciones'), value: p.value.bedrooms ? String(p.value.bedrooms) : t('card.studio', 'Estudio') })
   if (p.value.bathrooms != null) out.push({ label: t('propertyDetails.facts.bathrooms', 'Baños'), value: String(p.value.bathrooms) })
   if (p.value.area) out.push({ label: t('propertyDetails.facts.area', 'Superficie'), value: `${Math.round(p.value.area)} m²` })
   if (p.value.energyRating) out.push({ label: t('propertyDetails.facts.energyRating', 'Eficiencia'), value: p.value.energyRating })
@@ -374,9 +383,9 @@ const facts = computed(() => {
 const pros = computed(() => {
   const o: string[] = []
   if (p.value.hasPool) o.push(t('propertyDetails.pros.pool', 'Piscina en la comunidad'))
-  if (['S', 'SW', 'SE'].includes(p.value.orientation)) o.push(t('propertyDetails.pros.southFacing', 'Muy luminoso — orientación sur'))
-  if (['A', 'B'].includes(p.value.energyRating)) o.push(`${t('propertyDetails.pros.energyEfficient', 'Alta eficiencia energética')} (${p.value.energyRating})`)
-  if (p.value.rentalYield >= 6.5) o.push(`${t('propertyDetails.pros.yield', 'Rentabilidad destacada')} (${p.value.rentalYield}%)`)
+  if (p.value.orientation && ['S', 'SW', 'SE'].includes(p.value.orientation)) o.push(t('propertyDetails.pros.southFacing', 'Muy luminoso — orientación sur'))
+  if (p.value.energyRating && ['A', 'B'].includes(p.value.energyRating)) o.push(`${t('propertyDetails.pros.energyEfficient', 'Alta eficiencia energética')} (${p.value.energyRating})`)
+  if (p.value.rentalYield != null && p.value.rentalYield >= 6.5) o.push(`${t('propertyDetails.pros.yield', 'Rentabilidad destacada')} (${p.value.rentalYield}%)`)
   if (p.value.hasGarage) o.push(t('propertyDetails.pros.garage', 'Plaza de garaje incluida'))
   if (p.value.hasGarden) o.push(t('propertyDetails.pros.garden', 'Jardín privado'))
   if (p.value.status === 'ready') o.push(t('propertyDetails.pros.readyToMoveIn', 'Listo para entrar a vivir'))
@@ -388,7 +397,7 @@ const cons = computed(() => {
   if (p.value.status === 'new') o.push(t('propertyDetails.cons.offPlan', 'Entrega sobre plano — planifica la mudanza'))
   if (p.value.status === 'under_construction' && p.value.handoverDate) o.push(`${t('propertyDetails.cons.handoverExpected', 'Entrega prevista')}: ${p.value.handoverDate}`)
   if (!p.value.hasElevator && (p.value.bedrooms || 0) >= 2) o.push(t('propertyDetails.cons.checkElevator', 'Consulta disponibilidad de ascensor'))
-  if (['D', 'E', 'F', 'G'].includes(p.value.energyRating)) o.push(t('propertyDetails.cons.improvableEfficiency', 'Eficiencia energética mejorable'))
+  if (p.value.energyRating && ['D', 'E', 'F', 'G'].includes(p.value.energyRating)) o.push(t('propertyDetails.cons.improvableEfficiency', 'Eficiencia energética mejorable'))
   if (p.value.orientation === 'N') o.push(t('propertyDetails.cons.northFacing', 'Orientación norte — menos luz directa'))
   return o.length ? o.slice(0, 4) : [t('propertyDetails.cons.defaultVisit', 'Recomendamos visita para valorar acabados')]
 })

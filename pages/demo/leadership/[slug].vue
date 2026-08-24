@@ -42,7 +42,7 @@
             <AgentContactCard
               :name="data.member.name"
               :title="data.member.position"
-              :photo="data.member.image"
+              :photo="data.member.image || undefined"
               :phone="data.member.phone || undefined"
               :email="data.member.email"
               :bio="data.member.description || undefined"

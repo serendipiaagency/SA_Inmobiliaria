@@ -17,7 +17,7 @@ function fmt(d: Date): string {
  * notifications — reports "not connected" rather than a fake send when
  * RESEND_API_KEY isn't set.
  */
-export default defineTask({
+export default defineTask<{ skipped: true; reason: string } | { checked: number; emailsSent: number }>({
   meta: {
     name: 'marketing:saved-search-alerts',
     description: 'Emails saved-search subscribers when a new matching property appears',

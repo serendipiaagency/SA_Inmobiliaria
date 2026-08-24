@@ -1,5 +1,5 @@
 <template>
-  <img v-if="logoUrl" :src="logoUrl" :alt="companyName" class="mm-logo-img" :class="markSizeCls" />
+  <img v-if="logoUrl" :src="logoUrl" :alt="companyName ?? ''" class="mm-logo-img" :class="markSizeCls" />
   <span v-else-if="variant === 'mark'" class="mm-mark" :class="[markSizeCls, dark ? 'mm-mark-dark' : 'mm-mark-light']">{{ initials }}</span>
   <span v-else class="mm-full" :class="dark ? 'mm-full-dark' : 'mm-full-light'">
     <span class="mm-word" :class="wordSizeCls">{{ wordText }}</span>

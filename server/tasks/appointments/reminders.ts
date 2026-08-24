@@ -16,7 +16,7 @@ function fmt(d: Date): string {
  * scheduler:dispatch: a platform-level Cron Trigger has no single org's
  * request context.
  */
-export default defineTask({
+export default defineTask<{ skipped: true; reason: string } | { sent24h: number; sent1h: number }>({
   meta: {
     name: 'appointments:reminders',
     description: 'Sends 24h/1h reminders for upcoming scheduled appointments across every organization',

@@ -39,7 +39,7 @@ const DEVICES = [
   { key: 'desktop', label: 'Escritorio' },
   { key: 'tablet', label: 'Tablet' },
   { key: 'mobile', label: 'Móvil' },
-]
+] as const
 const FRAME_CLS: Record<string, string> = {
   desktop: 'w-full max-w-4xl',
   tablet: 'w-[768px] max-h-[900px]',

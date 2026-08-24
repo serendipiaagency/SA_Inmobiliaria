@@ -16,7 +16,9 @@
 const RETENTION_DAYS = 14
 const BACKUP_PREFIX = 'backups/'
 
-export default defineTask({
+export default defineTask<
+  { skipped: true; reason: string } | { tables: number; totalRows: number; key: string; sizeBytes: number; deletedOldBackups: number }
+>({
   meta: {
     name: 'system:backup-d1',
     description: 'Daily JSON snapshot of every D1 table, gzip-compressed, stored in R2',

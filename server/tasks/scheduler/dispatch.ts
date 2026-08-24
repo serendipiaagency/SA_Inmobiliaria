@@ -10,7 +10,7 @@ import { runDispatchTick } from '../../utils/publication/dispatcher'
  * cms:expire-articles). Cross-tenant by design, same reasoning as that task:
  * a platform-level Cron Trigger has no single org's request context.
  */
-export default defineTask({
+export default defineTask<{ skipped: true; reason: string } | Awaited<ReturnType<typeof runDispatchTick>>>({
   meta: {
     name: 'scheduler:dispatch',
     description: 'Dispatches due Publication Scheduler jobs across every organization',

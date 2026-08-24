@@ -9,7 +9,7 @@ import { now } from '../../utils/db'
  * organization, since a platform-level Cron Trigger has no single tenant's
  * request context to scope to.
  */
-export default defineTask({
+export default defineTask<{ skipped: true; reason: string } | { expiredCount: number }>({
   meta: {
     name: 'cms:expire-articles',
     description: 'Hides published Blog & CMS articles past their expiration date',

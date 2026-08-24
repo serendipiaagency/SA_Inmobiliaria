@@ -9,7 +9,7 @@ import * as schema from '../../db/schema'
  * needing the table to double as a permanent audit trail (it isn't one;
  * publication_history/publication_logs already serve that role).
  */
-export default defineTask({
+export default defineTask<{ skipped: true; reason: string } | { deletedCount: number }>({
   meta: {
     name: 'system:cleanup-error-logs',
     description: 'Deletes error_logs rows older than 30 days',

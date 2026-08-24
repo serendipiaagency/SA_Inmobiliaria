@@ -98,10 +98,19 @@ const { confirm } = useConfirm()
 const { data: articles, refresh: refreshArticles } = await useFetch<any>('/api/admin/cms/articles', { query: { trashed: 1, perPage: 100 } })
 const { data: comments, refresh: refreshComments } = await useFetch<any>('/api/admin/cms-comments', { query: { status: 'trash', perPage: 100 } })
 
-const { data: genericData, refresh: refreshGeneric } = await useFetch<any>(
-  () => (tab.value !== 'articles' && tab.value !== 'comments' ? `/api/admin/${tab.value}` : null),
-  { query: computed(() => ({ trashed: 1, perPage: 100 })), watch: [tab] },
-)
+// useFetch's request getter is typed as `() => NitroFetchRequest` with no
+// "skip the fetch" case in its own type — but nothing in its actual
+// implementation special-cases a falsy request either (see
+// node_modules/nuxt/dist/app/composables/fetch.js), so this doesn't skip
+// anything at runtime: the 'articles'/'comments' tabs' one wasted initial
+// fetch to an empty URL is pre-existing behavior, silently caught into
+// `error` and never surfaced (genericRows/genericData are only rendered for
+// the other tabs). The cast below only fixes the type mismatch, not that.
+const genericUrl = (() => (tab.value !== 'articles' && tab.value !== 'comments' ? `/api/admin/${tab.value}` : undefined)) as () => string
+const { data: genericData, refresh: refreshGeneric } = await useFetch<{ rows: any[] }>(genericUrl, {
+  query: computed(() => ({ trashed: 1, perPage: 100 })),
+  watch: [tab],
+})
 const genericRows = computed(() => genericData.value?.rows || [])
 
 async function restoreArticle(id: number) {
@@ -127,7 +136,9 @@ async function destroyGeneric(id: number) {
   const ok = await confirm('Esta acción es permanente.', { title: '¿Eliminar definitivamente?', confirmLabel: 'Eliminar', danger: true })
   if (!ok) return
   const resource = tab.value === 'cms/media' ? 'cms/media' : tab.value
-  await $fetch(`/api/admin/${resource}/${id}?hard=1`, { method: 'DELETE' })
+  // Explicit generic: a dynamic `resource` segment makes Nitro's typed-route
+  // inference match the wrong route's (GET/PUT-only) method union otherwise.
+  await $fetch<{ ok: true }>(`/api/admin/${resource}/${id}?hard=1`, { method: 'DELETE' })
   toast.success('Eliminado definitivamente')
   await refreshGeneric()
 }

@@ -215,7 +215,7 @@ function toQuery() {
   if (f.orientation) q.orientation = f.orientation
   if (f.minYear) q.minYear = String(f.minYear)
   if (f.energy) q.energy = f.energy
-  for (const feat of features) if (f[feat.k]) q[feat.k] = '1'
+  for (const feat of features.value) if (f[feat.k]) q[feat.k] = '1'
   return q
 }
 

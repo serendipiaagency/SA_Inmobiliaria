@@ -17,7 +17,7 @@
       </span>
     </div>
     <div v-if="spark && spark.length" class="mt-3 h-9">
-      <AdminSparkline :values="spark" :w="220" :h="36" :color="delta !== undefined && delta < 0 ? '#e11d48' : '#16150f'" class="w-full" />
+      <AdminSparkline :values="spark" :w="220" :h="36" :color="delta != null && delta < 0 ? '#e11d48' : '#16150f'" class="w-full" />
     </div>
     <p v-if="sub" class="mt-2 text-xs text-stone-500">{{ sub }}</p>
   </div>
