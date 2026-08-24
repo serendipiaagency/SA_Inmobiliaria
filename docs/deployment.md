@@ -47,6 +47,10 @@ registro DNS en Cloudflare, y el campo correspondiente en
 un ajuste manual recurrente (uno por cliente nuevo), no de una sola vez como
 los dos de abajo.
 
+Para activar los cobros con Stripe (`STRIPE_SECRET_KEY`,
+`STRIPE_WEBHOOK_SECRET` y el endpoint de webhook en el Dashboard de Stripe),
+ver [`docs/stripe-payments.md`](./stripe-payments.md).
+
 **1. Desactivar el auto-deploy de Cloudflare Workers Builds — el paso más
 importante.** Ahora mismo, Cloudflare tiene su propia integración con git
 que ejecuta `npx wrangler deploy` en cada push (a cualquier rama), sin

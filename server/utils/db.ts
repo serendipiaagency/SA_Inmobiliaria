@@ -4,7 +4,14 @@ import * as schema from '../db/schema'
 
 export { schema }
 
-export function cfEnv(event: H3Event): { DB: D1Database; MEDIA: R2Bucket; SESSION_TTL_DAYS?: string; PRIMARY_DOMAIN?: string } {
+export function cfEnv(event: H3Event): {
+  DB: D1Database
+  MEDIA: R2Bucket
+  SESSION_TTL_DAYS?: string
+  PRIMARY_DOMAIN?: string
+  STRIPE_SECRET_KEY?: string
+  STRIPE_WEBHOOK_SECRET?: string
+} {
   const env = (event.context as any).cloudflare?.env
   if (!env?.DB) {
     throw createError({ statusCode: 500, statusMessage: 'Cloudflare bindings not available (DB)' })

@@ -51,9 +51,12 @@ SESSION_TTL_DAYS = "7"
 enabled = true
 
 # "0 * * * *"  -> server/tasks/cms/expire-articles.ts (hourly, auto-hides
-#                 published articles whose expires_at has passed) and
+#                 published articles whose expires_at has passed),
 #                 server/tasks/system/cleanup-error-logs.ts (purges error_logs
-#                 older than 30 days)
+#                 older than 30 days), server/tasks/marketing/saved-search-alerts.ts
+#                 (emails saved-search subscribers about new matches) and
+#                 server/tasks/payments/reconcile-deposits.ts (polls Stripe for
+#                 any deposit the webhook never confirmed)
 # "* * * *  *" -> server/tasks/scheduler/dispatch.ts (Publication Scheduler
 #                 dispatcher — every minute, so staged-launch offsets land on time)
 #                 and server/tasks/appointments/reminders.ts (24h/1h

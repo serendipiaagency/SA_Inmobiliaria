@@ -1676,13 +1676,44 @@ export const depositPayments = sqliteTable(
     contractId: integer('contract_id').references(() => contracts.id),
     amount: real('amount').notNull(),
     currency: text('currency').notNull().default('eur'),
-    status: text('status').notNull().default('pending'), // pending | not_connected | processing | paid | failed
+    status: text('status').notNull().default('pending'), // pending | not_connected | processing | paid | failed | refunded
+    // The Checkout Session id (createDepositCheckout's sessionId) — set at
+    // creation, before Stripe has even created a PaymentIntent.
+    stripeCheckoutSessionId: text('stripe_checkout_session_id'),
+    // The real PaymentIntent id — only known once a checkout.session.completed
+    // webhook reveals it (server/api/stripe/webhook.post.ts). Needed to match
+    // later payment_intent.payment_failed / charge.refunded events, which key
+    // off the PaymentIntent, not the Checkout Session.
     stripePaymentIntentId: text('stripe_payment_intent_id'),
     errorMessage: text('error_message'),
     createdAt: text('created_at').notNull().default(''),
     paidAt: text('paid_at'),
+    refundedAt: text('refunded_at'),
   },
-  (t) => [index('deposit_payments_org').on(t.organizationId, t.createdAt)],
+  (t) => [
+    index('deposit_payments_org').on(t.organizationId, t.createdAt),
+    uniqueIndex('deposit_payments_session').on(t.stripeCheckoutSessionId),
+    index('deposit_payments_payment_intent').on(t.stripePaymentIntentId),
+  ],
+)
+
+export const stripeWebhookEvents = sqliteTable(
+  'stripe_webhook_events',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    // Stripe's event id (evt_...) — the idempotency key. A redelivered event
+    // (Stripe's delivery is at-least-once) hits this unique index and is
+    // recognized as already-processed rather than reapplied.
+    eventId: text('event_id').notNull().unique(),
+    type: text('type').notNull(),
+    organizationId: integer('organization_id'),
+    depositId: integer('deposit_id').references(() => depositPayments.id),
+    payloadJson: text('payload_json').notNull(),
+    processedOk: integer('processed_ok').notNull().default(1),
+    note: text('note'),
+    receivedAt: text('received_at').notNull().default(''),
+  },
+  (t) => [index('stripe_webhook_events_org').on(t.organizationId, t.receivedAt)],
 )
 
 export const webhookEndpoints = sqliteTable(

@@ -273,11 +273,13 @@ export function useHelpContent() {
       group: 'Finanzas & Growth',
       title: 'Depósitos',
       route: '/admin/depositos',
-      summary: 'Cobro de fianzas o señales asociadas a un contrato, a través de Stripe Checkout.',
+      summary: 'Cobro de fianzas o señales asociadas a un contrato, a través de Stripe Checkout, con confirmación automática por webhook.',
       steps: [
         'Elige el contrato y el importe, y pulsa "Solicitar pago" para generar un enlace de pago real de Stripe.',
         'Si el enlace no se genera y aparece "no conectado", significa que falta activar el secreto STRIPE_SECRET_KEY en el Worker — contacta con nosotros para configurarlo.',
-        'Usa "Comprobar estado" para consultar directamente a Stripe si el pago ya se ha completado.',
+        'El estado pasa a "Pagado" solo (automáticamente) en cuanto Stripe confirma el pago por webhook — nunca porque el cliente haya vuelto a la página de éxito, que no es una prueba de pago.',
+        '"Comprobar estado" fuerza una consulta manual a Stripe, por si quieres verificar antes de que llegue el webhook o la reconciliación horaria.',
+        'El historial de eventos de Stripe, debajo de la lista de depósitos, muestra cada notificación recibida y qué se hizo con ella — útil si un cliente dice haber pagado y no se refleja.',
       ],
     },
     {
@@ -585,6 +587,13 @@ export function useHelpContent() {
       answer:
         'Que el secreto de Stripe (STRIPE_SECRET_KEY) todavía no está configurado en tu Worker. La plataforma nunca simula un cobro que no ha ocurrido de verdad — te lo dice explícitamente en vez de fingir que el pago se ha iniciado. Contacta con nosotros para activarlo.',
       tags: ['depositos', 'pagos', 'stripe'],
+    },
+    {
+      id: 'faq-stripe-webhook-not-updating',
+      question: 'Un cliente dice que ya pagó pero el depósito sigue "En proceso", ¿qué hago?',
+      answer:
+        'Primero, pulsa "Comprobar estado" en esa fila — consulta directamente a Stripe y actualiza el depósito al momento si ya está pagado. Si sigue sin cambiar, revisa el historial de eventos de Stripe debajo de la lista: si no aparece ningún evento reciente, es que el webhook de Stripe (Dashboard → Developers → Webhooks) no está entregando a esta plataforma — contacta con nosotros para revisar la configuración (STRIPE_WEBHOOK_SECRET). Aun sin webhook, una tarea automática revisa cada hora los depósitos pendientes y los corrige, así que en el peor caso se resuelve solo dentro de esa hora.',
+      tags: ['depositos', 'pagos', 'stripe', 'webhook'],
     },
     {
       id: 'faq-avm-no-data',
