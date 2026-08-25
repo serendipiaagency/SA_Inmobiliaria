@@ -5,6 +5,12 @@
       :key="block.id"
       v-bind="wrapperAttrs(block)"
     >
+      <span
+        v-if="mode === 'builder'"
+        class="pointer-events-none absolute left-2 top-2 z-10 rounded bg-blue-500 px-1.5 py-0.5 text-[10px] font-semibold text-white opacity-0 shadow transition-opacity group-hover:opacity-100"
+      >
+        {{ blockLabel(block.type) }}
+      </span>
       <HeroBlock v-if="block.type === 'hero'" :content="block.content" />
       <MapTeaserBlock v-else-if="block.type === 'map-teaser'" :content="block.content" />
       <PropertiesBlock v-else-if="block.type === 'properties'" :content="block.content" :projects="homeData?.projects || []" />
@@ -23,6 +29,7 @@
 
 <script setup lang="ts">
 import type { SiteBlock } from '~/server/utils/sitePages'
+import { blockLabel } from '~/composables/useSiteBuilderRegistry'
 import HeroBlock from './blocks/HeroBlock.vue'
 import MapTeaserBlock from './blocks/MapTeaserBlock.vue'
 import PropertiesBlock from './blocks/PropertiesBlock.vue'
@@ -98,11 +105,20 @@ function wrapperAttrs(block: SiteBlock) {
     'data-site-block-type': block.type,
     class: [
       ...classes,
-      'site-block-wrap outline-offset-[-2px] transition-[outline-color]',
+      'group site-block-wrap outline-offset-[-2px] transition-[outline-color]',
       props.selectedBlockId === block.id ? 'outline outline-2 outline-blue-500' : 'outline outline-2 outline-transparent hover:outline-blue-300',
       hiddenOnDevice ? 'opacity-40' : '',
     ],
-    onClick: (e: MouseEvent) => {
+    // Capture phase, not bubble: a plain `onClick` here would fire *after*
+    // a nested <a>/button's own handler (router.push, a real href
+    // navigation…), since those live further down the tree and get first
+    // dispatch. Intercepting on the way down and calling preventDefault
+    // blocks the browser's default navigation before it's decided, and
+    // stopPropagation keeps the event from ever reaching the nested
+    // element's own listeners at all — so no per-component patching is
+    // needed for links, buttons, cards or forms nested inside a block.
+    onClickCapture: (e: MouseEvent) => {
+      e.preventDefault()
       e.stopPropagation()
       emit('select', block.id)
     },

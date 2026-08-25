@@ -17,6 +17,8 @@ const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8788'
  */
 
 test.describe('Constructor Web', () => {
+  test.use({ storageState: STATE_A })
+
   let a: APIRequestContext
   let originalDraftBody: any
 
@@ -127,5 +129,56 @@ test.describe('Constructor Web', () => {
 
     const publicPage = await (await a.get('/api/public/site-pages/home')).json()
     expect(publicPage.blocks[0].content.slides, 'la imagen subida en el inspector debe llegar a la página pública tras publicar').toEqual([key])
+  })
+
+  /**
+   * The click-interception fix in SiteBlockRenderer.vue's wrapperAttrs():
+   * in Edit mode, a click anywhere in a block must select it, never run
+   * the block's real behavior (here, a CTA link's navigation) — and
+   * Preview must be the exact opposite: a true simulation where that same
+   * click navigates for real. Proves both halves of the guarantee, not
+   * just "no error was thrown".
+   */
+  test('en el lienzo, un clic en un bloque selecciona sin navegar; en Vista previa navega de verdad', async ({ page }) => {
+    const put = await a.put('/api/admin/site-pages/home', {
+      data: {
+        blocks: [{
+          id: 'cta-e2e',
+          type: 'cta',
+          version: 1,
+          content: { title: 'CTA e2e', ctaPrimary: 'Contactar E2E', ctaPrimaryTo: '/contacto', align: 'center' },
+        }],
+        seo: {},
+      },
+    })
+    expect(put.ok()).toBeTruthy()
+
+    await page.goto('/admin/site-builder')
+    const frameLocator = page.frameLocator('iframe[title="Vista previa del Constructor Web"]')
+    const ctaLink = frameLocator.getByRole('link', { name: 'Contactar E2E' })
+    await expect(ctaLink).toBeVisible({ timeout: 10_000 })
+
+    // Edit mode (default): clicking the CTA must select the block, not
+    // follow its link — the iframe stays on the canvas route and the
+    // Inspector opens showing the block's real label. Scoped to
+    // `aside.border-l` specifically: the shell has two <aside>s (the
+    // "Estructura" list on the left, `border-r`, and the Inspector on the
+    // right, `border-l`) and the selected block's name legitimately shows
+    // in both once selected — a bare `page.locator('aside')` is a strict-
+    // mode violation.
+    await ctaLink.click()
+    await expect(page.locator('aside.border-l').getByText('Llamada a la acción')).toBeVisible()
+    const canvasFrame = page.frames().find((f) => f.url().includes('/admin/site-builder/canvas'))
+    expect(canvasFrame, 'el iframe del lienzo debe seguir cargado').toBeTruthy()
+    expect(canvasFrame!.url()).not.toContain('/contacto')
+
+    // Preview mode: the same click must now navigate for real, exactly
+    // like the published site.
+    await page.getByRole('button', { name: 'Vista previa' }).click()
+    await expect(frameLocator.getByRole('link', { name: 'Contactar E2E' })).toBeVisible()
+    await frameLocator.getByRole('link', { name: 'Contactar E2E' }).click()
+    await expect
+      .poll(() => page.frames().some((f) => f.url().includes('/contacto')), { timeout: 10_000 })
+      .toBe(true)
   })
 })

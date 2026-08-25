@@ -204,6 +204,25 @@ El espaciado extra es siempre *aditivo* sobre el padding propio de cada
 bloque (nunca lo reemplaza), así que un bloque sin estas opciones tocadas
 se ve exactamente igual que antes de que existieran.
 
+**Editar sin navegar (`mode="builder"`)**: dentro del lienzo, un clic en
+cualquier parte de un bloque debe *seleccionarlo*, nunca ejecutar su
+comportamiento real — un enlace de propiedad, un botón de CTA, una tarjeta
+clicable. `SiteBlockRenderer.vue` intercepta esto en `wrapperAttrs()` con un
+`onClickCapture` (fase de captura, no burbuja) sobre el `<div>` envolvente de
+cada bloque, llamando `preventDefault()` + `stopPropagation()` antes de que
+el clic llegue al elemento real anidado (un `<NuxtLink>`, un botón con su
+propio `@click`…) — así ningún tipo de bloque necesita su propio parche: la
+intercepción es arquitectónica, a nivel del wrapper, no por componente. En
+`mode="preview"` (y en `production`) `wrapperAttrs()` no añade ni el
+`onClickCapture` ni el contorno de selección — el clic llega intacto al
+elemento real, exactamente como en el sitio publicado. Al pasar el ratón
+sobre un bloque en `builder` aparece además una etiqueta discreta con su
+nombre (`blockLabel(block.type)`), solo para orientar, sin afectar al clic.
+Cabecera/pie no están en este lienzo (ver más arriba), así que no hay nada
+de navegación de menú que interceptar todavía; si se añaden aquí en el
+futuro, heredan esta misma protección sin cambios, por ser el mismo `<div>`
+envolvente de bloque.
+
 **Añadir un tipo de bloque nuevo**: entrada en `BLOCK_PRESETS`
 (`composables/useSiteBuilderRegistry.ts`) con su `createContent()` por
 defecto; un componente en `components/site-builder/blocks/` que lo dibuje a
