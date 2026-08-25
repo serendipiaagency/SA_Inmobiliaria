@@ -13,6 +13,13 @@ const DEVELOPER_PROPERTY_SORTS: Record<string, any> = {
   name_desc: desc(schema.developerProperties.name),
 }
 
+const TEAM_SORTS: Record<string, any> = {
+  newest: desc(schema.teamMembers.createdAt),
+  oldest: asc(schema.teamMembers.createdAt),
+  name_asc: asc(schema.teamMembers.name),
+  name_desc: desc(schema.teamMembers.name),
+}
+
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
   let orgId: number | null = null
@@ -63,6 +70,34 @@ export default defineEventHandler(async (event) => {
     if (query.areaMax) conds.push(lte(t.area, Number(query.areaMax)))
   }
 
+  // "Comerciales" admin listing — status/office/department/zone/
+  // specialization/language filters and an assigned-properties count the
+  // plain generic listing never needed. Same reasoning as the
+  // developer-properties branch above for living here instead of a sibling
+  // literal route.
+  const isTeam = key === 'team'
+  if (isTeam) {
+    const t = schema.teamMembers
+    if (query.employmentStatus) conds.push(eq(t.employmentStatus, String(query.employmentStatus)))
+    if (query.officeName) conds.push(like(t.officeName, `%${query.officeName}%`))
+    if (query.department) conds.push(like(t.department, `%${query.department}%`))
+    if (query.position) conds.push(like(t.position, `%${query.position}%`))
+    if (query.zone) conds.push(like(t.zones, `%${query.zone}%`))
+    if (query.specialty) conds.push(like(t.specialties, `%${query.specialty}%`))
+    if (query.language) conds.push(like(t.languages, `%${query.language}%`))
+    if (query.assignedProperties === 'with') {
+      conds.push(sql`(
+        exists(select 1 from developer_properties where developer_properties.agent_id = ${t.id})
+        or exists(select 1 from agent_properties where agent_properties.agent_id = ${t.id})
+      )`)
+    } else if (query.assignedProperties === 'without') {
+      conds.push(sql`not (
+        exists(select 1 from developer_properties where developer_properties.agent_id = ${t.id})
+        or exists(select 1 from agent_properties where agent_properties.agent_id = ${t.id})
+      )`)
+    }
+  }
+
   const where = conds.length ? and(...conds) : undefined
 
   const countRows = await db
@@ -90,6 +125,7 @@ export default defineEventHandler(async (event) => {
         community: t.community,
         city: t.city,
         country: t.country,
+        agentId: t.agentId,
         isExclusive: t.isExclusive,
         isReserved: t.isReserved,
         publishedAt: t.publishedAt,
@@ -99,6 +135,39 @@ export default defineEventHandler(async (event) => {
       })
       .from(t)
       .leftJoin(schema.developers, eq(t.developerId, schema.developers.id))
+      .where(where as any)
+      .orderBy(sort)
+      .limit(perPage)
+      .offset((page - 1) * perPage)
+    return { rows, total, page, perPage }
+  }
+
+  if (isTeam) {
+    const t = schema.teamMembers
+    const sort = TEAM_SORTS[String(query.sort || 'name_asc')] || TEAM_SORTS.name_asc
+    const rows = await db
+      .select({
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        position: t.position,
+        email: t.email,
+        phone: t.phone,
+        image: t.image,
+        department: t.department,
+        officeName: t.officeName,
+        specialties: t.specialties,
+        languages: t.languages,
+        zones: t.zones,
+        employmentStatus: t.employmentStatus,
+        showOnWeb: t.showOnWeb,
+        updatedAt: t.updatedAt,
+        assignedPropertiesCount: sql<number>`(
+          (select count(*) from developer_properties where developer_properties.agent_id = ${t.id})
+          + (select count(*) from agent_properties where agent_properties.agent_id = ${t.id})
+        )`,
+      })
+      .from(t)
       .where(where as any)
       .orderBy(sort)
       .limit(perPage)

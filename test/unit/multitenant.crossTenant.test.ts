@@ -42,6 +42,7 @@ const RESOURCE_ROWS: Record<string, (f: TenantFixture, tag: string) => Record<st
   communities: (f, tag) => ({ organizationId: f.orgId, name: `${tag} community` }),
   blogs: (f, tag) => ({ organizationId: f.orgId, slug: `${tag}-blog` }),
   team: (f, tag) => ({ organizationId: f.orgId, name: `${tag} member`, slug: `${tag}-member`, email: `${tag}-member@example.com`, position: 'Broker' }),
+  'team-member-documents': (f, tag) => ({ organizationId: f.orgId, teamMemberId: f.teamMemberId, fileKey: `tenants/${f.orgId}/team-documents/${tag}.pdf`, label: `${tag} document` }),
   users: (f, tag) => ({ organizationId: f.orgId, name: `${tag} user`, email: `${tag}-user@example.com`, password: 'x', role: 'admin' }),
   'cms-categories': (f, tag) => ({ organizationId: f.orgId, name: `${tag} cat`, slug: `${tag}-cat-row` }),
   'cms-tags': (f, tag) => ({ organizationId: f.orgId, name: `${tag} tag`, slug: `${tag}-tag` }),
@@ -231,7 +232,7 @@ describe('cross-tenant CREATE with a foreign relation is refused', () => {
 
   it('the declared relations cover the known client-supplied foreign keys', () => {
     expect(relationKeys.sort()).toEqual(
-      ['cms-authors', 'cms-categories', 'cms-comments', 'cms-media-folders', 'developer-properties'].sort(),
+      ['cms-authors', 'cms-categories', 'cms-comments', 'cms-media-folders', 'developer-properties', 'properties', 'team', 'team-member-documents'].sort(),
     )
   })
 
@@ -267,6 +268,28 @@ describe('cross-tenant CREATE with a foreign relation is refused', () => {
     await expectCrossTenantDenied(
       () => assertPayloadReferences(db, def, { developerId: B.developerId }, A.orgId, { isCreate: true }),
       'developer-properties.developerId',
+    )
+  })
+
+  it('tenant A cannot assign its project or secondary-sale property to a tenant B comercial', async () => {
+    await expectCrossTenantDenied(
+      () => assertPayloadReferences(db, adminResources['developer-properties'], { agentId: B.teamMemberId }, A.orgId, { isCreate: false }),
+      'developer-properties.agentId',
+    )
+    await expectCrossTenantDenied(
+      () => assertPayloadReferences(db, adminResources.properties, { agentId: B.teamMemberId }, A.orgId, { isCreate: false }),
+      'properties.agentId',
+    )
+  })
+
+  it('tenant A cannot point a comercial\'s manager, or a document, at a tenant B comercial', async () => {
+    await expectCrossTenantDenied(
+      () => assertPayloadReferences(db, adminResources.team, { managerId: B.teamMemberId }, A.orgId, { isCreate: false }),
+      'team.managerId',
+    )
+    await expectCrossTenantDenied(
+      () => assertPayloadReferences(db, adminResources['team-member-documents'], { teamMemberId: B.teamMemberId }, A.orgId, { isCreate: true }),
+      'team-member-documents.teamMemberId',
     )
   })
 

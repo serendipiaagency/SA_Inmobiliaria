@@ -170,10 +170,18 @@ export function useHelpContent() {
     {
       key: 'agents',
       group: 'Portal Web',
-      title: 'Agentes',
+      title: 'Comerciales',
       route: '/admin/agents',
-      summary: 'Ficha pública de cada agente comercial, con su propia agenda de disponibilidad para reservar visitas.',
-      steps: ['Configura el horario de trabajo y el buffer entre citas de cada agente desde su ficha.'],
+      summary: 'Ficha profesional completa de cada comercial: datos laborales, especialización, propiedades asignadas, rendimiento y perfil público.',
+      steps: [
+        'El listado busca por nombre, puesto, email, teléfono, departamento u oficina; el botón "Filtros" añade zona, especialización, idioma y si tiene o no propiedades asignadas — cada filtro activo aparece como una chip que puedes quitar, o usa "Limpiar filtros" para quitarlos todos.',
+        'Al abrir un comercial (o crear uno nuevo) se abre su ficha completa por pestañas: Perfil, Laboral, Comercial, Contacto, Zonas, Propiedades, Rendimiento, Documentos y Web — no es un formulario largo, cada aspecto vive en su propia pestaña.',
+        '"Propiedades" muestra las propiedades ya asignadas a ese comercial y permite buscar y asignar otras nuevas (o desasignarlas); es la misma relación que usa el resto del catálogo, no una lista aparte.',
+        '"Rendimiento" muestra leads, visitas, operaciones cerradas, volumen y comisión reales — calculados a partir de los leads/visitas/operaciones del CRM ya existentes, nunca cifras inventadas. Solo está disponible una vez guardada la ficha.',
+        '"Documentos" admite adjuntar archivos internos (contratos, certificaciones…) — nunca se muestran en la ficha pública, solo son visibles desde el panel de administración.',
+        'La pestaña "Web" controla si el comercial aparece en la web pública ("Mostrar en la web") y su orden; reutiliza la foto, el nombre, el puesto, la descripción y las redes de las pestañas Perfil y Contacto — no hay campos públicos duplicados.',
+        'La agenda de disponibilidad para citas (horario semanal, vacaciones) sigue gestionándose desde "Equipo" (Contenido → Equipo) — la pestaña Laboral de la ficha enlaza directamente a "Configurar horario" en vez de duplicar ese calendario.',
+      ],
     },
     {
       key: 'communities',

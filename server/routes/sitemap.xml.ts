@@ -34,7 +34,11 @@ export default defineEventHandler(async (event) => {
   const [properties, blogPosts, team, communities, cmsArticles, cmsAuthors] = await Promise.all([
     db.select({ slug: schema.developerProperties.slug }).from(schema.developerProperties).where(eq(schema.developerProperties.organizationId, orgId)).all(),
     db.select({ slug: schema.blogs.slug }).from(schema.blogs).where(eq(schema.blogs.organizationId, orgId)).all(),
-    db.select({ slug: schema.teamMembers.slug }).from(schema.teamMembers).where(eq(schema.teamMembers.organizationId, orgId)).all(),
+    db
+      .select({ slug: schema.teamMembers.slug })
+      .from(schema.teamMembers)
+      .where(and(eq(schema.teamMembers.organizationId, orgId), eq(schema.teamMembers.showOnWeb, 1)))
+      .all(),
     db.select({ id: schema.communities.id }).from(schema.communities).where(eq(schema.communities.organizationId, orgId)).all(),
     db
       .select({ slug: schema.cmsArticles.slug })

@@ -109,6 +109,7 @@ export const agentProperties = sqliteTable(
     bathrooms: integer('bathrooms'),
     mainImage: text('main_image'),
     status: text('status').notNull().default('available'), // available | sold
+    agentId: integer('agent_id'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
@@ -248,6 +249,9 @@ export const developerProperties = sqliteTable(
     // entered for that building; the decision panel shows "Consultar" rather
     // than guessing a number when it's missing.
     serviceChargeAnnual: real('service_charge_annual'),
+    // Commercial assignment (added 0047) — null until a Comercial is
+    // assigned; no such relationship existed on this table before.
+    agentId: integer('agent_id'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
@@ -470,10 +474,44 @@ export const teamMembers = sqliteTable(
     bufferMinutes: integer('buffer_minutes').notNull().default(0),
     maxAppointmentsPerDay: integer('max_appointments_per_day'),
     icalToken: text('ical_token'),
+    // Laboral (Comerciales ficha) — office_name/department are plain text:
+    // no Offices/Departments entity exists yet to reference.
+    employeeCode: text('employee_code'),
+    department: text('department'),
+    officeName: text('office_name'),
+    managerId: integer('manager_id'),
+    hireDate: text('hire_date'),
+    contractType: text('contract_type'),
+    employmentStatus: text('employment_status').notNull().default('active'),
+    workingHours: text('working_hours'),
+    // Comercial — JSON arrays, same storage pattern as
+    // developerProperties.paymentPlan. `specialties`/`languages` above are
+    // reused for their overlapping concepts, not duplicated.
+    zones: text('zones'),
+    propertyTypes: text('property_types'),
+    whatsapp: text('whatsapp'),
+    // Perfil Web — defaults preserve today's actual behavior (every agent
+    // publicly visible, in id order) so this migration never unpublishes
+    // anyone by accident.
+    showOnWeb: integer('show_on_web').notNull().default(1),
+    sortOrder: integer('sort_order').notNull().default(0),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
   (t) => [uniqueIndex('team_members_org_slug').on(t.organizationId, t.slug), index('team_members_org').on(t.organizationId)],
+)
+
+export const teamMemberDocuments = sqliteTable(
+  'team_member_documents',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull().default(1),
+    teamMemberId: integer('team_member_id').notNull(),
+    fileKey: text('file_key').notNull(),
+    label: text('label').notNull(),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('team_member_documents_member').on(t.teamMemberId), index('team_member_documents_org').on(t.organizationId)],
 )
 
 // ---------------------------------------------------------------------------

@@ -20,6 +20,7 @@ export type MediaCategory =
   | 'export'
   | 'catalog'
   | 'upload'
+  | 'team-member-document'
 
 export interface RegisterMediaAssetInput {
   organizationId: number
