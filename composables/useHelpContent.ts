@@ -122,9 +122,16 @@ export function useHelpContent() {
       route: '/admin/developer-properties',
       summary: 'Catálogo principal de propiedades sobre plano/promociones que se muestran en la web pública.',
       steps: [
+        'El listado busca por nombre, referencia (número), dirección, urbanización, ciudad, distrito o código postal a la vez — usa la "×" del buscador para limpiarlo. El botón "Filtros" abre un panel con precio, ubicación, tipo, dormitorios/baños y superficie, combinables entre sí; cada filtro activo aparece como una "chip" que puedes quitar individualmente, o usar "Limpiar filtros" para quitarlos todos.',
+        'Ordena por más recientes/antiguas, precio (mayor o menor) o nombre (A-Z/Z-A). El botón de vista cambia entre cuadrícula (tarjetas con imagen, precio, ubicación y estado) y lista; la preferencia se recuerda en este navegador.',
+        'Cada tarjeta tiene un menú "..." con Publicar/Despublicar, Duplicar (crea una copia editable con "(copia)" en el nombre) y Eliminar, además de los enlaces Editar y Vista previa.',
         'Al crear o editar una propiedad se abre el Property Builder: un editor por secciones (Información básica, Ubicación, Precio, Características, Descripción, Multimedia, Galería, Planos, Tipos de unidad, Redes sociales, Comercial/Inversión) en vez de un formulario largo — navega entre ellas por la barra lateral (o las pestañas, en pantallas pequeñas).',
         'La cabecera muestra si hay cambios sin guardar y el estado real de la propiedad; guarda con el botón "Guardar" cuando quieras.',
-        'La sección "Galería" admite varias imágenes con vista previa y borrado; "Planos", "Tipos de unidad" y "Redes sociales" funcionan como listas donde añades o quitas filas.',
+        'La sección "Ubicación" tiene los campos de dirección (país, ciudad, calle y número, urbanización, bloque, portal, piso, letra, código postal, distrito) junto a un mapa interactivo: pulsa "Buscar dirección en el mapa" para situar el marcador automáticamente a partir de esos campos, y luego arrástralo o haz clic para ajustar la posición exacta a mano — la posición del marcador es siempre la que se guarda, aunque la búsqueda automática no encuentre nada.',
+        'El "Plan de pagos" (sección Precio) se edita como una lista visual de fases (concepto, porcentaje/importe, descripción) que puedes añadir, editar, arrastrar para reordenar o eliminar — ya no se edita como JSON.',
+        'El vídeo (sección Multimedia) admite una URL externa (YouTube, Vimeo o enlace directo) o subir un archivo propio (mp4/webm, hasta 100 MB) con barra de progreso; solo una de las dos fuentes está activa a la vez — al guardar una sustituye a la otra.',
+        'La "Galería" admite varias imágenes: arrastra una miniatura para reordenarla (el nuevo orden se guarda solo) y usa "Usar como portada" para marcar cuál se muestra como imagen principal. "Planos", "Tipos de unidad" funcionan como listas donde añades o quitas filas.',
+        '"Redes sociales" usa "+ Añadir red social": elige la plataforma (Instagram, Facebook, LinkedIn, TikTok, YouTube, X/Twitter, Pinterest, WhatsApp, Telegram…) y luego su URL; arrastra para reordenar o pulsa el icono de papelera para quitarla.',
         'Marca "Exclusiva" o "Reservada" (sección Comercial/Inversión) para que aparezca destacada o bloqueada en la web.',
         'El estado (nueva / en construcción / lista) se refleja en la ficha pública automáticamente.',
       ],
@@ -582,6 +589,13 @@ export function useHelpContent() {
       answer:
         'Sí, cada inmobiliaria tiene una cuota de almacenamiento (por defecto 5 GB) que cubre fotos, PDF de contratos, exportaciones del Asset Export Studio y documentos de visitantes. Si la superas, la subida se rechaza con un aviso indicando cuánto tienes usado — nunca se corta en silencio. Si necesitas más espacio, contacta con nosotros.',
       tags: ['media', 'cuota', 'almacenamiento', 'storage'],
+    },
+    {
+      id: 'faq-property-video-source',
+      question: 'Puse una URL de vídeo en una propiedad y ahora subí un archivo, pero la URL ya no aparece, ¿la perdí?',
+      answer:
+        'Es el comportamiento esperado: una propiedad solo puede tener una fuente de vídeo activa a la vez (una URL externa de YouTube/Vimeo/enlace directo, o un archivo subido), para evitar que queden dos vídeos contradictorios guardados. Al subir un archivo, sustituye a la URL que hubiera antes (y viceversa). Si necesitas volver a la URL anterior, tendrás que volver a introducirla en la pestaña "URL externa".',
+      tags: ['propiedades', 'video', 'multimedia', 'developer-properties'],
     },
     {
       id: 'faq-lead-source',

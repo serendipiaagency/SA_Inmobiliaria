@@ -28,7 +28,21 @@ const ALLOWED_TYPES: Record<string, string> = {
   'application/pdf': 'pdf',
 }
 
+// mp4/webm only — the two formats every modern browser plays natively via
+// <video> with no transcoding step, and the two whose container headers are
+// simple enough to fingerprint reliably below (see contentMatchesType).
+export const ALLOWED_VIDEO_TYPES: Record<string, string> = {
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+}
+
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 // 10 MB
+
+// Property walkthrough clips need far more headroom than a photo, but a
+// Cloudflare Worker request body still has to fit in memory end to end —
+// 100 MB stays comfortably inside what a Workers Paid plan accepts and is
+// enough for a couple of minutes of compressed 1080p footage.
+export const MAX_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024 // 100 MB
 
 function bytesStartWith(data: Uint8Array, sig: number[], offset = 0): boolean {
   if (data.length < offset + sig.length) return false
@@ -55,6 +69,10 @@ export function contentMatchesType(data: Uint8Array, type: string): boolean {
       return bytesStartWith(data, [0x47, 0x49, 0x46, 0x38, 0x37, 0x61]) || bytesStartWith(data, [0x47, 0x49, 0x46, 0x38, 0x39, 0x61])
     case 'image/webp':
       return bytesStartWith(data, [0x52, 0x49, 0x46, 0x46]) && bytesStartWith(data, [0x57, 0x45, 0x42, 0x50], 8) // RIFF....WEBP
+    case 'video/mp4':
+      return bytesStartWith(data, [0x66, 0x74, 0x79, 0x70], 4) // ISO base media "....ftyp" box at offset 4
+    case 'video/webm':
+      return bytesStartWith(data, [0x1a, 0x45, 0xdf, 0xa3]) // EBML header (WebM/Matroska)
     default:
       return false
   }
@@ -90,6 +108,8 @@ export function buildStructuredKey(organizationId: number, category: MediaCatego
         return `tenants/${organizationId}/catalogs`
       case 'property-photo':
         return `public/${organizationId}/properties`
+      case 'property-video':
+        return `public/${organizationId}/properties/videos`
       case 'blog-image':
         return `public/${organizationId}/blog`
       case 'logo':
@@ -117,6 +137,7 @@ export async function storeFile(
   organizationId: number,
   category: MediaCategory,
   allowedTypes: Record<string, string> = ALLOWED_TYPES,
+  maxBytes: number = MAX_UPLOAD_BYTES,
 ): Promise<StoredFile> {
   const type = part.type || 'application/octet-stream'
   const ext = allowedTypes[type]
@@ -126,8 +147,8 @@ export async function storeFile(
   if (part.data.byteLength === 0) {
     throw createError({ statusCode: 422, statusMessage: 'El archivo está vacío.' })
   }
-  if (part.data.byteLength > MAX_UPLOAD_BYTES) {
-    throw createError({ statusCode: 413, statusMessage: 'File too large (max 10 MB)' })
+  if (part.data.byteLength > maxBytes) {
+    throw createError({ statusCode: 413, statusMessage: `File too large (max ${Math.round(maxBytes / (1024 * 1024))} MB)` })
   }
   const bytes = part.data as Uint8Array
   if (!contentMatchesType(bytes, type)) {
@@ -137,7 +158,8 @@ export async function storeFile(
   // Structural integrity, beyond "the first few bytes look right": a truncated
   // or corrupted file, or one whose header claims dimensions the file doesn't
   // back up, is rejected here rather than failing later inside a PDF render
-  // or an <img> tag.
+  // or an <img> tag. Video has no equivalent full-parse validator yet — the
+  // magic-byte + size checks above are what guards it for now.
   let width: number | undefined
   let height: number | undefined
   if (type.startsWith('image/')) {
@@ -176,13 +198,14 @@ export async function storeAndRegisterFile(
     entityId?: number | null
     createdBy?: number | null
     allowedTypes?: Record<string, string>
+    maxBytes?: number
   },
 ): Promise<StoredFile & { mediaAssetId: number }> {
   // Reject over-quota uploads before spending R2 storage or CPU on validation
   // of a file we're not going to keep.
   await assertQuotaAvailable(db, opts.organizationId, part.data.byteLength)
 
-  const stored = await storeFile(event, part, opts.organizationId, opts.category, opts.allowedTypes)
+  const stored = await storeFile(event, part, opts.organizationId, opts.category, opts.allowedTypes, opts.maxBytes)
 
   const mediaAssetId = await registerMediaAsset(db, {
     organizationId: opts.organizationId,

@@ -12,6 +12,7 @@ export type MediaVisibility = 'public' | 'private' | 'confidential'
  */
 export type MediaCategory =
   | 'property-photo'
+  | 'property-video'
   | 'logo'
   | 'blog-image'
   | 'kyc-document'

@@ -1,5 +1,11 @@
 <template>
-  <label class="block" :class="spec.span === 2 ? 'sm:col-span-2' : ''">
+  <!-- A plain div, not a <label> — this wraps complex multi-control fields
+  (payment-plan, video) too, and a <label> wrapping more than one focusable
+  element makes browsers compute an overbroad accessible name (the whole
+  wrapper's text) for controls inside it instead of their own label. Simple
+  fields keep working the same: `.label` is styling only, not an HTML
+  <label>, and checkbox already supplies its own explicit inline <label>. -->
+  <div class="block" :class="spec.span === 2 ? 'sm:col-span-2' : ''">
     <span v-if="spec.type !== 'checkbox'" class="label">
       {{ spec.label }} <span v-if="spec.required" class="text-red-500">*</span>
     </span>
@@ -37,16 +43,21 @@
       {{ spec.label }}
     </label>
 
+    <PaymentPlanEditor v-else-if="spec.type === 'payment-plan'" :model-value="modelValue" @update:model-value="emitUpdate" />
+    <VideoField v-else-if="spec.type === 'video'" :model-value="modelValue" :upload-folder="uploadFolder" @update:model-value="emitUpdate" />
+
     <input v-else-if="spec.type === 'number'" :value="modelValue ?? ''" type="number" step="any" :class="inputCls" @input="emitUpdate(numOrNull(($event.target as HTMLInputElement).value))" />
     <input v-else-if="spec.type === 'url'" :value="modelValue ?? ''" type="url" placeholder="https://…" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value)" />
     <input v-else :value="modelValue ?? ''" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value)" />
 
     <span v-if="spec.hint" class="mt-1 block text-[11px] text-stone-400">{{ spec.hint }}</span>
-  </label>
+  </div>
 </template>
 
 <script setup lang="ts">
 import type { FieldSpec } from '~/composables/usePropertyBuilderConfig'
+import PaymentPlanEditor from './PaymentPlanEditor.vue'
+import VideoField from './VideoField.vue'
 
 const props = defineProps<{ spec: FieldSpec; modelValue: any; uploadFolder: string }>()
 const emit = defineEmits<{ 'update:modelValue': [value: any] }>()

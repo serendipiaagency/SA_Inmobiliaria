@@ -1,10 +1,14 @@
 import { requireOrgScope } from '../../utils/auth'
 import { useDb } from '../../utils/db'
-import { storeAndRegisterFile } from '../../utils/media'
+import { storeAndRegisterFile, ALLOWED_VIDEO_TYPES, MAX_VIDEO_UPLOAD_BYTES } from '../../utils/media'
 import type { MediaCategory } from '../../utils/mediaAssets'
 
 const PROPERTY_PHOTO_FOLDERS = new Set(['developer-properties', 'properties', 'floor-plans', 'project-images', 'gallery-images', 'social-media'])
 const LOGO_FOLDERS = new Set(['brand-kit', 'developers', 'agents', 'team'])
+// Only these folders may opt into a video upload (via kind=video below) — an
+// arbitrary folder accepting 100 MB files instead of 10 MB images would be a
+// quota/storage surprise for anything that doesn't actually need video.
+const VIDEO_FOLDERS = new Set(['developer-properties'])
 
 function categoryFor(folder: string): MediaCategory {
   if (PROPERTY_PHOTO_FOLDERS.has(folder)) return 'property-photo'
@@ -26,14 +30,20 @@ export default defineEventHandler(async (event) => {
   if (!file) throw createError({ statusCode: 422, statusMessage: 'No file provided' })
   const folderPart = parts?.find((p) => p.name === 'folder')
   const folder = (folderPart ? new TextDecoder().decode(folderPart.data) : 'uploads').replace(/[^a-z0-9_-]/gi, '') || 'uploads'
+  const kindPart = parts?.find((p) => p.name === 'kind')
+  const isVideo = kindPart ? new TextDecoder().decode(kindPart.data) === 'video' : false
+  if (isVideo && !VIDEO_FOLDERS.has(folder)) {
+    throw createError({ statusCode: 422, statusMessage: `Video uploads aren't supported for folder "${folder}"` })
+  }
 
   const db = useDb(event)
   const stored = await storeAndRegisterFile(event, db, file, {
     organizationId: orgId,
     visibility: 'public',
-    category: categoryFor(folder),
+    category: isVideo ? 'property-video' : categoryFor(folder),
     entityType: folder,
     createdBy: user.id,
+    ...(isVideo ? { allowedTypes: ALLOWED_VIDEO_TYPES, maxBytes: MAX_VIDEO_UPLOAD_BYTES } : {}),
   })
   return { key: stored.key, url: `/api/media/${stored.key}` }
 })

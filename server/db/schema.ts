@@ -135,6 +135,7 @@ export const propertyGalleryImages = sqliteTable('property_gallery_images', {
     .notNull()
     .references(() => agentProperties.id, { onDelete: 'cascade' }),
   image: text('image').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
   createdAt: text('created_at').notNull().default(''),
 })
 
@@ -213,6 +214,18 @@ export const developerProperties = sqliteTable(
     // surface that facet until a listing actually has one.
     street: text('street'),
     postalCode: text('postal_code'),
+    // --- Granular address fields (added 0046) — community (above) already
+    // covers "urbanización" (a named residential development), reused
+    // rather than duplicated. All nullable; existing rows keep working
+    // empty.
+    country: text('country'),
+    city: text('city'),
+    streetNumber: text('street_number'),
+    block: text('block'),
+    portal: text('portal'),
+    floor: text('floor'),
+    doorLetter: text('door_letter'),
+    district: text('district'),
     // Optional showcase clip (added 0012) — null until a real walkthrough
     // video is attached; the card's hover-video and "Vídeo" badge stay
     // dormant until then rather than faking footage.
@@ -288,6 +301,7 @@ export const images = sqliteTable('images', {
     .notNull()
     .references(() => developerProperties.id, { onDelete: 'cascade' }),
   image: text('image').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
   createdAt: text('created_at').notNull().default(''),
 })
 

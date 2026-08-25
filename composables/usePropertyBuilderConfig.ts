@@ -16,7 +16,7 @@
 export interface FieldSpec {
   key: string
   label: string
-  type: 'text' | 'textarea' | 'number' | 'select' | 'checkbox' | 'image' | 'url' | 'json' | 'relation'
+  type: 'text' | 'textarea' | 'number' | 'select' | 'checkbox' | 'image' | 'url' | 'json' | 'relation' | 'payment-plan' | 'video'
   options?: string[]
   /** For type 'relation': the admin resource to fetch options from. */
   relationResource?: string
@@ -37,6 +37,14 @@ export interface FieldsSection extends BaseSection {
   fields: FieldSpec[]
 }
 
+export interface LocationSection extends BaseSection {
+  kind: 'location'
+  /** Address text fields, rendered in the same grid as a 'fields' section. */
+  fields: FieldSpec[]
+  latField: string
+  lngField: string
+}
+
 export interface GallerySection extends BaseSection {
   kind: 'gallery'
   childResource: string
@@ -50,11 +58,17 @@ export interface ChildTableSection extends BaseSection {
   columns: FieldSpec[]
 }
 
+export interface SocialSection extends BaseSection {
+  kind: 'social'
+  childResource: string
+  parentField: string
+}
+
 export interface TranslationsSection extends BaseSection {
   kind: 'translations'
 }
 
-export type BuilderSection = FieldsSection | GallerySection | ChildTableSection | TranslationsSection
+export type BuilderSection = FieldsSection | LocationSection | GallerySection | ChildTableSection | SocialSection | TranslationsSection
 
 const PROPERTY_TYPE_OPTIONS = ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio']
 const ORIENTATION_OPTIONS = ['N', 'S', 'E', 'W', 'SE', 'SW', 'NE', 'NW']
@@ -73,7 +87,6 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'developerId', label: 'Promotora', type: 'relation', relationResource: 'developers', required: true },
         { key: 'status', label: 'Estado', type: 'select', options: ['new', 'under_construction', 'ready'] },
         { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS },
-        { key: 'community', label: 'Comunidad', type: 'text' },
         { key: 'yearBuilt', label: 'Año de construcción', type: 'number' },
       ],
     },
@@ -81,12 +94,21 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       key: 'location',
       label: 'Ubicación',
       icon: 'building',
-      kind: 'fields',
+      kind: 'location',
+      latField: 'lat',
+      lngField: 'lng',
       fields: [
-        { key: 'street', label: 'Calle', type: 'text', span: 2 },
+        { key: 'country', label: 'País', type: 'text' },
+        { key: 'city', label: 'Localidad', type: 'text' },
+        { key: 'street', label: 'Calle', type: 'text' },
+        { key: 'streetNumber', label: 'Número', type: 'text' },
+        { key: 'community', label: 'Urbanización', type: 'text' },
+        { key: 'block', label: 'Bloque', type: 'text' },
+        { key: 'portal', label: 'Portal', type: 'text' },
+        { key: 'floor', label: 'Piso', type: 'text' },
+        { key: 'doorLetter', label: 'Letra', type: 'text' },
         { key: 'postalCode', label: 'Código postal', type: 'text' },
-        { key: 'lat', label: 'Latitud', type: 'number' },
-        { key: 'lng', label: 'Longitud', type: 'number' },
+        { key: 'district', label: 'Distrito', type: 'text' },
       ],
     },
     {
@@ -101,7 +123,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'handoverPercentage', label: '% a la entrega', type: 'text' },
         { key: 'downPercentage', label: '% de entrada', type: 'text' },
         { key: 'constructionPercentage', label: '% durante construcción', type: 'text' },
-        { key: 'paymentPlan', label: 'Plan de pagos (JSON)', type: 'json', span: 2 },
+        { key: 'paymentPlan', label: 'Plan de pagos', type: 'payment-plan', span: 2 },
       ],
     },
     {
@@ -147,7 +169,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'coverImage', label: 'Imagen de portada', type: 'image' },
         { key: 'masterPlanImage', label: 'Imagen del master plan', type: 'image' },
         { key: 'locationMap', label: 'Mapa de ubicación', type: 'image' },
-        { key: 'videoUrl', label: 'Vídeo (URL)', type: 'url', span: 2 },
+        { key: 'videoUrl', label: 'Vídeo', type: 'video', span: 2 },
         { key: 'dronePhoto', label: 'Foto aérea (drone)', type: 'image' },
         { key: 'nightPhoto', label: 'Foto nocturna', type: 'image' },
         { key: 'beforePhoto', label: 'Foto "antes"', type: 'image' },
@@ -196,15 +218,9 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       key: 'social',
       label: 'Redes sociales',
       icon: 'sparkles',
-      kind: 'child-table',
+      kind: 'social',
       childResource: 'social-media',
       parentField: 'developerPropertyId',
-      columns: [
-        { key: 'platform', label: 'Plataforma', type: 'select', options: ['instagram', 'tiktok'], required: true },
-        { key: 'url', label: 'URL del post/reel', type: 'text', required: true },
-        { key: 'caption', label: 'Descripción', type: 'text' },
-        { key: 'sortOrder', label: 'Orden', type: 'number' },
-      ],
     },
     {
       key: 'commercial',
