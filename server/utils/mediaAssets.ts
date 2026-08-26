@@ -12,6 +12,7 @@ export type MediaVisibility = 'public' | 'private' | 'confidential'
  */
 export type MediaCategory =
   | 'property-photo'
+  | 'property-video'
   | 'logo'
   | 'blog-image'
   | 'kyc-document'
@@ -19,6 +20,7 @@ export type MediaCategory =
   | 'export'
   | 'catalog'
   | 'upload'
+  | 'team-member-document'
 
 export interface RegisterMediaAssetInput {
   organizationId: number

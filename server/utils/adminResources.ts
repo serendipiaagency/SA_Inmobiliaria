@@ -227,12 +227,14 @@ export const adminResources: Record<string, ResourceDef> = {
       bathrooms: { type: 'number', label: 'Bathrooms' },
       mainImage: { type: 'image', label: 'Main image' },
       status: { type: 'select', label: 'Status', options: ['available', 'sold'] },
+      agentId: { type: 'number', label: 'Agent ID' },
     },
     listFields: ['id', 'slug', 'location', 'propertyType', 'price', 'status'],
     searchFields: ['slug', 'location', 'propertyType'],
     hasTimestamps: true,
     hasUpdatedAt: true,
     tenantPolicy: { type: 'direct' },
+    relations: { agentId: { table: schema.teamMembers, label: 'Comercial' } },
     translations: { table: schema.propertyTranslations, foreignKey: 'propertyId' },
   },
 
@@ -286,12 +288,21 @@ export const adminResources: Record<string, ResourceDef> = {
       priceOld: { type: 'number', label: 'Previous price (AED)' },
       isExclusive: { type: 'number', label: 'Exclusive' },
       isReserved: { type: 'number', label: 'Reserved' },
+      publishedAt: { type: 'text', label: 'Published at' },
       hasTour: { type: 'number', label: 'Has virtual tour' },
       rentalYield: { type: 'number', label: 'Rental yield (%)' },
       lat: { type: 'number', label: 'Latitude' },
       lng: { type: 'number', label: 'Longitude' },
       street: { type: 'text', label: 'Street' },
+      streetNumber: { type: 'text', label: 'Street number' },
       postalCode: { type: 'text', label: 'Postal code' },
+      country: { type: 'text', label: 'Country' },
+      city: { type: 'text', label: 'City' },
+      block: { type: 'text', label: 'Block' },
+      portal: { type: 'text', label: 'Portal' },
+      floor: { type: 'text', label: 'Floor' },
+      doorLetter: { type: 'text', label: 'Door letter' },
+      district: { type: 'text', label: 'District' },
       videoUrl: { type: 'text', label: 'Video URL' },
       dronePhoto: { type: 'image', label: 'Drone photo' },
       nightPhoto: { type: 'image', label: 'Night photo' },
@@ -299,15 +310,16 @@ export const adminResources: Record<string, ResourceDef> = {
       afterPhoto: { type: 'image', label: 'After photo' },
       aiStagedPhoto: { type: 'image', label: 'AI staged photo' },
       serviceChargeAnnual: { type: 'number', label: 'Annual service charge (AED)' },
+      agentId: { type: 'number', label: 'Agent ID' },
     },
     listFields: ['id', 'name', 'slug', 'community', 'price', 'status'],
-    searchFields: ['name', 'slug', 'community'],
+    searchFields: ['name', 'slug', 'community', 'street', 'city', 'district', 'postalCode'],
     hasTimestamps: true,
     hasUpdatedAt: true,
     tenantPolicy: { type: 'direct' },
-    // developerId is client-supplied: without this, tenant A could attach its
-    // project to tenant B's developer record.
-    relations: { developerId: { table: schema.developers, label: 'Promotora' } },
+    // developerId/agentId are client-supplied: without this, tenant A could
+    // attach its project to tenant B's developer or commercial record.
+    relations: { developerId: { table: schema.developers, label: 'Promotora' }, agentId: { table: schema.teamMembers, label: 'Comercial' } },
     slugFrom: 'name',
   },
 
@@ -360,8 +372,9 @@ export const adminResources: Record<string, ResourceDef> = {
     fields: {
       developerPropertyId: { type: 'number', label: 'Project ID', required: true },
       image: { type: 'image', label: 'Image', required: true },
+      sortOrder: { type: 'number', label: 'Sort order' },
     },
-    listFields: ['id', 'developerPropertyId', 'image'],
+    listFields: ['id', 'developerPropertyId', 'image', 'sortOrder'],
     searchFields: [],
     hasTimestamps: true,
     tenantPolicy: {
@@ -378,8 +391,9 @@ export const adminResources: Record<string, ResourceDef> = {
     fields: {
       propertyId: { type: 'number', label: 'Property ID', required: true },
       image: { type: 'image', label: 'Image', required: true },
+      sortOrder: { type: 'number', label: 'Sort order' },
     },
-    listFields: ['id', 'propertyId', 'image'],
+    listFields: ['id', 'propertyId', 'image', 'sortOrder'],
     searchFields: [],
     hasTimestamps: true,
     tenantPolicy: {
@@ -395,7 +409,12 @@ export const adminResources: Record<string, ResourceDef> = {
     label: 'Property social media',
     fields: {
       developerPropertyId: { type: 'number', label: 'Project ID', required: true },
-      platform: { type: 'select', label: 'Platform', options: ['instagram', 'tiktok'], required: true },
+      platform: {
+        type: 'select',
+        label: 'Platform',
+        options: ['instagram', 'facebook', 'linkedin', 'tiktok', 'youtube', 'twitter', 'pinterest', 'whatsapp', 'telegram'],
+        required: true,
+      },
       url: { type: 'text', label: 'Post/reel URL', required: true },
       caption: { type: 'text', label: 'Caption' },
       sortOrder: { type: 'number', label: 'Sort order' },
@@ -501,13 +520,49 @@ export const adminResources: Record<string, ResourceDef> = {
       twitter: { type: 'text', label: 'Twitter' },
       linkedin: { type: 'text', label: 'LinkedIn' },
       instagram: { type: 'text', label: 'Instagram' },
+      // --- Comerciales ficha (added 0047) ---
+      employeeCode: { type: 'text', label: 'Employee code' },
+      department: { type: 'text', label: 'Department' },
+      officeName: { type: 'text', label: 'Office' },
+      managerId: { type: 'number', label: 'Manager ID' },
+      hireDate: { type: 'text', label: 'Hire date' },
+      contractType: { type: 'text', label: 'Contract type' },
+      employmentStatus: { type: 'select', label: 'Employment status', options: ['active', 'inactive', 'on_leave'] },
+      workingHours: { type: 'text', label: 'Working hours' },
+      zones: { type: 'json', label: 'Zones (JSON)' },
+      propertyTypes: { type: 'json', label: 'Property types (JSON)' },
+      whatsapp: { type: 'text', label: 'WhatsApp' },
+      showOnWeb: { type: 'number', label: 'Show on web' },
+      sortOrder: { type: 'number', label: 'Sort order' },
     },
-    listFields: ['id', 'name', 'position', 'email'],
-    searchFields: ['name', 'position'],
+    listFields: ['id', 'name', 'position', 'email', 'department', 'officeName', 'employmentStatus'],
+    searchFields: ['name', 'position', 'email', 'phone', 'department', 'officeName', 'zones', 'specialties'],
     hasTimestamps: true,
     hasUpdatedAt: true,
     tenantPolicy: { type: 'direct' },
+    // managerId is client-supplied: without this, tenant A could point a
+    // manager at tenant B's team member.
+    relations: { managerId: { table: schema.teamMembers, label: 'Responsable' } },
     slugFrom: 'name',
+  },
+
+  'team-member-documents': {
+    table: schema.teamMemberDocuments,
+    label: 'Team member documents',
+    fields: {
+      teamMemberId: { type: 'number', label: 'Team member ID', required: true },
+      fileKey: { type: 'text', label: 'File', required: true },
+      label: { type: 'text', label: 'Label', required: true },
+    },
+    listFields: ['id', 'teamMemberId', 'label', 'fileKey'],
+    searchFields: ['label'],
+    hasTimestamps: true,
+    hasUpdatedAt: false,
+    tenantPolicy: { type: 'direct' },
+    // Never exposed publicly — this resource has no public/* reader, and
+    // never will: internal documents must not leak onto the public
+    // Comercial profile.
+    relations: { teamMemberId: { table: schema.teamMembers, label: 'Comercial' } },
   },
 
   users: {

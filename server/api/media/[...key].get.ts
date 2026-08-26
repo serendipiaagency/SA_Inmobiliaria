@@ -89,7 +89,14 @@ async function serveObject(
   knownMimeType: string | undefined,
   opts: { cacheable: boolean; restricted: boolean; noStore?: boolean },
 ) {
-  const obj = await cfEnv(event).MEDIA.get(key)
+  // Range support matters most for video: without it, browsers can't seek
+  // (scrub the timeline) and some refuse to start playback of a large file
+  // at all while waiting on the full body. Harmless for every other media
+  // type — a plain GET simply never sends a Range header.
+  const rangeHeader = getHeader(event, 'range')
+  const range = rangeHeader ? parseRange(rangeHeader, await headObjectSize(event, key)) : null
+
+  const obj = await cfEnv(event).MEDIA.get(key, range ? { range: { offset: range.start, length: range.end - range.start + 1 } } : undefined)
   if (!obj) throw createError({ statusCode: 404, statusMessage: 'Not found' })
 
   setHeader(event, 'Content-Type', knownMimeType || obj.httpMetadata?.contentType || 'application/octet-stream')
@@ -98,6 +105,7 @@ async function serveObject(
   // Content-Type and sniffs the body is exactly the MIME-confusion attack
   // that validation exists to prevent from working in the first place.
   setHeader(event, 'X-Content-Type-Options', 'nosniff')
+  setHeader(event, 'Accept-Ranges', 'bytes')
 
   if (opts.cacheable) {
     setHeader(event, 'Cache-Control', 'public, max-age=31536000, immutable')
@@ -106,5 +114,27 @@ async function serveObject(
   }
   if (opts.restricted) setHeader(event, 'Content-Disposition', 'attachment')
   if (obj.httpEtag) setHeader(event, 'ETag', obj.httpEtag)
+
+  if (range && 'size' in obj) {
+    setResponseStatus(event, 206)
+    setHeader(event, 'Content-Range', `bytes ${range.start}-${range.end}/${obj.size}`)
+    setHeader(event, 'Content-Length', range.end - range.start + 1)
+  }
   return obj.body
+}
+
+async function headObjectSize(event: H3Event, key: string): Promise<number | null> {
+  const head = await cfEnv(event).MEDIA.head(key)
+  return head?.size ?? null
+}
+
+function parseRange(header: string | undefined, size: number | null): { start: number; end: number } | null {
+  if (!header || size == null) return null
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header)
+  if (!match) return null
+  const [, startStr, endStr] = match
+  let start = startStr ? parseInt(startStr, 10) : size - parseInt(endStr, 10)
+  let end = endStr && startStr ? parseInt(endStr, 10) : size - 1
+  if (Number.isNaN(start) || Number.isNaN(end) || start < 0 || end >= size || start > end) return null
+  return { start, end }
 }

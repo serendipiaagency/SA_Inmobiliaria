@@ -167,7 +167,7 @@ const nav: { label: string; items: NavItem[] }[] = [
       { label: 'Propiedades (web)', to: '/admin/developer-properties', icon: 'building' },
       { label: 'Constructor Web', to: '/admin/site-builder', icon: 'widget' },
       { label: 'Propiedades 2ª mano', to: '/admin/properties', icon: 'layers' },
-      { label: 'Agentes', to: '/admin/agents', icon: 'badge' },
+      { label: 'Comerciales', to: '/admin/agents', icon: 'badge' },
       { label: 'Comunidades', to: '/admin/communities', icon: 'store' },
       { label: 'Publicación multicanal', to: '/admin/scheduler', icon: 'bolt' },
       { label: 'Brand Kit', to: '/admin/asset-export/brand-kit', icon: 'sparkles' },

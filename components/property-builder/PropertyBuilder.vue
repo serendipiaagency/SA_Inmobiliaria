@@ -75,9 +75,17 @@
                 @update:model-value="(v) => (form[f.key] = v)"
               />
             </div>
+            <LocationSection
+              v-else-if="s.kind === 'location'"
+              :fields="s.fields"
+              :form="form"
+              :lat-field="s.latField"
+              :lng-field="s.lngField"
+            />
             <TranslationsEditor v-else-if="s.kind === 'translations'" v-model="translations" />
-            <GalleryManager v-else-if="s.kind === 'gallery'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" />
+            <GalleryManager v-else-if="s.kind === 'gallery'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" :cover-value="form.coverImage" @use-as-cover="(key) => (form.coverImage = key)" />
             <ChildTable v-else-if="s.kind === 'child-table'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" :columns="s.columns" />
+            <SocialLinksManager v-else-if="s.kind === 'social'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" />
           </div>
         </template>
       </div>
@@ -88,9 +96,11 @@
 <script setup lang="ts">
 import { PROPERTY_BUILDER_SECTIONS, type BuilderSection, type FieldsSection } from '~/composables/usePropertyBuilderConfig'
 import PropertyBuilderField from './PropertyBuilderField.vue'
+import LocationSection from './LocationSection.vue'
 import TranslationsEditor from './TranslationsEditor.vue'
 import GalleryManager from './GalleryManager.vue'
 import ChildTable from './ChildTable.vue'
+import SocialLinksManager from './SocialLinksManager.vue'
 
 const props = defineProps<{ resource: 'developer-properties' | 'properties'; id: string }>()
 
@@ -155,7 +165,7 @@ onMounted(async () => {
 })
 
 function sectionHasError(s: BuilderSection): boolean {
-  if (s.kind !== 'fields') return false
+  if (s.kind !== 'fields' && s.kind !== 'location') return false
   return (s as FieldsSection).fields.some((f) => f.required && (form[f.key] === null || form[f.key] === undefined || form[f.key] === ''))
 }
 

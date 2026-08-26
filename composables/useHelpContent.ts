@@ -122,9 +122,16 @@ export function useHelpContent() {
       route: '/admin/developer-properties',
       summary: 'Catálogo principal de propiedades sobre plano/promociones que se muestran en la web pública.',
       steps: [
+        'El listado busca por nombre, referencia (número), dirección, urbanización, ciudad, distrito o código postal a la vez — usa la "×" del buscador para limpiarlo. El botón "Filtros" abre un panel con precio, ubicación, tipo, dormitorios/baños y superficie, combinables entre sí; cada filtro activo aparece como una "chip" que puedes quitar individualmente, o usar "Limpiar filtros" para quitarlos todos.',
+        'Ordena por más recientes/antiguas, precio (mayor o menor) o nombre (A-Z/Z-A). El botón de vista cambia entre cuadrícula (tarjetas con imagen, precio, ubicación y estado) y lista; la preferencia se recuerda en este navegador.',
+        'Cada tarjeta tiene un menú "..." con Publicar/Despublicar, Duplicar (crea una copia editable con "(copia)" en el nombre) y Eliminar, además de los enlaces Editar y Vista previa.',
         'Al crear o editar una propiedad se abre el Property Builder: un editor por secciones (Información básica, Ubicación, Precio, Características, Descripción, Multimedia, Galería, Planos, Tipos de unidad, Redes sociales, Comercial/Inversión) en vez de un formulario largo — navega entre ellas por la barra lateral (o las pestañas, en pantallas pequeñas).',
         'La cabecera muestra si hay cambios sin guardar y el estado real de la propiedad; guarda con el botón "Guardar" cuando quieras.',
-        'La sección "Galería" admite varias imágenes con vista previa y borrado; "Planos", "Tipos de unidad" y "Redes sociales" funcionan como listas donde añades o quitas filas.',
+        'La sección "Ubicación" tiene los campos de dirección (país, ciudad, calle y número, urbanización, bloque, portal, piso, letra, código postal, distrito) junto a un mapa interactivo: pulsa "Buscar dirección en el mapa" para situar el marcador automáticamente a partir de esos campos, y luego arrástralo o haz clic para ajustar la posición exacta a mano — la posición del marcador es siempre la que se guarda, aunque la búsqueda automática no encuentre nada.',
+        'El "Plan de pagos" (sección Precio) se edita como una lista visual de fases (concepto, porcentaje/importe, descripción) que puedes añadir, editar, arrastrar para reordenar o eliminar — ya no se edita como JSON.',
+        'El vídeo (sección Multimedia) admite una URL externa (YouTube, Vimeo o enlace directo) o subir un archivo propio (mp4/webm, hasta 100 MB) con barra de progreso; solo una de las dos fuentes está activa a la vez — al guardar una sustituye a la otra.',
+        'La "Galería" admite varias imágenes: arrastra una miniatura para reordenarla (el nuevo orden se guarda solo) y usa "Usar como portada" para marcar cuál se muestra como imagen principal. "Planos", "Tipos de unidad" funcionan como listas donde añades o quitas filas.',
+        '"Redes sociales" usa "+ Añadir red social": elige la plataforma (Instagram, Facebook, LinkedIn, TikTok, YouTube, X/Twitter, Pinterest, WhatsApp, Telegram…) y luego su URL; arrastra para reordenar o pulsa el icono de papelera para quitarla.',
         'Marca "Exclusiva" o "Reservada" (sección Comercial/Inversión) para que aparezca destacada o bloqueada en la web.',
         'El estado (nueva / en construcción / lista) se refleja en la ficha pública automáticamente.',
       ],
@@ -137,6 +144,7 @@ export function useHelpContent() {
       summary: 'Editor visual de la página de inicio de tu web pública — arrastra, edita y reordena secciones sin tocar código.',
       steps: [
         'Selecciona un bloque haciendo clic en él, en el lienzo o en la lista "Estructura" de la izquierda — el panel de la derecha ("Inspector") muestra sus opciones propias: cada tipo de bloque (Hero, Propiedades, Mapa, Texto…) tiene sus propios controles, organizados en secciones plegables (Contenido, Multimedia, Diseño, Datos…).',
+        'Mientras editas, el lienzo nunca ejecuta el comportamiento real de un bloque: un clic sobre una tarjeta de propiedad, un botón o un enlace lo selecciona (verás su contorno azul y, al pasar el ratón, su nombre) en vez de abrir esa propiedad o seguir ese enlace. Para probar los enlaces y botones tal y como funcionarán de verdad, usa el icono de "Vista previa" (el ojo) de la barra superior — mientras está activo el lienzo se comporta exactamente como el sitio publicado; vuelve a pulsarlo para seguir editando.',
         'Añade secciones nuevas con "+ Añadir bloque"; reordénalas arrastrando el icono de puntos en la lista de estructura. Contrae el panel "Estructura" con la flecha de su cabecera si necesitas más espacio para el lienzo.',
         'El lienzo se ajusta solo al espacio disponible (evita el scroll horizontal) manteniendo el tamaño real del dispositivo elegido — usa los controles "− % +" para hacer zoom manual, o "Ajustar" para volver al ajuste automático.',
         'Los bloques de Propiedades, Comunidades y Blog siempre muestran tus datos reales y actuales — en su sección "Datos" puedes elegir un criterio automático (más recientes, destacadas, por comunidad o tipo…) o seleccionar propiedades/comunidades concretas a mano; en ambos casos se siguen leyendo en vivo, nunca se copian.',
@@ -162,10 +170,18 @@ export function useHelpContent() {
     {
       key: 'agents',
       group: 'Portal Web',
-      title: 'Agentes',
+      title: 'Comerciales',
       route: '/admin/agents',
-      summary: 'Ficha pública de cada agente comercial, con su propia agenda de disponibilidad para reservar visitas.',
-      steps: ['Configura el horario de trabajo y el buffer entre citas de cada agente desde su ficha.'],
+      summary: 'Ficha profesional completa de cada comercial: datos laborales, especialización, propiedades asignadas, rendimiento y perfil público.',
+      steps: [
+        'El listado busca por nombre, puesto, email, teléfono, departamento u oficina; el botón "Filtros" añade zona, especialización, idioma y si tiene o no propiedades asignadas — cada filtro activo aparece como una chip que puedes quitar, o usa "Limpiar filtros" para quitarlos todos.',
+        'Al abrir un comercial (o crear uno nuevo) se abre su ficha completa por pestañas: Perfil, Laboral, Comercial, Contacto, Zonas, Propiedades, Rendimiento, Documentos y Web — no es un formulario largo, cada aspecto vive en su propia pestaña.',
+        '"Propiedades" muestra las propiedades ya asignadas a ese comercial y permite buscar y asignar otras nuevas (o desasignarlas); es la misma relación que usa el resto del catálogo, no una lista aparte.',
+        '"Rendimiento" muestra leads, visitas, operaciones cerradas, volumen y comisión reales — calculados a partir de los leads/visitas/operaciones del CRM ya existentes, nunca cifras inventadas. Solo está disponible una vez guardada la ficha.',
+        '"Documentos" admite adjuntar archivos internos (contratos, certificaciones…) — nunca se muestran en la ficha pública, solo son visibles desde el panel de administración.',
+        'La pestaña "Web" controla si el comercial aparece en la web pública ("Mostrar en la web") y su orden; reutiliza la foto, el nombre, el puesto, la descripción y las redes de las pestañas Perfil y Contacto — no hay campos públicos duplicados.',
+        'La agenda de disponibilidad para citas (horario semanal, vacaciones) sigue gestionándose desde "Equipo" (Contenido → Equipo) — la pestaña Laboral de la ficha enlaza directamente a "Configurar horario" en vez de duplicar ese calendario.',
+      ],
     },
     {
       key: 'communities',
@@ -582,6 +598,13 @@ export function useHelpContent() {
       answer:
         'Sí, cada inmobiliaria tiene una cuota de almacenamiento (por defecto 5 GB) que cubre fotos, PDF de contratos, exportaciones del Asset Export Studio y documentos de visitantes. Si la superas, la subida se rechaza con un aviso indicando cuánto tienes usado — nunca se corta en silencio. Si necesitas más espacio, contacta con nosotros.',
       tags: ['media', 'cuota', 'almacenamiento', 'storage'],
+    },
+    {
+      id: 'faq-property-video-source',
+      question: 'Puse una URL de vídeo en una propiedad y ahora subí un archivo, pero la URL ya no aparece, ¿la perdí?',
+      answer:
+        'Es el comportamiento esperado: una propiedad solo puede tener una fuente de vídeo activa a la vez (una URL externa de YouTube/Vimeo/enlace directo, o un archivo subido), para evitar que queden dos vídeos contradictorios guardados. Al subir un archivo, sustituye a la URL que hubiera antes (y viceversa). Si necesitas volver a la URL anterior, tendrás que volver a introducirla en la pestaña "URL externa".',
+      tags: ['propiedades', 'video', 'multimedia', 'developer-properties'],
     },
     {
       id: 'faq-lead-source',
