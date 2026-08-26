@@ -80,8 +80,12 @@ test.describe('Comerciales — admin', () => {
 
   test('asignar y desasignar una propiedad actualiza developer_properties.agentId y aparece en el listado', async () => {
     const agentId = await createAgent()
-    const devs = await (await a.get('/api/admin/developers', { params: { perPage: '1' } })).json()
-    const propRes = await a.post('/api/admin/developer-properties', { data: { developerId: devs.rows[0].id, name: `E2E assign ${Date.now()}`, status: 'new' } })
+    // Created explicitly rather than reading an existing developer: on a
+    // freshly migrated database (CI) there may be none yet — this spec
+    // doesn't depend on another file having created one first.
+    const devRes = await a.post('/api/admin/developers', { data: { name: `E2E dev ${Date.now()}`, email: `e2e-dev-${Date.now()}@example.com`, status: 'active' } })
+    const dev = await devRes.json()
+    const propRes = await a.post('/api/admin/developer-properties', { data: { developerId: dev.id, name: `E2E assign ${Date.now()}`, status: 'new' } })
     const { id: propId } = await propRes.json()
     createdPropertyIds.push(propId)
 
