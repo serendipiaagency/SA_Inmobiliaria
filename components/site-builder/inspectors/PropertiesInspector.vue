@@ -17,10 +17,7 @@
         <SelectField label="Qué propiedades mostrar" hint="Siempre en vivo: se refleja al instante lo que edites en Propiedades (web)." :model-value="content.dynamicFilter || 'latest'" :options="DYNAMIC_FILTERS" @update:model-value="(v) => (content.dynamicFilter = v)" />
         <SelectField v-if="content.dynamicFilter === 'community'" label="Comunidad" :model-value="content.dynamicCommunity || ''" :options="communityOptions" @update:model-value="(v) => (content.dynamicCommunity = v)" />
         <SelectField v-if="content.dynamicFilter === 'type'" label="Tipo de propiedad" :model-value="content.dynamicType || ''" :options="typeOptions" @update:model-value="(v) => (content.dynamicType = v)" />
-        <label class="mb-3 block">
-          <span class="label">Nº máximo de propiedades</span>
-          <input v-model.number="content.limit" type="number" min="1" max="12" class="input" />
-        </label>
+        <StepperField label="Número de propiedades" :model-value="content.limit || 4" :min="1" :max="12" @update:model-value="(v) => (content.limit = v)" />
       </template>
 
       <template v-else>
@@ -37,11 +34,12 @@
       </template>
     </InspectorSection>
 
-    <InspectorSection title="Diseño">
-      <SelectField
+    <InspectorSection title="Diseño" tab="design">
+      <LayoutPickerField
         label="Diseño"
+        type="properties"
         :model-value="content.layout || 'row'"
-        :options="[{ value: 'row', label: 'Fila con tarjetas' }, { value: 'dark-grid', label: 'Destacado (fondo oscuro)' }, { value: 'ai-grid', label: 'Cuadrícula con insignia' }]"
+        :options="[{ value: 'row', label: 'Fila' }, { value: 'dark-grid', label: 'Oscuro' }, { value: 'ai-grid', label: 'IA' }]"
         @update:model-value="(v) => (content.layout = v)"
       />
       <TextField v-if="content.layout === 'ai-grid'" label="Insignia" :model-value="content.badge || ''" placeholder="IA" @update:model-value="(v) => (content.badge = v)" />
@@ -55,7 +53,7 @@
       <p v-else-if="content.layout === 'ai-grid'" class="text-[11px] text-stone-400">La tarjeta estándar de propiedades ya muestra precio, habitaciones, baños y superficie — se mantiene igual que en el resto del sitio.</p>
     </InspectorSection>
 
-    <InspectorSection v-if="content.layout && content.layout !== 'row'" title="Responsive">
+    <InspectorSection v-if="content.layout && content.layout !== 'row'" title="Responsive" tab="design">
       <div class="grid grid-cols-3 gap-2">
         <SelectField label="Móvil" :model-value="String(content.columnsMobile || 1)" :options="numOpts(1, 2)" @update:model-value="(v) => (content.columnsMobile = Number(v))" />
         <SelectField label="Tablet" :model-value="String(content.columnsTablet || 2)" :options="numOpts(1, 3)" @update:model-value="(v) => (content.columnsTablet = Number(v))" />
@@ -76,6 +74,8 @@ import TextField from '../inspector/fields/TextField.vue'
 import SelectField from '../inspector/fields/SelectField.vue'
 import SegmentedField from '../inspector/fields/SegmentedField.vue'
 import ToggleField from '../inspector/fields/ToggleField.vue'
+import StepperField from '../inspector/fields/StepperField.vue'
+import LayoutPickerField from '../inspector/fields/LayoutPickerField.vue'
 
 const props = defineProps<{ content: Record<string, any>; projects: any[] }>()
 const { format: formatPrice } = useCurrency()

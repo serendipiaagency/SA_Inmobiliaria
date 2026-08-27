@@ -1,95 +1,28 @@
 <template>
-  <div class="flex h-screen flex-col bg-stone-100">
-    <!-- Toolbar -->
-    <header class="flex h-14 shrink-0 items-center justify-between border-b border-line bg-white px-4">
-      <div class="flex items-center gap-3">
-        <NuxtLink to="/admin/developer-properties" class="text-stone-400 hover:text-ink" aria-label="Volver">
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6" /></svg>
-        </NuxtLink>
-        <div>
-          <p class="text-sm font-semibold text-ink">Constructor Web</p>
-          <p class="text-[11px] text-stone-400">Página de inicio</p>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-3">
-        <div class="flex items-center gap-1 rounded-full bg-stone-100 p-1">
-          <button
-            v-for="d in DEVICES"
-            :key="d.key"
-            type="button"
-            class="rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition"
-            :class="device === d.key ? 'bg-white text-ink shadow' : 'text-stone-400 hover:text-ink'"
-            :title="d.label"
-            @click="device = d.key"
-          >
-            {{ d.short }}
-          </button>
-        </div>
-
-        <!-- Zoom -->
-        <div class="flex items-center gap-0.5 rounded-full bg-stone-100 p-1">
-          <button type="button" class="toolbar-btn !h-6 !w-6" title="Alejar" :disabled="zoomMode !== 'auto' && zoomIndex <= 0" @click="stepZoom(-1)">−</button>
-          <button
-            type="button"
-            class="min-w-[3.2rem] rounded-full px-2 py-1 text-center text-[11px] font-semibold tabular-nums transition"
-            :class="zoomMode === 'auto' ? 'text-ink' : 'text-stone-500 hover:text-ink'"
-            title="Ajustar al área disponible"
-            @click="zoomMode = 'auto'"
-          >
-            {{ zoomMode === 'auto' ? `Ajustar · ${effectiveZoomPercent}%` : `${effectiveZoomPercent}%` }}
-          </button>
-          <button type="button" class="toolbar-btn !h-6 !w-6" title="Acercar" :disabled="zoomMode !== 'auto' && zoomIndex >= ZOOM_STEPS.length - 1" @click="stepZoom(1)">+</button>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-2">
-        <span class="mr-1 text-[11px] text-stone-400">{{ saveStateLabel }}</span>
-        <button type="button" class="toolbar-btn" :disabled="!canUndo" title="Deshacer" @click="undo">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v6h6M3 13a9 9 0 1 0 3-6.7L3 9" /></svg>
-        </button>
-        <button type="button" class="toolbar-btn" :disabled="!canRedo" title="Rehacer" @click="redo">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7v6h-6M21 13a9 9 0 1 1-3-6.7L21 9" /></svg>
-        </button>
-        <button
-          type="button"
-          class="toolbar-btn"
-          :class="previewMode ? '!bg-ink !text-white' : ''"
-          title="Vista previa"
-          @click="previewMode = !previewMode"
-        >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-        </button>
-        <a
-          v-if="publishedSiteUrl"
-          :href="publishedSiteUrl"
-          target="_blank"
-          rel="noopener"
-          class="toolbar-btn"
-          title="Abrir sitio publicado"
-        >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
-        </a>
-        <span
-          v-else
-          class="toolbar-btn cursor-not-allowed opacity-40"
-          title="Configura un dominio para esta organización para poder abrir el sitio publicado"
-        >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
-        </span>
-        <button type="button" class="toolbar-btn" title="SEO de la página" @click="seoOpen = true">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8" /><path stroke-linecap="round" d="m21 21-4.3-4.3" /></svg>
-        </button>
-        <button
-          type="button"
-          class="dash-btn-primary"
-          :disabled="publishing"
-          @click="publish"
-        >
-          {{ publishing ? 'Publicando…' : hasUnpublishedChanges ? 'Publicar cambios' : 'Publicado' }}
-        </button>
-      </div>
-    </header>
+  <div class="flex h-screen flex-col bg-stone-50">
+    <TopBar
+      :devices="DEVICES"
+      :device="device"
+      :save-state="saveState"
+      :effective-zoom-percent="effectiveZoomPercent"
+      :zoom-is-auto="zoomMode === 'auto'"
+      :can-zoom-in="zoomMode !== 'auto' && zoomIndex < ZOOM_STEPS.length - 1"
+      :can-zoom-out="zoomMode !== 'auto' && zoomIndex > 0"
+      :can-undo="canUndo"
+      :can-redo="canRedo"
+      :preview-mode="previewMode"
+      :published-site-url="publishedSiteUrl"
+      :publishing="publishing"
+      :has-unpublished-changes="hasUnpublishedChanges"
+      @update:device="device = $event"
+      @step-zoom="stepZoom"
+      @zoom-auto="zoomMode = 'auto'"
+      @undo="undo"
+      @redo="redo"
+      @toggle-preview="previewMode = !previewMode"
+      @open-seo="seoOpen = true"
+      @publish="publish"
+    />
 
     <div class="flex min-h-0 flex-1">
       <!-- Left panel: structure -->
@@ -99,9 +32,11 @@
         :class="structureCollapsed ? 'w-11' : 'w-72'"
       >
         <div class="flex h-11 shrink-0 items-center border-b border-line" :class="structureCollapsed ? 'justify-center px-0' : 'justify-between px-4'">
-          <p v-show="!structureCollapsed" class="whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-stone-500">Estructura</p>
+          <p v-show="!structureCollapsed" class="whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-stone-500">Estructura de la página</p>
           <div class="flex shrink-0 items-center gap-2">
-            <button v-show="!structureCollapsed" type="button" class="whitespace-nowrap text-[11px] font-semibold text-ink underline" @click="libraryOpen = true">+ Añadir bloque</button>
+            <button v-show="!structureCollapsed" type="button" class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-400 transition hover:bg-stone-100 hover:text-ink" title="Añadir sección" @click="openLibraryAt(null)">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+            </button>
             <button
               type="button"
               class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-400 transition hover:bg-stone-100 hover:text-ink"
@@ -115,40 +50,87 @@
             </button>
           </div>
         </div>
-        <ul v-show="!structureCollapsed" ref="structureListEl" class="flex-1 overflow-y-auto p-2">
-          <li
-            v-for="(block, i) in blocks"
-            :key="block.id"
-            draggable="true"
-            class="group mb-1 flex cursor-grab items-center gap-2 rounded-lg border px-2.5 py-2 text-sm transition"
-            :class="[
-              selectedBlockId === block.id ? 'border-ink bg-paper' : 'border-transparent hover:bg-stone-50',
-              dragOverId === block.id ? 'border-dashed border-blue-400' : '',
-            ]"
-            @click="selectedBlockId = block.id"
-            @dragstart="onDragStart(i)"
-            @dragover.prevent="dragOverId = block.id"
-            @dragleave="dragOverId === block.id && (dragOverId = null)"
-            @drop="onDrop(i)"
+
+        <div v-show="!structureCollapsed" ref="structureListEl" class="flex-1 overflow-y-auto p-2">
+          <template v-for="(block, i) in blocks" :key="block.id">
+            <div class="group/gap relative z-20 h-2 -my-1">
+              <div class="pointer-events-none absolute inset-x-0 top-1/2 z-10 flex -translate-y-1/2 justify-center opacity-0 transition-opacity group-hover/gap:pointer-events-auto group-hover/gap:opacity-100">
+                <button type="button" class="flex items-center gap-1 rounded-full border border-line bg-white px-2.5 py-1 text-[10px] font-semibold text-ink shadow-md transition hover:border-ink" @click="openLibraryAt(i)">
+                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+                  Añadir sección aquí
+                </button>
+              </div>
+            </div>
+
+            <div
+              draggable="true"
+              :data-block-row="block.id"
+              class="group mb-1 flex cursor-grab items-start gap-2 rounded-lg border px-2.5 py-2 text-sm transition"
+              :class="[
+                selectedBlockId === block.id ? 'border-ink bg-paper' : 'border-transparent hover:bg-stone-50',
+                dragOverId === block.id ? 'border-dashed border-blue-400' : '',
+              ]"
+              @click="selectedBlockId = block.id"
+              @dragstart="onDragStart(i)"
+              @dragover.prevent="dragOverId = block.id"
+              @dragleave="dragOverId === block.id && (dragOverId = null)"
+              @drop="onDrop(i)"
+            >
+              <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-stone-300" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.4" /><circle cx="8" cy="12" r="1.4" /><circle cx="8" cy="18" r="1.4" /><circle cx="16" cy="6" r="1.4" /><circle cx="16" cy="12" r="1.4" /><circle cx="16" cy="18" r="1.4" /></svg>
+              <div class="min-w-0 flex-1" :class="isHiddenOnDevice(block) ? 'opacity-40' : ''">
+                <p class="truncate font-semibold text-ink">{{ pad2(i + 1) }} · {{ blockLabel(block.type) }}</p>
+                <p class="truncate text-[12px] text-stone-450">{{ blockSubtitle(block) }}</p>
+              </div>
+              <div class="flex shrink-0 items-center gap-0.5">
+                <button type="button" class="structure-icon-btn opacity-0 group-hover:opacity-100" title="Ocultar en este dispositivo" @click.stop="toggleHide(block)">
+                  <svg v-if="isHiddenOnDevice(block)" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a20.4 20.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" /></svg>
+                  <svg v-else class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                </button>
+                <button type="button" class="structure-icon-btn opacity-0 group-hover:opacity-100" title="Duplicar" @click.stop="duplicateBlock(block.id)">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                </button>
+                <button type="button" class="structure-icon-btn text-stone-300 opacity-0 hover:!text-red-500 group-hover:opacity-100" title="Eliminar" @click.stop="deleteBlock(block.id)">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16z" /></svg>
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <div class="group/gap relative z-20 h-2 -my-1">
+            <div class="pointer-events-none absolute inset-x-0 top-1/2 z-10 flex -translate-y-1/2 justify-center opacity-0 transition-opacity group-hover/gap:pointer-events-auto group-hover/gap:opacity-100">
+              <button type="button" class="flex items-center gap-1 rounded-full border border-line bg-white px-2.5 py-1 text-[10px] font-semibold text-ink shadow-md transition hover:border-ink" @click="openLibraryAt(blocks.length)">
+                <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+                Añadir sección aquí
+              </button>
+            </div>
+          </div>
+
+          <button type="button" class="btn-quiet mt-3 w-full !py-2 !text-[11px]" @click="openLibraryAt(null)">+ Añadir sección</button>
+        </div>
+
+        <!-- Páginas: distinta de la Estructura (bloques de Inicio) — hoy solo
+             Inicio es editable con el Constructor Web; el resto son páginas
+             reales del sitio, gestionadas en sus propias secciones del panel,
+             listadas aquí solo para orientar, no como CRUD que no existe. -->
+        <div v-show="!structureCollapsed" class="shrink-0 border-t border-line p-3">
+          <p class="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-stone-400">Páginas</p>
+          <div class="flex items-center gap-2 rounded-lg bg-paper px-2.5 py-1.5 text-[13px] font-medium text-ink">
+            <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9.5 12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" /></svg>
+            Inicio
+          </div>
+          <p
+            v-for="p in OTHER_PAGES"
+            :key="p"
+            class="cursor-default truncate px-2.5 py-1.5 text-[13px] text-stone-400"
+            title="Aún no es editable desde el Constructor Web"
           >
-            <svg class="h-3.5 w-3.5 shrink-0 text-stone-300" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.4" /><circle cx="8" cy="12" r="1.4" /><circle cx="8" cy="18" r="1.4" /><circle cx="16" cy="6" r="1.4" /><circle cx="16" cy="12" r="1.4" /><circle cx="16" cy="18" r="1.4" /></svg>
-            <span class="flex-1 truncate" :class="isHiddenOnDevice(block) ? 'text-stone-300 line-through' : ''">{{ blockLabel(block.type) }}</span>
-            <button type="button" class="shrink-0 text-stone-300 opacity-0 hover:text-ink group-hover:opacity-100" title="Ocultar en este dispositivo" @click.stop="toggleHide(block)">
-              <svg v-if="isHiddenOnDevice(block)" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a20.4 20.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" /></svg>
-              <svg v-else class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-            </button>
-            <button type="button" class="shrink-0 text-stone-300 opacity-0 hover:text-ink group-hover:opacity-100" title="Duplicar" @click.stop="duplicateBlock(block.id)">
-              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
-            </button>
-            <button type="button" class="shrink-0 text-stone-300 opacity-0 hover:text-red-500 group-hover:opacity-100" title="Eliminar" @click.stop="deleteBlock(block.id)">
-              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16z" /></svg>
-            </button>
-          </li>
-        </ul>
+            {{ p }}
+          </p>
+        </div>
       </aside>
 
       <!-- Canvas -->
-      <main ref="canvasMainEl" class="flex flex-1 items-start justify-center overflow-auto bg-stone-200 py-8">
+      <main ref="canvasMainEl" class="flex flex-1 items-start justify-center overflow-auto bg-stone-100 py-8">
         <div class="shrink-0" :style="{ width: outerWidthPx + 'px', height: outerHeightPx + 'px' }">
           <div
             class="origin-top-left overflow-hidden rounded-xl bg-white shadow-2xl"
@@ -159,58 +141,139 @@
         </div>
       </main>
 
-      <!-- Right panel: Block Inspector -->
-      <aside v-if="!previewMode && selectedBlock" class="flex w-96 shrink-0 flex-col overflow-y-auto border-l border-line bg-white p-4" @focusin="onPanelFocusIn" @focusout="onPanelFocusOut">
-        <div class="mb-4 flex items-center justify-between">
-          <p class="truncate text-[11px] font-semibold uppercase tracking-wide text-stone-500">{{ breadcrumb }}</p>
-          <button type="button" class="shrink-0 text-stone-300 hover:text-ink" @click="selectedBlockId = null">
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
-          </button>
-        </div>
-
-        <component
-          :is="inspectorFor(selectedBlock.type)?.component"
-          v-if="inspectorFor(selectedBlock.type)"
-          :content="selectedBlock.content"
-          :projects="previewData?.projects || []"
-          :communities="previewData?.communities || []"
-        />
-        <p v-else class="text-sm text-stone-400">Este tipo de bloque no tiene opciones adicionales todavía.</p>
-
-        <InspectorSection title="Avanzado" :default-open="false">
-          <CommonBlockSettings :block="selectedBlock" />
-        </InspectorSection>
-      </aside>
-      <aside v-else-if="!previewMode" class="flex w-96 shrink-0 items-center justify-center border-l border-line bg-white p-6 text-center text-sm text-stone-400">
-        Selecciona un bloque en el lienzo o en la estructura para editarlo.
-      </aside>
-    </div>
-
-    <!-- Block library -->
-    <div v-if="libraryOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" @click.self="libraryOpen = false">
-      <div class="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
-        <div class="mb-4 flex items-center justify-between">
-          <p class="text-lg font-serif">Añadir bloque</p>
-          <button type="button" class="text-stone-300 hover:text-ink" @click="libraryOpen = false">
-            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
-          </button>
-        </div>
-        <div v-for="cat in BLOCK_CATEGORIES" :key="cat" class="mb-6">
-          <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">{{ cat }}</p>
-          <div class="grid grid-cols-2 gap-2">
+      <!-- Right panel: Section library takes this slot while open (mutually
+           exclusive with the Inspector — see docs/site-builder.md), then the
+           Block Inspector, then its empty state. -->
+      <aside v-if="libraryOpen" data-testid="section-library" class="flex w-96 shrink-0 flex-col overflow-hidden border-l border-line bg-white">
+        <div class="shrink-0 border-b border-line p-4">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-base font-serif">Añadir sección</p>
+              <p class="mt-0.5 text-[12px] text-stone-500">Elige y añade secciones profesionales a tu sitio inmobiliario.</p>
+            </div>
+            <button type="button" aria-label="Cerrar biblioteca de secciones" class="shrink-0 text-stone-300 hover:text-ink" @click="closeLibrary()">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
+            </button>
+          </div>
+          <div class="relative mt-3">
+            <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8" /><path stroke-linecap="round" d="m21 21-4.3-4.3" /></svg>
+            <input v-model="librarySearch" type="text" placeholder="Buscar secciones..." class="input !py-2 !pl-9 !text-sm" />
+          </div>
+          <div class="mt-3 flex gap-1.5 overflow-x-auto pb-1">
             <button
-              v-for="preset in presetsByCategory[cat]"
-              :key="preset.presetId"
+              v-for="cat in LIBRARY_CATEGORIES"
+              :key="cat"
               type="button"
-              class="rounded-xl border border-line p-3 text-left transition hover:border-ink hover:bg-paper"
-              @click="addBlock(preset)"
+              class="shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-[12px] font-medium transition"
+              :class="libraryCategory === cat && !librarySearch ? 'border-ink bg-ink text-white' : 'border-line text-stone-500 hover:border-ink hover:text-ink'"
+              @click="libraryCategory = cat; librarySearch = ''"
             >
-              <p class="text-sm font-semibold text-ink">{{ preset.label }}</p>
-              <p class="mt-0.5 text-[12px] text-stone-500">{{ preset.description }}</p>
+              {{ cat }}
             </button>
           </div>
         </div>
-      </div>
+
+        <div class="flex-1 overflow-y-auto p-4">
+          <template v-if="!librarySearch">
+            <div v-if="favoritePresets.length" class="mb-5">
+              <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">Favoritos</p>
+              <div class="grid grid-cols-2 gap-2">
+                <SectionCard v-for="preset in favoritePresets" :key="preset.presetId" :preset="preset" :favorite="true" @add="addBlock" @toggle-favorite="toggleFavorite" />
+              </div>
+            </div>
+            <div v-if="recentPresets.length" class="mb-5">
+              <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">Usados recientemente</p>
+              <div class="grid grid-cols-2 gap-2">
+                <SectionCard v-for="preset in recentPresets" :key="preset.presetId" :preset="preset" :favorite="favoritePresetIds.has(preset.presetId)" @add="addBlock" @toggle-favorite="toggleFavorite" />
+              </div>
+            </div>
+          </template>
+
+          <div>
+            <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">
+              {{ librarySearch ? `Resultados para "${librarySearch}"` : libraryCategory }}
+            </p>
+            <div v-if="!filteredPresets.length" class="py-8 text-center text-sm text-stone-400">Sin resultados.</div>
+            <div v-else class="grid grid-cols-2 gap-2">
+              <SectionCard
+                v-for="preset in filteredPresets"
+                :key="preset.presetId"
+                :preset="preset"
+                :favorite="favoritePresetIds.has(preset.presetId)"
+                @add="addBlock"
+                @toggle-favorite="toggleFavorite"
+              />
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Right panel collapsed: a thin strip, always available to reopen
+           (mirrors the Estructura panel's own collapse) — never an empty
+           column, and the selection underneath is untouched. -->
+      <aside v-else-if="!previewMode && inspectorCollapsed" class="flex w-11 shrink-0 flex-col items-center border-l border-line bg-white pt-3">
+        <button type="button" class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-400 transition hover:bg-stone-100 hover:text-ink" title="Expandir inspector" aria-expanded="false" @click="toggleInspectorCollapsed">
+          <svg class="h-3.5 w-3.5 rotate-180 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+      </aside>
+
+      <!-- Right panel: Block Inspector -->
+      <aside v-else-if="!previewMode && selectedBlock" class="flex w-96 shrink-0 flex-col overflow-hidden border-l border-line bg-white" @focusin="onPanelFocusIn" @focusout="onPanelFocusOut">
+        <div class="shrink-0 border-b border-line p-4">
+          <div class="mb-3 flex items-center justify-between">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-500">Propiedades del bloque</p>
+            <div class="flex shrink-0 items-center gap-1">
+              <button type="button" class="flex h-6 w-6 items-center justify-center rounded text-stone-400 transition hover:bg-stone-100 hover:text-ink" title="Contraer inspector" aria-expanded="true" @click="toggleInspectorCollapsed">
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6" /></svg>
+              </button>
+              <button type="button" aria-label="Cerrar inspector" class="text-stone-300 hover:text-ink" @click="selectedBlockId = null">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
+          <div class="mb-3 flex items-center gap-2 rounded-lg bg-paper px-3 py-2">
+            <div class="min-w-0">
+              <p class="truncate text-[13px] font-semibold text-ink">{{ pad2(selectedBlockIndex + 1) }} · {{ breadcrumb }}</p>
+              <p class="truncate text-[11px] text-stone-500">{{ blockSubtitle(selectedBlock) }}</p>
+            </div>
+          </div>
+          <div class="flex gap-1 rounded-lg bg-stone-100 p-1">
+            <button
+              v-for="t in INSPECTOR_TABS"
+              :key="t.key"
+              type="button"
+              class="flex-1 rounded-md px-2 py-1.5 text-[12px] font-semibold transition"
+              :class="inspectorTab === t.key ? 'bg-white text-ink shadow' : 'text-stone-500 hover:text-ink'"
+              @click="inspectorTab = t.key"
+            >
+              {{ t.label }}
+            </button>
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4">
+          <component
+            :is="inspectorFor(selectedBlock.type)?.component"
+            v-if="inspectorFor(selectedBlock.type)"
+            :content="selectedBlock.content"
+            :projects="previewData?.projects || []"
+            :communities="previewData?.communities || []"
+          />
+          <p v-else-if="inspectorTab === 'content'" class="text-sm text-stone-400">Este tipo de bloque no tiene opciones adicionales todavía.</p>
+
+          <InspectorSection title="Avanzado" tab="advanced">
+            <CommonBlockSettings :block="selectedBlock" />
+          </InspectorSection>
+        </div>
+      </aside>
+      <aside v-else-if="!previewMode" class="relative flex w-96 shrink-0 items-center justify-center border-l border-line bg-white p-6 text-center text-sm text-stone-400">
+        <button type="button" class="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded text-stone-400 transition hover:bg-stone-100 hover:text-ink" title="Contraer inspector" aria-expanded="true" @click="toggleInspectorCollapsed">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6" /></svg>
+        </button>
+        Selecciona un bloque en el lienzo o en la estructura para editarlo.
+      </aside>
     </div>
 
     <!-- SEO -->
@@ -238,9 +301,11 @@
 
 <script setup lang="ts">
 import type { SiteBlock } from '~/server/utils/sitePages'
-import { BLOCK_PRESETS, BLOCK_CATEGORIES, BLOCK_INSPECTORS, blockLabel, newBlockId, type BlockPreset } from '~/composables/useSiteBuilderRegistry'
+import { BLOCK_PRESETS, BLOCK_CATEGORIES, BLOCK_INSPECTORS, RECOMMENDED_PRESET_IDS, blockLabel, blockSubtitle, newBlockId, type BlockPreset } from '~/composables/useSiteBuilderRegistry'
 import InspectorSection from '~/components/site-builder/inspector/InspectorSection.vue'
 import CommonBlockSettings from '~/components/site-builder/inspector/CommonBlockSettings.vue'
+import TopBar from '~/components/site-builder/shell/TopBar.vue'
+import SectionCard from '~/components/site-builder/shell/SectionCard.vue'
 
 definePageMeta({ layout: false, middleware: 'admin' })
 
@@ -270,6 +335,13 @@ const previewMode = ref(false)
 const libraryOpen = ref(false)
 const seoOpen = ref(false)
 const dragOverId = ref<string | null>(null)
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
+}
+// Real routes this site already has — only "Inicio" is backed by site_pages
+// today (server/utils/sitePages.ts hard-rejects any other pageKey), so the
+// rest are listed for orientation, not as a page CRUD that doesn't exist yet.
+const OTHER_PAGES = ['Propiedades', 'Ficha de propiedad', 'Nosotros', 'Servicios', 'Contacto', 'Blog']
 
 // Session-only UI preference (not page state): read after mount to avoid an
 // SSR/client hydration mismatch, same pattern as useFavorites()/useCompare().
@@ -290,6 +362,18 @@ function toggleStructureCollapsed() {
     })
   }
 }
+
+// Same collapse pattern as Estructura above, mirrored for the right panel —
+// the library (libraryOpen) always ignores this and shows at full width,
+// since collapsing "while actively picking a section to add" isn't a real
+// user intent.
+const INSPECTOR_COLLAPSED_KEY = 'sa-builder-inspector-collapsed'
+const inspectorCollapsed = ref(false)
+function toggleInspectorCollapsed() {
+  inspectorCollapsed.value = !inspectorCollapsed.value
+  if (import.meta.client) sessionStorage.setItem(INSPECTOR_COLLAPSED_KEY, inspectorCollapsed.value ? '1' : '0')
+}
+
 const pageVersion = ref(0)
 const hasUnpublishedChanges = ref(false)
 const publishing = ref(false)
@@ -303,11 +387,64 @@ const publishedSiteUrl = computed(() =>
 )
 
 const selectedBlock = computed(() => blocks.value.find((b) => b.id === selectedBlockId.value) || null)
-const presetsByCategory = computed(() => {
-  const map: Record<string, BlockPreset[]> = {}
-  for (const cat of BLOCK_CATEGORIES) map[cat] = BLOCK_PRESETS.filter((p) => p.category === cat)
-  return map
+const selectedBlockIndex = computed(() => blocks.value.findIndex((b) => b.id === selectedBlockId.value))
+
+// ---------------------------------------------------------------------------
+// Inspector tabs — Contenido/Diseño/Avanzado, per-InspectorSection routing
+// via provide/inject (see InspectorSection.vue). Resets to "Contenido"
+// whenever the selection changes, so switching blocks never leaves an admin
+// stranded on a tab the new block doesn't have anything under.
+// ---------------------------------------------------------------------------
+const INSPECTOR_TABS: { key: 'content' | 'design' | 'advanced'; label: string }[] = [
+  { key: 'content', label: 'Contenido' },
+  { key: 'design', label: 'Diseño' },
+  { key: 'advanced', label: 'Avanzado' },
+]
+const inspectorTab = ref<'content' | 'design' | 'advanced'>('content')
+provide('inspectorTab', inspectorTab)
+watch(selectedBlockId, () => {
+  inspectorTab.value = 'content'
 })
+
+// ---------------------------------------------------------------------------
+// Section library — search/category filter, "recientes" and "favoritos"
+// shelves. Both lists are plain per-browser preferences (localStorage, not
+// org data): which presets an admin reaches for isn't tenant-scoped content,
+// so there's no API/schema for it.
+// ---------------------------------------------------------------------------
+const LIBRARY_CATEGORIES = ['Recomendados', ...BLOCK_CATEGORIES]
+const librarySearch = ref('')
+const libraryCategory = ref<string>('Recomendados')
+const RECENT_PRESETS_KEY = 'sa-builder-recent-presets'
+const FAVORITE_PRESETS_KEY = 'sa-builder-favorite-presets'
+const recentPresetIds = ref<string[]>([])
+const favoritePresetIds = ref<Set<string>>(new Set())
+
+function presetById(id: string) {
+  return BLOCK_PRESETS.find((p) => p.presetId === id)
+}
+const recentPresets = computed(() => recentPresetIds.value.map(presetById).filter((p): p is BlockPreset => !!p))
+const favoritePresets = computed(() => BLOCK_PRESETS.filter((p) => favoritePresetIds.value.has(p.presetId)))
+
+const filteredPresets = computed(() => {
+  const q = librarySearch.value.trim().toLowerCase()
+  if (q) return BLOCK_PRESETS.filter((p) => p.label.toLowerCase().includes(q) || p.description.toLowerCase().includes(q))
+  if (libraryCategory.value === 'Recomendados') return BLOCK_PRESETS.filter((p) => RECOMMENDED_PRESET_IDS.includes(p.presetId))
+  return BLOCK_PRESETS.filter((p) => p.category === libraryCategory.value)
+})
+
+function rememberRecentPreset(presetId: string) {
+  const next = [presetId, ...recentPresetIds.value.filter((id) => id !== presetId)].slice(0, 6)
+  recentPresetIds.value = next
+  if (import.meta.client) localStorage.setItem(RECENT_PRESETS_KEY, JSON.stringify(next))
+}
+function toggleFavorite(presetId: string) {
+  const next = new Set(favoritePresetIds.value)
+  if (next.has(presetId)) next.delete(presetId)
+  else next.add(presetId)
+  favoritePresetIds.value = next
+  if (import.meta.client) localStorage.setItem(FAVORITE_PRESETS_KEY, JSON.stringify([...next]))
+}
 
 // ---------------------------------------------------------------------------
 // Block Inspector — one component per block type (useSiteBuilderRegistry.ts),
@@ -403,13 +540,45 @@ function onPanelFocusOut(e: FocusEvent) {
 // ---------------------------------------------------------------------------
 // Block CRUD
 // ---------------------------------------------------------------------------
+// Set right before opening the library from an explicit "+ Añadir sección
+// aquí" affordance (structure list or canvas gap) — addBlock() prefers this
+// over "after the current selection" so the block lands exactly where the
+// user pointed, not wherever the selection happened to be.
+const insertAtIndex = ref<number | null>(null)
+
 function addBlock(preset: BlockPreset) {
   pushUndo()
   const block: SiteBlock = { id: newBlockId(preset.type), type: preset.type, version: 1, content: preset.createContent() }
-  const insertAt = selectedBlockId.value ? blocks.value.findIndex((b) => b.id === selectedBlockId.value) + 1 : blocks.value.length
+  const insertAt =
+    insertAtIndex.value !== null
+      ? insertAtIndex.value
+      : selectedBlockId.value
+        ? blocks.value.findIndex((b) => b.id === selectedBlockId.value) + 1
+        : blocks.value.length
   blocks.value.splice(insertAt, 0, block)
   selectedBlockId.value = block.id
+  rememberRecentPreset(preset.presetId)
+  closeLibrary()
+  nextTick(() => {
+    structureListEl.value?.querySelector(`[data-block-row="${block.id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    iframeEl.value?.contentWindow?.postMessage({ source: 'sa-builder-shell', type: 'scroll-to', id: block.id }, window.location.origin)
+  })
+}
+function openLibraryAt(index: number | null) {
+  insertAtIndex.value = index
+  libraryOpen.value = true
+}
+function closeLibrary() {
   libraryOpen.value = false
+  insertAtIndex.value = null
+}
+function moveBlock(id: string, dir: -1 | 1) {
+  const i = blocks.value.findIndex((b) => b.id === id)
+  const j = i + dir
+  if (i === -1 || j < 0 || j >= blocks.value.length) return
+  pushUndo()
+  const [moved] = blocks.value.splice(i, 1)
+  blocks.value.splice(j, 0, moved)
 }
 function duplicateBlock(id: string) {
   pushUndo()
@@ -449,7 +618,6 @@ function onDrop(i: number) {
 // Load / autosave / publish
 // ---------------------------------------------------------------------------
 const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
-const saveStateLabel = computed(() => ({ idle: '', saving: 'Guardando…', saved: 'Guardado', error: 'No se pudo guardar' }[saveState.value]))
 
 let loaded = false
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -465,6 +633,13 @@ interface DraftResponse {
 
 onMounted(async () => {
   structureCollapsed.value = sessionStorage.getItem(STRUCTURE_COLLAPSED_KEY) === '1'
+  inspectorCollapsed.value = sessionStorage.getItem(INSPECTOR_COLLAPSED_KEY) === '1'
+  try {
+    recentPresetIds.value = JSON.parse(localStorage.getItem(RECENT_PRESETS_KEY) || '[]')
+    favoritePresetIds.value = new Set(JSON.parse(localStorage.getItem(FAVORITE_PRESETS_KEY) || '[]'))
+  } catch {
+    // Corrupted/foreign localStorage value — start clean rather than break the builder over a UI preference.
+  }
 
   const data = await $fetch<DraftResponse>('/api/admin/site-pages/home')
   blocks.value = data.blocks as SiteBlock[]
@@ -602,22 +777,69 @@ function handleMessage(e: MessageEvent) {
   if (e.origin !== window.location.origin) return
   const msg = e.data
   if (!msg || msg.source !== 'sa-builder-canvas') return
-  if (msg.type === 'ready') {
-    canvasReady = true
-    sendState()
-  } else if (msg.type === 'select') {
-    selectedBlockId.value = msg.id
+  switch (msg.type) {
+    case 'ready':
+      canvasReady = true
+      sendState()
+      break
+    case 'select':
+      selectedBlockId.value = msg.id
+      break
+    case 'hover':
+      break
+    case 'insert-at':
+      openLibraryAt(msg.index)
+      break
+    case 'move-up':
+      moveBlock(msg.id, -1)
+      break
+    case 'move-down':
+      moveBlock(msg.id, 1)
+      break
+    case 'add-below': {
+      const i = blocks.value.findIndex((b) => b.id === msg.id)
+      openLibraryAt(i === -1 ? blocks.value.length : i + 1)
+      break
+    }
+    case 'duplicate':
+      duplicateBlock(msg.id)
+      break
+    case 'toggle-hide': {
+      const block = blocks.value.find((b) => b.id === msg.id)
+      if (block) toggleHide(block)
+      break
+    }
+    case 'delete':
+      deleteBlock(msg.id)
+      break
   }
 }
 onMounted(() => window.addEventListener('message', handleMessage))
 onUnmounted(() => window.removeEventListener('message', handleMessage))
+
+// Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z (and the Ctrl+Y Windows convention) for
+// undo/redo — ignored while typing in a text field so it doesn't fight the
+// browser's own native undo inside inputs/textareas.
+function isEditableTarget(el: EventTarget | null): boolean {
+  const tag = (el as HTMLElement)?.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || (el as HTMLElement)?.isContentEditable === true
+}
+function onKeydown(e: KeyboardEvent) {
+  if (!(e.ctrlKey || e.metaKey) || isEditableTarget(e.target)) return
+  if (e.key.toLowerCase() === 'z' && !e.shiftKey) {
+    e.preventDefault()
+    undo()
+  } else if ((e.key.toLowerCase() === 'z' && e.shiftKey) || e.key.toLowerCase() === 'y') {
+    e.preventDefault()
+    redo()
+  }
+}
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <style scoped>
-.toolbar-btn {
-  @apply flex h-8 w-8 items-center justify-center rounded-lg text-stone-500 transition hover:bg-stone-100 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30;
-}
-.dash-btn-primary {
-  @apply inline-flex items-center rounded-lg bg-ink px-4 py-2 text-[13px] font-medium text-white transition hover:bg-black disabled:opacity-50;
+.structure-icon-btn {
+  @apply flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-400 transition hover:bg-white hover:text-ink;
 }
 </style>

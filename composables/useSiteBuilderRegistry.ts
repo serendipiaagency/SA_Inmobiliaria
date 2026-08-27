@@ -149,6 +149,20 @@ export const BLOCK_PRESETS: BlockPreset[] = [
   },
 ]
 
+// Curated shortlist for the library's "Recomendados" shelf — the presets
+// most home pages actually start from. Deliberately small: a shelf that
+// just repeats the full catalogue isn't a recommendation.
+export const RECOMMENDED_PRESET_IDS = ['hero', 'properties-row', 'map-teaser', 'cta']
+
+// Sparse on purpose (spec: "utilizarlos con moderación") — only where the
+// badge tells the admin something the label/description doesn't already.
+export const PRESET_BADGES: Record<string, string> = {
+  hero: 'Popular',
+  'properties-ai': 'IA',
+  'properties-dark': 'Premium',
+  cta: 'Conversión',
+}
+
 export const BLOCK_TYPE_LABELS: Record<string, string> = {
   hero: 'Hero',
   properties: 'Propiedades',
@@ -163,6 +177,49 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
 
 export function blockLabel(type: string): string {
   return BLOCK_TYPE_LABELS[type] || type
+}
+
+const PROPERTIES_LAYOUT_LABELS: Record<string, string> = {
+  row: 'Fila',
+  'dark-grid': 'Oscuro',
+  'ai-grid': 'IA',
+}
+
+/**
+ * A short, content-aware second line for the structure panel's cards — the
+ * whole reason those are cards and not a flat "Propiedades / Propiedades /
+ * Propiedades" list: it's the only thing that tells two blocks of the same
+ * type apart at a glance.
+ */
+export function blockSubtitle(block: { type: string; content?: Record<string, any> }): string {
+  const c = block.content || {}
+  switch (block.type) {
+    case 'hero':
+      return 'Hero con buscador'
+    case 'properties': {
+      const count = c.source === 'manual' ? (c.manualIds?.length ?? 0) : (c.limit ?? 0)
+      const layout = PROPERTIES_LAYOUT_LABELS[c.layout] || 'Cuadrícula'
+      return `${count} propiedad${count === 1 ? '' : 'es'} · ${layout}`
+    }
+    case 'map-teaser':
+      return 'Mapa teaser'
+    case 'communities': {
+      const count = c.source === 'manual' ? (c.manualIds?.length ?? 0) : (c.limit ?? 0)
+      return `${count} comunidad${count === 1 ? '' : 'es'}`
+    }
+    case 'property-types':
+      return 'Se genera desde tus propiedades'
+    case 'mortgage-calculator':
+      return 'Calculadora interactiva'
+    case 'blog-list':
+      return `${c.limit ?? 0} artículo${c.limit === 1 ? '' : 's'}`
+    case 'text':
+      return c.title || 'Bloque de texto libre'
+    case 'cta':
+      return c.ctaPrimary ? `Botón: "${c.ctaPrimary}"` : 'Llamada a la acción'
+    default:
+      return ''
+  }
 }
 
 /**

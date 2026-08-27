@@ -181,4 +181,171 @@ test.describe('Constructor Web', () => {
       .poll(() => page.frames().some((f) => f.url().includes('/contacto')), { timeout: 10_000 })
       .toBe(true)
   })
+
+  /**
+   * The floating block toolbar (SiteBlockRenderer.vue) is rendered *inside*
+   * the same wrapper whose capture-phase click handler blocks navigation
+   * (see the test above) — without the `[data-block-toolbar]` early-return
+   * in that handler, every one of its buttons would be silently swallowed
+   * before its own click ever fired. Also covers the "+ Añadir sección
+   * aquí" insert-at-position affordance (structure list and canvas gaps
+   * both post the same `insert-at` message to the shell), which has its
+   * own failure mode: the gap's negative margin makes it overlap the
+   * neighboring block, so without an explicit stacking order the block
+   * (painted later in DOM order) intercepts the hover/click meant for the
+   * gap's insert button.
+   */
+  test('el toolbar flotante del bloque y "+ Añadir sección aquí" funcionan sin ser interceptados por el bloqueo de navegación', async ({ page }) => {
+    const put = await a.put('/api/admin/site-pages/home', {
+      data: {
+        blocks: [
+          { id: 'hero-e2e', type: 'hero', version: 1, content: { title1: 'Hero E2E' } },
+          { id: 'cta-e2e', type: 'cta', version: 1, content: { title: 'CTA E2E', ctaPrimary: 'Ir', ctaPrimaryTo: '/contacto' } },
+        ],
+        seo: {},
+      },
+    })
+    expect(put.ok()).toBeTruthy()
+
+    await page.goto('/admin/site-builder')
+    const structure = page.locator('aside.border-r')
+    await expect(structure.getByText('01 · Hero')).toBeVisible()
+
+    // Select block 1 and duplicate it via the canvas floating toolbar
+    // (not the structure list's own duplicate icon — that path isn't
+    // protected by the [data-block-toolbar] exception and would still work
+    // even if this fix regressed).
+    await structure.getByText('01 · Hero').click()
+    const canvasFrame = page.frameLocator('iframe[title="Vista previa del Constructor Web"]')
+    const toolbar = canvasFrame.locator('[data-block-toolbar]')
+    await expect(toolbar).toBeVisible()
+    await toolbar.getByTitle('Duplicar').click()
+    await expect(structure.locator('[draggable="true"]')).toHaveCount(3)
+    await expect(structure.getByText('02 · Hero')).toBeVisible()
+
+    // "+ Añadir sección aquí" from the structure list, at the very top
+    // (before position 1): hover the gap to lift its pointer-events-none,
+    // then click, then pick a block from the library — it must land
+    // exactly at index 0, not appended at the end.
+    const firstGap = structure.locator('.group\\/gap').first()
+    await firstGap.hover()
+    await firstGap.locator('button').click()
+    await expect(page.getByText('Añadir sección', { exact: true })).toBeVisible()
+    // The library opens on the "Recomendados" shelf, which doesn't include
+    // "Texto" — search overrides the category filter and matches across the
+    // whole catalogue, same as picking the "Contenido" category tab would.
+    await page.getByPlaceholder('Buscar secciones...').fill('Texto')
+    // The preset card's accessible name concatenates its label AND
+    // description ("Texto" + "Bloque de texto libre: …") — a bare "Texto"
+    // also matches the Inspector's still-mounted "Texto" field label behind
+    // the panel, so anchor on the full accessible name instead.
+    await page.getByRole('button', { name: /^Texto Bloque de texto libre/ }).click()
+    await expect(structure.getByText(/^01 · Texto$/)).toBeVisible()
+  })
+
+  /**
+   * The section library panel (FASE 3): opens as a docked side panel (not a
+   * full-screen modal — the canvas and structure list stay visible behind
+   * it), category filtering narrows the grid to real presets, and marking a
+   * preset as a favorite surfaces it in its own shelf on reopen.
+   */
+  test('la biblioteca de secciones filtra por categoría y recuerda los favoritos', async ({ page }) => {
+    const put = await a.put('/api/admin/site-pages/home', { data: { blocks: [{ id: 'hero-e2e', type: 'hero', version: 1, content: {} }], seo: {} } })
+    expect(put.ok()).toBeTruthy()
+
+    await page.goto('/admin/site-builder')
+    await page.getByTitle('Añadir sección').click()
+    const panel = page.getByTestId('section-library')
+    await expect(panel).toBeVisible()
+    // The canvas behind it is still there and visible — not a full-screen modal.
+    await expect(page.frameLocator('iframe[title="Vista previa del Constructor Web"]').getByText('EXPLORAR CATÁLOGO')).toBeVisible()
+
+    // "Recomendados" is the default shelf and does not include every preset.
+    // exact: true — "Comunidades" (the category tab, later) and a preset's
+    // description text ("...comunidades/barrios...") both contain the
+    // substring case-insensitively, so a loose match would be ambiguous.
+    await expect(panel.getByText('Propiedades — fila', { exact: true })).toBeVisible()
+    await expect(panel.getByText('Comunidades', { exact: true })).not.toBeVisible()
+
+    // Switching category narrows to that category's real presets.
+    await panel.getByRole('button', { name: 'Explora', exact: true }).click()
+    await expect(panel.getByText('Comunidades', { exact: true })).toBeVisible()
+    await expect(panel.getByText('Propiedades — fila', { exact: true })).not.toBeVisible()
+
+    // Favorite a preset, close, reopen — it must still show as favorited
+    // (a per-browser preference, not page state, so it survives a close).
+    await panel.locator('[title="Añadir a favoritos"]').first().click()
+    await panel.getByRole('button', { name: 'Cerrar biblioteca de secciones' }).click()
+    await expect(panel).not.toBeVisible()
+    await page.getByTitle('Añadir sección').click()
+    const reopened = page.getByTestId('section-library')
+    await expect(reopened.getByText('Favoritos')).toBeVisible()
+    // The favorited preset legitimately shows in both the "Favoritos" shelf
+    // and its regular category grid below — at least one marked "Quitar de
+    // favoritos" is enough to prove the favorite survived the reopen.
+    await expect(reopened.locator('[title="Quitar de favoritos"]').first()).toBeVisible()
+  })
+
+  /**
+   * The Inspector's three tabs (FASE 4): "Contenido"/"Diseño"/"Avanzado"
+   * show mutually exclusive sets of InspectorSection instances (routed via
+   * provide/inject in InspectorSection.vue, not a prop threaded through
+   * every *Inspector.vue), and switching to a different block resets back
+   * to "Contenido" rather than leaving the admin stranded on a tab the new
+   * block has nothing under.
+   */
+  test('el Inspector separa Contenido/Diseño/Avanzado y vuelve a Contenido al cambiar de bloque', async ({ page }) => {
+    const put = await a.put('/api/admin/site-pages/home', {
+      data: {
+        blocks: [
+          { id: 'props-1', type: 'properties', version: 1, content: { title: 'Propiedades', source: 'dynamic', dynamicFilter: 'latest', limit: 4, layout: 'row' } },
+          { id: 'hero-1', type: 'hero', version: 1, content: { title1: 'Hero' } },
+        ],
+        seo: {},
+      },
+    })
+    expect(put.ok()).toBeTruthy()
+
+    await page.goto('/admin/site-builder')
+    await page.locator('aside.border-r').getByText(/^01 · Propiedades$/).click()
+    const inspector = page.locator('aside.border-l')
+    await expect(inspector.getByText('Eyebrow', { exact: true })).toBeVisible()
+    // "Diseño" content (the layout picker) is not shown while on "Contenido".
+    await expect(inspector.getByText('Fila', { exact: true })).not.toBeVisible()
+
+    await inspector.getByRole('button', { name: 'Diseño', exact: true }).click()
+    await expect(inspector.getByText('Fila', { exact: true })).toBeVisible()
+    await expect(inspector.getByText('Eyebrow', { exact: true })).not.toBeVisible()
+
+    // Switching blocks resets the tab back to "Contenido".
+    await page.locator('aside.border-r').getByText(/^02 · Hero$/).click()
+    await expect(inspector.getByText('Eyebrow', { exact: true })).toBeVisible()
+  })
+
+  /**
+   * FASE 5: the Inspector panel collapses like the Estructura panel always
+   * has — the canvas immediately reclaims the width (proving the fit/zoom
+   * ResizeObserver reacts to it, not just window resizes), and the
+   * selection survives the collapse/expand round trip.
+   */
+  test('el panel del Inspector se contrae, el lienzo gana el espacio, y la selección sobrevive', async ({ page }) => {
+    const put = await a.put('/api/admin/site-pages/home', { data: { blocks: [{ id: 'hero-1', type: 'hero', version: 1, content: {} }], seo: {} } })
+    expect(put.ok()).toBeTruthy()
+
+    await page.goto('/admin/site-builder')
+    await page.locator('aside.border-r').getByText(/^01 ·/).click()
+    const zoomLabel = page.getByTitle('Ajustar al área disponible')
+    const before = await zoomLabel.textContent()
+
+    await page.getByTitle('Contraer inspector').click()
+    await expect(page.locator('aside.border-l')).toHaveClass(/w-11/)
+    // Auto-fit zoom must have recalculated once the canvas gained the width
+    // the Inspector used to occupy — not stayed frozen at the old value.
+    await expect.poll(async () => zoomLabel.textContent()).not.toBe(before)
+
+    await page.getByTitle('Expandir inspector').click()
+    await expect(page.locator('aside.border-l')).not.toHaveClass(/w-11/)
+    await expect(page.locator('aside.border-r [draggable="true"]').first()).toHaveClass(/border-ink/)
+    await expect(page.locator('aside.border-l').getByText('01 · Hero')).toBeVisible()
+  })
 })

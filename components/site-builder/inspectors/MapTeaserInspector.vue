@@ -9,6 +9,11 @@
       <TextField label="Botón" :model-value="content.cta || ''" placeholder="Texto (vacío = sin botón)" @update:model-value="(v) => (content.cta = v)" />
       <TextField label="Enlace del botón" :model-value="content.ctaTo || ''" placeholder="/propiedades" @update:model-value="(v) => (content.ctaTo = v)" />
     </InspectorSection>
+
+    <InspectorSection title="Diseño" tab="design">
+      <p class="text-sm text-stone-400">Este bloque no tiene opciones de diseño propias.</p>
+    </InspectorSection>
+
     <InspectorSection title="Datos">
       <span class="label">Marcadores del mapa ilustrativo</span>
       <p class="mb-2 text-[11px] text-stone-400">Posición en % desde la esquina superior izquierda.</p>

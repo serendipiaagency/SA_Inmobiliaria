@@ -13,11 +13,7 @@
         @update:model-value="(v) => (content.source = v)"
       />
       <template v-if="(content.source || 'dynamic') === 'dynamic'">
-        <label class="mb-3 block">
-          <span class="label">Nº máximo de comunidades</span>
-          <input v-model.number="content.limit" type="number" min="1" max="12" class="input" />
-          <span class="mt-1 block text-[11px] text-stone-400">Siempre en vivo, tomadas de Comunidades.</span>
-        </label>
+        <StepperField label="Número de comunidades" hint="Siempre en vivo." :model-value="content.limit || 6" :min="1" :max="12" @update:model-value="(v) => (content.limit = v)" />
       </template>
       <template v-else>
         <div class="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-line p-2">
@@ -35,6 +31,10 @@
       <TextField label="Botón" :model-value="content.cta || ''" placeholder="Texto (vacío = sin botón)" @update:model-value="(v) => (content.cta = v)" />
       <TextField label="Enlace del botón" :model-value="content.ctaTo || ''" placeholder="/zonas" @update:model-value="(v) => (content.ctaTo = v)" />
     </InspectorSection>
+
+    <InspectorSection title="Diseño" tab="design">
+      <p class="text-sm text-stone-400">Este bloque no tiene opciones de diseño propias.</p>
+    </InspectorSection>
   </div>
 </template>
 
@@ -42,6 +42,7 @@
 import InspectorSection from '../inspector/InspectorSection.vue'
 import TextField from '../inspector/fields/TextField.vue'
 import SegmentedField from '../inspector/fields/SegmentedField.vue'
+import StepperField from '../inspector/fields/StepperField.vue'
 
 const props = defineProps<{ content: Record<string, any>; communities: any[] }>()
 

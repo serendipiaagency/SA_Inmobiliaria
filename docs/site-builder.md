@@ -8,8 +8,8 @@ Arquitectura del editor visual del Portal Web (`/admin/site-builder`) y de
 
 **Una sola fuente de renderizado.** `components/site-builder/SiteBlockRenderer.vue`
 es el único componente que convierte un array de bloques en HTML. Lo usan,
-sin fork, tanto la página pública (`pages/demo/index.vue`, `mode="production"`)
-como el lienzo del builder (`pages/admin/site-builder/canvas.vue`,
+sin fork, tanto la página pública (`pages/index.vue`, rama `isPortal`,
+`mode="production"`) como el lienzo del builder (`pages/admin/site-builder/canvas.vue`,
 `mode="builder"` o `"preview"`). Si un bloque se ve distinto en el builder que
 en producción, es un bug de este componente, no un caso a soportar con dos
 implementaciones.
@@ -135,8 +135,11 @@ ancho lógico del dispositivo, acotada a [0.25, 1]) y la aplica con
 del dispositivo (para que el iframe siga teniendo ese ancho lógico), envuelto
 en una caja exterior del tamaño ya escalado (para que el `<main>` con
 `overflow-auto` reserve el hueco correcto y centre el conjunto). El
-`ResizeObserver` es lo único que dispara el recálculo — contraer/expandir el
-panel "Estructura" o redimensionar la ventana lo disparan solos, sin watchers
+`ResizeObserver` es lo único que dispara el recálculo — contraer/expandir
+cualquiera de los dos paneles laterales (Estructura o Inspector, ambos
+colapsables al mismo patrón: tira de `w-11` con un control para reabrir,
+preferencia de sesión en `sessionStorage`, nunca se pierde la selección ni el
+scroll) o redimensionar la ventana lo disparan solos, sin watchers
 específicos para cada caso.
 
 El zoom manual (50/60/75/90/100/125 %, más "Ajustar" = automático) solo
@@ -145,6 +148,69 @@ lógico del iframe ni el CSS que ve la web publicada. Por diseño, un zoom
 manual por encima del que cabría automáticamente puede producir scroll
 horizontal dentro del `<main>`: es la única situación en la que aparece, y es
 intencional (el usuario pidió verlo más grande).
+
+## Panel "Estructura", biblioteca de secciones y edición desde el lienzo
+
+El panel izquierdo (`pages/admin/site-builder/index.vue`) muestra una tarjeta
+por bloque — número, nombre y un subtítulo real generado por
+`blockSubtitle()` (`composables/useSiteBuilderRegistry.ts`, p. ej. "4
+propiedades · Fila") — en vez de una lista plana donde varios bloques del
+mismo tipo son indistinguibles entre sí. Debajo, la sección "Páginas" separa
+visualmente la Estructura (los bloques de Inicio) de las páginas reales del
+sitio; hoy solo Inicio es editable con el Constructor Web
+(`server/utils/sitePages.ts` rechaza cualquier otro `pageKey`), así que el
+resto se lista solo para orientar — deliberadamente sin un CRUD de páginas
+que el backend no soporta todavía.
+
+**"+ Añadir sección aquí"** aparece tanto entre las tarjetas de la Estructura
+como entre los bloques renderizados en el propio lienzo
+(`SiteBlockRenderer.vue`, solo en `mode="builder"`) — ambas vías insertan en
+la posición exacta señalada, vía `insertAtIndex` en el shell, no "después de
+la selección actual" ni "al final". El hueco entre bloques usa un margen
+negativo para no ocupar espacio en el layout cuando no está en hover; eso lo
+deja geométricamente superpuesto con el bloque vecino, así que necesita un
+`z-index` explícito — sin él, el bloque (pintado después en el DOM) se queda
+con los eventos de puntero y el hover nunca llega al botón de insertar.
+
+**Toolbar flotante sobre el bloque seleccionado**: en el lienzo, seleccionar
+un bloque muestra una barra flotante (subir/bajar/añadir debajo/duplicar/
+ocultar/eliminar) anclada a su esquina superior derecha —
+`[data-block-toolbar]` dentro del mismo `<div>` envolvente que ya bloquea la
+navegación (ver más abajo). Como ese wrapper intercepta el clic en fase de
+*captura* antes de que llegue a sus hijos, el propio toolbar necesita una
+excepción explícita en `wrapperAttrs()`: si el clic viene de dentro de
+`[data-block-toolbar]`, el interceptor no hace nada y deja que el botón
+reciba su propio evento con normalidad — sin esa excepción, ninguno de sus
+botones sería clicable.
+
+Estas acciones del lienzo (insertar, mover, duplicar, ocultar, eliminar)
+viajan al shell por el mismo canal `postMessage` que ya existía para
+selección/hover — `pages/admin/site-builder/canvas.vue` las reenvía tal
+cual, y el shell (dueño único de `blocks`) ejecuta la mutación real y vuelve
+a mandar el estado. Insertar un bloque nuevo también dispara un mensaje
+`scroll-to` dedicado hacia el iframe para llevarlo a la vista, además de
+hacer scroll al mismo elemento dentro de la lista de Estructura — así
+añadir una sección no solo la inserta, la deja visible y seleccionada de
+inmediato, lista para editar.
+
+**Biblioteca de secciones**: un panel lateral que ocupa el hueco del
+Inspector (mutuamente excluyente con él, nunca los dos abiertos a la vez),
+no un modal a pantalla completa — la Estructura y el lienzo siguen visibles
+mientras se elige qué añadir. Busca por texto o filtra por categoría
+(`BLOCK_CATEGORIES` del registro, más un "Recomendados" curado a mano vía
+`RECOMMENDED_PRESET_IDS`), y guarda "Usados recientemente" y "Favoritos" en
+`localStorage` — una preferencia de este navegador, no un dato de la
+organización, así que no tiene API ni columna propia. Cada tarjeta
+(`components/site-builder/shell/SectionCard.vue`) muestra una miniatura real
+de la disposición (`SectionPreview.vue`: rectángulos abstractos fieles al
+`type`/`layout` del preset, no una foto ni una captura inventada) en vez de
+solo icono y texto.
+
+**Deliberadamente no se amplió `BLOCK_PRESETS`** a un catálogo mucho más
+grande solo para llenar la biblioteca visualmente — el catálogo real (9
+tipos, ver más abajo) es el que existe hoy; los tipos con modelo de datos
+propio (Testimonios, FAQ, Vídeo, etc.) siguen en la lista de "Decisión de
+alcance deliberadamente diferida" de más arriba.
 
 ## Autoguardado, deshacer/rehacer, Publicar
 
@@ -160,7 +226,14 @@ intencional (el usuario pidió verlo más grande).
 - **Publicar**: vacía cualquier autoguardado pendiente primero (para no
   publicar un borrador desactualizado), luego `POST .../publish`, que copia
   `draftJson` → `publishedJson`, incrementa `version` y escribe una fila en
-  `site_page_versions`.
+  `site_page_versions`. El botón lleva un tooltip explícito "Cambios sin
+  publicar" (además de cambiar de texto y mostrar un punto de aviso) cuando
+  `hasUnpublishedChanges` es real — nunca se muestra ese estado si el borrador
+  y lo publicado coinciden.
+- **Atajos de teclado**: Ctrl/Cmd+Z y Ctrl/Cmd+Shift+Z (también Ctrl+Y) para
+  deshacer/rehacer, ignorados mientras el foco está en un `<input>`/
+  `<textarea>` para no interferir con el undo nativo del navegador dentro de
+  un campo de texto.
 
 ## El Block Inspector: un componente por tipo de bloque, no un formulario genérico
 
@@ -176,14 +249,30 @@ Cada inspector organiza sus propios campos en secciones plegables
 (`components/site-builder/inspector/InspectorSection.vue`) usando nombres
 como Contenido / Multimedia / Diseño / Datos / Responsive / Comportamiento —
 un inspector simplemente no incluye la sección que no necesita, así que
-nunca hay categorías vacías. Los controles reutilizables (texto, toggle,
-select, segmented, slider, selector de color limitado, imagen con
-subir/sustituir/eliminar/biblioteca, galería con reordenar por
-drag & drop) viven en `components/site-builder/inspector/fields/` — están
-para componerse dentro de cada inspector, no para sustituirlo por una lista
-de campos genérica. Deliberadamente no hay ningún control de CSS, clases o
-JSON arbitrario en todo este árbol: cada opción nueva es un control visual
-concreto o no se añade.
+nunca hay categorías vacías dentro de una sección. Los controles reutilizables
+(texto, toggle, select, segmented, slider, selector de color limitado,
+contador con `−`/`+` para cantidades pequeñas y acotadas, selector visual de
+diseño con miniaturas, imagen con subir/sustituir/eliminar/biblioteca,
+galería con reordenar por drag & drop) viven en
+`components/site-builder/inspector/fields/` — están para componerse dentro
+de cada inspector, no para sustituirlo por una lista de campos genérica.
+Deliberadamente no hay ningún control de CSS, clases o JSON arbitrario en
+todo este árbol: cada opción nueva es un control visual concreto o no se
+añade.
+
+**Pestañas Contenido / Diseño / Avanzado**: el panel no muestra todas las
+secciones a la vez — el shell mantiene un `inspectorTab` reactivo
+(`'content' | 'design' | 'advanced'`, se reinicia a `'content'` cada vez que
+cambia la selección) y lo expone con `provide('inspectorTab', ...)`.
+`InspectorSection.vue` lo consume con `inject` y solo se renderiza si su
+prop `tab` (por defecto `'content'`) coincide con la pestaña activa — así
+cada inspector solo necesita añadir `tab="design"` a la sección que
+corresponda, sin que el shell tenga que conocer la estructura interna de
+cada uno ni haga falta enhebrar una prop nueva por los 9 componentes. Los
+inspectores sin opciones de diseño propias muestran un mensaje explícito en
+esa pestaña en vez de quedar en blanco sin explicación. "Avanzado"
+(`CommonBlockSettings`, ver abajo) vive en su propia pestaña, ya no como la
+última sección colapsada de una lista larga.
 
 `ImageField`/`GalleryField` (`components/site-builder/inspector/fields/`)
 suben a través del mismo `POST /api/admin/upload` que el resto del admin
