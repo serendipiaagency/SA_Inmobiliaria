@@ -7,6 +7,13 @@
     :selected-block-id="selectedBlockId"
     @select="onSelect"
     @hover="onHover"
+    @insert-at="(index) => post('insert-at', { index })"
+    @move-up="(id) => post('move-up', { id })"
+    @move-down="(id) => post('move-down', { id })"
+    @add-below="(id) => post('add-below', { id })"
+    @duplicate="(id) => post('duplicate', { id })"
+    @toggle-hide="(id) => post('toggle-hide', { id })"
+    @delete="(id) => post('delete', { id })"
   />
 </template>
 
@@ -32,11 +39,14 @@ const device = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
 const selectedBlockId = ref<string | null>(null)
 const mode = ref<'builder' | 'preview'>('builder')
 
+function post(type: string, payload: Record<string, any> = {}) {
+  window.parent.postMessage({ source: 'sa-builder-canvas', type, ...payload }, window.location.origin)
+}
 function onSelect(id: string) {
-  window.parent.postMessage({ source: 'sa-builder-canvas', type: 'select', id }, window.location.origin)
+  post('select', { id })
 }
 function onHover(id: string | null) {
-  window.parent.postMessage({ source: 'sa-builder-canvas', type: 'hover', id }, window.location.origin)
+  post('hover', { id })
 }
 
 function handleMessage(e: MessageEvent) {

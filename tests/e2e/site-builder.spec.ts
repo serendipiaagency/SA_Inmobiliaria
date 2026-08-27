@@ -181,4 +181,61 @@ test.describe('Constructor Web', () => {
       .poll(() => page.frames().some((f) => f.url().includes('/contacto')), { timeout: 10_000 })
       .toBe(true)
   })
+
+  /**
+   * The floating block toolbar (SiteBlockRenderer.vue) is rendered *inside*
+   * the same wrapper whose capture-phase click handler blocks navigation
+   * (see the test above) — without the `[data-block-toolbar]` early-return
+   * in that handler, every one of its buttons would be silently swallowed
+   * before its own click ever fired. Also covers the "+ Añadir sección
+   * aquí" insert-at-position affordance (structure list and canvas gaps
+   * both post the same `insert-at` message to the shell), which has its
+   * own failure mode: the gap's negative margin makes it overlap the
+   * neighboring block, so without an explicit stacking order the block
+   * (painted later in DOM order) intercepts the hover/click meant for the
+   * gap's insert button.
+   */
+  test('el toolbar flotante del bloque y "+ Añadir sección aquí" funcionan sin ser interceptados por el bloqueo de navegación', async ({ page }) => {
+    const put = await a.put('/api/admin/site-pages/home', {
+      data: {
+        blocks: [
+          { id: 'hero-e2e', type: 'hero', version: 1, content: { title1: 'Hero E2E' } },
+          { id: 'cta-e2e', type: 'cta', version: 1, content: { title: 'CTA E2E', ctaPrimary: 'Ir', ctaPrimaryTo: '/contacto' } },
+        ],
+        seo: {},
+      },
+    })
+    expect(put.ok()).toBeTruthy()
+
+    await page.goto('/admin/site-builder')
+    const structure = page.locator('aside.border-r')
+    await expect(structure.getByText('01 · Hero')).toBeVisible()
+
+    // Select block 1 and duplicate it via the canvas floating toolbar
+    // (not the structure list's own duplicate icon — that path isn't
+    // protected by the [data-block-toolbar] exception and would still work
+    // even if this fix regressed).
+    await structure.getByText('01 · Hero').click()
+    const canvasFrame = page.frameLocator('iframe[title="Vista previa del Constructor Web"]')
+    const toolbar = canvasFrame.locator('[data-block-toolbar]')
+    await expect(toolbar).toBeVisible()
+    await toolbar.getByTitle('Duplicar').click()
+    await expect(structure.locator('[draggable="true"]')).toHaveCount(3)
+    await expect(structure.getByText('02 · Hero')).toBeVisible()
+
+    // "+ Añadir sección aquí" from the structure list, at the very top
+    // (before position 1): hover the gap to lift its pointer-events-none,
+    // then click, then pick a block from the library — it must land
+    // exactly at index 0, not appended at the end.
+    const firstGap = structure.locator('.group\\/gap').first()
+    await firstGap.hover()
+    await firstGap.locator('button').click()
+    await expect(page.getByText('Añadir bloque')).toBeVisible()
+    // The preset button's accessible name concatenates its label AND
+    // description paragraph ("Texto" + "Bloque de texto libre: …") — a bare
+    // "Texto" also matches the Inspector's still-mounted "Texto" field
+    // label behind the modal, so anchor on the full accessible name instead.
+    await page.getByRole('button', { name: /^Texto Bloque de texto libre/ }).click()
+    await expect(structure.getByText(/^01 · Texto$/)).toBeVisible()
+  })
 })

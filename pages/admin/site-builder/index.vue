@@ -32,9 +32,11 @@
         :class="structureCollapsed ? 'w-11' : 'w-72'"
       >
         <div class="flex h-11 shrink-0 items-center border-b border-line" :class="structureCollapsed ? 'justify-center px-0' : 'justify-between px-4'">
-          <p v-show="!structureCollapsed" class="whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-stone-500">Estructura</p>
+          <p v-show="!structureCollapsed" class="whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-stone-500">Estructura de la página</p>
           <div class="flex shrink-0 items-center gap-2">
-            <button v-show="!structureCollapsed" type="button" class="whitespace-nowrap text-[11px] font-semibold text-ink underline" @click="libraryOpen = true">+ Añadir bloque</button>
+            <button v-show="!structureCollapsed" type="button" class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-400 transition hover:bg-stone-100 hover:text-ink" title="Añadir sección" @click="openLibraryAt(null)">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+            </button>
             <button
               type="button"
               class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-400 transition hover:bg-stone-100 hover:text-ink"
@@ -48,36 +50,82 @@
             </button>
           </div>
         </div>
-        <ul v-show="!structureCollapsed" ref="structureListEl" class="flex-1 overflow-y-auto p-2">
-          <li
-            v-for="(block, i) in blocks"
-            :key="block.id"
-            draggable="true"
-            class="group mb-1 flex cursor-grab items-center gap-2 rounded-lg border px-2.5 py-2 text-sm transition"
-            :class="[
-              selectedBlockId === block.id ? 'border-ink bg-paper' : 'border-transparent hover:bg-stone-50',
-              dragOverId === block.id ? 'border-dashed border-blue-400' : '',
-            ]"
-            @click="selectedBlockId = block.id"
-            @dragstart="onDragStart(i)"
-            @dragover.prevent="dragOverId = block.id"
-            @dragleave="dragOverId === block.id && (dragOverId = null)"
-            @drop="onDrop(i)"
+
+        <div v-show="!structureCollapsed" ref="structureListEl" class="flex-1 overflow-y-auto p-2">
+          <template v-for="(block, i) in blocks" :key="block.id">
+            <div class="group/gap relative z-20 h-2 -my-1">
+              <div class="pointer-events-none absolute inset-x-0 top-1/2 z-10 flex -translate-y-1/2 justify-center opacity-0 transition-opacity group-hover/gap:pointer-events-auto group-hover/gap:opacity-100">
+                <button type="button" class="flex items-center gap-1 rounded-full border border-line bg-white px-2.5 py-1 text-[10px] font-semibold text-ink shadow-md transition hover:border-ink" @click="openLibraryAt(i)">
+                  <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+                  Añadir sección aquí
+                </button>
+              </div>
+            </div>
+
+            <div
+              draggable="true"
+              class="group mb-1 flex cursor-grab items-start gap-2 rounded-lg border px-2.5 py-2 text-sm transition"
+              :class="[
+                selectedBlockId === block.id ? 'border-ink bg-paper' : 'border-transparent hover:bg-stone-50',
+                dragOverId === block.id ? 'border-dashed border-blue-400' : '',
+              ]"
+              @click="selectedBlockId = block.id"
+              @dragstart="onDragStart(i)"
+              @dragover.prevent="dragOverId = block.id"
+              @dragleave="dragOverId === block.id && (dragOverId = null)"
+              @drop="onDrop(i)"
+            >
+              <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-stone-300" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.4" /><circle cx="8" cy="12" r="1.4" /><circle cx="8" cy="18" r="1.4" /><circle cx="16" cy="6" r="1.4" /><circle cx="16" cy="12" r="1.4" /><circle cx="16" cy="18" r="1.4" /></svg>
+              <div class="min-w-0 flex-1" :class="isHiddenOnDevice(block) ? 'opacity-40' : ''">
+                <p class="truncate font-semibold text-ink">{{ pad2(i + 1) }} · {{ blockLabel(block.type) }}</p>
+                <p class="truncate text-[12px] text-stone-450">{{ blockSubtitle(block) }}</p>
+              </div>
+              <div class="flex shrink-0 items-center gap-0.5">
+                <button type="button" class="structure-icon-btn opacity-0 group-hover:opacity-100" title="Ocultar en este dispositivo" @click.stop="toggleHide(block)">
+                  <svg v-if="isHiddenOnDevice(block)" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a20.4 20.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" /></svg>
+                  <svg v-else class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                </button>
+                <button type="button" class="structure-icon-btn opacity-0 group-hover:opacity-100" title="Duplicar" @click.stop="duplicateBlock(block.id)">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                </button>
+                <button type="button" class="structure-icon-btn text-stone-300 opacity-0 hover:!text-red-500 group-hover:opacity-100" title="Eliminar" @click.stop="deleteBlock(block.id)">
+                  <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16z" /></svg>
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <div class="group/gap relative z-20 h-2 -my-1">
+            <div class="pointer-events-none absolute inset-x-0 top-1/2 z-10 flex -translate-y-1/2 justify-center opacity-0 transition-opacity group-hover/gap:pointer-events-auto group-hover/gap:opacity-100">
+              <button type="button" class="flex items-center gap-1 rounded-full border border-line bg-white px-2.5 py-1 text-[10px] font-semibold text-ink shadow-md transition hover:border-ink" @click="openLibraryAt(blocks.length)">
+                <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
+                Añadir sección aquí
+              </button>
+            </div>
+          </div>
+
+          <button type="button" class="btn-quiet mt-3 w-full !py-2 !text-[11px]" @click="openLibraryAt(null)">+ Añadir sección</button>
+        </div>
+
+        <!-- Páginas: distinta de la Estructura (bloques de Inicio) — hoy solo
+             Inicio es editable con el Constructor Web; el resto son páginas
+             reales del sitio, gestionadas en sus propias secciones del panel,
+             listadas aquí solo para orientar, no como CRUD que no existe. -->
+        <div v-show="!structureCollapsed" class="shrink-0 border-t border-line p-3">
+          <p class="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-stone-400">Páginas</p>
+          <div class="flex items-center gap-2 rounded-lg bg-paper px-2.5 py-1.5 text-[13px] font-medium text-ink">
+            <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9.5 12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" /></svg>
+            Inicio
+          </div>
+          <p
+            v-for="p in OTHER_PAGES"
+            :key="p"
+            class="cursor-default truncate px-2.5 py-1.5 text-[13px] text-stone-400"
+            title="Aún no es editable desde el Constructor Web"
           >
-            <svg class="h-3.5 w-3.5 shrink-0 text-stone-300" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.4" /><circle cx="8" cy="12" r="1.4" /><circle cx="8" cy="18" r="1.4" /><circle cx="16" cy="6" r="1.4" /><circle cx="16" cy="12" r="1.4" /><circle cx="16" cy="18" r="1.4" /></svg>
-            <span class="flex-1 truncate" :class="isHiddenOnDevice(block) ? 'text-stone-300 line-through' : ''">{{ blockLabel(block.type) }}</span>
-            <button type="button" class="shrink-0 text-stone-300 opacity-0 hover:text-ink group-hover:opacity-100" title="Ocultar en este dispositivo" @click.stop="toggleHide(block)">
-              <svg v-if="isHiddenOnDevice(block)" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a20.4 20.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" /></svg>
-              <svg v-else class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-            </button>
-            <button type="button" class="shrink-0 text-stone-300 opacity-0 hover:text-ink group-hover:opacity-100" title="Duplicar" @click.stop="duplicateBlock(block.id)">
-              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
-            </button>
-            <button type="button" class="shrink-0 text-stone-300 opacity-0 hover:text-red-500 group-hover:opacity-100" title="Eliminar" @click.stop="deleteBlock(block.id)">
-              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16z" /></svg>
-            </button>
-          </li>
-        </ul>
+            {{ p }}
+          </p>
+        </div>
       </aside>
 
       <!-- Canvas -->
@@ -120,11 +168,11 @@
     </div>
 
     <!-- Block library -->
-    <div v-if="libraryOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" @click.self="libraryOpen = false">
+    <div v-if="libraryOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" @click.self="closeLibrary()">
       <div class="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
         <div class="mb-4 flex items-center justify-between">
           <p class="text-lg font-serif">Añadir bloque</p>
-          <button type="button" class="text-stone-300 hover:text-ink" @click="libraryOpen = false">
+          <button type="button" class="text-stone-300 hover:text-ink" @click="closeLibrary()">
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
         </div>
@@ -171,7 +219,7 @@
 
 <script setup lang="ts">
 import type { SiteBlock } from '~/server/utils/sitePages'
-import { BLOCK_PRESETS, BLOCK_CATEGORIES, BLOCK_INSPECTORS, blockLabel, newBlockId, type BlockPreset } from '~/composables/useSiteBuilderRegistry'
+import { BLOCK_PRESETS, BLOCK_CATEGORIES, BLOCK_INSPECTORS, blockLabel, blockSubtitle, newBlockId, type BlockPreset } from '~/composables/useSiteBuilderRegistry'
 import InspectorSection from '~/components/site-builder/inspector/InspectorSection.vue'
 import CommonBlockSettings from '~/components/site-builder/inspector/CommonBlockSettings.vue'
 import TopBar from '~/components/site-builder/shell/TopBar.vue'
@@ -204,6 +252,13 @@ const previewMode = ref(false)
 const libraryOpen = ref(false)
 const seoOpen = ref(false)
 const dragOverId = ref<string | null>(null)
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
+}
+// Real routes this site already has — only "Inicio" is backed by site_pages
+// today (server/utils/sitePages.ts hard-rejects any other pageKey), so the
+// rest are listed for orientation, not as a page CRUD that doesn't exist yet.
+const OTHER_PAGES = ['Propiedades', 'Ficha de propiedad', 'Nosotros', 'Servicios', 'Contacto', 'Blog']
 
 // Session-only UI preference (not page state): read after mount to avoid an
 // SSR/client hydration mismatch, same pattern as useFavorites()/useCompare().
@@ -337,13 +392,41 @@ function onPanelFocusOut(e: FocusEvent) {
 // ---------------------------------------------------------------------------
 // Block CRUD
 // ---------------------------------------------------------------------------
+// Set right before opening the library from an explicit "+ Añadir sección
+// aquí" affordance (structure list or canvas gap) — addBlock() prefers this
+// over "after the current selection" so the block lands exactly where the
+// user pointed, not wherever the selection happened to be.
+const insertAtIndex = ref<number | null>(null)
+
 function addBlock(preset: BlockPreset) {
   pushUndo()
   const block: SiteBlock = { id: newBlockId(preset.type), type: preset.type, version: 1, content: preset.createContent() }
-  const insertAt = selectedBlockId.value ? blocks.value.findIndex((b) => b.id === selectedBlockId.value) + 1 : blocks.value.length
+  const insertAt =
+    insertAtIndex.value !== null
+      ? insertAtIndex.value
+      : selectedBlockId.value
+        ? blocks.value.findIndex((b) => b.id === selectedBlockId.value) + 1
+        : blocks.value.length
   blocks.value.splice(insertAt, 0, block)
   selectedBlockId.value = block.id
+  insertAtIndex.value = null
   libraryOpen.value = false
+}
+function openLibraryAt(index: number | null) {
+  insertAtIndex.value = index
+  libraryOpen.value = true
+}
+function closeLibrary() {
+  libraryOpen.value = false
+  insertAtIndex.value = null
+}
+function moveBlock(id: string, dir: -1 | 1) {
+  const i = blocks.value.findIndex((b) => b.id === id)
+  const j = i + dir
+  if (i === -1 || j < 0 || j >= blocks.value.length) return
+  pushUndo()
+  const [moved] = blocks.value.splice(i, 1)
+  blocks.value.splice(j, 0, moved)
 }
 function duplicateBlock(id: string) {
   pushUndo()
@@ -535,13 +618,49 @@ function handleMessage(e: MessageEvent) {
   if (e.origin !== window.location.origin) return
   const msg = e.data
   if (!msg || msg.source !== 'sa-builder-canvas') return
-  if (msg.type === 'ready') {
-    canvasReady = true
-    sendState()
-  } else if (msg.type === 'select') {
-    selectedBlockId.value = msg.id
+  switch (msg.type) {
+    case 'ready':
+      canvasReady = true
+      sendState()
+      break
+    case 'select':
+      selectedBlockId.value = msg.id
+      break
+    case 'hover':
+      break
+    case 'insert-at':
+      openLibraryAt(msg.index)
+      break
+    case 'move-up':
+      moveBlock(msg.id, -1)
+      break
+    case 'move-down':
+      moveBlock(msg.id, 1)
+      break
+    case 'add-below': {
+      const i = blocks.value.findIndex((b) => b.id === msg.id)
+      openLibraryAt(i === -1 ? blocks.value.length : i + 1)
+      break
+    }
+    case 'duplicate':
+      duplicateBlock(msg.id)
+      break
+    case 'toggle-hide': {
+      const block = blocks.value.find((b) => b.id === msg.id)
+      if (block) toggleHide(block)
+      break
+    }
+    case 'delete':
+      deleteBlock(msg.id)
+      break
   }
 }
 onMounted(() => window.addEventListener('message', handleMessage))
 onUnmounted(() => window.removeEventListener('message', handleMessage))
 </script>
+
+<style scoped>
+.structure-icon-btn {
+  @apply flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-400 transition hover:bg-white hover:text-ink;
+}
+</style>
