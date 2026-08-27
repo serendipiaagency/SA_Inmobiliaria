@@ -321,4 +321,31 @@ test.describe('Constructor Web', () => {
     await page.locator('aside.border-r').getByText(/^02 · Hero$/).click()
     await expect(inspector.getByText('Eyebrow', { exact: true })).toBeVisible()
   })
+
+  /**
+   * FASE 5: the Inspector panel collapses like the Estructura panel always
+   * has — the canvas immediately reclaims the width (proving the fit/zoom
+   * ResizeObserver reacts to it, not just window resizes), and the
+   * selection survives the collapse/expand round trip.
+   */
+  test('el panel del Inspector se contrae, el lienzo gana el espacio, y la selección sobrevive', async ({ page }) => {
+    const put = await a.put('/api/admin/site-pages/home', { data: { blocks: [{ id: 'hero-1', type: 'hero', version: 1, content: {} }], seo: {} } })
+    expect(put.ok()).toBeTruthy()
+
+    await page.goto('/admin/site-builder')
+    await page.locator('aside.border-r').getByText(/^01 ·/).click()
+    const zoomLabel = page.getByTitle('Ajustar al área disponible')
+    const before = await zoomLabel.textContent()
+
+    await page.getByTitle('Contraer inspector').click()
+    await expect(page.locator('aside.border-l')).toHaveClass(/w-11/)
+    // Auto-fit zoom must have recalculated once the canvas gained the width
+    // the Inspector used to occupy — not stayed frozen at the old value.
+    await expect.poll(async () => zoomLabel.textContent()).not.toBe(before)
+
+    await page.getByTitle('Expandir inspector').click()
+    await expect(page.locator('aside.border-l')).not.toHaveClass(/w-11/)
+    await expect(page.locator('aside.border-r [draggable="true"]').first()).toHaveClass(/border-ink/)
+    await expect(page.locator('aside.border-l').getByText('01 · Hero')).toBeVisible()
+  })
 })

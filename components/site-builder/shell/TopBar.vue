@@ -73,6 +73,7 @@
         type="button"
         class="btn-primary relative ml-1 !rounded-lg !px-4 !py-2 !text-[13px] !font-medium !normal-case !tracking-normal"
         :disabled="publishing"
+        :title="hasUnpublishedChanges && !publishing ? 'Cambios sin publicar' : undefined"
         @click="emit('publish')"
       >
         <span v-if="hasUnpublishedChanges && !publishing" class="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-white" aria-hidden="true" />

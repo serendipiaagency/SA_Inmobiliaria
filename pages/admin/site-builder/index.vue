@@ -208,14 +208,30 @@
         </div>
       </aside>
 
+      <!-- Right panel collapsed: a thin strip, always available to reopen
+           (mirrors the Estructura panel's own collapse) — never an empty
+           column, and the selection underneath is untouched. -->
+      <aside v-else-if="!previewMode && inspectorCollapsed" class="flex w-11 shrink-0 flex-col items-center border-l border-line bg-white pt-3">
+        <button type="button" class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-400 transition hover:bg-stone-100 hover:text-ink" title="Expandir inspector" aria-expanded="false" @click="toggleInspectorCollapsed">
+          <svg class="h-3.5 w-3.5 rotate-180 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+      </aside>
+
       <!-- Right panel: Block Inspector -->
       <aside v-else-if="!previewMode && selectedBlock" class="flex w-96 shrink-0 flex-col overflow-hidden border-l border-line bg-white" @focusin="onPanelFocusIn" @focusout="onPanelFocusOut">
         <div class="shrink-0 border-b border-line p-4">
           <div class="mb-3 flex items-center justify-between">
             <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-500">Propiedades del bloque</p>
-            <button type="button" aria-label="Cerrar inspector" class="shrink-0 text-stone-300 hover:text-ink" @click="selectedBlockId = null">
-              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
-            </button>
+            <div class="flex shrink-0 items-center gap-1">
+              <button type="button" class="flex h-6 w-6 items-center justify-center rounded text-stone-400 transition hover:bg-stone-100 hover:text-ink" title="Contraer inspector" aria-expanded="true" @click="toggleInspectorCollapsed">
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6" /></svg>
+              </button>
+              <button type="button" aria-label="Cerrar inspector" class="text-stone-300 hover:text-ink" @click="selectedBlockId = null">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
           </div>
           <div class="mb-3 flex items-center gap-2 rounded-lg bg-paper px-3 py-2">
             <div class="min-w-0">
@@ -252,7 +268,10 @@
           </InspectorSection>
         </div>
       </aside>
-      <aside v-else-if="!previewMode" class="flex w-96 shrink-0 items-center justify-center border-l border-line bg-white p-6 text-center text-sm text-stone-400">
+      <aside v-else-if="!previewMode" class="relative flex w-96 shrink-0 items-center justify-center border-l border-line bg-white p-6 text-center text-sm text-stone-400">
+        <button type="button" class="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded text-stone-400 transition hover:bg-stone-100 hover:text-ink" title="Contraer inspector" aria-expanded="true" @click="toggleInspectorCollapsed">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6" /></svg>
+        </button>
         Selecciona un bloque en el lienzo o en la estructura para editarlo.
       </aside>
     </div>
@@ -343,6 +362,18 @@ function toggleStructureCollapsed() {
     })
   }
 }
+
+// Same collapse pattern as Estructura above, mirrored for the right panel —
+// the library (libraryOpen) always ignores this and shows at full width,
+// since collapsing "while actively picking a section to add" isn't a real
+// user intent.
+const INSPECTOR_COLLAPSED_KEY = 'sa-builder-inspector-collapsed'
+const inspectorCollapsed = ref(false)
+function toggleInspectorCollapsed() {
+  inspectorCollapsed.value = !inspectorCollapsed.value
+  if (import.meta.client) sessionStorage.setItem(INSPECTOR_COLLAPSED_KEY, inspectorCollapsed.value ? '1' : '0')
+}
+
 const pageVersion = ref(0)
 const hasUnpublishedChanges = ref(false)
 const publishing = ref(false)
@@ -602,6 +633,7 @@ interface DraftResponse {
 
 onMounted(async () => {
   structureCollapsed.value = sessionStorage.getItem(STRUCTURE_COLLAPSED_KEY) === '1'
+  inspectorCollapsed.value = sessionStorage.getItem(INSPECTOR_COLLAPSED_KEY) === '1'
   try {
     recentPresetIds.value = JSON.parse(localStorage.getItem(RECENT_PRESETS_KEY) || '[]')
     favoritePresetIds.value = new Set(JSON.parse(localStorage.getItem(FAVORITE_PRESETS_KEY) || '[]'))
@@ -784,6 +816,26 @@ function handleMessage(e: MessageEvent) {
 }
 onMounted(() => window.addEventListener('message', handleMessage))
 onUnmounted(() => window.removeEventListener('message', handleMessage))
+
+// Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z (and the Ctrl+Y Windows convention) for
+// undo/redo — ignored while typing in a text field so it doesn't fight the
+// browser's own native undo inside inputs/textareas.
+function isEditableTarget(el: EventTarget | null): boolean {
+  const tag = (el as HTMLElement)?.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || (el as HTMLElement)?.isContentEditable === true
+}
+function onKeydown(e: KeyboardEvent) {
+  if (!(e.ctrlKey || e.metaKey) || isEditableTarget(e.target)) return
+  if (e.key.toLowerCase() === 'z' && !e.shiftKey) {
+    e.preventDefault()
+    undo()
+  } else if ((e.key.toLowerCase() === 'z' && e.shiftKey) || e.key.toLowerCase() === 'y') {
+    e.preventDefault()
+    redo()
+  }
+}
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <style scoped>
