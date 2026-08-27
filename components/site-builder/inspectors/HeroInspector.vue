@@ -28,7 +28,7 @@
       />
     </InspectorSection>
 
-    <InspectorSection title="Diseño">
+    <InspectorSection title="Diseño" tab="design">
       <SliderField label="Opacidad del overlay" :model-value="content.overlayOpacity || 0" @update:model-value="(v) => (content.overlayOpacity = v)" />
       <SelectField label="Posición del fondo (focal point)" :model-value="content.backgroundPosition || '50% 50%'" :options="FOCAL_POINTS" @update:model-value="(v) => (content.backgroundPosition = v)" />
       <SegmentedField

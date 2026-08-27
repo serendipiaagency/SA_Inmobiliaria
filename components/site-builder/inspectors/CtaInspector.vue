@@ -20,7 +20,7 @@
       <ImageField label="Imagen de fondo" folder="site-builder" aspect="wide" :model-value="content.image || ''" @update:model-value="(v) => (content.image = v)" />
     </InspectorSection>
 
-    <InspectorSection title="Diseño">
+    <InspectorSection title="Diseño" tab="design">
       <SegmentedField label="Alineación" :model-value="content.align || 'center'" :options="[{ value: 'left', label: 'Izquierda' }, { value: 'center', label: 'Centrado' }]" @update:model-value="(v) => (content.align = v)" />
     </InspectorSection>
   </div>

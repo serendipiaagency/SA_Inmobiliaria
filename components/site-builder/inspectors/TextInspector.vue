@@ -7,7 +7,7 @@
       <TextField label="Cuerpo" multiline :rows="6" :model-value="content.body || ''" @update:model-value="(v) => (content.body = v)" />
     </InspectorSection>
 
-    <InspectorSection title="Diseño">
+    <InspectorSection title="Diseño" tab="design">
       <SegmentedField label="Alineación" :model-value="content.align || 'left'" :options="[{ value: 'left', label: 'Izquierda' }, { value: 'center', label: 'Centrado' }]" @update:model-value="(v) => (content.align = v)" />
       <SelectField label="Ancho máximo" :model-value="content.maxWidth || 'md'" :options="[{ value: 'sm', label: 'Estrecho' }, { value: 'md', label: 'Normal' }, { value: 'lg', label: 'Ancho' }, { value: 'full', label: 'Completo' }]" @update:model-value="(v) => (content.maxWidth = v)" />
       <SegmentedField label="Columnas del cuerpo" :model-value="String(content.columns || 1)" :options="[{ value: '1', label: '1 columna' }, { value: '2', label: '2 columnas' }]" @update:model-value="(v) => (content.columns = Number(v))" />

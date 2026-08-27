@@ -285,4 +285,40 @@ test.describe('Constructor Web', () => {
     // favoritos" is enough to prove the favorite survived the reopen.
     await expect(reopened.locator('[title="Quitar de favoritos"]').first()).toBeVisible()
   })
+
+  /**
+   * The Inspector's three tabs (FASE 4): "Contenido"/"Diseño"/"Avanzado"
+   * show mutually exclusive sets of InspectorSection instances (routed via
+   * provide/inject in InspectorSection.vue, not a prop threaded through
+   * every *Inspector.vue), and switching to a different block resets back
+   * to "Contenido" rather than leaving the admin stranded on a tab the new
+   * block has nothing under.
+   */
+  test('el Inspector separa Contenido/Diseño/Avanzado y vuelve a Contenido al cambiar de bloque', async ({ page }) => {
+    const put = await a.put('/api/admin/site-pages/home', {
+      data: {
+        blocks: [
+          { id: 'props-1', type: 'properties', version: 1, content: { title: 'Propiedades', source: 'dynamic', dynamicFilter: 'latest', limit: 4, layout: 'row' } },
+          { id: 'hero-1', type: 'hero', version: 1, content: { title1: 'Hero' } },
+        ],
+        seo: {},
+      },
+    })
+    expect(put.ok()).toBeTruthy()
+
+    await page.goto('/admin/site-builder')
+    await page.locator('aside.border-r').getByText(/^01 · Propiedades$/).click()
+    const inspector = page.locator('aside.border-l')
+    await expect(inspector.getByText('Eyebrow', { exact: true })).toBeVisible()
+    // "Diseño" content (the layout picker) is not shown while on "Contenido".
+    await expect(inspector.getByText('Fila', { exact: true })).not.toBeVisible()
+
+    await inspector.getByRole('button', { name: 'Diseño', exact: true }).click()
+    await expect(inspector.getByText('Fila', { exact: true })).toBeVisible()
+    await expect(inspector.getByText('Eyebrow', { exact: true })).not.toBeVisible()
+
+    // Switching blocks resets the tab back to "Contenido".
+    await page.locator('aside.border-r').getByText(/^02 · Hero$/).click()
+    await expect(inspector.getByText('Eyebrow', { exact: true })).toBeVisible()
+  })
 })

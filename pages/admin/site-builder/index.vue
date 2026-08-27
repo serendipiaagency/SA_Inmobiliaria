@@ -209,26 +209,48 @@
       </aside>
 
       <!-- Right panel: Block Inspector -->
-      <aside v-else-if="!previewMode && selectedBlock" class="flex w-96 shrink-0 flex-col overflow-y-auto border-l border-line bg-white p-4" @focusin="onPanelFocusIn" @focusout="onPanelFocusOut">
-        <div class="mb-4 flex items-center justify-between">
-          <p class="truncate text-[11px] font-semibold uppercase tracking-wide text-stone-500">{{ breadcrumb }}</p>
-          <button type="button" class="shrink-0 text-stone-300 hover:text-ink" @click="selectedBlockId = null">
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
-          </button>
+      <aside v-else-if="!previewMode && selectedBlock" class="flex w-96 shrink-0 flex-col overflow-hidden border-l border-line bg-white" @focusin="onPanelFocusIn" @focusout="onPanelFocusOut">
+        <div class="shrink-0 border-b border-line p-4">
+          <div class="mb-3 flex items-center justify-between">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-500">Propiedades del bloque</p>
+            <button type="button" aria-label="Cerrar inspector" class="shrink-0 text-stone-300 hover:text-ink" @click="selectedBlockId = null">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
+            </button>
+          </div>
+          <div class="mb-3 flex items-center gap-2 rounded-lg bg-paper px-3 py-2">
+            <div class="min-w-0">
+              <p class="truncate text-[13px] font-semibold text-ink">{{ pad2(selectedBlockIndex + 1) }} · {{ breadcrumb }}</p>
+              <p class="truncate text-[11px] text-stone-500">{{ blockSubtitle(selectedBlock) }}</p>
+            </div>
+          </div>
+          <div class="flex gap-1 rounded-lg bg-stone-100 p-1">
+            <button
+              v-for="t in INSPECTOR_TABS"
+              :key="t.key"
+              type="button"
+              class="flex-1 rounded-md px-2 py-1.5 text-[12px] font-semibold transition"
+              :class="inspectorTab === t.key ? 'bg-white text-ink shadow' : 'text-stone-500 hover:text-ink'"
+              @click="inspectorTab = t.key"
+            >
+              {{ t.label }}
+            </button>
+          </div>
         </div>
 
-        <component
-          :is="inspectorFor(selectedBlock.type)?.component"
-          v-if="inspectorFor(selectedBlock.type)"
-          :content="selectedBlock.content"
-          :projects="previewData?.projects || []"
-          :communities="previewData?.communities || []"
-        />
-        <p v-else class="text-sm text-stone-400">Este tipo de bloque no tiene opciones adicionales todavía.</p>
+        <div class="flex-1 overflow-y-auto p-4">
+          <component
+            :is="inspectorFor(selectedBlock.type)?.component"
+            v-if="inspectorFor(selectedBlock.type)"
+            :content="selectedBlock.content"
+            :projects="previewData?.projects || []"
+            :communities="previewData?.communities || []"
+          />
+          <p v-else-if="inspectorTab === 'content'" class="text-sm text-stone-400">Este tipo de bloque no tiene opciones adicionales todavía.</p>
 
-        <InspectorSection title="Avanzado" :default-open="false">
-          <CommonBlockSettings :block="selectedBlock" />
-        </InspectorSection>
+          <InspectorSection title="Avanzado" tab="advanced">
+            <CommonBlockSettings :block="selectedBlock" />
+          </InspectorSection>
+        </div>
       </aside>
       <aside v-else-if="!previewMode" class="flex w-96 shrink-0 items-center justify-center border-l border-line bg-white p-6 text-center text-sm text-stone-400">
         Selecciona un bloque en el lienzo o en la estructura para editarlo.
@@ -334,6 +356,24 @@ const publishedSiteUrl = computed(() =>
 )
 
 const selectedBlock = computed(() => blocks.value.find((b) => b.id === selectedBlockId.value) || null)
+const selectedBlockIndex = computed(() => blocks.value.findIndex((b) => b.id === selectedBlockId.value))
+
+// ---------------------------------------------------------------------------
+// Inspector tabs — Contenido/Diseño/Avanzado, per-InspectorSection routing
+// via provide/inject (see InspectorSection.vue). Resets to "Contenido"
+// whenever the selection changes, so switching blocks never leaves an admin
+// stranded on a tab the new block doesn't have anything under.
+// ---------------------------------------------------------------------------
+const INSPECTOR_TABS: { key: 'content' | 'design' | 'advanced'; label: string }[] = [
+  { key: 'content', label: 'Contenido' },
+  { key: 'design', label: 'Diseño' },
+  { key: 'advanced', label: 'Avanzado' },
+]
+const inspectorTab = ref<'content' | 'design' | 'advanced'>('content')
+provide('inspectorTab', inspectorTab)
+watch(selectedBlockId, () => {
+  inspectorTab.value = 'content'
+})
 
 // ---------------------------------------------------------------------------
 // Section library — search/category filter, "recientes" and "favoritos"

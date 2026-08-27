@@ -5,6 +5,10 @@
       <TextField label="Título" :model-value="content.title || ''" @update:model-value="(v) => (content.title = v)" />
       <p class="text-[11px] text-stone-400">Los tipos se generan automáticamente a partir de tus propiedades — este bloque no lleva más ajustes.</p>
     </InspectorSection>
+
+    <InspectorSection title="Diseño" tab="design">
+      <p class="text-sm text-stone-400">Este bloque no tiene opciones de diseño propias.</p>
+    </InspectorSection>
   </div>
 </template>
 
