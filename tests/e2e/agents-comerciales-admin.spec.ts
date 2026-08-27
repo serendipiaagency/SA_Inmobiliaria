@@ -176,17 +176,62 @@ test.describe('Comerciales — admin', () => {
     await expect(page.getByText(marker)).toBeVisible()
 
     await page.getByText(marker).click()
-    // Two <aside> elements exist (the persistent admin nav sidebar, and the
-    // ficha's own tab nav) — unscoped is fine here since each tab name only
-    // exists in the ficha's aside, same pattern as developer-properties-
-    // admin.spec.ts; `.first()`/`.last()` would instead pin to one specific
-    // <aside> and silently search the wrong one.
-    const nav = page.locator('aside')
-    for (const tab of ['Laboral', 'Comercial', 'Contacto', 'Zonas', 'Propiedades', 'Rendimiento', 'Documentos', 'Web']) {
-      await nav.getByRole('button', { name: tab }).click()
+    // Horizontal stepper (Constructor de Comerciales) — click through all 6
+    // steps, then the "Propiedades asignadas"/"Rendimiento"/"Documentos"
+    // secondary tabs below the builder (kept out of the primary steps since
+    // they only apply once the record is saved).
+    for (const step of ['Datos personales', 'Información profesional', 'Contacto y redes', 'Perfil y presentación', 'Zonas y especialidades', 'Resumen']) {
+      await page.getByRole('button', { name: step, exact: false }).first().click()
     }
-    await expect(page.getByRole('button', { name: 'Guardar' })).toBeVisible()
+    for (const tab of ['Propiedades asignadas', 'Rendimiento', 'Documentos']) {
+      await page.getByRole('button', { name: tab, exact: true }).click()
+    }
+    await expect(page.getByRole('button', { name: 'Guardar cambios' })).toBeVisible()
 
     expect(consoleErrors.filter((e) => !e.includes('favicon') && !e.includes('net::ERR_'))).toEqual([])
+  })
+
+  test('el Constructor de Comerciales tiene stepper horizontal, preview en vivo, y las etiquetas/idiomas heredados (coma) se parsean en chips', async ({ page }) => {
+    const id = await createAgent({
+      name: 'Legacy Chips E2E',
+      position: 'Agente E2E',
+      specialties: 'Captación, Negociación, Venta residencial',
+      languages: 'Español, Inglés',
+    })
+
+    const consoleErrors: string[] = []
+    page.on('console', (msg) => {
+      if (msg.type() === 'error' && !msg.location().url.includes('/api/media/')) consoleErrors.push(msg.text())
+    })
+
+    await page.goto(`/admin/agents/${id}`)
+    await expect(page.getByRole('heading', { name: 'Legacy Chips E2E' })).toBeVisible()
+    // The 6 steps render as a horizontal stepper (not the old vertical <aside> tab list).
+    for (const step of ['Datos personales', 'Información profesional', 'Contacto y redes', 'Perfil y presentación', 'Zonas y especialidades', 'Resumen']) {
+      await expect(page.getByRole('button', { name: step, exact: false }).first()).toBeVisible()
+    }
+    // Live preview reflects the loaded data without any save.
+    await expect(page.getByText('Vista previa de la ficha')).toBeVisible()
+    await expect(page.getByText('Legacy Chips E2E').last()).toBeVisible()
+    // Legacy comma-separated specialties render as removable chips (label + "×"
+    // button inside one span), not a raw string — substring match, not exact.
+    await expect(page.getByText('Captación')).toBeVisible()
+    await expect(page.getByText('Negociación')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Zonas y especialidades', exact: false }).first().click()
+    await expect(page.getByText('Español')).toBeVisible()
+    await expect(page.getByText('Inglés')).toBeVisible()
+
+    expect(consoleErrors.filter((e) => !e.includes('favicon') && !e.includes('net::ERR_'))).toEqual([])
+  })
+
+  test('crear y editar comparten el mismo Constructor de Comerciales, y las etiquetas/idiomas se guardan como listas reales', async () => {
+    const id = await createAgent({ name: 'Chips Persist E2E', position: 'Agente E2E' })
+    await a.put(`/api/admin/team/${id}`, {
+      data: { specialties: JSON.stringify(['Captación', 'Lujo']), languages: JSON.stringify(['Español', 'Francés']) },
+    })
+    const row = (await (await a.get(`/api/admin/team/${id}`)).json()).row
+    expect(JSON.parse(row.specialties)).toEqual(['Captación', 'Lujo'])
+    expect(JSON.parse(row.languages)).toEqual(['Español', 'Francés'])
   })
 })

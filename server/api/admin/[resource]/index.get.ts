@@ -13,6 +13,13 @@ const DEVELOPER_PROPERTY_SORTS: Record<string, any> = {
   name_desc: desc(schema.developerProperties.name),
 }
 
+const PROPERTIES_SORTS: Record<string, any> = {
+  newest: desc(schema.agentProperties.createdAt),
+  oldest: asc(schema.agentProperties.createdAt),
+  price_desc: desc(schema.agentProperties.price),
+  price_asc: asc(schema.agentProperties.price),
+}
+
 const TEAM_SORTS: Record<string, any> = {
   newest: desc(schema.teamMembers.createdAt),
   oldest: asc(schema.teamMembers.createdAt),
@@ -63,6 +70,27 @@ export default defineEventHandler(async (event) => {
     if (query.district) conds.push(like(t.district, `%${query.district}%`))
     if (query.postalCode) conds.push(like(t.postalCode, `%${query.postalCode}%`))
     if (query.propertyType) conds.push(eq(t.propertyType, String(query.propertyType)))
+    if (query.status) conds.push(eq(t.status, String(query.status)))
+    if (query.bedroomsMin) conds.push(gte(t.bedrooms, Number(query.bedroomsMin)))
+    if (query.bathroomsMin) conds.push(gte(t.bathrooms, Number(query.bathroomsMin)))
+    if (query.areaMin) conds.push(gte(t.area, Number(query.areaMin)))
+    if (query.areaMax) conds.push(lte(t.area, Number(query.areaMax)))
+  }
+
+  // "Propiedades 2ª mano" admin listing — same filter set as
+  // developer-properties above, kept as its own branch (rather than merged
+  // into it) since it's a distinct table with a distinct column set.
+  const isProperties = key === 'properties'
+  if (isProperties) {
+    const t = schema.agentProperties
+    if (query.priceMin) conds.push(gte(t.price, Number(query.priceMin)))
+    if (query.priceMax) conds.push(lte(t.price, Number(query.priceMax)))
+    if (query.country) conds.push(like(t.country, `%${query.country}%`))
+    if (query.city) conds.push(like(t.city, `%${query.city}%`))
+    if (query.district) conds.push(like(t.district, `%${query.district}%`))
+    if (query.postalCode) conds.push(like(t.postalCode, `%${query.postalCode}%`))
+    if (query.propertyType) conds.push(eq(t.propertyType, String(query.propertyType)))
+    if (query.transactionType) conds.push(eq(t.transactionType, String(query.transactionType)))
     if (query.status) conds.push(eq(t.status, String(query.status)))
     if (query.bedroomsMin) conds.push(gte(t.bedrooms, Number(query.bedroomsMin)))
     if (query.bathroomsMin) conds.push(gte(t.bathrooms, Number(query.bathroomsMin)))
@@ -135,6 +163,36 @@ export default defineEventHandler(async (event) => {
       })
       .from(t)
       .leftJoin(schema.developers, eq(t.developerId, schema.developers.id))
+      .where(where as any)
+      .orderBy(sort)
+      .limit(perPage)
+      .offset((page - 1) * perPage)
+    return { rows, total, page, perPage }
+  }
+
+  if (isProperties) {
+    const t = schema.agentProperties
+    const sort = PROPERTIES_SORTS[String(query.sort || 'newest')] || PROPERTIES_SORTS.newest
+    const rows = await db
+      .select({
+        id: t.id,
+        slug: t.slug,
+        location: t.location,
+        city: t.city,
+        country: t.country,
+        district: t.district,
+        propertyType: t.propertyType,
+        transactionType: t.transactionType,
+        status: t.status,
+        price: t.price,
+        area: t.area,
+        bedrooms: t.bedrooms,
+        bathrooms: t.bathrooms,
+        mainImage: t.mainImage,
+        agentId: t.agentId,
+        updatedAt: t.updatedAt,
+      })
+      .from(t)
       .where(where as any)
       .orderBy(sort)
       .limit(perPage)

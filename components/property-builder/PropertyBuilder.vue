@@ -21,7 +21,7 @@
             <span class="mr-1.5 rounded-full bg-ink px-1.5 py-0.5 text-[9px] font-bold text-white">IA</span>Generar contenido
           </NuxtLink>
           <AdminAssetExportButton v-if="resource === 'developer-properties' && !isNew" :asset-id="recordId!" :property-type="form.propertyType" />
-          <a v-if="!isNew" :href="`/propiedades/${form.slug || recordId}`" target="_blank" rel="noopener" class="btn-quiet">Vista previa</a>
+          <a v-if="resource === 'developer-properties' && !isNew" :href="`/propiedades/${form.slug || recordId}`" target="_blank" rel="noopener" class="btn-quiet">Vista previa</a>
           <button type="button" class="btn-primary" :disabled="saving" @click="save">{{ saving ? 'Guardando…' : 'Guardar' }}</button>
         </div>
       </div>
@@ -31,40 +31,66 @@
       <!-- Mobile/tablet: horizontal section tabs -->
       <div class="thin-scroll -mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:hidden">
         <button
-          v-for="s in sections"
+          v-for="(s, i) in sections"
           :key="s.key"
           type="button"
           class="flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[12px] font-medium transition"
           :class="activeKey === s.key ? 'border-ink bg-ink text-white' : 'border-line text-stone-600 hover:border-ink'"
           @click="activeKey = s.key"
         >
+          <span class="tabular-nums opacity-60">{{ pad2(i + 1) }}</span>
           {{ s.label }}
-          <span v-if="sectionHasError(s)" class="h-1.5 w-1.5 rounded-full" :class="activeKey === s.key ? 'bg-white' : 'bg-red-500'" />
+          <span v-if="sectionState(s) === 'error'" class="h-1.5 w-1.5 rounded-full" :class="activeKey === s.key ? 'bg-amber-400' : 'bg-red-500'" />
+          <svg v-else-if="sectionState(s) === 'complete'" class="h-3 w-3" :class="activeKey === s.key ? 'text-white' : 'text-emerald-500'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" /></svg>
         </button>
       </div>
 
       <!-- Desktop: vertical section nav -->
-      <aside class="hidden w-56 shrink-0 lg:block">
+      <aside class="card hidden w-72 shrink-0 p-4 lg:block">
+        <p class="mb-3 px-1 text-[10px] font-bold uppercase tracking-widest text-stone-400">{{ isNew ? 'Crear propiedad' : 'Editar propiedad' }}</p>
         <nav class="sticky top-24 space-y-0.5">
           <button
-            v-for="s in sections"
+            v-for="(s, i) in sections"
             :key="s.key"
             type="button"
             class="nav-item w-full"
             :class="activeKey === s.key ? 'nav-active' : ''"
             @click="activeKey = s.key"
           >
+            <span class="step-num" :class="activeKey === s.key ? 'step-num-active' : ''">{{ pad2(i + 1) }}</span>
             <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" v-html="ICONS[s.icon] || ICONS.doc" />
-            <span class="flex-1 text-left">{{ s.label }}</span>
-            <span v-if="sectionHasError(s)" class="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" />
+            <span class="flex-1 truncate text-left">{{ s.label }}</span>
+            <span v-if="sectionState(s) === 'error'" class="h-1.5 w-1.5 shrink-0 rounded-full" :class="activeKey === s.key ? 'bg-amber-400' : 'bg-red-500'" />
+            <svg v-else-if="sectionState(s) === 'complete'" class="h-3.5 w-3.5 shrink-0" :class="activeKey === s.key ? 'text-white' : 'text-emerald-500'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" /></svg>
           </button>
         </nav>
       </aside>
 
       <!-- Active section content -->
       <div class="card min-w-0 flex-1 p-6">
-        <template v-for="s in sections" :key="s.key">
+        <template v-for="(s, i) in sections" :key="s.key">
           <div v-show="activeKey === s.key">
+            <div class="mb-6 border-b border-line pb-5">
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div class="flex items-start gap-3">
+                  <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-100 text-stone-600">
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" v-html="ICONS[s.icon] || ICONS.doc" />
+                  </span>
+                  <div>
+                    <h2 class="text-lg font-semibold text-ink">{{ s.label }}</h2>
+                    <p class="mt-0.5 text-[13px] text-stone-500">{{ s.description }}</p>
+                  </div>
+                </div>
+                <div class="shrink-0 text-right">
+                  <p class="text-[11px] font-medium text-stone-400">Paso {{ i + 1 }} de {{ sections.length }}</p>
+                  <p class="text-sm font-semibold text-ink">{{ progressPercent }}%</p>
+                </div>
+              </div>
+              <div class="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
+                <div class="h-full rounded-full bg-amber-400 transition-all" :style="{ width: progressPercent + '%' }" />
+              </div>
+            </div>
+
             <div v-if="s.kind === 'fields'" class="grid gap-4 sm:grid-cols-2">
               <PropertyBuilderField
                 v-for="f in s.fields"
@@ -81,11 +107,19 @@
               :form="form"
               :lat-field="s.latField"
               :lng-field="s.lngField"
+              :upload-folder="resource"
             />
             <TranslationsEditor v-else-if="s.kind === 'translations'" v-model="translations" />
             <GalleryManager v-else-if="s.kind === 'gallery'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" :cover-value="form.coverImage" @use-as-cover="(key) => (form.coverImage = key)" />
             <ChildTable v-else-if="s.kind === 'child-table'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" :columns="s.columns" />
             <SocialLinksManager v-else-if="s.kind === 'social'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" />
+
+            <div class="mt-8 flex items-center justify-between border-t border-line pt-5">
+              <button v-if="i > 0" type="button" class="btn-quiet" @click="activeKey = sections[i - 1].key">← Anterior</button>
+              <span v-else />
+              <button v-if="i < sections.length - 1" type="button" class="btn-quiet" @click="activeKey = sections[i + 1].key">Siguiente →</button>
+              <button v-else type="button" class="btn-primary" :disabled="saving" @click="save">{{ saving ? 'Guardando…' : 'Guardar' }}</button>
+            </div>
           </div>
         </template>
       </div>
@@ -164,10 +198,40 @@ onMounted(async () => {
   loading.value = false
 })
 
-function sectionHasError(s: BuilderSection): boolean {
-  if (s.kind !== 'fields' && s.kind !== 'location') return false
-  return (s as FieldsSection).fields.some((f) => f.required && (form[f.key] === null || form[f.key] === undefined || form[f.key] === ''))
+function pad2(n: number) {
+  return String(n).padStart(2, '0')
 }
+
+function isFilled(f: { key: string; type: string }): boolean {
+  if (f.type === 'checkbox') return form[f.key] !== null && form[f.key] !== undefined
+  const v = form[f.key]
+  return v !== null && v !== undefined && v !== ''
+}
+
+/** Only 'fields'/'location' sections carry required/recommended field specs — other kinds (gallery, child-table, social, translations) don't declare completion state here and stay 'neutral'. */
+function sectionState(s: BuilderSection): 'complete' | 'error' | 'neutral' {
+  if (s.kind !== 'fields' && s.kind !== 'location') return 'neutral'
+  const fields = (s as FieldsSection).fields
+  if (fields.some((f) => f.required && !isFilled(f))) return 'error'
+  const tracked = fields.filter((f) => f.required || f.recommended)
+  if (tracked.length > 0 && tracked.every(isFilled)) return 'complete'
+  return 'neutral'
+}
+
+/** Completion % across every required/recommended field in every 'fields'/'location' section — never a count of visited sections. */
+const progressPercent = computed(() => {
+  let total = 0
+  let filled = 0
+  for (const s of sections) {
+    if (s.kind !== 'fields' && s.kind !== 'location') continue
+    for (const f of (s as FieldsSection).fields) {
+      if (!f.required && !f.recommended) continue
+      total++
+      if (isFilled(f)) filled++
+    }
+  }
+  return total > 0 ? Math.round((filled / total) * 100) : 100
+})
 
 async function save() {
   saving.value = true
@@ -227,6 +291,25 @@ const ICONS: Record<string, string> = {
   color: #fff;
 }
 .nav-active:hover {
+  background: #16150f;
+  color: #fff;
+}
+.step-num {
+  display: flex;
+  height: 1.35rem;
+  width: 1.35rem;
+  shrink: 0;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #f5f5f4;
+  font-size: 10px;
+  font-weight: 700;
+  color: #78716c;
+  transition: all 0.14s ease;
+}
+.step-num-active {
   background: #16150f;
   color: #fff;
 }

@@ -6,7 +6,7 @@
         :key="f.key"
         :spec="f"
         :model-value="form[f.key]"
-        upload-folder="developer-properties"
+        :upload-folder="uploadFolder"
         @update:model-value="(v) => (form[f.key] = v)"
       />
     </div>
@@ -48,6 +48,7 @@ const props = defineProps<{
   form: Record<string, any>
   latField: string
   lngField: string
+  uploadFolder: string
 }>()
 
 const geocoding = ref(false)

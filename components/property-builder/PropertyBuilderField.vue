@@ -5,7 +5,21 @@
   wrapper's text) for controls inside it instead of their own label. Simple
   fields keep working the same: `.label` is styling only, not an HTML
   <label>, and checkbox already supplies its own explicit inline <label>. -->
-  <div class="block" :class="spec.span === 2 ? 'sm:col-span-2' : ''">
+  <AgentPickerField
+    v-if="spec.type === 'agent'"
+    :label="spec.label"
+    :model-value="modelValue"
+    :span="spec.span"
+    @update:model-value="emitUpdate"
+  />
+  <StepperField
+    v-else-if="spec.type === 'stepper'"
+    :label="spec.label"
+    :model-value="modelValue"
+    :span="spec.span"
+    @update:model-value="emitUpdate"
+  />
+  <div v-else class="block" :class="spec.span === 2 ? 'sm:col-span-2' : ''">
     <span v-if="spec.type !== 'checkbox'" class="label">
       {{ spec.label }} <span v-if="spec.required" class="text-red-500">*</span>
     </span>
@@ -58,6 +72,8 @@
 import type { FieldSpec } from '~/composables/usePropertyBuilderConfig'
 import PaymentPlanEditor from './PaymentPlanEditor.vue'
 import VideoField from './VideoField.vue'
+import AgentPickerField from './AgentPickerField.vue'
+import StepperField from './StepperField.vue'
 
 const props = defineProps<{ spec: FieldSpec; modelValue: any; uploadFolder: string }>()
 const emit = defineEmits<{ 'update:modelValue': [value: any] }>()
