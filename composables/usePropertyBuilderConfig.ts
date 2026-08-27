@@ -16,7 +16,7 @@
 export interface FieldSpec {
   key: string
   label: string
-  type: 'text' | 'textarea' | 'number' | 'select' | 'checkbox' | 'image' | 'url' | 'json' | 'relation' | 'agent' | 'payment-plan' | 'video'
+  type: 'text' | 'textarea' | 'number' | 'stepper' | 'select' | 'checkbox' | 'image' | 'url' | 'json' | 'relation' | 'agent' | 'payment-plan' | 'video'
   options?: string[]
   /** For type 'relation': the admin resource to fetch options from. */
   relationResource?: string
@@ -140,8 +140,8 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Distribución, superficie y equipamiento.',
       kind: 'fields',
       fields: [
-        { key: 'bedrooms', label: 'Habitaciones', type: 'number', recommended: true },
-        { key: 'bathrooms', label: 'Baños', type: 'number', recommended: true },
+        { key: 'bedrooms', label: 'Habitaciones', type: 'stepper', recommended: true },
+        { key: 'bathrooms', label: 'Baños', type: 'stepper', recommended: true },
         { key: 'area', label: 'Superficie (m²)', type: 'number', recommended: true },
         { key: 'orientation', label: 'Orientación', type: 'select', options: ORIENTATION_OPTIONS },
         { key: 'energyRating', label: 'Calificación energética', type: 'select', options: ENERGY_OPTIONS },
@@ -306,8 +306,8 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       kind: 'fields',
       fields: [
         { key: 'area', label: 'Superficie (m²)', type: 'number', recommended: true },
-        { key: 'bedrooms', label: 'Habitaciones', type: 'number', recommended: true },
-        { key: 'bathrooms', label: 'Baños', type: 'number', recommended: true },
+        { key: 'bedrooms', label: 'Habitaciones', type: 'stepper', recommended: true },
+        { key: 'bathrooms', label: 'Baños', type: 'stepper', recommended: true },
       ],
     },
     {
