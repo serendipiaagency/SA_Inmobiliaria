@@ -64,6 +64,7 @@
 
             <div
               draggable="true"
+              :data-block-row="block.id"
               class="group mb-1 flex cursor-grab items-start gap-2 rounded-lg border px-2.5 py-2 text-sm transition"
               :class="[
                 selectedBlockId === block.id ? 'border-ink bg-paper' : 'border-transparent hover:bg-stone-50',
@@ -140,8 +141,75 @@
         </div>
       </main>
 
+      <!-- Right panel: Section library takes this slot while open (mutually
+           exclusive with the Inspector — see docs/site-builder.md), then the
+           Block Inspector, then its empty state. -->
+      <aside v-if="libraryOpen" data-testid="section-library" class="flex w-96 shrink-0 flex-col overflow-hidden border-l border-line bg-white">
+        <div class="shrink-0 border-b border-line p-4">
+          <div class="flex items-start justify-between">
+            <div>
+              <p class="text-base font-serif">Añadir sección</p>
+              <p class="mt-0.5 text-[12px] text-stone-500">Elige y añade secciones profesionales a tu sitio inmobiliario.</p>
+            </div>
+            <button type="button" aria-label="Cerrar biblioteca de secciones" class="shrink-0 text-stone-300 hover:text-ink" @click="closeLibrary()">
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
+            </button>
+          </div>
+          <div class="relative mt-3">
+            <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8" /><path stroke-linecap="round" d="m21 21-4.3-4.3" /></svg>
+            <input v-model="librarySearch" type="text" placeholder="Buscar secciones..." class="input !py-2 !pl-9 !text-sm" />
+          </div>
+          <div class="mt-3 flex gap-1.5 overflow-x-auto pb-1">
+            <button
+              v-for="cat in LIBRARY_CATEGORIES"
+              :key="cat"
+              type="button"
+              class="shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-[12px] font-medium transition"
+              :class="libraryCategory === cat && !librarySearch ? 'border-ink bg-ink text-white' : 'border-line text-stone-500 hover:border-ink hover:text-ink'"
+              @click="libraryCategory = cat; librarySearch = ''"
+            >
+              {{ cat }}
+            </button>
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4">
+          <template v-if="!librarySearch">
+            <div v-if="favoritePresets.length" class="mb-5">
+              <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">Favoritos</p>
+              <div class="grid grid-cols-2 gap-2">
+                <SectionCard v-for="preset in favoritePresets" :key="preset.presetId" :preset="preset" :favorite="true" @add="addBlock" @toggle-favorite="toggleFavorite" />
+              </div>
+            </div>
+            <div v-if="recentPresets.length" class="mb-5">
+              <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">Usados recientemente</p>
+              <div class="grid grid-cols-2 gap-2">
+                <SectionCard v-for="preset in recentPresets" :key="preset.presetId" :preset="preset" :favorite="favoritePresetIds.has(preset.presetId)" @add="addBlock" @toggle-favorite="toggleFavorite" />
+              </div>
+            </div>
+          </template>
+
+          <div>
+            <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">
+              {{ librarySearch ? `Resultados para "${librarySearch}"` : libraryCategory }}
+            </p>
+            <div v-if="!filteredPresets.length" class="py-8 text-center text-sm text-stone-400">Sin resultados.</div>
+            <div v-else class="grid grid-cols-2 gap-2">
+              <SectionCard
+                v-for="preset in filteredPresets"
+                :key="preset.presetId"
+                :preset="preset"
+                :favorite="favoritePresetIds.has(preset.presetId)"
+                @add="addBlock"
+                @toggle-favorite="toggleFavorite"
+              />
+            </div>
+          </div>
+        </div>
+      </aside>
+
       <!-- Right panel: Block Inspector -->
-      <aside v-if="!previewMode && selectedBlock" class="flex w-96 shrink-0 flex-col overflow-y-auto border-l border-line bg-white p-4" @focusin="onPanelFocusIn" @focusout="onPanelFocusOut">
+      <aside v-else-if="!previewMode && selectedBlock" class="flex w-96 shrink-0 flex-col overflow-y-auto border-l border-line bg-white p-4" @focusin="onPanelFocusIn" @focusout="onPanelFocusOut">
         <div class="mb-4 flex items-center justify-between">
           <p class="truncate text-[11px] font-semibold uppercase tracking-wide text-stone-500">{{ breadcrumb }}</p>
           <button type="button" class="shrink-0 text-stone-300 hover:text-ink" @click="selectedBlockId = null">
@@ -165,33 +233,6 @@
       <aside v-else-if="!previewMode" class="flex w-96 shrink-0 items-center justify-center border-l border-line bg-white p-6 text-center text-sm text-stone-400">
         Selecciona un bloque en el lienzo o en la estructura para editarlo.
       </aside>
-    </div>
-
-    <!-- Block library -->
-    <div v-if="libraryOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" @click.self="closeLibrary()">
-      <div class="max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
-        <div class="mb-4 flex items-center justify-between">
-          <p class="text-lg font-serif">Añadir bloque</p>
-          <button type="button" class="text-stone-300 hover:text-ink" @click="closeLibrary()">
-            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
-          </button>
-        </div>
-        <div v-for="cat in BLOCK_CATEGORIES" :key="cat" class="mb-6">
-          <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">{{ cat }}</p>
-          <div class="grid grid-cols-2 gap-2">
-            <button
-              v-for="preset in presetsByCategory[cat]"
-              :key="preset.presetId"
-              type="button"
-              class="rounded-xl border border-line p-3 text-left transition hover:border-ink hover:bg-paper"
-              @click="addBlock(preset)"
-            >
-              <p class="text-sm font-semibold text-ink">{{ preset.label }}</p>
-              <p class="mt-0.5 text-[12px] text-stone-500">{{ preset.description }}</p>
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- SEO -->
@@ -219,10 +260,11 @@
 
 <script setup lang="ts">
 import type { SiteBlock } from '~/server/utils/sitePages'
-import { BLOCK_PRESETS, BLOCK_CATEGORIES, BLOCK_INSPECTORS, blockLabel, blockSubtitle, newBlockId, type BlockPreset } from '~/composables/useSiteBuilderRegistry'
+import { BLOCK_PRESETS, BLOCK_CATEGORIES, BLOCK_INSPECTORS, RECOMMENDED_PRESET_IDS, blockLabel, blockSubtitle, newBlockId, type BlockPreset } from '~/composables/useSiteBuilderRegistry'
 import InspectorSection from '~/components/site-builder/inspector/InspectorSection.vue'
 import CommonBlockSettings from '~/components/site-builder/inspector/CommonBlockSettings.vue'
 import TopBar from '~/components/site-builder/shell/TopBar.vue'
+import SectionCard from '~/components/site-builder/shell/SectionCard.vue'
 
 definePageMeta({ layout: false, middleware: 'admin' })
 
@@ -292,11 +334,46 @@ const publishedSiteUrl = computed(() =>
 )
 
 const selectedBlock = computed(() => blocks.value.find((b) => b.id === selectedBlockId.value) || null)
-const presetsByCategory = computed(() => {
-  const map: Record<string, BlockPreset[]> = {}
-  for (const cat of BLOCK_CATEGORIES) map[cat] = BLOCK_PRESETS.filter((p) => p.category === cat)
-  return map
+
+// ---------------------------------------------------------------------------
+// Section library — search/category filter, "recientes" and "favoritos"
+// shelves. Both lists are plain per-browser preferences (localStorage, not
+// org data): which presets an admin reaches for isn't tenant-scoped content,
+// so there's no API/schema for it.
+// ---------------------------------------------------------------------------
+const LIBRARY_CATEGORIES = ['Recomendados', ...BLOCK_CATEGORIES]
+const librarySearch = ref('')
+const libraryCategory = ref<string>('Recomendados')
+const RECENT_PRESETS_KEY = 'sa-builder-recent-presets'
+const FAVORITE_PRESETS_KEY = 'sa-builder-favorite-presets'
+const recentPresetIds = ref<string[]>([])
+const favoritePresetIds = ref<Set<string>>(new Set())
+
+function presetById(id: string) {
+  return BLOCK_PRESETS.find((p) => p.presetId === id)
+}
+const recentPresets = computed(() => recentPresetIds.value.map(presetById).filter((p): p is BlockPreset => !!p))
+const favoritePresets = computed(() => BLOCK_PRESETS.filter((p) => favoritePresetIds.value.has(p.presetId)))
+
+const filteredPresets = computed(() => {
+  const q = librarySearch.value.trim().toLowerCase()
+  if (q) return BLOCK_PRESETS.filter((p) => p.label.toLowerCase().includes(q) || p.description.toLowerCase().includes(q))
+  if (libraryCategory.value === 'Recomendados') return BLOCK_PRESETS.filter((p) => RECOMMENDED_PRESET_IDS.includes(p.presetId))
+  return BLOCK_PRESETS.filter((p) => p.category === libraryCategory.value)
 })
+
+function rememberRecentPreset(presetId: string) {
+  const next = [presetId, ...recentPresetIds.value.filter((id) => id !== presetId)].slice(0, 6)
+  recentPresetIds.value = next
+  if (import.meta.client) localStorage.setItem(RECENT_PRESETS_KEY, JSON.stringify(next))
+}
+function toggleFavorite(presetId: string) {
+  const next = new Set(favoritePresetIds.value)
+  if (next.has(presetId)) next.delete(presetId)
+  else next.add(presetId)
+  favoritePresetIds.value = next
+  if (import.meta.client) localStorage.setItem(FAVORITE_PRESETS_KEY, JSON.stringify([...next]))
+}
 
 // ---------------------------------------------------------------------------
 // Block Inspector — one component per block type (useSiteBuilderRegistry.ts),
@@ -409,8 +486,12 @@ function addBlock(preset: BlockPreset) {
         : blocks.value.length
   blocks.value.splice(insertAt, 0, block)
   selectedBlockId.value = block.id
-  insertAtIndex.value = null
-  libraryOpen.value = false
+  rememberRecentPreset(preset.presetId)
+  closeLibrary()
+  nextTick(() => {
+    structureListEl.value?.querySelector(`[data-block-row="${block.id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    iframeEl.value?.contentWindow?.postMessage({ source: 'sa-builder-shell', type: 'scroll-to', id: block.id }, window.location.origin)
+  })
 }
 function openLibraryAt(index: number | null) {
   insertAtIndex.value = index
@@ -481,6 +562,12 @@ interface DraftResponse {
 
 onMounted(async () => {
   structureCollapsed.value = sessionStorage.getItem(STRUCTURE_COLLAPSED_KEY) === '1'
+  try {
+    recentPresetIds.value = JSON.parse(localStorage.getItem(RECENT_PRESETS_KEY) || '[]')
+    favoritePresetIds.value = new Set(JSON.parse(localStorage.getItem(FAVORITE_PRESETS_KEY) || '[]'))
+  } catch {
+    // Corrupted/foreign localStorage value — start clean rather than break the builder over a UI preference.
+  }
 
   const data = await $fetch<DraftResponse>('/api/admin/site-pages/home')
   blocks.value = data.blocks as SiteBlock[]

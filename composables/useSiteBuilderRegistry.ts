@@ -149,6 +149,20 @@ export const BLOCK_PRESETS: BlockPreset[] = [
   },
 ]
 
+// Curated shortlist for the library's "Recomendados" shelf — the presets
+// most home pages actually start from. Deliberately small: a shelf that
+// just repeats the full catalogue isn't a recommendation.
+export const RECOMMENDED_PRESET_IDS = ['hero', 'properties-row', 'map-teaser', 'cta']
+
+// Sparse on purpose (spec: "utilizarlos con moderación") — only where the
+// badge tells the admin something the label/description doesn't already.
+export const PRESET_BADGES: Record<string, string> = {
+  hero: 'Popular',
+  'properties-ai': 'IA',
+  'properties-dark': 'Premium',
+  cta: 'Conversión',
+}
+
 export const BLOCK_TYPE_LABELS: Record<string, string> = {
   hero: 'Hero',
   properties: 'Propiedades',

@@ -58,6 +58,12 @@ function handleMessage(e: MessageEvent) {
     device.value = msg.device || 'desktop'
     selectedBlockId.value = msg.selectedBlockId ?? null
     mode.value = msg.mode === 'preview' ? 'preview' : 'builder'
+  } else if (msg.type === 'scroll-to') {
+    // Fired once right after inserting a new block — brings it into view
+    // in this same tick's updated DOM, not the state from before insertion.
+    nextTick(() => {
+      document.querySelector(`[data-site-block-id="${msg.id}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }
 }
 

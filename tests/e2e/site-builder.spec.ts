@@ -230,12 +230,59 @@ test.describe('Constructor Web', () => {
     const firstGap = structure.locator('.group\\/gap').first()
     await firstGap.hover()
     await firstGap.locator('button').click()
-    await expect(page.getByText('Añadir bloque')).toBeVisible()
-    // The preset button's accessible name concatenates its label AND
-    // description paragraph ("Texto" + "Bloque de texto libre: …") — a bare
-    // "Texto" also matches the Inspector's still-mounted "Texto" field
-    // label behind the modal, so anchor on the full accessible name instead.
+    await expect(page.getByText('Añadir sección', { exact: true })).toBeVisible()
+    // The library opens on the "Recomendados" shelf, which doesn't include
+    // "Texto" — search overrides the category filter and matches across the
+    // whole catalogue, same as picking the "Contenido" category tab would.
+    await page.getByPlaceholder('Buscar secciones...').fill('Texto')
+    // The preset card's accessible name concatenates its label AND
+    // description ("Texto" + "Bloque de texto libre: …") — a bare "Texto"
+    // also matches the Inspector's still-mounted "Texto" field label behind
+    // the panel, so anchor on the full accessible name instead.
     await page.getByRole('button', { name: /^Texto Bloque de texto libre/ }).click()
     await expect(structure.getByText(/^01 · Texto$/)).toBeVisible()
+  })
+
+  /**
+   * The section library panel (FASE 3): opens as a docked side panel (not a
+   * full-screen modal — the canvas and structure list stay visible behind
+   * it), category filtering narrows the grid to real presets, and marking a
+   * preset as a favorite surfaces it in its own shelf on reopen.
+   */
+  test('la biblioteca de secciones filtra por categoría y recuerda los favoritos', async ({ page }) => {
+    const put = await a.put('/api/admin/site-pages/home', { data: { blocks: [{ id: 'hero-e2e', type: 'hero', version: 1, content: {} }], seo: {} } })
+    expect(put.ok()).toBeTruthy()
+
+    await page.goto('/admin/site-builder')
+    await page.getByTitle('Añadir sección').click()
+    const panel = page.getByTestId('section-library')
+    await expect(panel).toBeVisible()
+    // The canvas behind it is still there and visible — not a full-screen modal.
+    await expect(page.frameLocator('iframe[title="Vista previa del Constructor Web"]').getByText('EXPLORAR CATÁLOGO')).toBeVisible()
+
+    // "Recomendados" is the default shelf and does not include every preset.
+    // exact: true — "Comunidades" (the category tab, later) and a preset's
+    // description text ("...comunidades/barrios...") both contain the
+    // substring case-insensitively, so a loose match would be ambiguous.
+    await expect(panel.getByText('Propiedades — fila', { exact: true })).toBeVisible()
+    await expect(panel.getByText('Comunidades', { exact: true })).not.toBeVisible()
+
+    // Switching category narrows to that category's real presets.
+    await panel.getByRole('button', { name: 'Explora', exact: true }).click()
+    await expect(panel.getByText('Comunidades', { exact: true })).toBeVisible()
+    await expect(panel.getByText('Propiedades — fila', { exact: true })).not.toBeVisible()
+
+    // Favorite a preset, close, reopen — it must still show as favorited
+    // (a per-browser preference, not page state, so it survives a close).
+    await panel.locator('[title="Añadir a favoritos"]').first().click()
+    await panel.getByRole('button', { name: 'Cerrar biblioteca de secciones' }).click()
+    await expect(panel).not.toBeVisible()
+    await page.getByTitle('Añadir sección').click()
+    const reopened = page.getByTestId('section-library')
+    await expect(reopened.getByText('Favoritos')).toBeVisible()
+    // The favorited preset legitimately shows in both the "Favoritos" shelf
+    // and its regular category grid below — at least one marked "Quitar de
+    // favoritos" is enough to prove the favorite survived the reopen.
+    await expect(reopened.locator('[title="Quitar de favoritos"]').first()).toBeVisible()
   })
 })
