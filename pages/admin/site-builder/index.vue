@@ -1,95 +1,28 @@
 <template>
-  <div class="flex h-screen flex-col bg-stone-100">
-    <!-- Toolbar -->
-    <header class="flex h-14 shrink-0 items-center justify-between border-b border-line bg-white px-4">
-      <div class="flex items-center gap-3">
-        <NuxtLink to="/admin/developer-properties" class="text-stone-400 hover:text-ink" aria-label="Volver">
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 18l-6-6 6-6" /></svg>
-        </NuxtLink>
-        <div>
-          <p class="text-sm font-semibold text-ink">Constructor Web</p>
-          <p class="text-[11px] text-stone-400">Página de inicio</p>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-3">
-        <div class="flex items-center gap-1 rounded-full bg-stone-100 p-1">
-          <button
-            v-for="d in DEVICES"
-            :key="d.key"
-            type="button"
-            class="rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition"
-            :class="device === d.key ? 'bg-white text-ink shadow' : 'text-stone-400 hover:text-ink'"
-            :title="d.label"
-            @click="device = d.key"
-          >
-            {{ d.short }}
-          </button>
-        </div>
-
-        <!-- Zoom -->
-        <div class="flex items-center gap-0.5 rounded-full bg-stone-100 p-1">
-          <button type="button" class="toolbar-btn !h-6 !w-6" title="Alejar" :disabled="zoomMode !== 'auto' && zoomIndex <= 0" @click="stepZoom(-1)">−</button>
-          <button
-            type="button"
-            class="min-w-[3.2rem] rounded-full px-2 py-1 text-center text-[11px] font-semibold tabular-nums transition"
-            :class="zoomMode === 'auto' ? 'text-ink' : 'text-stone-500 hover:text-ink'"
-            title="Ajustar al área disponible"
-            @click="zoomMode = 'auto'"
-          >
-            {{ zoomMode === 'auto' ? `Ajustar · ${effectiveZoomPercent}%` : `${effectiveZoomPercent}%` }}
-          </button>
-          <button type="button" class="toolbar-btn !h-6 !w-6" title="Acercar" :disabled="zoomMode !== 'auto' && zoomIndex >= ZOOM_STEPS.length - 1" @click="stepZoom(1)">+</button>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-2">
-        <span class="mr-1 text-[11px] text-stone-400">{{ saveStateLabel }}</span>
-        <button type="button" class="toolbar-btn" :disabled="!canUndo" title="Deshacer" @click="undo">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v6h6M3 13a9 9 0 1 0 3-6.7L3 9" /></svg>
-        </button>
-        <button type="button" class="toolbar-btn" :disabled="!canRedo" title="Rehacer" @click="redo">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7v6h-6M21 13a9 9 0 1 1-3-6.7L21 9" /></svg>
-        </button>
-        <button
-          type="button"
-          class="toolbar-btn"
-          :class="previewMode ? '!bg-ink !text-white' : ''"
-          title="Vista previa"
-          @click="previewMode = !previewMode"
-        >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-        </button>
-        <a
-          v-if="publishedSiteUrl"
-          :href="publishedSiteUrl"
-          target="_blank"
-          rel="noopener"
-          class="toolbar-btn"
-          title="Abrir sitio publicado"
-        >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
-        </a>
-        <span
-          v-else
-          class="toolbar-btn cursor-not-allowed opacity-40"
-          title="Configura un dominio para esta organización para poder abrir el sitio publicado"
-        >
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
-        </span>
-        <button type="button" class="toolbar-btn" title="SEO de la página" @click="seoOpen = true">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8" /><path stroke-linecap="round" d="m21 21-4.3-4.3" /></svg>
-        </button>
-        <button
-          type="button"
-          class="dash-btn-primary"
-          :disabled="publishing"
-          @click="publish"
-        >
-          {{ publishing ? 'Publicando…' : hasUnpublishedChanges ? 'Publicar cambios' : 'Publicado' }}
-        </button>
-      </div>
-    </header>
+  <div class="flex h-screen flex-col bg-stone-50">
+    <TopBar
+      :devices="DEVICES"
+      :device="device"
+      :save-state="saveState"
+      :effective-zoom-percent="effectiveZoomPercent"
+      :zoom-is-auto="zoomMode === 'auto'"
+      :can-zoom-in="zoomMode !== 'auto' && zoomIndex < ZOOM_STEPS.length - 1"
+      :can-zoom-out="zoomMode !== 'auto' && zoomIndex > 0"
+      :can-undo="canUndo"
+      :can-redo="canRedo"
+      :preview-mode="previewMode"
+      :published-site-url="publishedSiteUrl"
+      :publishing="publishing"
+      :has-unpublished-changes="hasUnpublishedChanges"
+      @update:device="device = $event"
+      @step-zoom="stepZoom"
+      @zoom-auto="zoomMode = 'auto'"
+      @undo="undo"
+      @redo="redo"
+      @toggle-preview="previewMode = !previewMode"
+      @open-seo="seoOpen = true"
+      @publish="publish"
+    />
 
     <div class="flex min-h-0 flex-1">
       <!-- Left panel: structure -->
@@ -148,7 +81,7 @@
       </aside>
 
       <!-- Canvas -->
-      <main ref="canvasMainEl" class="flex flex-1 items-start justify-center overflow-auto bg-stone-200 py-8">
+      <main ref="canvasMainEl" class="flex flex-1 items-start justify-center overflow-auto bg-stone-100 py-8">
         <div class="shrink-0" :style="{ width: outerWidthPx + 'px', height: outerHeightPx + 'px' }">
           <div
             class="origin-top-left overflow-hidden rounded-xl bg-white shadow-2xl"
@@ -241,6 +174,7 @@ import type { SiteBlock } from '~/server/utils/sitePages'
 import { BLOCK_PRESETS, BLOCK_CATEGORIES, BLOCK_INSPECTORS, blockLabel, newBlockId, type BlockPreset } from '~/composables/useSiteBuilderRegistry'
 import InspectorSection from '~/components/site-builder/inspector/InspectorSection.vue'
 import CommonBlockSettings from '~/components/site-builder/inspector/CommonBlockSettings.vue'
+import TopBar from '~/components/site-builder/shell/TopBar.vue'
 
 definePageMeta({ layout: false, middleware: 'admin' })
 
@@ -449,7 +383,6 @@ function onDrop(i: number) {
 // Load / autosave / publish
 // ---------------------------------------------------------------------------
 const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
-const saveStateLabel = computed(() => ({ idle: '', saving: 'Guardando…', saved: 'Guardado', error: 'No se pudo guardar' }[saveState.value]))
 
 let loaded = false
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -612,12 +545,3 @@ function handleMessage(e: MessageEvent) {
 onMounted(() => window.addEventListener('message', handleMessage))
 onUnmounted(() => window.removeEventListener('message', handleMessage))
 </script>
-
-<style scoped>
-.toolbar-btn {
-  @apply flex h-8 w-8 items-center justify-center rounded-lg text-stone-500 transition hover:bg-stone-100 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30;
-}
-.dash-btn-primary {
-  @apply inline-flex items-center rounded-lg bg-ink px-4 py-2 text-[13px] font-medium text-white transition hover:bg-black disabled:opacity-50;
-}
-</style>
