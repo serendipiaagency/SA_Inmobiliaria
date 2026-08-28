@@ -121,6 +121,7 @@ export const agentProperties = sqliteTable(
     bedrooms: integer('bedrooms'),
     bathrooms: integer('bathrooms'),
     mainImage: text('main_image'),
+    videoUrl: text('video_url'),
     status: text('status').notNull().default('available'), // available | sold
     agentId: integer('agent_id'),
     createdAt: text('created_at').notNull().default(''),
@@ -310,6 +311,22 @@ export const propertySocialMedia = sqliteTable(
     createdAt: text('created_at').notNull(),
   },
   (t) => [index('property_social_media_property').on(t.developerPropertyId, t.sortOrder)],
+)
+
+export const agentPropertySocialMedia = sqliteTable(
+  'agent_property_social_media',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    propertyId: integer('property_id')
+      .notNull()
+      .references(() => agentProperties.id, { onDelete: 'cascade' }),
+    platform: text('platform').notNull(),
+    url: text('url').notNull(),
+    caption: text('caption'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('agent_property_social_media_property').on(t.propertyId, t.sortOrder)],
 )
 
 export const images = sqliteTable('images', {

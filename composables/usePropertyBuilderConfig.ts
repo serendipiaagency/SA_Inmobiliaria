@@ -53,6 +53,8 @@ export interface GallerySection extends BaseSection {
   kind: 'gallery'
   childResource: string
   parentField: string
+  /** Which form field "Usar como portada" writes to — defaults to 'coverImage' (developer-properties' column); properties uses 'mainImage' instead. */
+  coverField?: string
 }
 
 export interface ChildTableSection extends BaseSection {
@@ -321,9 +323,12 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       key: 'media',
       label: 'Multimedia',
       icon: 'widget',
-      description: 'Imagen principal de la vivienda.',
+      description: 'Imagen principal y vídeo de la vivienda.',
       kind: 'fields',
-      fields: [{ key: 'mainImage', label: 'Imagen principal', type: 'image', recommended: true }],
+      fields: [
+        { key: 'mainImage', label: 'Imagen principal', type: 'image', recommended: true },
+        { key: 'videoUrl', label: 'Vídeo', type: 'video', span: 2 },
+      ],
     },
     {
       key: 'gallery',
@@ -332,6 +337,16 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Fotografías de la vivienda.',
       kind: 'gallery',
       childResource: 'gallery-images',
+      parentField: 'propertyId',
+      coverField: 'mainImage',
+    },
+    {
+      key: 'social',
+      label: 'Redes sociales',
+      icon: 'sparkles',
+      description: 'Redes sociales asociadas a esta vivienda.',
+      kind: 'social',
+      childResource: 'agent-property-social-media',
       parentField: 'propertyId',
     },
     {

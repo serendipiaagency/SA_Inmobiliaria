@@ -113,4 +113,35 @@ test.describe('Propiedades 2ª mano — listado admin', () => {
 
     expect(consoleErrors.filter((e) => !e.includes('favicon') && !e.includes('net::ERR_'))).toEqual([])
   })
+
+  test('el vídeo (URL) y las redes sociales persisten igual que en Propiedades (web)', async () => {
+    const id = await createProperty({ videoUrl: 'https://youtube.com/watch?v=e2e2h' })
+    const row = (await (await a.get(`/api/admin/properties/${id}`)).json()).row
+    expect(row.videoUrl).toBe('https://youtube.com/watch?v=e2e2h')
+
+    const social = await a.post('/api/admin/agent-property-social-media', {
+      data: { propertyId: id, platform: 'instagram', url: 'https://instagram.com/e2e2h', sortOrder: 0 },
+    })
+    expect(social.ok()).toBeTruthy()
+    const socialRows = await (await a.get('/api/admin/agent-property-social-media', { params: { perPage: '100' } })).json()
+    expect(socialRows.rows.some((r: any) => r.propertyId === id && r.platform === 'instagram')).toBe(true)
+  })
+
+  test('"Usar como portada" en la Galería fija mainImage (no coverImage) para 2ª mano', async ({ page }) => {
+    await page.context().addCookies((await a.storageState()).cookies)
+    const id = await createProperty({ propertyType: 'Villa', price: 500000 })
+    const gallery = await a.post('/api/admin/gallery-images', { data: { propertyId: id, image: 'public/1/properties/e2e-cover.jpg', sortOrder: 0 } })
+    expect(gallery.ok()).toBeTruthy()
+
+    await page.goto(`/admin/properties/${id}`)
+    const nav = page.locator('aside')
+    await nav.getByRole('button', { name: 'Galería' }).click()
+    await page.getByRole('button', { name: 'Usar como portada' }).click()
+    await page.getByRole('button', { name: 'Guardar' }).click()
+    await expect(page.getByText('Guardado')).toBeVisible({ timeout: 5000 })
+
+    const row = (await (await a.get(`/api/admin/properties/${id}`)).json()).row
+    expect(row.mainImage).toBe('public/1/properties/e2e-cover.jpg')
+    expect(row.coverImage).toBeUndefined()
+  })
 })
