@@ -110,7 +110,14 @@
               :upload-folder="resource"
             />
             <TranslationsEditor v-else-if="s.kind === 'translations'" v-model="translations" />
-            <GalleryManager v-else-if="s.kind === 'gallery'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" :cover-value="form.coverImage" @use-as-cover="(key) => (form.coverImage = key)" />
+            <GalleryManager
+              v-else-if="s.kind === 'gallery'"
+              :child-resource="s.childResource"
+              :parent-field="s.parentField"
+              :parent-id="recordId"
+              :cover-value="form[s.coverField || 'coverImage']"
+              @use-as-cover="(key) => (form[s.coverField || 'coverImage'] = key)"
+            />
             <ChildTable v-else-if="s.kind === 'child-table'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" :columns="s.columns" />
             <SocialLinksManager v-else-if="s.kind === 'social'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" />
 

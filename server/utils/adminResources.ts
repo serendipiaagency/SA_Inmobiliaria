@@ -239,6 +239,7 @@ export const adminResources: Record<string, ResourceDef> = {
       bedrooms: { type: 'number', label: 'Bedrooms' },
       bathrooms: { type: 'number', label: 'Bathrooms' },
       mainImage: { type: 'image', label: 'Main image' },
+      videoUrl: { type: 'text', label: 'Video URL' },
       status: { type: 'select', label: 'Status', options: ['available', 'sold'] },
       agentId: { type: 'number', label: 'Agent ID' },
     },
@@ -408,6 +409,32 @@ export const adminResources: Record<string, ResourceDef> = {
     },
     listFields: ['id', 'propertyId', 'image', 'sortOrder'],
     searchFields: [],
+    hasTimestamps: true,
+    tenantPolicy: {
+      type: 'parent',
+      foreignKey: 'propertyId',
+      parentTable: schema.agentProperties,
+      parentLabel: 'Propiedad',
+    },
+  },
+
+  'agent-property-social-media': {
+    table: schema.agentPropertySocialMedia,
+    label: 'Second-hand property social media',
+    fields: {
+      propertyId: { type: 'number', label: 'Property ID', required: true },
+      platform: {
+        type: 'select',
+        label: 'Platform',
+        options: ['instagram', 'facebook', 'linkedin', 'tiktok', 'youtube', 'twitter', 'pinterest', 'whatsapp', 'telegram'],
+        required: true,
+      },
+      url: { type: 'text', label: 'Post/reel URL', required: true },
+      caption: { type: 'text', label: 'Caption' },
+      sortOrder: { type: 'number', label: 'Sort order' },
+    },
+    listFields: ['id', 'propertyId', 'platform', 'url'],
+    searchFields: ['url', 'caption'],
     hasTimestamps: true,
     tenantPolicy: {
       type: 'parent',
