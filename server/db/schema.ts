@@ -87,19 +87,24 @@ export const sessions = sqliteTable('sessions', {
 // Agents & secondary-sale properties
 // ---------------------------------------------------------------------------
 
-export const agents = sqliteTable('agents', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull(),
-  name: text('name').notNull(),
-  email: text('email').notNull().unique(),
-  phone: text('phone'),
-  profileImage: text('profile_image'),
-  licenseNumber: text('license_number'),
-  bio: text('bio'),
-  status: text('status').notNull().default('active'),
-  createdAt: text('created_at').notNull().default(''),
-  updatedAt: text('updated_at').notNull().default(''),
-})
+export const agents = sqliteTable(
+  'agents',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    email: text('email').notNull(),
+    phone: text('phone'),
+    profileImage: text('profile_image'),
+    licenseNumber: text('license_number'),
+    bio: text('bio'),
+    status: text('status').notNull().default('active'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  // email is scoped (organizationId, email), not globally unique — migration 0053.
+  (t) => [uniqueIndex('agents_org_email').on(t.organizationId, t.email), index('agents_org').on(t.organizationId)],
+)
 
 // slug is scoped (organizationId, slug), not globally unique — migration
 // 0042. Two unrelated agencies can both use "downtown-loft".
@@ -167,18 +172,23 @@ export const propertyGalleryImages = sqliteTable('property_gallery_images', {
 // Developers & off-plan projects
 // ---------------------------------------------------------------------------
 
-export const developers = sqliteTable('developers', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull(),
-  name: text('name').notNull(),
-  email: text('email').unique(),
-  phone: text('phone'),
-  logo: text('logo'),
-  description: text('description'),
-  status: text('status').notNull().default('active'),
-  createdAt: text('created_at').notNull().default(''),
-  updatedAt: text('updated_at').notNull().default(''),
-})
+export const developers = sqliteTable(
+  'developers',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    email: text('email'),
+    phone: text('phone'),
+    logo: text('logo'),
+    description: text('description'),
+    status: text('status').notNull().default('active'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  // email is scoped (organizationId, email), not globally unique — migration 0053.
+  (t) => [uniqueIndex('developers_org_email').on(t.organizationId, t.email), index('developers_org').on(t.organizationId)],
+)
 
 // slug is scoped (organizationId, slug), not globally unique — migration 0042.
 export const developerProperties = sqliteTable(
@@ -496,7 +506,7 @@ export const teamMembers = sqliteTable(
     organizationId: integer('organization_id').notNull(),
     name: text('name').notNull(),
     slug: text('slug').notNull(),
-    email: text('email').notNull().unique(),
+    email: text('email').notNull(),
     phone: text('phone'),
     position: text('position').notNull(),
     description: text('description'),
@@ -537,7 +547,12 @@ export const teamMembers = sqliteTable(
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
-  (t) => [uniqueIndex('team_members_org_slug').on(t.organizationId, t.slug), index('team_members_org').on(t.organizationId)],
+  (t) => [
+    uniqueIndex('team_members_org_slug').on(t.organizationId, t.slug),
+    // email is scoped (organizationId, email), not globally unique — migration 0053.
+    uniqueIndex('team_members_org_email').on(t.organizationId, t.email),
+    index('team_members_org').on(t.organizationId),
+  ],
 )
 
 export const teamMemberDocuments = sqliteTable(
@@ -770,7 +785,7 @@ export const invoices = sqliteTable(
     // Added by 0038. 0021 left billing global; that made every tenant's
     // /admin/facturacion list and total every other tenant's invoices.
     organizationId: integer('organization_id').notNull(),
-    number: text('number').notNull().unique(),
+    number: text('number').notNull(),
     clientName: text('client_name').notNull(),
     concept: text('concept'),
     amount: real('amount').notNull().default(0),
@@ -781,7 +796,12 @@ export const invoices = sqliteTable(
     paidAt: text('paid_at'),
     createdAt: text('created_at').notNull().default(''),
   },
-  (t) => [index('invoices_status').on(t.status), index('invoices_org').on(t.organizationId, t.status)],
+  (t) => [
+    index('invoices_status').on(t.status),
+    index('invoices_org').on(t.organizationId, t.status),
+    // number is scoped (organizationId, number), not globally unique — migration 0053.
+    uniqueIndex('invoices_org_number').on(t.organizationId, t.number),
+  ],
 )
 
 export const automations = sqliteTable('automations', {

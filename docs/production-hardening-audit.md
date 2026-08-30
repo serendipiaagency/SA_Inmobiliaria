@@ -267,8 +267,8 @@ token en claro tras rotar.
 | # | Hallazgo | Archivo | Nota |
 |---|---|---|---|
 | P1-13 | 2 tests e2e de `agents-comerciales-admin.spec.ts` fallan de forma **preexistente**, no causada por este bloque de hardening | `tests/e2e/agents-comerciales-admin.spec.ts:162,194` | `page.goto('/admin/agents')` no renderiza el heading "Comerciales" esperado en este sandbox (`getByRole('heading', {name:'Comerciales'})` timeout). Verificado con `git stash` + rebuild + re-run contra el código sin los cambios de FASE 5/FASE 8 de este bloque: falla exactamente igual, así que no es una regresión de esta sesión — pendiente de investigar por separado, fuera del alcance de este bloque de hardening |
-| P1-1 | `agents.email`, `developers.email`, `team_members.email` son `UNIQUE` **global**, no por tenant | `server/db/schema.ts` | Dos inmobiliarias no pueden tener cada una un contacto con el mismo email — bloqueará altas de tenants nuevos por colisión |
-| P1-2 | `invoices.number` es `UNIQUE` global pese a que `invoices` ya es tenant-scoped (migración 0038) | `server/db/schema.ts:764` | Cada negocio normalmente numera sus facturas desde 1; hoy el tenant B no puede reutilizar "INV-0001" si A ya lo tiene |
+| P1-1 | ~~`agents.email`, `developers.email`, `team_members.email` son `UNIQUE` global, no por tenant~~ — ✅ resuelto en FASE 7 | `server/db/schema.ts` | Migración 0053, `UNIQUE(organization_id, email)` en las 3 tablas — ver `test/unit/multitenant.emailAndInvoiceScoping.test.ts` |
+| P1-2 | ~~`invoices.number` es `UNIQUE` global pese a que `invoices` ya es tenant-scoped~~ — ✅ resuelto en FASE 7 | `server/db/schema.ts` | Migración 0053, `UNIQUE(organization_id, number)` |
 | P1-3 | ~~Tokens de sesión se guardan en claro en D1 (no hasheados)~~ — ✅ resuelto en FASE 19 | `server/utils/auth.ts` `createSession()` | Migración 0052 + rotación retrocompatible en `getSessionUser()`, ver detalle abajo |
 | P1-4 | Webhooks salientes (`dispatchWebhook()`) hacen **un único intento** y silencian el fallo (`catch {}`), pese a que `webhook_deliveries.attempts` sugiere que se pensó en reintentos | `server/utils/webhooks.ts` | Sin dead-letter ni tarea de reintento — a diferencia del email, que sí tiene backoff real (`retry-email-queue.ts`) |
 | P1-5 | Backup diario de D1 carga **todas** las tablas enteras en memoria (`SELECT *` por tabla → un solo objeto JS) antes de comprimir y subir | `server/tasks/system/backup-d1.ts` | Sin streaming/chunking; crecerá hasta chocar con límites de memoria/CPU del Worker |
@@ -277,7 +277,7 @@ token en claro tras rotar.
 | P1-8 | Subida de vídeo (hasta 100MB) atraviesa el Worker completo (limitación de memoria de request documentada en el propio código) | `server/utils/media.ts` | No existe subida directa a R2 todavía |
 | P1-9 | No existe `npm run lint` ni ESLint/Biome configurado | `package.json` | Solo `typecheck` como análisis estático |
 | P1-10 | No existen `/api/health/live` ni `/api/health/ready` | — | — |
-| P1-11 | El pipeline de CI no valida que `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`/`PRODUCTION_URL` existan y sean válidos **antes** de hacer backup/migrar/desplegar | `.github/workflows/ci.yml` | El primer síntoma de un secret vacío es el error crudo de `wrangler`, a mitad del pipeline |
+| P1-11 | ~~El pipeline de CI no valida que `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`/`PRODUCTION_URL` existan y sean válidos antes de desplegar~~ — ✅ resuelto en FASE 1 | `.github/workflows/ci.yml` | Jobs `staging-preflight`/`production-preflight` (comentario de cabecera desactualizado corregido aquí, la corrección ya estaba hecha en el commit `0c36a43`) |
 | P1-12 | Sin request-ID / correlación entre `error_logs`, `webhook_deliveries`, `email_log` para una misma petición | `server/plugins/error-logging.ts` | Los `error_logs` sí se registran (no es un vacío total de observabilidad), pero no hay hilo conductor entre tablas |
 
 ## Problemas P2 (mejoras de calidad, no urgentes)
@@ -350,18 +350,21 @@ prompt) y se listan aquí para no repetir trabajo:
 
 ## Posibles breaking changes de las fases siguientes
 
-- **P0-1 (booking)**: añadir una restricción `UNIQUE` a `visits` requiere
-  confirmar primero que no existen ya citas duplicadas para el mismo
-  agente/slot en los datos reales (se comprobará antes de escribir la
-  migración).
-- **P1-1/P1-2 (email/invoice uniqueness)**: pasar de `UNIQUE(email)` a
-  `UNIQUE(organizationId, email)` requiere primero comprobar que no hay ya
-  colisiones inter-tenant en los datos reales (poco probable con pocos
-  tenants actuales, pero se verificará antes de migrar).
-- **P1-3 (sesiones)**: hashear tokens de sesión invalidaría las sesiones
-  activas si se hace de golpe. Se implementará con compatibilidad hacia
-  atrás (sesión legacy → se rota a hasheada en el primer uso válido), tal
-  como pide el propio megaprompt.
+- **P0-1 (booking)** — resuelto en FASE 8: el índice parcial `CREATE INDEX`
+  (migración 0050) es puramente aditivo; si ya existiera una colisión real
+  en producción la migración fallaría de forma atómica y limpia antes de
+  tocar el Worker, en vez de exigir una verificación previa manual.
+- **P1-1/P1-2 (email/invoice uniqueness)** — resuelto en FASE 7 (migración
+  0053). Al revisarlo de cerca, la comprobación previa de colisiones que
+  este documento planeaba **no hacía falta**: relajar un `UNIQUE(X)` a
+  `UNIQUE(organizationId, X)` es seguro por construcción — cualquier
+  conjunto de filas que ya satisfacía la restricción global (más estricta)
+  satisface trivialmente la restricción por tenant (más laxa). Solo haría
+  falta verificar datos reales al **endurecer** una restricción, no al
+  relajarla.
+- **P1-3 (sesiones)** — resuelto en FASE 19 con compatibilidad hacia atrás
+  (sesión legacy → se rota a hasheada en el primer uso válido), tal como
+  pedía el propio megaprompt — ver detalle en P0-4 más arriba.
 
 ## Migraciones previstas (a confirmar fase a fase)
 
@@ -388,12 +391,13 @@ prompt) y se listan aquí para no repetir trabajo:
    hasta 22 tablas para un beneficio marginal ya que el código que inserta
    está ahora reforzado por TypeScript) — queda documentado aquí como
    legado inofensivo, no como pendiente.
-2. `UNIQUE(agent_id, scheduled_at)` condicional (o equivalente) en `visits`
-   para cerrar la doble reserva.
-3. `UNIQUE(organization_id, email)` en `agents`, `developers`,
-   `team_members` (sustituyendo el `UNIQUE(email)` global).
-4. `UNIQUE(organization_id, number)` en `invoices`.
-5. Tabla de sesiones hasheadas (o columna adicional de transición).
+2. ✅ **Resuelto en FASE 8** (migración 0050) — `UNIQUE(organization_id, agent_id, scheduled_at)`
+   condicional en `visits`, cierra la doble reserva.
+3. ✅ **Resuelto en FASE 7** (migración 0053) — `UNIQUE(organization_id, email)`
+   en `agents`, `developers`, `team_members` (sustituyendo el `UNIQUE(email)` global).
+4. ✅ **Resuelto en FASE 7** (migración 0053) — `UNIQUE(organization_id, number)` en `invoices`.
+5. ✅ **Resuelto en FASE 19** (migración 0052) — columna `token_hash` en
+   `sessions`, con rotación retrocompatible en vez de una tabla nueva.
 
-Cada una se implementará como su propio commit/migración numerada,
-validada individualmente antes de pasar a la siguiente fase.
+Cada una se implementó como su propio commit/migración numerada, validada
+individualmente antes de pasar a la siguiente fase.
