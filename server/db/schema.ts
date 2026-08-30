@@ -66,12 +66,21 @@ export const users = sqliteTable('users', {
 })
 
 export const sessions = sqliteTable('sessions', {
-  id: text('id').primaryKey(), // random token
+  // Opaque internal id, unrelated to the session cookie's raw token — see
+  // tokenHash below. NULL only briefly impossible; always set on insert.
+  id: text('id').primaryKey(),
   userId: integer('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
   expiresAt: text('expires_at').notNull(),
   createdAt: text('created_at').notNull().default(''),
+  // SHA-256 hex of the raw session token (server/utils/auth.ts) — the raw
+  // token itself is never stored, only ever held by the client's cookie.
+  // Nullable for backward compatibility with sessions created before this
+  // column existed (migration 0052); those rows are matched via the legacy
+  // `id = token` fallback in getSessionUser() and rotated to a real hash on
+  // their next valid use.
+  tokenHash: text('token_hash'),
 })
 
 // ---------------------------------------------------------------------------

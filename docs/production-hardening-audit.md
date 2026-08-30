@@ -230,6 +230,38 @@ el hueco para uno nuevo, dos contratos distintos no se bloquean entre sí,
 y el mismo patrón de `UPDATE ... WHERE status = X` para
 aceptar/enviar contratos.
 
+### P0-4 — Tokens de sesión en claro en D1 (P1-3) — ✅ resuelto en FASE 19
+
+`sessions.id` era el token de sesión en texto plano desde la migración
+0001 — inconsistente con `password_reset_tokens.tokenHash`/`api_keys.keyHash`,
+que este mismo proyecto ya hashea. Una fuga o un backup de D1 entregaría
+cookies de sesión directamente reutilizables para cualquier usuario con
+sesión activa.
+
+**Resuelto** con compatibilidad hacia atrás, tal como pedía el propio
+megaprompt (no invalidar sesiones activas de golpe): migración
+`0052_sessions_token_hash.sql` añade una columna `token_hash` (nullable) y
+un índice único parcial sobre ella — puramente aditiva. `createSession()`
+ahora guarda solo el SHA-256 del token (mismo patrón que
+`password_reset_tokens`), con `id` como un identificador interno opaco sin
+relación con el token real. `getSessionUser()` busca por
+`token_hash = hash(cookie) OR id = cookie` — el segundo término es la ruta
+de compatibilidad para sesiones creadas antes de este cambio (`id` seguía
+siendo el token en claro, `token_hash` nulo) — y si encuentra una sesión
+por esa ruta legacy, la rota en el mismo request: nuevo `id` aleatorio +
+`token_hash` real, sin invalidar la cookie del cliente (sigue siendo el
+mismo token, solo que ahora se re-hashea en cada petición en vez de
+compararse en claro). `destroySession()` borra por ambas rutas también.
+Ninguna sesión existente se invalida; las que nunca vuelven a usarse
+simplemente expiran de forma natural dentro de `SESSION_TTL_DAYS` (7 días
+por defecto).
+
+Tests en `test/unit/sessions.tokenHash.test.ts`: colisión real de
+`token_hash` (rechazada), múltiples filas legacy con `token_hash` nulo
+(coexisten, el índice parcial no las afecta), el flujo completo de
+detección-y-rotación de una sesión legacy, y que ninguna fila conserva el
+token en claro tras rotar.
+
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
@@ -237,7 +269,7 @@ aceptar/enviar contratos.
 | P1-13 | 2 tests e2e de `agents-comerciales-admin.spec.ts` fallan de forma **preexistente**, no causada por este bloque de hardening | `tests/e2e/agents-comerciales-admin.spec.ts:162,194` | `page.goto('/admin/agents')` no renderiza el heading "Comerciales" esperado en este sandbox (`getByRole('heading', {name:'Comerciales'})` timeout). Verificado con `git stash` + rebuild + re-run contra el código sin los cambios de FASE 5/FASE 8 de este bloque: falla exactamente igual, así que no es una regresión de esta sesión — pendiente de investigar por separado, fuera del alcance de este bloque de hardening |
 | P1-1 | `agents.email`, `developers.email`, `team_members.email` son `UNIQUE` **global**, no por tenant | `server/db/schema.ts` | Dos inmobiliarias no pueden tener cada una un contacto con el mismo email — bloqueará altas de tenants nuevos por colisión |
 | P1-2 | `invoices.number` es `UNIQUE` global pese a que `invoices` ya es tenant-scoped (migración 0038) | `server/db/schema.ts:764` | Cada negocio normalmente numera sus facturas desde 1; hoy el tenant B no puede reutilizar "INV-0001" si A ya lo tiene |
-| P1-3 | Tokens de sesión se guardan en claro en D1 (no hasheados) | `server/utils/auth.ts` `createSession()` | Inconsistente con el propio patrón que el proyecto ya usa para `password_reset_tokens.tokenHash` y `api_keys.keyHash` — una fuga de D1 entregaría cookies de sesión reutilizables |
+| P1-3 | ~~Tokens de sesión se guardan en claro en D1 (no hasheados)~~ — ✅ resuelto en FASE 19 | `server/utils/auth.ts` `createSession()` | Migración 0052 + rotación retrocompatible en `getSessionUser()`, ver detalle abajo |
 | P1-4 | Webhooks salientes (`dispatchWebhook()`) hacen **un único intento** y silencian el fallo (`catch {}`), pese a que `webhook_deliveries.attempts` sugiere que se pensó en reintentos | `server/utils/webhooks.ts` | Sin dead-letter ni tarea de reintento — a diferencia del email, que sí tiene backoff real (`retry-email-queue.ts`) |
 | P1-5 | Backup diario de D1 carga **todas** las tablas enteras en memoria (`SELECT *` por tabla → un solo objeto JS) antes de comprimir y subir | `server/tasks/system/backup-d1.ts` | Sin streaming/chunking; crecerá hasta chocar con límites de memoria/CPU del Worker |
 | P1-6 | Cada vista de propiedad hace 2 escrituras D1 (`UPDATE viewCount` + `INSERT propertyViews`) sin rate limit ni deduplicación de visitante | `server/api/public/properties/[slug]/view.post.ts` | Cualquier script puede inflar contadores o generar carga de escritura |

@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm'
+import { asc, eq, or } from 'drizzle-orm'
 import { createError, deleteCookie, getCookie, setCookie, type H3Event } from 'h3'
 import { useDb, cfEnv, now, schema } from './db'
 
@@ -77,8 +77,13 @@ export async function createSession(event: H3Event, userId: number): Promise<voi
   const ttlDays = parseInt(env.SESSION_TTL_DAYS || '7', 10)
   const token = toB64(crypto.getRandomValues(new Uint8Array(32))).replace(/[+/=]/g, '')
   const expires = new Date(Date.now() + ttlDays * 86_400_000)
+  // `id` is an opaque internal identifier, unrelated to the raw token — the
+  // token itself is never stored, only its SHA-256 (tokenHash), same
+  // pattern as password_reset_tokens.tokenHash/api_keys.keyHash. A D1
+  // backup or leak exposes hashes, not reusable session cookies.
   await db.insert(schema.sessions).values({
-    id: token,
+    id: randomTokenHex(),
+    tokenHash: await sha256Hex(token),
     userId,
     expiresAt: expires.toISOString(),
     createdAt: now(),
@@ -96,7 +101,11 @@ export async function destroySession(event: H3Event): Promise<void> {
   const token = getCookie(event, SESSION_COOKIE)
   if (token) {
     const db = useDb(event)
-    await db.delete(schema.sessions).where(eq(schema.sessions.id, token))
+    // Matches both a hashed row (the normal case) and a legacy plaintext
+    // row that was never rotated (id still equals the raw token) — see
+    // getSessionUser()'s rotation comment below.
+    const tokenHash = await sha256Hex(token)
+    await db.delete(schema.sessions).where(or(eq(schema.sessions.tokenHash, tokenHash), eq(schema.sessions.id, token)))
   }
   deleteCookie(event, SESSION_COOKIE, { path: '/' })
 }
@@ -105,8 +114,11 @@ export async function getSessionUser(event: H3Event): Promise<SessionUser | null
   const token = getCookie(event, SESSION_COOKIE)
   if (!token) return null
   const db = useDb(event)
+  const tokenHash = await sha256Hex(token)
   const rows = await db
     .select({
+      sessionId: schema.sessions.id,
+      sessionTokenHash: schema.sessions.tokenHash,
       id: schema.users.id,
       name: schema.users.name,
       email: schema.users.email,
@@ -116,13 +128,25 @@ export async function getSessionUser(event: H3Event): Promise<SessionUser | null
     })
     .from(schema.sessions)
     .innerJoin(schema.users, eq(schema.sessions.userId, schema.users.id))
-    .where(eq(schema.sessions.id, token))
+    // `eq(sessions.id, token)` is the legacy path — sessions created before
+    // hashing shipped stored the raw token as `id` — kept only so those
+    // existing sessions aren't silently logged out; see the rotation below.
+    .where(or(eq(schema.sessions.tokenHash, tokenHash), eq(schema.sessions.id, token)))
     .limit(1)
   const row = rows[0]
   if (!row) return null
   if (new Date(row.expiresAt).getTime() < Date.now()) {
-    await db.delete(schema.sessions).where(eq(schema.sessions.id, token))
+    await db.delete(schema.sessions).where(eq(schema.sessions.id, row.sessionId))
     return null
+  }
+  if (row.sessionTokenHash == null) {
+    // Legacy plaintext session, matched via the `id = token` fallback above
+    // — rotate it on this first valid use. Both the hash (previously null)
+    // and `id` (previously the raw token itself, in plaintext) become
+    // fresh random values, so this row no longer reveals a reusable
+    // credential if the database is ever leaked. The client's cookie is
+    // untouched — same raw token, re-hashed on every subsequent request.
+    await db.update(schema.sessions).set({ id: randomTokenHex(), tokenHash }).where(eq(schema.sessions.id, row.sessionId))
   }
   return { id: row.id, name: row.name, email: row.email, role: row.role, organizationId: row.organizationId }
 }
