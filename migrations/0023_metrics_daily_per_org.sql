@@ -1,5 +1,11 @@
 -- Migration number: 0023    metrics_daily becomes per-organization
 --
+-- DESTRUCTIVE: rebuilds metrics_daily (DROP + RENAME) to relax a
+-- column-level UNIQUE that SQLite/D1 can't ALTER directly — every row is
+-- copied via INSERT...SELECT into the replacement table first, so no data
+-- is lost. Retroactively marked for scripts/check-migrations.mjs's
+-- dangerous-migration gate; this migration already shipped and ran clean.
+--
 -- metrics_daily.day was UNIQUE on its own (migration 0008) — two orgs could
 -- never both have a "2026-07-23" row. SQLite/D1 can't relax a column-level
 -- UNIQUE via ALTER TABLE, so this rebuilds the table with a composite

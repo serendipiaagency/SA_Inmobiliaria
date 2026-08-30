@@ -16,11 +16,20 @@
  *     last" that a fresh production or staging D1 would need — proven before
  *     any of this reaches a real database.
  *
+ *  3. Dangerous-pattern gate — flags DROP TABLE / DROP COLUMN / RENAME
+ *     (table or column) / DROP INDEX. Doesn't block them outright (some are
+ *     legitimate, e.g. the CONTRACT step of an expand/migrate/contract
+ *     rollout removing a column nothing reads anymore — see
+ *     docs/database-migrations.md) but requires the file to say so
+ *     explicitly with a `-- DESTRUCTIVE: <why this is safe>` comment. A
+ *     migration that silently drops/renames something is exactly the kind
+ *     of change that should never pass review by accident.
+ *
  * Exits non-zero on any problem, with a message identifying exactly which file.
  * Never applies anything to a persistent or remote database — safe to run in CI
  * on every PR, and safe to run locally as many times as you like.
  */
-import { readdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { readdirSync, readFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -85,6 +94,35 @@ function checkCleanApply() {
   }
 }
 
+const DANGEROUS_PATTERNS = [
+  { re: /\bDROP\s+TABLE\b/i, label: 'DROP TABLE' },
+  { re: /\bDROP\s+COLUMN\b/i, label: 'DROP COLUMN' },
+  { re: /\bRENAME\s+(TO|COLUMN)\b/i, label: 'RENAME (tabla o columna)' },
+  { re: /\bDROP\s+INDEX\b/i, label: 'DROP INDEX' },
+]
+const DESTRUCTIVE_MARKER_RE = /--\s*DESTRUCTIVE:\s*\S/i
+
+function checkDangerousMigrations(files) {
+  let ok = true
+  for (const file of files) {
+    const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf8')
+    const hits = DANGEROUS_PATTERNS.filter((p) => p.re.test(sql))
+    if (!hits.length) continue
+    if (!DESTRUCTIVE_MARKER_RE.test(sql)) {
+      fail(
+        `${file}: contiene ${hits.map((h) => h.label).join(', ')} sin una marca explícita ` +
+          `"-- DESTRUCTIVE: <por qué es segura>" en el archivo. Añade esa marca documentando ` +
+          `por qué es segura, o reescríbela siguiendo el patrón EXPAND/MIGRATE/CONTRACT de ` +
+          `docs/database-migrations.md.`,
+      )
+      ok = false
+    } else {
+      console.log(`⚠ ${file}: migración destructiva marcada explícitamente (${hits.map((h) => h.label).join(', ')}) — revisar el motivo antes de aprobar.`)
+    }
+  }
+  return ok
+}
+
 const files = readdirSync(MIGRATIONS_DIR)
   .filter((f) => f.endsWith('.sql'))
   .sort()
@@ -95,9 +133,10 @@ if (!files.length) {
 }
 
 const sequenceOk = checkSequence(files)
+const dangerousOk = checkDangerousMigrations(files)
 const applyOk = checkCleanApply()
 
-if (sequenceOk && applyOk) {
+if (sequenceOk && dangerousOk && applyOk) {
   console.log(`✓ ${files.length} migraciones validadas correctamente`)
   process.exit(0)
 } else {
