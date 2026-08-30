@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 import { createError, deleteCookie, getCookie, setCookie, type H3Event } from 'h3'
 import { useDb, cfEnv, now, schema } from './db'
 
@@ -160,23 +160,33 @@ const ACTIVE_ORG_COOKIE = 'sa_active_org'
  * what they see, never grants access beyond their own already-total
  * visibility. A regular org-scoped admin's org always comes from their own
  * user row and can never be overridden by client-supplied input.
+ *
+ * `db` is used only for the super_admin/no-cookie fallback below — pass the
+ * event's own `useDb(event)`; a lightweight fake is enough in tests.
  */
-export function resolveActiveOrgId(event: H3Event, user: SessionUser): number {
+export async function resolveActiveOrgId(event: H3Event, user: SessionUser, db: any): Promise<number> {
   if (user.role === 'super_admin') {
     const cookie = getCookie(event, ACTIVE_ORG_COOKIE)
     const parsed = Number(cookie)
-    if (!Number.isInteger(parsed) || parsed <= 0) {
-      // Fails closed rather than defaulting to org 1: the rest of this
-      // module (buildTenantWhere/orgIdOrThrow in tenantPolicy.ts) already
-      // treats "no resolvable org" as a 403, never a silent guess. A
-      // super_admin who hasn't picked an org yet (fresh session, or a
-      // stale cookie for a deleted org) must pick one explicitly — the
-      // admin layout's org switcher auto-selects and persists a real one
-      // on first load, so in practice this only fires for a direct API
-      // call made before that bootstrap runs.
-      throw createError({ statusCode: 403, statusMessage: 'No active organization selected' })
+    if (Number.isInteger(parsed) && parsed > 0) return parsed
+    // No cookie (or a garbage one) — NOT a "fail closed" case: a super_admin
+    // already has total visibility by role, so which org this particular
+    // request happens to default to is a UX question, not a privilege one
+    // (unlike a regular admin's organizationId, which really does gate
+    // access). A hardcoded fallback id is still wrong though — it could
+    // point at a long-deleted organization and silently return nothing for
+    // every query — so this resolves the platform's own lowest-id real
+    // organization, verified against the DB. This also covers any
+    // super_admin API access that never goes through layouts/admin.vue's
+    // browser-side org-switcher bootstrap (this project's own e2e suite
+    // logs in via a raw POST /api/auth/login and calls admin APIs directly,
+    // exactly that case — migrations/0021_multi_tenant_orgs.sql seeds
+    // admin@sa-inmobiliaria.com as super_admin).
+    const rows = await db.select({ id: schema.organizations.id }).from(schema.organizations).orderBy(asc(schema.organizations.id)).limit(1)
+    if (!rows[0]) {
+      throw createError({ statusCode: 403, statusMessage: 'No organization exists on this platform yet' })
     }
-    return parsed
+    return rows[0].id
   }
   if (user.organizationId == null) {
     throw createError({ statusCode: 403, statusMessage: 'User has no organization assigned' })
@@ -197,7 +207,7 @@ export function resolveActiveOrgId(event: H3Event, user: SessionUser): number {
  */
 export async function requireOrgScope(event: H3Event): Promise<{ user: SessionUser; orgId: number }> {
   const user = await requireAdmin(event)
-  const orgId = resolveActiveOrgId(event, user)
+  const orgId = await resolveActiveOrgId(event, user, useDb(event))
   return { user, orgId }
 }
 

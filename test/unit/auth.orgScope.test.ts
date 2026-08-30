@@ -25,40 +25,59 @@ function superAdmin(): SessionUser {
   return { id: 2, name: 'Super', email: 'super@example.com', role: 'super_admin', organizationId: null }
 }
 
+/** Minimal `db.select().from().orderBy().limit()` stub, resolving to the given rows. */
+function fakeDb(rows: { id: number }[]) {
+  return {
+    select: () => ({
+      from: () => ({
+        orderBy: () => ({
+          limit: async () => rows,
+        }),
+      }),
+    }),
+  }
+}
+
 describe('resolveActiveOrgId', () => {
-  it('always returns the org-scoped admin own organizationId, ignoring any cookie', () => {
+  it('always returns the org-scoped admin own organizationId, ignoring any cookie', async () => {
     const event = fakeEvent('sa_active_org=999')
-    expect(resolveActiveOrgId(event, admin(1))).toBe(1)
+    expect(await resolveActiveOrgId(event, admin(1), fakeDb([]))).toBe(1)
   })
 
-  it('a regular admin can never switch org via a client-supplied cookie', () => {
+  it('a regular admin can never switch org via a client-supplied cookie', async () => {
     // Same admin, same org, but with an attacker-supplied cookie pointing at
     // a different tenant. The cookie must be irrelevant for non-super_admin users.
     const event = fakeEvent('sa_active_org=7')
-    expect(resolveActiveOrgId(event, admin(3))).toBe(3)
+    expect(await resolveActiveOrgId(event, admin(3), fakeDb([]))).toBe(3)
   })
 
-  it('throws 403 if an org-scoped admin somehow has no organizationId', () => {
+  it('throws 403 if an org-scoped admin somehow has no organizationId', async () => {
     const event = fakeEvent()
-    expect(() => resolveActiveOrgId(event, admin(null))).toThrow()
+    await expect(resolveActiveOrgId(event, admin(null), fakeDb([]))).rejects.toThrow()
   })
 
-  it('super_admin without a cookie fails closed (403), never defaults to org 1', () => {
+  it('super_admin without a cookie resolves the platform\'s own lowest-id organization, never a hardcoded one', async () => {
     const event = fakeEvent()
-    expect(() => resolveActiveOrgId(event, superAdmin())).toThrow(/403|active organization/i)
+    expect(await resolveActiveOrgId(event, superAdmin(), fakeDb([{ id: 3 }]))).toBe(3)
   })
 
-  it('super_admin can switch org via the cookie (their own explicit choice, not an escalation)', () => {
+  it('super_admin can switch org via the cookie (their own explicit choice, not an escalation)', async () => {
     const event = fakeEvent('sa_active_org=5')
-    expect(resolveActiveOrgId(event, superAdmin())).toBe(5)
+    // A DB that would answer "1" if queried — proves the cookie short-circuits the DB fallback.
+    expect(await resolveActiveOrgId(event, superAdmin(), fakeDb([{ id: 1 }]))).toBe(5)
   })
 
-  it('super_admin with a garbage/non-numeric cookie value fails closed instead of guessing org 1', () => {
-    expect(() => resolveActiveOrgId(fakeEvent('sa_active_org=not-a-number'), superAdmin())).toThrow(/403|active organization/i)
+  it('super_admin with a garbage/non-numeric cookie value falls back to the DB, not a hardcoded id', async () => {
+    expect(await resolveActiveOrgId(fakeEvent('sa_active_org=not-a-number'), superAdmin(), fakeDb([{ id: 4 }]))).toBe(4)
   })
 
-  it('super_admin with a negative or zero cookie value fails closed instead of guessing org 1', () => {
-    expect(() => resolveActiveOrgId(fakeEvent('sa_active_org=-5'), superAdmin())).toThrow(/403|active organization/i)
-    expect(() => resolveActiveOrgId(fakeEvent('sa_active_org=0'), superAdmin())).toThrow(/403|active organization/i)
+  it('super_admin with a negative or zero cookie value falls back to the DB, not a hardcoded id', async () => {
+    expect(await resolveActiveOrgId(fakeEvent('sa_active_org=-5'), superAdmin(), fakeDb([{ id: 2 }]))).toBe(2)
+    expect(await resolveActiveOrgId(fakeEvent('sa_active_org=0'), superAdmin(), fakeDb([{ id: 2 }]))).toBe(2)
+  })
+
+  it('super_admin fails closed (403) only when the platform has no organization at all', async () => {
+    const event = fakeEvent()
+    await expect(resolveActiveOrgId(event, superAdmin(), fakeDb([]))).rejects.toThrow(/403|no organization/i)
   })
 })

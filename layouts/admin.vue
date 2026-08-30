@@ -270,12 +270,14 @@ if (isSuperAdmin.value) {
     activeOrgId.value = cookieOrgId
   } else if (orgs.value[0]) {
     // A super_admin with no organization picked yet (fresh session, or a
-    // stale cookie pointing at a deleted org) has nothing valid to send —
-    // server/utils/auth.ts's resolveActiveOrgId() now fails closed instead
-    // of silently defaulting to org 1, so every org-scoped request below
-    // (active-org-info, dashboard widgets...) needs a real cookie first.
-    // Auto-select and persist the first real organization, same outcome a
-    // manual pick in the switcher would have, without an extra step.
+    // stale cookie pointing at a deleted org): server/utils/auth.ts's
+    // resolveActiveOrgId() would itself fall back to a real, DB-verified
+    // organization rather than a hardcoded id, but that fallback is silent
+    // — the switcher UI and the cookie would disagree with what the server
+    // is actually using. Auto-select and persist the first real
+    // organization here too, so what the human sees always matches what
+    // every org-scoped request below (active-org-info, dashboard
+    // widgets...) resolves to, same outcome a manual pick would have.
     activeOrgId.value = orgs.value[0].id
     await persistActiveOrg(activeOrgId.value)
   }
