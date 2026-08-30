@@ -175,6 +175,61 @@ layout de admin es una asunción frágil — la corrección con fallback
 DB-verificado no depende de ningún bootstrap de UI para funcionar
 correctamente.
 
+### P0-3 — Idempotencia de operaciones críticas (pagos, contratos) — ✅ resuelto en FASE 9
+
+La idempotencia de webhooks entrantes (Stripe/Resend) y de la reserva de
+citas (P0-1) ya estaba/quedó resuelta. Investigación dirigida (no
+indiscriminada — solo operaciones con consecuencia financiera/legal real)
+encontró un hueco real sin cubrir:
+
+- **`server/api/admin/saas/deposits.post.ts`**: llama a
+  `createDepositCheckout()` (una llamada real a Stripe) y luego hace un
+  `INSERT` en `deposit_payments` como dos pasos independientes, sin
+  restricción de datos. Un doble clic o un reintento de red podía crear
+  **dos sesiones de Checkout de Stripe reales y dos filas
+  `deposit_payments`** para el mismo contrato — el cliente solo debe un
+  depósito, pero quedaban dos enlaces de pago activos.
+
+**Resuelto**: migración `0051_deposit_payments_contract_processing_unique.sql`
+añade un índice único parcial `UNIQUE(contract_id) WHERE status =
+'processing'` — solo bloquea mientras hay una sesión de Stripe realmente
+activa (no `not_connected`/`failed`, que deben seguir siendo reintentables).
+`deposits.post.ts` añade una comprobación previa rápida (evita gastar la
+llamada a Stripe en el caso común) y captura la violación del índice
+(`isUniqueConstraintError()`) como el cierre real de la carrera, devolviendo
+409. Purely additive (`CREATE INDEX`), mismo patrón que
+`visits_agent_slot_unique` (migración 0050).
+
+También se encontraron y corrigieron dos carreras más baratas de cerrar,
+sin cambio de esquema — ambas eran un `SELECT` + comprobación de estado
+seguido de un `UPDATE` incondicional, donde dos envíos concurrentes podían
+pasar la comprobación antes de que cualquiera escribiera:
+
+- **`server/api/public/contracts/[token]/accept.post.ts`** (aceptación
+  pública de un contrato, firma electrónica simple): dos aceptaciones
+  concurrentes podían generar dos PDFs en R2 (consumiendo cuota dos veces)
+  y disparar el webhook `contract.accepted` dos veces. El `UPDATE` ahora
+  lleva `WHERE status = 'sent'` y comprueba si realmente actualizó una
+  fila (`.returning()`); si no, 409 — el webhook y la notificación interna
+  solo se disparan si esta petición ganó la carrera.
+- **`server/api/admin/saas/contracts/[id]/send.post.ts`** (envío admin de
+  un contrato al cliente): mismo patrón, `WHERE status = 'draft'`, cierra
+  un doble email al cliente por doble clic.
+
+No se tocó la creación de contratos (`contracts.post.ts`) — un doble clic
+ahí solo produce un borrador duplicado, sin consecuencia financiera/legal
+mientras no se envíe, y cerrarlo requeriría una clave de idempotencia
+generada por el cliente (cambio de frontend, no solo de backend) — coste
+desproporcionado al riesgo real, documentado aquí como hueco menor
+conocido, no como pendiente urgente.
+
+Tests reales contra SQLite en `test/unit/idempotency.criticalOps.test.ts`:
+inserts en paralelo para el mismo contrato/estado (gana exactamente uno),
+un intento fallido no bloquea un reintento, un depósito ya resuelto libera
+el hueco para uno nuevo, dos contratos distintos no se bloquean entre sí,
+y el mismo patrón de `UPDATE ... WHERE status = X` para
+aceptar/enviar contratos.
+
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
