@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { useDb, schema, cfEnv } from '../../../../utils/db'
+import { useDb, schema, cfEnv, isUniqueConstraintError } from '../../../../utils/db'
 import { isSlotAvailable } from '../../../../utils/appointments/availability'
 import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { rateLimit } from '../../../../utils/rateLimit'
@@ -43,10 +43,21 @@ export default defineEventHandler(async (event) => {
     .replace('T', ' ')
     .slice(0, 19)
 
-  await db
-    .update(schema.visits)
-    .set({ scheduledAt: body.startAt, endsAt, reminder24hSentAt: null, reminder1hSentAt: null })
-    .where(eq(schema.visits.id, visit.id))
+  // isSlotAvailable() above is a read-then-write check, same race as the
+  // original booking endpoint's — visits_agent_slot_unique (migration 0050)
+  // is the real guard if two concurrent reschedules (or a reschedule racing
+  // a fresh booking) target the same agent/slot.
+  try {
+    await db
+      .update(schema.visits)
+      .set({ scheduledAt: body.startAt, endsAt, reminder24hSentAt: null, reminder1hSentAt: null })
+      .where(eq(schema.visits.id, visit.id))
+  } catch (e: any) {
+    if (isUniqueConstraintError(e)) {
+      throw createError({ statusCode: 409, statusMessage: 'Ese horario ya no está disponible, elige otro.' })
+    }
+    throw e
+  }
 
   try {
     await notifyAppointment(db, cfEnv(event), {

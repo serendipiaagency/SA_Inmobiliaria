@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm'
-import { useDb, schema, now, cfEnv } from '../../../../utils/db'
+import { useDb, schema, now, cfEnv, isUniqueConstraintError } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
 import { hasOverlappingVisit } from '../../../../utils/appointments/availability'
 import { notifyAppointment } from '../../../../utils/appointments/notifications'
@@ -68,7 +68,18 @@ export default defineEventHandler(async (event) => {
 
   if (!Object.keys(patch).length) throw createError({ statusCode: 422, statusMessage: 'Nada que actualizar' })
 
-  await db.update(schema.visits).set(patch).where(eq(schema.visits.id, visitId))
+  // hasOverlappingVisit() above is a read-then-write check, same shape as
+  // the public booking endpoint's — the real guard against two admins
+  // reassigning into the same slot concurrently is visits_agent_slot_unique
+  // (migration 0050), whose violation is translated into the same 409.
+  try {
+    await db.update(schema.visits).set(patch).where(eq(schema.visits.id, visitId))
+  } catch (e: any) {
+    if (isUniqueConstraintError(e)) {
+      throw createError({ statusCode: 409, statusMessage: 'Ese agente ya tiene otra cita en ese horario.' })
+    }
+    throw e
+  }
   await logAdminAction(event, { user, orgId, action: 'update', resource: 'visit', resourceId: visitId })
 
   try {

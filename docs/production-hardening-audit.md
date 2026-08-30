@@ -87,7 +87,7 @@ y no se repite aquí.
 
 ## Problemas P0 (riesgo real de pérdida/corrupción de datos o cross-tenant)
 
-### P0-1 — Doble reserva de citas (race condition real)
+### P0-1 — Doble reserva de citas (race condition real) — ✅ resuelto en FASE 8
 
 `server/api/public/agents/[slug]/book.post.ts` hace
 `isSlotAvailable()` (una lectura) y, si devuelve libre, `INSERT INTO visits`
@@ -104,6 +104,25 @@ reprogramado desde admin) tiene la misma carrera.
 `UNIQUE(agent_id, scheduled_at)` condicional es suficiente; no hace falta
 Durable Object) + manejo del conflicto como 409, + test de concurrencia
 (100 peticiones simultáneas → 1 reserva).
+
+**Resuelto**: migración 0050 añade `visits_agent_slot_unique`, un índice
+`UNIQUE(organization_id, agent_id, scheduled_at)` parcial
+(`WHERE status != 'cancelled'`) — puramente aditivo (`CREATE INDEX`, sin
+`DROP`/`RENAME`/rebuild de tabla), así que si ya existiera una colisión real
+en producción la migración fallaría de forma limpia y atómica antes de
+tocar el Worker, en vez de corromper datos en silencio (no se pudo
+verificar contra la D1 real desde este entorno — sin credenciales de
+Cloudflare aquí, ver "Requiere configuración manual externa"). Los cuatro
+puntos de escritura sobre `visits` (`book.post.ts`,
+`appointments/[token]/reschedule.post.ts`, y el reasignar/reprogramar desde
+admin en `saas/visits/[id].patch.ts`) capturan la violación del índice
+(`isUniqueConstraintError()`, nuevo en `server/utils/db.ts`, reutilizado
+también en los webhooks de Stripe/Resend que ya usaban el mismo patrón) y
+la traducen al mismo 409 amistoso que ya devolvía la comprobación previa —
+la comprobación de disponibilidad sigue existiendo como respuesta rápida y
+amigable, pero quien cierra la carrera de verdad es el índice. Test de
+concurrencia real en `test/unit/visits.slotUnique.test.ts` (dos inserts en
+paralelo para el mismo slot vía `Promise.all` — gana exactamente uno).
 
 ### P0-2 — `super_admin` sin organización activa cae en tenant 1 (fail-open) — ✅ resuelto en FASE 5
 
@@ -122,17 +141,45 @@ ya se exige en todo lo demás.
 **Plan**: Fase 5 — fallar cerrado (redirigir a selector de organización /
 403 controlado), tests para las 6 combinaciones pedidas en el megaprompt.
 
-**Resuelto**: `resolveActiveOrgId()` lanza 403 en vez de devolver `1` cuando
-la cookie `sa_active_org` falta o es inválida. `layouts/admin.vue` auto-
-selecciona y persiste la primera organización real (verificada contra la
-DB) antes de disparar cualquier fetch org-scoped, así que un super_admin en
-su primera sesión no ve el 403 — el fail-closed vive en el auth layer, no
-en la UX. Tests actualizados en `test/unit/auth.orgScope.test.ts`.
+**Resuelto** (con una corrección tras el primer intento — ver nota de
+regresión más abajo): `resolveActiveOrgId()` ya no devuelve el `1`
+hardcodeado cuando la cookie `sa_active_org` falta o es inválida. La
+primera versión de este fix lanzaba 403 directamente ("fail closed"), pero
+eso trataba como error de seguridad algo que no lo es: un super_admin ya
+tiene visibilidad total por rol, así que a qué organización cae por
+defecto una petición suya es una cuestión de UX, no de permisos — a
+diferencia del `organizationId` de un admin normal, que sí controla acceso
+real. La versión final resuelve, en su lugar, la organización de **id más
+bajo verificada contra la propia DB** (nunca un id fijo que podría apuntar
+a un tenant ya borrado) y solo lanza 403 si no existe ninguna organización
+en toda la plataforma. `layouts/admin.vue` sigue auto-seleccionando y
+persistiendo la primera organización real en su primer render, para que lo
+que ve el switcher coincida con lo que el servidor está usando, pero ya no
+es lo único que evita un 403. Tests en `test/unit/auth.orgScope.test.ts`.
+
+**Regresión detectada y corregida durante FASE 8**: la primera versión
+("fail closed" puro) rompió 10 tests e2e (9 en
+`agents-comerciales-admin.spec.ts`, 1 en `appointments.spec.ts`, con 4 más
+bloqueados en cascada) — `admin@sa-inmobiliaria.com`, la cuenta que el
+propio e2e suite usa para autenticarse
+(`tests/e2e/global-setup.ts`/`TENANT_A`), es en realidad `role='super_admin'`
+con `organizationId` nulo (`migrations/0021_multi_tenant_orgs.sql:35`), y
+el login del e2e es una llamada API directa (`POST /api/auth/login`) que
+nunca visita `/admin` en un navegador — así que el bootstrap de cookie de
+`layouts/admin.vue` nunca corre para ella, y todas sus llamadas a
+endpoints org-scoped devolvían 403. Cualquier acceso API/programático
+legítimo como super_admin (no solo este suite: una integración externa,
+una herramienta de soporte) habría tenido el mismo problema. La lección: un
+"fail closed" que asume que el único cliente es un navegador ejecutando el
+layout de admin es una asunción frágil — la corrección con fallback
+DB-verificado no depende de ningún bootstrap de UI para funcionar
+correctamente.
 
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
 |---|---|---|---|
+| P1-13 | 2 tests e2e de `agents-comerciales-admin.spec.ts` fallan de forma **preexistente**, no causada por este bloque de hardening | `tests/e2e/agents-comerciales-admin.spec.ts:162,194` | `page.goto('/admin/agents')` no renderiza el heading "Comerciales" esperado en este sandbox (`getByRole('heading', {name:'Comerciales'})` timeout). Verificado con `git stash` + rebuild + re-run contra el código sin los cambios de FASE 5/FASE 8 de este bloque: falla exactamente igual, así que no es una regresión de esta sesión — pendiente de investigar por separado, fuera del alcance de este bloque de hardening |
 | P1-1 | `agents.email`, `developers.email`, `team_members.email` son `UNIQUE` **global**, no por tenant | `server/db/schema.ts` | Dos inmobiliarias no pueden tener cada una un contacto con el mismo email — bloqueará altas de tenants nuevos por colisión |
 | P1-2 | `invoices.number` es `UNIQUE` global pese a que `invoices` ya es tenant-scoped (migración 0038) | `server/db/schema.ts:764` | Cada negocio normalmente numera sus facturas desde 1; hoy el tenant B no puede reutilizar "INV-0001" si A ya lo tiene |
 | P1-3 | Tokens de sesión se guardan en claro en D1 (no hasheados) | `server/utils/auth.ts` `createSession()` | Inconsistente con el propio patrón que el proyecto ya usa para `password_reset_tokens.tokenHash` y `api_keys.keyHash` — una fuga de D1 entregaría cookies de sesión reutilizables |

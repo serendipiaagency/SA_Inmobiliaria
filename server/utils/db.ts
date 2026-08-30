@@ -30,6 +30,21 @@ export function now(): string {
 }
 
 /**
+ * True if a thrown error is D1's "UNIQUE constraint failed" — the failure
+ * mode of a claim-then-process INSERT (a unique index doubling as an
+ * atomic "was this already taken?" check, safe under real concurrency
+ * unlike a check-then-insert). D1's error surfaces as an H3Error whose own
+ * `.message` is a generic "Failed query: ..." — the actual SQLITE_CONSTRAINT
+ * text is one level deeper, on `.cause` (and possibly `.cause.cause`,
+ * depending on how the D1 driver wraps it) — so this checks the whole chain
+ * rather than assume a fixed depth.
+ */
+export function isUniqueConstraintError(e: any): boolean {
+  const chain = [e, e?.cause, e?.cause?.cause].filter(Boolean).map((x) => String(x?.message || x)).join(' | ')
+  return chain.includes('UNIQUE constraint failed')
+}
+
+/**
  * Which organization the PUBLIC site (public API, sitemap, inbound forms)
  * should serve for this request. Resolved by `server/middleware/00.tenant.ts`
  * from the request's Host header against `organizations.domain` and stashed
