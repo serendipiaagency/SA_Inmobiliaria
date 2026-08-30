@@ -75,7 +75,7 @@ reprogramado desde admin) tiene la misma carrera.
 Durable Object) + manejo del conflicto como 409, + test de concurrencia
 (100 peticiones simultáneas → 1 reserva).
 
-### P0-2 — `super_admin` sin organización activa cae en tenant 1 (fail-open)
+### P0-2 — `super_admin` sin organización activa cae en tenant 1 (fail-open) — ✅ resuelto en FASE 5
 
 `resolveActiveOrgId()` en `server/utils/auth.ts` — si un `super_admin` no
 tiene la cookie `sa_active_org`, **devuelve `1` en vez de fallar**. Esto
@@ -91,6 +91,13 @@ invariante de "nunca caer en tenant 1 en silencio" que el propio proyecto
 ya se exige en todo lo demás.
 **Plan**: Fase 5 — fallar cerrado (redirigir a selector de organización /
 403 controlado), tests para las 6 combinaciones pedidas en el megaprompt.
+
+**Resuelto**: `resolveActiveOrgId()` lanza 403 en vez de devolver `1` cuando
+la cookie `sa_active_org` falta o es inválida. `layouts/admin.vue` auto-
+selecciona y persiste la primera organización real (verificada contra la
+DB) antes de disparar cualquier fetch org-scoped, así que un super_admin en
+su primera sesión no ve el 403 — el fail-closed vive en el auth layer, no
+en la UX. Tests actualizados en `test/unit/auth.orgScope.test.ts`.
 
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
@@ -194,10 +201,29 @@ prompt) y se listan aquí para no repetir trabajo:
 
 ## Migraciones previstas (a confirmar fase a fase)
 
-1. Quitar `.default(1)` de `organizationId` en las tablas tenant-scoped que
-   lo tengan (defensa en profundidad — el código que inserta ya fija
-   siempre el valor explícitamente, verificado en esta auditoría; el
-   riesgo real hoy es bajo, pero la migración lo cierra por completo).
+1. ✅ **Resuelto en FASE 4, sin migración SQL.** Quitados los 22
+   `.default(1)` de `organizationId` en `server/db/schema.ts` — a nivel de
+   Drizzle esto es puramente de tipos (el `DEFAULT 1` real ya presente en la
+   columna D1 de las tablas creadas antes de la migración 0021 no cambia;
+   Drizzle nunca inyectó ese valor en JS al omitirlo, solo lo generaba en
+   DDL si se usara `drizzle-kit`, que este proyecto no usa — las migraciones
+   son SQL a mano). El valor real del cambio es que ahora **el tipo de
+   `insert().values()` exige `organizationId` en las 22 tablas**, así que
+   typecheck detecta en tiempo de compilación cualquier insert que lo omita
+   — y detectó uno real:
+   `server/api/public/vendor-registration.post.ts` nunca fijaba
+   `organizationId`, dependía en silencio del `DEFAULT 1` de la columna. Un
+   proveedor que se registraba desde el sitio público de **cualquier**
+   tenant caía siempre en la organización 1, invisible para el tenant al
+   que realmente pertenecía — un bug cross-tenant real que la auditoría de
+   multitenancy anterior (216 endpoints) no había marcado porque no lanzaba
+   error, solo escribía en el tenant equivocado. Corregido con
+   `resolvePublicOrgId(event)`, el mismo patrón que ya usan
+   `contact.post.ts`/`visitor.post.ts`/`ask.post.ts`/etc. No se reescribe el
+   `DEFAULT 1` a nivel de columna D1 (requeriría un rebuild DROP+RENAME de
+   hasta 22 tablas para un beneficio marginal ya que el código que inserta
+   está ahora reforzado por TypeScript) — queda documentado aquí como
+   legado inofensivo, no como pendiente.
 2. `UNIQUE(agent_id, scheduled_at)` condicional (o equivalente) en `visits`
    para cerrar la doble reserva.
 3. `UNIQUE(organization_id, email)` en `agents`, `developers`,
