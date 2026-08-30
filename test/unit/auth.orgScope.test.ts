@@ -43,9 +43,9 @@ describe('resolveActiveOrgId', () => {
     expect(() => resolveActiveOrgId(event, admin(null))).toThrow()
   })
 
-  it('super_admin without a cookie defaults to org 1', () => {
+  it('super_admin without a cookie fails closed (403), never defaults to org 1', () => {
     const event = fakeEvent()
-    expect(resolveActiveOrgId(event, superAdmin())).toBe(1)
+    expect(() => resolveActiveOrgId(event, superAdmin())).toThrow(/403|active organization/i)
   })
 
   it('super_admin can switch org via the cookie (their own explicit choice, not an escalation)', () => {
@@ -53,9 +53,12 @@ describe('resolveActiveOrgId', () => {
     expect(resolveActiveOrgId(event, superAdmin())).toBe(5)
   })
 
-  it('super_admin with a garbage/negative cookie value falls back to org 1 instead of crashing', () => {
-    expect(resolveActiveOrgId(fakeEvent('sa_active_org=not-a-number'), superAdmin())).toBe(1)
-    expect(resolveActiveOrgId(fakeEvent('sa_active_org=-5'), superAdmin())).toBe(1)
-    expect(resolveActiveOrgId(fakeEvent('sa_active_org=0'), superAdmin())).toBe(1)
+  it('super_admin with a garbage/non-numeric cookie value fails closed instead of guessing org 1', () => {
+    expect(() => resolveActiveOrgId(fakeEvent('sa_active_org=not-a-number'), superAdmin())).toThrow(/403|active organization/i)
+  })
+
+  it('super_admin with a negative or zero cookie value fails closed instead of guessing org 1', () => {
+    expect(() => resolveActiveOrgId(fakeEvent('sa_active_org=-5'), superAdmin())).toThrow(/403|active organization/i)
+    expect(() => resolveActiveOrgId(fakeEvent('sa_active_org=0'), superAdmin())).toThrow(/403|active organization/i)
   })
 })

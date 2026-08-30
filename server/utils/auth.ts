@@ -165,7 +165,18 @@ export function resolveActiveOrgId(event: H3Event, user: SessionUser): number {
   if (user.role === 'super_admin') {
     const cookie = getCookie(event, ACTIVE_ORG_COOKIE)
     const parsed = Number(cookie)
-    return Number.isInteger(parsed) && parsed > 0 ? parsed : 1
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      // Fails closed rather than defaulting to org 1: the rest of this
+      // module (buildTenantWhere/orgIdOrThrow in tenantPolicy.ts) already
+      // treats "no resolvable org" as a 403, never a silent guess. A
+      // super_admin who hasn't picked an org yet (fresh session, or a
+      // stale cookie for a deleted org) must pick one explicitly — the
+      // admin layout's org switcher auto-selects and persists a real one
+      // on first load, so in practice this only fires for a direct API
+      // call made before that bootstrap runs.
+      throw createError({ statusCode: 403, statusMessage: 'No active organization selected' })
+    }
+    return parsed
   }
   if (user.organizationId == null) {
     throw createError({ statusCode: 403, statusMessage: 'User has no organization assigned' })

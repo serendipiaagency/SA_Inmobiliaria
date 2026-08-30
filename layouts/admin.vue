@@ -106,6 +106,7 @@ const router = useRouter()
 const route = useRoute()
 const { initials } = useDash()
 const open = ref(false)
+const isSuperAdmin = computed(() => user.value?.role === 'super_admin')
 
 const icons: Record<string, string> = {
   grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
@@ -241,7 +242,6 @@ const nav: { label: string; items: NavItem[] }[] = [
   },
 ]
 
-const isSuperAdmin = computed(() => user.value?.role === 'super_admin')
 if (isSuperAdmin.value) {
   nav[nav.length - 1].items.push({ label: 'Empresas', to: '/admin/organizations', icon: 'store' })
   // Platform-wide incident log (server/plugins/error-logging.ts) — ops
@@ -254,24 +254,42 @@ const orgs = ref<{ id: number; name: string }[]>([])
 const activeOrgId = ref<number | null>(null)
 const activeOrgCookie = useCookie<string | null>('sa_active_org')
 
-const { data: orgInfo } = await useFetch<any>('/api/admin/active-org-info')
-// Org's own custom domain (server/utils/domain.ts) is where "/" resolves to
-// its real-estate portal home (see server/api/public/tenant.get.ts) — with
-// no domain configured there's no public URL to preview.
-const publicSiteUrl = computed(() => (orgInfo.value?.domain ? `https://${orgInfo.value.domain}/` : null))
+async function persistActiveOrg(orgId: number) {
+  await $fetch('/api/admin/active-org', { method: 'POST', body: { orgId } })
+  activeOrgCookie.value = String(orgId)
+}
 
 if (isSuperAdmin.value) {
   const { data } = await useFetch<{ rows: { id: number; name: string }[] }>('/api/admin/organizations', {
     query: { perPage: 100 },
   })
   orgs.value = data.value?.rows || []
-  activeOrgId.value = Number(activeOrgCookie.value) || orgs.value[0]?.id || null
+  const cookieOrgId = Number(activeOrgCookie.value)
+  const cookieValid = Number.isInteger(cookieOrgId) && cookieOrgId > 0 && orgs.value.some((org) => org.id === cookieOrgId)
+  if (cookieValid) {
+    activeOrgId.value = cookieOrgId
+  } else if (orgs.value[0]) {
+    // A super_admin with no organization picked yet (fresh session, or a
+    // stale cookie pointing at a deleted org) has nothing valid to send —
+    // server/utils/auth.ts's resolveActiveOrgId() now fails closed instead
+    // of silently defaulting to org 1, so every org-scoped request below
+    // (active-org-info, dashboard widgets...) needs a real cookie first.
+    // Auto-select and persist the first real organization, same outcome a
+    // manual pick in the switcher would have, without an extra step.
+    activeOrgId.value = orgs.value[0].id
+    await persistActiveOrg(activeOrgId.value)
+  }
 }
+
+const { data: orgInfo } = await useFetch<any>('/api/admin/active-org-info')
+// Org's own custom domain (server/utils/domain.ts) is where "/" resolves to
+// its real-estate portal home (see server/api/public/tenant.get.ts) — with
+// no domain configured there's no public URL to preview.
+const publicSiteUrl = computed(() => (orgInfo.value?.domain ? `https://${orgInfo.value.domain}/` : null))
 
 async function switchOrg() {
   if (!activeOrgId.value) return
-  await $fetch('/api/admin/active-org', { method: 'POST', body: { orgId: activeOrgId.value } })
-  activeOrgCookie.value = String(activeOrgId.value)
+  await persistActiveOrg(activeOrgId.value)
   router.go(0) // reload so every already-fetched page re-queries under the new org
 }
 
