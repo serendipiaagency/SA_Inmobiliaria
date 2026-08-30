@@ -21,6 +21,36 @@ Esta Fase 0 busca específicamente los problemas del megaprompt de
 auditoría: concurrencia, idempotencia, colas/jobs, backups, sesiones,
 observabilidad, rate limiting en capas, RBAC, etc.
 
+### FASE 6 — segunda pasada de verificación (no repite la matriz de 91 tablas)
+
+En vez de rehacer la auditoría tabla-por-tabla ya cerrada, la FASE 6 se
+apoyó en la propia FASE 4: quitar `.default(1)` convirtió `organizationId`
+en un campo obligatorio en el tipo de `insert().values()` para las 22
+tablas tenant-scoped, así que `npm run typecheck` ahora es, en la práctica,
+una verificación automática y permanente de que ningún insert nuevo (o ya
+existente) omite el tenant — encontró el único hueco real
+(`vendor-registration.post.ts`, corregido en FASE 4). Verificación
+adicional dirigida, no exhaustiva:
+
+- **Motor genérico de recursos admin** (`server/api/admin/[resource]/index.post.ts`,
+  usado por los 216 endpoints de la matriz): `delete data.organizationId`
+  antes de aplicar el payload, seguido de
+  `data[...] = orgId` con el `orgId` resuelto en servidor — un
+  `organizationId` en el body del cliente nunca sobrevive. Ya cubierto por
+  `multitenant-hardening-report.md`, confirmado de nuevo aquí.
+- **Inserts SQL crudos fuera de Drizzle** (`grep` de `.prepare(`/`db.run(`
+  en `server/`): el único INSERT crudo tenant-scoped encontrado
+  (`server/api/admin/saas/apikeys.post.ts`) ya fija `organization_id`
+  explícitamente en la sentencia. El resto de coincidencias son lecturas
+  (`.get.ts`) o updates, no inserts nuevos.
+- **`syncTranslations()`** (tablas de traducción, hijas por FK) no necesita
+  `organizationId` propio — es un recurso `nestedParent`, ya reforzado por
+  el guard de `buildTenantWhere()` sobre el padre antes de escribir.
+
+No se encontraron más huecos. La matriz completa de 91 tablas/216
+endpoints de `multitenant-audit.md` sigue siendo la referencia autoritativa
+y no se repite aquí.
+
 ## Arquitectura encontrada
 
 - **Runtime**: Nuxt 3 + Nitro, preset `cloudflare_module`, desplegado como
