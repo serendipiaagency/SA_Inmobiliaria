@@ -1,8 +1,10 @@
 # Migraciones de base de datos
 
 Guía de cómo cambiar el esquema de D1 en producción sin downtime y sin
-arriesgar datos. Complementa `docs/deployment.md` (el pipeline que aplica
-las migraciones) y `docs/rollback.md` (qué hacer si una migración sale mal).
+arriesgar datos. Complementa `docs/deployment.md`, que cubre tanto el
+pipeline que aplica las migraciones como el
+[procedimiento de rollback completo](./deployment.md#procedimiento-de-rollback-completo)
+si una migración sale mal (Worker, esquema, R2 y postmortem).
 
 ## El patrón obligatorio: EXPAND → MIGRATE → CONTRACT
 
@@ -17,9 +19,10 @@ código actual espera es peligroso por dos motivos reales en este proyecto:
    rama *antes* de que sus migraciones se apliquen por el pipeline correcto
    — el incidente de julio y el de los PR #56/#57 de esta misma sesión son
    exactamente esto.
-2. Un rollback del Worker (`docs/rollback.md`) vuelve a una versión de
-   código **anterior** que puede no entender un esquema ya migrado hacia
-   adelante, si la migración no fue aditiva.
+2. Un rollback del Worker
+   ([`docs/deployment.md`](./deployment.md#procedimiento-de-rollback-completo))
+   vuelve a una versión de código **anterior** que puede no entender un
+   esquema ya migrado hacia adelante, si la migración no fue aditiva.
 
 Por eso, cualquier cambio de esquema que no sea puramente aditivo (nueva
 tabla, nueva columna nullable, nuevo índice) se divide en releases
