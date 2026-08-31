@@ -9,7 +9,9 @@
     <SiteFooter />
     <CookieConsent />
   </div>
-  <slot v-else />
+  <div v-else>
+    <slot />
+  </div>
 </template>
 
 <script setup lang="ts">

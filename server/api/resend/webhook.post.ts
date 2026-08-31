@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { cfEnv, useDb, schema } from '../../utils/db'
+import { cfEnv, useDb, schema, isUniqueConstraintError } from '../../utils/db'
 import { verifyResendSignature } from '../../utils/email/signature'
 import { applyResendEvent } from '../../utils/email/resendEvents'
 
@@ -49,8 +49,7 @@ export default defineEventHandler(async (event) => {
       .returning({ id: schema.resendWebhookEvents.id })
     claimedRowId = row.id
   } catch (e: any) {
-    const chain = [e, e?.cause, e?.cause?.cause].filter(Boolean).map((x) => String(x?.message || x)).join(' | ')
-    if (chain.includes('UNIQUE constraint failed')) {
+    if (isUniqueConstraintError(e)) {
       setResponseStatus(event, 200)
       return { received: true, duplicate: true }
     }

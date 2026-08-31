@@ -1,5 +1,4 @@
 <template>
-  <!-- CMS article -->
   <article v-if="data?.source === 'cms'" class="mx-auto max-w-3xl px-4 py-12">
     <div class="flex items-center gap-2 text-xs text-stone-450">
       <NuxtLink v-if="data.category" :to="`/blog?categoria=${data.category.slug}`" class="rounded-full bg-stone-100 px-2.5 py-1 font-semibold">{{ data.category.name }}</NuxtLink>
@@ -11,7 +10,7 @@
     <p v-if="data.article.excerpt" class="mt-3 text-lg text-stone-500">{{ data.article.excerpt }}</p>
 
     <NuxtLink v-if="data.author" :to="`/blog/autor/${data.author.slug}`" class="mt-6 flex items-center gap-3">
-      <img v-if="data.author.photo" :src="mediaUrl(data.author.photo)" class="h-10 w-10 rounded-full object-cover" />
+      <img v-if="data.author.photo" :src="mediaUrl(data.author.photo)" class="h-10 w-10 rounded-full object-cover" >
       <span v-else class="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-sm font-semibold text-white">{{ data.author.name?.[0] }}</span>
       <span>
         <span class="block text-sm font-medium">{{ data.author.name }}</span>
@@ -19,7 +18,7 @@
       </span>
     </NuxtLink>
 
-    <img v-if="data.article.coverImage" :src="mediaUrl(data.article.coverImage)" :alt="data.article.title" class="mt-8 w-full rounded-xl object-cover" />
+    <img v-if="data.article.coverImage" :src="mediaUrl(data.article.coverImage)" :alt="data.article.title" class="mt-8 w-full rounded-xl object-cover" >
 
     <div class="mt-8">
       <CmsTableOfContents :blocks="blocks" />
@@ -42,8 +41,8 @@
 
       <form v-if="!replyingTo" class="mt-8 space-y-3" @submit.prevent="submitComment(null)">
         <div class="grid gap-3 sm:grid-cols-2">
-          <input v-model="commentForm.authorName" class="input" placeholder="Tu nombre" required />
-          <input v-model="commentForm.authorEmail" type="email" class="input" placeholder="Email (opcional)" />
+          <input v-model="commentForm.authorName" class="input" placeholder="Tu nombre" required >
+          <input v-model="commentForm.authorEmail" type="email" class="input" placeholder="Email (opcional)" >
         </div>
         <textarea v-model="commentForm.content" class="input" rows="3" placeholder="Escribe tu comentario…" required />
         <button type="submit" class="btn-primary" :disabled="commentSending">{{ commentSending ? 'Enviando…' : 'Publicar comentario' }}</button>
@@ -52,7 +51,6 @@
     </section>
   </article>
 
-  <!-- Legacy blog post -->
   <article v-else-if="data?.source === 'legacy'" class="mx-auto max-w-3xl px-4 py-12">
     <p class="text-xs uppercase text-ink">{{ data.blog.targetAudience }}</p>
     <h1 class="mt-1 heading-serif text-4xl md:text-4xl">{{ current?.title || data.blog.slug }}</h1>
@@ -74,7 +72,7 @@
       :src="mediaUrl(data.blog.image)"
       :alt="current?.title"
       class="mt-6 w-full rounded-xl object-cover"
-    />
+    >
     <div
       class="prose prose-slate mt-8 max-w-none whitespace-pre-line leading-relaxed text-stone-600"
       :dir="locale === 'ar' ? 'rtl' : 'ltr'"

@@ -9,7 +9,7 @@
       <div class="grid gap-4 sm:grid-cols-2">
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Zona / comunidad</span>
-          <input v-model="form.community" class="cfg-input" placeholder="Ej. Marina District" />
+          <input v-model="form.community" class="cfg-input" placeholder="Ej. Marina District" >
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Tipo de propiedad</span>
@@ -24,11 +24,11 @@
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Superficie (m²)</span>
-          <input v-model.number="form.area" type="number" min="1" class="cfg-input" />
+          <input v-model.number="form.area" type="number" min="1" class="cfg-input" >
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Habitaciones (opcional)</span>
-          <input v-model.number="form.bedrooms" type="number" min="0" class="cfg-input" />
+          <input v-model.number="form.bedrooms" type="number" min="0" class="cfg-input" >
         </label>
       </div>
       <div class="mt-4 flex items-center gap-3">

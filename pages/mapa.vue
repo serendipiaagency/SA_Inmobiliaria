@@ -35,7 +35,7 @@
             @click="goTo(p)"
           >
             <div class="aspect-[4/3] overflow-hidden rounded-t-2xl bg-stone-100">
-              <img :src="mediaUrl(p.coverImage)" :alt="p.name" class="h-full w-full object-cover" loading="lazy" />
+              <img :src="mediaUrl(p.coverImage)" :alt="p.name" class="h-full w-full object-cover" loading="lazy" >
             </div>
             <div class="p-4">
               <p class="font-semibold">{{ formatPrice(p.price) }}</p>

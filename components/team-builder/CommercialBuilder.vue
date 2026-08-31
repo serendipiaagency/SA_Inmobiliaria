@@ -36,20 +36,20 @@
         <div v-show="active === 'personal'" class="space-y-4">
           <label class="block">
             <span class="label">Nombre completo <span class="text-red-500">*</span></span>
-            <input v-model="form.name" class="input" placeholder="Ej. Laura Martínez García" />
+            <input v-model="form.name" class="input" placeholder="Ej. Laura Martínez García" >
           </label>
           <div class="grid gap-4 sm:grid-cols-2">
             <label class="block">
               <span class="label">Puesto / Cargo <span class="text-red-500">*</span></span>
-              <input v-model="form.position" class="input" placeholder="Ej. Asesora Inmobiliaria" />
+              <input v-model="form.position" class="input" placeholder="Ej. Asesora Inmobiliaria" >
             </label>
             <label class="block">
               <span class="label">Departamento</span>
-              <input v-model="form.department" class="input" placeholder="Ej. Comercial" />
+              <input v-model="form.department" class="input" placeholder="Ej. Comercial" >
             </label>
             <label class="block">
               <span class="label">Fecha de incorporación</span>
-              <input v-model="form.hireDate" type="date" class="input" />
+              <input v-model="form.hireDate" type="date" class="input" >
             </label>
             <label class="block">
               <span class="label">Tipo de contrato</span>
@@ -71,11 +71,11 @@
           <div class="grid gap-4 sm:grid-cols-2">
             <label class="block">
               <span class="label">Código interno de empleado</span>
-              <input v-model="form.employeeCode" class="input" />
+              <input v-model="form.employeeCode" class="input" >
             </label>
             <label class="block">
               <span class="label">Oficina / sede</span>
-              <input v-model="form.officeName" class="input" />
+              <input v-model="form.officeName" class="input" >
             </label>
             <label class="block">
               <span class="label">Responsable (reporta a)</span>
@@ -94,7 +94,7 @@
             </label>
             <label class="block">
               <span class="label">Horario habitual</span>
-              <input v-model="form.workingHours" class="input" placeholder="L-V 9:00-18:00" />
+              <input v-model="form.workingHours" class="input" placeholder="L-V 9:00-18:00" >
             </label>
           </div>
           <p class="text-[12px] text-stone-400">
@@ -108,19 +108,19 @@
           <div class="grid gap-4 sm:grid-cols-2">
             <label class="block">
               <span class="label">Email profesional <span class="text-red-500">*</span></span>
-              <input v-model="form.email" type="email" class="input" />
+              <input v-model="form.email" type="email" class="input" >
             </label>
             <label class="block">
               <span class="label">Teléfono</span>
-              <input v-model="form.phone" class="input" />
+              <input v-model="form.phone" class="input" >
             </label>
             <label class="block">
               <span class="label">WhatsApp</span>
-              <input v-model="form.whatsapp" class="input" placeholder="+34 600 000 000" />
+              <input v-model="form.whatsapp" class="input" placeholder="+34 600 000 000" >
             </label>
             <label class="block">
               <span class="label">Oficina</span>
-              <input :value="form.officeName" class="input" disabled />
+              <input :value="form.officeName" class="input" disabled >
             </label>
           </div>
           <div class="flex flex-wrap gap-2 text-[12px]">
@@ -132,7 +132,7 @@
           <div class="grid gap-3 sm:grid-cols-2">
             <label v-for="s in SOCIAL_FIELDS" :key="s.key" class="flex items-center gap-2 rounded-lg border border-line px-3 py-1.5">
               <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-stone-100 text-[10px] font-bold text-stone-500">{{ s.short }}</span>
-              <input v-model="form[s.key]" class="input !border-0 !p-0 !shadow-none focus:!ring-0" placeholder="https://…" />
+              <input v-model="form[s.key]" class="input !border-0 !p-0 !shadow-none focus:!ring-0" placeholder="https://…" >
             </label>
           </div>
         </div>
@@ -142,10 +142,10 @@
           <div>
             <span class="label">Fotografía</span>
             <div v-if="form.image" class="mb-2 flex items-center gap-3">
-              <img :src="mediaUrl(form.image)" class="h-16 w-16 rounded-full border border-line object-cover" />
+              <img :src="mediaUrl(form.image)" class="h-16 w-16 rounded-full border border-line object-cover" >
               <button type="button" class="text-[12px] font-semibold text-red-600 hover:underline" @click="form.image = null">Quitar</button>
             </div>
-            <input type="file" accept="image/*" class="block w-full text-xs text-stone-500" @change="onUploadImage" />
+            <input type="file" accept="image/*" class="block w-full text-xs text-stone-500" @change="onUploadImage" >
             <p v-if="uploadingImage" class="mt-1 text-[11px] text-stone-400">Subiendo…</p>
           </div>
           <label class="block">
@@ -154,12 +154,12 @@
           </label>
           <div class="grid gap-4 sm:grid-cols-2">
             <label class="flex items-center gap-2 text-sm text-stone-700">
-              <input v-model="form.showOnWeb" type="checkbox" />
+              <input v-model="form.showOnWeb" type="checkbox" >
               Mostrar este comercial en la web
             </label>
             <label class="block">
               <span class="label">Orden en la web</span>
-              <input v-model.number="form.sortOrder" type="number" class="input" />
+              <input v-model.number="form.sortOrder" type="number" class="input" >
             </label>
           </div>
           <p class="text-[12px] text-stone-400">La ficha pública reutiliza foto, nombre, puesto, descripción y redes — no hay campos "públicos" duplicados. Los datos laborales, propiedades asignadas, rendimiento y documentos internos nunca se muestran públicamente.</p>
@@ -175,7 +175,7 @@
             <span class="label">Especialidades</span>
             <div class="flex flex-wrap gap-2">
               <label v-for="pt in PROPERTY_TYPE_OPTIONS" :key="pt" class="flex cursor-pointer items-center gap-1.5 rounded-full border border-line px-3 py-1 text-[12px]" :class="propertyTypes.includes(pt) ? 'border-ink bg-ink text-white' : 'text-stone-600'">
-                <input type="checkbox" class="hidden" :checked="propertyTypes.includes(pt)" @change="togglePropertyType(pt)" />
+                <input type="checkbox" class="hidden" :checked="propertyTypes.includes(pt)" @change="togglePropertyType(pt)" >
                 {{ pt }}
               </label>
             </div>
@@ -231,7 +231,7 @@
         <div v-if="isNew" class="py-10 text-center text-sm text-stone-400">Guarda el comercial primero para poder asignarle propiedades.</div>
         <template v-else>
           <div class="mb-3 flex items-center gap-2">
-            <input v-model="propertySearch" class="input !w-72" placeholder="Buscar propiedad para asignar…" @keyup.enter="searchProperties" />
+            <input v-model="propertySearch" class="input !w-72" placeholder="Buscar propiedad para asignar…" @keyup.enter="searchProperties" >
             <button type="button" class="btn-quiet" @click="searchProperties">Buscar</button>
           </div>
           <div v-if="propertyResults.length" class="mb-4 space-y-1 rounded-lg border border-line p-2">
@@ -243,7 +243,7 @@
           <div v-if="!assignedProperties.length" class="card px-4 py-10 text-center text-sm text-stone-400">Sin propiedades asignadas.</div>
           <div v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div v-for="p in assignedProperties" :key="`${p.source}-${p.id}`" class="rounded-lg border border-line p-3">
-              <img v-if="p.image" :src="mediaUrl(p.image)" class="mb-2 h-24 w-full rounded object-cover" />
+              <img v-if="p.image" :src="mediaUrl(p.image)" class="mb-2 h-24 w-full rounded object-cover" >
               <p class="truncate text-[13px] font-medium">{{ p.name }}</p>
               <p class="text-[11px] text-stone-400">{{ p.source === 'developer' ? 'Propiedades (web)' : 'Propiedades 2ª mano' }} · {{ p.status }}</p>
               <button type="button" class="mt-1 text-[11px] font-semibold text-red-600 hover:underline" @click="unassignProperty(p)">Desasignar</button>
@@ -279,8 +279,8 @@
             </li>
           </ul>
           <div class="flex items-center gap-2">
-            <input v-model="newDocLabel" class="input !w-56" placeholder="Etiqueta (ej. Contrato 2026)" />
-            <input type="file" class="block text-xs text-stone-500" @change="onUploadDocument" />
+            <input v-model="newDocLabel" class="input !w-56" placeholder="Etiqueta (ej. Contrato 2026)" >
+            <input type="file" class="block text-xs text-stone-500" @change="onUploadDocument" >
           </div>
           <p v-if="uploadingDoc" class="mt-1 text-[11px] text-stone-400">Subiendo…</p>
         </template>

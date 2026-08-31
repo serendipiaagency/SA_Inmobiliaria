@@ -12,7 +12,7 @@
       :step="step"
       :value="modelValue"
       @input="$emit('update:modelValue', Number(($event.target as HTMLInputElement).value))"
-    />
+    >
   </label>
 </template>
 

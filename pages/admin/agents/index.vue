@@ -10,7 +10,7 @@
 
     <div class="mb-3 flex flex-wrap items-center gap-2">
       <div class="relative">
-        <input v-model="q" class="input !w-64 !pl-8" placeholder="Nombre, puesto, email, teléfono…" @keyup.enter="applyAndReset" />
+        <input v-model="q" class="input !w-64 !pl-8" placeholder="Nombre, puesto, email, teléfono…" @keyup.enter="applyAndReset" >
         <svg class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-350" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path stroke-linecap="round" d="m21 21-4.3-4.3" /></svg>
         <button v-if="q" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 text-stone-350 hover:text-ink" title="Limpiar búsqueda" @click="q = ''; applyAndReset()">
           <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="m18 6-12 12M6 6l12 12" /></svg>
@@ -43,27 +43,27 @@
     <div v-if="filtersOpen" class="card mb-3 grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
       <label class="block">
         <span class="label">Oficina / sede</span>
-        <input v-model="officeName" class="input" />
+        <input v-model="officeName" class="input" >
       </label>
       <label class="block">
         <span class="label">Departamento / equipo</span>
-        <input v-model="department" class="input" />
+        <input v-model="department" class="input" >
       </label>
       <label class="block">
         <span class="label">Puesto</span>
-        <input v-model="position" class="input" />
+        <input v-model="position" class="input" >
       </label>
       <label class="block">
         <span class="label">Zona comercial</span>
-        <input v-model="zone" class="input" />
+        <input v-model="zone" class="input" >
       </label>
       <label class="block">
         <span class="label">Especialización</span>
-        <input v-model="specialty" class="input" />
+        <input v-model="specialty" class="input" >
       </label>
       <label class="block">
         <span class="label">Idioma</span>
-        <input v-model="language" class="input" />
+        <input v-model="language" class="input" >
       </label>
       <label class="block">
         <span class="label">Propiedades asignadas</span>
@@ -113,7 +113,7 @@
           <tr v-for="a in data.rows" :key="a.id" class="border-t border-line hover:bg-stone-50">
             <td class="px-4 py-3">
               <NuxtLink :to="`/admin/agents/${a.id}`" class="flex items-center gap-2.5">
-                <img v-if="a.image" :src="mediaUrl(a.image)" class="h-9 w-9 shrink-0 rounded-full object-cover" />
+                <img v-if="a.image" :src="mediaUrl(a.image)" class="h-9 w-9 shrink-0 rounded-full object-cover" >
                 <span v-else class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-stone-100 text-xs">👤</span>
                 <span class="min-w-0">
                   <span class="block truncate font-medium text-ink">{{ a.name }}</span>
@@ -181,7 +181,9 @@ function setView(v: 'list' | 'grid') {
   view.value = v
   try {
     localStorage.setItem('sa-admin-agents-view', v)
-  } catch {}
+  } catch {
+    // Private browsing / storage quota — the view preference just won't persist.
+  }
 }
 
 const advancedCount = computed(() => [officeName.value, department.value, position.value, zone.value, specialty.value, language.value, assignedProperties.value].filter(Boolean).length)

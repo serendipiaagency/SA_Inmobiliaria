@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/d1'
 import * as schema from '../db/schema'
 import { now } from '../utils/db'
+import { getRequestId } from '../utils/requestId'
 
 /**
  * Central incident log: writes every server error (status >= 500) to D1 and,
@@ -33,6 +34,7 @@ export default defineNitroPlugin((nitroApp) => {
     const method = event?.method ? String(event.method).slice(0, 10) : null
     const organizationId = event?.context?.org?.id ?? null
     const userId = event?.context?.user?.id ?? null
+    const requestId = event ? getRequestId(event) : null
 
     try {
       const db = drizzle(env.DB as D1Database, { schema })
@@ -44,6 +46,7 @@ export default defineNitroPlugin((nitroApp) => {
         path,
         organizationId,
         userId,
+        requestId,
         createdAt: now(),
       })
     } catch (loggingError) {

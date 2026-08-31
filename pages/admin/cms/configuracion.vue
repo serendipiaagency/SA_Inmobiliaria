@@ -15,18 +15,18 @@
       </div>
 
       <label class="flex items-center gap-2.5 text-sm">
-        <input v-model="commentsEnabled" type="checkbox" class="h-4 w-4 rounded border-line" />
+        <input v-model="commentsEnabled" type="checkbox" class="h-4 w-4 rounded border-line" >
         Permitir comentarios en los artículos
       </label>
 
       <label class="flex items-center gap-2.5 text-sm">
-        <input v-model="commentsRequireApproval" type="checkbox" class="h-4 w-4 rounded border-line" :disabled="!commentsEnabled" />
+        <input v-model="commentsRequireApproval" type="checkbox" class="h-4 w-4 rounded border-line" :disabled="!commentsEnabled" >
         Requerir aprobación antes de mostrar un comentario
       </label>
 
       <div>
         <label class="label">Autor por defecto (ID)</label>
-        <input v-model="form.defaultAuthorId" type="number" class="input" placeholder="ID de autor" />
+        <input v-model="form.defaultAuthorId" type="number" class="input" placeholder="ID de autor" >
         <p class="mt-1 text-[11px] text-stone-450">Se asigna a nuevos artículos si no eliges autor manualmente.</p>
       </div>
 

@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   const row = (await db.select().from(schema.webhookEndpoints).where(eq(schema.webhookEndpoints.id, id)).limit(1))[0]
   if (!row || row.organizationId !== orgId) throw createError({ statusCode: 404, statusMessage: 'Not found' })
 
-  let subscribed: string[] = []
+  let subscribed: string[]
   try {
     subscribed = JSON.parse(row.eventsJson || '[]')
   } catch {

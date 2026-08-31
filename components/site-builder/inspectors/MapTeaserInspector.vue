@@ -18,9 +18,9 @@
       <span class="label">Marcadores del mapa ilustrativo</span>
       <p class="mb-2 text-[11px] text-stone-400">Posición en % desde la esquina superior izquierda.</p>
       <div v-for="(pin, i) in pins" :key="i" class="mb-1.5 grid grid-cols-[1fr_3.5rem_3.5rem_auto] items-center gap-1.5">
-        <input v-model="pin.label" class="input" placeholder="Nombre" />
-        <input v-model.number="pin.x" type="number" min="0" max="100" class="input" placeholder="X%" />
-        <input v-model.number="pin.y" type="number" min="0" max="100" class="input" placeholder="Y%" />
+        <input v-model="pin.label" class="input" placeholder="Nombre" >
+        <input v-model.number="pin.x" type="number" min="0" max="100" class="input" placeholder="X%" >
+        <input v-model.number="pin.y" type="number" min="0" max="100" class="input" placeholder="Y%" >
         <button type="button" class="shrink-0 text-stone-300 hover:text-red-500" @click="removePin(i)">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
         </button>

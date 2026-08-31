@@ -55,7 +55,7 @@
               <th class="px-4 py-2.5 font-semibold">Canal</th>
               <th class="px-4 py-2.5 font-semibold">Fecha</th>
               <th class="px-4 py-2.5 font-semibold">Estado</th>
-              <th class="px-4 py-2.5 font-semibold"></th>
+              <th class="px-4 py-2.5 font-semibold"/>
             </tr>
           </thead>
           <tbody>
@@ -94,7 +94,7 @@
         <h2 class="mb-4 text-lg font-semibold">Reprogramar visita</h2>
         <p class="mb-3 text-sm text-stone-500">{{ reschedule.clientName }}{{ reschedule.agentName ? ` — ${reschedule.agentName}` : '' }}</p>
         <label class="label">Nueva fecha/hora</label>
-        <input v-model="rescheduleAt" type="datetime-local" class="input mb-4" />
+        <input v-model="rescheduleAt" type="datetime-local" class="input mb-4" >
         <div class="flex justify-end gap-2">
           <button class="btn-secondary" @click="reschedule = null">Cancelar</button>
           <button class="btn-primary" :disabled="!rescheduleAt || busyId === reschedule.id" @click="confirmReschedule">Guardar</button>

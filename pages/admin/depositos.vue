@@ -22,7 +22,7 @@
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Importe (€)</span>
-          <input v-model.number="form.amount" type="number" min="0" step="100" class="cfg-input" />
+          <input v-model.number="form.amount" type="number" min="0" step="100" class="cfg-input" >
         </label>
       </div>
       <div class="mt-4 flex items-center gap-3">

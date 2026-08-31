@@ -18,7 +18,7 @@
       <template v-else>
         <div class="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-line p-2">
           <label v-for="c in communities" :key="c.id" class="flex items-center gap-2 rounded px-1.5 py-1 text-[13px] hover:bg-stone-50">
-            <input type="checkbox" :checked="manualIds.includes(c.id)" @change="toggleManual(c.id, ($event.target as HTMLInputElement).checked)" />
+            <input type="checkbox" :checked="manualIds.includes(c.id)" @change="toggleManual(c.id, ($event.target as HTMLInputElement).checked)" >
             <span class="truncate">{{ c.name }}</span>
           </label>
           <p v-if="!communities.length" class="px-1.5 py-2 text-stone-400">No hay comunidades todavía.</p>

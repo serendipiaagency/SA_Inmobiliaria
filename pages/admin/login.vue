@@ -8,11 +8,11 @@
       <form class="card space-y-5 p-8" @submit.prevent="submit">
         <div>
           <label class="label" for="admin-login-email">Email</label>
-          <input id="admin-login-email" v-model="email" type="email" class="input" required autocomplete="email" autofocus />
+          <input id="admin-login-email" v-model="email" type="email" class="input" required autocomplete="email" autofocus >
         </div>
         <div>
           <label class="label" for="admin-login-password">Contraseña</label>
-          <input id="admin-login-password" v-model="password" type="password" class="input" required autocomplete="current-password" />
+          <input id="admin-login-password" v-model="password" type="password" class="input" required autocomplete="current-password" >
         </div>
         <button type="submit" class="btn-primary w-full" :disabled="loading">
           {{ loading ? 'Accediendo…' : 'Acceder al panel' }}

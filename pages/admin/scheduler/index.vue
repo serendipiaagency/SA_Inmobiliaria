@@ -151,14 +151,14 @@
         <h2 class="mb-4 text-lg font-semibold">Nueva programación</h2>
 
         <label class="label">Propiedad</label>
-        <input v-model="propertyQuery" class="input mb-1" placeholder="Buscar propiedad por nombre…" @input="searchProperties" />
+        <input v-model="propertyQuery" class="input mb-1" placeholder="Buscar propiedad por nombre…" @input="searchProperties" >
         <div v-if="propertyResults.length" class="mb-3 max-h-32 overflow-y-auto rounded-lg border border-line">
           <button v-for="p in propertyResults" :key="p.id" class="block w-full px-3 py-2 text-left text-sm hover:bg-stone-50" @click="selectProperty(p)">{{ p.name }}</button>
         </div>
         <p v-if="selectedProperty" class="mb-3 text-sm text-emerald-700">Seleccionada: {{ selectedProperty.name }}</p>
 
         <label class="label">Fecha/hora de lanzamiento (canal base){{ aiTimeRule?.autoApply ? ' — opcional' : '' }}</label>
-        <input v-model="createForm.baseScheduledAt" type="datetime-local" class="input mb-1" />
+        <input v-model="createForm.baseScheduledAt" type="datetime-local" class="input mb-1" >
         <div class="mb-3 flex items-center gap-2 text-xs text-stone-500">
           <button
             class="relative h-4 w-7 shrink-0 rounded-full transition"
@@ -186,7 +186,7 @@
                 {{ c.label }}{{ !c.implemented ? ' (Próximamente)' : c.connected ? '' : ' (no conectado)' }}
               </option>
             </select>
-            <input v-model.number="step.offsetMinutes" type="number" class="input !w-24" placeholder="min" />
+            <input v-model.number="step.offsetMinutes" type="number" class="input !w-24" placeholder="min" >
             <select v-model="step.priority" class="input !w-28">
               <option v-for="p in PRIORITIES" :key="p" :value="p">{{ p }}</option>
             </select>
@@ -266,7 +266,7 @@
       <div class="w-full max-w-md rounded-xl bg-white p-6">
         <h2 class="mb-4 text-lg font-semibold">Nueva regla</h2>
         <label class="label">Nombre</label>
-        <input v-model="automationEditor.name" class="input mb-3" placeholder="p. ej. Republicar en bajada de precio" />
+        <input v-model="automationEditor.name" class="input mb-3" placeholder="p. ej. Republicar en bajada de precio" >
         <label class="label">Cuándo (disparador)</label>
         <select v-model="automationEditor.triggerType" class="input mb-3">
           <option value="price_drop">Bajada de precio</option>
@@ -291,15 +291,15 @@
       <div class="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl bg-white p-6">
         <h2 class="mb-4 text-lg font-semibold">{{ templateEditor.id ? 'Editar plantilla' : 'Nueva plantilla' }}</h2>
         <label class="label">Nombre</label>
-        <input v-model="templateEditor.name" class="input mb-3" />
+        <input v-model="templateEditor.name" class="input mb-3" >
         <label class="label">Descripción</label>
-        <input v-model="templateEditor.description" class="input mb-3" />
+        <input v-model="templateEditor.description" class="input mb-3" >
         <label class="label">Canales</label>
         <div v-for="(step, i) in templateEditor.steps" :key="i" class="mb-2 flex items-center gap-2">
           <select v-model="step.channelKey" class="input !w-40">
             <option v-for="c in channels" :key="c.key" :value="c.key" :disabled="!c.implemented">{{ c.label }}{{ !c.implemented ? ' (Próximamente)' : '' }}</option>
           </select>
-          <input v-model.number="step.offsetMinutes" type="number" class="input !w-24" placeholder="min" />
+          <input v-model.number="step.offsetMinutes" type="number" class="input !w-24" placeholder="min" >
           <button class="text-red-600" @click="templateEditor.steps.splice(i, 1)">✕</button>
         </div>
         <button class="btn-quiet !px-3 !py-1.5" @click="templateEditor.steps.push({ channelKey: channels[0]?.key || 'own_web', offsetMinutes: 0, priority: 'normal' })">+ Añadir canal</button>

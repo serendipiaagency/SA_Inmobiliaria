@@ -63,19 +63,19 @@
         <div class="grid grid-cols-2 gap-2">
           <label class="block text-xs">
             <span class="mb-1 block text-stone-500">X</span>
-            <input v-model.number="selectedElement.x" type="number" class="prop-input" />
+            <input v-model.number="selectedElement.x" type="number" class="prop-input" >
           </label>
           <label class="block text-xs">
             <span class="mb-1 block text-stone-500">Y</span>
-            <input v-model.number="selectedElement.y" type="number" class="prop-input" />
+            <input v-model.number="selectedElement.y" type="number" class="prop-input" >
           </label>
           <label class="block text-xs">
             <span class="mb-1 block text-stone-500">Ancho</span>
-            <input v-model.number="selectedElement.w" type="number" class="prop-input" />
+            <input v-model.number="selectedElement.w" type="number" class="prop-input" >
           </label>
           <label class="block text-xs">
             <span class="mb-1 block text-stone-500">Alto</span>
-            <input v-model.number="selectedElement.h" type="number" class="prop-input" />
+            <input v-model.number="selectedElement.h" type="number" class="prop-input" >
           </label>
         </div>
 
@@ -88,16 +88,16 @@
         </label>
         <label v-if="!selectedElement.binding || !selectedElement.binding.startsWith('{{')" class="block text-xs">
           <span class="mb-1 block text-stone-500">Texto fijo</span>
-          <input v-model="selectedElement.binding" class="prop-input" />
+          <input v-model="selectedElement.binding" class="prop-input" >
         </label>
 
         <template v-if="selectedElement.type === 'text'">
           <label class="block text-xs">
             <span class="mb-1 block text-stone-500">Tamaño de fuente</span>
-            <input v-model.number="styleOf(selectedElement).fontSize" type="number" class="prop-input" />
+            <input v-model.number="styleOf(selectedElement).fontSize" type="number" class="prop-input" >
           </label>
           <label class="flex items-center gap-2 text-xs">
-            <input v-model="boldModel" type="checkbox" /> Negrita
+            <input v-model="boldModel" type="checkbox" > Negrita
           </label>
           <label class="block text-xs">
             <span class="mb-1 block text-stone-500">Color</span>
@@ -111,7 +111,7 @@
         </template>
 
         <label class="flex items-center gap-2 text-xs">
-          <input v-model="lockedModel" type="checkbox" /> Bloquear posición y contenido
+          <input v-model="lockedModel" type="checkbox" > Bloquear posición y contenido
         </label>
         <!-- `locked` is captured here for a future "regenerar automáticamente" action
              (spec section 9) that doesn't exist yet — today it only disables drag/resize

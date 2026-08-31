@@ -1,7 +1,7 @@
 export default defineNuxtConfig({
   compatibilityDate: '2026-06-01',
   devtools: { enabled: false },
-  modules: ['@nuxtjs/tailwindcss', 'nitro-cloudflare-dev'],
+  modules: ['@nuxtjs/tailwindcss', 'nitro-cloudflare-dev', '@nuxt/eslint'],
   nitro: {
     preset: 'cloudflare_module',
     cloudflare: {
@@ -16,7 +16,7 @@ export default defineNuxtConfig({
     // on that same per-minute tick — a ±30min window plus a sent-once guard
     // column means it never needs its own cron entry.
     scheduledTasks: {
-      '0 * * * *': ['cms:expire-articles', 'system:cleanup-error-logs', 'marketing:saved-search-alerts', 'payments:reconcile-deposits', 'notifications:retry-email-queue'],
+      '0 * * * *': ['cms:expire-articles', 'system:cleanup-error-logs', 'marketing:saved-search-alerts', 'payments:reconcile-deposits', 'notifications:retry-email-queue', 'notifications:retry-webhook-queue'],
       '* * * * *': ['scheduler:dispatch', 'appointments:reminders'],
       '30 3 * * *': ['system:backup-d1'],
       // Runs after the D1 backup — purges media past its 30-day soft-delete

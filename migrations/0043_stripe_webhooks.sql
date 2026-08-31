@@ -1,5 +1,11 @@
 -- Migration number: 0043    Stripe webhook confirmation (real payment status, not manual polling only)
 --
+-- DESTRUCTIVE: rebuilds deposit_payments (DROP + RENAME) to rename a
+-- misleadingly-named column — every row is copied via INSERT...SELECT into
+-- the replacement table first (ids preserved), so no data is lost.
+-- Retroactively marked for scripts/check-migrations.mjs's
+-- dangerous-migration gate; this migration already shipped and ran clean.
+--
 -- Two changes:
 --
 -- 1. deposit_payments.stripe_payment_intent_id has actually stored the

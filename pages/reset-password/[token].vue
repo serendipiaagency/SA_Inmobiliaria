@@ -4,7 +4,7 @@
     <form v-if="!done" class="card mt-10 space-y-5 p-8" @submit.prevent="submit">
       <div>
         <label class="label" for="reset-password">Nueva contraseña</label>
-        <input id="reset-password" v-model="password" type="password" class="input" required minlength="8" autocomplete="new-password" autofocus />
+        <input id="reset-password" v-model="password" type="password" class="input" required minlength="8" autocomplete="new-password" autofocus >
       </div>
       <button type="submit" class="btn-primary w-full" :disabled="loading">{{ loading ? 'Guardando…' : 'Guardar contraseña' }}</button>
       <p v-if="error" class="text-center text-sm font-medium text-red-600">{{ error }}</p>

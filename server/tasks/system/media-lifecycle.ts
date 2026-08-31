@@ -1,10 +1,11 @@
 import { and, eq, isNull, lt, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import * as schema from '../../db/schema'
+import { sweepStaleMultipartUploads } from '../../utils/mediaMultipart'
 
 /**
  * Runs daily at 05:00 UTC (see nuxt.config.ts scheduledTasks + wrangler.toml
- * [triggers]). Two jobs, both on `media_assets`:
+ * [triggers]). Three jobs:
  *
  *  1. PURGE — a soft-deleted asset (`deleted_at` set) keeps its R2 object
  *     around for a 30-day grace period (long enough to outlast normal
@@ -22,6 +23,11 @@ import * as schema from '../../db/schema'
  *     no shared transaction — this is the backstop for whatever drifts
  *     between them (a `MEDIA.put()` that lands right before its D1 write
  *     fails, a manual data fix). "Reconciliable", not "provably atomic".
+ *
+ *  3. STALE MULTIPART SWEEP — a chunked video upload (P1-8) nobody ever
+ *     finished (closed tab, crashed browser, network loss) leaves an open
+ *     R2 multipart upload and a 'pending' media_multipart_uploads row
+ *     forever unless something aborts it. See server/utils/mediaMultipart.ts.
  */
 
 const GRACE_PERIOD_DAYS = 30
@@ -38,7 +44,7 @@ export default defineTask({
   async run({ context }) {
     const env = (context as any)?.cloudflare?.env
     if (!env?.DB || !env?.MEDIA) {
-      return { result: { skipped: true, reason: 'No DB/MEDIA binding in task context', purged: 0, failed: 0, pendingBacklog: false, reconciledOrgs: 0 } }
+      return { result: { skipped: true, reason: 'No DB/MEDIA binding in task context', purged: 0, failed: 0, pendingBacklog: false, reconciledOrgs: 0, staleUploadsAborted: 0, staleUploadsFailed: 0 } }
     }
     const db = drizzle(env.DB as D1Database, { schema })
     const bucket = env.MEDIA as R2Bucket
@@ -75,6 +81,10 @@ export default defineTask({
       reconciled++
     }
 
-    return { result: { skipped: false, reason: '', purged, failed, pendingBacklog: due.length === 500, reconciledOrgs: reconciled } }
+    const staleUploads = await sweepStaleMultipartUploads(db, bucket)
+
+    return {
+      result: { skipped: false, reason: '', purged, failed, pendingBacklog: due.length === 500, reconciledOrgs: reconciled, staleUploadsAborted: staleUploads.aborted, staleUploadsFailed: staleUploads.failed },
+    }
   },
 })

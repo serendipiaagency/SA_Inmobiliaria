@@ -12,7 +12,7 @@
       <div class="grid gap-4 sm:grid-cols-2">
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Nombre del referidor</span>
-          <input v-model="form.referrerName" class="cfg-input" />
+          <input v-model="form.referrerName" class="cfg-input" >
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Tipo</span>
@@ -31,7 +31,7 @@
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Importe de recompensa (€)</span>
-          <input v-model.number="form.rewardAmount" type="number" min="0" class="cfg-input" />
+          <input v-model.number="form.rewardAmount" type="number" min="0" class="cfg-input" >
         </label>
       </div>
       <div class="mt-4 flex items-center gap-3">
@@ -46,7 +46,7 @@
         <p class="text-sm font-medium">{{ l.referrerName }} <span class="text-xs text-stone-400">({{ l.referrerType === 'agent' ? 'agente' : 'cliente' }})</span></p>
         <p class="mt-1 text-xs text-stone-500">{{ l.referralCount }} referidos · recompensa: {{ l.rewardType }} {{ l.rewardAmount ? dt.money(l.rewardAmount) : '' }}</p>
         <div class="mt-2 flex items-center gap-2">
-          <input :value="linkUrl(l.code)" readonly class="flex-1 rounded-lg border border-line bg-stone-50 px-2 py-1 text-xs" @click="($event.target as HTMLInputElement).select()" />
+          <input :value="linkUrl(l.code)" readonly class="flex-1 rounded-lg border border-line bg-stone-50 px-2 py-1 text-xs" @click="($event.target as HTMLInputElement).select()" >
           <button type="button" class="text-xs font-medium text-ink hover:underline" @click="copy(l.code)">{{ copied === l.code ? 'Copiado' : 'Copiar' }}</button>
         </div>
       </AdminPanel>

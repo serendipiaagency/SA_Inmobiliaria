@@ -3,25 +3,25 @@
     <!-- Tabs -->
     <div class="mb-3 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <button
-        v-for="t in tabs"
-        :key="t.key"
+        v-for="tabItem in tabs"
+        :key="tabItem.key"
         type="button"
         class="gtab"
-        :class="{ 'gtab-on': tab === t.key }"
-        @click="tab = t.key"
+        :class="{ 'gtab-on': tab === tabItem.key }"
+        @click="tab = tabItem.key"
       >
-        <span v-html="t.icon" class="mr-1.5" />{{ t.label }}
+        <span class="mr-1.5" v-html="tabItem.icon" />{{ tabItem.label }}
       </button>
     </div>
 
     <!-- FOTOS: mosaic -->
     <div v-show="tab === 'fotos'" class="grid gap-2 lg:grid-cols-5">
       <button class="relative col-span-3 block aspect-[4/3] w-full overflow-hidden rounded-l-2xl bg-stone-100 lg:aspect-auto lg:h-[540px]" @click="openFull('photo', 0)">
-        <img :src="photos[0]" :alt="name" class="h-full w-full object-cover transition duration-700 hover:scale-105" />
+        <img :src="photos[0]" :alt="name" class="h-full w-full object-cover transition duration-700 hover:scale-105" >
       </button>
       <div v-if="photos.length > 1" class="col-span-2 hidden grid-cols-2 grid-rows-2 gap-2 lg:grid">
         <button v-for="(p, i) in photos.slice(1, 5)" :key="i" class="relative block h-[266px] overflow-hidden bg-stone-100" :class="{ 'rounded-tr-2xl': i === 1, 'rounded-br-2xl': i === 3 }" @click="openFull('photo', i + 1)">
-          <img :src="p" :alt="`${name} ${i + 2}`" class="h-full w-full object-cover transition duration-700 hover:scale-105" loading="lazy" />
+          <img :src="p" :alt="`${name} ${i + 2}`" class="h-full w-full object-cover transition duration-700 hover:scale-105" loading="lazy" >
           <span v-if="i === 3 && photos.length > 5" class="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-semibold uppercase tracking-widest2 text-white">
             +{{ photos.length - 5 }} {{ t('mediaGallery.photos.more', 'fotos') }}
           </span>
@@ -68,7 +68,7 @@
 
     <!-- Drone -->
     <div v-show="tab === 'drone'" class="relative flex h-[540px] items-center justify-center overflow-hidden rounded-2xl bg-ink text-center">
-      <img v-if="dronePhoto" :src="dronePhoto" :alt="`${name} ${t('mediaGallery.drone.alt', 'vista aérea')}`" class="h-full w-full cursor-zoom-in object-cover" @click="openFull('drone')" />
+      <img v-if="dronePhoto" :src="dronePhoto" :alt="`${name} ${t('mediaGallery.drone.alt', 'vista aérea')}`" class="h-full w-full cursor-zoom-in object-cover" @click="openFull('drone')" >
       <div v-else class="max-w-sm px-6 text-white/80">
         <p class="font-serif text-2xl text-white">{{ t('mediaGallery.drone.title', 'Vista aérea con drone') }}</p>
         <p class="mt-2 text-sm">{{ t('mediaGallery.drone.desc', 'Solicita una toma aérea profesional de esta propiedad y su entorno.') }}</p>
@@ -78,7 +78,7 @@
 
     <!-- Noche -->
     <div v-show="tab === 'noche'" class="relative flex h-[540px] items-center justify-center overflow-hidden rounded-2xl bg-ink text-center">
-      <img v-if="nightPhoto" :src="nightPhoto" :alt="`${name} ${t('mediaGallery.night.alt', 'vista nocturna')}`" class="h-full w-full cursor-zoom-in object-cover" @click="openFull('night')" />
+      <img v-if="nightPhoto" :src="nightPhoto" :alt="`${name} ${t('mediaGallery.night.alt', 'vista nocturna')}`" class="h-full w-full cursor-zoom-in object-cover" @click="openFull('night')" >
       <div v-else class="max-w-sm px-6 text-white/80">
         <p class="font-serif text-2xl text-white">{{ t('mediaGallery.night.title', 'Fotografía nocturna') }}</p>
         <p class="mt-2 text-sm">{{ t('mediaGallery.night.desc', 'Solicita una sesión al atardecer o de noche para resaltar la iluminación de esta propiedad.') }}</p>
@@ -105,7 +105,7 @@
 
     <!-- Plano -->
     <div v-show="tab === 'plano'" class="flex h-[540px] items-center justify-center overflow-hidden rounded-2xl border border-line bg-white">
-      <img v-if="masterPlan" :src="masterPlan" :alt="`${name} ${t('mediaGallery.plan.alt', 'plano')}`" class="max-h-full max-w-full cursor-zoom-in object-contain p-4" @click="openFull('plano')" />
+      <img v-if="masterPlan" :src="masterPlan" :alt="`${name} ${t('mediaGallery.plan.alt', 'plano')}`" class="max-h-full max-w-full cursor-zoom-in object-contain p-4" @click="openFull('plano')" >
       <p v-else class="text-stone-400">{{ t('mediaGallery.plan.unavailable', 'Plano no disponible') }}</p>
     </div>
 
@@ -123,7 +123,7 @@
             :style="{ transformOrigin: zoomOrigin, transform: zoomed ? `scale(2.2) translate(${panX / 2.2}px, ${panY / 2.2}px)` : 'scale(1)' }"
             draggable="false"
             @pointerdown.stop="onImgPointerDown"
-          />
+          >
         </div>
         <button v-if="full.kind === 'photo' && !zoomed" class="absolute right-4 top-1/2 z-10 -translate-y-1/2 p-4 text-4xl text-white/60 hover:text-white" :aria-label="t('mediaGallery.viewer.next', 'Siguiente')" @click.stop="fstep(1)">›</button>
         <p v-if="full.kind === 'photo'" class="mt-2 text-xs uppercase tracking-widest2 text-white/60">{{ full.index + 1 }} / {{ photos.length }}</p>
@@ -139,7 +139,7 @@
             :aria-label="`${t('mediaGallery.viewer.viewPhoto', 'Ver foto')} ${i + 1}`"
             @click.stop="jumpTo(i)"
           >
-            <img :src="p" :alt="`${t('mediaGallery.viewer.thumbnail', 'Miniatura')} ${i + 1}`" loading="lazy" />
+            <img :src="p" :alt="`${t('mediaGallery.viewer.thumbnail', 'Miniatura')} ${i + 1}`" loading="lazy" >
           </button>
         </div>
       </div>

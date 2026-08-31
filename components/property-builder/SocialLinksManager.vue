@@ -26,7 +26,7 @@
           </span>
           <div class="min-w-0 flex-1">
             <p class="text-[13px] font-semibold text-ink">{{ PLATFORM_LABELS[row.platform] || row.platform }}</p>
-            <input v-model="row.url" class="input mt-1 !py-1 !text-[12px]" placeholder="https://…" @change="saveUrl(row)" />
+            <input v-model="row.url" class="input mt-1 !py-1 !text-[12px]" placeholder="https://…" @change="saveUrl(row)" >
           </div>
           <button type="button" class="shrink-0 text-[12px] font-semibold text-red-600 hover:underline" @click="remove(row.id)">Eliminar</button>
         </div>
@@ -50,7 +50,7 @@
           <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-stone-600">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" v-html="SOCIAL_ICONS[newPlatform]" />
           </span>
-          <input v-model="newUrl" type="url" class="input flex-1" placeholder="https://…" @keyup.enter="confirmAdd" />
+          <input v-model="newUrl" type="url" class="input flex-1" placeholder="https://…" @keyup.enter="confirmAdd" >
           <button type="button" class="btn-primary !px-3 !py-1.5" :disabled="!newUrl" @click="confirmAdd">Añadir</button>
         </div>
         <button type="button" class="mt-2 text-[12px] font-medium text-stone-400 hover:text-ink" @click="cancelPick">Cancelar</button>

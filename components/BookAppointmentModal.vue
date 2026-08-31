@@ -55,26 +55,26 @@
             </p>
             <div>
               <label class="label" for="book-appt-name">{{ t('scheduleVisit.form.nameLabel', 'Nombre *') }}</label>
-              <input id="book-appt-name" v-model="form.name" class="input" required />
+              <input id="book-appt-name" v-model="form.name" class="input" required >
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="label" for="book-appt-email">{{ t('scheduleVisit.form.emailLabel', 'Email') }}</label>
-                <input id="book-appt-email" v-model="form.email" type="email" class="input" />
+                <input id="book-appt-email" v-model="form.email" type="email" class="input" >
               </div>
               <div>
                 <label class="label" for="book-appt-phone">{{ t('scheduleVisit.form.phoneLabel', 'Teléfono') }}</label>
-                <input id="book-appt-phone" v-model="form.phone" class="input" />
+                <input id="book-appt-phone" v-model="form.phone" class="input" >
               </div>
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="label" for="book-appt-budget">{{ t('bookAppointment.budgetLabel', 'Presupuesto aprox. (AED)') }}</label>
-                <input id="book-appt-budget" v-model.number="form.budget" type="number" min="0" class="input" />
+                <input id="book-appt-budget" v-model.number="form.budget" type="number" min="0" class="input" >
               </div>
               <div>
                 <label class="label" for="book-appt-interest">{{ t('bookAppointment.interestLabel', '¿Qué buscas?') }}</label>
-                <input id="book-appt-interest" v-model="form.interest" class="input" :placeholder="t('bookAppointment.interestPlaceholder', 'Ej: villa 3 hab. para invertir')" />
+                <input id="book-appt-interest" v-model="form.interest" class="input" :placeholder="t('bookAppointment.interestPlaceholder', 'Ej: villa 3 hab. para invertir')" >
               </div>
             </div>
             <div>

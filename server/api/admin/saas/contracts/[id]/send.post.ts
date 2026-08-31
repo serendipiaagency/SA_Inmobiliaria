@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { requireOrgScope } from '../../../../../utils/auth'
 import { useDb, schema, now, cfEnv } from '../../../../../utils/db'
 import { logAdminAction } from '../../../../../utils/audit'
@@ -21,7 +21,16 @@ export default defineEventHandler(async (event) => {
   if (contract.status !== 'draft') throw createError({ statusCode: 409, statusMessage: `Contract is ${contract.status}, cannot send` })
 
   const managementToken = contract.managementToken || randomToken()
-  await db.update(schema.contracts).set({ status: 'sent', managementToken, updatedAt: now() }).where(eq(schema.contracts.id, id))
+  // Conditional on status still being 'draft' — closes the same
+  // double-submit race as contracts/[token]/accept.post.ts (two clicks on
+  // "send" would otherwise both pass the check above and both email the
+  // client). The loser gets a 409 instead of sending a duplicate email.
+  const [updated] = await db
+    .update(schema.contracts)
+    .set({ status: 'sent', managementToken, updatedAt: now() })
+    .where(and(eq(schema.contracts.id, id), eq(schema.contracts.status, 'draft')))
+    .returning({ id: schema.contracts.id })
+  if (!updated) throw createError({ statusCode: 409, statusMessage: `Contract is ${contract.status}, cannot send` })
   await logAdminAction(event, { user, orgId, action: 'update', resource: 'contract', resourceId: id })
 
   if (contract.clientEmail) {

@@ -9,21 +9,21 @@
             <span class="text-stone-500">{{ t('mortgage.downPayment', 'Entrada') }}</span>
             <span class="font-semibold">{{ downPct }}% · {{ money(downPayment) }}</span>
           </div>
-          <input v-model.number="downPct" type="range" min="10" max="60" step="5" class="range" />
+          <input v-model.number="downPct" type="range" min="10" max="60" step="5" class="range" >
         </div>
         <div>
           <div class="mb-1 flex justify-between text-sm">
             <span class="text-stone-500">{{ t('mortgage.interestRate', 'Interés anual') }}</span>
             <span class="font-semibold">{{ rate }}%</span>
           </div>
-          <input v-model.number="rate" type="range" min="1" max="8" step="0.1" class="range" />
+          <input v-model.number="rate" type="range" min="1" max="8" step="0.1" class="range" >
         </div>
         <div>
           <div class="mb-1 flex justify-between text-sm">
             <span class="text-stone-500">{{ t('mortgage.term', 'Plazo') }}</span>
             <span class="font-semibold">{{ years }} {{ t('mortgage.years', 'años') }}</span>
           </div>
-          <input v-model.number="years" type="range" min="5" max="35" step="1" class="range" />
+          <input v-model.number="years" type="range" min="5" max="35" step="1" class="range" >
         </div>
       </div>
       <div class="mt-6 rounded-2xl bg-emerald-800 p-6 text-white">

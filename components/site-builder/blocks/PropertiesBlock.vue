@@ -28,7 +28,7 @@
       <div class="grid gap-x-6 gap-y-10" :class="gridClasses">
         <NuxtLink v-for="p in items" :key="p.id" :to="`/propiedades/${p.slug || p.id}`" class="group block">
           <div class="aspect-[4/3] overflow-hidden rounded-2xl bg-black/30">
-            <img :src="mediaUrl(p.coverImage)" :alt="p.name" class="h-full w-full object-cover opacity-90 transition duration-700 group-hover:scale-105 group-hover:opacity-100" loading="lazy" />
+            <img :src="mediaUrl(p.coverImage)" :alt="p.name" class="h-full w-full object-cover opacity-90 transition duration-700 group-hover:scale-105 group-hover:opacity-100" loading="lazy" >
           </div>
           <p v-if="cardFields.price" class="mt-4 text-lg font-semibold">{{ formatPrice(p.price) }}</p>
           <h3 v-if="cardFields.name" class="font-serif text-xl font-medium">{{ p.name }}</h3>

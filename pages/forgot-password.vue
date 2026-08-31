@@ -5,7 +5,7 @@
       <p class="text-sm text-stone-500">Indica tu email y, si tienes una cuenta, te enviaremos un enlace para restablecer tu contraseña.</p>
       <div>
         <label class="label" for="forgot-email">Email</label>
-        <input id="forgot-email" v-model="email" type="email" class="input" required autocomplete="email" autofocus />
+        <input id="forgot-email" v-model="email" type="email" class="input" required autocomplete="email" autofocus >
       </div>
       <button type="submit" class="btn-primary w-full" :disabled="loading">{{ loading ? 'Enviando…' : 'Enviar enlace' }}</button>
     </form>

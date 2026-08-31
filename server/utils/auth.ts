@@ -1,6 +1,8 @@
-import { eq } from 'drizzle-orm'
+import { asc, eq, or } from 'drizzle-orm'
 import { createError, deleteCookie, getCookie, setCookie, type H3Event } from 'h3'
 import { useDb, cfEnv, now, schema } from './db'
+import { hasAreaAccess } from './permissions'
+import type { AdminArea } from '../../utils/adminAreas'
 
 const PBKDF2_ITERATIONS = 100_000
 const SESSION_COOKIE = 'sa_session'
@@ -69,6 +71,8 @@ export interface SessionUser {
   role: string
   /** Null only for 'super_admin', who belongs to no single organization. */
   organizationId: number | null
+  /** Nullable JSON array of "<area>:<action>" strings — see server/utils/permissions.ts. Null = unrestricted. */
+  permissions: string | null
 }
 
 export async function createSession(event: H3Event, userId: number): Promise<void> {
@@ -77,8 +81,13 @@ export async function createSession(event: H3Event, userId: number): Promise<voi
   const ttlDays = parseInt(env.SESSION_TTL_DAYS || '7', 10)
   const token = toB64(crypto.getRandomValues(new Uint8Array(32))).replace(/[+/=]/g, '')
   const expires = new Date(Date.now() + ttlDays * 86_400_000)
+  // `id` is an opaque internal identifier, unrelated to the raw token — the
+  // token itself is never stored, only its SHA-256 (tokenHash), same
+  // pattern as password_reset_tokens.tokenHash/api_keys.keyHash. A D1
+  // backup or leak exposes hashes, not reusable session cookies.
   await db.insert(schema.sessions).values({
-    id: token,
+    id: randomTokenHex(),
+    tokenHash: await sha256Hex(token),
     userId,
     expiresAt: expires.toISOString(),
     createdAt: now(),
@@ -96,7 +105,11 @@ export async function destroySession(event: H3Event): Promise<void> {
   const token = getCookie(event, SESSION_COOKIE)
   if (token) {
     const db = useDb(event)
-    await db.delete(schema.sessions).where(eq(schema.sessions.id, token))
+    // Matches both a hashed row (the normal case) and a legacy plaintext
+    // row that was never rotated (id still equals the raw token) — see
+    // getSessionUser()'s rotation comment below.
+    const tokenHash = await sha256Hex(token)
+    await db.delete(schema.sessions).where(or(eq(schema.sessions.tokenHash, tokenHash), eq(schema.sessions.id, token)))
   }
   deleteCookie(event, SESSION_COOKIE, { path: '/' })
 }
@@ -105,26 +118,42 @@ export async function getSessionUser(event: H3Event): Promise<SessionUser | null
   const token = getCookie(event, SESSION_COOKIE)
   if (!token) return null
   const db = useDb(event)
+  const tokenHash = await sha256Hex(token)
   const rows = await db
     .select({
+      sessionId: schema.sessions.id,
+      sessionTokenHash: schema.sessions.tokenHash,
       id: schema.users.id,
       name: schema.users.name,
       email: schema.users.email,
       role: schema.users.role,
       organizationId: schema.users.organizationId,
+      permissions: schema.users.permissions,
       expiresAt: schema.sessions.expiresAt,
     })
     .from(schema.sessions)
     .innerJoin(schema.users, eq(schema.sessions.userId, schema.users.id))
-    .where(eq(schema.sessions.id, token))
+    // `eq(sessions.id, token)` is the legacy path — sessions created before
+    // hashing shipped stored the raw token as `id` — kept only so those
+    // existing sessions aren't silently logged out; see the rotation below.
+    .where(or(eq(schema.sessions.tokenHash, tokenHash), eq(schema.sessions.id, token)))
     .limit(1)
   const row = rows[0]
   if (!row) return null
   if (new Date(row.expiresAt).getTime() < Date.now()) {
-    await db.delete(schema.sessions).where(eq(schema.sessions.id, token))
+    await db.delete(schema.sessions).where(eq(schema.sessions.id, row.sessionId))
     return null
   }
-  return { id: row.id, name: row.name, email: row.email, role: row.role, organizationId: row.organizationId }
+  if (row.sessionTokenHash == null) {
+    // Legacy plaintext session, matched via the `id = token` fallback above
+    // — rotate it on this first valid use. Both the hash (previously null)
+    // and `id` (previously the raw token itself, in plaintext) become
+    // fresh random values, so this row no longer reveals a reusable
+    // credential if the database is ever leaked. The client's cookie is
+    // untouched — same raw token, re-hashed on every subsequent request.
+    await db.update(schema.sessions).set({ id: randomTokenHex(), tokenHash }).where(eq(schema.sessions.id, row.sessionId))
+  }
+  return { id: row.id, name: row.name, email: row.email, role: row.role, organizationId: row.organizationId, permissions: row.permissions }
 }
 
 /** Allows both org-scoped admins and the platform super_admin. */
@@ -160,12 +189,33 @@ const ACTIVE_ORG_COOKIE = 'sa_active_org'
  * what they see, never grants access beyond their own already-total
  * visibility. A regular org-scoped admin's org always comes from their own
  * user row and can never be overridden by client-supplied input.
+ *
+ * `db` is used only for the super_admin/no-cookie fallback below — pass the
+ * event's own `useDb(event)`; a lightweight fake is enough in tests.
  */
-export function resolveActiveOrgId(event: H3Event, user: SessionUser): number {
+export async function resolveActiveOrgId(event: H3Event, user: SessionUser, db: any): Promise<number> {
   if (user.role === 'super_admin') {
     const cookie = getCookie(event, ACTIVE_ORG_COOKIE)
     const parsed = Number(cookie)
-    return Number.isInteger(parsed) && parsed > 0 ? parsed : 1
+    if (Number.isInteger(parsed) && parsed > 0) return parsed
+    // No cookie (or a garbage one) — NOT a "fail closed" case: a super_admin
+    // already has total visibility by role, so which org this particular
+    // request happens to default to is a UX question, not a privilege one
+    // (unlike a regular admin's organizationId, which really does gate
+    // access). A hardcoded fallback id is still wrong though — it could
+    // point at a long-deleted organization and silently return nothing for
+    // every query — so this resolves the platform's own lowest-id real
+    // organization, verified against the DB. This also covers any
+    // super_admin API access that never goes through layouts/admin.vue's
+    // browser-side org-switcher bootstrap (this project's own e2e suite
+    // logs in via a raw POST /api/auth/login and calls admin APIs directly,
+    // exactly that case — migrations/0021_multi_tenant_orgs.sql seeds
+    // admin@sa-inmobiliaria.com as super_admin).
+    const rows = await db.select({ id: schema.organizations.id }).from(schema.organizations).orderBy(asc(schema.organizations.id)).limit(1)
+    if (!rows[0]) {
+      throw createError({ statusCode: 403, statusMessage: 'No organization exists on this platform yet' })
+    }
+    return rows[0].id
   }
   if (user.organizationId == null) {
     throw createError({ statusCode: 403, statusMessage: 'User has no organization assigned' })
@@ -183,10 +233,19 @@ export function resolveActiveOrgId(event: H3Event, user: SessionUser): number {
  * downstream should interpret a super_admin session as permission to query
  * across tenants — `buildTenantWhere()` fails closed rather than dropping the
  * filter if it is ever handed a null org.
+ *
+ * `area`/`action` are optional (P2 granular RBAC, server/utils/permissions.ts)
+ * — a caller that omits them gets exactly today's behavior (any admin/
+ * super_admin passes). Only a caller that explicitly declares its area gets
+ * the new per-admin permission check, so existing call sites are unaffected
+ * until deliberately annotated.
  */
-export async function requireOrgScope(event: H3Event): Promise<{ user: SessionUser; orgId: number }> {
+export async function requireOrgScope(event: H3Event, area?: AdminArea, action: 'read' | 'write' = 'read'): Promise<{ user: SessionUser; orgId: number }> {
   const user = await requireAdmin(event)
-  const orgId = resolveActiveOrgId(event, user)
+  if (area && !hasAreaAccess(user, area, action)) {
+    throw createError({ statusCode: 403, statusMessage: 'No tienes permiso para acceder a esta sección.' })
+  }
+  const orgId = await resolveActiveOrgId(event, user, useDb(event))
   return { user, orgId }
 }
 

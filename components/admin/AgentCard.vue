@@ -1,7 +1,7 @@
 <template>
   <div class="group relative overflow-hidden rounded-xl border border-line bg-white transition hover:shadow-md">
     <NuxtLink :to="`/admin/agents/${agent.id}`" class="flex items-start gap-3 p-4">
-      <img v-if="agent.image" :src="mediaUrl(agent.image)" class="h-14 w-14 shrink-0 rounded-full object-cover ring-1 ring-line" />
+      <img v-if="agent.image" :src="mediaUrl(agent.image)" class="h-14 w-14 shrink-0 rounded-full object-cover ring-1 ring-line" >
       <span v-else class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-stone-100 text-lg font-semibold text-stone-400">{{ initials }}</span>
       <div class="min-w-0 flex-1">
         <div class="flex items-center justify-between gap-2">

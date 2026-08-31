@@ -19,10 +19,10 @@
       <form v-else class="card mt-6 space-y-4 p-6" @submit.prevent="accept">
         <div>
           <label class="label" for="accept-name">Nombre completo (a efectos de aceptación)</label>
-          <input id="accept-name" v-model="fullName" class="input" required />
+          <input id="accept-name" v-model="fullName" class="input" required >
         </div>
         <label class="flex items-start gap-2 text-sm text-stone-600">
-          <input v-model="confirmed" type="checkbox" class="mt-0.5" required />
+          <input v-model="confirmed" type="checkbox" class="mt-0.5" required >
           <span>Confirmo que he leído el contenido de este documento y acepto sus términos. Entiendo que esto es una firma electrónica simple (no cualificada), y que se registrará mi IP y fecha/hora de aceptación.</span>
         </label>
         <button type="submit" class="btn-primary w-full" :disabled="submitting">{{ submitting ? 'Procesando…' : 'Aceptar contrato' }}</button>

@@ -1,3 +1,5 @@
+import { buildBackupStream, pruneOldBackups } from '../../utils/backup'
+
 /**
  * Runs daily at 03:30 UTC (see nuxt.config.ts scheduledTasks + wrangler.toml
  * [triggers]). D1 has its own point-in-time recovery (Time Travel, 30 days
@@ -7,14 +9,17 @@
  * this project's own R2 bucket, kept for RETENTION_DAYS.
  *
  * Dumps every real table (skips sqlite_* and d1_migrations) as one gzip'd
- * JSON object `{ [tableName]: rows[] }` per snapshot — small enough for this
- * project's current data volume that a single object per day is simpler and
- * more useful than sharding per table, and still cheap: R2 has no egress
- * fees and the object is compressed.
+ * JSON object `{ takenAt, tables: { [tableName]: rows[] } }` per snapshot,
+ * built and uploaded as a stream via server/utils/backup.ts's
+ * buildBackupStream() — see that file for why (P1-5, scalable backups).
  */
 
 const RETENTION_DAYS = 14
 const BACKUP_PREFIX = 'backups/'
+// Small enough to comfortably stay under D1's per-query result-size limit
+// for any table's widest realistic row shape, large enough that even a
+// large table backs up in a reasonable number of round trips.
+const PAGE_SIZE = 500
 
 export default defineTask<
   { skipped: true; reason: string } | { tables: number; totalRows: number; key: string; sizeBytes: number; deletedOldBackups: number }
@@ -39,52 +44,21 @@ export default defineTask<
       .all<{ name: string }>()
     const tables = tableRows.results.map((r) => r.name)
 
-    const dump: Record<string, unknown[]> = {}
-    let totalRows = 0
-    for (const table of tables) {
-      // Table names come from sqlite_master (the DB's own schema), never
-      // from user input — but this loop is the one place in the codebase
-      // that interpolates an identifier into raw SQL, so it still gets an
-      // explicit allow-list check rather than trusting the source alone.
-      if (!isSafeIdentifier(table)) throw new Error(`Refusing to back up table with unexpected name: ${table}`)
-      const rows = await db.prepare(`SELECT * FROM "${table}"`).all()
-      dump[table] = rows.results
-      totalRows += rows.results.length
-    }
-
-    const json = JSON.stringify({ takenAt: new Date().toISOString(), tables: dump })
-    const compressed = await gzip(json)
+    const stats = { totalRows: 0 }
+    const jsonStream = buildBackupStream(db, tables, PAGE_SIZE, stats)
+    // TS's DOM lib types CompressionStream.writable as WritableStream<BufferSource>,
+    // which its own stricter typed-array generics (Uint8Array<ArrayBuffer> vs
+    // <ArrayBufferLike>) then refuse to match against pipeThrough's expected
+    // ReadableWritablePair — a real chunk (Uint8Array) flows through fine at
+    // runtime, this is purely the standard library's own generic variance.
+    const compressedStream = jsonStream.pipeThrough(new CompressionStream('gzip') as any)
 
     const day = new Date().toISOString().slice(0, 10)
     const key = `${BACKUP_PREFIX}${day}.json.gz`
-    await bucket.put(key, compressed, { httpMetadata: { contentType: 'application/gzip' } })
+    const uploaded = await bucket.put(key, compressedStream, { httpMetadata: { contentType: 'application/gzip' } })
 
-    const deleted = await pruneOldBackups(bucket)
+    const deleted = await pruneOldBackups(bucket, BACKUP_PREFIX, RETENTION_DAYS)
 
-    return { result: { tables: tables.length, totalRows, key, sizeBytes: compressed.byteLength, deletedOldBackups: deleted } }
+    return { result: { tables: tables.length, totalRows: stats.totalRows, key, sizeBytes: uploaded?.size ?? 0, deletedOldBackups: deleted } }
   },
 })
-
-/** Plain snake_case SQLite identifiers only — the shape every real table in this schema has. */
-function isSafeIdentifier(name: string): boolean {
-  return /^[a-z_][a-z0-9_]*$/.test(name)
-}
-
-async function gzip(text: string): Promise<Uint8Array> {
-  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))
-  const buf = await new Response(stream).arrayBuffer()
-  return new Uint8Array(buf)
-}
-
-async function pruneOldBackups(bucket: R2Bucket): Promise<number> {
-  const cutoff = new Date(Date.now() - RETENTION_DAYS * 86_400_000)
-  const listed = await bucket.list({ prefix: BACKUP_PREFIX })
-  let deleted = 0
-  for (const obj of listed.objects) {
-    if (obj.uploaded < cutoff) {
-      await bucket.delete(obj.key)
-      deleted++
-    }
-  }
-  return deleted
-}

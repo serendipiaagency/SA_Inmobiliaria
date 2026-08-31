@@ -17,7 +17,7 @@
     <!-- Carousel layout -->
     <div v-else-if="layout === 'carousel'" class="sa-carousel">
       <a v-for="p in rows" :key="p.id" :href="link(p)" target="_blank" rel="noopener" class="sa-card sa-card-carousel">
-        <div class="sa-media"><img :src="img(p.photos && p.photos[0])" :alt="p.name" loading="lazy" /><span v-if="badge(p)" class="sa-badge">{{ badge(p) }}</span></div>
+        <div class="sa-media"><img :src="img(p.photos && p.photos[0])" :alt="p.name" loading="lazy" ><span v-if="badge(p)" class="sa-badge">{{ badge(p) }}</span></div>
         <div class="sa-body">
           <p class="sa-price">{{ money(p.price) }}</p>
           <h4 class="sa-name">{{ p.name }}</h4>
@@ -30,7 +30,7 @@
     <!-- List layout -->
     <div v-else-if="layout === 'list'" class="sa-list">
       <a v-for="p in rows" :key="p.id" :href="link(p)" target="_blank" rel="noopener" class="sa-card sa-card-list">
-        <div class="sa-media sa-media-list"><img :src="img(p.photos && p.photos[0])" :alt="p.name" loading="lazy" /></div>
+        <div class="sa-media sa-media-list"><img :src="img(p.photos && p.photos[0])" :alt="p.name" loading="lazy" ></div>
         <div class="sa-body">
           <div class="sa-row"><h4 class="sa-name">{{ p.name }}</h4><span class="sa-price">{{ money(p.price) }}</span></div>
           <p class="sa-sub">{{ p.community }}</p>
@@ -42,7 +42,7 @@
     <!-- Grid layout (default) -->
     <div v-else class="sa-grid" :style="{ '--cols': cols }">
       <a v-for="p in rows" :key="p.id" :href="link(p)" target="_blank" rel="noopener" class="sa-card">
-        <div class="sa-media"><img :src="img(p.photos && p.photos[0])" :alt="p.name" loading="lazy" /><span v-if="badge(p)" class="sa-badge">{{ badge(p) }}</span></div>
+        <div class="sa-media"><img :src="img(p.photos && p.photos[0])" :alt="p.name" loading="lazy" ><span v-if="badge(p)" class="sa-badge">{{ badge(p) }}</span></div>
         <div class="sa-body">
           <p class="sa-price">{{ money(p.price) }}</p>
           <h4 class="sa-name">{{ p.name }}</h4>

@@ -7,31 +7,31 @@
       <div class="grid gap-4 sm:grid-cols-2">
         <div>
           <label class="label">{{ t('visitor.form.nameLabel', 'Nombre *') }}</label>
-          <input v-model="form.name" class="input" required />
+          <input v-model="form.name" class="input" required >
         </div>
         <div>
           <label class="label">{{ t('visitor.form.emailLabel', 'Email *') }}</label>
-          <input v-model="form.email" type="email" class="input" required />
+          <input v-model="form.email" type="email" class="input" required >
         </div>
         <div>
           <label class="label">{{ t('visitor.form.phoneLabel', 'Número de teléfono *') }}</label>
-          <input v-model="form.phone_number" class="input" required />
+          <input v-model="form.phone_number" class="input" required >
         </div>
         <div>
           <label class="label">{{ t('visitor.form.nationalityLabel', 'Nacionalidad *') }}</label>
-          <input v-model="form.nationality" class="input" required />
+          <input v-model="form.nationality" class="input" required >
         </div>
         <div>
           <label class="label">{{ t('visitor.form.propertyTypeLabel', 'Tipo de propiedad') }}</label>
-          <input v-model="form.property_type" class="input" :placeholder="t('visitor.form.propertyTypePlaceholder', 'Apartamento, villa…')" />
+          <input v-model="form.property_type" class="input" :placeholder="t('visitor.form.propertyTypePlaceholder', 'Apartamento, villa…')" >
         </div>
         <div>
           <label class="label">{{ t('visitor.form.preferredLocationLabel', 'Ubicación preferida') }}</label>
-          <input v-model="form.preferred_location" class="input" />
+          <input v-model="form.preferred_location" class="input" >
         </div>
         <div>
           <label class="label">{{ t('visitor.form.budgetRangeLabel', 'Rango de presupuesto') }}</label>
-          <input v-model="form.budget_range" class="input" :placeholder="t('visitor.form.budgetRangePlaceholder', 'p. ej. 800k – 1.2M AED')" />
+          <input v-model="form.budget_range" class="input" :placeholder="t('visitor.form.budgetRangePlaceholder', 'p. ej. 800k – 1.2M AED')" >
         </div>
         <div>
           <label class="label">{{ t('visitor.form.paymentForRentLabel', 'Alquiler pagado por') }}</label>
@@ -42,7 +42,7 @@
         </div>
         <div>
           <label class="label">{{ t('visitor.form.familyMembersLabel', 'Miembros de la familia') }}</label>
-          <input v-model="form.number_of_family_members" type="number" min="0" class="input" />
+          <input v-model="form.number_of_family_members" type="number" min="0" class="input" >
         </div>
       </div>
       <div>
@@ -54,7 +54,7 @@
         <legend class="px-1 text-sm font-semibold text-stone-600">{{ t('visitor.form.documentsLegend', 'Documentos (PDF)') }}</legend>
         <div v-for="doc in docs" :key="doc.field">
           <label class="label">{{ doc.label }}</label>
-          <input type="file" accept="application/pdf" class="text-sm" @change="onFile(doc.field, $event)" />
+          <input type="file" accept="application/pdf" class="text-sm" @change="onFile(doc.field, $event)" >
         </div>
       </fieldset>
 

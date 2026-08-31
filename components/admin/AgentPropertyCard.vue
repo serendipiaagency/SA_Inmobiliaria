@@ -2,7 +2,7 @@
   <div class="group relative overflow-hidden rounded-xl border border-line bg-white transition hover:shadow-md">
     <NuxtLink :to="`/admin/properties/${property.id}`" class="block">
       <div class="relative flex h-40 items-center justify-center bg-stone-50">
-        <img v-if="property.mainImage" :src="mediaUrl(property.mainImage)" class="h-full w-full object-cover" loading="lazy" />
+        <img v-if="property.mainImage" :src="mediaUrl(property.mainImage)" class="h-full w-full object-cover" loading="lazy" >
         <span v-else class="text-3xl">🏠</span>
         <span
           class="absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold"

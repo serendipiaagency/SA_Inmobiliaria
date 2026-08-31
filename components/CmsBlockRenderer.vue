@@ -15,15 +15,15 @@
         <p>{{ block.text }}</p>
       </div>
 
-      <hr v-else-if="block.type === 'divider'" class="my-8 border-line" />
+      <hr v-else-if="block.type === 'divider'" class="my-8 border-line" >
 
       <figure v-else-if="block.type === 'image' && block.src" class="mt-6">
-        <img :src="mediaUrl(block.src)" :alt="block.alt || ''" class="w-full rounded-xl object-cover" loading="lazy" />
+        <img :src="mediaUrl(block.src)" :alt="block.alt || ''" class="w-full rounded-xl object-cover" loading="lazy" >
         <figcaption v-if="block.caption" class="mt-2 text-center text-sm text-stone-450">{{ block.caption }}</figcaption>
       </figure>
 
       <div v-else-if="block.type === 'gallery' && block.images?.length" class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <img v-for="(img, i) in block.images" :key="i" :src="mediaUrl(img.src)" :alt="img.alt || ''" class="aspect-square rounded-lg object-cover" loading="lazy" />
+        <img v-for="(img, i) in block.images" :key="i" :src="mediaUrl(img.src)" :alt="img.alt || ''" class="aspect-square rounded-lg object-cover" loading="lazy" >
       </div>
 
       <div v-else-if="block.type === 'video' && youtubeId(block.url)" class="mt-6 aspect-video overflow-hidden rounded-xl">

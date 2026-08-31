@@ -12,8 +12,8 @@
 
         <form v-if="replyingTo === comment.id" class="mt-3 space-y-2 rounded-lg border border-line bg-stone-50 p-3" @submit.prevent="$emit('submit-reply', comment.id)">
           <div class="grid gap-2 sm:grid-cols-2">
-            <input v-model="form.authorName" class="input !py-1.5 text-sm" placeholder="Tu nombre" required />
-            <input v-model="form.authorEmail" type="email" class="input !py-1.5 text-sm" placeholder="Email (opcional)" />
+            <input v-model="form.authorName" class="input !py-1.5 text-sm" placeholder="Tu nombre" required >
+            <input v-model="form.authorEmail" type="email" class="input !py-1.5 text-sm" placeholder="Email (opcional)" >
           </div>
           <textarea v-model="form.content" class="input text-sm" rows="2" placeholder="Escribe tu respuesta…" required />
           <div class="flex gap-2">

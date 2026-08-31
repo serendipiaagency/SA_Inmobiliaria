@@ -2,7 +2,7 @@
   <div class="group relative overflow-hidden rounded-xl border border-line bg-white transition hover:shadow-md">
     <NuxtLink :to="`/admin/developer-properties/${property.id}`" class="block">
       <div class="relative flex h-40 items-center justify-center bg-stone-50">
-        <img v-if="property.coverImage" :src="mediaUrl(property.coverImage)" class="h-full w-full object-cover" loading="lazy" />
+        <img v-if="property.coverImage" :src="mediaUrl(property.coverImage)" class="h-full w-full object-cover" loading="lazy" >
         <span v-else class="text-3xl">🏠</span>
         <div class="absolute left-2 top-2 flex flex-wrap gap-1">
           <span v-if="property.isExclusive" class="rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold text-white">Exclusiva</span>

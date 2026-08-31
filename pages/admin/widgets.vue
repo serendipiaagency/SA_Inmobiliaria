@@ -42,11 +42,11 @@
               </select>
             </label>
             <label class="block"><span class="wl">Ciudad / zona (opcional)</span>
-              <input v-model="cfg.city" class="wi" placeholder="p. ej. Marina" />
+              <input v-model="cfg.city" class="wi" placeholder="p. ej. Marina" >
             </label>
             <div class="grid grid-cols-2 gap-3">
               <label class="block"><span class="wl">Nº propiedades</span>
-                <input v-model.number="cfg.limit" type="number" min="1" max="24" class="wi" />
+                <input v-model.number="cfg.limit" type="number" min="1" max="24" class="wi" >
               </label>
               <label v-if="cfg.widget === 'grid'" class="block"><span class="wl">Columnas</span>
                 <select v-model.number="cfg.cols" class="wi"><option :value="1">1</option><option :value="2">2</option><option :value="3">3</option><option :value="4">4</option></select>
@@ -67,21 +67,21 @@
             </div>
             <label class="block"><span class="wl">Color de acento</span>
               <div class="flex items-center gap-2">
-                <input v-model="cfg.accent" type="color" class="h-10 w-12 cursor-pointer rounded-lg border border-line" />
-                <input v-model="cfg.accent" class="wi font-mono" />
+                <input v-model="cfg.accent" type="color" class="h-10 w-12 cursor-pointer rounded-lg border border-line" >
+                <input v-model="cfg.accent" class="wi font-mono" >
               </div>
             </label>
             <div class="grid grid-cols-2 gap-3">
               <label class="block"><span class="wl">Radio ({{ cfg.radius }}px)</span>
-                <input v-model.number="cfg.radius" type="range" min="0" max="28" class="w-full accent-ink" />
+                <input v-model.number="cfg.radius" type="range" min="0" max="28" class="w-full accent-ink" >
               </label>
               <label class="block"><span class="wl">Moneda</span>
                 <select v-model="cfg.currency" class="wi"><option>AED</option><option>USD</option><option>EUR</option><option>GBP</option><option>CNY</option></select>
               </label>
             </div>
             <div class="flex items-center gap-4 pt-1">
-              <label class="flex items-center gap-2 text-sm"><input v-model="cfg.header" type="checkbox" class="accent-ink" /> Cabecera</label>
-              <label class="flex items-center gap-2 text-sm"><input v-model="cfg.branding" type="checkbox" class="accent-ink" /> Marca</label>
+              <label class="flex items-center gap-2 text-sm"><input v-model="cfg.header" type="checkbox" class="accent-ink" > Cabecera</label>
+              <label class="flex items-center gap-2 text-sm"><input v-model="cfg.branding" type="checkbox" class="accent-ink" > Marca</label>
             </div>
           </div>
         </AdminPanel>
@@ -193,6 +193,11 @@ const snippet = computed(() => {
     cfg.header ? '' : 'data-header="0"',
     cfg.branding ? '' : 'data-branding="0"',
   ].filter(Boolean)
+  // An unescaped closing tag here would prematurely end this SFC's own
+  // setup block during parsing (the Vue SFC compiler locates block
+  // boundaries via HTML parsing rules, not JS syntax awareness) — do not
+  // remove the backslash below.
+  // eslint-disable-next-line no-useless-escape
   return `<script ${attrs.join('\n        ')}><\/script>`
 })
 

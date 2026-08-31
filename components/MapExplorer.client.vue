@@ -11,7 +11,7 @@
       </div>
       <p class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-stone-400">{{ t('map.poi.title', 'Cerca') }}</p>
       <label v-for="p in poiTypes" :key="p.key" class="flex cursor-pointer items-center gap-2 py-1 text-[13px]">
-        <input type="checkbox" v-model="poiOn[p.key]" class="accent-ink" @change="renderPois" />
+        <input v-model="poiOn[p.key]" type="checkbox" class="accent-ink" @change="renderPois" >
         <span class="inline-block h-2.5 w-2.5 rounded-full" :style="{ background: p.color }" />
         {{ p.label }}
       </label>

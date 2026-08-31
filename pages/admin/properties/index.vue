@@ -11,7 +11,7 @@
     <!-- Search + quick filters + view toggle -->
     <div class="mb-3 flex flex-wrap items-center gap-2">
       <div class="relative">
-        <input v-model="q" class="input !w-64 !pl-8" placeholder="Referencia, dirección, zona…" @keyup.enter="applyAndReset" />
+        <input v-model="q" class="input !w-64 !pl-8" placeholder="Referencia, dirección, zona…" @keyup.enter="applyAndReset" >
         <svg class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-350" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path stroke-linecap="round" d="m21 21-4.3-4.3" /></svg>
         <button v-if="q" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 text-stone-350 hover:text-ink" title="Limpiar búsqueda" @click="q = ''; applyAndReset()">
           <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="m18 6-12 12M6 6l12 12" /></svg>
@@ -52,43 +52,43 @@
     <div v-if="filtersOpen" class="card mb-3 grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
       <label class="block">
         <span class="label">Precio mínimo</span>
-        <input v-model.number="priceMin" type="number" class="input" placeholder="0" />
+        <input v-model.number="priceMin" type="number" class="input" placeholder="0" >
       </label>
       <label class="block">
         <span class="label">Precio máximo</span>
-        <input v-model.number="priceMax" type="number" class="input" placeholder="Sin límite" />
+        <input v-model.number="priceMax" type="number" class="input" placeholder="Sin límite" >
       </label>
       <label class="block">
         <span class="label">País</span>
-        <input v-model="country" class="input" />
+        <input v-model="country" class="input" >
       </label>
       <label class="block">
         <span class="label">Localidad</span>
-        <input v-model="city" class="input" />
+        <input v-model="city" class="input" >
       </label>
       <label class="block">
         <span class="label">Distrito</span>
-        <input v-model="district" class="input" />
+        <input v-model="district" class="input" >
       </label>
       <label class="block">
         <span class="label">Código postal</span>
-        <input v-model="postalCode" class="input" />
+        <input v-model="postalCode" class="input" >
       </label>
       <label class="block">
         <span class="label">Habitaciones (mín.)</span>
-        <input v-model.number="bedroomsMin" type="number" min="0" class="input" />
+        <input v-model.number="bedroomsMin" type="number" min="0" class="input" >
       </label>
       <label class="block">
         <span class="label">Baños (mín.)</span>
-        <input v-model.number="bathroomsMin" type="number" min="0" class="input" />
+        <input v-model.number="bathroomsMin" type="number" min="0" class="input" >
       </label>
       <label class="block">
         <span class="label">Superficie mín. (m²)</span>
-        <input v-model.number="areaMin" type="number" class="input" />
+        <input v-model.number="areaMin" type="number" class="input" >
       </label>
       <label class="block">
         <span class="label">Superficie máx. (m²)</span>
-        <input v-model.number="areaMax" type="number" class="input" />
+        <input v-model.number="areaMax" type="number" class="input" >
       </label>
       <div class="col-span-full flex items-center gap-3">
         <button type="button" class="btn-primary !px-4 !py-2" @click="applyAndReset">Aplicar filtros</button>
@@ -133,7 +133,7 @@
           <tr v-for="p in data.rows" :key="p.id" class="border-t border-line hover:bg-stone-50">
             <td class="px-4 py-3">
               <NuxtLink :to="`/admin/properties/${p.id}`" class="flex items-center gap-2.5">
-                <img v-if="p.mainImage" :src="mediaUrl(p.mainImage)" class="h-9 w-9 shrink-0 rounded object-cover" />
+                <img v-if="p.mainImage" :src="mediaUrl(p.mainImage)" class="h-9 w-9 shrink-0 rounded object-cover" >
                 <span v-else class="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-stone-100 text-sm">🏠</span>
                 <span class="min-w-0">
                   <span class="block truncate font-medium text-ink">{{ p.propertyType || 'Vivienda' }}</span>
@@ -211,7 +211,9 @@ function setView(v: 'list' | 'grid') {
   view.value = v
   try {
     localStorage.setItem('sa-admin-properties-view', v)
-  } catch {}
+  } catch {
+    // Private browsing / storage quota — the view preference just won't persist.
+  }
 }
 
 const advancedCount = computed(() =>

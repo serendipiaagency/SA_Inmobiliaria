@@ -32,7 +32,7 @@ async function resolveOrgEmailIdentity(db: any, organizationId: number): Promise
   const companyName = org?.companyName || org?.name || PLATFORM_DEFAULT_FROM_NAME
   const senderName = org?.emailSenderName || companyName
   const senderAddress = org?.emailSenderAddress || PLATFORM_DEFAULT_FROM_ADDRESS
-  let internalRecipients: string[] = []
+  let internalRecipients: string[]
   try {
     internalRecipients = JSON.parse(org?.emailInternalRecipientsJson || '[]')
   } catch {

@@ -1,0 +1,64 @@
+# Local dev secrets/vars for `wrangler dev` (this is a Cloudflare Worker, not
+# a plain Node app — there's no Nuxt runtimeConfig/process.env in play here;
+# every value below is read off event.context.cloudflare.env, via cfEnv() in
+# server/utils/db.ts). Copy this file to `.dev.vars` (gitignored) and fill in
+# whatever you're actually testing locally — none of these are required to
+# run the app: every integration below degrades to an honest "not
+# connected"/"not configured" response when its key is absent, never a fake
+# success. See docs/production-hardening-audit.md, P2.
+#
+# The D1 (`DB`) and R2 (`MEDIA`) bindings are NOT env vars — they're
+# resource bindings declared in wrangler.toml, emulated locally by
+# `wrangler dev` automatically. Nothing to set here for those.
+#
+# In production/staging, every secret below is set with
+# `wrangler secret put <NAME> [--env staging]` — never written to
+# wrangler.toml. SESSION_TTL_DAYS and PRIMARY_DOMAIN are the two exceptions:
+# they're plain (non-secret) values that DO live in wrangler.toml's [vars].
+
+# --- Sessions / tenancy (both optional — see wrangler.toml [vars] for the defaults actually deployed) ---
+# SESSION_TTL_DAYS=7
+# PRIMARY_DOMAIN=
+
+# --- Stripe (server/utils/stripe.ts, server/api/stripe/webhook.post.ts) ---
+# STRIPE_SECRET_KEY=
+# STRIPE_WEBHOOK_SECRET=
+
+# --- Resend (server/utils/email/resendClient.ts, server/api/resend/webhook.post.ts) ---
+# RESEND_API_KEY=
+# RESEND_WEBHOOK_SECRET=
+
+# --- AI content generation (server/utils/ai.ts) — Anthropic Claude ---
+# AI_API_KEY=
+# AI_MODEL=claude-3-5-haiku-latest
+
+# --- Error alerting (server/plugins/error-logging.ts) — Slack/Discord-compatible incoming webhook ---
+# ERROR_ALERT_WEBHOOK_URL=
+
+# --- Per-org publication channel credential encryption (server/utils/publication/credentials.ts) ---
+# Only needed to test saving/reading an org's own channel credentials locally.
+# CHANNEL_CREDENTIALS_ENCRYPTION_KEY=
+
+# --- Publication Scheduler channel secrets (server/utils/publication/channels.ts) ---
+# None of these 19 channels has a real adapter implemented yet — setting
+# these only affects the "Conectado" badge in the admin UI, not real
+# publishing. Uncomment only what you're testing.
+# CHANNEL_MARKETPLACE_TOKEN=
+# CHANNEL_OWN_WEB_TOKEN=
+# CHANNEL_IDEALISTA_API_KEY=
+# CHANNEL_FOTOCASA_API_KEY=
+# CHANNEL_HABITACLIA_API_KEY=
+# CHANNEL_YAENCONTRE_API_KEY=
+# CHANNEL_PISOSCOM_API_KEY=
+# CHANNEL_KYERO_API_KEY=
+# CHANNEL_JAMESEDITION_API_KEY=
+# CHANNEL_RIGHTMOVE_API_KEY=
+# CHANNEL_GOOGLE_BUSINESS_TOKEN=
+# CHANNEL_FACEBOOK_TOKEN=
+# CHANNEL_INSTAGRAM_TOKEN=
+# CHANNEL_LINKEDIN_TOKEN=
+# CHANNEL_PINTEREST_TOKEN=
+# CHANNEL_TIKTOK_TOKEN=
+# CHANNEL_NEWSLETTER_API_KEY=
+# CHANNEL_WHATSAPP_TOKEN=
+# CHANNEL_TELEGRAM_BOT_TOKEN=

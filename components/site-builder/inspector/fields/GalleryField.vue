@@ -15,7 +15,7 @@
         @dragleave="dragOver === i && (dragOver = null)"
         @drop="onDrop(i)"
       >
-        <img :src="mediaUrl(img)" class="h-full w-full object-cover" loading="lazy" />
+        <img :src="mediaUrl(img)" class="h-full w-full object-cover" loading="lazy" >
         <button
           type="button"
           class="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition hover:bg-red-600 group-hover:opacity-100"
@@ -30,7 +30,7 @@
       <label class="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-line text-stone-400 transition hover:border-ink hover:text-ink">
         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" /></svg>
         <span class="text-[10px] font-semibold">Añadir</span>
-        <input type="file" accept="image/*" class="hidden" @change="onUpload" />
+        <input type="file" accept="image/*" class="hidden" @change="onUpload" >
       </label>
     </div>
     <div class="mt-1.5 flex items-center gap-3">

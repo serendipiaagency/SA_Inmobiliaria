@@ -106,6 +106,7 @@ const router = useRouter()
 const route = useRoute()
 const { initials } = useDash()
 const open = ref(false)
+const isSuperAdmin = computed(() => user.value?.role === 'super_admin')
 
 const icons: Record<string, string> = {
   grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
@@ -241,7 +242,6 @@ const nav: { label: string; items: NavItem[] }[] = [
   },
 ]
 
-const isSuperAdmin = computed(() => user.value?.role === 'super_admin')
 if (isSuperAdmin.value) {
   nav[nav.length - 1].items.push({ label: 'Empresas', to: '/admin/organizations', icon: 'store' })
   // Platform-wide incident log (server/plugins/error-logging.ts) — ops
@@ -254,24 +254,55 @@ const orgs = ref<{ id: number; name: string }[]>([])
 const activeOrgId = ref<number | null>(null)
 const activeOrgCookie = useCookie<string | null>('sa_active_org')
 
-const { data: orgInfo } = await useFetch<any>('/api/admin/active-org-info')
-// Org's own custom domain (server/utils/domain.ts) is where "/" resolves to
-// its real-estate portal home (see server/api/public/tenant.get.ts) — with
-// no domain configured there's no public URL to preview.
-const publicSiteUrl = computed(() => (orgInfo.value?.domain ? `https://${orgInfo.value.domain}/` : null))
+// useRequestFetch (not plain $fetch) forwards the incoming request's cookies
+// during SSR — see composables/useAuth.ts's refresh() for the same pattern.
+// Without it, this call runs unauthenticated during the server-side bootstrap
+// below (a fresh super_admin session with no sa_active_org cookie yet), gets
+// a 401 from /api/admin/active-org, and crashes the whole page's SSR render.
+async function persistActiveOrg(orgId: number) {
+  const req = useRequestFetch()
+  await req('/api/admin/active-org', { method: 'POST', body: { orgId } })
+  activeOrgCookie.value = String(orgId)
+}
 
 if (isSuperAdmin.value) {
   const { data } = await useFetch<{ rows: { id: number; name: string }[] }>('/api/admin/organizations', {
     query: { perPage: 100 },
   })
   orgs.value = data.value?.rows || []
-  activeOrgId.value = Number(activeOrgCookie.value) || orgs.value[0]?.id || null
+  const cookieOrgId = Number(activeOrgCookie.value)
+  const cookieValid = Number.isInteger(cookieOrgId) && cookieOrgId > 0 && orgs.value.some((org) => org.id === cookieOrgId)
+  if (cookieValid) {
+    activeOrgId.value = cookieOrgId
+  } else {
+    // A super_admin with no organization picked yet (fresh session, or a
+    // stale cookie pointing at a deleted org): server/utils/auth.ts's
+    // resolveActiveOrgId() would itself fall back to a real, DB-verified
+    // organization rather than a hardcoded id, but that fallback is silent
+    // — the switcher UI and the cookie would disagree with what the server
+    // is actually using. Auto-select and persist the same organization
+    // that fallback would pick here too — its lowest id, NOT `orgs.value[0]`
+    // (this list comes back newest-first, `ORDER BY id DESC`, the opposite
+    // order) — so what the human sees always matches what every org-scoped
+    // request below (active-org-info, dashboard widgets...) resolves to,
+    // same outcome a manual pick would have.
+    const lowestIdOrg = orgs.value.reduce<{ id: number; name: string } | null>((min, org) => (min === null || org.id < min.id ? org : min), null)
+    if (lowestIdOrg) {
+      activeOrgId.value = lowestIdOrg.id
+      await persistActiveOrg(activeOrgId.value)
+    }
+  }
 }
+
+const { data: orgInfo } = await useFetch<any>('/api/admin/active-org-info')
+// Org's own custom domain (server/utils/domain.ts) is where "/" resolves to
+// its real-estate portal home (see server/api/public/tenant.get.ts) — with
+// no domain configured there's no public URL to preview.
+const publicSiteUrl = computed(() => (orgInfo.value?.domain ? `https://${orgInfo.value.domain}/` : null))
 
 async function switchOrg() {
   if (!activeOrgId.value) return
-  await $fetch('/api/admin/active-org', { method: 'POST', body: { orgId: activeOrgId.value } })
-  activeOrgCookie.value = String(activeOrgId.value)
+  await persistActiveOrg(activeOrgId.value)
   router.go(0) // reload so every already-fetched page re-queries under the new org
 }
 

@@ -30,9 +30,11 @@ function expectCrossTenantDenied(status: number, what: string) {
 }
 
 /**
- * `agents.email` and `developers.email` are UNIQUE, and the local D1 behind
- * `npm run test:e2e` persists between runs — so fixture identifiers are
- * suffixed per run, the same reason the appointments spec randomizes its slots.
+ * `agents.email` and `developers.email` are UNIQUE per tenant (migration
+ * 0053), and the local D1 behind `npm run test:e2e` persists between runs —
+ * this fixture always reuses the same seeded tenant, so its own emails
+ * would still collide with a previous run's leftover rows without the
+ * suffix. Same reason the appointments spec randomizes its slots.
  */
 const RUN = `${Date.now()}-${Math.floor(Math.random() * 1000)}`
 const PROJECT_NAME = `Skyline Secret Tower ${RUN}`

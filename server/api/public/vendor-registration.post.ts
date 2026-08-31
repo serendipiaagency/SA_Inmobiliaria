@@ -1,4 +1,4 @@
-import { useDb, schema, now } from '../../utils/db'
+import { useDb, schema, now, resolvePublicOrgId } from '../../utils/db'
 import { rateLimit } from '../../utils/rateLimit'
 import { requireValidEmail } from '../../utils/validate'
 
@@ -11,7 +11,9 @@ export default defineEventHandler(async (event) => {
   }
   const email = requireValidEmail(body.email)
   const db = useDb(event)
+  const orgId = resolvePublicOrgId(event)
   await db.insert(schema.information).values({
+    organizationId: orgId,
     name: String(body.name).slice(0, 200),
     email,
     phoneNumber: body.phone_number ? String(body.phone_number).slice(0, 50) : null,

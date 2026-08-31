@@ -12,7 +12,7 @@
     <div v-else class="overflow-hidden rounded-xl border border-line">
       <div class="h-20 bg-gradient-to-br from-stone-700 via-stone-800 to-ink" />
       <div class="-mt-8 px-4">
-        <img v-if="form.image" :src="mediaUrl(form.image)" class="h-16 w-16 rounded-full border-4 border-white object-cover shadow" />
+        <img v-if="form.image" :src="mediaUrl(form.image)" class="h-16 w-16 rounded-full border-4 border-white object-cover shadow" >
         <span v-else class="flex h-16 w-16 items-center justify-center rounded-full border-4 border-white bg-stone-100 text-lg font-semibold text-stone-400 shadow">{{ initials }}</span>
       </div>
       <div class="px-4 pb-4 pt-2">

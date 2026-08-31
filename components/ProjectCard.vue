@@ -15,7 +15,7 @@
           class="h-full w-full object-cover transition-transform duration-[1200ms] ease-out"
           :class="{ 'scale-105': hovering }"
           loading="lazy"
-        />
+        >
       </div>
       <!-- Hover video (only when the listing has a real showcase clip attached) -->
       <video

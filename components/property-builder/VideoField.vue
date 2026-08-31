@@ -10,11 +10,11 @@
     </div>
 
     <div v-if="mode === 'url'">
-      <input v-model="urlDraft" type="url" class="input" placeholder="YouTube, Vimeo o enlace directo .mp4" @change="applyUrl" />
+      <input v-model="urlDraft" type="url" class="input" placeholder="YouTube, Vimeo o enlace directo .mp4" @change="applyUrl" >
       <p class="mt-1 text-[11px] text-stone-400">Al guardar una URL se sustituye cualquier vídeo subido anteriormente.</p>
     </div>
     <div v-else>
-      <input type="file" accept="video/mp4,video/webm" class="block w-full text-xs text-stone-500" @change="onUpload" />
+      <input type="file" accept="video/mp4,video/webm" class="block w-full text-xs text-stone-500" @change="onUpload" >
       <p class="mt-1 text-[11px] text-stone-400">MP4 o WebM, hasta 100&nbsp;MB. Al subir un archivo se sustituye cualquier URL guardada.</p>
       <div v-if="uploading" class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
         <div class="h-full bg-ink transition-all" :style="{ width: uploadProgress + '%' }" />
@@ -77,7 +77,25 @@ const uploading = ref(false)
 const uploadProgress = ref(0)
 const uploadError = ref('')
 
-function onUpload(e: Event) {
+interface InitResponse {
+  uploadId: string
+  key: string
+  partMaxBytes: number
+}
+interface PartResponse {
+  partNumber: number
+  etag: string
+}
+
+// Chunked, direct-to-R2 upload (P1-8) — a single request holding the whole
+// file (up to 100MB) in memory is exactly what this replaces. The file is
+// sliced client-side into parts (server dictates the size via `init`'s
+// partMaxBytes) and PUT one at a time to
+// /api/admin/upload/multipart/:uploadId/part, then assembled server-side by
+// /complete. Progress is coarser than the old XHR-per-byte version (one
+// step per part, not per byte) — a fair trade for a request that no longer
+// risks the Worker's own memory limit.
+async function onUpload(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
@@ -85,42 +103,40 @@ function onUpload(e: Event) {
   uploadProgress.value = 0
   uploadError.value = ''
 
-  const fd = new FormData()
-  fd.append('file', file)
-  fd.append('folder', props.uploadFolder)
-  fd.append('kind', 'video')
+  let uploadId: string | null = null
+  try {
+    const init = await $fetch<InitResponse>('/api/admin/upload/multipart/init', {
+      method: 'POST',
+      body: { folder: props.uploadFolder, mimeType: file.type, filename: file.name, sizeBytes: file.size },
+    })
+    uploadId = init.uploadId
 
-  // XMLHttpRequest, not $fetch — it's the one that exposes upload progress
-  // events, which a multi-minute 100 MB upload genuinely needs.
-  const xhr = new XMLHttpRequest()
-  xhr.open('POST', '/api/admin/upload')
-  xhr.upload.onprogress = (ev) => {
-    if (ev.lengthComputable) uploadProgress.value = Math.round((ev.loaded / ev.total) * 100)
-  }
-  xhr.onload = () => {
-    uploading.value = false
-    input.value = ''
-    if (xhr.status >= 200 && xhr.status < 300) {
-      try {
-        const res = JSON.parse(xhr.responseText)
-        mode.value = 'upload'
-        emit('update:modelValue', res.key)
-      } catch {
-        uploadError.value = 'Respuesta inesperada del servidor.'
-      }
-    } else {
-      try {
-        uploadError.value = JSON.parse(xhr.responseText)?.statusMessage || `No se pudo subir el vídeo (${xhr.status})`
-      } catch {
-        uploadError.value = `No se pudo subir el vídeo (${xhr.status})`
-      }
+    const totalParts = Math.max(1, Math.ceil(file.size / init.partMaxBytes))
+    const parts: PartResponse[] = []
+    for (let i = 0; i < totalParts; i++) {
+      const start = i * init.partMaxBytes
+      const chunk = file.slice(start, Math.min(start + init.partMaxBytes, file.size))
+      const part = await $fetch<PartResponse>(`/api/admin/upload/multipart/${init.uploadId}/part`, {
+        method: 'PUT',
+        query: { partNumber: i + 1 },
+        body: chunk,
+      })
+      parts.push(part)
+      uploadProgress.value = Math.round(((i + 1) / totalParts) * 100)
     }
-  }
-  xhr.onerror = () => {
+
+    const done = await $fetch<{ key: string; url: string }>(`/api/admin/upload/multipart/${init.uploadId}/complete`, {
+      method: 'POST',
+      body: { parts },
+    })
+    mode.value = 'upload'
+    emit('update:modelValue', done.key)
+  } catch (err: any) {
+    uploadError.value = err?.data?.statusMessage || err?.statusMessage || 'No se pudo subir el vídeo — revisa tu conexión.'
+    if (uploadId) $fetch(`/api/admin/upload/multipart/${uploadId}/abort`, { method: 'POST' }).catch(() => {})
+  } finally {
     uploading.value = false
     input.value = ''
-    uploadError.value = 'No se pudo subir el vídeo — revisa tu conexión.'
   }
-  xhr.send(fd)
 }
 </script>

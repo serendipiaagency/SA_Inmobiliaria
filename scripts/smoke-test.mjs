@@ -47,6 +47,8 @@ function expectStatus(res, ...allowed) {
 async function main() {
   console.log(`Smoke tests contra ${BASE_URL}\n`)
 
+  await check('Health: liveness', '/api/health/live', (res) => expectStatus(res, 200))
+  await check('Health: readiness (D1 + R2 alcanzables)', '/api/health/ready', (res) => expectStatus(res, 200))
   await check('Home', '/', (res) => expectStatus(res, 200))
   await check('Login de administración carga', '/admin/login', (res) => expectStatus(res, 200))
   await check('Catálogo de propiedades carga', '/propiedades', (res) => expectStatus(res, 200))

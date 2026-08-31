@@ -14,7 +14,7 @@
           @dragleave="dragOverIndex === i && (dragOverIndex = null)"
           @drop="onDrop(i)"
         >
-          <img :src="mediaUrl(row.image)" class="h-full w-full object-cover" loading="lazy" :class="dragFrom === i ? 'opacity-40' : ''" />
+          <img :src="mediaUrl(row.image)" class="h-full w-full object-cover" loading="lazy" :class="dragFrom === i ? 'opacity-40' : ''" >
           <span v-if="row.image === coverValue" class="absolute left-1.5 top-1.5 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold text-white">Portada</span>
           <div class="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition group-hover:opacity-100">
             <button
@@ -35,7 +35,7 @@
         <label class="flex aspect-[4/3] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-line text-stone-400 transition hover:border-ink hover:text-ink">
           <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" /></svg>
           <span class="text-[11px] font-semibold">Añadir imagen</span>
-          <input type="file" accept="image/*" class="hidden" @change="add($event)" />
+          <input type="file" accept="image/*" class="hidden" @change="add($event)" >
         </label>
       </div>
       <p v-if="uploading" class="mt-2 text-[11px] text-stone-400">Subiendo…</p>

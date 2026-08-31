@@ -22,7 +22,7 @@
           <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold" :class="article.status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'">{{ article.status }}</span>
           <h1 class="mt-3 font-serif text-3xl">{{ article.title }}</h1>
           <p v-if="article.excerpt" class="mt-2 text-lg" :class="theme === 'dark' ? 'text-stone-400' : 'text-stone-500'">{{ article.excerpt }}</p>
-          <img v-if="article.coverImage" :src="mediaUrl(article.coverImage)" class="mt-6 w-full rounded-xl object-cover" />
+          <img v-if="article.coverImage" :src="mediaUrl(article.coverImage)" class="mt-6 w-full rounded-xl object-cover" >
           <CmsBlockRenderer :blocks="blocks" />
         </div>
       </div>

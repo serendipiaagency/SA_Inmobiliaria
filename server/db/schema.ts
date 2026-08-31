@@ -61,36 +61,55 @@ export const users = sqliteTable('users', {
   email: text('email').notNull().unique(),
   password: text('password').notNull(), // pbkdf2$<iterations>$<salt>$<hash>
   role: text('role').notNull().default('user'), // 'super_admin' | 'admin' | 'user'
+  // Nullable JSON array of "<area>:<action>" strings (server/utils/permissions.ts).
+  // NULL = unrestricted (full access within the org) — the default, and the
+  // only value any pre-existing account has, so this is purely additive to
+  // current behavior. super_admin always bypasses this regardless of value.
+  permissions: text('permissions'),
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })
 
 export const sessions = sqliteTable('sessions', {
-  id: text('id').primaryKey(), // random token
+  // Opaque internal id, unrelated to the session cookie's raw token — see
+  // tokenHash below. NULL only briefly impossible; always set on insert.
+  id: text('id').primaryKey(),
   userId: integer('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
   expiresAt: text('expires_at').notNull(),
   createdAt: text('created_at').notNull().default(''),
+  // SHA-256 hex of the raw session token (server/utils/auth.ts) — the raw
+  // token itself is never stored, only ever held by the client's cookie.
+  // Nullable for backward compatibility with sessions created before this
+  // column existed (migration 0052); those rows are matched via the legacy
+  // `id = token` fallback in getSessionUser() and rotated to a real hash on
+  // their next valid use.
+  tokenHash: text('token_hash'),
 })
 
 // ---------------------------------------------------------------------------
 // Agents & secondary-sale properties
 // ---------------------------------------------------------------------------
 
-export const agents = sqliteTable('agents', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
-  name: text('name').notNull(),
-  email: text('email').notNull().unique(),
-  phone: text('phone'),
-  profileImage: text('profile_image'),
-  licenseNumber: text('license_number'),
-  bio: text('bio'),
-  status: text('status').notNull().default('active'),
-  createdAt: text('created_at').notNull().default(''),
-  updatedAt: text('updated_at').notNull().default(''),
-})
+export const agents = sqliteTable(
+  'agents',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    email: text('email').notNull(),
+    phone: text('phone'),
+    profileImage: text('profile_image'),
+    licenseNumber: text('license_number'),
+    bio: text('bio'),
+    status: text('status').notNull().default('active'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  // email is scoped (organizationId, email), not globally unique — migration 0053.
+  (t) => [uniqueIndex('agents_org_email').on(t.organizationId, t.email), index('agents_org').on(t.organizationId)],
+)
 
 // slug is scoped (organizationId, slug), not globally unique — migration
 // 0042. Two unrelated agencies can both use "downtown-loft".
@@ -98,7 +117,7 @@ export const agentProperties = sqliteTable(
   'agent_properties',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    organizationId: integer('organization_id').notNull().default(1),
+    organizationId: integer('organization_id').notNull(),
     slug: text('slug'),
     location: text('location'),
     country: text('country'),
@@ -124,6 +143,33 @@ export const agentProperties = sqliteTable(
     videoUrl: text('video_url'),
     status: text('status').notNull().default('available'), // available | sold
     agentId: integer('agent_id'),
+    // --- Parity with developer_properties (added 0059) — equally applicable
+    // to a resale unit; see migrations/0059_second_hand_property_parity.sql
+    // for what was deliberately left out (off-plan/multi-unit-development-
+    // only concepts like handover dates or unit typologies).
+    yearBuilt: integer('year_built'),
+    priceOld: real('price_old'),
+    keyHighlights: text('key_highlights'),
+    orientation: text('orientation'),
+    energyRating: text('energy_rating'),
+    hasElevator: integer('has_elevator').notNull().default(0),
+    hasPool: integer('has_pool').notNull().default(0),
+    hasGarage: integer('has_garage').notNull().default(0),
+    hasTerrace: integer('has_terrace').notNull().default(0),
+    hasGarden: integer('has_garden').notNull().default(0),
+    petsAllowed: integer('pets_allowed').notNull().default(0),
+    accessible: integer('accessible').notNull().default(0),
+    isExclusive: integer('is_exclusive').notNull().default(0),
+    isReserved: integer('is_reserved').notNull().default(0),
+    hasTour: integer('has_tour').notNull().default(0),
+    rentalYield: real('rental_yield'),
+    serviceChargeAnnual: real('service_charge_annual'),
+    dronePhoto: text('drone_photo'),
+    nightPhoto: text('night_photo'),
+    beforePhoto: text('before_photo'),
+    afterPhoto: text('after_photo'),
+    aiStagedPhoto: text('ai_staged_photo'),
+    paymentPlan: text('payment_plan'), // JSON string
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
@@ -154,29 +200,51 @@ export const propertyGalleryImages = sqliteTable('property_gallery_images', {
   createdAt: text('created_at').notNull().default(''),
 })
 
+// Mirrors floor_plans (developer properties) — added 0059 so a resale unit
+// can carry its own floor plan too, following this codebase's one-table-
+// per-property-type-per-child-concept convention.
+export const agentPropertyFloorPlans = sqliteTable('agent_property_floor_plans', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  propertyId: integer('property_id')
+    .notNull()
+    .references(() => agentProperties.id, { onDelete: 'cascade' }),
+  category: text('category'),
+  unitType: text('unit_type'),
+  floorDetails: text('floor_details'),
+  sizes: text('sizes'),
+  type: text('type'),
+  image: text('image'),
+  createdAt: text('created_at').notNull().default(''),
+})
+
 // ---------------------------------------------------------------------------
 // Developers & off-plan projects
 // ---------------------------------------------------------------------------
 
-export const developers = sqliteTable('developers', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
-  name: text('name').notNull(),
-  email: text('email').unique(),
-  phone: text('phone'),
-  logo: text('logo'),
-  description: text('description'),
-  status: text('status').notNull().default('active'),
-  createdAt: text('created_at').notNull().default(''),
-  updatedAt: text('updated_at').notNull().default(''),
-})
+export const developers = sqliteTable(
+  'developers',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    email: text('email'),
+    phone: text('phone'),
+    logo: text('logo'),
+    description: text('description'),
+    status: text('status').notNull().default('active'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  // email is scoped (organizationId, email), not globally unique — migration 0053.
+  (t) => [uniqueIndex('developers_org_email').on(t.organizationId, t.email), index('developers_org').on(t.organizationId)],
+)
 
 // slug is scoped (organizationId, slug), not globally unique — migration 0042.
 export const developerProperties = sqliteTable(
   'developer_properties',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    organizationId: integer('organization_id').notNull().default(1),
+    organizationId: integer('organization_id').notNull(),
     slug: text('slug'),
     developerId: integer('developer_id')
       .notNull()
@@ -291,8 +359,36 @@ export const propertyViews = sqliteTable(
       .notNull()
       .references(() => developerProperties.id, { onDelete: 'cascade' }),
     createdAt: text('created_at').notNull(),
+    // Anonymous per-browser id (server/utils/visitor.ts) — lets
+    // view.post.ts dedupe repeat views from the same visitor within a
+    // short window instead of counting every request. Nullable: rows
+    // recorded before this column existed (migration 0055) have none.
+    visitorId: text('visitor_id'),
   },
   (t) => [index('property_views_property_created').on(t.developerPropertyId, t.createdAt)],
+)
+
+// Real per-visitor favorites (added 0055) — replaces a raw
+// developerProperties.favoriteCount counter that any script could drive
+// arbitrarily by replaying { id, on: true/false } with no identity behind
+// it (docs/production-hardening-audit.md, P1-7). One row per (org,
+// property, visitor) — favoriteCount stays as a cached aggregate, but now
+// only ever moves by ±1 per visitor, driven by a real insert/delete here.
+export const favorites = sqliteTable(
+  'favorites',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    developerPropertyId: integer('developer_property_id')
+      .notNull()
+      .references(() => developerProperties.id, { onDelete: 'cascade' }),
+    visitorId: text('visitor_id').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('favorites_org_property_visitor').on(t.organizationId, t.developerPropertyId, t.visitorId),
+    index('favorites_property').on(t.developerPropertyId),
+  ],
 )
 
 // Real Instagram/TikTok video embeds per property (added 0019) — admin
@@ -355,7 +451,7 @@ export const floorPlans = sqliteTable('floor_plans', {
 
 export const masterPlans = sqliteTable('master_plans', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
+  organizationId: integer('organization_id').notNull(),
   name: text('name').notNull(),
   image: text('image').notNull(),
   createdAt: text('created_at').notNull().default(''),
@@ -388,7 +484,7 @@ export const propertyTypes = sqliteTable('property_types', {
 
 export const locations = sqliteTable('locations', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
+  organizationId: integer('organization_id').notNull(),
   name: text('name').notNull(),
   image: text('image'),
   createdAt: text('created_at').notNull().default(''),
@@ -407,7 +503,7 @@ export const developerPropertyLocation = sqliteTable('developer_property_locatio
 
 export const amenities = sqliteTable('amenities', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
+  organizationId: integer('organization_id').notNull(),
   name: text('name').notNull(),
   logo: text('logo'),
   description: text('description'),
@@ -426,7 +522,7 @@ export const amenityDeveloperProperty = sqliteTable('amenity_developer_property'
 
 export const communities = sqliteTable('communities', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
+  organizationId: integer('organization_id').notNull(),
   name: text('name').notNull(),
   description: text('description'),
   featureDescription: text('feature_description'),
@@ -455,7 +551,7 @@ export const blogs = sqliteTable(
   'blogs',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    organizationId: integer('organization_id').notNull().default(1),
+    organizationId: integer('organization_id').notNull(),
     slug: text('slug').notNull(),
     image: text('image'),
     targetAudience: text('target_audience').notNull().default('UAE'), // UAE | International
@@ -484,10 +580,10 @@ export const teamMembers = sqliteTable(
   'team_members',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    organizationId: integer('organization_id').notNull().default(1),
+    organizationId: integer('organization_id').notNull(),
     name: text('name').notNull(),
     slug: text('slug').notNull(),
-    email: text('email').notNull().unique(),
+    email: text('email').notNull(),
     phone: text('phone'),
     position: text('position').notNull(),
     description: text('description'),
@@ -528,14 +624,19 @@ export const teamMembers = sqliteTable(
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
-  (t) => [uniqueIndex('team_members_org_slug').on(t.organizationId, t.slug), index('team_members_org').on(t.organizationId)],
+  (t) => [
+    uniqueIndex('team_members_org_slug').on(t.organizationId, t.slug),
+    // email is scoped (organizationId, email), not globally unique — migration 0053.
+    uniqueIndex('team_members_org_email').on(t.organizationId, t.email),
+    index('team_members_org').on(t.organizationId),
+  ],
 )
 
 export const teamMemberDocuments = sqliteTable(
   'team_member_documents',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    organizationId: integer('organization_id').notNull().default(1),
+    organizationId: integer('organization_id').notNull(),
     teamMemberId: integer('team_member_id').notNull(),
     fileKey: text('file_key').notNull(),
     label: text('label').notNull(),
@@ -550,7 +651,7 @@ export const teamMemberDocuments = sqliteTable(
 
 export const information = sqliteTable('information', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
+  organizationId: integer('organization_id').notNull(),
   name: text('name'),
   email: text('email'),
   phoneNumber: text('phone_number'),
@@ -567,7 +668,7 @@ export const information = sqliteTable('information', {
 
 export const visitorSubmissions = sqliteTable('visitor_submissions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
+  organizationId: integer('organization_id').notNull(),
   name: text('name').notNull(),
   email: text('email').notNull(),
   phoneNumber: text('phone_number').notNull(),
@@ -591,7 +692,7 @@ export const contactMessages = sqliteTable(
   'contact_messages',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    organizationId: integer('organization_id').notNull().default(1),
+    organizationId: integer('organization_id').notNull(),
     type: text('type').notNull().default('contact'), // contact | complaint
     name: text('name').notNull(),
     email: text('email').notNull(),
@@ -611,7 +712,7 @@ export const leads = sqliteTable(
   'leads',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    organizationId: integer('organization_id').notNull().default(1),
+    organizationId: integer('organization_id').notNull(),
     name: text('name').notNull(),
     email: text('email'),
     phone: text('phone'),
@@ -635,7 +736,7 @@ export const clients = sqliteTable(
   'clients',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    organizationId: integer('organization_id').notNull().default(1),
+    organizationId: integer('organization_id').notNull(),
     name: text('name').notNull(),
     email: text('email'),
     phone: text('phone'),
@@ -656,7 +757,7 @@ export const visits = sqliteTable(
   'visits',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    organizationId: integer('organization_id').notNull().default(1),
+    organizationId: integer('organization_id').notNull(),
     clientName: text('client_name').notNull(),
     propertyId: integer('property_id'),
     propertyName: text('property_name'),
@@ -738,7 +839,7 @@ export const reservations = sqliteTable(
   'reservations',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    organizationId: integer('organization_id').notNull().default(1),
+    organizationId: integer('organization_id').notNull(),
     reference: text('reference').notNull(),
     clientName: text('client_name').notNull(),
     propertyId: integer('property_id'),
@@ -760,8 +861,8 @@ export const invoices = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     // Added by 0038. 0021 left billing global; that made every tenant's
     // /admin/facturacion list and total every other tenant's invoices.
-    organizationId: integer('organization_id').notNull().default(1),
-    number: text('number').notNull().unique(),
+    organizationId: integer('organization_id').notNull(),
+    number: text('number').notNull(),
     clientName: text('client_name').notNull(),
     concept: text('concept'),
     amount: real('amount').notNull().default(0),
@@ -772,12 +873,17 @@ export const invoices = sqliteTable(
     paidAt: text('paid_at'),
     createdAt: text('created_at').notNull().default(''),
   },
-  (t) => [index('invoices_status').on(t.status), index('invoices_org').on(t.organizationId, t.status)],
+  (t) => [
+    index('invoices_status').on(t.status),
+    index('invoices_org').on(t.organizationId, t.status),
+    // number is scoped (organizationId, number), not globally unique — migration 0053.
+    uniqueIndex('invoices_org_number').on(t.organizationId, t.number),
+  ],
 )
 
 export const automations = sqliteTable('automations', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
+  organizationId: integer('organization_id').notNull(),
   name: text('name').notNull(),
   description: text('description'),
   trigger: text('trigger').notNull(), // lead.created | visit.completed | reservation.confirmed | ...
@@ -790,7 +896,7 @@ export const automations = sqliteTable('automations', {
 
 export const apiKeys = sqliteTable('api_keys', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  organizationId: integer('organization_id').notNull().default(1),
+  organizationId: integer('organization_id').notNull(),
   name: text('name').notNull(),
   prefix: text('prefix').notNull(), // sa_live_xxxx (shown)
   keyHash: text('key_hash').notNull(),
@@ -808,7 +914,7 @@ export const metricsDaily = sqliteTable(
   'metrics_daily',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    organizationId: integer('organization_id').notNull().default(1),
+    organizationId: integer('organization_id').notNull(),
     day: text('day').notNull(), // YYYY-MM-DD, unique per org (see metrics_daily_org_day)
     visitors: integer('visitors').notNull().default(0),
     pageviews: integer('pageviews').notNull().default(0),
@@ -1316,6 +1422,11 @@ export const errorLogs = sqliteTable(
     organizationId: integer('organization_id'),
     userId: integer('user_id'),
     createdAt: text('created_at').notNull().default(''),
+    // Correlation id (server/utils/requestId.ts, usually Cloudflare's own
+    // cf-ray) — lets an error be matched to the webhook_deliveries row
+    // its same request may have also produced. Nullable: rows recorded
+    // before this column existed (migration 0056) have none.
+    requestId: text('request_id'),
   },
   (t) => [index('error_logs_created_at').on(t.createdAt), index('error_logs_status').on(t.statusCode)],
 )
@@ -1844,12 +1955,21 @@ export const webhookDeliveries = sqliteTable(
       .references(() => webhookEndpoints.id, { onDelete: 'cascade' }),
     event: text('event').notNull(),
     payloadJson: text('payload_json').notNull(),
-    status: text('status').notNull().default('pending'), // pending | delivered | failed
+    status: text('status').notNull().default('pending'), // pending | queued | delivered | failed
     responseCode: integer('response_code'),
     errorMessage: text('error_message'),
     attempts: integer('attempts').notNull().default(0),
     createdAt: text('created_at').notNull().default(''),
     deliveredAt: text('delivered_at'),
+    // Backoff schedule for 'queued' rows — server/tasks/notifications/retry-webhook-queue.ts
+    // picks these up past this timestamp, same pattern as email_log.nextRetryAt.
+    nextRetryAt: text('next_retry_at'),
+    // Correlation id (server/utils/requestId.ts) of the request that
+    // triggered this delivery — set once at creation, not re-derived on
+    // retries (a retry is a background job, not tied to the original
+    // request). Nullable: rows recorded before this column existed
+    // (migration 0056) have none.
+    requestId: text('request_id'),
   },
   (t) => [index('webhook_deliveries_endpoint').on(t.endpointId, t.createdAt)],
 )
@@ -1905,6 +2025,36 @@ export const mediaAssets = sqliteTable(
     index('media_assets_checksum').on(t.organizationId, t.checksum),
     index('media_assets_purge').on(t.deletedAt, t.purgedAt),
   ],
+)
+
+// Tracks an in-progress R2 multipart upload (P1-8, docs/production-hardening-audit.md)
+// so a later request (uploading part N, or completing/aborting) can prove it
+// owns that `upload_id` before touching it — the R2 upload_id itself is an
+// unguessable capability, but ownership is still meant to come from a D1 row
+// everywhere else in this codebase (see buildStructuredKey's own comment),
+// not from trusting an opaque string alone. Rows are cleaned up by
+// server/tasks/system/media-lifecycle.ts once a `media_assets` row exists
+// (status='completed') or the upload is abandoned (status='aborted').
+export const mediaMultipartUploads = sqliteTable(
+  'media_multipart_uploads',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    uploadId: text('upload_id').notNull().unique(),
+    r2Key: text('r2_key').notNull(),
+    mimeType: text('mime_type').notNull(),
+    extension: text('extension').notNull(),
+    category: text('category').notNull(),
+    entityType: text('entity_type'),
+    entityId: integer('entity_id'),
+    originalFilename: text('original_filename'),
+    declaredSizeBytes: integer('declared_size_bytes').notNull(),
+    createdBy: integer('created_by'),
+    status: text('status').notNull().default('pending'), // pending | completed | aborted
+    createdAt: text('created_at').notNull().default(''),
+    completedAt: text('completed_at'),
+  },
+  (t) => [index('media_multipart_uploads_org').on(t.organizationId, t.status), index('media_multipart_uploads_stale').on(t.status, t.createdAt)],
 )
 
 // Every read of a confidential object is logged — who, when, from where, and

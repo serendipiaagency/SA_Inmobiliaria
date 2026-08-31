@@ -3,7 +3,7 @@
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
       <h1 class="text-2xl font-bold">{{ meta.label }}</h1>
       <div class="flex gap-2">
-        <input v-model="q" class="input !w-56" placeholder="Search…" @keyup.enter="page = 1" />
+        <input v-model="q" class="input !w-56" placeholder="Search…" @keyup.enter="page = 1" >
         <NuxtLink v-if="!meta.readonly" :to="`/admin/${resource}/new`" class="btn-primary">+ New</NuxtLink>
       </div>
     </div>

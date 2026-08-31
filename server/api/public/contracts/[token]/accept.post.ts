@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { useDb, schema, cfEnv, now } from '../../../../utils/db'
 import { rateLimit } from '../../../../utils/rateLimit'
 import { dispatchWebhook } from '../../../../utils/webhooks'
@@ -60,7 +60,14 @@ export default defineEventHandler(async (event) => {
     entityId: contract.id,
   })
 
-  await db
+  // Conditional on status still being 'sent' — the initial check above is
+  // only a fast-path for the common case; two concurrent submissions (a
+  // double-click, the accept form has no client-side dedup either) can
+  // both pass it before either writes. This UPDATE is the real guard: only
+  // one can flip status away from 'sent', so only one goes on to dispatch
+  // the webhook and notification below — the loser gets a clean 409
+  // instead of a second 'contract.accepted' fan-out for the same contract.
+  const [updated] = await db
     .update(schema.contracts)
     .set({
       status: 'accepted',
@@ -71,7 +78,9 @@ export default defineEventHandler(async (event) => {
       r2Key,
       updatedAt: acceptedAt,
     })
-    .where(eq(schema.contracts.id, contract.id))
+    .where(and(eq(schema.contracts.id, contract.id), eq(schema.contracts.status, 'sent')))
+    .returning({ id: schema.contracts.id })
+  if (!updated) throw createError({ statusCode: 409, statusMessage: 'Este contrato ya fue aceptado' })
 
   await dispatchWebhook(event, contract.organizationId, 'contract.accepted', { id: contract.id, title: contract.title, clientName: contract.clientName, acceptedAt })
 

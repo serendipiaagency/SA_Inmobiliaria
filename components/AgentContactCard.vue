@@ -2,7 +2,7 @@
   <div class="rounded-2xl border border-line bg-white p-8">
     <p class="eyebrow mb-5">{{ t('agentCard.eyebrow', 'Tu consultora') }}</p>
     <div class="flex items-center gap-4">
-      <img :src="mediaUrl(photo)" :alt="name" class="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-line" loading="lazy" />
+      <img :src="mediaUrl(photo)" :alt="name" class="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-line" loading="lazy" >
       <div class="min-w-0">
         <NuxtLink v-if="profileSlug" :to="`/equipo/${profileSlug}`" class="truncate font-serif text-lg font-medium leading-tight hover:underline">{{ name }}</NuxtLink>
         <p v-else class="truncate font-serif text-lg font-medium leading-tight">{{ name }}</p>

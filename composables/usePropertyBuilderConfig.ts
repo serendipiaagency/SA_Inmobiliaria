@@ -16,7 +16,7 @@
 export interface FieldSpec {
   key: string
   label: string
-  type: 'text' | 'textarea' | 'number' | 'stepper' | 'select' | 'checkbox' | 'image' | 'url' | 'json' | 'relation' | 'agent' | 'payment-plan' | 'video'
+  type: 'text' | 'textarea' | 'rich-text' | 'number' | 'stepper' | 'select' | 'checkbox' | 'image' | 'url' | 'json' | 'relation' | 'agent' | 'payment-plan' | 'video'
   options?: string[]
   /** For type 'relation': the admin resource to fetch options from. */
   relationResource?: string
@@ -26,6 +26,8 @@ export interface FieldSpec {
   required?: boolean
   /** Not required to save, but counted (with required fields) toward the completion progress — unlike a plain optional field. */
   recommended?: boolean
+  /** Visual subheading a 'fields' section groups this field under (e.g. "Identificación", "Equipamiento"). Consecutive fields sharing the same group render together under one heading — see groupFields(). Omit for a field that isn't part of a named group. */
+  group?: string
 }
 
 interface BaseSection {
@@ -76,6 +78,25 @@ export interface TranslationsSection extends BaseSection {
 
 export type BuilderSection = FieldsSection | LocationSection | GallerySection | ChildTableSection | SocialSection | TranslationsSection
 
+/**
+ * Splits a section's fields into visual subsections by their `group` label,
+ * preserving field order — a run of consecutive fields sharing the same
+ * `group` becomes one subsection with a heading; a field with no `group`
+ * renders on its own with no heading. Fields aren't reordered or
+ * deduplicated by group name, so declare a group's fields together in the
+ * section's array.
+ */
+export function groupFields(fields: FieldSpec[]): { label: string | null; fields: FieldSpec[] }[] {
+  const groups: { label: string | null; fields: FieldSpec[] }[] = []
+  for (const f of fields) {
+    const label = f.group ?? null
+    const last = groups[groups.length - 1]
+    if (last && last.label === label) last.fields.push(f)
+    else groups.push({ label, fields: [f] })
+  }
+  return groups
+}
+
 const PROPERTY_TYPE_OPTIONS = ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio']
 const ORIENTATION_OPTIONS = ['N', 'S', 'E', 'W', 'SE', 'SW', 'NE', 'NW']
 const ENERGY_OPTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
@@ -89,12 +110,12 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Completa los datos principales de la propiedad.',
       kind: 'fields',
       fields: [
-        { key: 'name', label: 'Nombre', type: 'text', required: true, span: 2 },
-        { key: 'slug', label: 'Slug', type: 'text', hint: 'Se genera solo si lo dejas vacío.' },
-        { key: 'developerId', label: 'Promotora', type: 'relation', relationResource: 'developers', required: true },
-        { key: 'status', label: 'Estado', type: 'select', options: ['new', 'under_construction', 'ready'] },
-        { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS },
-        { key: 'yearBuilt', label: 'Año de construcción', type: 'number' },
+        { key: 'name', label: 'Nombre', type: 'text', required: true, span: 2, group: 'Identificación' },
+        { key: 'slug', label: 'Slug', type: 'text', hint: 'Se genera solo si lo dejas vacío.', group: 'Identificación' },
+        { key: 'developerId', label: 'Promotora', type: 'relation', relationResource: 'developers', required: true, group: 'Clasificación' },
+        { key: 'status', label: 'Estado', type: 'select', options: ['new', 'under_construction', 'ready'], group: 'Clasificación' },
+        { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, group: 'Clasificación' },
+        { key: 'yearBuilt', label: 'Año de construcción', type: 'number', group: 'Clasificación' },
       ],
     },
     {
@@ -126,13 +147,13 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Precio de salida, evolución y plan de pagos.',
       kind: 'fields',
       fields: [
-        { key: 'price', label: 'Precio de salida (AED)', type: 'number', required: true },
-        { key: 'priceOld', label: 'Precio anterior (AED)', type: 'number', hint: 'Para mostrar un precio tachado si ha bajado.' },
-        { key: 'handoverDate', label: 'Fecha de entrega', type: 'text' },
-        { key: 'handoverPercentage', label: '% a la entrega', type: 'text' },
-        { key: 'downPercentage', label: '% de entrada', type: 'text' },
-        { key: 'constructionPercentage', label: '% durante construcción', type: 'text' },
-        { key: 'paymentPlan', label: 'Plan de pagos', type: 'payment-plan', span: 2 },
+        { key: 'price', label: 'Precio de salida (AED)', type: 'number', required: true, group: 'Precio principal' },
+        { key: 'priceOld', label: 'Precio anterior (AED)', type: 'number', hint: 'Para mostrar un precio tachado si ha bajado.', group: 'Precio principal' },
+        { key: 'handoverDate', label: 'Fecha de entrega', type: 'text', group: 'Condiciones' },
+        { key: 'handoverPercentage', label: '% a la entrega', type: 'text', group: 'Condiciones' },
+        { key: 'downPercentage', label: '% de entrada', type: 'text', group: 'Condiciones' },
+        { key: 'constructionPercentage', label: '% durante construcción', type: 'text', group: 'Condiciones' },
+        { key: 'paymentPlan', label: 'Plan de pagos', type: 'payment-plan', span: 2, group: 'Plan de pagos' },
       ],
     },
     {
@@ -142,18 +163,18 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Distribución, superficie y equipamiento.',
       kind: 'fields',
       fields: [
-        { key: 'bedrooms', label: 'Habitaciones', type: 'stepper', recommended: true },
-        { key: 'bathrooms', label: 'Baños', type: 'stepper', recommended: true },
-        { key: 'area', label: 'Superficie (m²)', type: 'number', recommended: true },
-        { key: 'orientation', label: 'Orientación', type: 'select', options: ORIENTATION_OPTIONS },
-        { key: 'energyRating', label: 'Calificación energética', type: 'select', options: ENERGY_OPTIONS },
-        { key: 'hasElevator', label: 'Ascensor', type: 'checkbox' },
-        { key: 'hasPool', label: 'Piscina', type: 'checkbox' },
-        { key: 'hasGarage', label: 'Garaje', type: 'checkbox' },
-        { key: 'hasTerrace', label: 'Terraza', type: 'checkbox' },
-        { key: 'hasGarden', label: 'Jardín', type: 'checkbox' },
-        { key: 'petsAllowed', label: 'Se admiten mascotas', type: 'checkbox' },
-        { key: 'accessible', label: 'Accesible', type: 'checkbox' },
+        { key: 'bedrooms', label: 'Habitaciones', type: 'stepper', recommended: true, group: 'Dimensiones' },
+        { key: 'bathrooms', label: 'Baños', type: 'stepper', recommended: true, group: 'Dimensiones' },
+        { key: 'area', label: 'Superficie (m²)', type: 'number', recommended: true, group: 'Dimensiones' },
+        { key: 'orientation', label: 'Orientación', type: 'select', options: ORIENTATION_OPTIONS, group: 'Certificación' },
+        { key: 'energyRating', label: 'Calificación energética', type: 'select', options: ENERGY_OPTIONS, group: 'Certificación' },
+        { key: 'hasElevator', label: 'Ascensor', type: 'checkbox', group: 'Equipamiento' },
+        { key: 'hasPool', label: 'Piscina', type: 'checkbox', group: 'Equipamiento' },
+        { key: 'hasGarage', label: 'Garaje', type: 'checkbox', group: 'Equipamiento' },
+        { key: 'hasTerrace', label: 'Terraza', type: 'checkbox', group: 'Equipamiento' },
+        { key: 'hasGarden', label: 'Jardín', type: 'checkbox', group: 'Equipamiento' },
+        { key: 'petsAllowed', label: 'Se admiten mascotas', type: 'checkbox', group: 'Equipamiento' },
+        { key: 'accessible', label: 'Accesible', type: 'checkbox', group: 'Equipamiento' },
       ],
     },
     {
@@ -163,11 +184,11 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Contenido editorial y puntos clave para la ficha pública.',
       kind: 'fields',
       fields: [
-        { key: 'description', label: 'Descripción', type: 'textarea', span: 2, recommended: true },
-        { key: 'keyHighlights', label: 'Puntos clave', type: 'textarea', span: 2 },
-        { key: 'masterPlanDescription', label: 'Descripción del master plan', type: 'textarea', span: 2 },
-        { key: 'floorPlanDescription', label: 'Descripción de los planos', type: 'textarea', span: 2 },
-        { key: 'locationMapDescription', label: 'Descripción del mapa de ubicación', type: 'textarea', span: 2 },
+        { key: 'description', label: 'Descripción', type: 'rich-text', span: 2, recommended: true, group: 'Contenido principal' },
+        { key: 'keyHighlights', label: 'Puntos clave', type: 'textarea', span: 2, group: 'Contenido principal' },
+        { key: 'masterPlanDescription', label: 'Descripción del master plan', type: 'rich-text', span: 2, group: 'Documentación técnica' },
+        { key: 'floorPlanDescription', label: 'Descripción de los planos', type: 'rich-text', span: 2, group: 'Documentación técnica' },
+        { key: 'locationMapDescription', label: 'Descripción del mapa de ubicación', type: 'rich-text', span: 2, group: 'Documentación técnica' },
       ],
     },
     {
@@ -177,16 +198,16 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Logo, portada e imágenes destacadas del proyecto.',
       kind: 'fields',
       fields: [
-        { key: 'logo', label: 'Logo', type: 'image' },
-        { key: 'coverImage', label: 'Imagen de portada', type: 'image', recommended: true },
-        { key: 'masterPlanImage', label: 'Imagen del master plan', type: 'image' },
-        { key: 'locationMap', label: 'Mapa de ubicación', type: 'image' },
-        { key: 'videoUrl', label: 'Vídeo', type: 'video', span: 2 },
-        { key: 'dronePhoto', label: 'Foto aérea (drone)', type: 'image' },
-        { key: 'nightPhoto', label: 'Foto nocturna', type: 'image' },
-        { key: 'beforePhoto', label: 'Foto "antes"', type: 'image' },
-        { key: 'afterPhoto', label: 'Foto "después"', type: 'image' },
-        { key: 'aiStagedPhoto', label: 'Foto con staging IA', type: 'image' },
+        { key: 'logo', label: 'Logo', type: 'image', group: 'Identidad visual' },
+        { key: 'coverImage', label: 'Imagen de portada', type: 'image', recommended: true, group: 'Identidad visual' },
+        { key: 'masterPlanImage', label: 'Imagen del master plan', type: 'image', group: 'Planos y ubicación' },
+        { key: 'locationMap', label: 'Mapa de ubicación', type: 'image', group: 'Planos y ubicación' },
+        { key: 'videoUrl', label: 'Vídeo', type: 'video', span: 2, group: 'Vídeo' },
+        { key: 'dronePhoto', label: 'Foto aérea (drone)', type: 'image', group: 'Fotografía premium' },
+        { key: 'nightPhoto', label: 'Foto nocturna', type: 'image', group: 'Fotografía premium' },
+        { key: 'beforePhoto', label: 'Foto "antes"', type: 'image', group: 'Fotografía premium' },
+        { key: 'afterPhoto', label: 'Foto "después"', type: 'image', group: 'Fotografía premium' },
+        { key: 'aiStagedPhoto', label: 'Foto con staging IA', type: 'image', group: 'Fotografía premium' },
       ],
     },
     {
@@ -245,16 +266,21 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Comercial asignado, condiciones y datos de inversión.',
       kind: 'fields',
       fields: [
-        { key: 'agentId', label: 'Comercial asignado', type: 'agent' },
-        { key: 'isExclusive', label: 'Exclusiva', type: 'checkbox' },
-        { key: 'isReserved', label: 'Reservada', type: 'checkbox' },
-        { key: 'hasTour', label: 'Tiene tour virtual', type: 'checkbox' },
-        { key: 'rentalYield', label: 'Rentabilidad estimada (%)', type: 'number' },
-        { key: 'serviceChargeAnnual', label: 'Gastos de comunidad anuales (AED)', type: 'number' },
+        { key: 'agentId', label: 'Comercial asignado', type: 'agent', group: 'Comercial' },
+        { key: 'isExclusive', label: 'Exclusiva', type: 'checkbox', group: 'Inversión' },
+        { key: 'isReserved', label: 'Reservada', type: 'checkbox', group: 'Inversión' },
+        { key: 'hasTour', label: 'Tiene tour virtual', type: 'checkbox', group: 'Inversión' },
+        { key: 'rentalYield', label: 'Rentabilidad estimada (%)', type: 'number', group: 'Inversión' },
+        { key: 'serviceChargeAnnual', label: 'Gastos de comunidad anuales (AED)', type: 'number', group: 'Inversión' },
       ],
     },
   ],
 
+  // Parity with 'developer-properties' (migration 0059) — every field above
+  // that's equally applicable to a resale unit now exists here too. No
+  // 'unittypes' section: "Tipos de unidad" is a menu of typologies for a
+  // multi-unit development under construction, which doesn't apply to a
+  // single resale property — deliberately not added, not a gap.
   properties: [
     {
       key: 'info',
@@ -263,10 +289,12 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Datos principales de la vivienda.',
       kind: 'fields',
       fields: [
-        { key: 'slug', label: 'Slug', type: 'text', span: 2 },
-        { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, recommended: true },
-        { key: 'transactionType', label: 'Operación', type: 'select', options: ['sale', 'rent'], recommended: true },
-        { key: 'status', label: 'Estado', type: 'select', options: ['available', 'sold'] },
+        { key: 'slug', label: 'Slug', type: 'text', span: 2, group: 'Identificación' },
+        { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, recommended: true, group: 'Clasificación' },
+        { key: 'transactionType', label: 'Operación', type: 'select', options: ['sale', 'rent'], recommended: true, group: 'Clasificación' },
+        { key: 'status', label: 'Estado', type: 'select', options: ['available', 'sold'], group: 'Clasificación' },
+        { key: 'yearBuilt', label: 'Año de construcción', type: 'number', group: 'Clasificación' },
+        { key: 'keyHighlights', label: 'Puntos clave', type: 'textarea', span: 2, group: 'Contenido' },
       ],
     },
     {
@@ -298,18 +326,31 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       icon: 'invoice',
       description: 'Precio de venta o alquiler.',
       kind: 'fields',
-      fields: [{ key: 'price', label: 'Precio (AED)', type: 'number', required: true }],
+      fields: [
+        { key: 'price', label: 'Precio (AED)', type: 'number', required: true, group: 'Precio principal' },
+        { key: 'priceOld', label: 'Precio anterior (AED)', type: 'number', hint: 'Para mostrar un precio tachado si ha bajado.', group: 'Precio principal' },
+        { key: 'paymentPlan', label: 'Plan de pagos', type: 'payment-plan', span: 2, group: 'Plan de pagos' },
+      ],
     },
     {
       key: 'features',
       label: 'Características',
       icon: 'layers',
-      description: 'Superficie, habitaciones y baños.',
+      description: 'Superficie, habitaciones, baños y equipamiento.',
       kind: 'fields',
       fields: [
-        { key: 'area', label: 'Superficie (m²)', type: 'number', recommended: true },
-        { key: 'bedrooms', label: 'Habitaciones', type: 'stepper', recommended: true },
-        { key: 'bathrooms', label: 'Baños', type: 'stepper', recommended: true },
+        { key: 'area', label: 'Superficie (m²)', type: 'number', recommended: true, group: 'Dimensiones' },
+        { key: 'bedrooms', label: 'Habitaciones', type: 'stepper', recommended: true, group: 'Dimensiones' },
+        { key: 'bathrooms', label: 'Baños', type: 'stepper', recommended: true, group: 'Dimensiones' },
+        { key: 'orientation', label: 'Orientación', type: 'select', options: ORIENTATION_OPTIONS, group: 'Certificación' },
+        { key: 'energyRating', label: 'Calificación energética', type: 'select', options: ENERGY_OPTIONS, group: 'Certificación' },
+        { key: 'hasElevator', label: 'Ascensor', type: 'checkbox', group: 'Equipamiento' },
+        { key: 'hasPool', label: 'Piscina', type: 'checkbox', group: 'Equipamiento' },
+        { key: 'hasGarage', label: 'Garaje', type: 'checkbox', group: 'Equipamiento' },
+        { key: 'hasTerrace', label: 'Terraza', type: 'checkbox', group: 'Equipamiento' },
+        { key: 'hasGarden', label: 'Jardín', type: 'checkbox', group: 'Equipamiento' },
+        { key: 'petsAllowed', label: 'Se admiten mascotas', type: 'checkbox', group: 'Equipamiento' },
+        { key: 'accessible', label: 'Accesible', type: 'checkbox', group: 'Equipamiento' },
       ],
     },
     {
@@ -326,8 +367,13 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Imagen principal y vídeo de la vivienda.',
       kind: 'fields',
       fields: [
-        { key: 'mainImage', label: 'Imagen principal', type: 'image', recommended: true },
-        { key: 'videoUrl', label: 'Vídeo', type: 'video', span: 2 },
+        { key: 'mainImage', label: 'Imagen principal', type: 'image', recommended: true, group: 'Identidad visual' },
+        { key: 'videoUrl', label: 'Vídeo', type: 'video', span: 2, group: 'Vídeo' },
+        { key: 'dronePhoto', label: 'Foto aérea (drone)', type: 'image', group: 'Fotografía premium' },
+        { key: 'nightPhoto', label: 'Foto nocturna', type: 'image', group: 'Fotografía premium' },
+        { key: 'beforePhoto', label: 'Foto "antes"', type: 'image', group: 'Fotografía premium' },
+        { key: 'afterPhoto', label: 'Foto "después"', type: 'image', group: 'Fotografía premium' },
+        { key: 'aiStagedPhoto', label: 'Foto con staging IA', type: 'image', group: 'Fotografía premium' },
       ],
     },
     {
@@ -341,6 +387,23 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       coverField: 'mainImage',
     },
     {
+      key: 'floorplans',
+      label: 'Planos',
+      icon: 'layers',
+      description: 'Planos de la vivienda, si están disponibles.',
+      kind: 'child-table',
+      childResource: 'agent-property-floor-plans',
+      parentField: 'propertyId',
+      columns: [
+        { key: 'category', label: 'Categoría', type: 'text' },
+        { key: 'unitType', label: 'Tipo de unidad', type: 'text' },
+        { key: 'floorDetails', label: 'Detalles', type: 'text' },
+        { key: 'sizes', label: 'Tamaños', type: 'text' },
+        { key: 'type', label: 'Tipo', type: 'text' },
+        { key: 'image', label: 'Imagen', type: 'image' },
+      ],
+    },
+    {
       key: 'social',
       label: 'Redes sociales',
       icon: 'sparkles',
@@ -351,11 +414,18 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
     },
     {
       key: 'commercial',
-      label: 'Comercial',
+      label: 'Comercial / Inversión',
       icon: 'chart',
-      description: 'Comercial asignado a esta vivienda.',
+      description: 'Comercial asignado, condiciones y datos de inversión.',
       kind: 'fields',
-      fields: [{ key: 'agentId', label: 'Comercial asignado', type: 'agent', span: 2 }],
+      fields: [
+        { key: 'agentId', label: 'Comercial asignado', type: 'agent', span: 2, group: 'Comercial' },
+        { key: 'isExclusive', label: 'Exclusiva', type: 'checkbox', group: 'Inversión' },
+        { key: 'isReserved', label: 'Reservada', type: 'checkbox', group: 'Inversión' },
+        { key: 'hasTour', label: 'Tiene tour virtual', type: 'checkbox', group: 'Inversión' },
+        { key: 'rentalYield', label: 'Rentabilidad estimada (%)', type: 'number', group: 'Inversión' },
+        { key: 'serviceChargeAnnual', label: 'Gastos de comunidad anuales (AED)', type: 'number', group: 'Inversión' },
+      ],
     },
   ],
 }

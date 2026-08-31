@@ -10,7 +10,7 @@
         <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
         </svg>
-        <input v-model="query" type="search" placeholder="Busca por lo que quieres hacer (ej: “contrato”, “webhook”, “fianza”…)" class="cfg-input pl-9" />
+        <input v-model="query" type="search" placeholder="Busca por lo que quieres hacer (ej: “contrato”, “webhook”, “fianza”…)" class="cfg-input pl-9" >
       </div>
     </div>
 

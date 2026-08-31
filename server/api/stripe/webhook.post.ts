@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { cfEnv, useDb, schema } from '../../utils/db'
+import { cfEnv, useDb, schema, isUniqueConstraintError } from '../../utils/db'
 import { verifyStripeSignature, applyStripeEvent } from '../../utils/stripe'
 
 /**
@@ -57,12 +57,7 @@ export default defineEventHandler(async (event) => {
       .returning({ id: schema.stripeWebhookEvents.id })
     claimedRowId = row.id
   } catch (e: any) {
-    // D1's error surfaces as an H3Error whose own .message is a generic
-    // "Failed query: ..." — the actual SQLITE_CONSTRAINT text is one level
-    // deeper, on .cause (and possibly .cause.cause, depending on how the D1
-    // driver wraps it) — check the whole chain rather than assume a depth.
-    const chain = [e, e?.cause, e?.cause?.cause].filter(Boolean).map((x) => String(x?.message || x)).join(' | ')
-    if (chain.includes('UNIQUE constraint failed')) {
+    if (isUniqueConstraintError(e)) {
       // Stripe redelivering an event we've already recorded — acknowledge without reprocessing.
       setResponseStatus(event, 200)
       return { received: true, duplicate: true }

@@ -8,7 +8,7 @@
         </button>
       </div>
       <div class="border-b border-line px-5 py-2.5">
-        <input v-model="q" class="input" placeholder="Buscar por nombre de archivo…" @input="debouncedLoad" />
+        <input v-model="q" class="input" placeholder="Buscar por nombre de archivo…" @input="debouncedLoad" >
       </div>
       <div class="flex-1 overflow-y-auto p-5">
         <p v-if="loading" class="py-10 text-center text-sm text-stone-400">Cargando…</p>
@@ -21,7 +21,7 @@
             class="group aspect-square overflow-hidden rounded-lg border border-line bg-stone-50 transition hover:border-ink"
             @click="$emit('select', row.url)"
           >
-            <img :src="row.url" :alt="row.altText || row.filename" class="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" />
+            <img :src="row.url" :alt="row.altText || row.filename" class="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" >
           </button>
         </div>
       </div>

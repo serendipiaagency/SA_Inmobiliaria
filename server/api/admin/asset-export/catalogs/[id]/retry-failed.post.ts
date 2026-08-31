@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 import { requireOrgScope } from '../../../../../utils/auth'
-import { useDb, schema, now } from '../../../../../utils/db'
+import { useDb, schema } from '../../../../../utils/db'
 import { logAdminAction } from '../../../../../utils/audit'
 
 /**

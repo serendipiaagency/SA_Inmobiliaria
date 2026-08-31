@@ -4,17 +4,19 @@
       <p class="mb-2 text-[11px] font-bold uppercase tracking-widest text-ink">{{ tr.locale === 'en' ? 'Inglés' : 'Árabe' }}</p>
       <label class="mb-3 block">
         <span class="label">Título</span>
-        <input :value="tr.title" class="input" @input="update(tr.locale, 'title', ($event.target as HTMLInputElement).value)" />
+        <input :value="tr.title" class="input" @input="update(tr.locale, 'title', ($event.target as HTMLInputElement).value)" >
       </label>
-      <label class="block">
+      <div>
         <span class="label">Descripción</span>
-        <textarea :value="tr.description" class="input" rows="4" @input="update(tr.locale, 'description', ($event.target as HTMLTextAreaElement).value)" />
-      </label>
+        <RichTextField :model-value="tr.description" @update:model-value="(v) => update(tr.locale, 'description', v)" />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import RichTextField from './RichTextField.client.vue'
+
 interface Translation {
   locale: string
   title: string

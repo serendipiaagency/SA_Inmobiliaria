@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm'
-import { useDb, schema, now, resolvePublicOrgId, cfEnv } from '../../../../utils/db'
+import { useDb, schema, now, resolvePublicOrgId, cfEnv, isUniqueConstraintError } from '../../../../utils/db'
 import { isSlotAvailable } from '../../../../utils/appointments/availability'
 import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { dispatchWebhook } from '../../../../utils/webhooks'
@@ -93,30 +93,45 @@ export default defineEventHandler(async (event) => {
 
   const contactLine = [body.email && `Email: ${body.email}`, body.phone && `Tel: ${body.phone}`].filter(Boolean).join(' · ')
   const nowTs = now()
-  const [visit] = await db
-    .insert(schema.visits)
-    .values({
-      organizationId: orgId,
-      clientName: name,
-      propertyId,
-      propertyName,
-      agentId: agent.id,
-      agentName: agent.name,
-      scheduledAt: body.startAt,
-      durationMinutes: agent.slotDurationMinutes,
-      endsAt,
-      status: 'scheduled',
-      channel,
-      notes: [contactLine, body.notes].filter(Boolean).join('\n') || null,
-      clientEmail: body.email || null,
-      clientPhone: body.phone || null,
-      clientBudget,
-      clientInterest,
-      managementToken,
-      videoLink,
-      createdAt: nowTs,
-    })
-    .returning({ id: schema.visits.id, scheduledAt: schema.visits.scheduledAt })
+  // isSlotAvailable() above is a fast, friendly pre-check, but it's still a
+  // read followed by a separate write — two concurrent requests for the
+  // same agent/slot can both pass it before either inserts. The real guard
+  // is the database's own visits_agent_slot_unique index (migration 0050):
+  // whichever request's INSERT loses the race gets a UNIQUE constraint
+  // violation here, which is treated exactly like a slot that was already
+  // taken, rather than confirming a second, phantom booking.
+  let visit: { id: number; scheduledAt: string }
+  try {
+    ;[visit] = await db
+      .insert(schema.visits)
+      .values({
+        organizationId: orgId,
+        clientName: name,
+        propertyId,
+        propertyName,
+        agentId: agent.id,
+        agentName: agent.name,
+        scheduledAt: body.startAt,
+        durationMinutes: agent.slotDurationMinutes,
+        endsAt,
+        status: 'scheduled',
+        channel,
+        notes: [contactLine, body.notes].filter(Boolean).join('\n') || null,
+        clientEmail: body.email || null,
+        clientPhone: body.phone || null,
+        clientBudget,
+        clientInterest,
+        managementToken,
+        videoLink,
+        createdAt: nowTs,
+      })
+      .returning({ id: schema.visits.id, scheduledAt: schema.visits.scheduledAt })
+  } catch (e: any) {
+    if (isUniqueConstraintError(e)) {
+      throw createError({ statusCode: 409, statusMessage: 'Ese horario ya no está disponible, elige otro.' })
+    }
+    throw e
+  }
 
   try {
     await upsertLead(event, {

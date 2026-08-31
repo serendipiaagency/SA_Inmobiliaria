@@ -24,7 +24,7 @@
         <p class="mb-2 text-[11px] text-stone-400">Elige propiedades concretas de tu catálogo. Se resuelven en vivo — si editas una, el bloque se actualiza solo.</p>
         <div class="max-h-64 space-y-1 overflow-y-auto rounded-lg border border-line p-2">
           <label v-for="p in projects" :key="p.id" class="flex items-center gap-2 rounded px-1.5 py-1 text-[13px] hover:bg-stone-50">
-            <input type="checkbox" :checked="manualIds.includes(p.id)" @change="toggleManual(p.id, ($event.target as HTMLInputElement).checked)" />
+            <input type="checkbox" :checked="manualIds.includes(p.id)" @change="toggleManual(p.id, ($event.target as HTMLInputElement).checked)" >
             <span class="truncate">{{ p.name }}</span>
             <span class="ml-auto shrink-0 text-stone-400">{{ formatPrice(p.price) }}</span>
           </label>

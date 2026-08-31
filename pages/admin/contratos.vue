@@ -20,7 +20,7 @@
       <div class="grid gap-4 sm:grid-cols-2">
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Nombre de la plantilla</span>
-          <input v-model="templateForm.name" class="cfg-input" />
+          <input v-model="templateForm.name" class="cfg-input" >
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Tipo</span>
@@ -34,7 +34,7 @@
       </div>
       <label class="mt-4 block">
         <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Cuerpo del contrato (párrafos separados por línea en blanco)</span>
-        <textarea v-model="templateForm.bodyTemplate" rows="8" class="cfg-input font-mono text-xs"></textarea>
+        <textarea v-model="templateForm.bodyTemplate" rows="8" class="cfg-input font-mono text-xs"/>
       </label>
       <div class="mt-3 flex items-center gap-3">
         <button type="button" class="dash-btn-primary" :disabled="savingTemplate" @click="createTemplate">{{ savingTemplate ? 'Guardando…' : 'Guardar plantilla' }}</button>
@@ -60,22 +60,22 @@
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Título del contrato</span>
-          <input v-model="form.title" class="cfg-input" placeholder="Ej: Contrato de arras — Villa Azul" />
+          <input v-model="form.title" class="cfg-input" placeholder="Ej: Contrato de arras — Villa Azul" >
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Cliente</span>
-          <input v-model="form.clientName" class="cfg-input" />
+          <input v-model="form.clientName" class="cfg-input" >
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Email del cliente</span>
-          <input v-model="form.clientEmail" type="email" class="cfg-input" />
+          <input v-model="form.clientEmail" type="email" class="cfg-input" >
         </label>
       </div>
       <p class="mt-4 mb-2 text-[12px] font-medium text-stone-600">Variables adicionales (opcional)</p>
       <div class="space-y-2">
         <div v-for="(row, i) in varRows" :key="`row-${i}`" class="grid gap-2 sm:grid-cols-2">
-          <input v-model="row.key" class="cfg-input" placeholder="clave (ej: amount)" />
-          <input v-model="row.value" class="cfg-input" placeholder="valor (ej: 15.000 €)" />
+          <input v-model="row.key" class="cfg-input" placeholder="clave (ej: amount)" >
+          <input v-model="row.value" class="cfg-input" placeholder="valor (ej: 15.000 €)" >
         </div>
         <button type="button" class="text-xs font-medium text-ink hover:underline" @click="varRows.push({ key: '', value: '' })">+ Añadir variable</button>
       </div>

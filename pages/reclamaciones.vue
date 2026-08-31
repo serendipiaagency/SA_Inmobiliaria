@@ -6,19 +6,19 @@
     <form class="card mt-10 space-y-5 p-8" @submit.prevent="submit">
       <div>
         <label class="label">{{ t('complain.form.nameLabel', 'Nombre *') }}</label>
-        <input v-model="form.name" class="input" required />
+        <input v-model="form.name" class="input" required >
       </div>
       <div>
         <label class="label">{{ t('complain.form.emailLabel', 'Email *') }}</label>
-        <input v-model="form.email" type="email" class="input" required />
+        <input v-model="form.email" type="email" class="input" required >
       </div>
       <div>
         <label class="label">{{ t('complain.form.phoneLabel', 'Teléfono') }}</label>
-        <input v-model="form.phone" class="input" />
+        <input v-model="form.phone" class="input" >
       </div>
       <div>
         <label class="label">{{ t('complain.form.subjectLabel', 'Asunto') }}</label>
-        <input v-model="form.subject" class="input" />
+        <input v-model="form.subject" class="input" >
       </div>
       <div>
         <label class="label">{{ t('complain.form.messageLabel', 'Reclamación *') }}</label>

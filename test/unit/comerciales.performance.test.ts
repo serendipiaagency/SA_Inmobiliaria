@@ -53,8 +53,8 @@ describe('Comerciales — métricas de rendimiento (leads/visitas/operaciones po
       { organizationId: t.orgId, name: 'Lead de otro', source: 'web', status: 'new', agentId: otherAgent.id, createdAt: ts, updatedAt: ts },
     ])
     await db.insert(schema.visits).values([
-      { organizationId: t.orgId, clientName: 'Cliente completado A', scheduledAt: ts, status: 'completed', agentId: t.teamMemberId, createdAt: ts },
-      { organizationId: t.orgId, clientName: 'Cliente pendiente A', scheduledAt: ts, status: 'scheduled', agentId: t.teamMemberId, createdAt: ts },
+      { organizationId: t.orgId, clientName: 'Cliente completado A', scheduledAt: '2026-01-01 09:00:00', status: 'completed', agentId: t.teamMemberId, createdAt: ts },
+      { organizationId: t.orgId, clientName: 'Cliente pendiente A', scheduledAt: '2026-01-01 10:00:00', status: 'scheduled', agentId: t.teamMemberId, createdAt: ts },
       { organizationId: t.orgId, clientName: 'Cliente de otro', scheduledAt: ts, status: 'completed', agentId: otherAgent.id, createdAt: ts },
     ])
     await db.insert(schema.deals).values([

@@ -1,5 +1,11 @@
 -- Migration number: 0042    Per-tenant slug uniqueness (multi-domain hardening)
 --
+-- DESTRUCTIVE: rebuilds 4 tables (DROP + RENAME) to relax a column-level
+-- UNIQUE that SQLite/D1 can't ALTER directly — every row is copied via
+-- INSERT...SELECT into the replacement table first (ids preserved), so no
+-- data is lost. Retroactively marked for scripts/check-migrations.mjs's
+-- dangerous-migration gate; this migration already shipped and ran clean.
+--
 -- agent_properties.slug, developer_properties.slug, blogs.slug and
 -- team_members.slug were declared UNIQUE on their own since migration 0001 —
 -- a global constraint across every tenant sharing this D1 database. Two
