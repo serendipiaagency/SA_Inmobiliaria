@@ -650,8 +650,17 @@ cliente real, no solo en el servidor.
 
 ## Problemas P2 (mejoras de calidad, no urgentes)
 
-- Sin `.env.example` (no es un problema de seguridad — no se encontraron
-  secretos hardcodeados en todo el repo — pero sí de onboarding).
+- ~~Sin `.env.example` (no es un problema de seguridad — no se encontraron
+  secretos hardcodeados en todo el repo — pero sí de onboarding)~~ —
+  ✅ resuelto: `.dev.vars.example` (el nombre idiomático para
+  `wrangler dev`/`nitro-cloudflare-dev` en un Worker — no hay
+  `runtimeConfig`/`process.env` de Nuxt en juego aquí, así que `.env.example`
+  habría sido el nombre equivocado) documenta las ~30 variables/secrets
+  reales del proyecto, agrupadas y con nota de cuáles son opcionales
+  (todas menos los dos webhooks entrantes, que ya fallan con un 503 claro
+  si falta su secreto de firma). `.gitignore` ganó también una entrada para
+  `.dev.vars` (no la tenía — un `.dev.vars` real con secretos podría
+  haberse comiteado por accidente) junto al carve-out para el `.example`.
 - Sin RBAC granular más allá de `super_admin`/`admin`/`user` (el único
   sistema de permisos más fino que existe hoy es `api_keys.scopes`, solo
   para acceso de máquina vía `/api/v1/*`).

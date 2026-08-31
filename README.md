@@ -33,6 +33,11 @@ Full rewrite of the original Laravel property marketplace as a **Nuxt 3** applic
 ```bash
 npm install
 
+# Optional: copy .dev.vars.example to .dev.vars and fill in any secrets
+# you're testing locally (Stripe, Resend, AI...). Nothing here is required —
+# every integration degrades to an honest "not connected" response without it.
+cp .dev.vars.example .dev.vars
+
 # Create the local D1 database and apply migrations
 npm run db:migrate:local
 
