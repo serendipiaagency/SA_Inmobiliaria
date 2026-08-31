@@ -664,8 +664,24 @@ cliente real, no solo en el servidor.
 - Sin RBAC granular más allá de `super_admin`/`admin`/`user` (el único
   sistema de permisos más fino que existe hoy es `api_keys.scopes`, solo
   para acceso de máquina vía `/api/v1/*`).
-- Sin presupuestos de rendimiento de build ni lazy-loading auditado de
-  librerías pesadas (Leaflet, PDF, QR).
+- ~~Sin presupuestos de rendimiento de build ni lazy-loading auditado de
+  librerías pesadas (Leaflet, PDF, QR)~~ — ✅ auditado, ya estaba resuelto
+  por convención existente, no hizo falta código nuevo: `pdf-lib` y
+  `qrcode`/`jsqr` se importan exclusivamente desde `server/**` (0 bytes en
+  el bundle de cliente, verificado grepeando los 120 `.js` reales de
+  `.output/public/_nuxt`); Leaflet (+`leaflet.markercluster`) solo se
+  importa desde `LocationPicker.client.vue`/`EmbedMiniMap.client.vue`/
+  `MapExplorer.client.vue` — el sufijo `.client.vue` + el code-splitting
+  automático por ruta de Nuxt/Vite ya lo aíslan en un chunk propio
+  (~146KB) que solo descargan `/mapa`, `/embed` y la edición de recurso en
+  admin, nunca el chunk compartido que carga cada página. Sin herramienta
+  de bundle-analysis instalada (`rollup-plugin-visualizer` o similar);
+  documentado aquí como mejora futura opcional en vez de añadirla ahora
+  sin una necesidad concreta. Nota aparte, no relacionada con este punto:
+  el mismo audit encontró que la hoja de estilos de Leaflet podría no
+  cargar en `/embed` ni en la edición de recurso en admin (solo se
+  encontró en el chunk CSS de `/mapa`) — verificación pendiente, ver tarea
+  sugerida en el registro de esta sesión.
 - Sin monitorización sintética externa ni suite de carga (`k6` o
   equivalente).
 
