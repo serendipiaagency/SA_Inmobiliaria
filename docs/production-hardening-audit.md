@@ -682,8 +682,17 @@ cliente real, no solo en el servidor.
   cargar en `/embed` ni en la edición de recurso en admin (solo se
   encontró en el chunk CSS de `/mapa`) — verificación pendiente, ver tarea
   sugerida en el registro de esta sesión.
-- Sin monitorización sintética externa ni suite de carga (`k6` o
-  equivalente).
+- ~~Sin monitorización sintética externa ni suite de carga (`k6` o
+  equivalente)~~ — 🟡 código listo, bloqueado por configuración externa
+  pendiente: `scripts/load-test/k6-load-test.js` (escenarios de navegación
+  pública de solo lectura — nunca booking/captura de lead, para no
+  contaminar el entorno con datos sintéticos) + `.github/workflows/load-test.yml`
+  (`workflow_dispatch` manual únicamente, nunca automático en push/PR).
+  Documentado en `docs/load-testing.md`. **No puede ejecutarse todavía**:
+  depende de `STAGING_URL`/`PRODUCTION_URL` en los Environments de GitHub,
+  ya pendientes desde antes de esta sesión (ver "Requiere configuración
+  manual externa") — el job `preflight` del workflow falla con un mensaje
+  claro en vez de probar contra una URL vacía.
 
 ## Ya resuelto — verificado, no se reimplementa
 

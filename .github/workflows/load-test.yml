@@ -1,0 +1,61 @@
+name: Load test (k6)
+
+# Manual only — this never runs on push/PR. A load test generates real
+# traffic against a real deployed environment; it must be a deliberate
+# action, never a side effect of a commit. See scripts/load-test/k6-load-test.js
+# for what it actually exercises (read-only public browsing routes only —
+# no booking/lead-capture writes).
+#
+# BLOCKED today: the 'environment' input below resolves to the 'staging' or
+# 'production' GitHub Environment, whose STAGING_URL/PRODUCTION_URL
+# variables are not configured yet (docs/production-hardening-audit.md,
+# "Requiere configuración manual externa") — this workflow is ready to use
+# the moment those exist; the preflight step below fails with a clear
+# message until then, same pattern as staging-preflight/production-preflight
+# in ci.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Which environment to load-test'
+        required: true
+        type: choice
+        options: [staging, production]
+        default: staging
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    outputs:
+      base_url: ${{ steps.resolve.outputs.base_url }}
+    steps:
+      - name: Resolve and verify the target URL
+        id: resolve
+        run: |
+          if [ "${{ inputs.environment }}" = "production" ]; then
+            url="${{ vars.PRODUCTION_URL }}"
+            var_name="PRODUCTION_URL"
+          else
+            url="${{ vars.STAGING_URL }}"
+            var_name="STAGING_URL"
+          fi
+          if [ -z "$url" ]; then
+            echo "::error::The '${{ inputs.environment }}' GitHub Environment variable $var_name is not set — nothing to load-test against. Set it under Settings > Environments > ${{ inputs.environment }} > Variables."
+            exit 1
+          fi
+          echo "base_url=$url" >> "$GITHUB_OUTPUT"
+          echo "Load-testing $url"
+
+  load-test:
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run k6
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: scripts/load-test/k6-load-test.js
+        env:
+          BASE_URL: ${{ needs.preflight.outputs.base_url }}

@@ -26,4 +26,11 @@ export default withNuxt({
     // New code should still prefer emit-based updates.
     'vue/no-mutating-props': 'warn',
   },
+}, {
+  // k6 (scripts/load-test/) runs in its own JS runtime with its own
+  // injected globals, not Node/browser — see docs/production-hardening-audit.md, P2.
+  files: ['scripts/load-test/**/*.js'],
+  languageOptions: {
+    globals: { __ENV: 'readonly', __VU: 'readonly', __ITER: 'readonly' },
+  },
 })
