@@ -36,7 +36,7 @@
           <div class="space-y-6 lg:sticky lg:top-32">
             <div class="overflow-hidden rounded-2xl border border-line bg-white">
               <div class="aspect-[3/4] overflow-hidden bg-stone-100">
-                <img :src="mediaUrl(data.member.image)" :alt="data.member.name" class="h-full w-full object-cover" />
+                <img :src="mediaUrl(data.member.image)" :alt="data.member.name" class="h-full w-full object-cover" >
               </div>
             </div>
             <AgentContactCard

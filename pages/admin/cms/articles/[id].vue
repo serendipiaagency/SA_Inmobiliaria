@@ -18,11 +18,11 @@
         <div class="card space-y-4 p-6">
           <div>
             <label class="label">Título *</label>
-            <input v-model="form.title" class="input" placeholder="Título del artículo" />
+            <input v-model="form.title" class="input" placeholder="Título del artículo" >
           </div>
           <div>
             <label class="label">Slug</label>
-            <input v-model="form.slug" class="input" placeholder="se-genera-automaticamente" />
+            <input v-model="form.slug" class="input" placeholder="se-genera-automaticamente" >
           </div>
           <div>
             <label class="label">Extracto</label>
@@ -31,10 +31,10 @@
           <div>
             <label class="label">Imagen de portada</label>
             <div v-if="form.coverImage" class="mb-2 flex items-center gap-3">
-              <img :src="mediaUrl(form.coverImage)" class="h-16 w-24 rounded border border-slate-200 object-cover" />
+              <img :src="mediaUrl(form.coverImage)" class="h-16 w-24 rounded border border-slate-200 object-cover" >
               <button type="button" class="text-sm text-red-600 hover:underline" @click="form.coverImage = ''">Quitar</button>
             </div>
-            <input type="file" accept="image/*" class="text-sm" @change="uploadCover" />
+            <input type="file" accept="image/*" class="text-sm" @change="uploadCover" >
           </div>
         </div>
 
@@ -62,11 +62,11 @@
           </div>
           <div v-if="form.status === 'scheduled'">
             <label class="label">Fecha de publicación</label>
-            <input v-model="form.scheduledAt" type="datetime-local" class="input" />
+            <input v-model="form.scheduledAt" type="datetime-local" class="input" >
           </div>
           <div>
             <label class="label">Fecha de caducidad (opcional)</label>
-            <input v-model="form.expiresAt" type="datetime-local" class="input" />
+            <input v-model="form.expiresAt" type="datetime-local" class="input" >
             <p class="mt-1 text-[11px] text-stone-450">Se oculta automáticamente pasada esta fecha.</p>
           </div>
           <div>

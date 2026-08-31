@@ -17,10 +17,10 @@
           <div v-for="f in logoFields" :key="f.key" class="space-y-2">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">{{ f.label }}</span>
             <div v-if="form[f.key]" class="flex items-center gap-2">
-              <img :src="mediaUrl(form[f.key])" class="h-12 w-12 rounded border border-line object-contain bg-stone-50" />
+              <img :src="mediaUrl(form[f.key])" class="h-12 w-12 rounded border border-line object-contain bg-stone-50" >
               <button type="button" class="text-xs text-red-600 hover:underline" @click="form[f.key] = ''">Quitar</button>
             </div>
-            <input type="file" accept="image/*" class="text-xs" @change="upload(f.key, $event)" />
+            <input type="file" accept="image/*" class="text-xs" @change="upload(f.key, $event)" >
             <p v-if="uploading === f.key" class="text-xs text-stone-400">Subiendo…</p>
           </div>
         </div>
@@ -31,14 +31,14 @@
           <label v-for="f in colorFields" :key="f.key" class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">{{ f.label }}</span>
             <div class="flex items-center gap-2">
-              <input v-model="form[f.key]" type="color" class="h-9 w-10 cursor-pointer rounded-lg border border-line" />
-              <input v-model="form[f.key]" class="cfg-input font-mono" placeholder="#000000" />
+              <input v-model="form[f.key]" type="color" class="h-9 w-10 cursor-pointer rounded-lg border border-line" >
+              <input v-model="form[f.key]" class="cfg-input font-mono" placeholder="#000000" >
             </div>
           </label>
         </div>
         <label class="mt-4 block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Colores auxiliares (separados por coma)</span>
-          <input v-model="colorAccentsInput" class="cfg-input font-mono" placeholder="#B08D57, #1C1C1C" />
+          <input v-model="colorAccentsInput" class="cfg-input font-mono" placeholder="#B08D57, #1C1C1C" >
         </label>
       </AdminPanel>
 
@@ -46,7 +46,7 @@
         <div class="grid gap-4 sm:grid-cols-3">
           <label v-for="f in fontFields" :key="f.key" class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">{{ f.label }}</span>
-            <input v-model="form[f.key]" class="cfg-input" placeholder="Inter" />
+            <input v-model="form[f.key]" class="cfg-input" placeholder="Inter" >
           </label>
         </div>
       </AdminPanel>
@@ -55,7 +55,7 @@
         <div class="grid gap-4 sm:grid-cols-2">
           <label v-for="f in contactFields" :key="f.key" class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">{{ f.label }}</span>
-            <input v-model="form[f.key]" class="cfg-input" />
+            <input v-model="form[f.key]" class="cfg-input" >
           </label>
         </div>
         <label class="mt-4 block">

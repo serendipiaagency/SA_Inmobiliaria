@@ -11,7 +11,7 @@
     <div v-if="showCreate" class="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-line bg-white p-4">
       <div class="flex-1 min-w-[180px]">
         <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-stone-400">Nombre</label>
-        <input v-model="newKeyName" type="text" placeholder="p. ej. Integración web" class="w-full rounded-lg border border-line px-3 py-2 text-sm focus:border-ink focus:outline-none" @keyup.enter="createKey" />
+        <input v-model="newKeyName" type="text" placeholder="p. ej. Integración web" class="w-full rounded-lg border border-line px-3 py-2 text-sm focus:border-ink focus:outline-none" @keyup.enter="createKey" >
       </div>
       <div>
         <label class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-stone-400">Entorno</label>
@@ -49,7 +49,7 @@
               <th class="px-4 py-2.5 font-semibold">Entorno</th>
               <th class="px-4 py-2.5 font-semibold">Permisos</th>
               <th class="px-4 py-2.5 font-semibold">Último uso</th>
-              <th class="px-4 py-2.5"></th>
+              <th class="px-4 py-2.5"/>
             </tr>
           </thead>
           <tbody>

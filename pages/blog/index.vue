@@ -15,7 +15,7 @@
               :alt="b.title"
               class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
               loading="lazy"
-            />
+            >
           </div>
           <p class="eyebrow mt-5">{{ b.targetAudience }}</p>
           <h3 class="mt-2 font-serif text-2xl font-medium leading-snug group-hover:underline group-hover:underline-offset-4">

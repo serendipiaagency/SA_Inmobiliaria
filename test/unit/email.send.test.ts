@@ -63,6 +63,25 @@ describe('sendTransactionalEmail — no provider configured (real "not connected
   })
 })
 
+describe('sendTransactionalEmail — simulated provider rejection (connected, but Resend refused the send)', () => {
+  it('queues for retry with connected:true, distinct from the no-API-key "not connected" path', async () => {
+    stubFailingResend(422, 'Invalid `to` field')
+    const { db } = createTestDb()
+    const a = await seedTenant(db, 'EmailProviderRejects')
+
+    const [result] = await sendTransactionalEmail(db, { RESEND_API_KEY: 'test_key' }, { organizationId: a.orgId, template: 'lead_created', to: 'client@example.com', data: { name: 'x' } })
+    expect(result.status).toBe('queued')
+    expect(result.ok).toBe(false)
+    expect(result.connected).toBe(true)
+    expect(result.message).toBe('Invalid `to` field')
+
+    const [row] = await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, result.logId))
+    expect(row.status).toBe('queued')
+    expect(row.errorMessage).toBe('Invalid `to` field')
+    expect(row.nextRetryAt).toBeTruthy()
+  })
+})
+
 describe('sendTransactionalEmail — simulated successful provider', () => {
   it('marks the email sent and captures the provider id, never "delivered" (only the webhook does that)', async () => {
     stubSuccessfulResend('re_abc')

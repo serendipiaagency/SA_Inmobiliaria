@@ -10,11 +10,11 @@
     </div>
 
     <div v-if="mode === 'url'">
-      <input v-model="urlDraft" type="url" class="input" placeholder="YouTube, Vimeo o enlace directo .mp4" @change="applyUrl" />
+      <input v-model="urlDraft" type="url" class="input" placeholder="YouTube, Vimeo o enlace directo .mp4" @change="applyUrl" >
       <p class="mt-1 text-[11px] text-stone-400">Al guardar una URL se sustituye cualquier vídeo subido anteriormente.</p>
     </div>
     <div v-else>
-      <input type="file" accept="video/mp4,video/webm" class="block w-full text-xs text-stone-500" @change="onUpload" />
+      <input type="file" accept="video/mp4,video/webm" class="block w-full text-xs text-stone-500" @change="onUpload" >
       <p class="mt-1 text-[11px] text-stone-400">MP4 o WebM, hasta 100&nbsp;MB. Al subir un archivo se sustituye cualquier URL guardada.</p>
       <div v-if="uploading" class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-stone-100">
         <div class="h-full bg-ink transition-all" :style="{ width: uploadProgress + '%' }" />

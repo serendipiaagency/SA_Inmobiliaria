@@ -1,8 +1,8 @@
 <template>
   <div ref="root" class="cs-root" @pointerdown="onDown">
-    <img :src="afterSrc" :alt="afterLabel" class="cs-img" draggable="false" />
+    <img :src="afterSrc" :alt="afterLabel" class="cs-img" draggable="false" >
     <div class="cs-clip" :style="{ clipPath: `inset(0 ${100 - pos}% 0 0)` }">
-      <img :src="beforeSrc" :alt="beforeLabel" class="cs-img" draggable="false" />
+      <img :src="beforeSrc" :alt="beforeLabel" class="cs-img" draggable="false" >
     </div>
     <div class="cs-handle" :style="{ left: `${pos}%` }">
       <div

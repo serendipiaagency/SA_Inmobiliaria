@@ -9,7 +9,7 @@
             </button>
 
             <div class="qv-media">
-              <img :src="mediaUrl(project.coverImage)" :alt="project.name" class="h-full w-full object-cover" />
+              <img :src="mediaUrl(project.coverImage)" :alt="project.name" class="h-full w-full object-cover" >
               <div class="pointer-events-none absolute left-3 top-3 flex flex-wrap gap-1.5">
                 <span v-for="b in badges" :key="b.text" class="qv-badge" :class="b.cls">{{ b.text }}</span>
               </div>

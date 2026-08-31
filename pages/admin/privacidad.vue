@@ -7,7 +7,7 @@
 
     <AdminPanel title="Buscar por email" class="mb-6">
       <div class="flex gap-3">
-        <input v-model="email" type="email" placeholder="cliente@ejemplo.com" class="cfg-input flex-1" />
+        <input v-model="email" type="email" placeholder="cliente@ejemplo.com" class="cfg-input flex-1" >
         <button type="button" class="dash-btn-primary" :disabled="!!loading" @click="doExport">{{ loading === 'export' ? 'Exportando…' : 'Exportar datos' }}</button>
         <button type="button" class="rounded-lg border border-red-200 px-4 py-2 text-[13px] font-medium text-red-600 hover:bg-red-50 disabled:opacity-50" :disabled="!!loading" @click="confirmDelete">
           {{ loading === 'delete' ? 'Anonimizando…' : 'Anonimizar / eliminar' }}

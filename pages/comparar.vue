@@ -21,7 +21,7 @@
             <th v-for="p in rows" :key="p.id" class="p-3 align-top">
               <div class="relative">
                 <NuxtLink :to="`/propiedades/${p.slug || p.id}`">
-                  <img :src="mediaUrl(p.coverImage)" :alt="p.name" class="aspect-[4/3] w-full rounded-xl object-cover" />
+                  <img :src="mediaUrl(p.coverImage)" :alt="p.name" class="aspect-[4/3] w-full rounded-xl object-cover" >
                 </NuxtLink>
                 <button
                   class="act-remove absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-ink shadow"

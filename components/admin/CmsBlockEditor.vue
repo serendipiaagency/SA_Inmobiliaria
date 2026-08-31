@@ -36,7 +36,7 @@
             <option :value="2">H2</option>
             <option :value="3">H3</option>
           </select>
-          <input v-model="block.text" class="input mt-2" placeholder="Título de sección" />
+          <input v-model="block.text" class="input mt-2" placeholder="Título de sección" >
         </div>
 
         <!-- Paragraph -->
@@ -45,7 +45,7 @@
         <!-- Quote -->
         <div v-else-if="block.type === 'quote'" class="block-body space-y-2">
           <textarea v-model="block.text" class="input" rows="2" placeholder="Texto de la cita" />
-          <input v-model="block.author" class="input" placeholder="Autor (opcional)" />
+          <input v-model="block.author" class="input" placeholder="Autor (opcional)" >
         </div>
 
         <!-- Callout -->
@@ -60,55 +60,55 @@
 
         <!-- Divider -->
         <div v-else-if="block.type === 'divider'" class="block-body">
-          <hr class="border-line" />
+          <hr class="border-line" >
         </div>
 
         <!-- Image -->
         <div v-else-if="block.type === 'image'" class="block-body space-y-2">
           <div v-if="block.src" class="relative">
-            <img :src="mediaUrl(block.src)" class="max-h-64 w-full rounded-lg border border-line object-cover" />
+            <img :src="mediaUrl(block.src)" class="max-h-64 w-full rounded-lg border border-line object-cover" >
           </div>
-          <input type="file" accept="image/*" class="text-sm" @change="uploadInto(block, 'src', $event)" />
-          <input v-model="block.alt" class="input" placeholder="Texto alternativo (ALT) — importante para SEO" />
-          <input v-model="block.caption" class="input" placeholder="Pie de foto (opcional)" />
+          <input type="file" accept="image/*" class="text-sm" @change="uploadInto(block, 'src', $event)" >
+          <input v-model="block.alt" class="input" placeholder="Texto alternativo (ALT) — importante para SEO" >
+          <input v-model="block.caption" class="input" placeholder="Pie de foto (opcional)" >
         </div>
 
         <!-- Gallery -->
         <div v-else-if="block.type === 'gallery'" class="block-body space-y-2">
           <div class="grid grid-cols-3 gap-2">
             <div v-for="(img, gi) in block.images" :key="gi" class="relative">
-              <img :src="mediaUrl(img.src)" class="h-20 w-full rounded object-cover" />
+              <img :src="mediaUrl(img.src)" class="h-20 w-full rounded object-cover" >
               <button class="absolute right-1 top-1 rounded-full bg-white/90 px-1.5 text-xs" @click="block.images.splice(gi, 1)">✕</button>
             </div>
           </div>
-          <input type="file" accept="image/*" class="text-sm" @change="addGalleryImage(block, $event)" />
+          <input type="file" accept="image/*" class="text-sm" @change="addGalleryImage(block, $event)" >
         </div>
 
         <!-- Video / YouTube -->
         <div v-else-if="block.type === 'video'" class="block-body">
-          <input v-model="block.url" class="input" placeholder="URL de YouTube" />
+          <input v-model="block.url" class="input" placeholder="URL de YouTube" >
           <p class="mt-1 text-[11px] text-stone-450">Se incrusta automáticamente al guardar.</p>
         </div>
 
         <!-- Button / CTA -->
         <div v-else-if="block.type === 'button'" class="block-body grid gap-2 sm:grid-cols-2">
-          <input v-model="block.text" class="input" placeholder="Texto del botón" />
-          <input v-model="block.url" class="input" placeholder="https://…" />
+          <input v-model="block.text" class="input" placeholder="Texto del botón" >
+          <input v-model="block.url" class="input" placeholder="https://…" >
         </div>
 
         <div v-else-if="block.type === 'cta'" class="block-body space-y-2">
-          <input v-model="block.title" class="input" placeholder="Título de la llamada a la acción" />
+          <input v-model="block.title" class="input" placeholder="Título de la llamada a la acción" >
           <textarea v-model="block.text" class="input" rows="2" placeholder="Texto de apoyo" />
           <div class="grid grid-cols-2 gap-2">
-            <input v-model="block.buttonText" class="input" placeholder="Texto del botón" />
-            <input v-model="block.buttonUrl" class="input" placeholder="https://…" />
+            <input v-model="block.buttonText" class="input" placeholder="Texto del botón" >
+            <input v-model="block.buttonUrl" class="input" placeholder="https://…" >
           </div>
         </div>
 
         <!-- Table -->
         <div v-else-if="block.type === 'table'" class="block-body space-y-2">
           <div v-for="(row, ri) in block.rows" :key="ri" class="flex gap-1.5">
-            <input v-for="(cell, ci) in row" :key="ci" v-model="block.rows[ri][ci]" class="input !py-1 text-xs" :class="ri === 0 ? 'font-semibold' : ''" />
+            <input v-for="(cell, ci) in row" :key="ci" v-model="block.rows[ri][ci]" class="input !py-1 text-xs" :class="ri === 0 ? 'font-semibold' : ''" >
             <button class="text-red-500" @click="block.rows.splice(ri, 1)">✕</button>
           </div>
           <div class="flex gap-2 text-xs">
@@ -119,7 +119,7 @@
 
         <!-- Code -->
         <div v-else-if="block.type === 'code'" class="block-body space-y-2">
-          <input v-model="block.language" class="input !w-32" placeholder="lenguaje" />
+          <input v-model="block.language" class="input !w-32" placeholder="lenguaje" >
           <textarea v-model="block.code" class="input font-mono text-xs" rows="6" placeholder="código…" />
         </div>
 
@@ -133,7 +133,7 @@
         <div v-else-if="block.type === 'faq'" class="block-body space-y-3">
           <div v-for="(item, fi) in block.items" :key="fi" class="rounded-lg border border-line p-3">
             <div class="flex items-center gap-2">
-              <input v-model="item.q" class="input" placeholder="Pregunta" />
+              <input v-model="item.q" class="input" placeholder="Pregunta" >
               <button class="text-red-500" @click="block.items.splice(fi, 1)">✕</button>
             </div>
             <textarea v-model="item.a" class="input mt-2" rows="2" placeholder="Respuesta" />
@@ -155,13 +155,13 @@
               <option value="latest">Últimas</option>
               <option value="featured">Destacadas</option>
             </select>
-            <input v-model.number="block.limit" type="number" min="1" max="12" class="input" placeholder="Nº de propiedades" />
+            <input v-model.number="block.limit" type="number" min="1" max="12" class="input" placeholder="Nº de propiedades" >
           </div>
         </div>
 
         <!-- Dynamic: mortgage calculator (real logic, same component as property pages) -->
         <div v-else-if="block.type === 'mortgage_calculator'" class="block-body">
-          <input v-model.number="block.price" type="number" class="input" placeholder="Precio de referencia (AED)" />
+          <input v-model.number="block.price" type="number" class="input" placeholder="Precio de referencia (AED)" >
           <p class="mt-1 text-[11px] text-stone-450">Calculadora real e interactiva — el lector puede ajustar entrada y plazo.</p>
         </div>
       </div>

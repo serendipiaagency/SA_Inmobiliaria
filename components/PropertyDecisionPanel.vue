@@ -117,7 +117,7 @@
         to="/equipo/perla-maria-melgarejo"
         class="mb-6 flex items-center gap-4 rounded-xl border border-line bg-paper p-4 transition hover:border-ink hover:shadow-sm"
       >
-        <img :src="mediaUrl(agentPhoto)" :alt="agentName" class="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-white shadow" />
+        <img :src="mediaUrl(agentPhoto)" :alt="agentName" class="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-white shadow" >
         <div class="min-w-0">
           <p class="eyebrow">{{ t('decisionPanel.footer.attendedBy', 'Atendido por') }}</p>
           <p class="heading-serif mt-1 truncate text-xl leading-tight text-ink">{{ agentName }}</p>
@@ -203,7 +203,9 @@ async function doShare() {
     else await navigator.clipboard.writeText(url)
     shared.value = true
     setTimeout(() => (shared.value = false), 1600)
-  } catch {}
+  } catch {
+    // Share sheet cancelled by the user, or clipboard permission denied — not an error to surface.
+  }
 }
 function downloadPdf() {
   window.print()
@@ -245,7 +247,9 @@ const paymentRows = computed<{ label: string; value: string }[]>(() => {
   try {
     const parsed = JSON.parse(p.paymentPlan || '[]')
     if (Array.isArray(parsed) && parsed.length) return parsed.map((s: any, i: number) => ({ label: s.label || s.name || `${t('decisionPanel.price.phase', 'Fase')} ${i + 1}`, value: s.value || s.percentage || '' }))
-  } catch {}
+  } catch {
+    // Malformed paymentPlan JSON — fall through to the percentage-based rows below.
+  }
   const r = []
   if (p.downPercentage) r.push({ label: t('decisionPanel.price.downPayment', 'Entrada'), value: `${p.downPercentage}%` })
   if (p.constructionPercentage) r.push({ label: t('decisionPanel.price.duringConstruction', 'Durante obra'), value: `${p.constructionPercentage}%` })

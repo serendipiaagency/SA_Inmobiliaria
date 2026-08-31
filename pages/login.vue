@@ -4,11 +4,11 @@
     <form class="card mt-10 space-y-5 p-8" @submit.prevent="submit">
       <div>
         <label class="label" for="login-email">{{ t('login.form.emailLabel', 'Email') }}</label>
-        <input id="login-email" v-model="email" type="email" class="input" required autocomplete="email" />
+        <input id="login-email" v-model="email" type="email" class="input" required autocomplete="email" >
       </div>
       <div>
         <label class="label" for="login-password">{{ t('login.form.passwordLabel', 'Contraseña') }}</label>
-        <input id="login-password" v-model="password" type="password" class="input" required autocomplete="current-password" />
+        <input id="login-password" v-model="password" type="password" class="input" required autocomplete="current-password" >
       </div>
       <button type="submit" class="btn-primary w-full" :disabled="loading">
         {{ loading ? t('login.form.signingIn', 'Accediendo…') : t('login.form.submit', 'Acceder') }}

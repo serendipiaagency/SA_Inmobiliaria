@@ -15,7 +15,7 @@
           class="group border border-line bg-white p-8 transition hover:border-ink"
         >
           <div class="flex h-16 w-16 items-center justify-center border border-line bg-paper">
-            <img v-if="d.logo" :src="mediaUrl(d.logo)" :alt="d.name" class="max-h-12 max-w-12 object-contain" />
+            <img v-if="d.logo" :src="mediaUrl(d.logo)" :alt="d.name" class="max-h-12 max-w-12 object-contain" >
             <span v-else class="font-serif text-2xl text-stone-500">{{ d.name.charAt(0) }}</span>
           </div>
           <h3 class="mt-5 font-serif text-2xl font-medium group-hover:underline group-hover:underline-offset-4">

@@ -40,17 +40,6 @@ function money(v: number | null | undefined) {
   return v ? `AED ${new Intl.NumberFormat('en-US').format(v)}` : 'precio a consultar'
 }
 
-function facts(p: any): string[] {
-  const f: string[] = []
-  if (p.propertyType) f.push(p.propertyType)
-  if (p.bedrooms) f.push(`${p.bedrooms} habitaciones`)
-  else if (p.bedrooms === 0) f.push('estudio')
-  if (p.bathrooms) f.push(`${p.bathrooms} baños`)
-  if (p.area) f.push(`${Math.round(p.area)} m²`)
-  if (p.community) f.push(p.community)
-  return f
-}
-
 function features(p: any): string[] {
   const m: [any, string][] = [
     [p.hasPool, 'piscina'],

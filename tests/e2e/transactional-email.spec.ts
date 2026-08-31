@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
-import { STATE_A, STATE_B, TENANT_A, TENANT_B } from './global-setup'
+import { STATE_A, STATE_B, TENANT_A } from './global-setup'
 
 /**
  * Real triggers over real HTTP — no RESEND_API_KEY is configured for this

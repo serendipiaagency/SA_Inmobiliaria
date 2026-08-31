@@ -37,7 +37,7 @@
             datos — sin hojas de cálculo, sin diez herramientas sueltas.
           </p>
           <form class="lp-hero-form" @submit.prevent="submitDemo">
-            <input v-model="demoEmail" type="email" required placeholder="tu@inmobiliaria.com" class="lp-input" />
+            <input v-model="demoEmail" type="email" required placeholder="tu@inmobiliaria.com" class="lp-input" >
             <button type="submit" class="lp-btn-cta">{{ demoSent ? 'Te escribimos ✓' : 'Pedir demo' }}</button>
           </form>
           <p class="lp-hero-note">Sin tarjeta. Respuesta en menos de 24h.</p>
@@ -149,7 +149,7 @@
         <h2 class="lp-h2">¿Hablamos de tu inmobiliaria?</h2>
         <p>Te enseñamos el panel con tus propios datos de ejemplo en la primera llamada.</p>
         <form class="lp-hero-form lp-final-form" @submit.prevent="submitDemo">
-          <input v-model="demoEmail" type="email" required placeholder="tu@inmobiliaria.com" class="lp-input" />
+          <input v-model="demoEmail" type="email" required placeholder="tu@inmobiliaria.com" class="lp-input" >
           <button type="submit" class="lp-btn-cta">{{ demoSent ? 'Te escribimos ✓' : 'Pedir demo' }}</button>
         </form>
       </div>

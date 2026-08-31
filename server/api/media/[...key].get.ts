@@ -133,8 +133,8 @@ function parseRange(header: string | undefined, size: number | null): { start: n
   const match = /^bytes=(\d*)-(\d*)$/.exec(header)
   if (!match) return null
   const [, startStr, endStr] = match
-  let start = startStr ? parseInt(startStr, 10) : size - parseInt(endStr, 10)
-  let end = endStr && startStr ? parseInt(endStr, 10) : size - 1
+  const start = startStr ? parseInt(startStr, 10) : size - parseInt(endStr, 10)
+  const end = endStr && startStr ? parseInt(endStr, 10) : size - 1
   if (Number.isNaN(start) || Number.isNaN(end) || start < 0 || end >= size || start > end) return null
   return { start, end }
 }

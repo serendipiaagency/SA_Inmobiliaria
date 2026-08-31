@@ -86,7 +86,7 @@
               <div class="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-7">
                 <p class="mb-4 text-[11px] font-semibold uppercase tracking-widest text-emerald-700">{{ t('propertyDetails.aiSummary.pros', 'Lo mejor') }}</p>
                 <ul class="space-y-3">
-                  <li v-for="p in pros" :key="p" class="flex items-start gap-2.5 text-sm text-stone-700"><span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />{{ p }}</li>
+                  <li v-for="pro in pros" :key="pro" class="flex items-start gap-2.5 text-sm text-stone-700"><span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />{{ pro }}</li>
                 </ul>
               </div>
               <div class="rounded-2xl border border-amber-100 bg-amber-50/50 p-7">
@@ -190,7 +190,7 @@
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.staging.heading', 'Visualiza el potencial') }}</h2>
             <div class="mt-7 grid gap-5 sm:grid-cols-2">
               <div v-for="s in staging" :key="s.title" class="group relative overflow-hidden rounded-2xl border border-line bg-white">
-                <div class="aspect-[16/10] overflow-hidden bg-stone-100"><img :src="photos[s.i % photos.length]" class="h-full w-full object-cover transition duration-700 group-hover:scale-105" /></div>
+                <div class="aspect-[16/10] overflow-hidden bg-stone-100"><img :src="photos[s.i % photos.length]" class="h-full w-full object-cover transition duration-700 group-hover:scale-105" ></div>
                 <div class="flex items-center justify-between p-5">
                   <div><p class="font-serif text-lg font-medium">{{ s.title }}</p><p class="text-[13px] text-stone-500">{{ s.desc }}</p></div>
                   <NuxtLink to="/contacto" class="shrink-0 rounded-full bg-indigo-600 px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-white">{{ t('propertyDetails.staging.generate', 'Generar') }}</NuxtLink>
@@ -232,7 +232,7 @@
               <p class="eyebrow mb-4">{{ t('propertyDetails.developer.eyebrow', 'Promotora') }}</p>
               <div class="flex items-center gap-4">
                 <div class="flex h-14 w-14 items-center justify-center border border-line bg-paper">
-                  <img v-if="data.developer.logo" :src="mediaUrl(data.developer.logo)" class="max-h-10 object-contain" />
+                  <img v-if="data.developer.logo" :src="mediaUrl(data.developer.logo)" class="max-h-10 object-contain" >
                   <span v-else class="font-serif text-xl">{{ data.developer.name.charAt(0) }}</span>
                 </div>
                 <p class="font-serif text-lg font-medium leading-tight">{{ data.developer.name }}</p>
@@ -319,7 +319,14 @@ function doCompare() {
 const shared = ref(false)
 async function doShare() {
   const url = location.href
-  try { if (navigator.share) await navigator.share({ title: data.value!.project.name, url }); else await navigator.clipboard.writeText(url); shared.value = true; setTimeout(() => (shared.value = false), 1600) } catch {}
+  try {
+    if (navigator.share) await navigator.share({ title: data.value!.project.name, url })
+    else await navigator.clipboard.writeText(url)
+    shared.value = true
+    setTimeout(() => (shared.value = false), 1600)
+  } catch {
+    // Share sheet cancelled by the user, or clipboard permission denied — not an error to surface.
+  }
 }
 
 const photos = computed<string[]>(() => {

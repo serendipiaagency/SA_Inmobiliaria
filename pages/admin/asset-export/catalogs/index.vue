@@ -12,11 +12,11 @@
       <AdminPanel title="Nuevo catálogo">
         <label class="mb-4 block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Nombre del catálogo (opcional)</span>
-          <input v-model="form.name" class="cfg-input" placeholder="Ej. Selección Marbella verano 2026" />
+          <input v-model="form.name" class="cfg-input" placeholder="Ej. Selección Marbella verano 2026" >
         </label>
         <label class="mb-4 block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Título de portada (opcional)</span>
-          <input v-model="form.coverTitle" class="cfg-input" placeholder="Se usa el nombre del catálogo si se deja vacío" />
+          <input v-model="form.coverTitle" class="cfg-input" placeholder="Se usa el nombre del catálogo si se deja vacío" >
         </label>
         <label class="mb-4 block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Plantilla</span>
@@ -27,7 +27,7 @@
 
         <label class="mb-2 block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Buscar activos</span>
-          <input v-model="query" class="cfg-input" placeholder="Nombre de la propiedad…" @input="search" />
+          <input v-model="query" class="cfg-input" placeholder="Nombre de la propiedad…" @input="search" >
         </label>
         <ul v-if="results.length" class="mb-3 max-h-40 divide-y divide-line overflow-y-auto rounded-lg border border-line">
           <li v-for="r in results" :key="r.id" class="flex items-center justify-between px-3 py-2 text-sm">

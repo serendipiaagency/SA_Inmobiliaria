@@ -30,7 +30,7 @@
 
       <!-- Output -->
       <div class="lg:col-span-2 space-y-4">
-        <div v-for="k in kinds" :key="k.key" v-show="results[k.key]" class="rounded-2xl border border-line bg-white">
+        <div v-for="k in kinds" v-show="results[k.key]" :key="k.key" class="rounded-2xl border border-line bg-white">
           <div class="flex items-center justify-between border-b border-line px-5 py-3">
             <div class="flex items-center gap-2">
               <p class="text-[11px] font-semibold uppercase tracking-widest text-stone-500">{{ k.label }}</p>
@@ -93,7 +93,12 @@ const copied = ref('')
 const engine = ref('')
 
 watch(selectedId, () => {
+  // Clearing a reactive() object's keys in place (rather than reassigning
+  // the binding, which isn't possible for a `const reactive(...)`) is the
+  // standard Vue 3 idiom for resetting reactive state.
+  /* eslint-disable-next-line @typescript-eslint/no-dynamic-delete */
   Object.keys(results).forEach((k) => delete results[k])
+  /* eslint-disable-next-line @typescript-eslint/no-dynamic-delete */
   Object.keys(engines).forEach((k) => delete engines[k])
 })
 

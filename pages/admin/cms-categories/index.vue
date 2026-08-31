@@ -22,7 +22,7 @@
         <div class="space-y-3">
           <div>
             <label class="label">Nombre *</label>
-            <input v-model="editing.name" class="input" />
+            <input v-model="editing.name" class="input" >
           </div>
           <div>
             <label class="label">Categoría padre</label>
@@ -34,11 +34,11 @@
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="label">Color</label>
-              <input v-model="editing.color" type="color" class="input !h-10 !p-1" />
+              <input v-model="editing.color" type="color" class="input !h-10 !p-1" >
             </div>
             <div>
               <label class="label">Icono (emoji)</label>
-              <input v-model="editing.icon" class="input" placeholder="🏠" />
+              <input v-model="editing.icon" class="input" placeholder="🏠" >
             </div>
           </div>
           <div>

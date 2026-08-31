@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { useDb, schema } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
 import { attachPhotos } from '../../../utils/photos'
@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   ])
 
   const blogIds = blogs.map((b) => b.id)
-  let blogTitles: Record<number, { title: string; description: string }> = {}
+  const blogTitles: Record<number, { title: string; description: string }> = {}
   if (blogIds.length) {
     const trs = await db.select().from(schema.blogTranslations)
     for (const tr of trs) {

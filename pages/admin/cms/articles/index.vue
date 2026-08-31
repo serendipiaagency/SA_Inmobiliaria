@@ -6,7 +6,7 @@
         <p class="mt-1 text-sm text-stone-500">{{ data?.total ?? 0 }} artículo(s){{ selected.length ? ` · ${selected.length} seleccionado(s)` : '' }}</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <input v-model="q" class="input !w-52" placeholder="Buscar…" @keyup.enter="page = 1" />
+        <input v-model="q" class="input !w-52" placeholder="Buscar…" @keyup.enter="page = 1" >
         <select v-model="status" class="input !w-40">
           <option value="all">Todos los estados</option>
           <option value="draft">Borrador</option>
@@ -43,7 +43,7 @@
       <table class="w-full text-left text-sm">
         <thead class="bg-slate-50 text-xs uppercase text-slate-500">
           <tr>
-            <th class="w-10 px-4 py-3"><input type="checkbox" :checked="allSelected" @change="toggleAll" /></th>
+            <th class="w-10 px-4 py-3"><input type="checkbox" :checked="allSelected" @change="toggleAll" ></th>
             <th class="cursor-pointer px-4 py-3" @click="toggleSort('title')">Título {{ sortArrow('title') }}</th>
             <th class="cursor-pointer px-4 py-3" @click="toggleSort('status')">Estado {{ sortArrow('status') }}</th>
             <th class="px-4 py-3">Autor</th>
@@ -57,10 +57,10 @@
         </thead>
         <tbody>
           <tr v-for="a in data?.rows || []" :key="a.id" class="border-t border-slate-100 hover:bg-slate-50">
-            <td class="px-4 py-3"><input type="checkbox" :checked="selected.includes(a.id)" @change="toggleOne(a.id)" /></td>
+            <td class="px-4 py-3"><input type="checkbox" :checked="selected.includes(a.id)" @change="toggleOne(a.id)" ></td>
             <td class="max-w-xs truncate px-4 py-3">
               <div class="flex items-center gap-2.5">
-                <img v-if="a.coverImage" :src="mediaUrl(a.coverImage)" class="h-8 w-8 shrink-0 rounded object-cover" />
+                <img v-if="a.coverImage" :src="mediaUrl(a.coverImage)" class="h-8 w-8 shrink-0 rounded object-cover" >
                 <span class="truncate font-medium text-ink">{{ a.title }}</span>
               </div>
             </td>
@@ -90,9 +90,9 @@
     <!-- Grid view -->
     <div v-else class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <div v-for="a in data?.rows || []" :key="a.id" class="group relative overflow-hidden rounded-xl border border-line bg-white transition hover:shadow-md">
-        <input type="checkbox" class="absolute left-3 top-3 z-10 h-4 w-4" :checked="selected.includes(a.id)" @change="toggleOne(a.id)" />
+        <input type="checkbox" class="absolute left-3 top-3 z-10 h-4 w-4" :checked="selected.includes(a.id)" @change="toggleOne(a.id)" >
         <div class="flex h-36 items-center justify-center bg-stone-50">
-          <img v-if="a.coverImage" :src="mediaUrl(a.coverImage)" class="h-full w-full object-cover" />
+          <img v-if="a.coverImage" :src="mediaUrl(a.coverImage)" class="h-full w-full object-cover" >
           <span v-else class="text-3xl">📝</span>
         </div>
         <div class="p-4">

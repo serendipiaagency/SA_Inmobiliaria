@@ -9,7 +9,7 @@
     </div>
     <div class="grid gap-x-6 gap-y-10 md:grid-cols-3">
       <NuxtLink v-for="b in items" :key="b.id" :to="`/blog/${b.slug}`" class="group block">
-        <div class="aspect-[3/2] overflow-hidden rounded-2xl bg-stone-100"><img :src="mediaUrl(b.image)" :alt="b.title" class="h-full w-full object-cover transition duration-700 group-hover:scale-105" loading="lazy" /></div>
+        <div class="aspect-[3/2] overflow-hidden rounded-2xl bg-stone-100"><img :src="mediaUrl(b.image)" :alt="b.title" class="h-full w-full object-cover transition duration-700 group-hover:scale-105" loading="lazy" ></div>
         <p class="eyebrow mt-5">{{ b.targetAudience }}</p>
         <h3 class="mt-2 font-serif text-xl font-medium leading-snug group-hover:underline group-hover:underline-offset-4">{{ b.title || b.slug }}</h3>
       </NuxtLink>

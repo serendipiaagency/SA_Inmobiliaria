@@ -19,7 +19,7 @@
         @keydown.up.prevent="move(-1)"
         @keydown.enter.prevent="onEnter"
         @keydown.esc="open = false"
-      />
+      >
       <button
         v-if="modelValue"
         type="button"

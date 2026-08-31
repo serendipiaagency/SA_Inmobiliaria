@@ -12,15 +12,15 @@
       <form v-if="!done" class="card mt-8 space-y-4 p-8" @submit.prevent="submit">
         <div>
           <label class="label" for="ref-name">Nombre</label>
-          <input id="ref-name" v-model="form.name" class="input" required />
+          <input id="ref-name" v-model="form.name" class="input" required >
         </div>
         <div>
           <label class="label" for="ref-email">Email</label>
-          <input id="ref-email" v-model="form.email" type="email" class="input" />
+          <input id="ref-email" v-model="form.email" type="email" class="input" >
         </div>
         <div>
           <label class="label" for="ref-phone">Teléfono</label>
-          <input id="ref-phone" v-model="form.phone" class="input" />
+          <input id="ref-phone" v-model="form.phone" class="input" >
         </div>
         <button type="submit" class="btn-primary w-full" :disabled="submitting">{{ submitting ? 'Enviando…' : 'Enviar' }}</button>
         <p v-if="error" class="text-center text-sm font-medium text-red-600">{{ error }}</p>

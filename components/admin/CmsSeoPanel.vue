@@ -10,7 +10,7 @@
 
     <div>
       <label class="label">Título SEO</label>
-      <input v-model="form.seoTitle" class="input" placeholder="Título para buscadores" />
+      <input v-model="form.seoTitle" class="input" placeholder="Título para buscadores" >
       <p class="mt-1 text-[11px]" :class="titleLen >= 30 && titleLen <= 65 ? 'text-emerald-600' : 'text-amber-600'">{{ titleLen }} caracteres (ideal: 30–65)</p>
     </div>
     <div>
@@ -21,11 +21,11 @@
     <div class="grid gap-4 sm:grid-cols-2">
       <div>
         <label class="label">Palabra clave objetivo</label>
-        <input v-model="form.focusKeyword" class="input" />
+        <input v-model="form.focusKeyword" class="input" >
       </div>
       <div>
         <label class="label">Canonical</label>
-        <input v-model="form.seoCanonical" class="input" placeholder="https://…" />
+        <input v-model="form.seoCanonical" class="input" placeholder="https://…" >
       </div>
     </div>
 
@@ -81,7 +81,10 @@ const links = computed(() => {
   const urls = props.plainText.match(/https?:\/\/[^\s)]+/g) || []
   let internal = 0
   let external = 0
-  for (const u of urls) (u.includes(window?.location?.hostname || '__never__') ? internal++ : external++)
+  for (const u of urls) {
+    if (u.includes(window?.location?.hostname || '__never__')) internal++
+    else external++
+  }
   return { internal, external }
 })
 

@@ -10,11 +10,11 @@
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Nombre de la empresa</span>
-            <input v-model="form.company_name" class="cfg-input" />
+            <input v-model="form.company_name" class="cfg-input" >
           </label>
           <label class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Email de notificaciones</span>
-            <input v-model="form.notify_email" type="email" class="cfg-input" />
+            <input v-model="form.notify_email" type="email" class="cfg-input" >
           </label>
           <label class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Moneda</span>
@@ -37,8 +37,8 @@
           <label class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Color de marca</span>
             <div class="flex items-center gap-2">
-              <input v-model="form.brand_color" type="color" class="h-10 w-12 cursor-pointer rounded-lg border border-line" />
-              <input v-model="form.brand_color" class="cfg-input font-mono" />
+              <input v-model="form.brand_color" type="color" class="h-10 w-12 cursor-pointer rounded-lg border border-line" >
+              <input v-model="form.brand_color" class="cfg-input font-mono" >
             </div>
           </label>
         </div>

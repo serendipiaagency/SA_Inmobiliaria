@@ -429,6 +429,127 @@ presente, genera un id de repuesto cuando no lo está, lo cachea dentro de
 la misma petición, y dos peticiones distintas sin `cf-ray` obtienen ids
 distintos.
 
+### P1-9 — Tooling de lint (ESLint) — ✅ resuelto
+
+No existía ni ESLint ni Biome configurado, ni `npm run lint` — el único
+análisis estático era `typecheck`, que no detecta código muerto,
+mutaciones de props, bloques `catch {}` sin contexto, ni un puñado de
+otras clases de bug reales.
+
+**Resuelto**: `@nuxt/eslint` (el módulo oficial de Nuxt 3) añadido a
+`modules` en `nuxt.config.ts` — genera `.nuxt/eslint.config.mjs` a partir
+de la estructura real del proyecto en cada `nuxt prepare`/`dev`/`build`
+(ya disparado por `postinstall`, así que CI no necesita un paso extra).
+`eslint.config.mjs` en la raíz lo importa y añade dos overrides
+documentados: `@typescript-eslint/no-explicit-any` a `off` (este proyecto
+usa `any` de forma justificada en varios sitios — ver CLAUDE.md) y
+`vue/multi-word-component-names` a `off` (no encaja con páginas/layouts de
+una sola palabra ya existentes, p.ej. `pages/index.vue`). `npm run lint`
+(y `lint:fix`) añadidos a `package.json`; `.github/workflows/ci.yml`
+ejecuta `npm run lint` en el job `validate`, justo después de `typecheck`.
+
+**Triaje de las ~477 violaciones que salieron en la primera pasada**
+(110 errores, 367 warnings):
+
+- **Auto-fix seguro** (`eslint . --fix`): `vue/html-self-closing` (335),
+  `vue/attributes-order` (4), `prefer-const` (3), `import/no-duplicates`
+  (2) — puramente estilístico, sin cambio de comportamiento.
+- **Bugs reales corregidos a mano** (imports/variables muertas,
+  bloques vacíos, deletes dinámicos, expresiones sin efecto):
+  - `server/utils/ai.ts`: función `facts()` completamente muerta (nunca
+    llamada) — eliminada.
+  - `components/admin/CmsSeoPanel.vue`: un ternario usado solo por su
+    efecto secundario (`u.includes(...) ? internal++ : external++`) —
+    reescrito como `if`/`else`, mismo comportamiento, más legible.
+  - `server/api/admin/saas/webhooks/[id]/test.post.ts` y
+    `server/utils/email/send.ts`: `let x: T[] = []` cuyo valor inicial
+    nunca se leía (una rama try/catch lo sobrescribe siempre) — el `[]`
+    inicial era ruido, no un bug, pero merecía limpiarse.
+  - 6 bloques `catch {}` genuinamente vacíos (localStorage al guardar
+    preferencia de vista, `navigator.share`/`clipboard` al compartir,
+    `JSON.parse` de un plan de pagos con fallback) — todos son
+    "best-effort, no hay nada que hacer si falla" legítimo, pero
+    CLAUDE.md pide no silenciar sin contexto: se añadió un comentario de
+    una línea a cada uno (ESLint no marca como vacío un bloque que
+    contiene un comentario, así que esto también resuelve el lint).
+  - 5 imports/variables no usadas (`now`, `and`, un parámetro de evento,
+    un helper de test) — eliminadas. Verificado antes de borrar que
+    `now` no correspondía a una columna `updated_at` olvidada sin
+    actualizar (las tablas afectadas no tienen esa columna).
+  - `test/unit/email.send.test.ts`: `stubFailingResend()` estaba
+    definido pero nunca usado — resultó ser un hueco de cobertura real
+    (existían tests para "sin API key" y "envío exitoso", pero ninguno
+    para "Resend conectado mas rechaza el envío", un código de retorno
+    distinto — `connected:true, ok:false` en vez de `connected:false`).
+    Se añadió el test que faltaba en vez de solo borrar el import.
+  - `pages/admin/[resource]/[id].vue`: `vue/no-deprecated-filter` marcaba
+    `resource as 'developer-properties' | 'properties'` en el template —
+    era un falso positivo (el `|` es un union type de TS, no un filtro de
+    Vue 2), pero el fix real es extraer el cast a un `computed()` en el
+    script, ya que mezclar sintaxis de tipos con expresiones de template
+    es en sí mismo confuso.
+  - `layouts/root.vue` y `pages/blog/[slug].vue`:
+    `vue/no-multiple-template-root` señalaba un `<slot v-else />` desnudo
+    como raíz y comentarios HTML como nodos raíz junto a elementos
+    condicionales — relevante de verdad en este proyecto porque
+    `nuxt.config.ts` tiene `pageTransition` activado, y `<Transition>`
+    exige poder identificar sin ambigüedad exactamente un nodo raíz por
+    render; un `<slot>` desnudo puede expandirse a 0 o varios nodos según
+    lo que reciba. Envuelto en un `<div>`; comentarios movidos fuera de
+    la raíz.
+  - 3 warnings `vue/no-template-shadow`: variables de `v-for` (`t`, `p`)
+    que tapaban un `t` (función de i18n) o `p` (computed del proyecto)
+    del scope superior, ambos usados extensamente en el resto de esas
+    plantillas. Sin bug activo hoy (ningún código dentro de esos bloques
+    intentaba usar el binding tapado), pero sí una trampa real para una
+    edición futura — variables de `v-for` renombradas.
+- **Casi-error evitado**: `pages/admin/widgets.vue` tenía
+  `` `<script ...><\/script>` `` (un embed code generado para copiar) con
+  un escape `\/` que `no-useless-escape` marcaba como innecesario.
+  Quitarlo mecánicamente **rompe el parseo del propio `.vue`** — el
+  compilador de SFC de Vue localiza los límites de bloque con reglas de
+  parseo HTML, no con reglas de sintaxis JS, así que un `</script>` sin
+  escapar dentro de un string termina prematuramente el bloque
+  `<script setup>` real del archivo (verificado directamente con
+  `@vue/compiler-sfc`, que en efecto falla con "Invalid end tag" tras el
+  cambio). Revertido; el escape se mantiene con un
+  `eslint-disable-next-line` documentado explicando por qué.
+- **`vue/no-mutating-props` (79 apariciones en ~13 archivos) — bajado a
+  `warn`, no corregido en esta pasada.** Concentrado casi por completo en
+  `components/site-builder/inspectors/*`,
+  `components/site-builder/inspector/CommonBlockSettings.vue` y
+  `components/property-builder/LocationSection.vue`: un patrón
+  deliberado y consistente en todo un subsistema (mutar un prop `content`/
+  `block`/`form` in-place en vez de un `v-model` basado en emits), no
+  errores aislados. Funciona hoy porque el objeto pasado por el padre es
+  reactivo y se muta por referencia. Migrar las ~79 apariciones a un
+  patrón de emits es un refactor mecánico pero de blast radius amplio
+  (~13 archivos) sin tests de componente que lo cubran — exactamente el
+  tipo de cambio que el propio plan de hardening pide documentar y no
+  lanzar sin red de seguridad. Bajado a warning (no desactivado) con el
+  motivo documentado en `eslint.config.mjs`; código nuevo debería seguir
+  prefiriendo emits.
+- **`vue/no-v-html` (12 apariciones) — revisado, dejado como warning.**
+  Las 12 renderizan un SVG inline desde una tabla de constantes cerrada
+  indexada por una clave conocida en tiempo de desarrollo (`ICONS[...]`,
+  `SOCIAL_ICONS[...]`, `meta(c.type).icon`) — nunca contenido externo ni
+  introducido por el usuario. No es un vector XSS real; se deja como
+  aviso legítimo pero no se actúa sobre él.
+- **`vue/require-default-prop` (13 apariciones) — dejado como warning.**
+  Cosmético (props opcionales sin `default` explícito); no vale la pena
+  tocar 13 componentes por esto en esta pasada.
+
+Resultado: `npm run lint` pasa con **0 errores** (105 warnings, todas
+triadas y con motivo documentado arriba, no ignoradas a ciegas).
+
+Verificación adicional (más allá de typecheck/test/build/migrations:check):
+cada archivo `.vue` tocado se reparseó directamente con
+`@vue/compiler-sfc` para confirmar 0 errores de parseo, y se levantó un
+build real (`wrangler dev` contra `.output/`) para comprobar por HTTP que
+`/`, `/blog` y `/propiedades` siguen respondiendo 200 y que la rama
+`sa-landing` de `layouts/root.vue` (la que se modificó) sigue
+renderizando.
+
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
@@ -442,7 +563,7 @@ distintos.
 | P1-6 | ~~Cada vista de propiedad hace 2 escrituras D1 sin rate limit ni deduplicación de visitante~~ — ✅ resuelto | `server/api/public/properties/[slug]/view.post.ts` | `rateLimit()` + dedup por visitante (ventana de 30 min) — ver detalle abajo |
 | P1-7 | ~~Favoritos son un contador crudo incrementable/decrementable directamente desde el cliente, sin restricción de unicidad~~ — ✅ resuelto | `server/api/public/favorite.post.ts` | Tabla `favorites` real, migración 0055 — ver detalle abajo |
 | P1-8 | Subida de vídeo (hasta 100MB) atraviesa el Worker completo (limitación de memoria de request documentada en el propio código) | `server/utils/media.ts` | No existe subida directa a R2 todavía |
-| P1-9 | No existe `npm run lint` ni ESLint/Biome configurado | `package.json` | Solo `typecheck` como análisis estático |
+| P1-9 | ~~No existe `npm run lint` ni ESLint/Biome configurado~~ — ✅ resuelto | `package.json` | `@nuxt/eslint` + `npm run lint` en CI — ver detalle abajo |
 | P1-10 | ~~No existen `/api/health/live` ni `/api/health/ready`~~ — ✅ resuelto | `server/api/health/` | Ambos existen, `smoke-test.mjs` los usa — ver detalle abajo |
 | P1-11 | ~~El pipeline de CI no valida que `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`/`PRODUCTION_URL` existan y sean válidos antes de desplegar~~ — ✅ resuelto en FASE 1 | `.github/workflows/ci.yml` | Jobs `staging-preflight`/`production-preflight` (comentario de cabecera desactualizado corregido aquí, la corrección ya estaba hecha en el commit `0c36a43`) |
 | P1-12 | ~~Sin request-ID / correlación entre `error_logs`/`webhook_deliveries` para una misma petición~~ — 🟡 resuelto parcialmente | `server/plugins/error-logging.ts` | `error_logs` y `webhook_deliveries` correlacionados; `email_log` queda deliberadamente fuera de esta pasada — ver detalle abajo |

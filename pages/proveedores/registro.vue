@@ -7,43 +7,43 @@
       <div class="grid gap-4 sm:grid-cols-2">
         <div>
           <label class="label">{{ t('vendorRegistration.form.nameLabel', 'Empresa / nombre *') }}</label>
-          <input v-model="form.name" class="input" required />
+          <input v-model="form.name" class="input" required >
         </div>
         <div>
           <label class="label">{{ t('vendorRegistration.form.emailLabel', 'Email *') }}</label>
-          <input v-model="form.email" type="email" class="input" required />
+          <input v-model="form.email" type="email" class="input" required >
         </div>
         <div>
           <label class="label">{{ t('vendorRegistration.form.phoneLabel', 'Número de teléfono') }}</label>
-          <input v-model="form.phone_number" class="input" />
+          <input v-model="form.phone_number" class="input" >
         </div>
         <div>
           <label class="label">{{ t('vendorRegistration.form.contactPersonLabel', 'Persona de contacto') }}</label>
-          <input v-model="form.contact_person_name" class="input" />
+          <input v-model="form.contact_person_name" class="input" >
         </div>
         <div>
           <label class="label">{{ t('vendorRegistration.form.tradeLicenseLabel', 'N.º de licencia comercial') }}</label>
-          <input v-model="form.trade_license" class="input" />
+          <input v-model="form.trade_license" class="input" >
         </div>
         <div>
           <label class="label">{{ t('vendorRegistration.form.vatRegistrationLabel', 'N.º de registro de IVA') }}</label>
-          <input v-model="form.vat_registration_no" class="input" />
+          <input v-model="form.vat_registration_no" class="input" >
         </div>
         <div>
           <label class="label">{{ t('vendorRegistration.form.emiratesIdLabel', 'Emirates ID') }}</label>
-          <input v-model="form.emirates_id" class="input" />
+          <input v-model="form.emirates_id" class="input" >
         </div>
         <div>
           <label class="label">{{ t('vendorRegistration.form.passportLabel', 'N.º de pasaporte') }}</label>
-          <input v-model="form.passport" class="input" />
+          <input v-model="form.passport" class="input" >
         </div>
         <div>
           <label class="label">{{ t('vendorRegistration.form.bankAccountLabel', 'N.º de cuenta bancaria') }}</label>
-          <input v-model="form.bank_account_no" class="input" />
+          <input v-model="form.bank_account_no" class="input" >
         </div>
         <div>
           <label class="label">{{ t('vendorRegistration.form.ibanLabel', 'IBAN') }}</label>
-          <input v-model="form.iban_letter" class="input" />
+          <input v-model="form.iban_letter" class="input" >
         </div>
       </div>
       <div>

@@ -10,7 +10,7 @@
     </div>
 
     <form class="mt-4 flex gap-2" @submit.prevent="ask(input)">
-      <input v-model="input" class="input bg-white" :placeholder="t('askAI.placeholder', 'Escribe tu pregunta…')" maxlength="300" />
+      <input v-model="input" class="input bg-white" :placeholder="t('askAI.placeholder', 'Escribe tu pregunta…')" maxlength="300" >
       <button type="submit" class="btn-primary shrink-0" :disabled="loading">{{ loading ? '…' : t('askAI.ask', 'Preguntar') }}</button>
     </form>
 

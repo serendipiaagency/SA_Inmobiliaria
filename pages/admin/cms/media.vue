@@ -6,12 +6,12 @@
         <p class="mt-1 text-sm text-stone-500">{{ data?.total ?? 0 }} archivo(s){{ selected.length ? ` · ${selected.length} seleccionado(s)` : '' }}</p>
       </div>
       <div class="flex gap-2">
-        <input v-model="q" class="input !w-52" placeholder="Buscar por nombre…" @keyup.enter="() => refresh()" />
+        <input v-model="q" class="input !w-52" placeholder="Buscar por nombre…" @keyup.enter="() => refresh()" >
         <button class="btn-secondary" :class="{ '!bg-ink !text-white': favoriteOnly }" @click="favoriteOnly = !favoriteOnly">★ Favoritos</button>
         <NuxtLink to="/admin/cms/papelera" class="btn-secondary">Papelera</NuxtLink>
         <label class="btn-primary cursor-pointer">
           {{ uploading ? 'Subiendo…' : '+ Subir archivo' }}
-          <input type="file" class="hidden" accept="image/*,application/pdf" :disabled="uploading" @change="upload" />
+          <input type="file" class="hidden" accept="image/*,application/pdf" :disabled="uploading" @change="upload" >
         </label>
       </div>
     </div>
@@ -37,9 +37,9 @@
 
     <div v-if="data?.rows?.length" class="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-6">
       <div v-for="m in data.rows" :key="m.id" class="group relative overflow-hidden rounded-xl border border-line bg-white" :class="{ 'ring-2 ring-ink': selected.includes(m.id) }">
-        <input type="checkbox" class="absolute left-1.5 top-1.5 z-10 h-4 w-4" :checked="selected.includes(m.id)" @change="toggleOne(m.id)" />
+        <input type="checkbox" class="absolute left-1.5 top-1.5 z-10 h-4 w-4" :checked="selected.includes(m.id)" @change="toggleOne(m.id)" >
         <div class="flex h-28 items-center justify-center bg-stone-50">
-          <img v-if="m.type === 'image' || m.type === 'svg'" :src="m.url" class="h-full w-full object-cover" />
+          <img v-if="m.type === 'image' || m.type === 'svg'" :src="m.url" class="h-full w-full object-cover" >
           <span v-else class="text-3xl">📄</span>
         </div>
         <div class="p-2">

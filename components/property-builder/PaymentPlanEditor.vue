@@ -11,15 +11,15 @@
       <div class="grid flex-1 gap-2 sm:grid-cols-3">
         <label class="block">
           <span class="label">Concepto</span>
-          <input v-model="row.label" class="input" placeholder="Ej. Reserva, A la entrega…" @input="emitUpdate" />
+          <input v-model="row.label" class="input" placeholder="Ej. Reserva, A la entrega…" @input="emitUpdate" >
         </label>
         <label class="block">
           <span class="label">Importe o %</span>
-          <input v-model="row.value" class="input" placeholder="Ej. 10% o 25.000 €" @input="emitUpdate" />
+          <input v-model="row.value" class="input" placeholder="Ej. 10% o 25.000 €" @input="emitUpdate" >
         </label>
         <label class="block">
           <span class="label">Descripción <em class="font-normal normal-case text-stone-400">opcional</em></span>
-          <input v-model="row.description" class="input" placeholder="Ej. Al firmar el contrato" @input="emitUpdate" />
+          <input v-model="row.description" class="input" placeholder="Ej. Al firmar el contrato" @input="emitUpdate" >
         </label>
       </div>
       <button type="button" class="mt-6 shrink-0 text-[12px] font-semibold text-red-600 hover:underline" @click="remove(i)">Eliminar</button>

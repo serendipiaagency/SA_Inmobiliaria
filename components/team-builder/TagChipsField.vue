@@ -12,7 +12,7 @@
         </button>
       </span>
       <span v-else class="flex items-center gap-1.5">
-        <input ref="inputEl" v-model="draft" class="input !h-7 !w-40 !py-0 text-[12px]" :placeholder="placeholder" @keyup.enter="commit" @keyup.esc="cancel" @blur="commit" />
+        <input ref="inputEl" v-model="draft" class="input !h-7 !w-40 !py-0 text-[12px]" :placeholder="placeholder" @keyup.enter="commit" @keyup.esc="cancel" @blur="commit" >
       </span>
     </div>
   </div>

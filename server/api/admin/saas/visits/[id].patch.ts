@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm'
-import { useDb, schema, now, cfEnv, isUniqueConstraintError } from '../../../../utils/db'
+import { useDb, schema, cfEnv, isUniqueConstraintError } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
 import { hasOverlappingVisit } from '../../../../utils/appointments/availability'
 import { notifyAppointment } from '../../../../utils/appointments/notifications'

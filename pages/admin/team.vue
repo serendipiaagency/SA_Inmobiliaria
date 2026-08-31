@@ -13,14 +13,14 @@
               <th class="px-4 py-2.5 font-semibold">Agente</th>
               <th class="px-4 py-2.5 font-semibold">Puesto</th>
               <th class="px-4 py-2.5 font-semibold">Duración de cita</th>
-              <th class="px-4 py-2.5 font-semibold"></th>
+              <th class="px-4 py-2.5 font-semibold"/>
             </tr>
           </thead>
           <tbody>
             <tr v-for="a in rows" :key="a.id" class="border-b border-line/60 last:border-0 hover:bg-stone-50">
               <td class="px-4 py-3">
                 <div class="flex items-center gap-3">
-                  <img :src="mediaUrl(a.image)" :alt="a.name" class="h-9 w-9 rounded-full object-cover ring-1 ring-line" />
+                  <img :src="mediaUrl(a.image)" :alt="a.name" class="h-9 w-9 rounded-full object-cover ring-1 ring-line" >
                   <span class="font-medium">{{ a.name }}</span>
                 </div>
               </td>

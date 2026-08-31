@@ -2,17 +2,17 @@
   <div class="mb-3">
     <span class="label">{{ label }}</span>
     <div class="overflow-hidden rounded-lg border border-line bg-stone-50" :class="aspectClass">
-      <img v-if="modelValue" :src="mediaUrl(modelValue)" :alt="alt || ''" class="h-full w-full" :class="fit === 'contain' ? 'object-contain' : 'object-cover'" />
+      <img v-if="modelValue" :src="mediaUrl(modelValue)" :alt="alt || ''" class="h-full w-full" :class="fit === 'contain' ? 'object-contain' : 'object-cover'" >
       <label v-else class="flex h-full min-h-[6rem] w-full cursor-pointer flex-col items-center justify-center gap-1 text-stone-400 transition hover:text-ink">
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" /></svg>
         <span class="text-[11px] font-semibold">+ Añadir imagen</span>
-        <input type="file" accept="image/*" class="hidden" @change="onUpload" />
+        <input type="file" accept="image/*" class="hidden" @change="onUpload" >
       </label>
     </div>
     <div class="mt-2 flex flex-wrap gap-2">
       <label class="cursor-pointer text-[12px] font-semibold text-ink underline">
         {{ modelValue ? 'Sustituir' : 'Subir imagen' }}
-        <input type="file" accept="image/*" class="hidden" @change="onUpload" />
+        <input type="file" accept="image/*" class="hidden" @change="onUpload" >
       </label>
       <button type="button" class="text-[12px] font-semibold text-ink underline" @click="libraryOpen = true">Biblioteca</button>
       <button v-if="modelValue" type="button" class="text-[12px] font-semibold text-red-600 underline" @click="$emit('update:modelValue', '')">Eliminar</button>
@@ -22,7 +22,7 @@
 
     <label v-if="showAlt" class="mt-2 block">
       <span class="mb-1 block text-[11px] text-stone-400">Texto alternativo</span>
-      <input :value="alt" class="input" placeholder="Describe la imagen…" @input="$emit('update:alt', ($event.target as HTMLInputElement).value)" />
+      <input :value="alt" class="input" placeholder="Describe la imagen…" @input="$emit('update:alt', ($event.target as HTMLInputElement).value)" >
     </label>
 
     <MediaLibraryModal v-if="libraryOpen" @close="libraryOpen = false" @select="onLibrarySelect" />

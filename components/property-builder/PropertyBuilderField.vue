@@ -44,25 +44,25 @@
 
     <div v-else-if="spec.type === 'image'" class="space-y-2">
       <div v-if="modelValue" class="flex items-center gap-3">
-        <img :src="mediaUrl(String(modelValue))" class="h-16 w-16 border border-line object-cover" />
+        <img :src="mediaUrl(String(modelValue))" class="h-16 w-16 border border-line object-cover" >
         <button type="button" class="text-[12px] font-semibold text-red-600 hover:underline" @click="emitUpdate(null)">Quitar</button>
       </div>
-      <input type="file" accept="image/*" class="block w-full text-xs text-stone-500" @change="onUpload($event)" />
+      <input type="file" accept="image/*" class="block w-full text-xs text-stone-500" @change="onUpload($event)" >
       <p v-if="uploading" class="text-[11px] text-stone-400">Subiendo…</p>
       <p v-if="uploadError" class="text-[11px] text-red-500">{{ uploadError }}</p>
     </div>
 
     <label v-else-if="spec.type === 'checkbox'" class="flex items-center gap-2 text-sm text-stone-700">
-      <input type="checkbox" :checked="!!modelValue" @change="emitUpdate(($event.target as HTMLInputElement).checked)" />
+      <input type="checkbox" :checked="!!modelValue" @change="emitUpdate(($event.target as HTMLInputElement).checked)" >
       {{ spec.label }}
     </label>
 
     <PaymentPlanEditor v-else-if="spec.type === 'payment-plan'" :model-value="modelValue" @update:model-value="emitUpdate" />
     <VideoField v-else-if="spec.type === 'video'" :model-value="modelValue" :upload-folder="uploadFolder" @update:model-value="emitUpdate" />
 
-    <input v-else-if="spec.type === 'number'" :value="modelValue ?? ''" type="number" step="any" :class="inputCls" @input="emitUpdate(numOrNull(($event.target as HTMLInputElement).value))" />
-    <input v-else-if="spec.type === 'url'" :value="modelValue ?? ''" type="url" placeholder="https://…" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value)" />
-    <input v-else :value="modelValue ?? ''" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value)" />
+    <input v-else-if="spec.type === 'number'" :value="modelValue ?? ''" type="number" step="any" :class="inputCls" @input="emitUpdate(numOrNull(($event.target as HTMLInputElement).value))" >
+    <input v-else-if="spec.type === 'url'" :value="modelValue ?? ''" type="url" placeholder="https://…" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value)" >
+    <input v-else :value="modelValue ?? ''" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value)" >
 
     <span v-if="spec.hint" class="mt-1 block text-[11px] text-stone-400">{{ spec.hint }}</span>
   </div>

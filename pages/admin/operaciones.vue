@@ -12,7 +12,7 @@
       <div class="grid gap-4 sm:grid-cols-2">
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Cliente</span>
-          <input v-model="form.clientName" class="cfg-input" />
+          <input v-model="form.clientName" class="cfg-input" >
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Tipo</span>
@@ -23,23 +23,23 @@
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Propiedad</span>
-          <input v-model="form.propertyName" class="cfg-input" placeholder="Nombre de la propiedad" />
+          <input v-model="form.propertyName" class="cfg-input" placeholder="Nombre de la propiedad" >
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Agente</span>
-          <input v-model="form.agentName" class="cfg-input" placeholder="Nombre del agente" />
+          <input v-model="form.agentName" class="cfg-input" placeholder="Nombre del agente" >
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Valor de la operación (€)</span>
-          <input v-model.number="form.dealValue" type="number" min="0" step="1000" class="cfg-input" />
+          <input v-model.number="form.dealValue" type="number" min="0" step="1000" class="cfg-input" >
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Comisión (%)</span>
-          <input v-model.number="form.commissionRate" type="number" min="0" max="100" step="0.5" class="cfg-input" />
+          <input v-model.number="form.commissionRate" type="number" min="0" max="100" step="0.5" class="cfg-input" >
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Fecha de cierre</span>
-          <input v-model="form.closedAt" type="date" class="cfg-input" />
+          <input v-model="form.closedAt" type="date" class="cfg-input" >
         </label>
       </div>
       <p class="mt-3 text-xs text-stone-500">Comisión calculada: <strong>{{ dt.money(estimatedCommission) }}</strong></p>

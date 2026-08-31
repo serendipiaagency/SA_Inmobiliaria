@@ -16,7 +16,7 @@
               :alt="m.name"
               class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
               loading="lazy"
-            />
+            >
           </div>
           <h3 class="mt-4 font-serif text-xl font-medium group-hover:underline group-hover:underline-offset-4">
             {{ m.name }}

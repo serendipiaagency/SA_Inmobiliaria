@@ -23,7 +23,7 @@
           class="rise mt-7 max-w-4xl font-serif text-[clamp(3rem,7.5vw,6.75rem)] font-medium leading-[1.01] tracking-[-0.01em] text-white"
           :style="delay(1)"
         >
-          {{ heroTitle1 }} <br class="hidden sm:block" /><span class="italic">{{ heroTitle2 }}</span>
+          {{ heroTitle1 }} <br class="hidden sm:block" ><span class="italic">{{ heroTitle2 }}</span>
         </h1>
         <p class="rise mt-8 max-w-md text-base leading-relaxed text-white/80 md:text-lg" :style="delay(2)">
           {{ heroSubtitle }}
@@ -45,19 +45,19 @@
           <!-- Category tabs -->
           <div class="tabs-fade -mx-1 mb-4 flex gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button
-              v-for="t in tabs"
-              :key="t.key"
+              v-for="tabItem in tabs"
+              :key="tabItem.key"
               type="button"
               class="tab shrink-0 rounded-full px-5 py-2.5 text-[12px] font-semibold uppercase tracking-widest transition-all duration-300"
               :class="
-                activeTab === t.key
+                activeTab === tabItem.key
                   ? 'bg-white text-ink shadow-lg'
                   : 'bg-white/10 text-white/85 backdrop-blur hover:bg-white/20'
               "
-              :aria-pressed="activeTab === t.key"
-              @click="setTab(t.key)"
+              :aria-pressed="activeTab === tabItem.key"
+              @click="setTab(tabItem.key)"
             >
-              {{ t.label }}
+              {{ tabItem.label }}
             </button>
           </div>
 
@@ -81,7 +81,7 @@
                     class="w-full border border-line px-4 py-3 text-sm focus:border-ink"
                     :placeholder="t('hero.locationPlaceholder')"
                     @keyup.enter="submit"
-                  />
+                  >
                   <div v-if="suggestions.length" class="mt-3 flex flex-wrap gap-2">
                     <button
                       v-for="s in suggestions"

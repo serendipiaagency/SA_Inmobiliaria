@@ -13,7 +13,7 @@
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Nombre</span>
-            <input v-model="createForm.name" class="cfg-input" />
+            <input v-model="createForm.name" class="cfg-input" >
           </label>
           <label class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Formato</span>
@@ -23,7 +23,7 @@
           </label>
           <label class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Categoría</span>
-            <input v-model="createForm.category" class="cfg-input" placeholder="moderna, luxury, corporativa…" />
+            <input v-model="createForm.category" class="cfg-input" placeholder="moderna, luxury, corporativa…" >
           </label>
           <label class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Tipo de activo (opcional)</span>
@@ -39,7 +39,7 @@
           </label>
           <label class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Descripción</span>
-            <input v-model="createForm.description" class="cfg-input" />
+            <input v-model="createForm.description" class="cfg-input" >
           </label>
         </div>
         <div class="mt-4 flex items-center gap-3">

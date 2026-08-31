@@ -1,6 +1,6 @@
 <template>
   <section v-reveal class="relative overflow-hidden bg-ink py-20 text-white">
-    <img v-if="content.image" :src="mediaUrl(content.image)" alt="" class="absolute inset-0 h-full w-full object-cover opacity-30" loading="lazy" />
+    <img v-if="content.image" :src="mediaUrl(content.image)" alt="" class="absolute inset-0 h-full w-full object-cover opacity-30" loading="lazy" >
     <div class="relative mx-auto max-w-screen-md px-6 lg:px-10" :class="content.align === 'left' ? 'text-left' : 'text-center'">
       <p v-if="content.eyebrow" class="eyebrow !text-white/60">{{ content.eyebrow }}</p>
       <h2 v-if="content.title" class="heading-serif mt-3 text-3xl text-white md:text-4xl">{{ content.title }}</h2>

@@ -9,7 +9,7 @@
             :src="mediaUrl(i.cover)"
             class="h-11 w-11 rounded-lg border-2 border-ink object-cover"
             :alt="i.name"
-          />
+          >
         </div>
         <p class="hidden text-sm text-white/80 sm:block">
           {{ items.length }} {{ t('compareBar.of', 'de') }} {{ MAX }} {{ t('compareBar.selectedForCompare', 'seleccionadas para comparar') }}

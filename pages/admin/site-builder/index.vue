@@ -157,7 +157,7 @@
           </div>
           <div class="relative mt-3">
             <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8" /><path stroke-linecap="round" d="m21 21-4.3-4.3" /></svg>
-            <input v-model="librarySearch" type="text" placeholder="Buscar secciones..." class="input !py-2 !pl-9 !text-sm" />
+            <input v-model="librarySearch" type="text" placeholder="Buscar secciones..." class="input !py-2 !pl-9 !text-sm" >
           </div>
           <div class="mt-3 flex gap-1.5 overflow-x-auto pb-1">
             <button
@@ -287,7 +287,7 @@
         </div>
         <label class="mb-3 block">
           <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-stone-500">Título</span>
-          <input v-model="seo.title" class="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink focus:outline-none" maxlength="200" />
+          <input v-model="seo.title" class="w-full rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink focus:outline-none" maxlength="200" >
         </label>
         <label class="block">
           <span class="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-stone-500">Descripción</span>
@@ -522,7 +522,7 @@ function redo() {
 
 let editBurstActive = false
 let editBurstTimer: ReturnType<typeof setTimeout> | null = null
-function onPanelFocusIn(e: FocusEvent) {
+function onPanelFocusIn() {
   if (!editBurstActive) {
     pushUndo()
     editBurstActive = true

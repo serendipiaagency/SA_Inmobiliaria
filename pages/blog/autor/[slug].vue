@@ -1,7 +1,7 @@
 <template>
   <div v-if="data" class="mx-auto max-w-4xl px-4 py-14">
     <div class="flex items-center gap-4">
-      <img v-if="data.author.photo" :src="mediaUrl(data.author.photo)" class="h-20 w-20 rounded-full object-cover" />
+      <img v-if="data.author.photo" :src="mediaUrl(data.author.photo)" class="h-20 w-20 rounded-full object-cover" >
       <span v-else class="flex h-20 w-20 items-center justify-center rounded-full bg-ink text-2xl font-semibold text-white">{{ data.author.name?.[0] }}</span>
       <div>
         <h1 class="heading-serif text-3xl">{{ data.author.name }}</h1>
@@ -21,7 +21,7 @@
     <div v-if="data.articles.length" class="mt-6 grid gap-x-6 gap-y-10 sm:grid-cols-2">
       <NuxtLink v-for="a in data.articles" :key="a.id" :to="`/blog/${a.slug}`" class="group block">
         <div v-if="a.coverImage" class="aspect-[3/2] overflow-hidden rounded-lg bg-stone-100">
-          <img :src="mediaUrl(a.coverImage)" :alt="a.title" class="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" />
+          <img :src="mediaUrl(a.coverImage)" :alt="a.title" class="h-full w-full object-cover transition group-hover:scale-105" loading="lazy" >
         </div>
         <h3 class="mt-3 font-serif text-lg font-medium group-hover:underline">{{ a.title }}</h3>
         <p v-if="a.excerpt" class="mt-1 line-clamp-2 text-sm text-stone-500">{{ a.excerpt }}</p>

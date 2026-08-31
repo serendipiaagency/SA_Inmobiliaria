@@ -93,7 +93,7 @@
               <h3 class="filter-title">{{ t('filters.features', 'Características') }}</h3>
               <div class="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-3">
                 <label v-for="feat in features" :key="feat.k" class="toggle">
-                  <input v-model="f[feat.k]" type="checkbox" class="sr-only peer" />
+                  <input v-model="f[feat.k]" type="checkbox" class="sr-only peer" >
                   <span class="tg-box peer-checked:border-ink peer-checked:bg-ink">
                     <svg class="h-3 w-3 text-white opacity-0 peer-checked:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                   </span>

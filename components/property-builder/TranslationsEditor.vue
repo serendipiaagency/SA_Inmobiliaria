@@ -4,7 +4,7 @@
       <p class="mb-2 text-[11px] font-bold uppercase tracking-widest text-ink">{{ tr.locale === 'en' ? 'Inglés' : 'Árabe' }}</p>
       <label class="mb-3 block">
         <span class="label">Título</span>
-        <input :value="tr.title" class="input" @input="update(tr.locale, 'title', ($event.target as HTMLInputElement).value)" />
+        <input :value="tr.title" class="input" @input="update(tr.locale, 'title', ($event.target as HTMLInputElement).value)" >
       </label>
       <label class="block">
         <span class="label">Descripción</span>

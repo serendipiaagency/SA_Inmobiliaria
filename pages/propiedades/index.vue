@@ -25,7 +25,7 @@
               <button class="filters-btn" @click="savingSearch = !savingSearch">🔔 Avísame</button>
               <div v-if="savingSearch" class="absolute right-0 top-full z-40 mt-2 w-72 rounded-xl border border-line bg-white p-3 shadow-lg">
                 <p class="mb-2 text-xs text-stone-500">Te avisamos por email cuando aparezca una propiedad nueva que coincida con esta búsqueda.</p>
-                <input v-model="savedSearchEmail" type="email" placeholder="tu@email.com" class="w-full rounded-lg border border-line px-3 py-2 text-sm" />
+                <input v-model="savedSearchEmail" type="email" placeholder="tu@email.com" class="w-full rounded-lg border border-line px-3 py-2 text-sm" >
                 <button type="button" class="mt-2 w-full rounded-lg bg-ink py-2 text-xs font-medium text-white disabled:opacity-50" :disabled="savingSearchPending" @click="subscribeSearchAlert">
                   {{ savingSearchPending ? 'Guardando…' : 'Guardar búsqueda' }}
                 </button>
@@ -219,8 +219,11 @@ function toggleChip(c: { key: string; value: string }) {
 }
 
 function applyPatch(patch: Record<string, any>) {
-  const query: Record<string, any> = { ...route.query, ...patch }
-  Object.keys(query).forEach((k) => (query[k] == null || query[k] === '') && delete query[k])
+  const merged: Record<string, any> = { ...route.query, ...patch }
+  const query: Record<string, any> = {}
+  for (const k of Object.keys(merged)) {
+    if (merged[k] != null && merged[k] !== '') query[k] = merged[k]
+  }
   router.push({ query })
 }
 

@@ -3,7 +3,7 @@
   <!-- Property Builder: a dedicated, sectioned editor replaces the flat generic
        form for these two resources only — every other resource below is
        untouched. See components/property-builder/. -->
-  <PropertyBuilder v-if="meta && isPropertyBuilderResource" :resource="resource as 'developer-properties' | 'properties'" :id="id" />
+  <PropertyBuilder v-if="meta && isPropertyBuilderResource" :id="id" :resource="propertyBuilderResource" />
 
   <div v-else-if="meta">
     <div class="mb-6 flex items-center justify-between">
@@ -57,16 +57,16 @@
               v-if="fd.type === 'image'"
               :src="mediaUrl(form[field])"
               class="h-16 w-16 rounded border border-slate-200 object-cover"
-            />
+            >
             <span class="truncate text-xs text-slate-500">{{ form[field] }}</span>
             <button type="button" class="text-sm text-red-600 hover:underline" @click="form[field] = ''">Remove</button>
           </div>
-          <input type="file" :accept="fd.type === 'image' ? 'image/*' : undefined" class="text-sm" @change="upload(String(field), $event)" />
+          <input type="file" :accept="fd.type === 'image' ? 'image/*' : undefined" class="text-sm" @change="upload(String(field), $event)" >
           <p v-if="uploading === field" class="text-xs text-slate-400">Uploading…</p>
         </div>
 
-        <input v-else-if="fd.type === 'number'" v-model="form[field]" type="number" step="any" class="input" />
-        <input v-else v-model="form[field]" class="input" />
+        <input v-else-if="fd.type === 'number'" v-model="form[field]" type="number" step="any" class="input" >
+        <input v-else v-model="form[field]" class="input" >
       </div>
 
       <!-- Translations (en/ar) -->
@@ -74,7 +74,7 @@
         <legend class="px-1 text-sm font-semibold text-slate-700">Translations</legend>
         <div v-for="tr in translations" :key="tr.locale" class="space-y-2">
           <p class="text-xs font-bold uppercase text-emerald-700">{{ tr.locale }}</p>
-          <input v-model="tr.title" class="input" :placeholder="`Title (${tr.locale})`" />
+          <input v-model="tr.title" class="input" :placeholder="`Title (${tr.locale})`" >
           <textarea v-model="tr.description" class="input" rows="3" :placeholder="`Description (${tr.locale})`" />
         </div>
       </fieldset>
@@ -100,6 +100,7 @@ const resource = computed(() => String(route.params.resource))
 const id = computed(() => String(route.params.id))
 const isNew = computed(() => id.value === 'new')
 const isPropertyBuilderResource = computed(() => resource.value === 'developer-properties' || resource.value === 'properties')
+const propertyBuilderResource = computed(() => resource.value as 'developer-properties' | 'properties')
 
 const { data: resources } = await useFetch<Record<string, any>>('/api/admin/resources')
 const meta = computed(() => resources.value?.[resource.value])

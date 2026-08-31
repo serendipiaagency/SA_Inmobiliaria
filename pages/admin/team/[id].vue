@@ -24,9 +24,9 @@
             </button>
             <span class="w-24 shrink-0 text-sm font-medium">{{ d.label }}</span>
             <template v-if="d.active">
-              <input v-model="d.startTime" type="time" class="input !w-32" />
+              <input v-model="d.startTime" type="time" class="input !w-32" >
               <span class="text-stone-400">a</span>
-              <input v-model="d.endTime" type="time" class="input !w-32" />
+              <input v-model="d.endTime" type="time" class="input !w-32" >
             </template>
             <span v-else class="text-sm text-stone-400">Sin horario</span>
           </div>
@@ -36,26 +36,26 @@
       <div class="space-y-6">
         <AdminPanel title="Duración de cita">
           <label class="label">Minutos por cita</label>
-          <input v-model.number="slotDurationMinutes" type="number" min="5" max="480" step="5" class="input" />
+          <input v-model.number="slotDurationMinutes" type="number" min="5" max="480" step="5" class="input" >
           <p class="mt-2 text-xs text-stone-500">Cada hueco de la agenda pública durará exactamente esto — se usa tanto para calcular los huecos disponibles como para reservar.</p>
         </AdminPanel>
 
         <AdminPanel title="Margen entre citas" sub="Minutos de descanso/desplazamiento antes y después de cada cita">
           <label class="label">Buffer (min)</label>
-          <input v-model.number="bufferMinutes" type="number" min="0" max="240" step="5" class="input" />
+          <input v-model.number="bufferMinutes" type="number" min="0" max="240" step="5" class="input" >
         </AdminPanel>
 
         <AdminPanel title="Tope diario" sub="Máximo de citas al día, aunque queden huecos libres en el horario">
           <div class="flex items-center gap-2">
-            <input v-model="maxPerDayEnabled" type="checkbox" class="h-4 w-4" />
-            <input v-model.number="maxAppointmentsPerDay" type="number" min="1" max="100" class="input !w-24" :disabled="!maxPerDayEnabled" />
+            <input v-model="maxPerDayEnabled" type="checkbox" class="h-4 w-4" >
+            <input v-model.number="maxAppointmentsPerDay" type="number" min="1" max="100" class="input !w-24" :disabled="!maxPerDayEnabled" >
             <span class="text-xs text-stone-500">citas/día</span>
           </div>
         </AdminPanel>
 
         <AdminPanel v-if="icalUrl" title="Exportar calendario" sub="Suscríbete a esta URL en Google Calendar/Outlook ('Añadir por URL') para ver estas citas en tu calendario personal">
           <div class="flex items-center gap-2">
-            <input :value="icalUrl" readonly class="input flex-1 text-xs" @click="($event.target as HTMLInputElement).select()" />
+            <input :value="icalUrl" readonly class="input flex-1 text-xs" @click="($event.target as HTMLInputElement).select()" >
             <button class="btn-quiet !px-3 !py-1.5 text-xs" @click="copyIcalUrl">{{ copied ? 'Copiado' : 'Copiar' }}</button>
           </div>
           <p class="mt-2 text-xs text-stone-500">Solo exporta — para que un cambio en tu Google Calendar bloquee huecos aquí haría falta conectar OAuth de Google/Microsoft, no disponible en este despliegue.</p>
@@ -67,11 +67,11 @@
       <div class="mb-4 flex flex-wrap items-end gap-2">
         <div>
           <label class="label">Fecha</label>
-          <input v-model="timeOffForm.date" type="date" class="input !w-40" />
+          <input v-model="timeOffForm.date" type="date" class="input !w-40" >
         </div>
         <div class="flex-1">
           <label class="label">Motivo (opcional)</label>
-          <input v-model="timeOffForm.reason" class="input" placeholder="Vacaciones, formación…" />
+          <input v-model="timeOffForm.reason" class="input" placeholder="Vacaciones, formación…" >
         </div>
         <button class="btn-secondary" :disabled="!timeOffForm.date || addingTimeOff" @click="addTimeOff">Bloquear día</button>
       </div>

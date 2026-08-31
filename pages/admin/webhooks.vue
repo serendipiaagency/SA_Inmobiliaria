@@ -11,13 +11,13 @@
     <AdminPanel v-if="showCreate" title="Nuevo endpoint" class="mb-6">
       <label class="block">
         <span class="mb-1.5 block text-[12px] font-medium text-stone-600">URL (https)</span>
-        <input v-model="form.url" class="cfg-input" placeholder="https://tu-sistema.com/webhooks/sa-inmobiliaria" />
+        <input v-model="form.url" class="cfg-input" placeholder="https://tu-sistema.com/webhooks/sa-inmobiliaria" >
       </label>
       <div class="mt-3">
         <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Eventos</span>
         <div class="flex flex-wrap gap-2">
           <label v-for="ev in EVENTS" :key="ev" class="flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs">
-            <input v-model="form.events" type="checkbox" :value="ev" /> {{ ev }}
+            <input v-model="form.events" type="checkbox" :value="ev" > {{ ev }}
           </label>
         </div>
       </div>
