@@ -255,6 +255,11 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
     },
   ],
 
+  // Parity with 'developer-properties' (migration 0059) — every field above
+  // that's equally applicable to a resale unit now exists here too. No
+  // 'unittypes' section: "Tipos de unidad" is a menu of typologies for a
+  // multi-unit development under construction, which doesn't apply to a
+  // single resale property — deliberately not added, not a gap.
   properties: [
     {
       key: 'info',
@@ -267,6 +272,8 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, recommended: true },
         { key: 'transactionType', label: 'Operación', type: 'select', options: ['sale', 'rent'], recommended: true },
         { key: 'status', label: 'Estado', type: 'select', options: ['available', 'sold'] },
+        { key: 'yearBuilt', label: 'Año de construcción', type: 'number' },
+        { key: 'keyHighlights', label: 'Puntos clave', type: 'textarea', span: 2 },
       ],
     },
     {
@@ -298,18 +305,31 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       icon: 'invoice',
       description: 'Precio de venta o alquiler.',
       kind: 'fields',
-      fields: [{ key: 'price', label: 'Precio (AED)', type: 'number', required: true }],
+      fields: [
+        { key: 'price', label: 'Precio (AED)', type: 'number', required: true },
+        { key: 'priceOld', label: 'Precio anterior (AED)', type: 'number', hint: 'Para mostrar un precio tachado si ha bajado.' },
+        { key: 'paymentPlan', label: 'Plan de pagos', type: 'payment-plan', span: 2 },
+      ],
     },
     {
       key: 'features',
       label: 'Características',
       icon: 'layers',
-      description: 'Superficie, habitaciones y baños.',
+      description: 'Superficie, habitaciones, baños y equipamiento.',
       kind: 'fields',
       fields: [
         { key: 'area', label: 'Superficie (m²)', type: 'number', recommended: true },
         { key: 'bedrooms', label: 'Habitaciones', type: 'stepper', recommended: true },
         { key: 'bathrooms', label: 'Baños', type: 'stepper', recommended: true },
+        { key: 'orientation', label: 'Orientación', type: 'select', options: ORIENTATION_OPTIONS },
+        { key: 'energyRating', label: 'Calificación energética', type: 'select', options: ENERGY_OPTIONS },
+        { key: 'hasElevator', label: 'Ascensor', type: 'checkbox' },
+        { key: 'hasPool', label: 'Piscina', type: 'checkbox' },
+        { key: 'hasGarage', label: 'Garaje', type: 'checkbox' },
+        { key: 'hasTerrace', label: 'Terraza', type: 'checkbox' },
+        { key: 'hasGarden', label: 'Jardín', type: 'checkbox' },
+        { key: 'petsAllowed', label: 'Se admiten mascotas', type: 'checkbox' },
+        { key: 'accessible', label: 'Accesible', type: 'checkbox' },
       ],
     },
     {
@@ -328,6 +348,11 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       fields: [
         { key: 'mainImage', label: 'Imagen principal', type: 'image', recommended: true },
         { key: 'videoUrl', label: 'Vídeo', type: 'video', span: 2 },
+        { key: 'dronePhoto', label: 'Foto aérea (drone)', type: 'image' },
+        { key: 'nightPhoto', label: 'Foto nocturna', type: 'image' },
+        { key: 'beforePhoto', label: 'Foto "antes"', type: 'image' },
+        { key: 'afterPhoto', label: 'Foto "después"', type: 'image' },
+        { key: 'aiStagedPhoto', label: 'Foto con staging IA', type: 'image' },
       ],
     },
     {
@@ -341,6 +366,23 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       coverField: 'mainImage',
     },
     {
+      key: 'floorplans',
+      label: 'Planos',
+      icon: 'layers',
+      description: 'Planos de la vivienda, si están disponibles.',
+      kind: 'child-table',
+      childResource: 'agent-property-floor-plans',
+      parentField: 'propertyId',
+      columns: [
+        { key: 'category', label: 'Categoría', type: 'text' },
+        { key: 'unitType', label: 'Tipo de unidad', type: 'text' },
+        { key: 'floorDetails', label: 'Detalles', type: 'text' },
+        { key: 'sizes', label: 'Tamaños', type: 'text' },
+        { key: 'type', label: 'Tipo', type: 'text' },
+        { key: 'image', label: 'Imagen', type: 'image' },
+      ],
+    },
+    {
       key: 'social',
       label: 'Redes sociales',
       icon: 'sparkles',
@@ -351,11 +393,18 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
     },
     {
       key: 'commercial',
-      label: 'Comercial',
+      label: 'Comercial / Inversión',
       icon: 'chart',
-      description: 'Comercial asignado a esta vivienda.',
+      description: 'Comercial asignado, condiciones y datos de inversión.',
       kind: 'fields',
-      fields: [{ key: 'agentId', label: 'Comercial asignado', type: 'agent', span: 2 }],
+      fields: [
+        { key: 'agentId', label: 'Comercial asignado', type: 'agent', span: 2 },
+        { key: 'isExclusive', label: 'Exclusiva', type: 'checkbox' },
+        { key: 'isReserved', label: 'Reservada', type: 'checkbox' },
+        { key: 'hasTour', label: 'Tiene tour virtual', type: 'checkbox' },
+        { key: 'rentalYield', label: 'Rentabilidad estimada (%)', type: 'number' },
+        { key: 'serviceChargeAnnual', label: 'Gastos de comunidad anuales (AED)', type: 'number' },
+      ],
     },
   ],
 }

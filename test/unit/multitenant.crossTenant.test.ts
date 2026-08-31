@@ -37,6 +37,7 @@ const RESOURCE_ROWS: Record<string, (f: TenantFixture, tag: string) => Record<st
   'gallery-images': (f, tag) => ({ propertyId: f.propertyId, image: `uploads/${tag}-gallery.jpg` }),
   'social-media': (f, tag) => ({ developerPropertyId: f.projectId, platform: 'tiktok', url: `https://tiktok.com/${tag}` }),
   'agent-property-social-media': (f, tag) => ({ propertyId: f.propertyId, platform: 'tiktok', url: `https://tiktok.com/${tag}` }),
+  'agent-property-floor-plans': (f, tag) => ({ propertyId: f.propertyId, category: `${tag} floor`, unitType: '1BR' }),
   'master-plans': (f, tag) => ({ organizationId: f.orgId, name: `${tag} master plan`, image: `uploads/${tag}-mp.jpg` }),
   locations: (f, tag) => ({ organizationId: f.orgId, name: `${tag} location` }),
   amenities: (f, tag) => ({ organizationId: f.orgId, name: `${tag} amenity` }),

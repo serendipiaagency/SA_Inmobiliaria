@@ -143,6 +143,33 @@ export const agentProperties = sqliteTable(
     videoUrl: text('video_url'),
     status: text('status').notNull().default('available'), // available | sold
     agentId: integer('agent_id'),
+    // --- Parity with developer_properties (added 0059) — equally applicable
+    // to a resale unit; see migrations/0059_second_hand_property_parity.sql
+    // for what was deliberately left out (off-plan/multi-unit-development-
+    // only concepts like handover dates or unit typologies).
+    yearBuilt: integer('year_built'),
+    priceOld: real('price_old'),
+    keyHighlights: text('key_highlights'),
+    orientation: text('orientation'),
+    energyRating: text('energy_rating'),
+    hasElevator: integer('has_elevator').notNull().default(0),
+    hasPool: integer('has_pool').notNull().default(0),
+    hasGarage: integer('has_garage').notNull().default(0),
+    hasTerrace: integer('has_terrace').notNull().default(0),
+    hasGarden: integer('has_garden').notNull().default(0),
+    petsAllowed: integer('pets_allowed').notNull().default(0),
+    accessible: integer('accessible').notNull().default(0),
+    isExclusive: integer('is_exclusive').notNull().default(0),
+    isReserved: integer('is_reserved').notNull().default(0),
+    hasTour: integer('has_tour').notNull().default(0),
+    rentalYield: real('rental_yield'),
+    serviceChargeAnnual: real('service_charge_annual'),
+    dronePhoto: text('drone_photo'),
+    nightPhoto: text('night_photo'),
+    beforePhoto: text('before_photo'),
+    afterPhoto: text('after_photo'),
+    aiStagedPhoto: text('ai_staged_photo'),
+    paymentPlan: text('payment_plan'), // JSON string
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
@@ -170,6 +197,23 @@ export const propertyGalleryImages = sqliteTable('property_gallery_images', {
     .references(() => agentProperties.id, { onDelete: 'cascade' }),
   image: text('image').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: text('created_at').notNull().default(''),
+})
+
+// Mirrors floor_plans (developer properties) — added 0059 so a resale unit
+// can carry its own floor plan too, following this codebase's one-table-
+// per-property-type-per-child-concept convention.
+export const agentPropertyFloorPlans = sqliteTable('agent_property_floor_plans', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  propertyId: integer('property_id')
+    .notNull()
+    .references(() => agentProperties.id, { onDelete: 'cascade' }),
+  category: text('category'),
+  unitType: text('unit_type'),
+  floorDetails: text('floor_details'),
+  sizes: text('sizes'),
+  type: text('type'),
+  image: text('image'),
   createdAt: text('created_at').notNull().default(''),
 })
 

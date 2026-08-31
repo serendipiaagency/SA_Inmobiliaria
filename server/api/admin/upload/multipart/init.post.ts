@@ -7,7 +7,7 @@ import { initMultipartUpload } from '../../../../utils/mediaMultipart'
 // quota/storage surprise for anything that doesn't actually need video.
 // Mirrors the same set server/api/admin/upload.post.ts used to gate its
 // (now removed) video path.
-const VIDEO_FOLDERS = new Set(['developer-properties'])
+const VIDEO_FOLDERS = new Set(['developer-properties', 'properties'])
 
 /** Step 1 of 3 (init → part → complete): opens the R2 multipart upload and records ownership in D1. See server/utils/mediaMultipart.ts. */
 export default defineEventHandler(async (event) => {
