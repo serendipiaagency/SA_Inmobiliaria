@@ -327,6 +327,47 @@ al que produciría un dump completo en memoria, a través de varias páginas;
 produce un array vacío sin romper el JSON; y un nombre de tabla que no es
 un identificador seguro se rechaza limpiamente.
 
+### P1-6/P1-7 — Vistas y favoritos eran contadores manipulables por cualquiera — ✅ resueltos
+
+Dos hallazgos con la misma raíz: el sitio público no tenía ningún concepto
+de "visitante", así que ni `view.post.ts` ni `favorite.post.ts` podían
+distinguir una petición legítima de un script repitiendo la misma llamada.
+`favorite.post.ts` confiaba ciegamente en el booleano `on` del cliente para
+incrementar/decrementar `developerProperties.favoriteCount` directamente —
+cualquiera podía inflar o vaciar el contador de cualquier listado.
+`view.post.ts` incrementaba `viewCount` sin rate limit ni deduplicación —
+cualquier script podía inflar contadores o generar carga de escritura sin
+límite.
+
+**Resuelto**: `server/utils/visitor.ts` añade una cookie anónima de larga
+duración (`sa_visitor`, `httpOnly`, 2 años) — sin datos personales, mismo
+perfil de privacidad que cualquier cookie de sesión, pero para un sitio sin
+cuentas. El frontend de favoritos (`composables/useFavorites.ts`) ya
+llevaba su propio estado por-visitante en `localStorage` y no necesitó
+ningún cambio — el arreglo es enteramente del lado del servidor:
+
+- **Favoritos**: migración 0055 crea la tabla `favorites` con
+  `UNIQUE(organization_id, developer_property_id, visitor_id)`. Marcar
+  como favorito hace un `INSERT` real (idempotente — un duplicado por el
+  mismo visitante no lanza error, simplemente no vuelve a incrementar el
+  contador); quitarlo hace un `DELETE` real. `favoriteCount` sigue
+  existiendo como agregado cacheado para lecturas rápidas, pero ahora solo
+  se mueve ±1 cuando el `INSERT`/`DELETE` de este visitante concreto
+  realmente tuvo efecto — nunca por la sola palabra del cliente.
+- **Vistas**: `property_views` gana `visitor_id` (columna aditiva).
+  `view.post.ts` añade `rateLimit()` (mismo patrón que el resto del
+  proyecto) y deduplica: si este visitante ya tiene una vista registrada
+  para esta propiedad en los últimos 30 minutos, no se cuenta de nuevo —
+  una "vista" vuelve a significar una visita real, no cada recarga de
+  página.
+
+Tests en `test/unit/visitorIdentity.test.ts`: la cookie se respeta si ya
+es válida, se genera una nueva si falta o está manipulada, dos peticiones
+sin cookie obtienen ids distintos; y contra D1 real: el mismo visitante no
+puede favoritear dos veces la misma propiedad (choque de unicidad),
+visitantes distintos sí pueden coexistir, y quitar el favorito de uno no
+afecta al de otro.
+
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
@@ -337,8 +378,8 @@ un identificador seguro se rechaza limpiamente.
 | P1-3 | ~~Tokens de sesión se guardan en claro en D1 (no hasheados)~~ — ✅ resuelto en FASE 19 | `server/utils/auth.ts` `createSession()` | Migración 0052 + rotación retrocompatible en `getSessionUser()`, ver detalle abajo |
 | P1-4 | ~~Webhooks salientes hacen un único intento, sin dead-letter ni tarea de reintento~~ — ✅ resuelto | `server/utils/webhooks.ts` | Migración 0054 + `attemptWebhookDelivery()` + `retry-webhook-queue.ts`, mismo patrón que el email — ver detalle abajo |
 | P1-5 | ~~Backup diario de D1 carga todas las tablas enteras en memoria antes de comprimir y subir, sin streaming/chunking~~ — ✅ resuelto | `server/tasks/system/backup-d1.ts` | `buildBackupStream()` en `server/utils/backup.ts` — paginado por `rowid` + JSON incremental — ver detalle abajo |
-| P1-6 | Cada vista de propiedad hace 2 escrituras D1 (`UPDATE viewCount` + `INSERT propertyViews`) sin rate limit ni deduplicación de visitante | `server/api/public/properties/[slug]/view.post.ts` | Cualquier script puede inflar contadores o generar carga de escritura |
-| P1-7 | Favoritos son un contador crudo incrementable/decrementable directamente desde el cliente, sin tabla de favoritos real ni restricción de unicidad | `server/api/public/favorite.post.ts` | Cualquiera puede inflar o poner a cero el contador de favoritos de un listado público |
+| P1-6 | ~~Cada vista de propiedad hace 2 escrituras D1 sin rate limit ni deduplicación de visitante~~ — ✅ resuelto | `server/api/public/properties/[slug]/view.post.ts` | `rateLimit()` + dedup por visitante (ventana de 30 min) — ver detalle abajo |
+| P1-7 | ~~Favoritos son un contador crudo incrementable/decrementable directamente desde el cliente, sin restricción de unicidad~~ — ✅ resuelto | `server/api/public/favorite.post.ts` | Tabla `favorites` real, migración 0055 — ver detalle abajo |
 | P1-8 | Subida de vídeo (hasta 100MB) atraviesa el Worker completo (limitación de memoria de request documentada en el propio código) | `server/utils/media.ts` | No existe subida directa a R2 todavía |
 | P1-9 | No existe `npm run lint` ni ESLint/Biome configurado | `package.json` | Solo `typecheck` como análisis estático |
 | P1-10 | No existen `/api/health/live` ni `/api/health/ready` | — | — |
@@ -387,7 +428,9 @@ prompt) y se listan aquí para no repetir trabajo:
 - **Rate limiting de aplicación** — existe (`server/utils/rateLimit.ts`),
   D1-backed, con la limitación de "no exacto bajo alta concurrencia"
   documentada explícitamente en el propio código como trade-off aceptado.
-  Sigue faltando aplicarlo a `view.post.ts`/`favorite.post.ts` (P1-6/P1-7).
+  Aplicado a `view.post.ts` (P1-6, resuelto); `favorite.post.ts` no lo
+  necesita — su protección real es la restricción de unicidad de la tabla
+  `favorites` (P1-7, resuelto), no un límite de frecuencia.
 - **Paginación** — todos los endpoints de listado muestreados ya limitan
   `perPage` (máximo 100) o usan un `LIMIT` fijo razonable. No se encontró
   ningún endpoint que devuelva una tabla completa sin límite.

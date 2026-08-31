@@ -310,8 +310,36 @@ export const propertyViews = sqliteTable(
       .notNull()
       .references(() => developerProperties.id, { onDelete: 'cascade' }),
     createdAt: text('created_at').notNull(),
+    // Anonymous per-browser id (server/utils/visitor.ts) — lets
+    // view.post.ts dedupe repeat views from the same visitor within a
+    // short window instead of counting every request. Nullable: rows
+    // recorded before this column existed (migration 0055) have none.
+    visitorId: text('visitor_id'),
   },
   (t) => [index('property_views_property_created').on(t.developerPropertyId, t.createdAt)],
+)
+
+// Real per-visitor favorites (added 0055) — replaces a raw
+// developerProperties.favoriteCount counter that any script could drive
+// arbitrarily by replaying { id, on: true/false } with no identity behind
+// it (docs/production-hardening-audit.md, P1-7). One row per (org,
+// property, visitor) — favoriteCount stays as a cached aggregate, but now
+// only ever moves by ±1 per visitor, driven by a real insert/delete here.
+export const favorites = sqliteTable(
+  'favorites',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    developerPropertyId: integer('developer_property_id')
+      .notNull()
+      .references(() => developerProperties.id, { onDelete: 'cascade' }),
+    visitorId: text('visitor_id').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('favorites_org_property_visitor').on(t.organizationId, t.developerPropertyId, t.visitorId),
+    index('favorites_property').on(t.developerPropertyId),
+  ],
 )
 
 // Real Instagram/TikTok video embeds per property (added 0019) — admin
