@@ -664,6 +664,26 @@ cliente real, no solo en el servidor.
 - Sin RBAC granular más allá de `super_admin`/`admin`/`user` (el único
   sistema de permisos más fino que existe hoy es `api_keys.scopes`, solo
   para acceso de máquina vía `/api/v1/*`).
+- `developer_properties.publishedAt` no controla realmente la visibilidad
+  pública — auditado a raíz del punto 30 del megaprompt de rediseño del
+  Property Builder ("auditar si el backend distingue borrador/publicado
+  antes de surfacear un control en el builder"). El campo existe, y
+  `pages/admin/developer-properties/index.vue`/`DeveloperPropertyCard.vue`
+  ya tienen un botón "Publicar/Despublicar" (fuera del Property Builder)
+  que lo pone a `null`/una fecha. Pero ninguno de los endpoints públicos
+  (`server/api/public/properties.get.ts`, `properties/[slug].get.ts`,
+  `server/api/widget/properties.get.ts`) filtra por él — el widget solo lo
+  usa como criterio de orden (`desc(P.publishedAt)`). Una propiedad
+  "Despublicada" hoy sigue exactamente igual de visible en la web pública;
+  el botón cambia una etiqueta en el admin, no el acceso real. `properties`
+  (2ª mano) no tiene ningún concepto de borrador/publicado — ni columna.
+  Decisión (confirmada con el usuario): documentar el hallazgo y no añadir
+  nada al Property Builder por ahora — un paso "Borrador/Publicado" ahí
+  mostraría como funcional algo que hoy no lo es. Arreglar el enforcement
+  real es un cambio de comportamiento de producción (propiedades hoy
+  "despublicadas" pero visibles dejarían de aparecer en la web al
+  desplegarse) y queda fuera de esta pasada, pendiente de una decisión
+  explícita futura.
 - ~~Sin presupuestos de rendimiento de build ni lazy-loading auditado de
   librerías pesadas (Leaflet, PDF, QR)~~ — ✅ auditado, ya estaba resuelto
   por convención existente, no hizo falta código nuevo: `pdf-lib` y
