@@ -1,6 +1,8 @@
 import { asc, eq, or } from 'drizzle-orm'
 import { createError, deleteCookie, getCookie, setCookie, type H3Event } from 'h3'
 import { useDb, cfEnv, now, schema } from './db'
+import { hasAreaAccess } from './permissions'
+import type { AdminArea } from '../../utils/adminAreas'
 
 const PBKDF2_ITERATIONS = 100_000
 const SESSION_COOKIE = 'sa_session'
@@ -69,6 +71,8 @@ export interface SessionUser {
   role: string
   /** Null only for 'super_admin', who belongs to no single organization. */
   organizationId: number | null
+  /** Nullable JSON array of "<area>:<action>" strings — see server/utils/permissions.ts. Null = unrestricted. */
+  permissions: string | null
 }
 
 export async function createSession(event: H3Event, userId: number): Promise<void> {
@@ -124,6 +128,7 @@ export async function getSessionUser(event: H3Event): Promise<SessionUser | null
       email: schema.users.email,
       role: schema.users.role,
       organizationId: schema.users.organizationId,
+      permissions: schema.users.permissions,
       expiresAt: schema.sessions.expiresAt,
     })
     .from(schema.sessions)
@@ -148,7 +153,7 @@ export async function getSessionUser(event: H3Event): Promise<SessionUser | null
     // untouched — same raw token, re-hashed on every subsequent request.
     await db.update(schema.sessions).set({ id: randomTokenHex(), tokenHash }).where(eq(schema.sessions.id, row.sessionId))
   }
-  return { id: row.id, name: row.name, email: row.email, role: row.role, organizationId: row.organizationId }
+  return { id: row.id, name: row.name, email: row.email, role: row.role, organizationId: row.organizationId, permissions: row.permissions }
 }
 
 /** Allows both org-scoped admins and the platform super_admin. */
@@ -228,9 +233,18 @@ export async function resolveActiveOrgId(event: H3Event, user: SessionUser, db: 
  * downstream should interpret a super_admin session as permission to query
  * across tenants — `buildTenantWhere()` fails closed rather than dropping the
  * filter if it is ever handed a null org.
+ *
+ * `area`/`action` are optional (P2 granular RBAC, server/utils/permissions.ts)
+ * — a caller that omits them gets exactly today's behavior (any admin/
+ * super_admin passes). Only a caller that explicitly declares its area gets
+ * the new per-admin permission check, so existing call sites are unaffected
+ * until deliberately annotated.
  */
-export async function requireOrgScope(event: H3Event): Promise<{ user: SessionUser; orgId: number }> {
+export async function requireOrgScope(event: H3Event, area?: AdminArea, action: 'read' | 'write' = 'read'): Promise<{ user: SessionUser; orgId: number }> {
   const user = await requireAdmin(event)
+  if (area && !hasAreaAccess(user, area, action)) {
+    throw createError({ statusCode: 403, statusMessage: 'No tienes permiso para acceder a esta sección.' })
+  }
   const orgId = await resolveActiveOrgId(event, user, useDb(event))
   return { user, orgId }
 }

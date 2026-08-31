@@ -18,11 +18,11 @@ function fakeEvent(cookieHeader?: string) {
 }
 
 function admin(organizationId: number | null): SessionUser {
-  return { id: 1, name: 'Admin', email: 'admin@example.com', role: 'admin', organizationId }
+  return { id: 1, name: 'Admin', email: 'admin@example.com', role: 'admin', organizationId, permissions: null }
 }
 
 function superAdmin(): SessionUser {
-  return { id: 2, name: 'Super', email: 'super@example.com', role: 'super_admin', organizationId: null }
+  return { id: 2, name: 'Super', email: 'super@example.com', role: 'super_admin', organizationId: null, permissions: null }
 }
 
 /** Minimal `db.select().from().orderBy().limit()` stub, resolving to the given rows. */

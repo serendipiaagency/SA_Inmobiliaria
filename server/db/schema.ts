@@ -61,6 +61,11 @@ export const users = sqliteTable('users', {
   email: text('email').notNull().unique(),
   password: text('password').notNull(), // pbkdf2$<iterations>$<salt>$<hash>
   role: text('role').notNull().default('user'), // 'super_admin' | 'admin' | 'user'
+  // Nullable JSON array of "<area>:<action>" strings (server/utils/permissions.ts).
+  // NULL = unrestricted (full access within the org) — the default, and the
+  // only value any pre-existing account has, so this is purely additive to
+  // current behavior. super_admin always bypasses this regardless of value.
+  permissions: text('permissions'),
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })
