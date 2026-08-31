@@ -290,6 +290,43 @@ reintento programado, un error HTTP o de red encola con backoff, se agota
 tras `MAX_WEBHOOK_ATTEMPTS` intentos, y un endpoint desactivado/eliminado
 falla de inmediato sin reintentar.
 
+### P1-5 — Backup diario de D1 sin streaming, todo en memoria — ✅ resuelto
+
+`backup-d1.ts` hacía `SELECT *` completo por cada tabla, acumulaba **todas**
+las tablas en un único objeto JS y solo entonces hacía un único
+`JSON.stringify()` + gzip antes de subir a R2 — un riesgo real de doble
+cara: agota la memoria del propio Worker al crecer los datos, y D1 tiene su
+propio límite de tamaño de resultado por query que puede romper un
+`.all()` sin paginar incluso antes de llegar a ese límite de memoria — no
+es solo un problema de rendimiento, es un problema de escalabilidad.
+
+**Resuelto**: la lógica se extrajo a `server/utils/backup.ts` (el archivo
+de la tarea programada se queda fino, solo orquesta — mismo patrón que
+`attemptSend()`/`attemptWebhookDelivery()` viviendo fuera de sus archivos
+de tarea) con `buildBackupStream()`: cada tabla se lee en páginas de 500
+filas vía paginación por `rowid` (el pseudo-columna nativo de SQLite,
+presente en toda tabla no declarada `WITHOUT ROWID` — verificado que
+ninguna migración usa esa cláusula, así que esto funciona sin necesitar
+conocer el nombre de la columna PK real de cada tabla), y el JSON de
+salida se construye de forma incremental (`ReadableStream` manual) en vez
+de acumularse — nunca se mantiene en memoria más de una página de una
+tabla a la vez. El stream se conecta directamente a
+`CompressionStream('gzip')` y de ahí a `R2Bucket.put()` (que acepta un
+`ReadableStream` como cuerpo), así que tampoco se materializa el archivo
+comprimido completo antes de subirlo. El formato de salida es idéntico al
+anterior (`{takenAt, tables: {nombre: filas[]}}`, un objeto gzip por día
+en `backups/{día}.json.gz`) — no había ningún script de restore que
+dependiera de la forma anterior (verificado, es el único sitio que produce
+o consume este formato), así que no hacía falta cambiar nada aguas abajo.
+
+Tests en `test/unit/backup.streaming.test.ts`, contra una D1 real (mismo
+`node:sqlite` que el resto de la suite, con un adaptador mínimo con forma
+de `D1Database`): el JSON producido en streaming es idéntico en contenido
+al que produciría un dump completo en memoria, a través de varias páginas;
+`stats.totalRows` coincide exactamente con lo emitido; una tabla vacía
+produce un array vacío sin romper el JSON; y un nombre de tabla que no es
+un identificador seguro se rechaza limpiamente.
+
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
@@ -299,7 +336,7 @@ falla de inmediato sin reintentar.
 | P1-2 | ~~`invoices.number` es `UNIQUE` global pese a que `invoices` ya es tenant-scoped~~ — ✅ resuelto en FASE 7 | `server/db/schema.ts` | Migración 0053, `UNIQUE(organization_id, number)` |
 | P1-3 | ~~Tokens de sesión se guardan en claro en D1 (no hasheados)~~ — ✅ resuelto en FASE 19 | `server/utils/auth.ts` `createSession()` | Migración 0052 + rotación retrocompatible en `getSessionUser()`, ver detalle abajo |
 | P1-4 | ~~Webhooks salientes hacen un único intento, sin dead-letter ni tarea de reintento~~ — ✅ resuelto | `server/utils/webhooks.ts` | Migración 0054 + `attemptWebhookDelivery()` + `retry-webhook-queue.ts`, mismo patrón que el email — ver detalle abajo |
-| P1-5 | Backup diario de D1 carga **todas** las tablas enteras en memoria (`SELECT *` por tabla → un solo objeto JS) antes de comprimir y subir | `server/tasks/system/backup-d1.ts` | Sin streaming/chunking; crecerá hasta chocar con límites de memoria/CPU del Worker |
+| P1-5 | ~~Backup diario de D1 carga todas las tablas enteras en memoria antes de comprimir y subir, sin streaming/chunking~~ — ✅ resuelto | `server/tasks/system/backup-d1.ts` | `buildBackupStream()` en `server/utils/backup.ts` — paginado por `rowid` + JSON incremental — ver detalle abajo |
 | P1-6 | Cada vista de propiedad hace 2 escrituras D1 (`UPDATE viewCount` + `INSERT propertyViews`) sin rate limit ni deduplicación de visitante | `server/api/public/properties/[slug]/view.post.ts` | Cualquier script puede inflar contadores o generar carga de escritura |
 | P1-7 | Favoritos son un contador crudo incrementable/decrementable directamente desde el cliente, sin tabla de favoritos real ni restricción de unicidad | `server/api/public/favorite.post.ts` | Cualquiera puede inflar o poner a cero el contador de favoritos de un listado público |
 | P1-8 | Subida de vídeo (hasta 100MB) atraviesa el Worker completo (limitación de memoria de request documentada en el propio código) | `server/utils/media.ts` | No existe subida directa a R2 todavía |
