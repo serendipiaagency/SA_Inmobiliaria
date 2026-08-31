@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, now } from './db'
+import { getRequestId } from './requestId'
 
 export type WebhookEvent = 'lead.created' | 'deal.closed' | 'visit.booked' | 'contract.accepted' | 'referral.converted'
 
@@ -114,7 +115,7 @@ export async function dispatchWebhook(event: H3Event, orgId: number, eventName: 
 
       const [delivery] = await db
         .insert(schema.webhookDeliveries)
-        .values({ endpointId: ep.id, event: eventName, payloadJson: bodyStr, status: 'pending', attempts: 0, createdAt: now() })
+        .values({ endpointId: ep.id, event: eventName, payloadJson: bodyStr, status: 'pending', attempts: 0, createdAt: now(), requestId: getRequestId(event) })
         .returning({ id: schema.webhookDeliveries.id })
       await attemptWebhookDelivery(db, delivery.id)
     }

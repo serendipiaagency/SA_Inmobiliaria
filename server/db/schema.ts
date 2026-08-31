@@ -1373,6 +1373,11 @@ export const errorLogs = sqliteTable(
     organizationId: integer('organization_id'),
     userId: integer('user_id'),
     createdAt: text('created_at').notNull().default(''),
+    // Correlation id (server/utils/requestId.ts, usually Cloudflare's own
+    // cf-ray) — lets an error be matched to the webhook_deliveries row
+    // its same request may have also produced. Nullable: rows recorded
+    // before this column existed (migration 0056) have none.
+    requestId: text('request_id'),
   },
   (t) => [index('error_logs_created_at').on(t.createdAt), index('error_logs_status').on(t.statusCode)],
 )
@@ -1910,6 +1915,12 @@ export const webhookDeliveries = sqliteTable(
     // Backoff schedule for 'queued' rows — server/tasks/notifications/retry-webhook-queue.ts
     // picks these up past this timestamp, same pattern as email_log.nextRetryAt.
     nextRetryAt: text('next_retry_at'),
+    // Correlation id (server/utils/requestId.ts) of the request that
+    // triggered this delivery — set once at creation, not re-derived on
+    // retries (a retry is a background job, not tied to the original
+    // request). Nullable: rows recorded before this column existed
+    // (migration 0056) have none.
+    requestId: text('request_id'),
   },
   (t) => [index('webhook_deliveries_endpoint').on(t.endpointId, t.createdAt)],
 )
