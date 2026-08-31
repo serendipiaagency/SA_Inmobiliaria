@@ -550,6 +550,86 @@ build real (`wrangler dev` contra `.output/`) para comprobar por HTTP que
 `sa-landing` de `layouts/root.vue` (la que se modificó) sigue
 renderizando.
 
+### P1-8 — Subida de vídeo directa a R2 (chunked/multipart) — ✅ resuelto
+
+Un vídeo (hasta 100MB) se subía en una sola petición al Worker —
+`readMultipartFormData()` bufferea el cuerpo entero en memoria antes de que
+`storeFile()` pudiera siquiera empezar a validarlo, exactamente la limitación
+que el propio comentario junto a `MAX_VIDEO_UPLOAD_BYTES` documentaba.
+
+**Resuelto**: rediseñado como subida chunked mediada por el Worker usando la
+API de multipart de R2 (`createMultipartUpload`/`uploadPart`/`complete`/
+`resumeMultipartUpload`/`abort` — expuesta directamente por el mismo binding
+`MEDIA` que ya existía, sin credenciales ni recursos nuevos). Lógica en
+`server/utils/mediaMultipart.ts`, 3 endpoints nuevos bajo
+`server/api/admin/upload/multipart/` (`init` → `[uploadId]/part` →
+`[uploadId]/complete`, más `[uploadId]/abort` para cancelación explícita),
+consumidos por `components/property-builder/VideoField.vue` (única superficie
+de subida de vídeo del proyecto). El vídeo se retiró por completo del
+endpoint antiguo (`server/api/admin/upload.post.ts`) — no queda una segunda
+ruta que siga aceptando 100MB en una sola petición.
+
+Decisiones de diseño:
+- **Tamaño de parte**: 10MB (`MULTIPART_PART_MAX_BYTES`) — por encima del
+  mínimo de 5MB que exige R2/S3 para toda parte salvo la última (verificado
+  en pruebas manuales: subir una parte de 1MB seguida de otra falla en
+  `complete()` con un error real de R2, no simulado). Un vídeo de 100MB
+  queda en ~10 partes, muy por debajo del límite de 10.000 de R2.
+- **Validación de magic bytes**: solo en la parte 1 — todas las firmas de
+  vídeo que reconoce `contentMatchesType()` viven en los primeros ~8 bytes
+  del archivo, así que no hace falta esperar al archivo completo. Un
+  rechazo en la parte 1 aborta la subida entera de inmediato (no tiene
+  sentido dejar que el cliente siga mandando el resto).
+- **Límite real de tamaño, no solo el declarado**: el cliente declara un
+  `sizeBytes` en `init` (precheck de cuota, misma honestidad que
+  `storeFile`), pero nada impide que mande más partes de las que declaró.
+  `completeMultipartUpload()` vuelve a comprobar el tamaño **real**
+  ensamblado (`R2Object.size`) contra el límite de 100MB y contra la cuota
+  del tenant — si se excede, borra el objeto de R2, marca la subida
+  `aborted` y nunca llega a registrar `media_assets` ni a cobrar cuota.
+- **Checksum sin volver a bufferear el archivo completo**: `sha256Hex()`
+  (server/utils/checksum.ts) es de un solo golpe sobre un buffer entero —
+  usarlo aquí habría reintroducido el mismo problema de memoria que esto
+  arregla. `hashR2Object()` en su lugar streamea el objeto ya subido
+  (`bucket.get(key).body`, un `ReadableStream`) a través de un hash
+  incremental de `node:crypto` (`createHash('sha256')` — Node compat ya
+  activado en `wrangler.toml` desde el inicio del proyecto, verificado que
+  funciona en runtime real, no solo en build, con una subida completa de
+  extremo a extremo vía `wrangler dev`). Memoria acotada, coste extra en
+  CPU/tiempo, no en RAM — el mismo compromiso que el resto del diseño.
+- **Ownership de la subida**: cada subida abierta se registra en la nueva
+  tabla `media_multipart_uploads` (migración 0057, `organizationId` +
+  `uploadId` + `status`). Cada petición de parte/complete/abort exige una
+  fila `pending` que pertenezca a la organización de la sesión —
+  exactamente el mismo principio que ya enuncia el comentario de
+  `buildStructuredKey()`: la propiedad siempre viene de una fila de D1,
+  nunca de confiar en el string del key o del uploadId por sí solos.
+- **Limpieza de subidas abandonadas**: una pestaña cerrada o una conexión
+  perdida a mitad de subida deja un multipart upload abierto en R2 y una
+  fila `pending` en D1 para siempre si nada las cierra.
+  `sweepStaleMultipartUploads()` se añadió a la tarea diaria
+  `system:media-lifecycle` (24h de antigüedad) como tercer trabajo junto a
+  la purga de `media_assets` y la reconciliación de cuota. Un segundo
+  backstop nativo de R2 (regla de lifecycle `AbortIncompleteMultipartUpload`
+  en el bucket) queda documentado como configuración manual pendiente —
+  ver "Requiere configuración manual externa" — pero no es necesario para
+  que la función sea segura hoy.
+
+**Verificado más allá de typecheck/test/build/migrations:check**: 23 tests
+nuevos en `test/unit/mediaMultipart.test.ts` (con un fake de R2 al estilo de
+`fakeHealthyBucket`/`fakeD1` ya establecido en el proyecto) cubriendo cada
+función y sus casos de rechazo. Además, flujo completo probado en vivo
+contra `wrangler dev` real (R2 y D1 locales, no simulado en el sentido de
+"solo unit tests"): init→parte→complete feliz, rechazo por magic bytes con
+auto-abort verificado (una parte posterior al aborto devuelve 404), abort
+explícito idempotente, bloqueo de carpetas no permitidas, y — crítico para
+esta función en concreto — un script de Playwright real ejecutando el
+código *exacto* de `VideoField.vue` (`$fetch` con `query`/`body: Blob`)
+dentro de un navegador de verdad autenticado contra el servidor, no solo
+`curl`, confirmando que el recorte de archivo por `File.slice()` y las
+peticiones PUT con cuerpo binario funcionan tal como se diseñaron en el
+cliente real, no solo en el servidor.
+
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
@@ -562,7 +642,7 @@ renderizando.
 | P1-5 | ~~Backup diario de D1 carga todas las tablas enteras en memoria antes de comprimir y subir, sin streaming/chunking~~ — ✅ resuelto | `server/tasks/system/backup-d1.ts` | `buildBackupStream()` en `server/utils/backup.ts` — paginado por `rowid` + JSON incremental — ver detalle abajo |
 | P1-6 | ~~Cada vista de propiedad hace 2 escrituras D1 sin rate limit ni deduplicación de visitante~~ — ✅ resuelto | `server/api/public/properties/[slug]/view.post.ts` | `rateLimit()` + dedup por visitante (ventana de 30 min) — ver detalle abajo |
 | P1-7 | ~~Favoritos son un contador crudo incrementable/decrementable directamente desde el cliente, sin restricción de unicidad~~ — ✅ resuelto | `server/api/public/favorite.post.ts` | Tabla `favorites` real, migración 0055 — ver detalle abajo |
-| P1-8 | Subida de vídeo (hasta 100MB) atraviesa el Worker completo (limitación de memoria de request documentada en el propio código) | `server/utils/media.ts` | No existe subida directa a R2 todavía |
+| P1-8 | ~~Subida de vídeo (hasta 100MB) atraviesa el Worker completo (limitación de memoria de request documentada en el propio código)~~ — ✅ resuelto | `server/utils/mediaMultipart.ts` | Subida chunked/multipart directa a R2 — ver detalle abajo |
 | P1-9 | ~~No existe `npm run lint` ni ESLint/Biome configurado~~ — ✅ resuelto | `package.json` | `@nuxt/eslint` + `npm run lint` en CI — ver detalle abajo |
 | P1-10 | ~~No existen `/api/health/live` ni `/api/health/ready`~~ — ✅ resuelto | `server/api/health/` | Ambos existen, `smoke-test.mjs` los usa — ver detalle abajo |
 | P1-11 | ~~El pipeline de CI no valida que `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`/`PRODUCTION_URL` existan y sean válidos antes de desplegar~~ — ✅ resuelto en FASE 1 | `.github/workflows/ci.yml` | Jobs `staging-preflight`/`production-preflight` (comentario de cabecera desactualizado corregido aquí, la corrección ya estaba hecha en el commit `0c36a43`) |
@@ -637,6 +717,15 @@ prompt) y se listan aquí para no repetir trabajo:
   webhook en cada error 5xx (`server/plugins/error-logging.ts`), pero la
   variable no está configurada; sin ella el sistema sigue registrando en
   `error_logs`, solo no hay aviso proactivo externo.
+- **Regla de lifecycle `AbortIncompleteMultipartUpload` en el bucket R2**
+  `sa-inmobiliaria-media` (y su equivalente `-staging`) — P1-8 (subida de
+  vídeo chunked) ya limpia por sí sola las subidas abandonadas vía el
+  barrido diario en `server/tasks/system/media-lifecycle.ts`
+  (`sweepStaleMultipartUploads`, 24h), pero una regla de lifecycle nativa
+  de R2 sería un segundo backstop independiente del propio código —
+  configurable solo desde el dashboard/API de Cloudflare, no desde este
+  repositorio. No bloquea el uso de la función: el barrido de D1 ya cubre
+  el caso real.
 
 ## Posibles breaking changes de las fases siguientes
 

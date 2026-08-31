@@ -244,3 +244,15 @@ mira `server/api/admin/saas/contracts/[id]/download.get.ts` como plantilla.
 **Nunca**: derivar visibilidad o propietario de la forma de la clave R2. Si
 un código nuevo necesita saber si algo es público, pregúntale a
 `media_assets`, no al string de la ruta.
+
+**Añadir un nuevo tipo de subida grande/chunked** (algo que no cabe cómodo
+en una sola petición del Worker, como el vídeo de P1-8): usa
+`server/utils/mediaMultipart.ts` en vez de `storeFile`/`storeAndRegisterFile`
+directos — abre la subida con `initMultipartUpload` (ownership registrada en
+`media_multipart_uploads`, mismo principio que `media_assets`: nunca confiar
+en el uploadId/key por sí solos), sube partes con `uploadMultipartPart`
+(valida magic bytes solo en la parte 1) y ciérrala con
+`completeMultipartUpload`, que vuelve a comprobar el tamaño real (no el
+declarado) antes de registrar el `media_assets` final. Añade el barrido de
+subidas abandonadas a `server/tasks/system/media-lifecycle.ts` si el nuevo
+tipo también puede quedar a medias.

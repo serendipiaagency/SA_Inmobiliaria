@@ -1978,6 +1978,36 @@ export const mediaAssets = sqliteTable(
   ],
 )
 
+// Tracks an in-progress R2 multipart upload (P1-8, docs/production-hardening-audit.md)
+// so a later request (uploading part N, or completing/aborting) can prove it
+// owns that `upload_id` before touching it — the R2 upload_id itself is an
+// unguessable capability, but ownership is still meant to come from a D1 row
+// everywhere else in this codebase (see buildStructuredKey's own comment),
+// not from trusting an opaque string alone. Rows are cleaned up by
+// server/tasks/system/media-lifecycle.ts once a `media_assets` row exists
+// (status='completed') or the upload is abandoned (status='aborted').
+export const mediaMultipartUploads = sqliteTable(
+  'media_multipart_uploads',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    uploadId: text('upload_id').notNull().unique(),
+    r2Key: text('r2_key').notNull(),
+    mimeType: text('mime_type').notNull(),
+    extension: text('extension').notNull(),
+    category: text('category').notNull(),
+    entityType: text('entity_type'),
+    entityId: integer('entity_id'),
+    originalFilename: text('original_filename'),
+    declaredSizeBytes: integer('declared_size_bytes').notNull(),
+    createdBy: integer('created_by'),
+    status: text('status').notNull().default('pending'), // pending | completed | aborted
+    createdAt: text('created_at').notNull().default(''),
+    completedAt: text('completed_at'),
+  },
+  (t) => [index('media_multipart_uploads_org').on(t.organizationId, t.status), index('media_multipart_uploads_stale').on(t.status, t.createdAt)],
+)
+
 // Every read of a confidential object is logged — who, when, from where, and
 // whether it was actually allowed. `denied` rows matter as much as
 // `download` ones: a burst of denials against one tenant's documents is the
