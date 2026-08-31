@@ -91,15 +91,20 @@
               </div>
             </div>
 
-            <div v-if="s.kind === 'fields'" class="grid gap-4 sm:grid-cols-2">
-              <PropertyBuilderField
-                v-for="f in s.fields"
-                :key="f.key"
-                :spec="f"
-                :model-value="form[f.key]"
-                :upload-folder="resource"
-                @update:model-value="(v) => (form[f.key] = v)"
-              />
+            <div v-if="s.kind === 'fields'" class="space-y-5">
+              <div v-for="(g, gi) in groupFields(s.fields)" :key="gi">
+                <p v-if="g.label" class="mb-3 text-[11px] font-bold uppercase tracking-widest text-stone-400" :class="{ 'border-t border-line pt-4': gi > 0 }">{{ g.label }}</p>
+                <div class="grid gap-4 sm:grid-cols-2">
+                  <PropertyBuilderField
+                    v-for="f in g.fields"
+                    :key="f.key"
+                    :spec="f"
+                    :model-value="form[f.key]"
+                    :upload-folder="resource"
+                    @update:model-value="(v) => (form[f.key] = v)"
+                  />
+                </div>
+              </div>
             </div>
             <LocationSection
               v-else-if="s.kind === 'location'"
@@ -118,7 +123,7 @@
               :cover-value="form[s.coverField || 'coverImage']"
               @use-as-cover="(key) => (form[s.coverField || 'coverImage'] = key)"
             />
-            <ChildTable v-else-if="s.kind === 'child-table'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" :columns="s.columns" />
+            <ChildCardManager v-else-if="s.kind === 'child-table'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" :columns="s.columns" />
             <SocialLinksManager v-else-if="s.kind === 'social'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" />
 
             <div class="mt-8 flex items-center justify-between border-t border-line pt-5">
@@ -135,12 +140,12 @@
 </template>
 
 <script setup lang="ts">
-import { PROPERTY_BUILDER_SECTIONS, type BuilderSection, type FieldsSection } from '~/composables/usePropertyBuilderConfig'
+import { PROPERTY_BUILDER_SECTIONS, groupFields, type BuilderSection, type FieldsSection } from '~/composables/usePropertyBuilderConfig'
 import PropertyBuilderField from './PropertyBuilderField.vue'
 import LocationSection from './LocationSection.vue'
 import TranslationsEditor from './TranslationsEditor.vue'
 import GalleryManager from './GalleryManager.vue'
-import ChildTable from './ChildTable.vue'
+import ChildCardManager from './ChildCardManager.vue'
 import SocialLinksManager from './SocialLinksManager.vue'
 
 const props = defineProps<{ resource: 'developer-properties' | 'properties'; id: string }>()

@@ -42,6 +42,8 @@
       @input="emitUpdate(($event.target as HTMLTextAreaElement).value)"
     />
 
+    <RichTextField v-else-if="spec.type === 'rich-text'" :model-value="modelValue" @update:model-value="emitUpdate" />
+
     <div v-else-if="spec.type === 'image'" class="space-y-2">
       <div v-if="modelValue" class="flex items-center gap-3">
         <img :src="mediaUrl(String(modelValue))" class="h-16 w-16 border border-line object-cover" >
@@ -74,6 +76,7 @@ import PaymentPlanEditor from './PaymentPlanEditor.vue'
 import VideoField from './VideoField.vue'
 import AgentPickerField from './AgentPickerField.vue'
 import StepperField from './StepperField.vue'
+import RichTextField from './RichTextField.client.vue'
 
 const props = defineProps<{ spec: FieldSpec; modelValue: any; uploadFolder: string }>()
 const emit = defineEmits<{ 'update:modelValue': [value: any] }>()

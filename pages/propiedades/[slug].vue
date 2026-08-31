@@ -129,7 +129,14 @@
           <section v-if="data.project.description">
             <p class="eyebrow">{{ t('propertyDetails.description.eyebrow', 'Descripción') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.description.heading', 'Sobre esta propiedad') }}</h2>
-            <p class="mt-5 max-w-3xl whitespace-pre-line text-[15px] leading-[1.9] text-stone-600">{{ data.project.description }}</p>
+            <!-- whitespace-pre-line keeps line breaks from descriptions written before the
+            rich-text editor existed (plain text, no tags); v-html renders real formatting
+            for anything saved since (bold/italic/lists/links) — both read correctly here. -->
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <div
+              class="prose-description mt-5 max-w-3xl whitespace-pre-line text-[15px] leading-[1.9] text-stone-600 [&_a]:text-accent-700 [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-5"
+              v-html="data.project.description"
+            />
           </section>
 
           <!-- Amenities -->
