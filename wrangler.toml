@@ -58,7 +58,9 @@ enabled = true
 #                 server/tasks/payments/reconcile-deposits.ts (polls Stripe for
 #                 any deposit the webhook never confirmed) and
 #                 server/tasks/notifications/retry-email-queue.ts (retries
-#                 any transactional email that failed to send)
+#                 any transactional email that failed to send) and
+#                 server/tasks/notifications/retry-webhook-queue.ts (retries
+#                 any outbound webhook delivery that failed)
 # "* * * *  *" -> server/tasks/scheduler/dispatch.ts (Publication Scheduler
 #                 dispatcher — every minute, so staged-launch offsets land on time)
 #                 and server/tasks/appointments/reminders.ts (24h/1h

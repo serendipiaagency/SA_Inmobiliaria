@@ -1873,12 +1873,15 @@ export const webhookDeliveries = sqliteTable(
       .references(() => webhookEndpoints.id, { onDelete: 'cascade' }),
     event: text('event').notNull(),
     payloadJson: text('payload_json').notNull(),
-    status: text('status').notNull().default('pending'), // pending | delivered | failed
+    status: text('status').notNull().default('pending'), // pending | queued | delivered | failed
     responseCode: integer('response_code'),
     errorMessage: text('error_message'),
     attempts: integer('attempts').notNull().default(0),
     createdAt: text('created_at').notNull().default(''),
     deliveredAt: text('delivered_at'),
+    // Backoff schedule for 'queued' rows — server/tasks/notifications/retry-webhook-queue.ts
+    // picks these up past this timestamp, same pattern as email_log.nextRetryAt.
+    nextRetryAt: text('next_retry_at'),
   },
   (t) => [index('webhook_deliveries_endpoint').on(t.endpointId, t.createdAt)],
 )

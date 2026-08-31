@@ -262,6 +262,34 @@ Tests en `test/unit/sessions.tokenHash.test.ts`: colisión real de
 detección-y-rotación de una sesión legacy, y que ninguna fila conserva el
 token en claro tras rotar.
 
+### P1-4 — Webhooks salientes sin reintento ni dead-letter — ✅ resuelto
+
+`dispatchWebhook()` hacía exactamente un intento por endpoint y marcaba
+`'failed'` permanentemente si fallaba, pese a que `webhook_deliveries.attempts`
+ya sugería que se había pensado en reintentos — a diferencia del email, que
+sí tiene backoff real (`email_log.next_retry_at` +
+`retry-email-queue.ts`).
+
+**Resuelto** con exactamente el mismo patrón que el email, en vez de una
+segunda implementación distinta: migración `0054_webhook_deliveries_retry.sql`
+añade `next_retry_at` (aditiva, `ADD COLUMN`, sin rebuild). La lógica de un
+intento se extrajo a `attemptWebhookDelivery(db, deliveryId)` — reutilizada
+tanto por el envío inicial (`dispatchWebhook`) como por la nueva tarea cron
+`server/tasks/notifications/retry-webhook-queue.ts` (horaria, mismo trigger
+que `retry-email-queue.ts`), así que el comportamiento de reintento (backoff
+2/10/30/120/360 min, 5 intentos y luego `'failed'` permanente) es idéntico
+en ambos casos, no dos implementaciones a mantener sincronizadas. La
+función re-obtiene la URL/secret del endpoint en cada intento (no los
+guardados en el momento del envío original), así que un secreto rotado o
+un endpoint desactivado/eliminado entre el envío y un reintento se respeta
+— un endpoint ya no válido falla la entrega inmediatamente, sin gastar
+reintentos en algo que nunca va a funcionar.
+
+Tests en `test/unit/webhooks.retry.test.ts`: entrega exitosa limpia el
+reintento programado, un error HTTP o de red encola con backoff, se agota
+tras `MAX_WEBHOOK_ATTEMPTS` intentos, y un endpoint desactivado/eliminado
+falla de inmediato sin reintentar.
+
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
@@ -270,7 +298,7 @@ token en claro tras rotar.
 | P1-1 | ~~`agents.email`, `developers.email`, `team_members.email` son `UNIQUE` global, no por tenant~~ — ✅ resuelto en FASE 7 | `server/db/schema.ts` | Migración 0053, `UNIQUE(organization_id, email)` en las 3 tablas — ver `test/unit/multitenant.emailAndInvoiceScoping.test.ts` |
 | P1-2 | ~~`invoices.number` es `UNIQUE` global pese a que `invoices` ya es tenant-scoped~~ — ✅ resuelto en FASE 7 | `server/db/schema.ts` | Migración 0053, `UNIQUE(organization_id, number)` |
 | P1-3 | ~~Tokens de sesión se guardan en claro en D1 (no hasheados)~~ — ✅ resuelto en FASE 19 | `server/utils/auth.ts` `createSession()` | Migración 0052 + rotación retrocompatible en `getSessionUser()`, ver detalle abajo |
-| P1-4 | Webhooks salientes (`dispatchWebhook()`) hacen **un único intento** y silencian el fallo (`catch {}`), pese a que `webhook_deliveries.attempts` sugiere que se pensó en reintentos | `server/utils/webhooks.ts` | Sin dead-letter ni tarea de reintento — a diferencia del email, que sí tiene backoff real (`retry-email-queue.ts`) |
+| P1-4 | ~~Webhooks salientes hacen un único intento, sin dead-letter ni tarea de reintento~~ — ✅ resuelto | `server/utils/webhooks.ts` | Migración 0054 + `attemptWebhookDelivery()` + `retry-webhook-queue.ts`, mismo patrón que el email — ver detalle abajo |
 | P1-5 | Backup diario de D1 carga **todas** las tablas enteras en memoria (`SELECT *` por tabla → un solo objeto JS) antes de comprimir y subir | `server/tasks/system/backup-d1.ts` | Sin streaming/chunking; crecerá hasta chocar con límites de memoria/CPU del Worker |
 | P1-6 | Cada vista de propiedad hace 2 escrituras D1 (`UPDATE viewCount` + `INSERT propertyViews`) sin rate limit ni deduplicación de visitante | `server/api/public/properties/[slug]/view.post.ts` | Cualquier script puede inflar contadores o generar carga de escritura |
 | P1-7 | Favoritos son un contador crudo incrementable/decrementable directamente desde el cliente, sin tabla de favoritos real ni restricción de unicidad | `server/api/public/favorite.post.ts` | Cualquiera puede inflar o poner a cero el contador de favoritos de un listado público |
