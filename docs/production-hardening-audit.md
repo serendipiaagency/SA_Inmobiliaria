@@ -368,6 +368,33 @@ puede favoritear dos veces la misma propiedad (choque de unicidad),
 visitantes distintos sí pueden coexistir, y quitar el favorito de uno no
 afecta al de otro.
 
+### P1-10 — Endpoints de health check — ✅ resuelto
+
+No existían `/api/health/live` ni `/api/health/ready` — un monitor externo
+(Cloudflare Health Checks, UptimeRobot, etc.) o el propio pipeline de
+despliegue no tenían una superficie estándar y barata para preguntar "¿está
+vivo?" separada de "¿está realmente listo?".
+
+**Resuelto**: `/api/health/live` no comprueba ninguna dependencia — solo
+confirma que el propio Worker responde; una sonda de liveness que dependiera
+de D1/R2 sería una causa típica de falsos positivos (reinicios en bucle
+cuando el problema es de una dependencia, no del proceso). `/api/health/ready`
+sí comprueba D1 (`SELECT 1`) y R2 (`head()` sobre una clave que no
+necesita existir — una respuesta `null` ya confirma que R2 contestó) vía
+`server/utils/health.ts` (extraído para ser testable sin el runtime de
+Workers), devolviendo 503 si alguna falla. Ambos son públicos y no
+exponen datos de negocio, solo ok/error por dependencia.
+`server/middleware/00.tenant.ts` añade `/api/health` a las rutas que no
+pasan por la resolución de tenant por dominio — un monitor puede llegar
+por IP o un hostname genérico nunca registrado como dominio de ningún
+tenant, y no debe recibir un 404 de esa resolución antes de llegar
+siquiera al chequeo. `scripts/smoke-test.mjs` los usa como primera
+comprobación tras cada despliegue.
+
+Tests en `test/unit/health.test.ts` para `checkDatabaseHealth()`/
+`checkStorageHealth()`: éxito y fallo real con el mensaje de error
+correcto en ambos casos.
+
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
@@ -382,7 +409,7 @@ afecta al de otro.
 | P1-7 | ~~Favoritos son un contador crudo incrementable/decrementable directamente desde el cliente, sin restricción de unicidad~~ — ✅ resuelto | `server/api/public/favorite.post.ts` | Tabla `favorites` real, migración 0055 — ver detalle abajo |
 | P1-8 | Subida de vídeo (hasta 100MB) atraviesa el Worker completo (limitación de memoria de request documentada en el propio código) | `server/utils/media.ts` | No existe subida directa a R2 todavía |
 | P1-9 | No existe `npm run lint` ni ESLint/Biome configurado | `package.json` | Solo `typecheck` como análisis estático |
-| P1-10 | No existen `/api/health/live` ni `/api/health/ready` | — | — |
+| P1-10 | ~~No existen `/api/health/live` ni `/api/health/ready`~~ — ✅ resuelto | `server/api/health/` | Ambos existen, `smoke-test.mjs` los usa — ver detalle abajo |
 | P1-11 | ~~El pipeline de CI no valida que `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`/`PRODUCTION_URL` existan y sean válidos antes de desplegar~~ — ✅ resuelto en FASE 1 | `.github/workflows/ci.yml` | Jobs `staging-preflight`/`production-preflight` (comentario de cabecera desactualizado corregido aquí, la corrección ya estaba hecha en el commit `0c36a43`) |
 | P1-12 | Sin request-ID / correlación entre `error_logs`, `webhook_deliveries`, `email_log` para una misma petición | `server/plugins/error-logging.ts` | Los `error_logs` sí se registran (no es un vacío total de observabilidad), pero no hay hilo conductor entre tablas |
 

@@ -29,7 +29,11 @@ import { normalizeHost, isPrimaryHost } from '../utils/domain'
  * reassigned, or simply a typo would silently leak the DEFAULT tenant's
  * catalog on a hostname nobody configured for it.
  */
-const ADMIN_BYPASS_PREFIXES = ['/admin', '/api/admin', '/_nuxt', '/_ipx', '/cdn-cgi', '/favicon.ico']
+// Despite the name, also covers /api/health — an external uptime monitor
+// or Cloudflare's own health checks may hit the Worker by IP or a generic
+// hostname never registered as a tenant domain, and must never get a 404
+// from tenant resolution before ever reaching the actual health check.
+const ADMIN_BYPASS_PREFIXES = ['/admin', '/api/admin', '/api/health', '/_nuxt', '/_ipx', '/cdn-cgi', '/favicon.ico']
 
 export default defineEventHandler(async (event) => {
   const requestUrl = getRequestURL(event)
