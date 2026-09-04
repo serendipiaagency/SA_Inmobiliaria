@@ -505,8 +505,12 @@ export function useHelpContent() {
       group: 'Sistema',
       title: 'Usuarios',
       route: '/admin/users',
-      summary: 'Cuentas de acceso al panel (rol admin) y cuentas de cliente (rol usuario) que pueden entrar a "Mi cuenta".',
-      steps: ['Crea una cuenta con rol "usuario" y el mismo email que un cliente para que pueda ver sus propias visitas y contratos desde /mi-cuenta.'],
+      summary: 'Cuentas de acceso al panel (rol admin) y cuentas de cliente (rol usuario) que pueden entrar a "Mi cuenta". Un super_admin puede además restringir a qué áreas del panel accede cada admin.',
+      steps: [
+        'Crea una cuenta con rol "usuario" y el mismo email que un cliente para que pueda ver sus propias visitas y contratos desde /mi-cuenta.',
+        'Al editar una cuenta con rol "admin", un super_admin ve un bloque "Permisos": por defecto tiene acceso completo; elige "Restringir a áreas concretas" y marca "Ver"/"Editar" por cada sección (CRM, Portal Web, Finanzas & Growth, Blog & CMS, Contenido, Bandeja, Sistema, General) para limitar esa cuenta. Las secciones sin acceso concedido desaparecen del menú lateral de esa persona.',
+        'Solo un super_admin puede ver o cambiar los permisos de otra cuenta — un admin normal no ve ese bloque aunque tenga acceso de escritura a Usuarios.',
+      ],
     },
     {
       key: 'webhooks',

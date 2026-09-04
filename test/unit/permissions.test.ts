@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { allowedAreas, hasAreaAccess, parsePermissions } from '../../server/utils/permissions'
+import { allowedAreas, hasAreaAccess, parsePermissions, ADMIN_AREAS } from '../../server/utils/permissions'
+import { adminResources } from '../../server/utils/adminResources'
 
 /**
  * P2 granular RBAC (docs/production-hardening-audit.md) — infrastructure
@@ -64,5 +65,15 @@ describe('allowedAreas', () => {
   it('returns an empty list for an account granted zero areas (not the same as unrestricted)', () => {
     // A single bogus/unmatched permission string still counts as "has an explicit array" — restricted, just to nothing real.
     expect(allowedAreas({ role: 'admin', permissions: '["not-a-real-area:read"]' })).toEqual([])
+  })
+})
+
+describe('adminResources area coverage', () => {
+  it('every resource declares a valid area — a missing one would silently leave that resource unrestricted for every admin', () => {
+    const validAreas = new Set(ADMIN_AREAS.map((a) => a.key))
+    for (const [key, def] of Object.entries(adminResources)) {
+      expect(def.area, `resource "${key}" has no area`).toBeTruthy()
+      expect(validAreas.has(def.area as any), `resource "${key}" has an invalid area: ${def.area}`).toBe(true)
+    }
   })
 })

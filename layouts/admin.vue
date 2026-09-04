@@ -23,7 +23,7 @@
       </div>
 
       <nav class="flex-1 overflow-y-auto px-2.5 py-3">
-        <template v-for="group in nav" :key="group.label">
+        <template v-for="group in visibleNav" :key="group.label">
           <p class="px-2.5 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-stone-400">{{ group.label }}</p>
           <NuxtLink
             v-for="item in group.items"
@@ -101,6 +101,8 @@
 </template>
 
 <script setup lang="ts">
+import type { AdminArea } from '~/utils/adminAreas'
+
 const { user, logout } = useAuth()
 const router = useRouter()
 const route = useRoute()
@@ -143,9 +145,16 @@ interface NavItem {
   /** Not set by any item today — the template already supports it for a future "beta"/"nuevo" style label. */
   tag?: string
 }
-const nav: { label: string; items: NavItem[] }[] = [
+interface NavGroup {
+  label: string
+  items: NavItem[]
+  /** Permissions-editor area (utils/adminAreas.ts) this group is gated behind for a restricted admin. Omit only for "Ayuda", which stays visible to everyone. */
+  area?: AdminArea
+}
+const nav: NavGroup[] = [
   {
     label: 'General',
+    area: 'general',
     items: [
       { label: 'Dashboard', to: '/admin', icon: 'grid' },
       { label: 'Analytics', to: '/admin/analytics', icon: 'chart' },
@@ -153,6 +162,7 @@ const nav: { label: string; items: NavItem[] }[] = [
   },
   {
     label: 'CRM',
+    area: 'crm',
     items: [
       { label: 'Leads', to: '/admin/leads', icon: 'contact' },
       { label: 'Clientes', to: '/admin/clientes', icon: 'users' },
@@ -164,6 +174,7 @@ const nav: { label: string; items: NavItem[] }[] = [
   },
   {
     label: 'Portal Web',
+    area: 'web',
     items: [
       { label: 'Propiedades (web)', to: '/admin/developer-properties', icon: 'building' },
       { label: 'Constructor Web', to: '/admin/site-builder', icon: 'widget' },
@@ -180,6 +191,7 @@ const nav: { label: string; items: NavItem[] }[] = [
   },
   {
     label: 'Finanzas & Growth',
+    area: 'finance',
     items: [
       { label: 'Facturación', to: '/admin/facturacion', icon: 'invoice' },
       { label: 'Operaciones', to: '/admin/operaciones', icon: 'invoice' },
@@ -196,6 +208,7 @@ const nav: { label: string; items: NavItem[] }[] = [
   },
   {
     label: 'Blog & CMS',
+    area: 'cms',
     items: [
       { label: 'Dashboard', to: '/admin/cms', icon: 'sparkles' },
       { label: 'Artículos', to: '/admin/cms/articles', icon: 'doc' },
@@ -211,6 +224,7 @@ const nav: { label: string; items: NavItem[] }[] = [
   },
   {
     label: 'Contenido',
+    area: 'content',
     items: [
       { label: 'Blog (legacy)', to: '/admin/blogs', icon: 'doc' },
       { label: 'Equipo', to: '/admin/team', icon: 'team' },
@@ -218,6 +232,7 @@ const nav: { label: string; items: NavItem[] }[] = [
   },
   {
     label: 'Bandeja',
+    area: 'inbox',
     items: [
       { label: 'Solicitudes', to: '/admin/visitor-submissions', icon: 'inbox' },
       { label: 'Proveedores', to: '/admin/vendor-registrations', icon: 'inbox' },
@@ -230,6 +245,7 @@ const nav: { label: string; items: NavItem[] }[] = [
   },
   {
     label: 'Sistema',
+    area: 'system',
     items: [
       { label: 'Configuración', to: '/admin/configuracion', icon: 'settings' },
       { label: 'Usuarios', to: '/admin/users', icon: 'key' },
@@ -249,6 +265,16 @@ if (isSuperAdmin.value) {
   // super_admin-only like "Empresas" above.
   nav[nav.length - 1].items.push({ label: 'Errores', to: '/admin/error-logs', icon: 'alert' })
 }
+
+// Granular RBAC (server/utils/permissions.ts) — a restricted admin only sees
+// the nav groups whose area they have at least read access to. Unrestricted
+// accounts (every admin today, and always super_admin) see everything,
+// exactly like before this feature existed. "Ayuda" has no `area` and stays
+// visible to everyone regardless.
+const visibleNav = computed(() => {
+  const allowed = allowedAreas(user.value || { role: 'user', permissions: null })
+  return nav.filter((group) => !group.area || allowed.includes(group.area))
+})
 
 const orgs = ref<{ id: number; name: string }[]>([])
 const activeOrgId = ref<number | null>(null)

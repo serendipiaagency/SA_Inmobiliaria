@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
   if (def.superAdminOnly) {
     await requireSuperAdmin(event)
   } else {
-    orgId = (await requireOrgScope(event)).orgId
+    orgId = (await requireOrgScope(event, def.area, 'read')).orgId
   }
   const db = useDb(event)
   const query = getQuery(event)

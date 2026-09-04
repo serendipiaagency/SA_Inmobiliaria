@@ -4,6 +4,8 @@ interface SessionUser {
   email: string
   role: string
   organizationId: number | null
+  /** Nullable JSON array of "<area>:<action>" strings — see utils/permissions.ts. Null = unrestricted. */
+  permissions: string | null
 }
 
 export function useAuth() {

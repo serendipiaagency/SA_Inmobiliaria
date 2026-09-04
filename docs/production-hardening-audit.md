@@ -661,9 +661,29 @@ cliente real, no solo en el servidor.
   si falta su secreto de firma). `.gitignore` ganó también una entrada para
   `.dev.vars` (no la tenía — un `.dev.vars` real con secretos podría
   haberse comiteado por accidente) junto al carve-out para el `.example`.
-- Sin RBAC granular más allá de `super_admin`/`admin`/`user` (el único
-  sistema de permisos más fino que existe hoy es `api_keys.scopes`, solo
-  para acceso de máquina vía `/api/v1/*`).
+- ~~Sin RBAC granular más allá de `super_admin`/`admin`/`user`~~ — 🟡
+  resuelto parcialmente. `users.permissions` (migración 0058) + las 8 áreas
+  de `utils/adminAreas.ts` (General/CRM/Portal Web/Finanzas & Growth/Blog &
+  CMS/Contenido/Bandeja/Sistema) ya tienen: un editor visual real en
+  Sistema → Usuarios (`components/admin/UserPermissionsEditor.vue`, visible
+  solo a un `super_admin`, con guard de servidor a juego en
+  `[id].put.ts`/`index.post.ts` para que nadie más pueda auto-concederse
+  permisos), filtrado del menú lateral por área
+  (`layouts/admin.vue`'s `visibleNav`), y enforcement real del lado servidor
+  en el motor genérico de recursos: los 31 recursos de
+  `server/utils/adminResources.ts` llevan un `area` obligatorio, y cada ruta
+  bajo `server/api/admin/[resource]/**` pasa ese `area` (y `read`/`write`
+  según el verbo) a `requireOrgScope()`, que ya sabía comprobarlo
+  (infraestructura de una pasada anterior). **Lo que falta**: los
+  endpoints a medida fuera del motor genérico (Leads/Clientes/Visitas/
+  Reservas → `crm`; Facturación/Contratos/Depósitos/Automatizaciones/AI
+  Studio/Widgets/Marketplace/API → `finance`) no llaman a
+  `requireOrgScope()` con área todavía, así que un admin restringido sin
+  acceso a CRM/Finanzas puede seguir navegando a esas páginas y sus datos
+  directamente por URL aunque ya no las vea en el menú — el menú se oculta,
+  pero el servidor no corta el paso ahí. Cerrar esa brecha significa anotar
+  cada endpoint bespoke uno a uno (son ~9 páginas distintas, cada una con su
+  propio archivo de rutas), pendiente de una pasada futura dedicada.
 - `developer_properties.publishedAt` no controla realmente la visibilidad
   pública — auditado a raíz del punto 30 del megaprompt de rediseño del
   Property Builder ("auditar si el backend distingue borrador/publicado
