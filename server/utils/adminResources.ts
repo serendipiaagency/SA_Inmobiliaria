@@ -12,6 +12,8 @@ import {
   type AuthorizedRecord,
   type TenantPolicy,
 } from './tenantPolicy'
+import type { AdminArea } from '../../utils/adminAreas'
+import { getRequestId } from './requestId'
 
 export type FieldType = 'text' | 'textarea' | 'number' | 'image' | 'file' | 'select' | 'json'
 
@@ -58,6 +60,15 @@ export interface ResourceDef {
    * policy fails to compile rather than silently querying every tenant.
    */
   tenantPolicy: TenantPolicy
+  /**
+   * REQUIRED. Which permissions-editor area (server/utils/permissions.ts,
+   * utils/adminAreas.ts) this resource's CRUD is gated behind for a
+   * restricted admin — wired into requireOrgScope() by every
+   * server/api/admin/[resource]/** route. No default: forgetting to tag a
+   * new resource here is a compile error, not a silently-unrestricted
+   * endpoint.
+   */
+  area: AdminArea
   /** FKs into other tenant-scoped tables, validated on create/update. */
   relations?: Record<string, RelationDef>
   /** True only for the `organizations` resource itself — managed by the
@@ -79,6 +90,7 @@ export interface ResourceDef {
 
 export const adminResources: Record<string, ResourceDef> = {
   organizations: {
+    area: 'system',
     table: schema.organizations,
     label: 'Empresas',
     fields: {
@@ -148,6 +160,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'error-logs': {
+    area: 'system',
     table: schema.errorLogs,
     label: 'Errores (incidencias)',
     fields: {},
@@ -162,6 +175,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'audit-log': {
+    area: 'system',
     table: schema.adminAuditLog,
     label: 'Auditoría',
     fields: {},
@@ -177,6 +191,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   agents: {
+    area: 'web',
     table: schema.agents,
     label: 'Agents',
     fields: {
@@ -196,6 +211,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   developers: {
+    area: 'web',
     table: schema.developers,
     label: 'Developers',
     fields: {
@@ -214,6 +230,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   properties: {
+    area: 'web',
     table: schema.agentProperties,
     label: 'Properties (secondary sale)',
     fields: {
@@ -279,6 +296,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'developer-properties': {
+    area: 'web',
     table: schema.developerProperties,
     label: 'Off-plan projects',
     fields: {
@@ -364,6 +382,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'floor-plans': {
+    area: 'web',
     table: schema.floorPlans,
     label: 'Floor plans',
     fields: {
@@ -387,6 +406,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'property-types': {
+    area: 'web',
     table: schema.propertyTypes,
     label: 'Unit types',
     fields: {
@@ -407,6 +427,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'project-images': {
+    area: 'web',
     table: schema.images,
     label: 'Project gallery',
     fields: {
@@ -426,6 +447,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'gallery-images': {
+    area: 'web',
     table: schema.propertyGalleryImages,
     label: 'Property gallery',
     fields: {
@@ -445,6 +467,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'agent-property-floor-plans': {
+    area: 'web',
     table: schema.agentPropertyFloorPlans,
     label: 'Second-hand property floor plans',
     fields: {
@@ -468,6 +491,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'agent-property-social-media': {
+    area: 'web',
     table: schema.agentPropertySocialMedia,
     label: 'Second-hand property social media',
     fields: {
@@ -494,6 +518,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'social-media': {
+    area: 'web',
     table: schema.propertySocialMedia,
     label: 'Property social media',
     fields: {
@@ -520,6 +545,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'master-plans': {
+    area: 'web',
     table: schema.masterPlans,
     label: 'Master plans',
     fields: {
@@ -533,6 +559,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   locations: {
+    area: 'web',
     table: schema.locations,
     label: 'Locations',
     fields: {
@@ -546,6 +573,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   amenities: {
+    area: 'web',
     table: schema.amenities,
     label: 'Amenities',
     fields: {
@@ -560,6 +588,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   communities: {
+    area: 'web',
     table: schema.communities,
     label: 'Communities',
     fields: {
@@ -577,6 +606,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   blogs: {
+    area: 'content',
     table: schema.blogs,
     label: 'Blog posts',
     fields: {
@@ -593,6 +623,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   team: {
+    area: 'web',
     table: schema.teamMembers,
     label: 'Team members',
     fields: {
@@ -636,6 +667,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'team-member-documents': {
+    area: 'web',
     table: schema.teamMemberDocuments,
     label: 'Team member documents',
     fields: {
@@ -655,6 +687,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   users: {
+    area: 'system',
     table: schema.users,
     label: 'Users',
     fields: {
@@ -662,6 +695,11 @@ export const adminResources: Record<string, ResourceDef> = {
       email: { type: 'text', label: 'Email', required: true },
       password: { type: 'text', label: 'Password' },
       role: { type: 'select', label: 'Role', options: ['admin', 'user'] },
+      // Nullable JSON array of "<area>:<action>" strings (server/utils/permissions.ts).
+      // Not rendered by the generic field form below — pages/admin/[resource]/[id].vue
+      // swaps it for the visual per-area editor (components/admin/UserPermissionsEditor.vue),
+      // shown only to a super_admin (see the write guard in [id].put.ts/index.post.ts).
+      permissions: { type: 'json', label: 'Permisos' },
     },
     listFields: ['id', 'name', 'email', 'role'],
     searchFields: ['name', 'email'],
@@ -694,6 +732,7 @@ export const adminResources: Record<string, ResourceDef> = {
           template: 'user_welcome',
           to: data.email,
           data: { name: data.name, email: data.email, setPasswordUrl },
+          requestId: getRequestId(event),
         })
       } catch {
         // The account is already created — a welcome-email failure must never undo that.
@@ -702,6 +741,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'cms-categories': {
+    area: 'cms',
     table: schema.cmsCategories,
     label: 'Categorías (Blog)',
     fields: {
@@ -726,6 +766,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'cms-tags': {
+    area: 'cms',
     table: schema.cmsTags,
     label: 'Etiquetas (Blog)',
     fields: {
@@ -741,6 +782,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'cms-authors': {
+    area: 'cms',
     table: schema.cmsAuthors,
     label: 'Autores (Blog)',
     fields: {
@@ -767,6 +809,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'cms-comments': {
+    area: 'cms',
     table: schema.cmsComments,
     label: 'Comentarios (Blog)',
     fields: {
@@ -787,6 +830,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'cms-redirects': {
+    area: 'cms',
     table: schema.cmsRedirects,
     label: 'Redirecciones (Blog)',
     fields: {
@@ -801,6 +845,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'cms-media-folders': {
+    area: 'cms',
     table: schema.cmsMediaFolders,
     label: 'Carpetas de media (Blog)',
     fields: {
@@ -815,6 +860,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'visitor-submissions': {
+    area: 'inbox',
     table: schema.visitorSubmissions,
     label: 'Visitor submissions',
     fields: {},
@@ -826,6 +872,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'vendor-registrations': {
+    area: 'inbox',
     table: schema.information,
     label: 'Vendor registrations',
     fields: {},
@@ -837,6 +884,7 @@ export const adminResources: Record<string, ResourceDef> = {
   },
 
   'contact-messages': {
+    area: 'inbox',
     table: schema.contactMessages,
     label: 'Contact & complaints',
     fields: {},

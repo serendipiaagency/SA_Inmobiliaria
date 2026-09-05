@@ -141,6 +141,42 @@ describe('sendInternalNotification', () => {
   })
 })
 
+/**
+ * P1-12 (docs/production-hardening-audit.md) — email_log.requestId
+ * (migration 0060), threaded through from a caller with an HTTP request to
+ * correlate with, same idea as error_logs/webhook_deliveries.
+ */
+describe('email_log.requestId correlation', () => {
+  it('sendTransactionalEmail records the given requestId on the row', async () => {
+    const { db } = createTestDb()
+    const a = await seedTenant(db, 'EmailRequestId')
+    const [result] = await sendTransactionalEmail(db, {}, { organizationId: a.orgId, template: 'lead_created', to: 'client@example.com', data: { name: 'x' }, requestId: 'req-abc123' })
+    const [row] = await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, result.logId))
+    expect(row.requestId).toBe('req-abc123')
+  })
+
+  it('sendTransactionalEmail leaves requestId null when the caller has none (e.g. a scheduled task)', async () => {
+    const { db } = createTestDb()
+    const a = await seedTenant(db, 'EmailNoRequestId')
+    const [result] = await sendTransactionalEmail(db, {}, { organizationId: a.orgId, template: 'lead_created', to: 'client@example.com', data: { name: 'x' } })
+    const [row] = await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, result.logId))
+    expect(row.requestId).toBeNull()
+  })
+
+  it('sendInternalNotification forwards requestId to every recipient row it creates', async () => {
+    stubSuccessfulResend()
+    const { db } = createTestDb()
+    const a = await seedTenant(db, 'EmailInternalRequestId')
+    await db.update(schema.organizations).set({ emailInternalRecipientsJson: JSON.stringify(['ops@x.com', 'ventas@x.com']) }).where(eq(schema.organizations.id, a.orgId))
+
+    const results = await sendInternalNotification(db, { RESEND_API_KEY: 'k' }, a.orgId, 'lead_created', { name: 'Nuevo lead', email: 'lead@example.com', source: 'web' }, 'req-internal-1')
+    for (const r of results) {
+      const [row] = await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, r.logId))
+      expect(row.requestId).toBe('req-internal-1')
+    }
+  })
+})
+
 describe('applyResendEvent', () => {
   async function seedSentEmail(db: any, orgId: number, overrides: Record<string, unknown> = {}) {
     const [row] = await db

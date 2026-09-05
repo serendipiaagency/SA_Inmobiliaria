@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
   if (key !== 'developer-properties') throw createError({ statusCode: 404, statusMessage: 'Duplicate is not supported for this resource' })
 
-  const { user, orgId } = await requireOrgScope(event)
+  const { user, orgId } = await requireOrgScope(event, def.area, 'write')
   const id = parseInt(getRouterParam(event, 'id') || '', 10)
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   const db = useDb(event)

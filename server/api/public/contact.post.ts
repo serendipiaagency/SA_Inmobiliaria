@@ -3,6 +3,7 @@ import { upsertLead } from '../../utils/leads'
 import { rateLimit } from '../../utils/rateLimit'
 import { requireValidEmail } from '../../utils/validate'
 import { sendInternalNotification } from '../../utils/email/send'
+import { getRequestId } from '../../utils/requestId'
 
 export default defineEventHandler(async (event) => {
   await rateLimit(event, 'contact', { limit: 5, windowSeconds: 600 })
@@ -44,13 +45,13 @@ export default defineEventHandler(async (event) => {
       // Lead pipeline must never block the visitor's message from being saved.
     }
     try {
-      await sendInternalNotification(db, cfEnv(event), orgId, 'contact_message', { name, email, phone: body.phone, subject: body.subject, message })
+      await sendInternalNotification(db, cfEnv(event), orgId, 'contact_message', { name, email, phone: body.phone, subject: body.subject, message }, getRequestId(event))
     } catch {
       // The message is already saved — a notification failure must never undo that.
     }
   } else {
     try {
-      await sendInternalNotification(db, cfEnv(event), orgId, 'complaint', { name, email, phone: body.phone, message })
+      await sendInternalNotification(db, cfEnv(event), orgId, 'complaint', { name, email, phone: body.phone, message }, getRequestId(event))
     } catch {
       // The complaint is already saved — a notification failure must never undo that.
     }

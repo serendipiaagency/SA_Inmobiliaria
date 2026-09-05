@@ -3,6 +3,7 @@ import { useDb, schema, cfEnv, isUniqueConstraintError } from '../../../../utils
 import { isSlotAvailable } from '../../../../utils/appointments/availability'
 import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { rateLimit } from '../../../../utils/rateLimit'
+import { getRequestId } from '../../../../utils/requestId'
 
 const SLOT_START_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
 
@@ -69,6 +70,7 @@ export default defineEventHandler(async (event) => {
       message: `Tu cita con ${visit.agentName || 'tu agente'} ha sido reprogramada al ${body.startAt}.`,
       scheduledAt: body.startAt,
       agentName: visit.agentName,
+      requestId: getRequestId(event),
     })
   } catch {
     // El cambio ya quedó guardado.

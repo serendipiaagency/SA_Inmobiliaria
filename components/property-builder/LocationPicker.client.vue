@@ -6,6 +6,13 @@
 
 <script setup lang="ts">
 import L from 'leaflet'
+// Imported here (not nuxt.config.ts's global `css:` array) so it travels with
+// this .client.vue's own async chunk. A global import gets tied to whichever
+// entry first pulls the JS in (pages/mapa.vue, in this app's build) and that
+// chunk's CSS never actually gets <link>-ed here or in EmbedMiniMap.client.vue —
+// Nuxt only preloads CSS for components it renders server-side, and a
+// .client.vue by design renders nothing there. See docs/production-hardening-audit.md.
+import 'leaflet/dist/leaflet.css'
 
 const props = defineProps<{ lat: number | null | undefined; lng: number | null | undefined }>()
 const emit = defineEmits<{ 'update:lat': [number]; 'update:lng': [number] }>()

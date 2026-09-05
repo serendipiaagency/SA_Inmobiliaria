@@ -1,7 +1,22 @@
+import { visualizer } from 'rollup-plugin-visualizer'
+
 export default defineNuxtConfig({
   compatibilityDate: '2026-06-01',
   devtools: { enabled: false },
   modules: ['@nuxtjs/tailwindcss', 'nitro-cloudflare-dev', '@nuxt/eslint'],
+  // Real bundle-size visibility (P2, docs/production-hardening-audit.md) —
+  // opt-in via `npm run analyze` (ANALYZE=1) so a normal build/deploy never
+  // pays for it. Hooked in via `vite:extendConfig` (rather than the static
+  // `vite.plugins` key) since that's the reliable way to add a plugin to
+  // Nuxt's client build specifically — Nitro's server bundle is a separate
+  // Rollup pass outside Vite, and client size is what matters for page-load
+  // performance, which is what this is auditing.
+  hooks: {
+    'vite:extendConfig'(viteConfig, { isClient }) {
+      if (!process.env.ANALYZE || !isClient) return
+      viteConfig.plugins?.push(visualizer({ filename: '.output/bundle-analysis.html', gzipSize: true, brotliSize: true, template: 'treemap' }))
+    },
+  },
   nitro: {
     preset: 'cloudflare_module',
     cloudflare: {
@@ -25,12 +40,10 @@ export default defineNuxtConfig({
       '0 4 * * 1': ['scheduler:recompute-ai-time'],
     },
   },
-  css: [
-    '~/assets/css/main.css',
-    'leaflet/dist/leaflet.css',
-    'leaflet.markercluster/dist/MarkerCluster.css',
-    'leaflet.markercluster/dist/MarkerCluster.Default.css',
-  ],
+  // Leaflet's CSS is NOT here — see the import inside each
+  // LocationPicker.client.vue/EmbedMiniMap.client.vue/MapExplorer.client.vue
+  // for why (docs/production-hardening-audit.md).
+  css: ['~/assets/css/main.css'],
   app: {
     pageTransition: { name: 'page', mode: 'out-in' },
     head: {

@@ -41,7 +41,13 @@
 
     <!-- Edit form -->
     <form v-else class="card max-w-3xl space-y-4 p-6" @submit.prevent="save">
+      <!-- Permisos: users.permissions gets a visual per-area editor instead of the generic
+           JSON textarea below, and only a super_admin may see/change it (server-enforced too,
+           see the guard in server/api/admin/[resource]/[id].put.ts and index.post.ts). -->
+      <AdminUserPermissionsEditor v-if="resource === 'users' && isSuperAdmin" v-model="form.permissions" />
+
       <div v-for="(fd, field) in meta.fields" :key="field">
+        <template v-if="!(resource === 'users' && field === 'permissions')">
         <label class="label">{{ fd.label }} <span v-if="fd.required" class="text-red-500">*</span></label>
 
         <select v-if="fd.type === 'select'" v-model="form[field]" class="input">
@@ -67,6 +73,7 @@
 
         <input v-else-if="fd.type === 'number'" v-model="form[field]" type="number" step="any" class="input" >
         <input v-else v-model="form[field]" class="input" >
+        </template>
       </div>
 
       <!-- Translations (en/ar) -->
@@ -93,6 +100,9 @@
 import PropertyBuilder from '~/components/property-builder/PropertyBuilder.vue'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
+
+const { user } = useAuth()
+const isSuperAdmin = computed(() => user.value?.role === 'super_admin')
 
 const route = useRoute()
 const router = useRouter()

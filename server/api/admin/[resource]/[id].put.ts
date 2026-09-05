@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   if (def.superAdminOnly) {
     user = await requireSuperAdmin(event)
   } else {
-    ;({ user, orgId } = await requireOrgScope(event))
+    ;({ user, orgId } = await requireOrgScope(event, def.area, 'write'))
   }
   if (def.readonly) throw createError({ statusCode: 405, statusMessage: 'Resource is read-only' })
   const id = parseInt(getRouterParam(event, 'id') || '', 10)
@@ -40,6 +40,13 @@ export default defineEventHandler(async (event) => {
   // admin could self-escalate to platform-wide access via a raw API call.
   if (key === 'users' && data.role === 'super_admin' && user.role !== 'super_admin') {
     throw createError({ statusCode: 403, statusMessage: 'Only a super_admin can grant that role' })
+  }
+  // Same reasoning as the role guard above, for the RBAC areas themselves —
+  // only when the value actually changes, so a non-super_admin editing any
+  // other field of a user (name, role, …) doesn't trip this on the
+  // untouched `permissions` value that round-trips through the edit form.
+  if (key === 'users' && 'permissions' in data && data.permissions !== (existing as any).permissions && user.role !== 'super_admin') {
+    throw createError({ statusCode: 403, statusMessage: 'Only a super_admin can change permissions' })
   }
 
   const tenantWhere = buildTenantWhere(db, def.table, def.tenantPolicy, orgId)

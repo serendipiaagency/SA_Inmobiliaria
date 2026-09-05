@@ -3,6 +3,7 @@ import { requireOrgScope } from '../../../../../utils/auth'
 import { useDb, schema, now, cfEnv } from '../../../../../utils/db'
 import { logAdminAction } from '../../../../../utils/audit'
 import { sendTransactionalEmail } from '../../../../../utils/email/send'
+import { getRequestId } from '../../../../../utils/requestId'
 
 function randomToken(): string {
   const bytes = new Uint8Array(20)
@@ -36,7 +37,7 @@ export default defineEventHandler(async (event) => {
   if (contract.clientEmail) {
     try {
       const url = `${getRequestURL(event).origin}/contratos/${managementToken}`
-      await sendTransactionalEmail(db, cfEnv(event), { organizationId: orgId, template: 'contract_sent', to: contract.clientEmail, data: { title: contract.title, url } })
+      await sendTransactionalEmail(db, cfEnv(event), { organizationId: orgId, template: 'contract_sent', to: contract.clientEmail, data: { title: contract.title, url }, requestId: getRequestId(event) })
     } catch {
       // The contract is already marked sent — a notification failure must never undo that.
     }

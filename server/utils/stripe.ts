@@ -134,7 +134,7 @@ export interface StripeApplyResult {
  * trustworthy (Stripe, not the browser, is the one calling this endpoint,
  * and the signature proves that).
  */
-export async function applyStripeEvent(db: any, env: Record<string, any>, type: string, object: any): Promise<StripeApplyResult> {
+export async function applyStripeEvent(db: any, env: Record<string, any>, type: string, object: any, requestId?: string | null): Promise<StripeApplyResult> {
   const nowIso = new Date().toISOString().replace('T', ' ').slice(0, 19)
 
   const findBySession = async (sessionId: string) => (await db.select().from(schema.depositPayments).where(eq(schema.depositPayments.stripeCheckoutSessionId, sessionId)).limit(1))[0]
@@ -148,7 +148,7 @@ export async function applyStripeEvent(db: any, env: Record<string, any>, type: 
     if (!deposit.contractId) return
     try {
       const [contract] = await db.select({ clientEmail: schema.contracts.clientEmail }).from(schema.contracts).where(eq(schema.contracts.id, deposit.contractId)).limit(1)
-      if (contract?.clientEmail) await sendTransactionalEmail(db, env, { organizationId: deposit.organizationId, template, to: contract.clientEmail, data: { amount: deposit.amount } })
+      if (contract?.clientEmail) await sendTransactionalEmail(db, env, { organizationId: deposit.organizationId, template, to: contract.clientEmail, data: { amount: deposit.amount }, requestId })
     } catch {
       // The deposit's own status is already saved — a notification failure must never undo that.
     }

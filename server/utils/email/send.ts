@@ -55,6 +55,8 @@ export interface SendTransactionalEmailOpts {
   data: Record<string, any>
   locale?: EmailLocale
   unsubscribeUrl?: string | null
+  /** Correlation id (server/utils/requestId.ts) of the request that triggered this send, when there is one — see email_log.requestId. */
+  requestId?: string | null
 }
 
 export interface SendTransactionalEmailResult {
@@ -113,6 +115,7 @@ export async function sendTransactionalEmail(db: any, env: Record<string, any>, 
         status: 'queued',
         attempts: 0,
         createdAt,
+        requestId: opts.requestId || null,
       })
       .returning({ id: schema.emailLog.id })
 
@@ -123,10 +126,17 @@ export async function sendTransactionalEmail(db: any, env: Record<string, any>, 
 }
 
 /** Internal notifications (new lead, contact form, complaint, contract accepted) go to the org's own configured staff inbox, not a client. */
-export async function sendInternalNotification(db: any, env: Record<string, any>, organizationId: number, template: TemplateKey, data: Record<string, any>): Promise<SendTransactionalEmailResult[]> {
+export async function sendInternalNotification(
+  db: any,
+  env: Record<string, any>,
+  organizationId: number,
+  template: TemplateKey,
+  data: Record<string, any>,
+  requestId?: string | null,
+): Promise<SendTransactionalEmailResult[]> {
   const identity = await resolveOrgEmailIdentity(db, organizationId)
   if (!identity.internalRecipients.length) return []
-  return sendTransactionalEmail(db, env, { organizationId, template, to: identity.internalRecipients, data })
+  return sendTransactionalEmail(db, env, { organizationId, template, to: identity.internalRecipients, data, requestId })
 }
 
 /**

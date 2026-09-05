@@ -6,6 +6,7 @@ import { dispatchWebhook } from '../../../../utils/webhooks'
 import { generateVideoLink } from '../../../../utils/appointments/videoLink'
 import { upsertLead } from '../../../../utils/leads'
 import { rateLimit } from '../../../../utils/rateLimit'
+import { getRequestId } from '../../../../utils/requestId'
 import { isValidEmail, isValidPhone } from '../../../../utils/validate'
 
 const VALID_CHANNELS = ['in_person', 'video', 'phone'] as const
@@ -165,6 +166,7 @@ export default defineEventHandler(async (event) => {
       agentName: agent.name,
       manageUrl,
       videoLink,
+      requestId: getRequestId(event),
     })
   } catch {
     // La cita ya quedó guardada — un fallo al notificar nunca debe deshacerla.

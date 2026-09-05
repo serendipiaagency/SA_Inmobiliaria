@@ -14,10 +14,10 @@ import { storeAndRegisterFile } from '../../../utils/media'
  * duplicate.post.ts.
  */
 export default defineEventHandler(async (event) => {
-  const { key } = getResource(event)
+  const { key, def } = getResource(event)
   if (key !== 'team-member-documents') throw createError({ statusCode: 404, statusMessage: 'Private upload is not supported for this resource' })
 
-  const { user, orgId } = await requireOrgScope(event)
+  const { user, orgId } = await requireOrgScope(event, def.area, 'write')
   const parts = await readMultipartFormData(event)
   const file = parts?.find((p) => p.name === 'file' && p.data?.byteLength)
   if (!file) throw createError({ statusCode: 422, statusMessage: 'No file provided' })

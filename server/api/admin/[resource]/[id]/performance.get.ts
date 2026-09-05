@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
   if (key !== 'team') throw createError({ statusCode: 404, statusMessage: 'Performance is not supported for this resource' })
 
-  const { orgId } = await requireOrgScope(event)
+  const { orgId } = await requireOrgScope(event, def.area, 'read')
   const id = parseInt(getRouterParam(event, 'id') || '', 10)
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   const db = useDb(event)

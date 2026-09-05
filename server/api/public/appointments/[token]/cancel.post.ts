@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { useDb, schema, cfEnv } from '../../../../utils/db'
 import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { rateLimit } from '../../../../utils/rateLimit'
+import { getRequestId } from '../../../../utils/requestId'
 
 /** Client-initiated cancellation via their own management link — no admin session involved. */
 export default defineEventHandler(async (event) => {
@@ -28,6 +29,7 @@ export default defineEventHandler(async (event) => {
       message: `Has cancelado tu cita del ${visit.scheduledAt} con ${visit.agentName || 'tu agente'}.`,
       scheduledAt: visit.scheduledAt,
       agentName: visit.agentName,
+      requestId: getRequestId(event),
     })
   } catch {
     // La cancelación ya quedó guardada.

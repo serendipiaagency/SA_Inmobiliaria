@@ -4,6 +4,7 @@ import { createPasswordResetToken } from '../../utils/auth'
 import { rateLimit } from '../../utils/rateLimit'
 import { requireValidEmail } from '../../utils/validate'
 import { sendTransactionalEmail } from '../../utils/email/send'
+import { getRequestId } from '../../utils/requestId'
 
 /**
  * Always responds {ok:true} regardless of whether the email matches a real
@@ -30,6 +31,7 @@ export default defineEventHandler(async (event) => {
         template: 'password_reset',
         to: user.email,
         data: { resetUrl },
+        requestId: getRequestId(event),
       })
     } catch {
       // Never let an email-sending failure leak whether the account exists via a different response shape/timing.

@@ -3,6 +3,7 @@ import type { H3Event } from 'h3'
 import { useDb, schema, now, cfEnv } from './db'
 import { dispatchWebhook } from './webhooks'
 import { sendInternalNotification } from './email/send'
+import { getRequestId } from './requestId'
 
 interface UpsertLeadInput {
   /** Which tenant this lead belongs to — always the caller's resolved org, never client input. */
@@ -81,7 +82,7 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
   await dispatchWebhook(event, input.organizationId, 'lead.created', { id: row.id, name: row.name, email: row.email, source: row.source, propertyName: row.propertyName })
 
   try {
-    await sendInternalNotification(db, cfEnv(event), input.organizationId, 'lead_created', { name: row.name, email: row.email, source: row.source, propertyName: row.propertyName })
+    await sendInternalNotification(db, cfEnv(event), input.organizationId, 'lead_created', { name: row.name, email: row.email, source: row.source, propertyName: row.propertyName }, getRequestId(event))
   } catch {
     // The lead is already saved — a notification failure must never undo that.
   }

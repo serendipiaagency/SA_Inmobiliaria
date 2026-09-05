@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   if (def.superAdminOnly) {
     user = await requireSuperAdmin(event)
   } else {
-    ;({ user, orgId } = await requireOrgScope(event))
+    ;({ user, orgId } = await requireOrgScope(event, def.area, 'write'))
   }
   const id = parseInt(getRouterParam(event, 'id') || '', 10)
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })

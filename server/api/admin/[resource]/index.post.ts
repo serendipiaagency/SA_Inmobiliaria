@@ -11,7 +11,7 @@ export default defineEventHandler(async (event) => {
   if (def.superAdminOnly) {
     user = await requireSuperAdmin(event)
   } else {
-    ;({ user, orgId } = await requireOrgScope(event))
+    ;({ user, orgId } = await requireOrgScope(event, def.area, 'write'))
   }
   if (def.readonly) throw createError({ statusCode: 405, statusMessage: 'Resource is read-only' })
   const db = useDb(event)
@@ -26,6 +26,12 @@ export default defineEventHandler(async (event) => {
   // admin could self-escalate to platform-wide access via a raw API call.
   if (key === 'users' && data.role === 'super_admin' && user.role !== 'super_admin') {
     throw createError({ statusCode: 403, statusMessage: 'Only a super_admin can grant that role' })
+  }
+  // Same reasoning as the role guard above, for the RBAC areas themselves:
+  // otherwise any admin with write access to Usuarios could hand out (or
+  // remove) other admins' area restrictions, including their own.
+  if (key === 'users' && data.permissions != null && user.role !== 'super_admin') {
+    throw createError({ statusCode: 403, statusMessage: 'Only a super_admin can set permissions' })
   }
   if (def.tenantPolicy.type === 'direct' && orgId != null) {
     data[def.tenantPolicy.organizationField ?? 'organizationId'] = orgId

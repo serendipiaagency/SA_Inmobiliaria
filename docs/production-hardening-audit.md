@@ -395,34 +395,37 @@ Tests en `test/unit/health.test.ts` para `checkDatabaseHealth()`/
 `checkStorageHealth()`: éxito y fallo real con el mensaje de error
 correcto en ambos casos.
 
-### P1-12 — Request-ID de correlación — 🟡 resuelto parcialmente (`error_logs` + `webhook_deliveries`, `email_log` diferido)
+### P1-12 — Request-ID de correlación — ✅ resuelto (`error_logs`, `webhook_deliveries` y `email_log`)
 
 Sin hilo conductor entre `error_logs`, `webhook_deliveries` y `email_log`
-para una misma petición — un fallo de entrega de webhook y un error log
-causados por la misma petición solo podían relacionarse a ojo, comparando
-timestamps.
+para una misma petición — un fallo de entrega de webhook, un error log y un
+email causados por la misma petición solo podían relacionarse a ojo,
+comparando timestamps.
 
-**Resuelto para `error_logs` y `webhook_deliveries`**:
 `server/utils/requestId.ts` reutiliza la cabecera `cf-ray` de Cloudflare
 (ya única por petición en el edge, gratis, sin infraestructura nueva) y
 solo genera un id de repuesto donde `cf-ray` no está presente (`wrangler
 dev` local, tests) — cacheado en `event.context` para que todas las
 lecturas dentro de la misma petición coincidan. Migración 0056 añade
-`request_id` (aditiva) a ambas tablas; `error-logging.ts` y
-`dispatchWebhook()` lo fijan al crear cada fila — un reintento de webhook
-no lo vuelve a derivar (es un job de fondo, no está atado a la petición
-original que ya quedó registrada en la fila).
+`request_id` (aditiva) a `error_logs`/`webhook_deliveries`;
+`error-logging.ts` y `dispatchWebhook()` lo fijan al crear cada fila — un
+reintento de webhook no lo vuelve a derivar (es un job de fondo, no está
+atado a la petición original que ya quedó registrada en la fila).
 
-**Deliberadamente fuera de esta pasada: `email_log`.**
-`sendTransactionalEmail()` no recibe el `event` — lo llaman ~9 archivos a
-través de varias capas de utilidades intermedias (`notifyAppointment()`,
-`upsertLead()`, el flujo de depósitos de Stripe, etc.). Enhebrar
-`requestId` hasta ahí es mecánico pero amplio (tocar cada capa
-intermedia para pasar un parámetro opcional) — desproporcionado frente al
-valor diagnóstico marginal: un fallo de email ya es visible y trazable por
-sí solo vía `email_log.status`/`errorMessage`, sin depender de
-correlacionarlo con otra tabla para diagnosticarlo. Documentado aquí como
-hueco menor conocido, no urgente — no silenciado.
+**`email_log` (antes deliberadamente diferido, cerrado ahora)**: migración
+0060 añade la misma columna `request_id` (aditiva). `sendTransactionalEmail()`
+y `sendInternalNotification()` no reciben el `event` directamente — se
+enhebró `requestId` como parámetro opcional a través de las ~4 capas
+intermedias que sí llegan a tener uno (`notifyAppointment()`,
+`applyStripeEvent()`, `upsertLead()`, y los ~11 call sites directos/
+indirectos: alta de usuario, envío de contrato, recuperación de contraseña,
+reserva/reprogramación/cancelación de citas, aceptación de contrato,
+formulario de contacto/queja, webhook de Stripe). Los dos únicos llamadores
+sin petición HTTP real (`server/tasks/appointments/reminders.ts`,
+`server/tasks/marketing/saved-search-alerts.ts`, ambos disparados por cron)
+simplemente omiten el parámetro — la columna queda `NULL` para esas filas,
+exactamente el mismo criterio que ya se usaba para `error_logs`/
+`webhook_deliveries`.
 
 Tests en `test/unit/requestId.test.ts`: reutiliza `cf-ray` cuando está
 presente, genera un id de repuesto cuando no lo está, lo cachea dentro de
@@ -634,7 +637,7 @@ cliente real, no solo en el servidor.
 
 | # | Hallazgo | Archivo | Nota |
 |---|---|---|---|
-| P1-13 | 2 tests e2e de `agents-comerciales-admin.spec.ts` fallan de forma **preexistente**, no causada por este bloque de hardening | `tests/e2e/agents-comerciales-admin.spec.ts:162,194` | `page.goto('/admin/agents')` no renderiza el heading "Comerciales" esperado en este sandbox (`getByRole('heading', {name:'Comerciales'})` timeout). Verificado con `git stash` + rebuild + re-run contra el código sin los cambios de FASE 5/FASE 8 de este bloque: falla exactamente igual, así que no es una regresión de esta sesión — pendiente de investigar por separado, fuera del alcance de este bloque de hardening |
+| P1-13 | ~~2 tests e2e de `agents-comerciales-admin.spec.ts` fallaban de forma preexistente~~ — ❌ nota obsoleta, no reproduce | `tests/e2e/agents-comerciales-admin.spec.ts:162,194` | Esta nota quedó desmentida por dos investigaciones reales, no solo por el paso del tiempo: (1) una sesión posterior hizo `git bisect` real sobre una regresión distinta de la suite e2e y encontró la causa exacta en un commit concreto (FASE 5 de aquel bloque, dos bugs reales en `layouts/admin.vue` — SSR sin cookies reenviadas + orden de auto-selección de organización inconsistente con el fallback del servidor), no en `agents-comerciales-admin.spec.ts`; (2) la suite e2e completa (`npx playwright test --list` confirma 114 tests en 17 archivos) se ejecutó de punta a punta en esta misma sesión con `114 passed`, salida limpia, sin ningún fallo — `agents-comerciales-admin.spec.ts` incluido. No se toca más: dejar la tabla como referencia de que una nota de "flake preexistente" sin verificación repetida puede quedar obsoleta y esconder una regresión real, como pasó aquí. |
 | P1-1 | ~~`agents.email`, `developers.email`, `team_members.email` son `UNIQUE` global, no por tenant~~ — ✅ resuelto en FASE 7 | `server/db/schema.ts` | Migración 0053, `UNIQUE(organization_id, email)` en las 3 tablas — ver `test/unit/multitenant.emailAndInvoiceScoping.test.ts` |
 | P1-2 | ~~`invoices.number` es `UNIQUE` global pese a que `invoices` ya es tenant-scoped~~ — ✅ resuelto en FASE 7 | `server/db/schema.ts` | Migración 0053, `UNIQUE(organization_id, number)` |
 | P1-3 | ~~Tokens de sesión se guardan en claro en D1 (no hasheados)~~ — ✅ resuelto en FASE 19 | `server/utils/auth.ts` `createSession()` | Migración 0052 + rotación retrocompatible en `getSessionUser()`, ver detalle abajo |
@@ -646,7 +649,7 @@ cliente real, no solo en el servidor.
 | P1-9 | ~~No existe `npm run lint` ni ESLint/Biome configurado~~ — ✅ resuelto | `package.json` | `@nuxt/eslint` + `npm run lint` en CI — ver detalle abajo |
 | P1-10 | ~~No existen `/api/health/live` ni `/api/health/ready`~~ — ✅ resuelto | `server/api/health/` | Ambos existen, `smoke-test.mjs` los usa — ver detalle abajo |
 | P1-11 | ~~El pipeline de CI no valida que `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`/`PRODUCTION_URL` existan y sean válidos antes de desplegar~~ — ✅ resuelto en FASE 1 | `.github/workflows/ci.yml` | Jobs `staging-preflight`/`production-preflight` (comentario de cabecera desactualizado corregido aquí, la corrección ya estaba hecha en el commit `0c36a43`) |
-| P1-12 | ~~Sin request-ID / correlación entre `error_logs`/`webhook_deliveries` para una misma petición~~ — 🟡 resuelto parcialmente | `server/plugins/error-logging.ts` | `error_logs` y `webhook_deliveries` correlacionados; `email_log` queda deliberadamente fuera de esta pasada — ver detalle abajo |
+| P1-12 | ~~Sin request-ID / correlación entre `error_logs`/`webhook_deliveries`/`email_log` para una misma petición~~ — ✅ resuelto | `server/plugins/error-logging.ts` | `error_logs`, `webhook_deliveries` y `email_log` (migración 0060) correlacionados — ver detalle abajo |
 
 ## Problemas P2 (mejoras de calidad, no urgentes)
 
@@ -661,9 +664,29 @@ cliente real, no solo en el servidor.
   si falta su secreto de firma). `.gitignore` ganó también una entrada para
   `.dev.vars` (no la tenía — un `.dev.vars` real con secretos podría
   haberse comiteado por accidente) junto al carve-out para el `.example`.
-- Sin RBAC granular más allá de `super_admin`/`admin`/`user` (el único
-  sistema de permisos más fino que existe hoy es `api_keys.scopes`, solo
-  para acceso de máquina vía `/api/v1/*`).
+- ~~Sin RBAC granular más allá de `super_admin`/`admin`/`user`~~ — 🟡
+  resuelto parcialmente. `users.permissions` (migración 0058) + las 8 áreas
+  de `utils/adminAreas.ts` (General/CRM/Portal Web/Finanzas & Growth/Blog &
+  CMS/Contenido/Bandeja/Sistema) ya tienen: un editor visual real en
+  Sistema → Usuarios (`components/admin/UserPermissionsEditor.vue`, visible
+  solo a un `super_admin`, con guard de servidor a juego en
+  `[id].put.ts`/`index.post.ts` para que nadie más pueda auto-concederse
+  permisos), filtrado del menú lateral por área
+  (`layouts/admin.vue`'s `visibleNav`), y enforcement real del lado servidor
+  en el motor genérico de recursos: los 31 recursos de
+  `server/utils/adminResources.ts` llevan un `area` obligatorio, y cada ruta
+  bajo `server/api/admin/[resource]/**` pasa ese `area` (y `read`/`write`
+  según el verbo) a `requireOrgScope()`, que ya sabía comprobarlo
+  (infraestructura de una pasada anterior). **Lo que falta**: los
+  endpoints a medida fuera del motor genérico (Leads/Clientes/Visitas/
+  Reservas → `crm`; Facturación/Contratos/Depósitos/Automatizaciones/AI
+  Studio/Widgets/Marketplace/API → `finance`) no llaman a
+  `requireOrgScope()` con área todavía, así que un admin restringido sin
+  acceso a CRM/Finanzas puede seguir navegando a esas páginas y sus datos
+  directamente por URL aunque ya no las vea en el menú — el menú se oculta,
+  pero el servidor no corta el paso ahí. Cerrar esa brecha significa anotar
+  cada endpoint bespoke uno a uno (son ~9 páginas distintas, cada una con su
+  propio archivo de rutas), pendiente de una pasada futura dedicada.
 - `developer_properties.publishedAt` no controla realmente la visibilidad
   pública — auditado a raíz del punto 30 del megaprompt de rediseño del
   Property Builder ("auditar si el backend distingue borrador/publicado
@@ -685,23 +708,60 @@ cliente real, no solo en el servidor.
   desplegarse) y queda fuera de esta pasada, pendiente de una decisión
   explícita futura.
 - ~~Sin presupuestos de rendimiento de build ni lazy-loading auditado de
-  librerías pesadas (Leaflet, PDF, QR)~~ — ✅ auditado, ya estaba resuelto
-  por convención existente, no hizo falta código nuevo: `pdf-lib` y
-  `qrcode`/`jsqr` se importan exclusivamente desde `server/**` (0 bytes en
-  el bundle de cliente, verificado grepeando los 120 `.js` reales de
-  `.output/public/_nuxt`); Leaflet (+`leaflet.markercluster`) solo se
-  importa desde `LocationPicker.client.vue`/`EmbedMiniMap.client.vue`/
-  `MapExplorer.client.vue` — el sufijo `.client.vue` + el code-splitting
-  automático por ruta de Nuxt/Vite ya lo aíslan en un chunk propio
-  (~146KB) que solo descargan `/mapa`, `/embed` y la edición de recurso en
-  admin, nunca el chunk compartido que carga cada página. Sin herramienta
-  de bundle-analysis instalada (`rollup-plugin-visualizer` o similar);
-  documentado aquí como mejora futura opcional en vez de añadirla ahora
-  sin una necesidad concreta. Nota aparte, no relacionada con este punto:
-  el mismo audit encontró que la hoja de estilos de Leaflet podría no
-  cargar en `/embed` ni en la edición de recurso en admin (solo se
-  encontró en el chunk CSS de `/mapa`) — verificación pendiente, ver tarea
-  sugerida en el registro de esta sesión.
+  librerías pesadas (Leaflet, PDF, QR)~~ — ✅ auditado con herramienta real
+  (no solo verificación a mano). `rollup-plugin-visualizer` está instalado
+  (`npm run analyze`, `ANALYZE=1 nuxt build`, hook `vite:extendConfig` solo
+  sobre el build de cliente — el bundle de servidor de Nitro es un paso de
+  Rollup aparte, fuera de Vite) — **nota honesta**: en el toolchain de este
+  proyecto (Vite 8 sobre `rolldown`, no el Rollup clásico) el plugin se
+  registra correctamente (verificado con una sonda: sus hooks
+  `generateBundle`/`writeBundle`/`closeBundle` si disparan para un plugin
+  cualquiera) pero `rollup-plugin-visualizer` en sí no genera el HTML — una
+  incompatibilidad real entre esa librería y este bundler tan nuevo, no un
+  error de configuración. La infraestructura queda lista para cuando el
+  ecosistema se ponga al día; mientras tanto, el análisis real de esta
+  pasada se hizo con los propios datos que Vite/Nitro ya imprimen en cada
+  build (tamaño y gzip por chunk) más `.nuxt/dist/server/client.manifest.mjs`
+  (qué módulo produce cada chunk) — datos reales de la herramienta, no una
+  suposición:
+  - `pdf-lib` y `qrcode`/`jsqr` se importan exclusivamente desde `server/**`
+    — 0 bytes en el bundle de cliente (ningún chunk en
+    `.output/public/_nuxt/*.js` los contiene).
+  - Leaflet (+`leaflet.markercluster`) sí aparece en un chunk propio,
+    `3aB915KA.js` (149.57 kB / 43.30 kB gzip) — confirmado que `/` no lo
+    referencia y `/mapa`/`/embed` sí, o sea, correctamente aislado del
+    bundle compartido.
+  - El punto más pesado con diferencia es el propio runtime de Nuxt/Vue
+    (`CKJ1kZbR.js`, 414 kB / 128.65 kB gzip, cargado en toda página) —
+    normal para Vue 3 + Nuxt 3, no es una anomalía de este proyecto.
+  - Hallazgo nuevo, no esperado: `pages/admin/ayuda.vue` pesa 50.36 kB
+    (17.74 kB gzip) — sospechosamente alto para una página de ayuda;
+    probablemente el array de contenido de `useHelpContent.ts` (que ha
+    crecido con cada feature documentada esta sesión) se está incluyendo
+    en el chunk de esa página en vez de tratarse como datos separados. No
+    es urgente (es contenido de admin, no del sitio público), pero
+    documentado aquí como mejora futura si sigue creciendo.
+  - **Bug real encontrado durante esta verificación (no solo "pendiente de
+    confirmar" como decía la nota anterior) — ✅ arreglado**: el CSS de
+    Leaflet no cargaba en ninguna página, ni siquiera en `/mapa`. Causa:
+    estaba declarado en el array global `css:` de `nuxt.config.ts`, pero
+    sus únicos consumidores reales
+    (`LocationPicker.client.vue`/`EmbedMiniMap.client.vue`/
+    `MapExplorer.client.vue`) son `.client.vue` — Nuxt solo precarga el CSS
+    de lo que renderiza en el servidor, y un `.client.vue` por diseño no
+    renderiza nada ahí, así que el `<link>` nunca se emitía pese a que Vite
+    sí generaba el chunk CSS (asociado al chunk de `pages/mapa.vue`, el
+    único punto de entrada que lo alcanzaba en el grafo de módulos).
+    Arreglo: los tres `import 'leaflet/dist/leaflet.css'` (y los dos de
+    `leaflet.markercluster` en `MapExplorer.client.vue`) se movieron al
+    principio de cada componente `.client.vue`, para que viajen con su
+    propio chunk async en vez de con un import global — el patrón correcto
+    para CSS de una librería que solo se usa client-only. Verificado contra
+    HTML real servido por `wrangler dev`: `/` sigue sin referenciar el CSS
+    de Leaflet, `/mapa` y `/embed` ahora sí lo enlazan
+    (`leaflet.<hash>.css`, chunk compartido por los tres consumidores), y
+    los 114 tests e2e (incluido el que verifica que el editor de
+    Propiedades 2ª mano muestra el mapa de ubicación) pasan en verde.
 - ~~Sin monitorización sintética externa ni suite de carga (`k6` o
   equivalente)~~ — 🟡 código listo, bloqueado por configuración externa
   pendiente: `scripts/load-test/k6-load-test.js` (escenarios de navegación
@@ -738,9 +798,24 @@ prompt) y se listan aquí para no repetir trabajo:
   subida directa a R2 (P1-8) para archivos grandes.
 - **Cabeceras de seguridad** — CSP real por origen, HSTS, X-Frame-Options,
   Referrer-Policy, Permissions-Policy ya en `server/middleware/security-headers.ts`.
-  Queda documentado en el propio código que `unsafe-inline` sigue siendo
-  necesario hasta tener CSP-nonce — no es un descuido, es una limitación
-  conocida.
+  ~~`unsafe-inline` seguía siendo necesario hasta tener CSP-nonce~~ — ✅
+  resuelto: `script-src`/`style-src-elem` usan un nonce real por request
+  (`server/utils/cspNonce.ts`), estampado en cada `<script>`/`<style>` que
+  Nuxt renderiza (payload de hidratación incluido) por
+  `server/plugins/csp-nonce.ts` vía el hook `render:html` de Nitro.
+  `unsafe-inline` se mantiene solo como token adicional en esas dos
+  directivas (un navegador que entiende `nonce-…` lo ignora por spec; uno
+  que no, ignora el nonce y sigue viendo exactamente el mismo
+  `unsafe-inline` de antes — cero riesgo de romper nada). `style-src-attr`
+  se queda con `unsafe-inline` puro a propósito: CSP no tiene nonce para el
+  atributo `style="…"` en sí (solo para elementos `<style>`), y los
+  bindings `:style` de Vue/Tailwind se renderizan como ese atributo.
+  Verificado contra HTML real servido por `wrangler dev`: el nonce del
+  header coincide con el de las 3 etiquetas `<script>` y las 9 `<style>`
+  de una página, cambia en cada request, y la suite e2e completa
+  (102/114, los 12 fallos restantes son preexistentes — ver nota en
+  `stripe-webhook.spec.ts`/`resend-webhook.spec.ts`, reproducidos igual
+  contra el baseline sin este cambio) sigue en verde.
 - **Rate limiting de aplicación** — existe (`server/utils/rateLimit.ts`),
   D1-backed, con la limitación de "no exacto bajo alta concurrencia"
   documentada explícitamente en el propio código como trade-off aceptado.
