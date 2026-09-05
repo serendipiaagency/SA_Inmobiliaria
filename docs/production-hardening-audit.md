@@ -708,23 +708,44 @@ cliente real, no solo en el servidor.
   desplegarse) y queda fuera de esta pasada, pendiente de una decisión
   explícita futura.
 - ~~Sin presupuestos de rendimiento de build ni lazy-loading auditado de
-  librerías pesadas (Leaflet, PDF, QR)~~ — ✅ auditado, ya estaba resuelto
-  por convención existente, no hizo falta código nuevo: `pdf-lib` y
-  `qrcode`/`jsqr` se importan exclusivamente desde `server/**` (0 bytes en
-  el bundle de cliente, verificado grepeando los 120 `.js` reales de
-  `.output/public/_nuxt`); Leaflet (+`leaflet.markercluster`) solo se
-  importa desde `LocationPicker.client.vue`/`EmbedMiniMap.client.vue`/
-  `MapExplorer.client.vue` — el sufijo `.client.vue` + el code-splitting
-  automático por ruta de Nuxt/Vite ya lo aíslan en un chunk propio
-  (~146KB) que solo descargan `/mapa`, `/embed` y la edición de recurso en
-  admin, nunca el chunk compartido que carga cada página. Sin herramienta
-  de bundle-analysis instalada (`rollup-plugin-visualizer` o similar);
-  documentado aquí como mejora futura opcional en vez de añadirla ahora
-  sin una necesidad concreta. Nota aparte, no relacionada con este punto:
-  el mismo audit encontró que la hoja de estilos de Leaflet podría no
-  cargar en `/embed` ni en la edición de recurso en admin (solo se
-  encontró en el chunk CSS de `/mapa`) — verificación pendiente, ver tarea
-  sugerida en el registro de esta sesión.
+  librerías pesadas (Leaflet, PDF, QR)~~ — ✅ auditado con herramienta real
+  (no solo verificación a mano). `rollup-plugin-visualizer` está instalado
+  (`npm run analyze`, `ANALYZE=1 nuxt build`, hook `vite:extendConfig` solo
+  sobre el build de cliente — el bundle de servidor de Nitro es un paso de
+  Rollup aparte, fuera de Vite) — **nota honesta**: en el toolchain de este
+  proyecto (Vite 8 sobre `rolldown`, no el Rollup clásico) el plugin se
+  registra correctamente (verificado con una sonda: sus hooks
+  `generateBundle`/`writeBundle`/`closeBundle` si disparan para un plugin
+  cualquiera) pero `rollup-plugin-visualizer` en sí no genera el HTML — una
+  incompatibilidad real entre esa librería y este bundler tan nuevo, no un
+  error de configuración. La infraestructura queda lista para cuando el
+  ecosistema se ponga al día; mientras tanto, el análisis real de esta
+  pasada se hizo con los propios datos que Vite/Nitro ya imprimen en cada
+  build (tamaño y gzip por chunk) más `.nuxt/dist/server/client.manifest.mjs`
+  (qué módulo produce cada chunk) — datos reales de la herramienta, no una
+  suposición:
+  - `pdf-lib` y `qrcode`/`jsqr` se importan exclusivamente desde `server/**`
+    — 0 bytes en el bundle de cliente (ningún chunk en
+    `.output/public/_nuxt/*.js` los contiene).
+  - Leaflet (+`leaflet.markercluster`) sí aparece en un chunk propio,
+    `3aB915KA.js` (149.57 kB / 43.30 kB gzip) — confirmado que `/` no lo
+    referencia y `/mapa`/`/embed` sí, o sea, correctamente aislado del
+    bundle compartido.
+  - El punto más pesado con diferencia es el propio runtime de Nuxt/Vue
+    (`CKJ1kZbR.js`, 414 kB / 128.65 kB gzip, cargado en toda página) —
+    normal para Vue 3 + Nuxt 3, no es una anomalía de este proyecto.
+  - Hallazgo nuevo, no esperado: `pages/admin/ayuda.vue` pesa 50.36 kB
+    (17.74 kB gzip) — sospechosamente alto para una página de ayuda;
+    probablemente el array de contenido de `useHelpContent.ts` (que ha
+    crecido con cada feature documentada esta sesión) se está incluyendo
+    en el chunk de esa página en vez de tratarse como datos separados. No
+    es urgente (es contenido de admin, no del sitio público), pero
+    documentado aquí como mejora futura si sigue creciendo.
+  - **Bug real encontrado durante esta verificación, no solo "pendiente de
+    confirmar" como decía la nota anterior**: el CSS de Leaflet
+    efectivamente NO carga en ninguna página, ni siquiera en `/mapa` — ver
+    el punto siguiente (auditoría del CSS de Leaflet) para el diagnóstico
+    completo y el arreglo.
 - ~~Sin monitorización sintética externa ni suite de carga (`k6` o
   equivalente)~~ — 🟡 código listo, bloqueado por configuración externa
   pendiente: `scripts/load-test/k6-load-test.js` (escenarios de navegación

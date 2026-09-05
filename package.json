@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "nuxt dev",
     "build": "nuxt build",
+    "analyze": "ANALYZE=1 nuxt build",
     "preview": "wrangler dev",
     "preview:staging": "wrangler dev --env staging",
     "deploy": "nuxt build && wrangler deploy --env=\"\"",
@@ -45,6 +46,7 @@
     "eslint": "^10.9.1",
     "nitro-cloudflare-dev": "^0.2.2",
     "nuxt": "^3.17.5",
+    "rollup-plugin-visualizer": "^7.1.1",
     "typescript": "^5.9.3",
     "vitest": "^4.1.10",
     "vue-tsc": "^3.3.8",
