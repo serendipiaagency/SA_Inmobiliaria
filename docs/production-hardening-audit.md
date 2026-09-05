@@ -758,9 +758,24 @@ prompt) y se listan aquí para no repetir trabajo:
   subida directa a R2 (P1-8) para archivos grandes.
 - **Cabeceras de seguridad** — CSP real por origen, HSTS, X-Frame-Options,
   Referrer-Policy, Permissions-Policy ya en `server/middleware/security-headers.ts`.
-  Queda documentado en el propio código que `unsafe-inline` sigue siendo
-  necesario hasta tener CSP-nonce — no es un descuido, es una limitación
-  conocida.
+  ~~`unsafe-inline` seguía siendo necesario hasta tener CSP-nonce~~ — ✅
+  resuelto: `script-src`/`style-src-elem` usan un nonce real por request
+  (`server/utils/cspNonce.ts`), estampado en cada `<script>`/`<style>` que
+  Nuxt renderiza (payload de hidratación incluido) por
+  `server/plugins/csp-nonce.ts` vía el hook `render:html` de Nitro.
+  `unsafe-inline` se mantiene solo como token adicional en esas dos
+  directivas (un navegador que entiende `nonce-…` lo ignora por spec; uno
+  que no, ignora el nonce y sigue viendo exactamente el mismo
+  `unsafe-inline` de antes — cero riesgo de romper nada). `style-src-attr`
+  se queda con `unsafe-inline` puro a propósito: CSP no tiene nonce para el
+  atributo `style="…"` en sí (solo para elementos `<style>`), y los
+  bindings `:style` de Vue/Tailwind se renderizan como ese atributo.
+  Verificado contra HTML real servido por `wrangler dev`: el nonce del
+  header coincide con el de las 3 etiquetas `<script>` y las 9 `<style>`
+  de una página, cambia en cada request, y la suite e2e completa
+  (102/114, los 12 fallos restantes son preexistentes — ver nota en
+  `stripe-webhook.spec.ts`/`resend-webhook.spec.ts`, reproducidos igual
+  contra el baseline sin este cambio) sigue en verde.
 - **Rate limiting de aplicación** — existe (`server/utils/rateLimit.ts`),
   D1-backed, con la limitación de "no exacto bajo alta concurrencia"
   documentada explícitamente en el propio código como trade-off aceptado.
