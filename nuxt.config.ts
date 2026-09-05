@@ -40,12 +40,10 @@ export default defineNuxtConfig({
       '0 4 * * 1': ['scheduler:recompute-ai-time'],
     },
   },
-  css: [
-    '~/assets/css/main.css',
-    'leaflet/dist/leaflet.css',
-    'leaflet.markercluster/dist/MarkerCluster.css',
-    'leaflet.markercluster/dist/MarkerCluster.Default.css',
-  ],
+  // Leaflet's CSS is NOT here — see the import inside each
+  // LocationPicker.client.vue/EmbedMiniMap.client.vue/MapExplorer.client.vue
+  // for why (docs/production-hardening-audit.md).
+  css: ['~/assets/css/main.css'],
   app: {
     pageTransition: { name: 'page', mode: 'out-in' },
     head: {

@@ -4,6 +4,9 @@
 
 <script setup lang="ts">
 import L from 'leaflet'
+// See the same import in LocationPicker.client.vue for why this lives here
+// and not in nuxt.config.ts's global `css:` array.
+import 'leaflet/dist/leaflet.css'
 
 const props = defineProps<{ items: any[]; accent?: string; dark?: boolean; origin?: string; currency?: string }>()
 const el = ref<HTMLElement | null>(null)

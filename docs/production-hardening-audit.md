@@ -741,11 +741,27 @@ cliente real, no solo en el servidor.
     en el chunk de esa página en vez de tratarse como datos separados. No
     es urgente (es contenido de admin, no del sitio público), pero
     documentado aquí como mejora futura si sigue creciendo.
-  - **Bug real encontrado durante esta verificación, no solo "pendiente de
-    confirmar" como decía la nota anterior**: el CSS de Leaflet
-    efectivamente NO carga en ninguna página, ni siquiera en `/mapa` — ver
-    el punto siguiente (auditoría del CSS de Leaflet) para el diagnóstico
-    completo y el arreglo.
+  - **Bug real encontrado durante esta verificación (no solo "pendiente de
+    confirmar" como decía la nota anterior) — ✅ arreglado**: el CSS de
+    Leaflet no cargaba en ninguna página, ni siquiera en `/mapa`. Causa:
+    estaba declarado en el array global `css:` de `nuxt.config.ts`, pero
+    sus únicos consumidores reales
+    (`LocationPicker.client.vue`/`EmbedMiniMap.client.vue`/
+    `MapExplorer.client.vue`) son `.client.vue` — Nuxt solo precarga el CSS
+    de lo que renderiza en el servidor, y un `.client.vue` por diseño no
+    renderiza nada ahí, así que el `<link>` nunca se emitía pese a que Vite
+    sí generaba el chunk CSS (asociado al chunk de `pages/mapa.vue`, el
+    único punto de entrada que lo alcanzaba en el grafo de módulos).
+    Arreglo: los tres `import 'leaflet/dist/leaflet.css'` (y los dos de
+    `leaflet.markercluster` en `MapExplorer.client.vue`) se movieron al
+    principio de cada componente `.client.vue`, para que viajen con su
+    propio chunk async en vez de con un import global — el patrón correcto
+    para CSS de una librería que solo se usa client-only. Verificado contra
+    HTML real servido por `wrangler dev`: `/` sigue sin referenciar el CSS
+    de Leaflet, `/mapa` y `/embed` ahora sí lo enlazan
+    (`leaflet.<hash>.css`, chunk compartido por los tres consumidores), y
+    los 114 tests e2e (incluido el que verifica que el editor de
+    Propiedades 2ª mano muestra el mapa de ubicación) pasan en verde.
 - ~~Sin monitorización sintética externa ni suite de carga (`k6` o
   equivalente)~~ — 🟡 código listo, bloqueado por configuración externa
   pendiente: `scripts/load-test/k6-load-test.js` (escenarios de navegación

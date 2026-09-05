@@ -22,6 +22,11 @@
 <script setup lang="ts">
 import L from 'leaflet'
 import 'leaflet.markercluster'
+// See the same import in LocationPicker.client.vue for why these live here
+// and not in nuxt.config.ts's global `css:` array.
+import 'leaflet/dist/leaflet.css'
+import 'leaflet.markercluster/dist/MarkerCluster.css'
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 
 const { t } = useI18n()
 const props = defineProps<{ items: any[]; activeId?: number | null }>()
