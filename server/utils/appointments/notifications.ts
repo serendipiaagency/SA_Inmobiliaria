@@ -26,6 +26,8 @@ interface NotifyAppointmentInput {
   propertyName?: string | null
   manageUrl?: string | null
   videoLink?: string | null
+  /** Correlation id (server/utils/requestId.ts) of the request that triggered this notification, when there is one — see email_log.requestId. */
+  requestId?: string | null
 }
 
 /**
@@ -61,6 +63,7 @@ export async function notifyAppointment(db: any, env: Record<string, any>, input
       template: TEMPLATE_BY_TYPE[input.type],
       to: input.recipientEmail,
       data: { scheduledAt: input.scheduledAt, agentName: input.agentName, propertyName: input.propertyName, manageUrl: input.manageUrl, videoLink: input.videoLink },
+      requestId: input.requestId,
     })
     await db.insert(schema.appointmentNotifications).values({
       organizationId: input.organizationId,

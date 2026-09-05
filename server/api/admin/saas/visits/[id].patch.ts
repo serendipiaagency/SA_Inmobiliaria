@@ -4,6 +4,7 @@ import { requireOrgScope } from '../../../../utils/auth'
 import { hasOverlappingVisit } from '../../../../utils/appointments/availability'
 import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { logAdminAction } from '../../../../utils/audit'
+import { getRequestId } from '../../../../utils/requestId'
 
 const VALID_STATUSES = ['scheduled', 'completed', 'cancelled', 'no_show'] as const
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
@@ -93,6 +94,7 @@ export default defineEventHandler(async (event) => {
         message: `Tu cita del ${visit.scheduledAt} con ${visit.agentName || 'tu agente'} ha sido cancelada.`,
         scheduledAt: visit.scheduledAt,
         agentName: visit.agentName,
+        requestId: getRequestId(event),
       })
     } else if (patch.scheduledAt && patch.scheduledAt !== visit.scheduledAt) {
       await notifyAppointment(db, cfEnv(event), {
@@ -104,6 +106,7 @@ export default defineEventHandler(async (event) => {
         message: `Tu cita ha sido reprogramada al ${patch.scheduledAt} con ${patch.agentName || visit.agentName || 'tu agente'}.`,
         scheduledAt: patch.scheduledAt,
         agentName: patch.agentName || visit.agentName,
+        requestId: getRequestId(event),
       })
     }
   } catch {

@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { cfEnv, useDb, schema, isUniqueConstraintError } from '../../utils/db'
 import { verifyStripeSignature, applyStripeEvent } from '../../utils/stripe'
+import { getRequestId } from '../../utils/requestId'
 
 /**
  * Stripe's inbound webhook. Unauthenticated by session design — Stripe calls
@@ -65,7 +66,7 @@ export default defineEventHandler(async (event) => {
     throw e
   }
 
-  const result = await applyStripeEvent(db, env, type, object)
+  const result = await applyStripeEvent(db, env, type, object, getRequestId(event))
 
   await db
     .update(schema.stripeWebhookEvents)

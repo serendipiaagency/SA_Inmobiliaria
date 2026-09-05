@@ -13,6 +13,7 @@ import {
   type TenantPolicy,
 } from './tenantPolicy'
 import type { AdminArea } from '../../utils/adminAreas'
+import { getRequestId } from './requestId'
 
 export type FieldType = 'text' | 'textarea' | 'number' | 'image' | 'file' | 'select' | 'json'
 
@@ -731,6 +732,7 @@ export const adminResources: Record<string, ResourceDef> = {
           template: 'user_welcome',
           to: data.email,
           data: { name: data.name, email: data.email, setPasswordUrl },
+          requestId: getRequestId(event),
         })
       } catch {
         // The account is already created — a welcome-email failure must never undo that.

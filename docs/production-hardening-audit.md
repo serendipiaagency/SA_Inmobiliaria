@@ -395,34 +395,37 @@ Tests en `test/unit/health.test.ts` para `checkDatabaseHealth()`/
 `checkStorageHealth()`: éxito y fallo real con el mensaje de error
 correcto en ambos casos.
 
-### P1-12 — Request-ID de correlación — 🟡 resuelto parcialmente (`error_logs` + `webhook_deliveries`, `email_log` diferido)
+### P1-12 — Request-ID de correlación — ✅ resuelto (`error_logs`, `webhook_deliveries` y `email_log`)
 
 Sin hilo conductor entre `error_logs`, `webhook_deliveries` y `email_log`
-para una misma petición — un fallo de entrega de webhook y un error log
-causados por la misma petición solo podían relacionarse a ojo, comparando
-timestamps.
+para una misma petición — un fallo de entrega de webhook, un error log y un
+email causados por la misma petición solo podían relacionarse a ojo,
+comparando timestamps.
 
-**Resuelto para `error_logs` y `webhook_deliveries`**:
 `server/utils/requestId.ts` reutiliza la cabecera `cf-ray` de Cloudflare
 (ya única por petición en el edge, gratis, sin infraestructura nueva) y
 solo genera un id de repuesto donde `cf-ray` no está presente (`wrangler
 dev` local, tests) — cacheado en `event.context` para que todas las
 lecturas dentro de la misma petición coincidan. Migración 0056 añade
-`request_id` (aditiva) a ambas tablas; `error-logging.ts` y
-`dispatchWebhook()` lo fijan al crear cada fila — un reintento de webhook
-no lo vuelve a derivar (es un job de fondo, no está atado a la petición
-original que ya quedó registrada en la fila).
+`request_id` (aditiva) a `error_logs`/`webhook_deliveries`;
+`error-logging.ts` y `dispatchWebhook()` lo fijan al crear cada fila — un
+reintento de webhook no lo vuelve a derivar (es un job de fondo, no está
+atado a la petición original que ya quedó registrada en la fila).
 
-**Deliberadamente fuera de esta pasada: `email_log`.**
-`sendTransactionalEmail()` no recibe el `event` — lo llaman ~9 archivos a
-través de varias capas de utilidades intermedias (`notifyAppointment()`,
-`upsertLead()`, el flujo de depósitos de Stripe, etc.). Enhebrar
-`requestId` hasta ahí es mecánico pero amplio (tocar cada capa
-intermedia para pasar un parámetro opcional) — desproporcionado frente al
-valor diagnóstico marginal: un fallo de email ya es visible y trazable por
-sí solo vía `email_log.status`/`errorMessage`, sin depender de
-correlacionarlo con otra tabla para diagnosticarlo. Documentado aquí como
-hueco menor conocido, no urgente — no silenciado.
+**`email_log` (antes deliberadamente diferido, cerrado ahora)**: migración
+0060 añade la misma columna `request_id` (aditiva). `sendTransactionalEmail()`
+y `sendInternalNotification()` no reciben el `event` directamente — se
+enhebró `requestId` como parámetro opcional a través de las ~4 capas
+intermedias que sí llegan a tener uno (`notifyAppointment()`,
+`applyStripeEvent()`, `upsertLead()`, y los ~11 call sites directos/
+indirectos: alta de usuario, envío de contrato, recuperación de contraseña,
+reserva/reprogramación/cancelación de citas, aceptación de contrato,
+formulario de contacto/queja, webhook de Stripe). Los dos únicos llamadores
+sin petición HTTP real (`server/tasks/appointments/reminders.ts`,
+`server/tasks/marketing/saved-search-alerts.ts`, ambos disparados por cron)
+simplemente omiten el parámetro — la columna queda `NULL` para esas filas,
+exactamente el mismo criterio que ya se usaba para `error_logs`/
+`webhook_deliveries`.
 
 Tests en `test/unit/requestId.test.ts`: reutiliza `cf-ray` cuando está
 presente, genera un id de repuesto cuando no lo está, lo cachea dentro de
@@ -646,7 +649,7 @@ cliente real, no solo en el servidor.
 | P1-9 | ~~No existe `npm run lint` ni ESLint/Biome configurado~~ — ✅ resuelto | `package.json` | `@nuxt/eslint` + `npm run lint` en CI — ver detalle abajo |
 | P1-10 | ~~No existen `/api/health/live` ni `/api/health/ready`~~ — ✅ resuelto | `server/api/health/` | Ambos existen, `smoke-test.mjs` los usa — ver detalle abajo |
 | P1-11 | ~~El pipeline de CI no valida que `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`/`PRODUCTION_URL` existan y sean válidos antes de desplegar~~ — ✅ resuelto en FASE 1 | `.github/workflows/ci.yml` | Jobs `staging-preflight`/`production-preflight` (comentario de cabecera desactualizado corregido aquí, la corrección ya estaba hecha en el commit `0c36a43`) |
-| P1-12 | ~~Sin request-ID / correlación entre `error_logs`/`webhook_deliveries` para una misma petición~~ — 🟡 resuelto parcialmente | `server/plugins/error-logging.ts` | `error_logs` y `webhook_deliveries` correlacionados; `email_log` queda deliberadamente fuera de esta pasada — ver detalle abajo |
+| P1-12 | ~~Sin request-ID / correlación entre `error_logs`/`webhook_deliveries`/`email_log` para una misma petición~~ — ✅ resuelto | `server/plugins/error-logging.ts` | `error_logs`, `webhook_deliveries` y `email_log` (migración 0060) correlacionados — ver detalle abajo |
 
 ## Problemas P2 (mejoras de calidad, no urgentes)
 

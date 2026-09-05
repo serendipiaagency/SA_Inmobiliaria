@@ -2162,6 +2162,12 @@ export const emailLog = sqliteTable(
     bouncedAt: text('bounced_at'),
     complainedAt: text('complained_at'),
     createdAt: text('created_at').notNull().default(''),
+    // Correlation id (server/utils/requestId.ts) of the request that triggered
+    // this send — lets it be matched to an error_logs/webhook_deliveries row
+    // from the same request. Nullable: a send from a scheduled task (reminders,
+    // saved-search alerts) has no HTTP request to correlate with, and rows
+    // recorded before this column existed (migration 0060) have none either.
+    requestId: text('request_id'),
   },
   (t) => [
     index('email_log_org').on(t.organizationId, t.createdAt),
