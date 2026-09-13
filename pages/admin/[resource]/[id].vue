@@ -18,8 +18,11 @@
       </div>
     </div>
 
-    <!-- Readonly detail view -->
-    <div v-if="meta.readonly" class="card max-w-3xl p-6">
+    <!-- Readonly detail view. Also the view an admin with only read access to
+         this resource's area gets: the API would reject their save anyway
+         (server/middleware/01.admin-rbac.ts), so the panel shows the record
+         instead of a form that can't be submitted. -->
+    <div v-if="meta.readonly || !canEdit" class="card max-w-3xl p-6">
       <dl class="grid gap-x-6 gap-y-3 sm:grid-cols-2">
         <template v-for="(v, k) in record" :key="k">
           <div v-if="v !== null && v !== ''">
@@ -116,6 +119,11 @@ const { data: resources } = await useFetch<Record<string, any>>('/api/admin/reso
 const meta = computed(() => resources.value?.[resource.value])
 if (!meta.value) throw createError({ statusCode: 404, statusMessage: 'Unknown resource', fatal: true })
 useHead({ title: computed(() => `${meta.value?.label || 'Admin'} — M&M Real Estate`) })
+
+// Granular RBAC (bloque 01): read access to the area shows the record,
+// write access shows the form.
+const { canWrite } = useAdminPermissions()
+const canEdit = computed(() => (meta.value?.area ? canWrite(meta.value.area) : true))
 
 const form = reactive<Record<string, any>>({})
 const record = ref<Record<string, any>>({})

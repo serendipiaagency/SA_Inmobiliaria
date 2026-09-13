@@ -664,29 +664,44 @@ cliente real, no solo en el servidor.
   si falta su secreto de firma). `.gitignore` ganó también una entrada para
   `.dev.vars` (no la tenía — un `.dev.vars` real con secretos podría
   haberse comiteado por accidente) junto al carve-out para el `.example`.
-- ~~Sin RBAC granular más allá de `super_admin`/`admin`/`user`~~ — 🟡
-  resuelto parcialmente. `users.permissions` (migración 0058) + las 8 áreas
-  de `utils/adminAreas.ts` (General/CRM/Portal Web/Finanzas & Growth/Blog &
-  CMS/Contenido/Bandeja/Sistema) ya tienen: un editor visual real en
-  Sistema → Usuarios (`components/admin/UserPermissionsEditor.vue`, visible
-  solo a un `super_admin`, con guard de servidor a juego en
-  `[id].put.ts`/`index.post.ts` para que nadie más pueda auto-concederse
-  permisos), filtrado del menú lateral por área
-  (`layouts/admin.vue`'s `visibleNav`), y enforcement real del lado servidor
-  en el motor genérico de recursos: los 31 recursos de
-  `server/utils/adminResources.ts` llevan un `area` obligatorio, y cada ruta
-  bajo `server/api/admin/[resource]/**` pasa ese `area` (y `read`/`write`
-  según el verbo) a `requireOrgScope()`, que ya sabía comprobarlo
-  (infraestructura de una pasada anterior). **Lo que falta**: los
-  endpoints a medida fuera del motor genérico (Leads/Clientes/Visitas/
-  Reservas → `crm`; Facturación/Contratos/Depósitos/Automatizaciones/AI
-  Studio/Widgets/Marketplace/API → `finance`) no llaman a
-  `requireOrgScope()` con área todavía, así que un admin restringido sin
-  acceso a CRM/Finanzas puede seguir navegando a esas páginas y sus datos
-  directamente por URL aunque ya no las vea en el menú — el menú se oculta,
-  pero el servidor no corta el paso ahí. Cerrar esa brecha significa anotar
-  cada endpoint bespoke uno a uno (son ~9 páginas distintas, cada una con su
-  propio archivo de rutas), pendiente de una pasada futura dedicada.
+- ~~Sin RBAC granular más allá de `super_admin`/`admin`/`user`~~ — ✅
+  resuelto (bloque 01 del backlog; detalle completo en
+  `docs/rbac-authorization-matrix.md`). `users.permissions` (migración 0058)
+  + las 8 áreas de `utils/adminAreas.ts` (General/CRM/Portal Web/Finanzas &
+  Growth/Blog & CMS/Contenido/Bandeja/Sistema) tienen hoy:
+  - Editor visual en Sistema → Usuarios
+    (`components/admin/UserPermissionsEditor.vue`), visible solo a un
+    `super_admin`, con guard de servidor a juego en
+    `[id].put.ts`/`index.post.ts` — y ahora también validación del valor
+    (`validatePermissionsInput`), que rechaza con 422 cualquier lista que el
+    comprobador no sabría interpretar, para que un error tipográfico no
+    deje a un admin fuera de su propio panel.
+  - Matriz explícita de autorización para **todas** las rutas admin
+    (`server/utils/adminRouteMatrix.ts`), aplicada antes de cada handler en
+    `server/middleware/01.admin-rbac.ts`. Cubre los endpoints a medida que
+    antes quedaban fuera (claves de API, contratos, RGPD, CMS,
+    planificador, exportación de materiales): de las 156 rutas, 147 pasaban
+    por `requireOrgScope(event)` sin área. Una ruta admin sin regla deniega
+    para una cuenta restringida, y `test/unit/adminRouteMatrix.test.ts`
+    recorre `server/api/admin/**` para que eso no llegue a ocurrir.
+  - Fin del fail-open: `[]` (lista vacía) y un JSON ilegible ya no
+    significan «sin restricción»; deniegan, con aviso en el log sin datos
+    personales. La transición para cuentas históricas va en
+    `migrations/0061_normalize_user_permissions.sql`, que normaliza a NULL
+    justo esas filas *antes* de que el código empiece a denegarlas, de modo
+    que ninguna cuenta existente cambia de comportamiento al desplegar.
+  - Menú, guard de página y botones alineados con la misma tabla
+    (`utils/adminNav.ts`, `composables/useAdminPermissions.ts`).
+  - Cobertura: `test/unit/permissions.test.ts`,
+    `test/unit/adminRouteMatrix.test.ts` y `tests/e2e/admin-rbac.spec.ts`
+    (HTTP real: comercial sin claves ni exportación, editor limitado a
+    contenidos, solo-lectura sin escritura ni subidas, `[]` deniega, ids de
+    otra agencia siguen dando 404 dentro del área concedida).
+
+  **Límite conocido**: el constructor de propiedades y el constructor web
+  conservan sus propios botones de guardado sin comprobación de área en el
+  cliente — la API responde 403, pero el botón se ve. Asimetría de interfaz,
+  no de autorización; anotada en `docs/rbac-authorization-matrix.md` §4.
 - `developer_properties.publishedAt` no controla realmente la visibilidad
   pública — auditado a raíz del punto 30 del megaprompt de rediseño del
   Property Builder ("auditar si el backend distingue borrador/publicado

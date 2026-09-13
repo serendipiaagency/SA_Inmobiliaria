@@ -91,7 +91,10 @@
       </div>
 
       <main class="mx-auto max-w-[1180px] px-5 py-6 lg:px-8 lg:py-8">
-        <div class="mb-3 flex justify-end">
+        <!-- Publication notifications are Portal Web data (the multi-channel
+             dispatcher writes them), so an admin without web:read doesn't get
+             the bell — its endpoint denies them anyway. -->
+        <div v-if="canRead('web')" class="mb-3 flex justify-end">
           <AdminNotificationBell />
         </div>
         <slot />
@@ -101,9 +104,10 @@
 </template>
 
 <script setup lang="ts">
-import type { AdminArea } from '~/utils/adminAreas'
+import { ADMIN_NAV, type NavGroup } from '~/utils/adminNav'
 
 const { user, logout } = useAuth()
+const { canRead } = useAdminPermissions()
 const router = useRouter()
 const route = useRoute()
 const { initials } = useDash()
@@ -136,144 +140,26 @@ const icons: Record<string, string> = {
   mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
 }
 
-interface NavItem {
-  label: string
-  to: string
-  icon: string
-  /** Not set by any item today — the template already supports it for a future per-item counter/notice. */
-  badge?: string
-  /** Not set by any item today — the template already supports it for a future "beta"/"nuevo" style label. */
-  tag?: string
-}
-interface NavGroup {
-  label: string
-  items: NavItem[]
-  /** Permissions-editor area (utils/adminAreas.ts) this group is gated behind for a restricted admin. Omit only for "Ayuda", which stays visible to everyone. */
-  area?: AdminArea
-}
-const nav: NavGroup[] = [
-  {
-    label: 'General',
-    area: 'general',
-    items: [
-      { label: 'Dashboard', to: '/admin', icon: 'grid' },
-      { label: 'Analytics', to: '/admin/analytics', icon: 'chart' },
-    ],
-  },
-  {
-    label: 'CRM',
-    area: 'crm',
-    items: [
-      { label: 'Leads', to: '/admin/leads', icon: 'contact' },
-      { label: 'Clientes', to: '/admin/clientes', icon: 'users' },
-      { label: 'Visitas', to: '/admin/visitas', icon: 'calendar' },
-      { label: 'Analítica de citas', to: '/admin/citas-analytics', icon: 'chart' },
-      { label: 'Reservas', to: '/admin/reservas', icon: 'bookmark' },
-      { label: 'Referidos', to: '/admin/referidos', icon: 'sparkles' },
-    ],
-  },
-  {
-    label: 'Portal Web',
-    area: 'web',
-    items: [
-      { label: 'Propiedades (web)', to: '/admin/developer-properties', icon: 'building' },
-      { label: 'Constructor Web', to: '/admin/site-builder', icon: 'widget' },
-      { label: 'Propiedades 2ª mano', to: '/admin/properties', icon: 'layers' },
-      { label: 'Comerciales', to: '/admin/agents', icon: 'badge' },
-      { label: 'Comunidades', to: '/admin/communities', icon: 'store' },
-      { label: 'Publicación multicanal', to: '/admin/scheduler', icon: 'bolt' },
-      { label: 'Brand Kit', to: '/admin/asset-export/brand-kit', icon: 'sparkles' },
-      { label: 'Plantillas de Export', to: '/admin/asset-export/templates', icon: 'layers' },
-      { label: 'Piezas generadas', to: '/admin/asset-export/projects', icon: 'doc' },
-      { label: 'Exportación masiva', to: '/admin/asset-export/batches', icon: 'bolt' },
-      { label: 'Catálogos combinados', to: '/admin/asset-export/catalogs', icon: 'doc' },
-    ],
-  },
-  {
-    label: 'Finanzas & Growth',
-    area: 'finance',
-    items: [
-      { label: 'Facturación', to: '/admin/facturacion', icon: 'invoice' },
-      { label: 'Operaciones', to: '/admin/operaciones', icon: 'invoice' },
-      { label: 'Ingresos', to: '/admin/ingresos', icon: 'chart' },
-      { label: 'Contratos', to: '/admin/contratos', icon: 'doc' },
-      { label: 'Depósitos', to: '/admin/depositos', icon: 'key' },
-      { label: 'Tasador (AVM)', to: '/admin/tasador', icon: 'badge' },
-      { label: 'Automatizaciones', to: '/admin/automatizaciones', icon: 'bolt' },
-      { label: 'AI Studio', to: '/admin/ai', icon: 'sparkles' },
-      { label: 'Widgets', to: '/admin/widgets', icon: 'widget' },
-      { label: 'Marketplace', to: '/admin/marketplace', icon: 'store' },
-      { label: 'API', to: '/admin/api', icon: 'code' },
-    ],
-  },
-  {
-    label: 'Blog & CMS',
-    area: 'cms',
-    items: [
-      { label: 'Dashboard', to: '/admin/cms', icon: 'sparkles' },
-      { label: 'Artículos', to: '/admin/cms/articles', icon: 'doc' },
-      { label: 'Categorías', to: '/admin/cms-categories', icon: 'layers' },
-      { label: 'Etiquetas', to: '/admin/cms-tags', icon: 'badge' },
-      { label: 'Autores', to: '/admin/cms-authors', icon: 'team' },
-      { label: 'Media Library', to: '/admin/cms/media', icon: 'widget' },
-      { label: 'Comentarios', to: '/admin/cms-comments', icon: 'contact' },
-      { label: 'Redirecciones', to: '/admin/cms-redirects', icon: 'code' },
-      { label: 'Papelera', to: '/admin/cms/papelera', icon: 'inbox' },
-      { label: 'Config. Blog', to: '/admin/cms/configuracion', icon: 'settings' },
-    ],
-  },
-  {
-    label: 'Contenido',
-    area: 'content',
-    items: [
-      { label: 'Blog (legacy)', to: '/admin/blogs', icon: 'doc' },
-      { label: 'Equipo', to: '/admin/team', icon: 'team' },
-    ],
-  },
-  {
-    label: 'Bandeja',
-    area: 'inbox',
-    items: [
-      { label: 'Solicitudes', to: '/admin/visitor-submissions', icon: 'inbox' },
-      { label: 'Proveedores', to: '/admin/vendor-registrations', icon: 'inbox' },
-      { label: 'Mensajes', to: '/admin/contact-messages', icon: 'contact' },
-    ],
-  },
-  {
-    label: 'Ayuda',
-    items: [{ label: 'Ayuda y documentación', to: '/admin/ayuda', icon: 'help' }],
-  },
-  {
-    label: 'Sistema',
-    area: 'system',
-    items: [
-      { label: 'Configuración', to: '/admin/configuracion', icon: 'settings' },
-      { label: 'Usuarios', to: '/admin/users', icon: 'key' },
-      { label: 'Webhooks', to: '/admin/webhooks', icon: 'code' },
-      { label: 'Emails', to: '/admin/emails', icon: 'mail' },
-      { label: 'Privacidad (RGPD)', to: '/admin/privacidad', icon: 'alert' },
-      // Org-scoped: shows this org's own team activity (server/utils/audit.ts).
-      { label: 'Auditoría', to: '/admin/audit-log', icon: 'doc' },
-    ],
-  },
-]
+// Nav definition and page→area mapping live in utils/adminNav.ts so this
+// layout and middleware/admin.ts can never disagree about which area owns a
+// page (bloque 01). A fresh copy per component instance: the super_admin
+// entries below are filtered, not pushed, so the shared module is never
+// mutated.
+const nav = computed<NavGroup[]>(() =>
+  ADMIN_NAV.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.superAdminOnly || isSuperAdmin.value),
+  })).filter((group) => group.items.length > 0),
+)
 
-if (isSuperAdmin.value) {
-  nav[nav.length - 1].items.push({ label: 'Empresas', to: '/admin/organizations', icon: 'store' })
-  // Platform-wide incident log (server/plugins/error-logging.ts) — ops
-  // concern for the whole platform, not a tenant's business data, so it's
-  // super_admin-only like "Empresas" above.
-  nav[nav.length - 1].items.push({ label: 'Errores', to: '/admin/error-logs', icon: 'alert' })
-}
-
-// Granular RBAC (server/utils/permissions.ts) — a restricted admin only sees
-// the nav groups whose area they have at least read access to. Unrestricted
-// accounts (every admin today, and always super_admin) see everything,
-// exactly like before this feature existed. "Ayuda" has no `area` and stays
-// visible to everyone regardless.
+// Granular RBAC (utils/permissions.ts) — a restricted admin only sees the nav
+// groups whose area they have at least read access to. Unrestricted accounts
+// (every account that has never been given an explicit permissions array, and
+// always super_admin) see everything, exactly like before this feature
+// existed. "Ayuda" has no `area` and stays visible to everyone regardless.
 const visibleNav = computed(() => {
   const allowed = allowedAreas(user.value || { role: 'user', permissions: null })
-  return nav.filter((group) => !group.area || allowed.includes(group.area))
+  return nav.value.filter((group) => !group.area || allowed.includes(group.area))
 })
 
 const orgs = ref<{ id: number; name: string }[]>([])

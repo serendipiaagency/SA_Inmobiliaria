@@ -81,13 +81,25 @@ function checkCleanApply() {
     execFileSync('npx', ['wrangler', 'd1', 'migrations', 'apply', 'sa_inmobiliaria', '--local', '--persist-to', scratchDir], {
       cwd: ROOT,
       stdio: 'pipe',
+      // wrangler reprints the full migration table once per file, so the
+      // captured output grows with the square of the migration count. At 61
+      // files it crossed execFileSync's 1 MiB default and the command failed
+      // with ENOBUFS — reported here as "a migration doesn't apply cleanly",
+      // which was false and had nothing to do with the SQL. 64 MiB leaves
+      // room for many years of migrations at that growth rate.
+      maxBuffer: 64 * 1024 * 1024,
       env: { ...process.env, CI: process.env.CI || '1' },
     })
     console.log(`✓ Las ${readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).length} migraciones se aplican limpias sobre una D1 local nueva`)
     return true
   } catch (err) {
     fail('Al menos una migración no se aplica limpia sobre una D1 local nueva:')
-    console.error((err.stdout?.toString() || '') + (err.stderr?.toString() || '') || err.message)
+    // `err.message` first and always: when the failure is in *running* the
+    // command rather than in the SQL (ENOBUFS, ENOENT, a timeout), it is the
+    // only place that says so — stdout/stderr just show a truncated,
+    // apparently-successful run.
+    console.error(err.message)
+    console.error((err.stdout?.toString() || '') + (err.stderr?.toString() || ''))
     return false
   } finally {
     rmSync(scratchDir, { recursive: true, force: true })

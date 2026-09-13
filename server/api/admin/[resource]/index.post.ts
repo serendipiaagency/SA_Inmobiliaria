@@ -3,6 +3,7 @@ import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../u
 import { getResource, buildPayload, syncTranslations, assertPayloadReferences } from '../../../utils/adminResources'
 import { logAdminAction } from '../../../utils/audit'
 import { authorizeRecord } from '../../../utils/tenantPolicy'
+import { validatePermissionsInput } from '../../../utils/permissions'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -32,6 +33,13 @@ export default defineEventHandler(async (event) => {
   // remove) other admins' area restrictions, including their own.
   if (key === 'users' && data.permissions != null && user.role !== 'super_admin') {
     throw createError({ statusCode: 403, statusMessage: 'Only a super_admin can set permissions' })
+  }
+  // A permissions value the checker can't parse denies everything
+  // (utils/permissions.ts) — refuse to store one in the first place rather
+  // than let a typo lock the new admin out of their own panel.
+  if (key === 'users' && data.permissions != null) {
+    const problem = validatePermissionsInput(data.permissions)
+    if (problem) throw createError({ statusCode: 422, statusMessage: problem })
   }
   if (def.tenantPolicy.type === 'direct' && orgId != null) {
     data[def.tenantPolicy.organizationField ?? 'organizationId'] = orgId
