@@ -5,6 +5,7 @@ import { getResource, buildPayload, syncTranslations, assertPayloadReferences } 
 import { logAdminAction } from '../../../utils/audit'
 import { fireAutomationRules } from '../../../utils/publication/automations'
 import { authorizeRecord, buildTenantWhere } from '../../../utils/tenantPolicy'
+import { validatePermissionsInput } from '../../../utils/permissions'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -47,6 +48,13 @@ export default defineEventHandler(async (event) => {
   // untouched `permissions` value that round-trips through the edit form.
   if (key === 'users' && 'permissions' in data && data.permissions !== (existing as any).permissions && user.role !== 'super_admin') {
     throw createError({ statusCode: 403, statusMessage: 'Only a super_admin can change permissions' })
+  }
+  // A permissions value the checker can't parse denies everything
+  // (utils/permissions.ts) — refuse to store one in the first place rather
+  // than let a typo lock an admin out of their own panel.
+  if (key === 'users' && 'permissions' in data) {
+    const problem = validatePermissionsInput(data.permissions)
+    if (problem) throw createError({ statusCode: 422, statusMessage: problem })
   }
 
   const tenantWhere = buildTenantWhere(db, def.table, def.tenantPolicy, orgId)

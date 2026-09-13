@@ -510,6 +510,9 @@ export function useHelpContent() {
         'Crea una cuenta con rol "usuario" y el mismo email que un cliente para que pueda ver sus propias visitas y contratos desde /mi-cuenta.',
         'Al editar una cuenta con rol "admin", un super_admin ve un bloque "Permisos": por defecto tiene acceso completo; elige "Restringir a áreas concretas" y marca "Ver"/"Editar" por cada sección (CRM, Portal Web, Finanzas & Growth, Blog & CMS, Contenido, Bandeja, Sistema, General) para limitar esa cuenta. Las secciones sin acceso concedido desaparecen del menú lateral de esa persona.',
         'Solo un super_admin puede ver o cambiar los permisos de otra cuenta — un admin normal no ve ese bloque aunque tenga acceso de escritura a Usuarios.',
+        'Las restricciones se aplican en el servidor, no solo en el menú: una cuenta sin acceso a un área recibe un error de permisos aunque llame directamente a la API o escriba la dirección de la página a mano. Los botones de crear, editar y borrar también desaparecen en las áreas donde solo tiene "Ver".',
+        'Si eliges "Restringir a áreas concretas" y no marcas ninguna casilla, esa cuenta se queda sin acceso a nada (solo verá la Ayuda). Para devolverle el acceso completo, vuelve a marcar "Acceso completo".',
+        'Los cambios de permisos son inmediatos: la persona no necesita volver a iniciar sesión para que se le apliquen (ni para que se le retiren).',
       ],
     },
     {
@@ -576,6 +579,13 @@ export function useHelpContent() {
   ]
 
   const faqs: HelpFaq[] = [
+    {
+      id: 'faq-permisos-403',
+      question: 'A un compañero le sale "No tienes permiso para acceder a esta sección", ¿qué hago?',
+      answer:
+        'Esa cuenta tiene permisos restringidos por área. Un super_admin puede revisarlos en Sistema → Usuarios, abriendo la ficha de esa persona: el bloque "Permisos" muestra si tiene "Acceso completo" o una lista de áreas con "Ver"/"Editar". Marca el área que necesita (por ejemplo "Finanzas & Growth" si tiene que emitir facturas) y guarda; el cambio se aplica en su siguiente acción, sin que tenga que volver a entrar. Ojo con dos casos que parecen lo mismo y no lo son: "Acceso completo" da permiso a todo, mientras que "Restringir a áreas concretas" sin ninguna casilla marcada deja la cuenta sin acceso a nada. Si el mensaje aparece al pulsar Guardar o Crear, lo que falta es "Editar" en esa área, no "Ver".',
+      tags: ['permisos', 'usuarios', 'acceso', '403', 'seguridad', 'roles'],
+    },
     {
       id: 'faq-unknown-domain-404',
       question: 'Mi web pública da 404 en un dominio nuevo, ¿por qué?',

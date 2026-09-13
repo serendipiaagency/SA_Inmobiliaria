@@ -4,7 +4,7 @@
       <h1 class="text-2xl font-bold">{{ meta.label }}</h1>
       <div class="flex gap-2">
         <input v-model="q" class="input !w-56" placeholder="Search…" @keyup.enter="page = 1" >
-        <NuxtLink v-if="!meta.readonly" :to="`/admin/${resource}/new`" class="btn-primary">+ New</NuxtLink>
+        <NuxtLink v-if="!meta.readonly && canEdit" :to="`/admin/${resource}/new`" class="btn-primary">+ New</NuxtLink>
       </div>
     </div>
 
@@ -23,9 +23,9 @@
             </td>
             <td class="whitespace-nowrap px-4 py-3 text-right">
               <NuxtLink :to="`/admin/${resource}/${row.id}`" class="mr-3 font-medium text-emerald-700 hover:underline">
-                {{ meta.readonly ? 'View' : 'Edit' }}
+                {{ meta.readonly || !canEdit ? 'View' : 'Edit' }}
               </NuxtLink>
-              <button class="font-medium text-red-600 transition hover:underline active:scale-95" @click="remove(row.id)">Delete</button>
+              <button v-if="canEdit" class="font-medium text-red-600 transition hover:underline active:scale-95" @click="remove(row.id)">Delete</button>
             </td>
           </tr>
           <tr v-if="!data?.rows?.length">
@@ -60,6 +60,13 @@ if (!meta.value) {
   throw createError({ statusCode: 404, statusMessage: 'Unknown resource', fatal: true })
 }
 useHead({ title: computed(() => `${meta.value?.label || 'Admin'} — M&M Real Estate`) })
+
+// Write actions are hidden for an admin who only has read access to this
+// resource's area — the API rejects them either way
+// (server/middleware/01.admin-rbac.ts); this just stops the panel offering
+// buttons that can only fail.
+const { canWrite } = useAdminPermissions()
+const canEdit = computed(() => (meta.value?.area ? canWrite(meta.value.area) : true))
 
 const { data, refresh } = await useFetch<any>(() => `/api/admin/${resource.value}`, {
   query: computed(() => ({ page: page.value, q: q.value })),

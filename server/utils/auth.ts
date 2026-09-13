@@ -92,6 +92,7 @@ export async function createSession(event: H3Event, userId: number): Promise<voi
     expiresAt: expires.toISOString(),
     createdAt: now(),
   })
+  clearSessionCache(event)
   setCookie(event, SESSION_COOKIE, token, {
     httpOnly: true,
     secure: true,
@@ -102,6 +103,7 @@ export async function createSession(event: H3Event, userId: number): Promise<voi
 }
 
 export async function destroySession(event: H3Event): Promise<void> {
+  clearSessionCache(event)
   const token = getCookie(event, SESSION_COOKIE)
   if (token) {
     const db = useDb(event)
@@ -114,7 +116,31 @@ export async function destroySession(event: H3Event): Promise<void> {
   deleteCookie(event, SESSION_COOKIE, { path: '/' })
 }
 
+/**
+ * Per-request memo for getSessionUser(). A single admin request now resolves
+ * the session twice — once in server/middleware/01.admin-rbac.ts to check the
+ * authorization matrix, once inside the handler's own requireAdmin() — and
+ * both must agree. Caching on `event.context` also means the RBAC middleware
+ * costs zero extra D1 queries. Cleared by createSession/destroySession so a
+ * login or logout within the same request can't be served a stale answer.
+ */
+interface SessionCache {
+  __sessionUser?: { user: SessionUser | null }
+}
+
+function clearSessionCache(event: H3Event): void {
+  ;(event.context as SessionCache).__sessionUser = undefined
+}
+
 export async function getSessionUser(event: H3Event): Promise<SessionUser | null> {
+  const ctx = event.context as SessionCache
+  if (ctx.__sessionUser) return ctx.__sessionUser.user
+  const user = await loadSessionUser(event)
+  ctx.__sessionUser = { user }
+  return user
+}
+
+async function loadSessionUser(event: H3Event): Promise<SessionUser | null> {
   const token = getCookie(event, SESSION_COOKIE)
   if (!token) return null
   const db = useDb(event)

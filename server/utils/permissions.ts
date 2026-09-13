@@ -6,5 +6,14 @@
  * every server/ caller (server/utils/ is Nitro's own separate auto-import
  * scope, so it can't pick up the root utils/ auto-import directly).
  */
-export { parsePermissions, hasAreaAccess, allowedAreas, type PermissionAction } from '../../utils/permissions'
-export { ADMIN_AREAS, type AdminArea } from '../../utils/adminAreas'
+export {
+  parsePermissions,
+  parsePermissionsConfig,
+  hasAreaAccess,
+  allowedAreas,
+  hasAnyWriteAccess,
+  validatePermissionsInput,
+  type PermissionAction,
+  type PermissionsConfig,
+} from '../../utils/permissions'
+export { ADMIN_AREAS, isAdminArea, type AdminArea } from '../../utils/adminAreas'

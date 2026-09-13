@@ -10,6 +10,11 @@ export default defineEventHandler(async (event) => {
     out[key] = {
       key,
       label: def.label,
+      // The permissions area that owns this resource (utils/adminAreas.ts).
+      // Sent so the resource pages can hide the write actions the API would
+      // reject anyway — see composables/useAdminPermissions.ts. It is panel
+      // structure, not tenant data.
+      area: def.area,
       fields: def.fields,
       listFields: def.listFields,
       readonly: !!def.readonly,
