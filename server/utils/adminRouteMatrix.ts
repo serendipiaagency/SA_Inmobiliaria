@@ -124,6 +124,7 @@ const RULES: Rule[] = [
   // --- Sistema ------------------------------------------------------------
   { pattern: /^saas\/settings(?:\/|$)/, resolve: area('system') }, // pages/admin/configuracion.vue
   { pattern: /^saas\/email-log$/, resolve: area('system') }, // pages/admin/emails.vue
+  { pattern: /^saas\/email-health$/, resolve: area('system') }, // estado del canal de email, misma pantalla
   { pattern: /^saas\/webhooks(?:\/|$)/, resolve: area('system') },
   { pattern: /^saas\/gdpr(?:\/|$)/, resolve: area('system') }, // Privacidad (RGPD): export + delete
 

@@ -535,9 +535,11 @@ export function useHelpContent() {
       route: '/admin/emails',
       summary: 'Historial real de los emails transaccionales que envía la plataforma (leads, citas, contratos, depósitos, contraseñas…) vía Resend.',
       steps: [
+        'Si arriba aparece un aviso rojo o ámbar, el canal de email tiene un problema: lo verás también en el Dashboard. En verde no hay aviso, la pantalla se queda como siempre.',
+        '"El envío de emails no está conectado" significa que falta el secreto RESEND_API_KEY en el Worker — lo configura quien administra Cloudflare. Mientras tanto nada se pierde: los envíos se siguen registrando aquí y se reintentan solos cuando se conecte.',
         'El estado solo pasa a "Entregado" cuando Resend lo confirma — "Enviado" únicamente significa que Resend aceptó la petición, no que llegó a un buzón real.',
-        '"Rebotado" y "Reclamación" también los confirma Resend por webhook, nunca se marcan por adelantado.',
-        'Un envío fallido se reintenta automáticamente (hasta 5 veces, con espera creciente) antes de marcarse "Fallido" de forma definitiva.',
+        '"Rebotado" y "Reclamación" también los confirma Resend por webhook, nunca se marcan por adelantado. No cuentan como avería del canal: el problema está en el buzón del destinatario, no en el envío.',
+        'Un envío fallido se reintenta automáticamente (hasta 5 veces, con espera creciente) antes de marcarse "Fallido" de forma definitiva. Una fila que sigue "En cola" más de 12 h ya no está esperando su turno: está atascada, y el aviso de arriba la cuenta como tal.',
         'El destinatario, la plantilla y el tipo (transaccional o comercial) de cada fila corresponden exactamente a lo que se envió — nada se resume ni se inventa.',
       ],
     },
@@ -662,6 +664,13 @@ export function useHelpContent() {
       answer:
         '"Enviado" solo significa que Resend aceptó la petición — no que un buzón real la recibió. El estado pasa a "Entregado" (o "Rebotado"/"Reclamación") únicamente cuando Resend lo confirma de vuelta por webhook. Si un email lleva mucho tiempo en "Enviado" sin pasar a "Entregado", lo más probable es que el webhook de Resend no esté configurado en este Worker — contacta con nosotros para revisarlo (RESEND_WEBHOOK_SECRET). Mientras tanto, revisa también la carpeta de spam del destinatario: un email "Enviado" que nunca llega a la bandeja principal suele ser justamente lo que "Rebotado"/"Reclamación" existen para detectar, en cuanto el webhook esté activo.',
       tags: ['emails', 'resend', 'webhook', 'entregas'],
+    },
+    {
+      id: 'faq-email-channel-down',
+      question: 'El Dashboard avisa de que "no están saliendo emails", ¿se ha perdido algo?',
+      answer:
+        'No. Cada intento de envío queda anotado en /admin/emails antes de salir, así que un fallo no borra nada: la fila se queda "En cola" y se reintenta sola hasta 5 veces con esperas crecientes. El aviso existe precisamente porque antes ese fallo solo se veía fila a fila y nadie lo miraba — las notificaciones se envían "por detrás" de un lead o un contrato, y si dejaban de salir la plataforma seguía funcionando como si nada. Entra en /admin/emails para ver el motivo exacto que devolvió Resend. Si dice que falta RESEND_API_KEY, no es un problema de tu agencia: el canal no está conectado en el Worker y lo tiene que configurar quien administra Cloudflare; en cuanto se conecte, los envíos en cola salen solos en el siguiente reintento.',
+      tags: ['emails', 'resend', 'avisos', 'entregas', 'dashboard'],
     },
     {
       id: 'faq-stripe-webhook-not-updating',

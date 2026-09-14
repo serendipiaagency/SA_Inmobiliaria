@@ -5,6 +5,17 @@
       <p class="mt-1 text-sm text-stone-500">Historial real de envíos vía Resend — el estado solo pasa a "Entregado"/"Rebotado"/"Reclamación" cuando Resend lo confirma por webhook.</p>
     </div>
 
+    <!-- Estado del canal. Sólo aparece cuando hay algo que decir: si todo
+         sale bien, esta pantalla no cambia. -->
+    <div v-if="health && health.status !== 'ok' && health.status !== 'idle'" class="mb-6 rounded-xl border px-4 py-3.5" :class="healthClass">
+      <p class="text-sm font-semibold">{{ healthTitle }}</p>
+      <p class="mt-1 text-sm">{{ health.headline }}</p>
+      <p v-if="health.lastError" class="mt-1.5 font-mono text-xs opacity-80">Último error de Resend: {{ health.lastError }}</p>
+      <p v-if="health.status === 'not-connected'" class="mt-1.5 text-xs opacity-80">
+        Lo configura quien administra el Worker en Cloudflare (Settings → Variables and Secrets). Mientras tanto los envíos se siguen registrando aquí y se reintentan, no se pierden.
+      </p>
+    </div>
+
     <div v-if="!rows.length" class="rounded-xl border border-dashed border-line px-6 py-10 text-center text-sm text-stone-500">Sin envíos todavía.</div>
 
     <AdminPanel v-else :pad="false">
@@ -48,6 +59,28 @@ const dt = useDash()
 
 const { data } = await useFetch<any[]>('/api/admin/saas/email-log')
 const rows = computed(() => data.value || [])
+
+/**
+ * Los envíos fallidos ya se anotaban fila a fila, pero nadie los sumaba: si
+ * faltaba RESEND_API_KEY o Resend rechazaba todo, la plataforma seguía como si
+ * nada. Esto lo dice en una frase — ver server/utils/email/health.ts.
+ */
+interface EmailChannelHealth {
+  connected: boolean
+  status: 'not-connected' | 'down' | 'warning' | 'idle' | 'ok'
+  headline: string
+  lastError: string | null
+}
+const { data: health } = await useFetch<EmailChannelHealth>('/api/admin/saas/email-health')
+
+const healthTitle = computed(() => {
+  if (health.value?.status === 'not-connected') return 'El envío de emails no está conectado'
+  if (health.value?.status === 'down') return 'El canal de email está caído'
+  return 'Hay envíos que no han salido'
+})
+const healthClass = computed(() =>
+  health.value?.status === 'warning' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-red-200 bg-red-50 text-red-800',
+)
 
 function statusLabel(s: string) {
   return { queued: 'En cola', sent: 'Enviado', delivered: 'Entregado', bounced: 'Rebotado', complained: 'Reclamación', failed: 'Fallido' }[s] || s

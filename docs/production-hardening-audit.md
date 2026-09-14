@@ -707,6 +707,61 @@ el número de rutas sigue dentro de lo comprobado a mano—. La tercera se prob�
 en negativo (creando un fichero de raíz con `$fetch` y confirmando que el test
 falla nombrándolo), para que no sea una comprobación vacía.
 
+### P1-15 — Un email que no salía no se veía en ninguna parte — ✅ resuelto
+
+Todas las llamadas a `sendTransactionalEmail()`/`sendInternalNotification()`
+están envueltas en `try/catch` **a propósito**: un email que no sale no puede
+tumbar la captura de un lead, la aceptación de un contrato ni un webhook de
+pago. Eso está bien y no se ha tocado. El problema era lo que pasaba después.
+
+El fallo quedaba anotado en `email_log` —con su `errorMessage`, sus intentos y
+su reintento programado— y ahí se moría. Nadie sumaba esas filas. Si faltaba
+el secreto `RESEND_API_KEY`, o si Resend empezaba a rechazar todo, la
+plataforma seguía funcionando con absoluta normalidad mientras **ningún**
+email salía, y la única forma de enterarse era abrir /admin/emails y leer fila
+a fila. Comprobado en la D1 local de desarrollo al implementar esto: 7 emails
+en cola, todos atascados, ningún aviso en ninguna pantalla.
+
+**Resuelto**: `summarizeEmailHealth()` en `server/utils/email/health.ts`
+—función pura, sin D1 ni runtime de Workers, igual que `server/utils/health.ts`—
+convierte las filas que ya existen en un veredicto (`not-connected`, `down`,
+`warning`, `idle`, `ok`) con una frase lista para enseñar. Lo sirve
+`GET /api/admin/saas/email-health` (área `system`, misma que `email-log`) y se
+pinta en dos sitios, **sólo cuando hay algo roto**:
+
+- `/admin/emails`, sobre la tabla, con el último error real de Resend.
+- El Dashboard, como aviso enlazado a esa pantalla — que es donde la gente
+  mira de verdad. Se pide con `server: false` + `lazy` para no retrasar el
+  render, y no se pide si el cliente ya sabe que la cuenta no tiene el área
+  `system`.
+
+Criterios del veredicto, elegidos para no gritar en falso:
+
+- Sin `RESEND_API_KEY` gana todo lo demás: un historial de envíos antiguos no
+  puede hacer parecer sano un canal que ahora mismo no puede enviar nada.
+- Un rebote o una reclamación **no** cuentan como avería: el problema está en
+  el buzón del destinatario, no en el envío.
+- Una fila en cola sólo cuenta como atascada pasadas 12 h — los 5 reintentos
+  se agotan a los ~522 min y la tarea que los repesca corre cada hora.
+- Si no ha salido ni uno, se dice "el canal está caído", no "algunos fallos".
+- El endpoint devuelve `connected` como booleano; el valor del secreto no sale
+  de ahí ni en una respuesta de administración.
+
+**Verificado más allá de typecheck/test/build/migrations:check**: 15 tests en
+`test/unit/emailHealth.test.ts` (incluido el parseo UTC de `email_log.createdAt`,
+que si se hiciera en hora local desviaría el cálculo de "atascado" tantas horas
+como offset tenga el runtime), la regla RBAC nueva en
+`test/unit/adminRouteMatrix.test.ts`, y ejecución real contra `wrangler dev`
+con D1 local: endpoint sin clave → `not-connected`; con clave presente →
+`down` sobre las 7 filas atascadas reales; `/admin/emails` sirviendo el aviso
+en el HTML; y el Dashboard comprobado en un navegador de verdad (Playwright,
+captura incluida) confirmando que el aviso aparece y que no se dispara ninguna
+petición de administración fallida. En e2e, `tests/e2e/admin-rbac.spec.ts`
+comprueba sobre HTTP real que un comercial recibe 403 en el endpoint nuevo.
+
+**Lo que sigue siendo tarea manual**: configurar `RESEND_API_KEY` como secreto
+del Worker. Esto no lo arregla; lo hace visible.
+
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
@@ -725,6 +780,7 @@ falla nombrándolo), para que no sea una comprobación vacía.
 | P1-11 | ~~El pipeline de CI no valida que `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`/`PRODUCTION_URL` existan y sean válidos antes de desplegar~~ — ✅ resuelto en FASE 1 | `.github/workflows/ci.yml` | Jobs `staging-preflight`/`production-preflight` (comentario de cabecera desactualizado corregido aquí, la corrección ya estaba hecha en el commit `0c36a43`) |
 | P1-12 | ~~Sin request-ID / correlación entre `error_logs`/`webhook_deliveries`/`email_log` para una misma petición~~ — ✅ resuelto | `server/plugins/error-logging.ts` | `error_logs`, `webhook_deliveries` y `email_log` (migración 0060) correlacionados — ver detalle abajo |
 | P1-14 | ~~`npm run typecheck` se rompía con 2 rutas más (TS2589 de Nitro), señalando un fichero sin relación con el cambio~~ — ✅ resuelto | `nitro-fetch-warmup.ts` | Margen de 1 ruta → más de 150, con guardas en `test/unit/nitroFetchWarmup.test.ts` — ver detalle arriba |
+| P1-15 | ~~Un email que no salía quedaba anotado en `email_log` y ahí se moría: nadie sumaba esas filas ni avisaba~~ — ✅ resuelto | `server/utils/email/health.ts` | `GET /api/admin/saas/email-health` + aviso en el Dashboard y en /admin/emails, sólo cuando hay algo roto — ver detalle arriba |
 
 ## Problemas P2 (mejoras de calidad, no urgentes)
 

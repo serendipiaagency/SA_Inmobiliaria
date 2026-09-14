@@ -12,6 +12,17 @@
       </div>
     </div>
 
+    <!-- Sólo aparece cuando el canal de email está roto. Ver /admin/emails. -->
+    <NuxtLink
+      v-if="emailAlert"
+      to="/admin/emails"
+      class="mb-4 block rounded-xl border px-4 py-3.5 transition hover:brightness-[0.98]"
+      :class="emailAlert.status === 'warning' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-red-200 bg-red-50 text-red-800'"
+    >
+      <p class="text-sm font-semibold">{{ emailAlert.status === 'not-connected' ? 'El envío de emails no está conectado' : 'Hay emails que no están saliendo' }}</p>
+      <p class="mt-1 text-sm">{{ emailAlert.headline }}</p>
+    </NuxtLink>
+
     <div v-if="pending" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       <div v-for="i in 5" :key="i" class="skeleton h-32 rounded-xl border border-line" />
     </div>
@@ -155,6 +166,30 @@ useHead({ title: 'Dashboard — M&M Real Estate' })
 const dt = useDash()
 
 const { data, pending } = await useFetch<any>('/api/admin/saas/overview')
+
+/**
+ * Aviso del canal de email. Los fallos de envío ya se anotaban en email_log,
+ * pero en una pantalla que casi nadie abre: si faltaba RESEND_API_KEY, la
+ * plataforma seguía funcionando mientras no salía ni un email. Aquí sólo se
+ * pinta cuando hay algo roto, así que un canal sano no añade nada al
+ * dashboard.
+ *
+ * `server: false` + `lazy` a propósito: este aviso nunca debe retrasar el
+ * render del dashboard. Y se evita pedirlo cuando el cliente ya sabe que la
+ * cuenta no tiene el área "system", que es la que protege el endpoint; si
+ * todavía no lo sabe, el servidor responde 403 y simplemente no se pinta nada
+ * — la decisión que cuenta sigue siendo la suya, no la de esta línea.
+ */
+const { canRead } = useAdminPermissions()
+const { data: emailHealth } = useFetch<{ status: string; headline: string }>('/api/admin/saas/email-health', {
+  server: false,
+  lazy: true,
+  immediate: canRead('system'),
+})
+const emailAlert = computed(() => {
+  const h = emailHealth.value
+  return h && h.status !== 'ok' && h.status !== 'idle' ? h : null
+})
 
 const metrics = [
   { key: 'revenue', label: 'Ingresos' },
