@@ -51,7 +51,15 @@ const { format: formatPrice } = useCurrency()
 const { t } = useI18n()
 
 const loading = ref(true)
-const data = ref<{ text: string; engine: 'ai' | 'rules'; market: { comparableCount: number; avgPricePerM2: number | null; avgRentalYield: number | null } } | null>(null)
+/** La respuesta de server/api/public/properties/[slug]/analysis.get.ts. Se
+ *  declara a mano porque la URL se construye en tiempo de ejecución: de una
+ *  plantilla Nitro no puede deducir la ruta concreta. */
+interface PropertyAnalysis {
+  text: string
+  engine: 'ai' | 'rules'
+  market: { comparableCount: number; avgPricePerM2: number | null; avgRentalYield: number | null }
+}
+const data = ref<PropertyAnalysis | null>(null)
 
 const pricePerM2 = computed(() => (props.price && props.area ? props.price / props.area : null))
 const hasComparison = computed(() => !!data.value && data.value.market.comparableCount > 0)
@@ -70,7 +78,7 @@ const comparablesLabel = computed(() => {
 
 onMounted(async () => {
   try {
-    data.value = await $fetch<any>(`/api/public/properties/${props.slug}/analysis`)
+    data.value = await $fetch<PropertyAnalysis>(`/api/public/properties/${props.slug}/analysis`)
   } catch {
     data.value = null
   } finally {

@@ -36,7 +36,7 @@ const rows = ref<any[]>([])
 const unreadCount = ref(0)
 
 async function load() {
-  const r = await $fetch<any>('/api/admin/scheduler/notifications').catch(() => null)
+  const r = await $fetch('/api/admin/scheduler/notifications').catch(() => null)
   if (r) {
     rows.value = r.rows
     unreadCount.value = r.unreadCount

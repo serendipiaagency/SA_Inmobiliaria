@@ -633,6 +633,80 @@ dentro de un navegador de verdad autenticado contra el servidor, no solo
 peticiones PUT con cuerpo binario funcionan tal como se diseñaron en el
 cliente real, no solo en el servidor.
 
+### P1-14 — `npm run typecheck` estaba a **una ruta** de romperse — ✅ resuelto
+
+Hallazgo nuevo, no venía de la auditoría original. `npm run typecheck` estaba
+verde, pero sin margen: con las 197 claves de ruta que tiene el proyecto hoy
+aguantaba, con 199 fallaba. Dos endpoints nuevos —una tarde de trabajo
+normal— y la validación previa al despliegue se caía.
+
+**El mecanismo.** Nitro tipa `$fetch`/`useFetch` contra la lista de rutas: dada
+una URL, `MatchedRoutes` la puntúa contra **todas** las claves de `InternalApi`
+segmento a segmento para deducir el tipo de la respuesta (`MatchedRoutes` /
+`CalcMatchScore` en `node_modules/nitropack/dist/types/index.d.ts`). Ese
+trabajo se hace una sola vez para todo el proyecto porque TypeScript memoriza
+el resultado, pero su presupuesto de instanciaciones (5.000.000) **se reinicia
+en cada sentencia**: la factura entera se le carga a la primera sentencia del
+programa que use `$fetch`, y pasado cierto número de rutas esa sentencia sola
+se pasa del límite y falla con `TS2589`.
+
+Eso hace que el fallo sea especialmente engañoso:
+
+- No señala la ruta que acabas de añadir, ni el fichero que acabas de tocar.
+  Señala el primer fichero en el orden en que TypeScript recorre el proyecto
+  —aquí, un componente de `components/` por orden alfabético— que no tiene
+  nada que ver con el cambio.
+- Arreglar esa llamada no arregla nada: la factura se mueve a la siguiente.
+  Comprobado tres veces seguidas (`AIAnalysis.vue` → `AdminNotificationBell.vue`
+  → la siguiente).
+- Si a quien le tocaba pagar era un `$fetch<any>(...)`, el error único se
+  convertía en **35 errores repartidos por 19 ficheros**, porque con `any` la
+  condicional que normalmente cortocircuita el tipado (`TypedInternalResponse`)
+  evalúa las dos ramas y contamina la firma para todo el resto. Con un tipo
+  concreto el fallo se queda en una línea. De ahí la regla: si declaras el tipo
+  de una respuesta, declara su forma real, nunca `any`.
+- Dar un genérico concreto **no** evita el coste: `AvailableRouterMethod<R>`
+  fuerza `MatchedRoutes` por el genérico de las opciones aunque el de la
+  respuesta cortocircuite. Medido: `$fetch<Shape>('/api/admin/stats')` como
+  primera sentencia paga igual.
+
+**Resuelto**: `nitro-fetch-warmup.ts` en la raíz del proyecto. Una única
+llamada, silenciada con `@ts-ignore`, que se comprueba antes que ninguna otra
+(TypeScript recorre los ficheros de un directorio antes que sus
+subdirectorios) y por tanto es la que paga. Con el resultado ya memorizado,
+todas las llamadas reales del proyecto se comprueban muy por debajo del
+límite. No se importa desde ningún sitio, así que no entra en ningún bundle ni
+en el Worker: coste en ejecución, cero.
+
+Medido en este repositorio, contando claves en
+`.nuxt/types/nitro-routes.d.ts` y añadiendo rutas sintéticas
+(`server/api/_cliffprobe/pN.get.ts`) para mover el número:
+
+| claves de ruta | sin el fichero | con el fichero |
+|---|---|---|
+| 197 (hoy) | limpio | limpio |
+| 198 | limpio | limpio |
+| 199 | **TS2589 + cascada** | limpio |
+| 237 | — | limpio |
+| 347 | — | limpio |
+| 597 | — | vuelve a fallar |
+
+Es decir: el margen pasa de **1 ruta a más de 150**.
+
+**Cómo volver a medir el techo** (cuando haga falta subir la constante del
+test): crear N ficheros `server/api/_cliffprobe/pN.get.ts` con
+`export default defineEventHandler(() => ({ probe: N }))`, `npx nuxi prepare`,
+`npm run typecheck`, y **borrar el directorio al terminar**. El contador de
+rutas es `grep -cE "^    '/" .nuxt/types/nitro-routes.d.ts`.
+
+**Verificado más allá de typecheck/test/build/migrations:check**: 4 tests en
+`test/unit/nitroFetchWarmup.test.ts` que protegen las invariantes de las que
+depende el arreglo —el fichero existe en la raíz, conserva la llamada
+silenciada, es el único fichero de la raíz que llama a `$fetch`/`useFetch`, y
+el número de rutas sigue dentro de lo comprobado a mano—. La tercera se probó
+en negativo (creando un fichero de raíz con `$fetch` y confirmando que el test
+falla nombrándolo), para que no sea una comprobación vacía.
+
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
@@ -650,6 +724,7 @@ cliente real, no solo en el servidor.
 | P1-10 | ~~No existen `/api/health/live` ni `/api/health/ready`~~ — ✅ resuelto | `server/api/health/` | Ambos existen, `smoke-test.mjs` los usa — ver detalle abajo |
 | P1-11 | ~~El pipeline de CI no valida que `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`/`PRODUCTION_URL` existan y sean válidos antes de desplegar~~ — ✅ resuelto en FASE 1 | `.github/workflows/ci.yml` | Jobs `staging-preflight`/`production-preflight` (comentario de cabecera desactualizado corregido aquí, la corrección ya estaba hecha en el commit `0c36a43`) |
 | P1-12 | ~~Sin request-ID / correlación entre `error_logs`/`webhook_deliveries`/`email_log` para una misma petición~~ — ✅ resuelto | `server/plugins/error-logging.ts` | `error_logs`, `webhook_deliveries` y `email_log` (migración 0060) correlacionados — ver detalle abajo |
+| P1-14 | ~~`npm run typecheck` se rompía con 2 rutas más (TS2589 de Nitro), señalando un fichero sin relación con el cambio~~ — ✅ resuelto | `nitro-fetch-warmup.ts` | Margen de 1 ruta → más de 150, con guardas en `test/unit/nitroFetchWarmup.test.ts` — ver detalle arriba |
 
 ## Problemas P2 (mejoras de calidad, no urgentes)
 
