@@ -946,6 +946,43 @@ aparezca en `.output/` tras compilar.
 | P1-17 | ~~Nada impedía que un endpoint nuevo se olvidara de acotar por `organizationId`, igual que 147 se olvidaron del área~~ — ✅ resuelto | `test/unit/tenantScopeCoverage.test.ts` | Recorre los 224 handlers; ningún agujero real encontrado, y las exenciones se protegen a sí mismas — ver detalle arriba |
 | P1-18 | ~~Recargar una ficha del CRUD genérico daba 401/500: el `$fetch` del SSR no heredaba ni la cookie ni los bindings~~ — ✅ resuelto | `pages/admin/[resource]/[id].vue` | `useRequestFetch()`. Afectaba a las 16 secciones con formulario genérico — ver detalle arriba |
 
+### Alta y recuperación de un super administrador (`npm run create-super-admin`)
+
+Petición directa: «créame un email y contraseña con permisos de super
+administrador». Lo que sigue explica por qué **no** se resolvió con una
+migración, que es la forma obvia.
+
+Este repositorio ya tiene esa forma obvia hecha: `migrations/0002_seed_admin.sql`
+inserta `admin@sa-inmobiliaria.com` con el hash PBKDF2 de `ChangeMe123!`
+**escrito en el repositorio**. Eso significa una credencial de producción
+legible por cualquiera con acceso al código, presente en el historial de git
+para siempre y sin forma real de rotarla. Repetir el patrón para una cuenta
+nueva habría sido reintroducir a sabiendas un defecto ya documentado.
+
+**`scripts/create-super-admin.mjs`** hace lo mismo sin ese coste:
+
+- La contraseña se teclea **sin eco**, no se imprime, no se escribe en ningún
+  fichero y no se admite por argumento ni por tubería — que la dejarían en el
+  historial del shell y en la lista de procesos. Sin terminal interactiva el
+  script se niega, y lo dice antes de pedir nada.
+- Produce el **mismo formato de hash** que `hashPassword()`
+  (`pbkdf2$100000$<salt>$<hash>`), verificado reimplementando `verifyPassword()`
+  contra él: acepta la correcta y rechaza una incorrecta.
+- `organization_id` y `permissions` a `NULL`, que es lo que define a un
+  super_admin (`server/db/schema.ts`).
+- `ON CONFLICT(email) DO UPDATE`: si la cuenta ya existe **reajusta la
+  contraseña** en vez de fallar, así que es también la vía de recuperación
+  cuando nadie puede entrar y el email no está conectado.
+- `--remote` exige escribir `PRODUCCION` antes de tocar la base de datos con
+  clientes activos. `--sql` imprime la sentencia sin ejecutarla.
+
+**Verificado** conduciéndolo por un pty real (no por tubería, que no ejerce el
+camino interactivo): crea la fila, la cuenta entra en el panel, y en un
+navegador se confirma que tiene privilegios de super_admin de verdad —ve el
+selector de empresa y `/admin/estado`, ambos exclusivos—. La contraseña no
+aparece en ningún punto de la salida. La cuenta de prueba se borró al
+terminar.
+
 ## Problemas P2 (mejoras de calidad, no urgentes)
 
 - ~~La honestidad del proyecto estaba dispersa: cada integración avisaba en su
