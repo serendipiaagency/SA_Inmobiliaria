@@ -41,17 +41,43 @@ import { webcrypto as crypto } from 'node:crypto'
 const DB_NAME = 'sa_inmobiliaria'
 const DEFAULT_TTL_MINUTES = 15
 
+const WORKER_NAME = 'sa-inmobiliaria' // igual que `name` en wrangler.toml
+
 const [email, baseUrlRaw, ttlRaw] = process.argv.slice(2)
-if (!email || !baseUrlRaw) {
-  console.error('Uso: node scripts/mint-access-link.mjs <email> <base-url> [minutos]')
+if (!email) {
+  console.error('Uso: node scripts/mint-access-link.mjs <email> [base-url] [minutos]')
   process.exit(2)
 }
-const baseUrl = baseUrlRaw.replace(/\/$/, '')
-if (!/^https:\/\/[a-zA-Z0-9.-]+/.test(baseUrl)) {
+if (baseUrlRaw && !/^https:\/\/[a-zA-Z0-9.-]+/.test(baseUrlRaw)) {
   console.error(`La URL base ('${baseUrlRaw}') no parece un https:// válido.`)
   process.exit(2)
 }
 const ttlMinutes = Math.min(60, Math.max(1, Number(ttlRaw) || DEFAULT_TTL_MINUTES))
+
+/**
+ * Sin URL explícita, se le pregunta a Cloudflare por el subdominio de la
+ * cuenta y se compone la de workers.dev. Es best-effort a propósito: si falla
+ * —red, permisos del token, o una instalación que sólo vive en un dominio
+ * propio— no se aborta nada, porque el token ya está acuñado y sigue siendo
+ * utilizable pegándolo en la URL correcta. Lo que no puede pasar es que no
+ * saber la URL impida recuperar el acceso.
+ */
+async function discoverBaseUrl() {
+  const token = process.env.CLOUDFLARE_API_TOKEN
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID
+  if (!token || !accountId) return null
+  try {
+    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/subdomain`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) return null
+    const json = await res.json()
+    const subdomain = json?.result?.subdomain
+    return subdomain ? `https://${WORKER_NAME}.${subdomain}.workers.dev` : null
+  } catch {
+    return null
+  }
+}
 
 /** Mismo formato que randomTokenHex() en server/utils/auth.ts: 24 bytes en hex. */
 function randomTokenHex() {
@@ -105,12 +131,21 @@ async function main() {
      VALUES (${user.id}, ${sqlString(tokenHash)}, ${sqlString(expiresAt)}, ${sqlString(iso(new Date()))})`,
   )
 
+  const baseUrl = (baseUrlRaw || (await discoverBaseUrl()) || '').replace(/\/$/, '')
+
   console.log('')
   console.log(`Cuenta: ${email} (id ${user.id}, rol ${user.role})`)
   console.log(`Caduca: ${expiresAt} UTC — ${ttlMinutes} minutos, y sólo sirve una vez.`)
   console.log('')
-  console.log('Enlace para elegir una contraseña nueva:')
-  console.log(`  ${baseUrl}/reset-password/${raw}`)
+  if (baseUrl) {
+    console.log('Enlace para elegir una contraseña nueva:')
+    console.log(`  ${baseUrl}/reset-password/${raw}`)
+  } else {
+    console.log('No se ha podido averiguar la URL de la instalación, pero el enlace ya está')
+    console.log('acuñado: ábrelo en tu propio dominio con esta ruta.')
+    console.log('')
+    console.log(`  /reset-password/${raw}`)
+  }
   console.log('')
   console.log('Recuerda: el login bloquea 10 intentos por IP cada 10 minutos, y esto no reinicia')
   console.log('ese contador. Si vienes de varios intentos fallidos, espera antes de entrar.')
