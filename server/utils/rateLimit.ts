@@ -32,6 +32,17 @@ export async function rateLimit(event: H3Event, name: string, opts: { limit: num
     .first<{ count: number }>()
 
   if ((row?.count ?? 0) > opts.limit) {
-    throw createError({ statusCode: 429, statusMessage: 'Too many requests — please try again later.' })
+    // Cuánto falta para que la ventana se cierre. Sin esto, quien queda
+    // bloqueado no tiene forma de distinguir "espera un momento" de "tu
+    // contraseña está mal", y lo que hace es reintentar — que es justamente
+    // lo que renueva el bloqueo.
+    const retryAfterSeconds = Math.max(1, windowStart + opts.windowSeconds - Math.floor(Date.now() / 1000))
+    // h3 tipa `Retry-After` como número (el valor en segundos), no como cadena.
+    setResponseHeader(event, 'Retry-After', retryAfterSeconds)
+    throw createError({
+      statusCode: 429,
+      statusMessage: 'Too many requests — please try again later.',
+      data: { retryAfterSeconds },
+    })
   }
 }

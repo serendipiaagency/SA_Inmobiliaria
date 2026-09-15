@@ -52,10 +52,14 @@ async function submit() {
       return
     }
     router.push('/admin')
-  } catch {
+  } catch (e: any) {
     // The backend's statusMessage ("Invalid credentials") is an internal,
     // English-only string — never surface it on this Spanish-language form.
-    error.value = 'Credenciales inválidas'
+    // Un bloqueo por exceso de intentos sí se cuenta tal cual: es por IP y
+    // anterior a mirar la cuenta, así que no filtra nada, y callarlo dejaba a
+    // la gente reintentando contra un candado que sus propios reintentos
+    // renovaban. Ver utils/loginError.ts.
+    error.value = loginErrorMessage(e)
   } finally {
     loading.value = false
   }

@@ -40,10 +40,12 @@ async function submit() {
     await login(email.value, password.value)
     const isStaff = user.value?.role === 'admin' || user.value?.role === 'super_admin'
     router.push(isStaff ? '/admin' : '/mi-cuenta')
-  } catch {
+  } catch (e: any) {
     // The backend's statusMessage ("Invalid credentials") is an internal,
-    // English-only string — never surface it on this localized form.
-    error.value = t('login.form.error', 'Credenciales inválidas')
+    // English-only string — never surface it on this localized form. El
+    // bloqueo por exceso de intentos sí se cuenta: ver utils/loginError.ts
+    // para por qué decirlo no filtra nada y callarlo hacía daño.
+    error.value = loginErrorMessage(e, t('login.form.error', 'Credenciales inválidas'))
   } finally {
     loading.value = false
   }
