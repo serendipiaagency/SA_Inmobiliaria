@@ -1,0 +1,86 @@
+name: Aplicar migraciones pendientes a producción
+
+# ESCRIBE EN PRODUCCIÓN. Sólo se dispara a mano y sólo debe lanzarse con el
+# visto bueno explícito del propietario, cada vez.
+#
+# Existe porque el camino normal —el job `deploy-production` de ci.yml, que
+# aplica las migraciones antes de desplegar— no ha podido correr nunca: su
+# preflight no podía leer los secretos del Environment (ver P1-19). Mientras
+# tanto Workers Builds ha ido publicando el código, así que producción acabó
+# con el código por delante del esquema. Efecto medido: faltaba la columna
+# `users.permissions`, que el código vivo lee en cada inicio de sesión, de
+# modo que el login fallaba siempre, con cualquier contraseña.
+#
+# El orden de los pasos es el mismo que el de `deploy-production`, y es
+# deliberado: primero se mira qué hay pendiente, luego se hace una copia de
+# seguridad que se guarda como artefacto, y sólo entonces se aplica. Si algo
+# sale mal, existe el punto de restauración de justo antes.
+on:
+  workflow_dispatch:
+    inputs:
+      confirmar:
+        description: 'Escribe APLICAR para confirmar que se va a escribir en la base de datos de producción'
+        required: true
+        type: string
+
+jobs:
+  apply-migrations:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Comprobar la confirmación
+        run: |
+          if [ "${{ inputs.confirmar }}" != "APLICAR" ]; then
+            echo "::error::Confirmación ausente o incorrecta. No se ha tocado nada."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Qué hay pendiente (antes de tocar nada)
+        run: npx wrangler d1 migrations list sa_inmobiliaria --remote --env=""
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Copia de seguridad de D1 antes de migrar
+        # En el formato de exportación nativo de D1, igual que hace
+        # deploy-production. Es el punto de restauración de justo antes.
+        run: npx wrangler d1 export sa_inmobiliaria --remote --output=pre-migration-backup.sql --env=""
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Guardar la copia como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-migration-backup-${{ github.run_id }}
+          path: pre-migration-backup.sql
+          retention-days: 30
+
+      - name: Aplicar las migraciones pendientes
+        # Sólo se llega aquí si la copia de seguridad se subió: el paso
+        # anterior falla el job si no.
+        run: npx wrangler d1 migrations apply sa_inmobiliaria --remote --env=""
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Comprobar que ya no queda nada pendiente
+        run: npx wrangler d1 migrations list sa_inmobiliaria --remote --env=""
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Comprobar que el esquema ya soporta el código vivo
+        # Cierra el bucle: lo que se estaba arreglando era justo esto.
+        run: node scripts/diagnose-access.mjs "admin@sa-inmobiliaria.com"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
