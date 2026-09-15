@@ -59,6 +59,10 @@ interface Exemption {
 const EXEMPT: Record<string, Exemption> = {
   'admin/active-org.post.ts': { reason: 'Conmutador de organización del super_admin: es el endpoint que *fija* el ámbito, no puede exigirlo. Protegido como super-admin en adminRouteMatrix.' },
   'admin/resources.get.ts': { reason: 'Metadatos del armazón del panel (qué recursos existen). No lee datos de ningún inquilino; si denegara, una cuenta sin permisos no podría ni ver la pantalla que se lo explica.' },
+  'admin/system-status.get.ts': {
+    reason: 'Estado de las integraciones de la plataforma entera (qué secretos faltan, qué canales no tienen adaptador). No hay una organización a la que acotar porque la pregunta no es de ninguna: se cierra por rol, con requireSuperAdmin, que es más estricto que cualquier ámbito.',
+    requires: /requireSuperAdmin\(event\)/,
+  },
 
   'auth/login.post.ts': { reason: 'Anterior a la sesión: es lo que la crea.' },
   'auth/logout.post.ts': { reason: 'Destruye la sesión; no lee datos de negocio.' },

@@ -145,6 +145,9 @@ export const ADMIN_NAV: NavGroup[] = [
       // concern for the whole platform, not a tenant's business data, so it's
       // super_admin-only like "Empresas" above.
       { label: 'Errores', to: '/admin/error-logs', icon: 'alert', superAdminOnly: true },
+      // Configuración de la plataforma entera (qué integraciones están vivas,
+      // dormidas o mal configuradas) — misma razón que las dos de arriba.
+      { label: 'Estado del sistema', to: '/admin/estado', icon: 'settings', superAdminOnly: true },
     ],
   },
 ]

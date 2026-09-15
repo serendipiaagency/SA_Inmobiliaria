@@ -151,6 +151,12 @@ describe('resolveAdminRouteAccess', () => {
     expect(resolveAdminRouteAccess('/api/admin/active-org', 'POST')).toEqual({ kind: 'super-admin' })
   })
 
+  it('marks the platform status page as super_admin only', () => {
+    // Dice qué secretos faltan en la plataforma entera: es configuración de
+    // operación, no datos de negocio de ningún inquilino.
+    expect(resolveAdminRouteAccess('/api/admin/system-status', 'GET')).toEqual({ kind: 'super-admin' })
+  })
+
   it('marks the shared upload endpoints as any-write', () => {
     expect(resolveAdminRouteAccess('/api/admin/upload', 'POST')).toEqual({ kind: 'any-write' })
     expect(resolveAdminRouteAccess('/api/admin/upload/multipart/init', 'POST')).toEqual({ kind: 'any-write' })
