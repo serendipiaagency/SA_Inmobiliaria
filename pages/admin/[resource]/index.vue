@@ -3,8 +3,8 @@
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
       <h1 class="text-2xl font-bold">{{ meta.label }}</h1>
       <div class="flex gap-2">
-        <input v-model="q" class="input !w-56" placeholder="Search…" @keyup.enter="page = 1" >
-        <NuxtLink v-if="!meta.readonly && canEdit" :to="`/admin/${resource}/new`" class="btn-primary">+ New</NuxtLink>
+        <input v-model="q" class="input !w-56" placeholder="Buscar…" @keyup.enter="page = 1" >
+        <NuxtLink v-if="!meta.readonly && canEdit" :to="`/admin/${resource}/new`" class="btn-primary">+ Nuevo</NuxtLink>
       </div>
     </div>
 
@@ -12,8 +12,10 @@
       <table class="w-full text-left text-sm">
         <thead class="bg-slate-50 text-xs uppercase text-slate-500">
           <tr>
-            <th v-for="f in meta.listFields" :key="f" class="px-4 py-3">{{ f }}</th>
-            <th class="px-4 py-3 text-right">Actions</th>
+            <!-- Nombre declarado por el recurso si lo tiene; si no, uno
+                 legible. Nunca el nombre crudo de la columna. -->
+            <th v-for="f in meta.listFields" :key="f" class="px-4 py-3">{{ fieldLabel(meta, f) }}</th>
+            <th class="px-4 py-3 text-right">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -23,9 +25,9 @@
             </td>
             <td class="whitespace-nowrap px-4 py-3 text-right">
               <NuxtLink :to="`/admin/${resource}/${row.id}`" class="mr-3 font-medium text-emerald-700 hover:underline">
-                {{ meta.readonly || !canEdit ? 'View' : 'Edit' }}
+                {{ meta.readonly || !canEdit ? 'Ver' : 'Editar' }}
               </NuxtLink>
-              <button v-if="canEdit" class="font-medium text-red-600 transition hover:underline active:scale-95" @click="remove(row.id)">Delete</button>
+              <button v-if="canEdit" class="font-medium text-red-600 transition hover:underline active:scale-95" @click="remove(row.id)">Eliminar</button>
             </td>
           </tr>
           <tr v-if="!data?.rows?.length">
@@ -39,9 +41,9 @@
     </div>
 
     <div v-if="totalPages > 1" class="mt-4 flex items-center justify-end gap-3 text-sm">
-      <button class="btn-secondary !py-1.5" :disabled="page <= 1" @click="page--">← Prev</button>
+      <button class="btn-secondary !py-1.5" :disabled="page <= 1" @click="page--">← Anterior</button>
       <span>{{ page }} / {{ totalPages }}</span>
-      <button class="btn-secondary !py-1.5" :disabled="page >= totalPages" @click="page++">Next →</button>
+      <button class="btn-secondary !py-1.5" :disabled="page >= totalPages" @click="page++">Siguiente →</button>
     </div>
   </div>
 </template>
@@ -57,7 +59,7 @@ const page = ref(1)
 const { data: resources } = await useFetch<Record<string, any>>('/api/admin/resources')
 const meta = computed(() => resources.value?.[resource.value])
 if (!meta.value) {
-  throw createError({ statusCode: 404, statusMessage: 'Unknown resource', fatal: true })
+  throw createError({ statusCode: 404, statusMessage: 'Recurso desconocido', fatal: true })
 }
 useHead({ title: computed(() => `${meta.value?.label || 'Admin'} — M&M Real Estate`) })
 
@@ -82,16 +84,16 @@ const { confirm } = useConfirm()
 const toast = useToast()
 
 async function remove(id: number) {
-  const ok = await confirm('This cannot be undone.', { title: 'Delete this record?', confirmLabel: 'Delete', danger: true })
+  const ok = await confirm('Esta acción no se puede deshacer.', { title: '¿Eliminar este registro?', confirmLabel: 'Eliminar', danger: true })
   if (!ok) return
   try {
     // Explicit generic: a dynamic `resource` segment makes Nitro's typed-route
     // inference match the wrong route's (GET/PUT-only) method union otherwise.
     await $fetch<{ ok: true }>(`/api/admin/${resource.value}/${id}`, { method: 'DELETE' })
     await refresh()
-    toast.success('Record deleted')
+    toast.success('Registro eliminado')
   } catch (e: any) {
-    toast.error(e?.statusMessage || 'Could not delete the record')
+    toast.error(e?.statusMessage || 'No se ha podido eliminar el registro')
   }
 }
 </script>

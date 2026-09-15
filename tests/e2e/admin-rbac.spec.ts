@@ -104,6 +104,10 @@ test.describe('RBAC: permisos efectivos en todas las APIs (bloque 01)', () => {
     expect((await restricted.post('/api/admin/saas/gdpr/export', { data: { email: 'alguien@example.com' } })).status()).toBe(403)
     expect((await restricted.get('/api/admin/saas/gdpr/requests')).status()).toBe(403)
 
+    // Estado del canal de email — también "system". Es un diagnóstico, no un
+    // listado, pero delata volumen de envíos y el motivo de los fallos.
+    expect((await restricted.get('/api/admin/saas/email-health')).status()).toBe(403)
+
     // Exportación de materiales — área "web".
     expect((await restricted.post('/api/admin/asset-export/batches', { data: { templateId: 1, assetIds: [1] } })).status()).toBe(403)
   })

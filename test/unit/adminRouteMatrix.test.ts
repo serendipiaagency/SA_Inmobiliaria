@@ -115,6 +115,8 @@ describe('resolveAdminRouteAccess', () => {
     ['/api/admin/saas/contracts', 'POST', 'finance', 'write'],
     ['/api/admin/saas/webhooks/3', 'DELETE', 'system', 'write'],
     ['/api/admin/saas/settings', 'POST', 'system', 'write'],
+    ['/api/admin/saas/email-log', 'GET', 'system', 'read'],
+    ['/api/admin/saas/email-health', 'GET', 'system', 'read'],
     ['/api/admin/saas/agents/2/availability', 'PUT', 'content', 'write'],
     ['/api/admin/cms/articles/5', 'PUT', 'cms', 'write'],
     ['/api/admin/cms/media', 'POST', 'cms', 'write'],

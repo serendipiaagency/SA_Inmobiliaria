@@ -178,6 +178,11 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Smoke tests (staging)
+        # `npm run build` de este mismo job corrió con GITHUB_SHA en el
+        # entorno, así que el bundle desplegado lleva ese commit dentro
+        # (scripts/build-info.mjs) y el smoke test lo comprueba contra el
+        # GITHUB_SHA que él mismo ve: si lo que está sirviendo no es lo que
+        # este job acaba de publicar, falla aquí en vez de pasar en verde.
         run: npm run smoke-test -- "${{ vars.STAGING_URL }}"
 
   production-preflight:
@@ -298,4 +303,8 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Smoke tests (production)
+        # Igual que en staging: además de que la instalación responda,
+        # comprueba que el build vivo es el de este job. Mientras Workers
+        # Builds siga activo puede no serlo — y entonces este paso se pone
+        # en rojo, que es precisamente lo que hoy no se ve.
         run: npm run smoke-test -- "${{ vars.PRODUCTION_URL }}"

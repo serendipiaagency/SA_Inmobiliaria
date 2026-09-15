@@ -9,6 +9,12 @@
  *
  * Usage: node scripts/smoke-test.mjs <base-url>
  *        SMOKE_BASE_URL=https://sa-inmobiliaria.example.workers.dev node scripts/smoke-test.mjs
+ *
+ * Con SMOKE_EXPECT_COMMIT (o GITHUB_SHA, que ya está en el entorno de
+ * Actions) además comprueba que el build que está sirviendo es el que se
+ * acaba de publicar. Sin eso, un despliegue puede "pasar" habiendo dejado
+ * vivo el anterior — que es exactamente lo que puede ocurrir mientras
+ * Workers Builds siga publicando por su cuenta.
  */
 const BASE_URL = (process.argv[2] || process.env.SMOKE_BASE_URL || '').replace(/\/$/, '')
 if (!BASE_URL) {
@@ -48,7 +54,31 @@ async function main() {
   console.log(`Smoke tests contra ${BASE_URL}\n`)
 
   await check('Health: liveness', '/api/health/live', (res) => expectStatus(res, 200))
-  await check('Health: readiness (D1 + R2 alcanzables)', '/api/health/ready', (res) => expectStatus(res, 200))
+  let liveVersion = null
+  await check('Health: readiness (D1 + R2 alcanzables)', '/api/health/ready', async (res) => {
+    expectStatus(res, 200)
+    const body = await res.json()
+    liveVersion = body.version
+    if (!liveVersion?.commit) throw new Error('la respuesta no trae la identidad del build (version.commit)')
+
+    // Sin esto, un despliegue puede "pasar" habiendo dejado vivo el build
+    // anterior: todas las demás comprobaciones seguirían en verde.
+    const expected = process.env.SMOKE_EXPECT_COMMIT || process.env.GITHUB_SHA
+    if (expected) {
+      const want = String(expected).trim().toLowerCase().slice(0, 7)
+      if (liveVersion.commit !== want) {
+        throw new Error(
+          `está sirviendo ${liveVersion.commit} (${liveVersion.source}, rama ${liveVersion.branch}, compilado ${liveVersion.builtAt}) pero se esperaba ${want}`,
+        )
+      }
+    }
+  })
+  if (liveVersion?.commit) {
+    console.log(`  ↳ build vivo: ${liveVersion.commit} · rama ${liveVersion.branch} · origen ${liveVersion.source} · compilado ${liveVersion.builtAt}`)
+    if (liveVersion.source === 'workers-builds') {
+      console.log('  ⚠ este build lo publicó Workers Builds, no el pipeline de GitHub Actions.')
+    }
+  }
   await check('Home', '/', (res) => expectStatus(res, 200))
   await check('Login de administración carga', '/admin/login', (res) => expectStatus(res, 200))
   await check('Catálogo de propiedades carga', '/propiedades', (res) => expectStatus(res, 200))

@@ -62,3 +62,15 @@
 # CHANNEL_NEWSLETTER_API_KEY=
 # CHANNEL_WHATSAPP_TOKEN=
 # CHANNEL_TELEGRAM_BOT_TOKEN=
+
+# --- Sólo desarrollo ------------------------------------------------------
+# Entrar al panel sin pasar por el login. Pon el email de un usuario que
+# exista en tu D1 local y el panel te dejará entrar como esa persona, con su
+# rol, su organización y sus permisos reales (el RBAC y el aislamiento entre
+# agencias siguen aplicando igual: lo único que desaparece es el formulario).
+# Para volver a exigir login, borra la línea. No hay nada más que revertir.
+#
+# No funciona en el Worker desplegado aunque se configure allí: la rama que lo
+# activa se elimina en el build de producción (server/utils/auth.ts), y
+# test/unit/devAuthBypass.test.ts lo comprueba sobre .output/.
+# DEV_AUTH_BYPASS=admin@sa-inmobiliaria.com

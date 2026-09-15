@@ -7,14 +7,14 @@
 
   <div v-else-if="meta">
     <div class="mb-6 flex items-center justify-between">
-      <h1 class="text-2xl font-bold">{{ isNew ? `New — ${meta.label}` : `Edit — ${meta.label} #${id}` }}</h1>
+      <h1 class="text-2xl font-bold">{{ isNew ? `Nuevo — ${meta.label}` : `Editar — ${meta.label} #${id}` }}</h1>
       <div class="flex items-center gap-3">
         <NuxtLink v-if="resource === 'developer-properties' && !isNew" :to="`/admin/ai?id=${id}`" class="btn-primary">
           <span class="mr-1.5 rounded-full bg-white/20 px-1.5 py-0.5 text-[9px] font-bold">IA</span>
           Generar contenido
         </NuxtLink>
         <AdminAssetExportButton v-if="resource === 'developer-properties' && !isNew" :asset-id="Number(id)" :property-type="record.propertyType" />
-        <NuxtLink :to="`/admin/${resource}`" class="btn-secondary">← Back</NuxtLink>
+        <NuxtLink :to="`/admin/${resource}`" class="btn-secondary">← Volver</NuxtLink>
       </div>
     </div>
 
@@ -26,14 +26,14 @@
       <dl class="grid gap-x-6 gap-y-3 sm:grid-cols-2">
         <template v-for="(v, k) in record" :key="k">
           <div v-if="v !== null && v !== ''">
-            <dt class="text-xs font-semibold uppercase text-slate-400">{{ k }}</dt>
+            <dt class="text-xs font-semibold uppercase text-slate-400">{{ fieldLabel(meta, String(k)) }}</dt>
             <dd class="mt-0.5 break-words text-sm text-slate-800">
               <a
                 v-if="String(v).match(/\.(pdf|jpg|png|webp)$/i)"
                 :href="mediaUrl(String(v))"
                 target="_blank"
                 class="text-emerald-700 underline"
-                >Open file</a
+                >Abrir archivo</a
               >
               <span v-else>{{ v }}</span>
             </dd>
@@ -68,10 +68,10 @@
               class="h-16 w-16 rounded border border-slate-200 object-cover"
             >
             <span class="truncate text-xs text-slate-500">{{ form[field] }}</span>
-            <button type="button" class="text-sm text-red-600 hover:underline" @click="form[field] = ''">Remove</button>
+            <button type="button" class="text-sm text-red-600 hover:underline" @click="form[field] = ''">Quitar</button>
           </div>
           <input type="file" :accept="fd.type === 'image' ? 'image/*' : undefined" class="text-sm" @change="upload(String(field), $event)" >
-          <p v-if="uploading === field" class="text-xs text-slate-400">Uploading…</p>
+          <p v-if="uploading === field" class="text-xs text-slate-400">Subiendo…</p>
         </div>
 
         <input v-else-if="fd.type === 'number'" v-model="form[field]" type="number" step="any" class="input" >
@@ -81,17 +81,17 @@
 
       <!-- Translations (en/ar) -->
       <fieldset v-if="meta.hasTranslations" class="space-y-4 rounded-lg border border-slate-200 p-4">
-        <legend class="px-1 text-sm font-semibold text-slate-700">Translations</legend>
+        <legend class="px-1 text-sm font-semibold text-slate-700">Traducciones</legend>
         <div v-for="tr in translations" :key="tr.locale" class="space-y-2">
           <p class="text-xs font-bold uppercase text-emerald-700">{{ tr.locale }}</p>
-          <input v-model="tr.title" class="input" :placeholder="`Title (${tr.locale})`" >
-          <textarea v-model="tr.description" class="input" rows="3" :placeholder="`Description (${tr.locale})`" />
+          <input v-model="tr.title" class="input" :placeholder="`Título (${tr.locale})`" >
+          <textarea v-model="tr.description" class="input" rows="3" :placeholder="`Descripción (${tr.locale})`" />
         </div>
       </fieldset>
 
       <div class="flex items-center gap-3">
-        <button type="submit" class="btn-primary" :disabled="saving">{{ saving ? 'Saving…' : 'Save' }}</button>
-        <p v-if="saved" class="text-sm font-medium text-emerald-700">Saved ✓</p>
+        <button type="submit" class="btn-primary" :disabled="saving">{{ saving ? 'Guardando…' : 'Guardar' }}</button>
+        <p v-if="saved" class="text-sm font-medium text-emerald-700">Guardado ✓</p>
         <p v-if="error" class="text-sm font-medium text-red-600">{{ error }}</p>
       </div>
     </form>
@@ -117,7 +117,7 @@ const propertyBuilderResource = computed(() => resource.value as 'developer-prop
 
 const { data: resources } = await useFetch<Record<string, any>>('/api/admin/resources')
 const meta = computed(() => resources.value?.[resource.value])
-if (!meta.value) throw createError({ statusCode: 404, statusMessage: 'Unknown resource', fatal: true })
+if (!meta.value) throw createError({ statusCode: 404, statusMessage: 'Recurso desconocido', fatal: true })
 useHead({ title: computed(() => `${meta.value?.label || 'Admin'} — M&M Real Estate`) })
 
 // Granular RBAC (bloque 01): read access to the area shows the record,
@@ -135,7 +135,14 @@ const translations = reactive([
 // PropertyBuilder does its own data loading for these two resources — skip
 // the generic form's fetch entirely rather than duplicating the request.
 if (!isNew.value && !isPropertyBuilderResource.value) {
-  const res = await $fetch<any>(`/api/admin/${resource.value}/${id.value}`)
+  // `useRequestFetch()` y no `$fetch` a secas: en SSR, un `$fetch` suelto
+  // arranca una petición nueva que no hereda nada del evento en curso — ni la
+  // cookie de sesión ni los bindings de Cloudflare (D1, R2)—, así que esta
+  // pantalla respondía 401, y 500 en cuanto la cookie se resolvía. No se
+  // notaba navegando desde el listado, porque eso ocurre en el cliente; sí al
+  // recargar la ficha o al abrir un enlace directo a un registro, que es
+  // justo lo que hace quien comparte la URL de una ficha.
+  const res = await useRequestFetch()<any>(`/api/admin/${resource.value}/${id.value}`)
   record.value = res.row
   for (const field of Object.keys(meta.value.fields)) {
     form[field] = res.row[field] ?? ''
@@ -166,7 +173,7 @@ async function upload(field: string, e: Event) {
     const res = await $fetch<{ key: string }>('/api/admin/upload', { method: 'POST', body: fd })
     form[field] = res.key
   } catch (err: any) {
-    error.value = err?.statusMessage || 'Upload failed'
+    error.value = err?.statusMessage || 'No se ha podido subir el archivo'
   } finally {
     uploading.value = ''
   }
@@ -189,7 +196,7 @@ async function save() {
     }
     saved.value = true
   } catch (e: any) {
-    error.value = e?.statusMessage || e?.data?.statusMessage || 'Save failed'
+    error.value = e?.statusMessage || e?.data?.statusMessage || 'No se ha podido guardar'
   } finally {
     saving.value = false
   }

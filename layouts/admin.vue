@@ -91,6 +91,18 @@
       </div>
 
       <main class="mx-auto max-w-[1180px] px-5 py-6 lg:px-8 lg:py-8">
+        <!-- Entrada sin login (DEV_AUTH_BYPASS). Deliberadamente imposible de
+             ignorar: un panel abierto no puede estar encendido en silencio.
+             En producción esto nunca se pinta — el servidor manda siempre
+             `false` porque la rama que lo activaría no existe en ese build. -->
+        <div v-if="devAuthBypass" class="mb-4 rounded-xl border-2 border-dashed border-amber-400 bg-amber-50 px-4 py-3">
+          <p class="text-sm font-bold text-amber-900">Login desactivado (sólo desarrollo)</p>
+          <p class="mt-1 text-sm text-amber-800">
+            Estás dentro como <strong>{{ user?.email }}</strong> sin haber iniciado sesión, porque <code class="rounded bg-amber-100 px-1">DEV_AUTH_BYPASS</code> está puesto en este entorno.
+            Para volver a exigir login, borra esa variable de <code class="rounded bg-amber-100 px-1">.dev.vars</code>.
+          </p>
+        </div>
+
         <!-- Publication notifications are Portal Web data (the multi-channel
              dispatcher writes them), so an admin without web:read doesn't get
              the bell — its endpoint denies them anyway. -->
@@ -106,7 +118,7 @@
 <script setup lang="ts">
 import { ADMIN_NAV, type NavGroup } from '~/utils/adminNav'
 
-const { user, logout } = useAuth()
+const { user, devAuthBypass, logout } = useAuth()
 const { canRead } = useAdminPermissions()
 const router = useRouter()
 const route = useRoute()

@@ -633,6 +633,296 @@ dentro de un navegador de verdad autenticado contra el servidor, no solo
 peticiones PUT con cuerpo binario funcionan tal como se diseñaron en el
 cliente real, no solo en el servidor.
 
+### P1-14 — `npm run typecheck` estaba a **una ruta** de romperse — ✅ resuelto
+
+Hallazgo nuevo, no venía de la auditoría original. `npm run typecheck` estaba
+verde, pero sin margen: con las 197 claves de ruta que tiene el proyecto hoy
+aguantaba, con 199 fallaba. Dos endpoints nuevos —una tarde de trabajo
+normal— y la validación previa al despliegue se caía.
+
+**El mecanismo.** Nitro tipa `$fetch`/`useFetch` contra la lista de rutas: dada
+una URL, `MatchedRoutes` la puntúa contra **todas** las claves de `InternalApi`
+segmento a segmento para deducir el tipo de la respuesta (`MatchedRoutes` /
+`CalcMatchScore` en `node_modules/nitropack/dist/types/index.d.ts`). Ese
+trabajo se hace una sola vez para todo el proyecto porque TypeScript memoriza
+el resultado, pero su presupuesto de instanciaciones (5.000.000) **se reinicia
+en cada sentencia**: la factura entera se le carga a la primera sentencia del
+programa que use `$fetch`, y pasado cierto número de rutas esa sentencia sola
+se pasa del límite y falla con `TS2589`.
+
+Eso hace que el fallo sea especialmente engañoso:
+
+- No señala la ruta que acabas de añadir, ni el fichero que acabas de tocar.
+  Señala el primer fichero en el orden en que TypeScript recorre el proyecto
+  —aquí, un componente de `components/` por orden alfabético— que no tiene
+  nada que ver con el cambio.
+- Arreglar esa llamada no arregla nada: la factura se mueve a la siguiente.
+  Comprobado tres veces seguidas (`AIAnalysis.vue` → `AdminNotificationBell.vue`
+  → la siguiente).
+- Si a quien le tocaba pagar era un `$fetch<any>(...)`, el error único se
+  convertía en **35 errores repartidos por 19 ficheros**, porque con `any` la
+  condicional que normalmente cortocircuita el tipado (`TypedInternalResponse`)
+  evalúa las dos ramas y contamina la firma para todo el resto. Con un tipo
+  concreto el fallo se queda en una línea. De ahí la regla: si declaras el tipo
+  de una respuesta, declara su forma real, nunca `any`.
+- Dar un genérico concreto **no** evita el coste: `AvailableRouterMethod<R>`
+  fuerza `MatchedRoutes` por el genérico de las opciones aunque el de la
+  respuesta cortocircuite. Medido: `$fetch<Shape>('/api/admin/stats')` como
+  primera sentencia paga igual.
+
+**Resuelto**: `nitro-fetch-warmup.ts` en la raíz del proyecto. Una única
+llamada, silenciada con `@ts-ignore`, que se comprueba antes que ninguna otra
+(TypeScript recorre los ficheros de un directorio antes que sus
+subdirectorios) y por tanto es la que paga. Con el resultado ya memorizado,
+todas las llamadas reales del proyecto se comprueban muy por debajo del
+límite. No se importa desde ningún sitio, así que no entra en ningún bundle ni
+en el Worker: coste en ejecución, cero.
+
+Medido en este repositorio, contando claves en
+`.nuxt/types/nitro-routes.d.ts` y añadiendo rutas sintéticas
+(`server/api/_cliffprobe/pN.get.ts`) para mover el número:
+
+| claves de ruta | sin el fichero | con el fichero |
+|---|---|---|
+| 197 (hoy) | limpio | limpio |
+| 198 | limpio | limpio |
+| 199 | **TS2589 + cascada** | limpio |
+| 237 | — | limpio |
+| 347 | — | limpio |
+| 597 | — | vuelve a fallar |
+
+Es decir: el margen pasa de **1 ruta a más de 150**.
+
+**Cómo volver a medir el techo** (cuando haga falta subir la constante del
+test): crear N ficheros `server/api/_cliffprobe/pN.get.ts` con
+`export default defineEventHandler(() => ({ probe: N }))`, `npx nuxi prepare`,
+`npm run typecheck`, y **borrar el directorio al terminar**. El contador de
+rutas es `grep -cE "^    '/" .nuxt/types/nitro-routes.d.ts`.
+
+**Verificado más allá de typecheck/test/build/migrations:check**: 4 tests en
+`test/unit/nitroFetchWarmup.test.ts` que protegen las invariantes de las que
+depende el arreglo —el fichero existe en la raíz, conserva la llamada
+silenciada, es el único fichero de la raíz que llama a `$fetch`/`useFetch`, y
+el número de rutas sigue dentro de lo comprobado a mano—. La tercera se probó
+en negativo (creando un fichero de raíz con `$fetch` y confirmando que el test
+falla nombrándolo), para que no sea una comprobación vacía.
+
+### P1-15 — Un email que no salía no se veía en ninguna parte — ✅ resuelto
+
+Todas las llamadas a `sendTransactionalEmail()`/`sendInternalNotification()`
+están envueltas en `try/catch` **a propósito**: un email que no sale no puede
+tumbar la captura de un lead, la aceptación de un contrato ni un webhook de
+pago. Eso está bien y no se ha tocado. El problema era lo que pasaba después.
+
+El fallo quedaba anotado en `email_log` —con su `errorMessage`, sus intentos y
+su reintento programado— y ahí se moría. Nadie sumaba esas filas. Si faltaba
+el secreto `RESEND_API_KEY`, o si Resend empezaba a rechazar todo, la
+plataforma seguía funcionando con absoluta normalidad mientras **ningún**
+email salía, y la única forma de enterarse era abrir /admin/emails y leer fila
+a fila. Comprobado en la D1 local de desarrollo al implementar esto: 7 emails
+en cola, todos atascados, ningún aviso en ninguna pantalla.
+
+**Resuelto**: `summarizeEmailHealth()` en `server/utils/email/health.ts`
+—función pura, sin D1 ni runtime de Workers, igual que `server/utils/health.ts`—
+convierte las filas que ya existen en un veredicto (`not-connected`, `down`,
+`warning`, `idle`, `ok`) con una frase lista para enseñar. Lo sirve
+`GET /api/admin/saas/email-health` (área `system`, misma que `email-log`) y se
+pinta en dos sitios, **sólo cuando hay algo roto**:
+
+- `/admin/emails`, sobre la tabla, con el último error real de Resend.
+- El Dashboard, como aviso enlazado a esa pantalla — que es donde la gente
+  mira de verdad. Se pide con `server: false` + `lazy` para no retrasar el
+  render, y no se pide si el cliente ya sabe que la cuenta no tiene el área
+  `system`.
+
+Criterios del veredicto, elegidos para no gritar en falso:
+
+- Sin `RESEND_API_KEY` gana todo lo demás: un historial de envíos antiguos no
+  puede hacer parecer sano un canal que ahora mismo no puede enviar nada.
+- Un rebote o una reclamación **no** cuentan como avería: el problema está en
+  el buzón del destinatario, no en el envío.
+- Una fila en cola sólo cuenta como atascada pasadas 12 h — los 5 reintentos
+  se agotan a los ~522 min y la tarea que los repesca corre cada hora.
+- Si no ha salido ni uno, se dice "el canal está caído", no "algunos fallos".
+- El endpoint devuelve `connected` como booleano; el valor del secreto no sale
+  de ahí ni en una respuesta de administración.
+
+**Verificado más allá de typecheck/test/build/migrations:check**: 15 tests en
+`test/unit/emailHealth.test.ts` (incluido el parseo UTC de `email_log.createdAt`,
+que si se hiciera en hora local desviaría el cálculo de "atascado" tantas horas
+como offset tenga el runtime), la regla RBAC nueva en
+`test/unit/adminRouteMatrix.test.ts`, y ejecución real contra `wrangler dev`
+con D1 local: endpoint sin clave → `not-connected`; con clave presente →
+`down` sobre las 7 filas atascadas reales; `/admin/emails` sirviendo el aviso
+en el HTML; y el Dashboard comprobado en un navegador de verdad (Playwright,
+captura incluida) confirmando que el aviso aparece y que no se dispara ninguna
+petición de administración fallida. En e2e, `tests/e2e/admin-rbac.spec.ts`
+comprueba sobre HTTP real que un comercial recibe 403 en el endpoint nuevo.
+
+**Lo que sigue siendo tarea manual**: configurar `RESEND_API_KEY` como secreto
+del Worker. Esto no lo arregla; lo hace visible.
+
+### P1-16 — No había forma de saber qué commit estaba vivo — ✅ resuelto
+
+No existía tag de release ni endpoint que lo dijera. Ante un incidente no se
+podía responder a la primera pregunta de cualquier incidente —"¿qué código
+estoy depurando?"— y, combinado con que Workers Builds publica cualquier push
+de cualquier rama, la pregunta no era retórica: la rama que está sirviendo
+puede no ser la que nadie espera.
+
+Había además un fallo silencioso en el propio pipeline: los smoke tests
+comprobaban que la instalación respondía, no que respondiera **el build que
+se acababa de publicar**. Un despliegue que dejara vivo el anterior pasaba en
+verde.
+
+**Resuelto**: `scripts/build-info.mjs` resuelve la identidad del build en la
+máquina que compila y `runtimeConfig.buildInfo` la hornea en el bundle (en el
+Worker no hay git ni proceso que consultar). La expone `/api/health/ready`:
+
+```json
+"version": { "commit": "8215970", "branch": "main", "builtAt": "…", "source": "github-actions" }
+```
+
+`source` es lo que más aporta, porque no dice sólo *qué* se construyó sino
+**quién** lo construyó: `github-actions` es el camino previsto,
+`workers-builds` es la prueba directa de que el despliegue se saltó el
+pipeline, y `local` de que salió del portátil de alguien. Es el primer sitio
+donde el problema P0 de Workers Builds se ve sin entrar al panel de
+Cloudflare.
+
+Decisiones:
+
+- **Público a propósito.** Son un SHA corto, una rama y una fecha, sin
+  repositorio ni rutas internas. Poder preguntarle a la instalación qué está
+  corriendo desde fuera y sin credenciales, justo cuando algo va mal, pesa
+  más que lo que revela. Queda fuera de `runtimeConfig.public`, así que no
+  viaja en el bundle del navegador (verificado sobre `.output/`).
+- **Nunca finge una identidad.** Sin CI y sin git, `unknown`; un valor que no
+  sea un SHA no se convierte en uno. Una respuesta inventada sería peor que
+  no tenerla.
+- **El nombre de rama se sanea** antes de salir en una respuesta pública
+  (sin caracteres de control, acotado a 120).
+
+`scripts/smoke-test.mjs` cierra el bucle: si hay `SMOKE_EXPECT_COMMIT` —o
+`GITHUB_SHA`, que ya está en el entorno de Actions— exige que el build vivo
+sea ése, y avisa aparte cuando el origen es `workers-builds`. No hizo falta
+tocar el workflow: los jobs de despliegue ya compilan y ejecutan el smoke
+test en el mismo runner, así que la comprobación se activa sola. **Efecto
+secundario buscado**: mientras Workers Builds siga activo, un despliegue en
+el que gane la carrera pondrá este paso en rojo en vez de pasar en verde.
+
+**Verificado más allá de typecheck/test/build/migrations:check**: 14 tests en
+`test/unit/buildInfo.test.ts`, y ejecución real contra `wrangler dev` —
+`/api/health/ready` devolviendo el commit, la rama y la fecha reales del
+árbol de trabajo, y el smoke test comprobado en sus tres caminos: sin commit
+esperado (informa), con el correcto (pasa) y con uno equivocado (falla con
+código 1 nombrando ambos).
+
+### P1-17 — El aislamiento por agencia sólo lo protegía cobertura escrita a mano — ✅ resuelto
+
+El bloque 01 existió porque 147 de 156 rutas se habían "olvidado" de pasar el
+área de permisos. El aislamiento por `organizationId` se apoya exactamente en
+la misma clase de disciplina —acordarse de llamar a `requireOrgScope` /
+`resolvePublicOrgId` / `requireApiKey`— y hasta ahora sólo lo protegían
+`test/unit/multitenant.crossTenant.test.ts` y `tests/e2e/cross-tenant.spec.ts`:
+cobertura excelente de los endpoints que alguien se acordó de incluir, y muda
+sobre el que se añada mañana.
+
+**El diagnóstico salió bien**: de los 224 handlers de `server/api/**`, ninguno
+tenía un agujero real. Los 19 que no llaman a ningún helper de ámbito se
+revisaron uno a uno y todos tienen un motivo legítimo —anteriores a la sesión
+(`auth/*`), sondas de salud, webhooks firmados por el proveedor, URLs-capacidad
+con token de un solo uso, y `public/pois.get.ts`, que ni siquiera toca D1—.
+Esto no arregla nada roto: impide que se rompa.
+
+**Resuelto**: `test/unit/tenantScopeCoverage.test.ts` recorre `server/api/**` y
+falla si un handler no resuelve una organización por alguna de las cuatro vías
+reconocidas y no está exento **con un motivo escrito**. Además de la
+comprobación obvia, protege la propia lista de exenciones, que es donde este
+tipo de guardas se pudre:
+
+- una exención que ya no apunta a ningún fichero se marca como obsoleta;
+- una exención sobre un endpoint que **ya** acota se marca como redundante, para
+  que la lista no acabe autorizando cosas que no lo necesitan;
+- una exención que dice apoyarse en una URL-capacidad tiene que demostrar que el
+  endpoint sigue exigiendo el token (`requires`), porque el día que alguien lo
+  quite el motivo escrito seguiría ahí, ya mintiendo;
+- un motivo de menos de 40 caracteres no cuenta como motivo;
+- y si las exenciones pasaran del 15 % de la superficie, la guarda habría dejado
+  de proteger nada y lo dice.
+
+Es una comprobación de **exhaustividad, no de corrección**: confirma que cada
+handler se acuerda de acotar, no que use bien el ámbito una vez resuelto. De eso
+siguen encargándose las pruebas de cross-tenant y `server/utils/tenantPolicy.ts`.
+
+**Verificado**: 7 tests, y probado en negativo —creando un
+`server/api/admin/…/leak.get.ts` que lee `leads` sin acotar y confirmando que la
+prueba falla nombrándolo— para que no sea una comprobación vacía.
+
+### P1-18 — Recargar cualquier ficha del CRUD genérico daba 401/500 — ✅ resuelto
+
+Encontrado mientras se traducía el panel (P2, abajo), no buscándolo.
+`pages/admin/[resource]/[id].vue` cargaba el registro con un `$fetch` suelto
+en el `setup`. En SSR eso arranca una petición nueva que **no hereda nada del
+evento en curso**: ni la cookie de sesión ni los bindings de Cloudflare (D1,
+R2). Resultado: `401`, y `500`
+(`Cloudflare bindings not available (DB)`) en cuanto se reenviaba la cookie.
+
+No se veía navegando desde el listado —eso ocurre en el cliente, con cookie y
+sin SSR—, así que la pantalla parecía funcionar. Fallaba al **recargar** la
+ficha o al **abrir un enlace directo** a un registro: exactamente lo que hace
+quien comparte por chat la URL de una ficha. Afectaba a las 16 secciones que
+usan el formulario genérico.
+
+**Resuelto**: `useRequestFetch()`, que sí propaga el evento en curso — el
+mismo camino que ya usaba el listado con `useFetch` y por el que ese sí
+funcionaba. Comprobado contra `wrangler dev`: `/admin/cms-redirects/1`,
+`/admin/cms-tags/1` y `/admin/cms-authors/1` pasan de `401`/`500` a `200`
+recargando directamente, y sin sesión responden `302` al login en vez de
+reventar.
+
+### Entrada sin login en desarrollo (`DEV_AUTH_BYPASS`) — nota de diseño
+
+A petición expresa, el panel se puede usar **sin pasar por el login mientras
+se desarrolla**. Lo que sigue documenta por qué está construido así y no
+quitando la autenticación, que es lo que se pidió literalmente.
+
+Quitarla no habría sido sólo dejar el panel abierto: en este código **la
+sesión es la entrada del aislamiento multi-tenant**. `requireOrgScope()` saca
+el `organizationId` de la sesión, así que sin login no hay organización a la
+que acotar y lo que queda expuesto no es "un panel sin contraseña" sino los
+leads, contratos, depósitos y datos personales de todas las agencias juntos,
+más las claves de API y los webhooks. Y como cada push de este repositorio se
+publica solo (P0 de Workers Builds), "quitarlo por ahora" y "publicarlo" son
+la misma acción aquí.
+
+Cómo está hecho en su lugar:
+
+- **`DEV_AUTH_BYPASS=<email>`** en `.dev.vars`. Carga esa fila real de `users`
+  y devuelve exactamente lo que devolvería un login de verdad. No fabrica un
+  usuario: si lo hiciera, `requireOrgScope()` se quedaría sin organización real
+  y el aislamiento entre agencias dejaría de comportarse como en producción
+  justo mientras se desarrolla contra él. El RBAC por áreas y el ámbito por
+  organización siguen aplicando; lo único que desaparece es el formulario.
+- **No puede colarse a producción.** La guarda es `import.meta.dev`, una
+  constante de compilación, no una comprobación en tiempo de ejecución que
+  alguien pueda activar poniendo la variable en el Worker desplegado. En el
+  build de producción la rama entera se elimina: verificado sobre `.output/`
+  — `devBypassUser` no aparece, la lectura de la variable tampoco, y
+  `/api/auth/me` queda compilado a `devAuthBypass:!1` constante.
+- **Nunca está encendido en silencio**: el panel pinta un aviso a rayas
+  ámbar diciendo como quién se ha entrado y cómo apagarlo.
+- **La suite e2e no se ve afectada**: `scripts/e2e.sh` compila antes de
+  arrancar, así que corre contra un build de producción y sigue pasando por
+  el login real.
+- **Para volver a exigir login**: borrar la variable de `.dev.vars`. No hay
+  nada más que revertir.
+
+`test/unit/devAuthBypass.test.ts` protege las tres propiedades de las que
+depende: que la guarda siga siendo `import.meta.dev` y no una variable de
+entorno, que el usuario salga de la base de datos, y que el mecanismo no
+aparezca en `.output/` tras compilar.
+
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
@@ -650,8 +940,37 @@ cliente real, no solo en el servidor.
 | P1-10 | ~~No existen `/api/health/live` ni `/api/health/ready`~~ — ✅ resuelto | `server/api/health/` | Ambos existen, `smoke-test.mjs` los usa — ver detalle abajo |
 | P1-11 | ~~El pipeline de CI no valida que `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`/`PRODUCTION_URL` existan y sean válidos antes de desplegar~~ — ✅ resuelto en FASE 1 | `.github/workflows/ci.yml` | Jobs `staging-preflight`/`production-preflight` (comentario de cabecera desactualizado corregido aquí, la corrección ya estaba hecha en el commit `0c36a43`) |
 | P1-12 | ~~Sin request-ID / correlación entre `error_logs`/`webhook_deliveries`/`email_log` para una misma petición~~ — ✅ resuelto | `server/plugins/error-logging.ts` | `error_logs`, `webhook_deliveries` y `email_log` (migración 0060) correlacionados — ver detalle abajo |
+| P1-14 | ~~`npm run typecheck` se rompía con 2 rutas más (TS2589 de Nitro), señalando un fichero sin relación con el cambio~~ — ✅ resuelto | `nitro-fetch-warmup.ts` | Margen de 1 ruta → más de 150, con guardas en `test/unit/nitroFetchWarmup.test.ts` — ver detalle arriba |
+| P1-15 | ~~Un email que no salía quedaba anotado en `email_log` y ahí se moría: nadie sumaba esas filas ni avisaba~~ — ✅ resuelto | `server/utils/email/health.ts` | `GET /api/admin/saas/email-health` + aviso en el Dashboard y en /admin/emails, sólo cuando hay algo roto — ver detalle arriba |
+| P1-16 | ~~No había forma de saber qué commit estaba vivo, y el smoke test no comprobaba que el build desplegado fuera el recién publicado~~ — ✅ resuelto | `scripts/build-info.mjs` | `version` en `/api/health/ready` (incluido **quién** lo construyó) + verificación en `scripts/smoke-test.mjs` — ver detalle arriba |
+| P1-17 | ~~Nada impedía que un endpoint nuevo se olvidara de acotar por `organizationId`, igual que 147 se olvidaron del área~~ — ✅ resuelto | `test/unit/tenantScopeCoverage.test.ts` | Recorre los 224 handlers; ningún agujero real encontrado, y las exenciones se protegen a sí mismas — ver detalle arriba |
+| P1-18 | ~~Recargar una ficha del CRUD genérico daba 401/500: el `$fetch` del SSR no heredaba ni la cookie ni los bindings~~ — ✅ resuelto | `pages/admin/[resource]/[id].vue` | `useRequestFetch()`. Afectaba a las 16 secciones con formulario genérico — ver detalle arriba |
 
 ## Problemas P2 (mejoras de calidad, no urgentes)
+
+- ~~El CRUD genérico estaba en inglés y enseñaba el nombre crudo de las
+  columnas~~ — ✅ resuelto. `pages/admin/[resource]/index.vue` y `[id].vue`
+  sirven **18 entradas del menú** (Usuarios, Comunidades, Equipo, Blog legacy,
+  las seis taxonomías del CMS, las tres de Bandeja, Auditoría, Empresas,
+  Comerciales, Promotoras y los dos catálogos de propiedades). Decían
+  "+ New", "Edit", "Delete", "Search…", "Saved ✓", "← Back" dentro de un panel
+  íntegramente en español, y las cabeceras de tabla imprimían `id`, `name`,
+  `createdAt` tal cual — que para quien usa el panel no es una cabecera, es
+  una filtración del esquema.
+
+  Resuelto en tres piezas: (1) el chrome de ambas pantallas traducido;
+  (2) **209 etiquetas** de `server/utils/adminResources.ts` traducidas (los 31
+  recursos y todos sus campos), manteniendo unidades y marcas tal cual (AED,
+  m², sqft, LinkedIn…); (3) `utils/adminFieldLabels.ts`, que resuelve el
+  nombre a enseñar —primero la etiqueta que declara el recurso, luego un
+  diccionario de columnas técnicas (`id` → "ID", `createdAt` → "Creado") y
+  sólo entonces una conversión automática legible— para las columnas de
+  `listFields` que no tienen campo editable detrás.
+
+  `test/unit/adminFieldLabels.test.ts` (11 tests) impide la recaída: todo
+  recurso y todo campo declaran etiqueta, ninguna etiqueta es la clave cruda,
+  y **toda** columna de `listFields` resuelve a un nombre legible. Verificado
+  además en un navegador real contra `wrangler dev`.
 
 - ~~Sin `.env.example` (no es un problema de seguridad — no se encontraron
   secretos hardcodeados en todo el repo — pero sí de onboarding)~~ —
