@@ -1,7 +1,18 @@
 import { visualizer } from 'rollup-plugin-visualizer'
+import { resolveBuildInfo } from './scripts/build-info.mjs'
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-06-01',
+  runtimeConfig: {
+    // Identidad del build, resuelta aquí (en la máquina que compila) y
+    // horneada en el bundle: en el Worker no hay git ni proceso que
+    // consultar. La expone /api/health/ready — ver scripts/build-info.mjs
+    // para por qué esto hacía falta y qué significa cada campo.
+    //
+    // Fuera de `public` a propósito: es información de servidor, no tiene
+    // por qué viajar en el bundle del navegador.
+    buildInfo: resolveBuildInfo(),
+  },
   devtools: { enabled: false },
   modules: ['@nuxtjs/tailwindcss', 'nitro-cloudflare-dev', '@nuxt/eslint'],
   // Real bundle-size visibility (P2, docs/production-hardening-audit.md) —

@@ -762,6 +762,62 @@ comprueba sobre HTTP real que un comercial recibe 403 en el endpoint nuevo.
 **Lo que sigue siendo tarea manual**: configurar `RESEND_API_KEY` como secreto
 del Worker. Esto no lo arregla; lo hace visible.
 
+### P1-16 — No había forma de saber qué commit estaba vivo — ✅ resuelto
+
+No existía tag de release ni endpoint que lo dijera. Ante un incidente no se
+podía responder a la primera pregunta de cualquier incidente —"¿qué código
+estoy depurando?"— y, combinado con que Workers Builds publica cualquier push
+de cualquier rama, la pregunta no era retórica: la rama que está sirviendo
+puede no ser la que nadie espera.
+
+Había además un fallo silencioso en el propio pipeline: los smoke tests
+comprobaban que la instalación respondía, no que respondiera **el build que
+se acababa de publicar**. Un despliegue que dejara vivo el anterior pasaba en
+verde.
+
+**Resuelto**: `scripts/build-info.mjs` resuelve la identidad del build en la
+máquina que compila y `runtimeConfig.buildInfo` la hornea en el bundle (en el
+Worker no hay git ni proceso que consultar). La expone `/api/health/ready`:
+
+```json
+"version": { "commit": "8215970", "branch": "main", "builtAt": "…", "source": "github-actions" }
+```
+
+`source` es lo que más aporta, porque no dice sólo *qué* se construyó sino
+**quién** lo construyó: `github-actions` es el camino previsto,
+`workers-builds` es la prueba directa de que el despliegue se saltó el
+pipeline, y `local` de que salió del portátil de alguien. Es el primer sitio
+donde el problema P0 de Workers Builds se ve sin entrar al panel de
+Cloudflare.
+
+Decisiones:
+
+- **Público a propósito.** Son un SHA corto, una rama y una fecha, sin
+  repositorio ni rutas internas. Poder preguntarle a la instalación qué está
+  corriendo desde fuera y sin credenciales, justo cuando algo va mal, pesa
+  más que lo que revela. Queda fuera de `runtimeConfig.public`, así que no
+  viaja en el bundle del navegador (verificado sobre `.output/`).
+- **Nunca finge una identidad.** Sin CI y sin git, `unknown`; un valor que no
+  sea un SHA no se convierte en uno. Una respuesta inventada sería peor que
+  no tenerla.
+- **El nombre de rama se sanea** antes de salir en una respuesta pública
+  (sin caracteres de control, acotado a 120).
+
+`scripts/smoke-test.mjs` cierra el bucle: si hay `SMOKE_EXPECT_COMMIT` —o
+`GITHUB_SHA`, que ya está en el entorno de Actions— exige que el build vivo
+sea ése, y avisa aparte cuando el origen es `workers-builds`. No hizo falta
+tocar el workflow: los jobs de despliegue ya compilan y ejecutan el smoke
+test en el mismo runner, así que la comprobación se activa sola. **Efecto
+secundario buscado**: mientras Workers Builds siga activo, un despliegue en
+el que gane la carrera pondrá este paso en rojo en vez de pasar en verde.
+
+**Verificado más allá de typecheck/test/build/migrations:check**: 14 tests en
+`test/unit/buildInfo.test.ts`, y ejecución real contra `wrangler dev` —
+`/api/health/ready` devolviendo el commit, la rama y la fecha reales del
+árbol de trabajo, y el smoke test comprobado en sus tres caminos: sin commit
+esperado (informa), con el correcto (pasa) y con uno equivocado (falla con
+código 1 nombrando ambos).
+
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
@@ -781,6 +837,7 @@ del Worker. Esto no lo arregla; lo hace visible.
 | P1-12 | ~~Sin request-ID / correlación entre `error_logs`/`webhook_deliveries`/`email_log` para una misma petición~~ — ✅ resuelto | `server/plugins/error-logging.ts` | `error_logs`, `webhook_deliveries` y `email_log` (migración 0060) correlacionados — ver detalle abajo |
 | P1-14 | ~~`npm run typecheck` se rompía con 2 rutas más (TS2589 de Nitro), señalando un fichero sin relación con el cambio~~ — ✅ resuelto | `nitro-fetch-warmup.ts` | Margen de 1 ruta → más de 150, con guardas en `test/unit/nitroFetchWarmup.test.ts` — ver detalle arriba |
 | P1-15 | ~~Un email que no salía quedaba anotado en `email_log` y ahí se moría: nadie sumaba esas filas ni avisaba~~ — ✅ resuelto | `server/utils/email/health.ts` | `GET /api/admin/saas/email-health` + aviso en el Dashboard y en /admin/emails, sólo cuando hay algo roto — ver detalle arriba |
+| P1-16 | ~~No había forma de saber qué commit estaba vivo, y el smoke test no comprobaba que el build desplegado fuera el recién publicado~~ — ✅ resuelto | `scripts/build-info.mjs` | `version` en `/api/health/ready` (incluido **quién** lo construyó) + verificación en `scripts/smoke-test.mjs` — ver detalle arriba |
 
 ## Problemas P2 (mejoras de calidad, no urgentes)
 
