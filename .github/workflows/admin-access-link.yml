@@ -1,0 +1,55 @@
+name: Enlace de acceso al panel
+
+# Recuperar el acceso al panel cuando nadie puede entrar y el envío de emails
+# no está conectado, de modo que el flujo normal de "he olvidado mi
+# contraseña" no sirve porque nadie recibe nada.
+#
+# Sólo se dispara a mano. No forma parte de ningún despliegue y no corre en
+# ningún push.
+#
+# Lo que hace: acuña una fila en `password_reset_tokens` —la misma que
+# escribiría la aplicación— y imprime el enlace `/reset-password/<token>`.
+# Quien lo abre elige su propia contraseña. Este workflow **nunca ve una
+# contraseña**: ni la recibe, ni la genera, ni la imprime.
+#
+# Lo que hay que saber: el enlace acaba en el registro de esta ejecución,
+# visible para quien tenga acceso de lectura al repositorio. Por eso caduca
+# en 15 minutos por defecto y sólo sirve una vez. Es una decisión consciente,
+# no un descuido.
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'Correo de la cuenta que recupera el acceso'
+        required: true
+        type: string
+      base_url:
+        description: 'URL pública de la instalación, con https:// (ej. https://panel.tudominio.com)'
+        required: true
+        type: string
+      ttl_minutes:
+        description: 'Minutos de validez del enlace (1-60)'
+        required: false
+        default: '15'
+        type: string
+
+jobs:
+  admin-access-link:
+    runs-on: ubuntu-latest
+    # Igual que en los jobs de preflight y deploy: sin esta línea no se
+    # resuelven los secretos del Environment y wrangler no podría autenticarse.
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Acuñar el enlace de un solo uso
+        run: node scripts/mint-access-link.mjs "${{ inputs.email }}" "${{ inputs.base_url }}" "${{ inputs.ttl_minutes }}"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
