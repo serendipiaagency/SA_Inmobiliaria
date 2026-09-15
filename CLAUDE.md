@@ -22,3 +22,44 @@ feature commonly raises questions, add a matching FAQ entry too.
 A feature with no entry in `useHelpContent.ts` is effectively undocumented to
 the people using this platform — treat updating it as part of finishing the
 feature, not as optional follow-up.
+
+## Shipping: validate, push, PR, merge — without being asked
+
+The owner has made this the standing rule (2026-09-15), replacing an earlier
+one that required them to type a keyword before anything left the machine,
+and an earlier backlog instruction not to merge to `main`. **Do not wait for
+permission to ship.** When a piece of work is finished:
+
+1. Run the full gate: `npm run typecheck && npm test && npm run build && npm run migrations:check`.
+   A red gate means the work isn't finished — fix it, don't ship it and don't
+   ask what to do.
+2. Commit, then push to the working branch.
+3. Open a pull request against `main` describing what changed and why.
+4. Merge it.
+
+Merging to `main` starts the production pipeline in `.github/workflows/ci.yml`
+(D1 backup → remote migrations → deploy → smoke test), so a merge is a
+production release. That is the intended behaviour, not an accident.
+
+### What still gets said out loud before it ships
+
+Autonomy is about not asking permission, not about shipping quietly. Say so
+plainly in the report — and, where it belongs, in the PR body — when:
+
+- **the change needs a migration.** Code can be rolled back by redeploying; a
+  migration that rewrites or drops data cannot. Name the migration and what it
+  does to existing rows.
+- **the change alters authentication, `requireOrgScope()`, or the RBAC
+  matrix.** These are what keep one agency's data out of another's.
+- **something in the pipeline is broken** such that the merge won't do what it
+  looks like it does — for example a failing `production-preflight` job, which
+  skips `deploy-production` (and therefore the migration step) while Workers
+  Builds deploys the code anyway.
+
+### What is still not ours to do
+
+There are no Cloudflare credentials in these sessions, so `wrangler deploy`,
+`npm run release` and remote D1 migrations cannot be run directly regardless
+of authorisation — production is reached through the pipeline, not by hand.
+Destructive one-way operations against live data (deleting records, real
+sends, real charges) still need an explicit ask, every time.
