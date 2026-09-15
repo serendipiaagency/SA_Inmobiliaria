@@ -11,6 +11,13 @@ interface SessionUser {
 export function useAuth() {
   const user = useState<SessionUser | null>('auth-user', () => null)
   const loaded = useState<boolean>('auth-loaded', () => false)
+  /**
+   * Cierto sólo cuando se está entrando sin login en desarrollo
+   * (`DEV_AUTH_BYPASS`, ver server/utils/auth.ts). El panel lo enseña para
+   * que nunca esté encendido en silencio. En producción el servidor devuelve
+   * `false` siempre: la rama que lo pondría a `true` no existe en ese build.
+   */
+  const devAuthBypass = useState<boolean>('auth-dev-bypass', () => false)
 
   async function refresh() {
     try {
@@ -18,10 +25,12 @@ export function useAuth() {
       // hard load / refresh of an authenticated page keeps the session; on the
       // client it behaves like a normal $fetch.
       const req = useRequestFetch()
-      const res = await req<{ user: SessionUser | null }>('/api/auth/me')
+      const res = await req<{ user: SessionUser | null; devAuthBypass?: boolean }>('/api/auth/me')
       user.value = res.user
+      devAuthBypass.value = !!res.devAuthBypass
     } catch {
       user.value = null
+      devAuthBypass.value = false
     }
     loaded.value = true
   }
@@ -40,5 +49,5 @@ export function useAuth() {
     user.value = null
   }
 
-  return { user, loaded, refresh, login, logout }
+  return { user, loaded, devAuthBypass, refresh, login, logout }
 }

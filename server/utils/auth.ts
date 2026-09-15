@@ -140,7 +140,61 @@ export async function getSessionUser(event: H3Event): Promise<SessionUser | null
   return user
 }
 
+/**
+ * Entrar al panel sin pasar por el login. **Sólo en desarrollo.**
+ *
+ * ## Cómo se enciende
+ *
+ * `DEV_AUTH_BYPASS=<email>` en `.dev.vars` (ver `.dev.vars.example`), o
+ * `npx wrangler dev --var DEV_AUTH_BYPASS:admin@sa-inmobiliaria.com`.
+ * Para volver a exigir login: borra la variable. Eso es todo — no hay nada
+ * más que revertir.
+ *
+ * ## Por qué lleva un email y no un simple `true`
+ *
+ * Porque **no** inventa una sesión: carga esa fila real de `users` y devuelve
+ * exactamente lo que devolvería un login de verdad, con su `organizationId`,
+ * su `role` y sus `permissions`. Si en vez de eso se fabricara un usuario
+ * ficticio, `requireOrgScope()` se quedaría sin organización a la que acotar y
+ * el aislamiento entre agencias dejaría de comportarse como en producción —
+ * que es justo lo que uno querría seguir probando mientras desarrolla. Con
+ * esto, el RBAC por áreas y el ámbito por organización siguen aplicándose
+ * igual: lo único que desaparece es el formulario de entrada.
+ *
+ * ## Por qué no puede colarse a producción
+ *
+ * `import.meta.dev` es una constante de compilación: en el build de
+ * producción vale `false`, esta rama se elimina entera del bundle y con ella
+ * la función. No es una comprobación en tiempo de ejecución que alguien pueda
+ * saltarse poniendo la variable en el Worker desplegado — es que el código no
+ * está ahí. Lo verifica `test/unit/devAuthBypass.test.ts` sobre `.output/`
+ * después de compilar.
+ */
+async function devBypassUser(event: H3Event): Promise<SessionUser | null> {
+  const email = (event.context as any).cloudflare?.env?.DEV_AUTH_BYPASS
+  if (!email) return null
+  const db = useDb(event)
+  const rows = await db
+    .select({
+      id: schema.users.id,
+      name: schema.users.name,
+      email: schema.users.email,
+      role: schema.users.role,
+      organizationId: schema.users.organizationId,
+      permissions: schema.users.permissions,
+    })
+    .from(schema.users)
+    .where(eq(schema.users.email, String(email)))
+    .limit(1)
+  return rows[0] ?? null
+}
+
 async function loadSessionUser(event: H3Event): Promise<SessionUser | null> {
+  if (import.meta.dev) {
+    const devUser = await devBypassUser(event)
+    if (devUser) return devUser
+  }
+
   const token = getCookie(event, SESSION_COOKIE)
   if (!token) return null
   const db = useDb(event)

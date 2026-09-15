@@ -881,6 +881,48 @@ funcionaba. Comprobado contra `wrangler dev`: `/admin/cms-redirects/1`,
 recargando directamente, y sin sesión responden `302` al login en vez de
 reventar.
 
+### Entrada sin login en desarrollo (`DEV_AUTH_BYPASS`) — nota de diseño
+
+A petición expresa, el panel se puede usar **sin pasar por el login mientras
+se desarrolla**. Lo que sigue documenta por qué está construido así y no
+quitando la autenticación, que es lo que se pidió literalmente.
+
+Quitarla no habría sido sólo dejar el panel abierto: en este código **la
+sesión es la entrada del aislamiento multi-tenant**. `requireOrgScope()` saca
+el `organizationId` de la sesión, así que sin login no hay organización a la
+que acotar y lo que queda expuesto no es "un panel sin contraseña" sino los
+leads, contratos, depósitos y datos personales de todas las agencias juntos,
+más las claves de API y los webhooks. Y como cada push de este repositorio se
+publica solo (P0 de Workers Builds), "quitarlo por ahora" y "publicarlo" son
+la misma acción aquí.
+
+Cómo está hecho en su lugar:
+
+- **`DEV_AUTH_BYPASS=<email>`** en `.dev.vars`. Carga esa fila real de `users`
+  y devuelve exactamente lo que devolvería un login de verdad. No fabrica un
+  usuario: si lo hiciera, `requireOrgScope()` se quedaría sin organización real
+  y el aislamiento entre agencias dejaría de comportarse como en producción
+  justo mientras se desarrolla contra él. El RBAC por áreas y el ámbito por
+  organización siguen aplicando; lo único que desaparece es el formulario.
+- **No puede colarse a producción.** La guarda es `import.meta.dev`, una
+  constante de compilación, no una comprobación en tiempo de ejecución que
+  alguien pueda activar poniendo la variable en el Worker desplegado. En el
+  build de producción la rama entera se elimina: verificado sobre `.output/`
+  — `devBypassUser` no aparece, la lectura de la variable tampoco, y
+  `/api/auth/me` queda compilado a `devAuthBypass:!1` constante.
+- **Nunca está encendido en silencio**: el panel pinta un aviso a rayas
+  ámbar diciendo como quién se ha entrado y cómo apagarlo.
+- **La suite e2e no se ve afectada**: `scripts/e2e.sh` compila antes de
+  arrancar, así que corre contra un build de producción y sigue pasando por
+  el login real.
+- **Para volver a exigir login**: borrar la variable de `.dev.vars`. No hay
+  nada más que revertir.
+
+`test/unit/devAuthBypass.test.ts` protege las tres propiedades de las que
+depende: que la guarda siga siendo `import.meta.dev` y no una variable de
+entorno, que el usuario salga de la base de datos, y que el mecanismo no
+aparezca en `.output/` tras compilar.
+
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
