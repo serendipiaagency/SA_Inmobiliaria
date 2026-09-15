@@ -680,6 +680,13 @@ export function useHelpContent() {
       tags: ['emails', 'resend', 'webhook', 'entregas'],
     },
     {
+      id: 'faq-perdi-acceso-panel',
+      question: 'He perdido el acceso al panel: dice "Credenciales inválidas" y estoy seguro de la contraseña.',
+      answer:
+        'Antes de nada, comprueba si el mensaje habla de "Demasiados intentos": el login bloquea 10 intentos por IP cada 10 minutos, y a partir de ahí **incluso la contraseña correcta falla**. Si es eso, no toques nada durante 10 minutos y entra una sola vez; el bloqueo se levanta solo. (Si la pantalla sigue diciendo "Credenciales inválidas" sin más en una instalación antigua, puede ser justo ese bloqueo disfrazado: se corrigió para que lo diga con claridad.) Si de verdad has perdido la contraseña, usa "¿Has olvidado tu contraseña?" para recibir el enlace de recuperación por email — para lo cual el envío de emails tiene que estar conectado, algo que puedes comprobar en Sistema → Estado del sistema. Y si el correo no está conectado y nadie puede entrar, quien administre la instalación puede recuperar el acceso con `npm run create-super-admin`, que reajusta la contraseña de una cuenta sin que esa contraseña pase por el repositorio ni por ningún registro.',
+      tags: ['acceso', 'login', 'contraseña', 'bloqueo', 'super admin'],
+    },
+    {
       id: 'faq-email-channel-down',
       question: 'El Dashboard avisa de que "no están saliendo emails", ¿se ha perdido algo?',
       answer:
