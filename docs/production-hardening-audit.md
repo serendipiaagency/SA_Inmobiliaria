@@ -859,6 +859,28 @@ siguen encargándose las pruebas de cross-tenant y `server/utils/tenantPolicy.ts
 `server/api/admin/…/leak.get.ts` que lee `leads` sin acotar y confirmando que la
 prueba falla nombrándolo— para que no sea una comprobación vacía.
 
+### P1-18 — Recargar cualquier ficha del CRUD genérico daba 401/500 — ✅ resuelto
+
+Encontrado mientras se traducía el panel (P2, abajo), no buscándolo.
+`pages/admin/[resource]/[id].vue` cargaba el registro con un `$fetch` suelto
+en el `setup`. En SSR eso arranca una petición nueva que **no hereda nada del
+evento en curso**: ni la cookie de sesión ni los bindings de Cloudflare (D1,
+R2). Resultado: `401`, y `500`
+(`Cloudflare bindings not available (DB)`) en cuanto se reenviaba la cookie.
+
+No se veía navegando desde el listado —eso ocurre en el cliente, con cookie y
+sin SSR—, así que la pantalla parecía funcionar. Fallaba al **recargar** la
+ficha o al **abrir un enlace directo** a un registro: exactamente lo que hace
+quien comparte por chat la URL de una ficha. Afectaba a las 16 secciones que
+usan el formulario genérico.
+
+**Resuelto**: `useRequestFetch()`, que sí propaga el evento en curso — el
+mismo camino que ya usaba el listado con `useFetch` y por el que ese sí
+funcionaba. Comprobado contra `wrangler dev`: `/admin/cms-redirects/1`,
+`/admin/cms-tags/1` y `/admin/cms-authors/1` pasan de `401`/`500` a `200`
+recargando directamente, y sin sesión responden `302` al login en vez de
+reventar.
+
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
@@ -880,8 +902,33 @@ prueba falla nombrándolo— para que no sea una comprobación vacía.
 | P1-15 | ~~Un email que no salía quedaba anotado en `email_log` y ahí se moría: nadie sumaba esas filas ni avisaba~~ — ✅ resuelto | `server/utils/email/health.ts` | `GET /api/admin/saas/email-health` + aviso en el Dashboard y en /admin/emails, sólo cuando hay algo roto — ver detalle arriba |
 | P1-16 | ~~No había forma de saber qué commit estaba vivo, y el smoke test no comprobaba que el build desplegado fuera el recién publicado~~ — ✅ resuelto | `scripts/build-info.mjs` | `version` en `/api/health/ready` (incluido **quién** lo construyó) + verificación en `scripts/smoke-test.mjs` — ver detalle arriba |
 | P1-17 | ~~Nada impedía que un endpoint nuevo se olvidara de acotar por `organizationId`, igual que 147 se olvidaron del área~~ — ✅ resuelto | `test/unit/tenantScopeCoverage.test.ts` | Recorre los 224 handlers; ningún agujero real encontrado, y las exenciones se protegen a sí mismas — ver detalle arriba |
+| P1-18 | ~~Recargar una ficha del CRUD genérico daba 401/500: el `$fetch` del SSR no heredaba ni la cookie ni los bindings~~ — ✅ resuelto | `pages/admin/[resource]/[id].vue` | `useRequestFetch()`. Afectaba a las 16 secciones con formulario genérico — ver detalle arriba |
 
 ## Problemas P2 (mejoras de calidad, no urgentes)
+
+- ~~El CRUD genérico estaba en inglés y enseñaba el nombre crudo de las
+  columnas~~ — ✅ resuelto. `pages/admin/[resource]/index.vue` y `[id].vue`
+  sirven **18 entradas del menú** (Usuarios, Comunidades, Equipo, Blog legacy,
+  las seis taxonomías del CMS, las tres de Bandeja, Auditoría, Empresas,
+  Comerciales, Promotoras y los dos catálogos de propiedades). Decían
+  "+ New", "Edit", "Delete", "Search…", "Saved ✓", "← Back" dentro de un panel
+  íntegramente en español, y las cabeceras de tabla imprimían `id`, `name`,
+  `createdAt` tal cual — que para quien usa el panel no es una cabecera, es
+  una filtración del esquema.
+
+  Resuelto en tres piezas: (1) el chrome de ambas pantallas traducido;
+  (2) **209 etiquetas** de `server/utils/adminResources.ts` traducidas (los 31
+  recursos y todos sus campos), manteniendo unidades y marcas tal cual (AED,
+  m², sqft, LinkedIn…); (3) `utils/adminFieldLabels.ts`, que resuelve el
+  nombre a enseñar —primero la etiqueta que declara el recurso, luego un
+  diccionario de columnas técnicas (`id` → "ID", `createdAt` → "Creado") y
+  sólo entonces una conversión automática legible— para las columnas de
+  `listFields` que no tienen campo editable detrás.
+
+  `test/unit/adminFieldLabels.test.ts` (11 tests) impide la recaída: todo
+  recurso y todo campo declaran etiqueta, ninguna etiqueta es la clave cruda,
+  y **toda** columna de `listFields` resuelve a un nombre legible. Verificado
+  además en un navegador real contra `wrangler dev`.
 
 - ~~Sin `.env.example` (no es un problema de seguridad — no se encontraron
   secretos hardcodeados en todo el repo — pero sí de onboarding)~~ —
