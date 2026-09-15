@@ -122,10 +122,17 @@ VALUES (NULL, ${sqlString(name)}, ${sqlString(email)}, ${sqlString(hash)}, 'supe
 ON CONFLICT(email) DO UPDATE SET password = excluded.password, role = 'super_admin', permissions = NULL, updated_at = excluded.updated_at;`
 
   if (sqlOnly) {
+    // El hash no es la contraseña: de él no se puede volver atrás, así que
+    // esto se puede pegar en una consola web sin comprometer nada.
     console.log('\n--- SQL (contiene el hash, no la contraseña) ---\n')
     console.log(sql)
-    console.log('\nEjecútalo con:')
-    console.log(`  npx wrangler d1 execute ${DB_NAME} ${remote ? '--remote' : '--local'} --command "<pega aquí el SQL>"`)
+    console.log('\nDos formas de ejecutarlo:\n')
+    console.log('  a) Sin credenciales en la terminal — panel de Cloudflare:')
+    console.log('     Workers & Pages → D1 → sa_inmobiliaria → Console, y pega el SQL de arriba.')
+    console.log('\n  b) Con wrangler, si ya tienes CLOUDFLARE_API_TOKEN y CLOUDFLARE_ACCOUNT_ID:')
+    console.log(`     npx wrangler d1 execute ${DB_NAME} ${remote ? '--remote' : '--local'} --command "<pega aquí el SQL>"`)
+    console.log('\nDespués, si venías de varios intentos fallidos, espera 10 minutos antes de entrar:')
+    console.log('el login bloquea 10 intentos por IP y cambiar la contraseña no reinicia ese contador.')
     return
   }
 
