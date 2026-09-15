@@ -37,11 +37,10 @@
  */
 import { execFileSync } from 'node:child_process'
 import { webcrypto as crypto } from 'node:crypto'
+import { discoverWorkerUrl } from './worker-url.mjs'
 
 const DB_NAME = 'sa_inmobiliaria'
 const DEFAULT_TTL_MINUTES = 15
-
-const WORKER_NAME = 'sa-inmobiliaria' // igual que `name` en wrangler.toml
 
 const [email, baseUrlRaw, ttlRaw] = process.argv.slice(2)
 if (!email) {
@@ -53,31 +52,6 @@ if (baseUrlRaw && !/^https:\/\/[a-zA-Z0-9.-]+/.test(baseUrlRaw)) {
   process.exit(2)
 }
 const ttlMinutes = Math.min(60, Math.max(1, Number(ttlRaw) || DEFAULT_TTL_MINUTES))
-
-/**
- * Sin URL explícita, se le pregunta a Cloudflare por el subdominio de la
- * cuenta y se compone la de workers.dev. Es best-effort a propósito: si falla
- * —red, permisos del token, o una instalación que sólo vive en un dominio
- * propio— no se aborta nada, porque el token ya está acuñado y sigue siendo
- * utilizable pegándolo en la URL correcta. Lo que no puede pasar es que no
- * saber la URL impida recuperar el acceso.
- */
-async function discoverBaseUrl() {
-  const token = process.env.CLOUDFLARE_API_TOKEN
-  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID
-  if (!token || !accountId) return null
-  try {
-    const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/subdomain`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (!res.ok) return null
-    const json = await res.json()
-    const subdomain = json?.result?.subdomain
-    return subdomain ? `https://${WORKER_NAME}.${subdomain}.workers.dev` : null
-  } catch {
-    return null
-  }
-}
 
 /** Mismo formato que randomTokenHex() en server/utils/auth.ts: 24 bytes en hex. */
 function randomTokenHex() {
@@ -131,7 +105,7 @@ async function main() {
      VALUES (${user.id}, ${sqlString(tokenHash)}, ${sqlString(expiresAt)}, ${sqlString(iso(new Date()))})`,
   )
 
-  const baseUrl = (baseUrlRaw || (await discoverBaseUrl()) || '').replace(/\/$/, '')
+  const baseUrl = (baseUrlRaw || (await discoverWorkerUrl()) || '').replace(/\/$/, '')
 
   console.log('')
   console.log(`Cuenta: ${email} (id ${user.id}, rol ${user.role})`)
