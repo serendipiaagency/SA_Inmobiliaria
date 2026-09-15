@@ -1,0 +1,10 @@
+{
+  "error": true,
+  "url": "http://localhost:8788/api/auth/login",
+  "statusCode": 429,
+  "statusMessage": "Too many requests — please try again later.",
+  "message": "Too many requests — please try again later.",
+  "data": {
+    "retryAfterSeconds": 320
+  }
+}
