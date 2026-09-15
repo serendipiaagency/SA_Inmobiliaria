@@ -1,0 +1,38 @@
+name: Diagnóstico de acceso al panel
+
+# Sólo lectura. Responde "¿por qué no me deja entrar?" con hechos de la base
+# de datos real, en vez de a base de conjeturas: si la cuenta existe, su rol,
+# si su columna `permissions` la está dejando sin áreas (el efecto silencioso
+# de que el código del bloque 01 esté vivo sin la migración 0061), si el
+# último enlace de acceso se llegó a usar, y si hay bloqueos de login activos.
+#
+# No escribe nada, no imprime contraseñas ni hashes, y del limitador sólo
+# saca recuentos — nunca la IP de nadie.
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'Correo de la cuenta a diagnosticar'
+        required: true
+        type: string
+
+jobs:
+  admin-access-diagnose:
+    runs-on: ubuntu-latest
+    # Necesario para que se resuelvan los secretos del Environment — ver la
+    # nota en los jobs de preflight de ci.yml.
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Diagnosticar
+        run: node scripts/diagnose-access.mjs "${{ inputs.email }}"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
