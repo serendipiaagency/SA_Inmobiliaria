@@ -82,6 +82,14 @@ jobs:
     needs: validate
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    # `environment:` no es decorativo aquí: los secretos y las variables de un
+    # Environment de GitHub SÓLO se resuelven en un job que declara ese
+    # environment. Sin esta línea, `secrets.CLOUDFLARE_API_TOKEN` y
+    # `vars.STAGING_URL` llegan vacíos por bien que estén configurados, y este
+    # job —cuyo único cometido es comprobar que están— falla siempre diciendo
+    # que faltan. No la quites: el preflight dejaría de poder hacer su trabajo.
+    environment:
+      name: staging
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -189,6 +197,11 @@ jobs:
     needs: validate
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    # Ver la nota en staging-preflight: sin esta línea el job no puede leer los
+    # secretos del Environment `production` y falla siempre, aunque estén
+    # perfectamente configurados. Es lo que venía pasando.
+    environment:
+      name: production
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

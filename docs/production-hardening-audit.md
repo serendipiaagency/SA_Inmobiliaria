@@ -938,13 +938,50 @@ aparezca en `.output/` tras compilar.
 | P1-8 | ~~Subida de vídeo (hasta 100MB) atraviesa el Worker completo (limitación de memoria de request documentada en el propio código)~~ — ✅ resuelto | `server/utils/mediaMultipart.ts` | Subida chunked/multipart directa a R2 — ver detalle abajo |
 | P1-9 | ~~No existe `npm run lint` ni ESLint/Biome configurado~~ — ✅ resuelto | `package.json` | `@nuxt/eslint` + `npm run lint` en CI — ver detalle abajo |
 | P1-10 | ~~No existen `/api/health/live` ni `/api/health/ready`~~ — ✅ resuelto | `server/api/health/` | Ambos existen, `smoke-test.mjs` los usa — ver detalle abajo |
-| P1-11 | ~~El pipeline de CI no valida que `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`/`PRODUCTION_URL` existan y sean válidos antes de desplegar~~ — ✅ resuelto en FASE 1 | `.github/workflows/ci.yml` | Jobs `staging-preflight`/`production-preflight` (comentario de cabecera desactualizado corregido aquí, la corrección ya estaba hecha en el commit `0c36a43`) |
+| P1-11 | ~~El pipeline de CI no valida que `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`/`PRODUCTION_URL` existan y sean válidos antes de desplegar~~ — ✅ resuelto en FASE 1 | `.github/workflows/ci.yml` | Jobs `staging-preflight`/`production-preflight` (comentario de cabecera desactualizado corregido aquí, la corrección ya estaba hecha en el commit `0c36a43`). **Nota**: esos jobs existían pero no podían funcionar — ver P1-19 |
+| P1-19 | ~~Los jobs de preflight no declaraban `environment:`, así que no podían leer los secretos del Environment que existen para comprobar, y fallaban siempre~~ — ✅ resuelto | `.github/workflows/ci.yml` | `deploy-production` nunca llegó a correr: ni backup, ni migraciones remotas, ni smoke test — ver detalle arriba |
 | P1-12 | ~~Sin request-ID / correlación entre `error_logs`/`webhook_deliveries`/`email_log` para una misma petición~~ — ✅ resuelto | `server/plugins/error-logging.ts` | `error_logs`, `webhook_deliveries` y `email_log` (migración 0060) correlacionados — ver detalle abajo |
 | P1-14 | ~~`npm run typecheck` se rompía con 2 rutas más (TS2589 de Nitro), señalando un fichero sin relación con el cambio~~ — ✅ resuelto | `nitro-fetch-warmup.ts` | Margen de 1 ruta → más de 150, con guardas en `test/unit/nitroFetchWarmup.test.ts` — ver detalle arriba |
 | P1-15 | ~~Un email que no salía quedaba anotado en `email_log` y ahí se moría: nadie sumaba esas filas ni avisaba~~ — ✅ resuelto | `server/utils/email/health.ts` | `GET /api/admin/saas/email-health` + aviso en el Dashboard y en /admin/emails, sólo cuando hay algo roto — ver detalle arriba |
 | P1-16 | ~~No había forma de saber qué commit estaba vivo, y el smoke test no comprobaba que el build desplegado fuera el recién publicado~~ — ✅ resuelto | `scripts/build-info.mjs` | `version` en `/api/health/ready` (incluido **quién** lo construyó) + verificación en `scripts/smoke-test.mjs` — ver detalle arriba |
 | P1-17 | ~~Nada impedía que un endpoint nuevo se olvidara de acotar por `organizationId`, igual que 147 se olvidaron del área~~ — ✅ resuelto | `test/unit/tenantScopeCoverage.test.ts` | Recorre los 224 handlers; ningún agujero real encontrado, y las exenciones se protegen a sí mismas — ver detalle arriba |
 | P1-18 | ~~Recargar una ficha del CRUD genérico daba 401/500: el `$fetch` del SSR no heredaba ni la cookie ni los bindings~~ — ✅ resuelto | `pages/admin/[resource]/[id].vue` | `useRequestFetch()`. Afectaba a las 16 secciones con formulario genérico — ver detalle arriba |
+
+### P1-19 — Los dos jobs de preflight no podían leer los secretos que existen para comprobar — ✅ resuelto
+
+`staging-preflight` y `production-preflight` comprueban que
+`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` y `PRODUCTION_URL`/`STAGING_URL`
+están configurados antes de que corra nada que escriba (backup, migraciones,
+deploy). Ninguno de los dos declaraba `environment:` — sólo lo hacían
+`deploy-staging` y `deploy-production`.
+
+En GitHub Actions, **los secretos y variables de un Environment sólo se
+resuelven dentro de un job que declara ese environment**. Sin esa línea,
+`secrets.CLOUDFLARE_API_TOKEN` llega vacío por bien configurado que esté, y el
+job cuyo único cometido es comprobar que está presente falla siempre diciendo
+que falta. Los pasos siguientes del mismo job (`wrangler whoami`, `d1 info`,
+`r2 bucket list`) tampoco habrían funcionado nunca, por la misma razón: se
+saltaban porque el primero ya había fallado.
+
+**Consecuencia real**: el preflight de producción nunca ha podido pasar, así
+que `deploy-production` —que depende de él— nunca ha corrido. Ni el backup
+previo de D1, ni las migraciones remotas, ni el smoke test. Lo que ha estado
+publicando en producción todo este tiempo es Workers Builds, por la puerta de
+atrás. La migración 0061 sigue sin aplicarse por esta vía.
+
+Y lo más engañoso: el mensaje de error decía «añádelos en Settings >
+Environments > production > Secrets», que es exactamente lo que ya estaba
+hecho. El diagnóstico apuntaba al sitio correcto para el problema equivocado.
+
+**Resuelto**: `environment:` en los dos jobs de preflight, con una nota en el
+propio workflow explicando que la línea es funcional y no decorativa, para que
+nadie la quite por parecer redundante con el job de deploy.
+
+Este arreglo **se verifica a sí mismo**: el primer run tras fusionarlo dice si
+el preflight pasa. Si pasa, `deploy-production` corre por primera vez y el
+smoke test —que ahora comprueba la identidad del build (P1-16)— dirá si lo que
+queda vivo es lo que el pipeline acaba de publicar o lo que puso Workers
+Builds.
 
 ### Alta y recuperación de un super administrador (`npm run create-super-admin`)
 
