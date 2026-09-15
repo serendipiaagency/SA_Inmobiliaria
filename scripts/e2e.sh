@@ -20,6 +20,31 @@ trap cleanup EXIT
 echo "==> Building app"
 npm run build
 
+# Estado local limpio por defecto. Sin esto, la D1 de `wrangler dev --local`
+# sobrevive entre ejecuciones y va acumulando todo lo que la suite crea:
+# medido antes de este cambio, 25 usuarios, 49 proyectos y 62 visitas donde
+# una base recién migrada tiene un puñado. Eso costaba de tres formas:
+#
+#   1. Colisiones de filas únicas, que los specs esquivan con sufijos
+#      `Date.now()` — un remiendo que sólo hace falta por esto.
+#   2. El contador de `rate_limits` también persistía, así que dos
+#      ejecuciones seguidas (o una tanda de pruebas a mano) agotaban los 10
+#      intentos de login por IP y la suite entera moría en el global-setup
+#      con un 429, por higiene del arnés y no por el código. Pasó dos veces
+#      el mismo día.
+#   3. Una suite que depende de restos de ejecuciones anteriores no prueba
+#      lo que dice probar.
+#
+# Esto NO toca ningún control: el limitador sigue intacto y sigue aplicando
+# dentro de cada ejecución. Lo que se descarta es una base de datos
+# desechable que debería haber nacido vacía.
+if [ "${E2E_KEEP_STATE:-}" = "1" ]; then
+  echo "==> Conservando el estado local (E2E_KEEP_STATE=1)"
+else
+  echo "==> Partiendo de una D1 y un R2 locales limpios"
+  rm -rf .wrangler/state/v3/d1 .wrangler/state/v3/r2
+fi
+
 echo "==> Applying D1 migrations (local)"
 npx wrangler d1 migrations apply sa_inmobiliaria --local
 

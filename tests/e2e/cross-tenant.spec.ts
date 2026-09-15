@@ -31,10 +31,14 @@ function expectCrossTenantDenied(status: number, what: string) {
 
 /**
  * `agents.email` and `developers.email` are UNIQUE per tenant (migration
- * 0053), and the local D1 behind `npm run test:e2e` persists between runs —
- * this fixture always reuses the same seeded tenant, so its own emails
- * would still collide with a previous run's leftover rows without the
+ * 0053), and this fixture always reuses the same seeded tenant, so its own
+ * emails would collide with a previous run's leftover rows without the
  * suffix. Same reason the appointments spec randomizes its slots.
+ *
+ * `npm run test:e2e` ya parte de una D1 limpia, así que por esa vía no habría
+ * restos; el sufijo se queda porque `E2E_KEEP_STATE=1` es un camino legítimo
+ * —iterar rápido sin reconstruir la base— y porque un spec no debería
+ * depender de que alguien se acordara de limpiar.
  */
 const RUN = `${Date.now()}-${Math.floor(Math.random() * 1000)}`
 const PROJECT_NAME = `Skyline Secret Tower ${RUN}`

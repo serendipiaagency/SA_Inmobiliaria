@@ -25,6 +25,17 @@ export const STATE_B = 'tests/e2e/.auth/tenant-b.json'
 async function saveSession(baseURL: string, creds: { email: string; password: string }, path: string) {
   const ctx = await request.newContext({ baseURL })
   const res = await ctx.post('/api/auth/login', { data: creds })
+  if (res.status() === 429) {
+    // Un 429 aquí no dice nada del código: significa que esta IP ha gastado
+    // los 10 intentos de la ventana, casi siempre por pruebas manuales o por
+    // una ejecución anterior con E2E_KEEP_STATE=1. Decirlo evita perder un
+    // rato buscando una regresión que no existe — pasó exactamente eso.
+    throw new Error(
+      `global-setup: el login de ${creds.email} devolvió 429 (demasiados intentos para esta IP). ` +
+        'No es un fallo del código. `npm run test:e2e` parte de una D1 limpia y no debería ocurrir; ' +
+        'si usaste E2E_KEEP_STATE=1 o probaste el login a mano, espera 10 minutos o vuelve a lanzarlo sin conservar el estado.',
+    )
+  }
   if (!res.ok()) throw new Error(`global-setup: login failed for ${creds.email} (${res.status()})`)
   mkdirSync(dirname(path), { recursive: true })
   await ctx.storageState({ path })
