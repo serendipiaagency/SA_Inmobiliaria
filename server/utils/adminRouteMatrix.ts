@@ -71,6 +71,9 @@ const RULES: Rule[] = [
   { pattern: /^resources$/, resolve: constant({ kind: 'admin-metadata' }) },
   { pattern: /^active-org-info$/, resolve: constant({ kind: 'admin-metadata' }) },
   { pattern: /^active-org$/, resolve: constant({ kind: 'super-admin' }) },
+  // Configuración de la plataforma entera (qué secretos faltan, qué
+  // integraciones están dormidas), no datos de ningún inquilino.
+  { pattern: /^system-status$/, resolve: constant({ kind: 'super-admin' }) }, // pages/admin/estado.vue
 
   // --- General (Dashboard, Analytics) ------------------------------------
   { pattern: /^stats$/, resolve: area('general') },

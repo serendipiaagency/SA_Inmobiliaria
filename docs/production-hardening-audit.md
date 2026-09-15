@@ -948,6 +948,44 @@ aparezca en `.output/` tras compilar.
 
 ## Problemas P2 (mejoras de calidad, no urgentes)
 
+- ~~La honestidad del proyecto estaba dispersa: cada integración avisaba en su
+  propio rincón y nadie tenía la lista completa~~ — ✅ resuelto:
+  **`/admin/estado`** (super_admin), servida por
+  `GET /api/admin/system-status` y calculada por `buildSystemStatus()` en
+  `server/utils/systemStatus.ts`.
+
+  El proyecto era honesto pieza a pieza —el motor de IA dice que cae a reglas
+  sin `AI_API_KEY`, el despachador distingue `not_configured` de
+  `not_implemented`, el email no marca "Entregado" sin confirmación de
+  Resend— pero en la práctica eso significaba vender en la interfaz cosas que
+  hoy no pueden funcionar, porque nadie veía el conjunto.
+
+  La distinción que hace útil la pantalla es **`not-configured` vs
+  `not-implemented`**, tomada prestada del propio dispatcher en vez de
+  inventar un vocabulario paralelo: lo primero está a un secreto de distancia
+  y lleva remedio accionable; lo segundo no tiene código detrás, y ofrecer un
+  "configura X" ahí sería mandar a alguien a perder la tarde. Por eso los 19
+  canales de publicación salen en gris y **sin** remedio.
+
+  Cada fila dice qué deja de funcionar mientras tanto, no un semáforo: sin
+  `RESEND_WEBHOOK_SECRET` un email se queda en "Enviado" para siempre; sin
+  `STRIPE_WEBHOOK_SECRET` un cliente puede pagar y ver su depósito "En
+  proceso" indefinidamente. El titular prioriza lo roto sobre lo dormido, y
+  no dice nada cuando no hay nada que decir.
+
+  De los secretos viaja **sólo su presencia**: la única operación que se hace
+  sobre ellos es `Boolean(...)`, así que la pantalla se puede enseñar o
+  capturar sin filtrar nada. Abajo reutiliza la identidad del build (P1-16) y
+  marca "Se saltó el pipeline" cuando el origen es `workers-builds`.
+
+  10 tests en `test/unit/systemStatus.test.ts` (incluido uno que intenta
+  colar una clave por la entrada de booleanos y comprueba que no sale en la
+  respuesta) y, sobre HTTP real en `tests/e2e/admin-rbac.spec.ts`, que un
+  admin **irrestricto** de una agencia recibe 403 — «sin restricciones dentro
+  de su agencia» no es «super_admin», y esa línea ahora la sostiene una
+  prueba.
+
+
 - ~~El CRUD genérico estaba en inglés y enseñaba el nombre crudo de las
   columnas~~ — ✅ resuelto. `pages/admin/[resource]/index.vue` y `[id].vue`
   sirven **18 entradas del menú** (Usuarios, Comunidades, Equipo, Blog legacy,

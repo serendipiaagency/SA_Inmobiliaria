@@ -544,6 +544,20 @@ export function useHelpContent() {
       ],
     },
     {
+      key: 'estado-sistema',
+      group: 'Sistema',
+      title: 'Estado del sistema',
+      route: '/admin/estado',
+      summary: 'Qué integraciones de la plataforma (email, cobros, IA, avisos, canales de publicación) están funcionando ahora mismo, cuáles están sin configurar y cuáles todavía no existen. Sólo la ve el super_admin.',
+      steps: [
+        '"Sin configurar" y "Sin implementar" no son lo mismo, y es la distinción más útil de esta pantalla: lo primero se arregla añadiendo un ajuste y la propia fila te dice cuál; lo segundo significa que no hay código detrás todavía, y configurar algo no lo cambiaría.',
+        '"Con problemas" es lo único urgente: algo que debería funcionar y no está funcionando. Sale primero en el resumen de arriba.',
+        'Cada fila dice qué deja de funcionar mientras tanto, en vez de limitarse a un semáforo. Por ejemplo, sin la confirmación de entrega de emails un envío se queda en "Enviado" para siempre, aunque haya llegado.',
+        'La pantalla nunca muestra el valor de un secreto, sólo si está puesto o no — se puede enseñar o capturar sin filtrar nada.',
+        'Abajo, "Build desplegado" dice qué código está sirviendo: el commit, la rama y quién lo publicó. Si pone "Se saltó el pipeline", ese despliegue no pasó por la copia de seguridad ni por las migraciones.',
+      ],
+    },
+    {
       key: 'privacidad',
       group: 'Sistema',
       title: 'Privacidad (RGPD)',

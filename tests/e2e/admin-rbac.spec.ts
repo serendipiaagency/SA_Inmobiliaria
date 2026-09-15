@@ -108,6 +108,11 @@ test.describe('RBAC: permisos efectivos en todas las APIs (bloque 01)', () => {
     // listado, pero delata volumen de envíos y el motivo de los fallos.
     expect((await restricted.get('/api/admin/saas/email-health')).status()).toBe(403)
 
+    // Estado de la plataforma: qué secretos faltan y qué integraciones están
+    // dormidas. Ni siquiera un admin irrestricto de una agencia lo ve — es
+    // super_admin, y se comprueba abajo que a él sí le responde.
+    expect((await restricted.get('/api/admin/system-status')).status()).toBe(403)
+
     // Exportación de materiales — área "web".
     expect((await restricted.post('/api/admin/asset-export/batches', { data: { templateId: 1, assetIds: [1] } })).status()).toBe(403)
   })
@@ -199,9 +204,19 @@ test.describe('RBAC: permisos efectivos en todas las APIs (bloque 01)', () => {
 
   test('el super_admin no se ve afectado por ninguna restricción', async () => {
     await setPermissions('[]')
-    for (const path of ['/api/admin/saas/apikeys', '/api/admin/users', '/api/admin/saas/gdpr/requests']) {
+    for (const path of ['/api/admin/saas/apikeys', '/api/admin/users', '/api/admin/saas/gdpr/requests', '/api/admin/system-status']) {
       expect((await owner.get(path)).status(), path).toBe(200)
     }
     await setPermissions(null)
+  })
+
+  test('un admin irrestricto de una agencia tampoco ve el estado de la plataforma', async () => {
+    // `permissions: null` significa "sin restricciones" *dentro de su
+    // agencia* — no le convierte en super_admin. Esta es la línea que separa
+    // ambas cosas, y conviene que una prueba la sostenga: el endpoint dice
+    // qué secretos faltan en toda la plataforma.
+    await setPermissions(null)
+    expect((await restricted.get('/api/admin/system-status')).status()).toBe(403)
+    expect((await restricted.get('/api/admin/users')).status()).toBe(200)
   })
 })
