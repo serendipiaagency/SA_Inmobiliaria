@@ -43,14 +43,36 @@ if (!email) {
   process.exit(2)
 }
 
+/**
+ * Captura stderr en vez de heredarlo. Heredándolo, un fallo de wrangler
+ * llegaba al log como "Command failed: <comando>" y nada más — justo el
+ * mensaje que hacía falta se perdía. Un diagnóstico que no sabe explicar por
+ * qué no ha podido diagnosticar no vale para nada.
+ */
 function d1(sql) {
-  const out = execFileSync('npx', ['wrangler', 'd1', 'execute', DB_NAME, LOCATION, '--json', '--command', sql], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'inherit'],
-  })
+  let out
+  try {
+    out = execFileSync('npx', ['wrangler', 'd1', 'execute', DB_NAME, LOCATION, '--json', '--command', sql], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  } catch (err) {
+    const detail = [err.stderr, err.stdout].filter(Boolean).join('\n').trim()
+    throw new Error(detail || err.message)
+  }
   const start = out.indexOf('[')
-  if (start === -1) throw new Error('wrangler no devolvió JSON; revisa el paso anterior del log.')
+  if (start === -1) throw new Error(`wrangler no devolvió JSON. Salida:\n${out.slice(0, 500)}`)
   return JSON.parse(out.slice(start))[0]?.results ?? []
+}
+
+/** Cada comprobación por separado: que una falle no debe callar a las demás. */
+function paso(titulo, fn) {
+  try {
+    fn()
+  } catch (err) {
+    console.log(`   ✗ no se pudo comprobar: ${String(err.message).split('\n').slice(0, 4).join(' / ')}`)
+  }
+  console.log('')
 }
 
 function sqlString(value) {
@@ -76,52 +98,80 @@ function describePermissions(raw) {
 function main() {
   console.log(`\n=== Diagnóstico de acceso — ${email} ===\n`)
 
-  const [user] = d1(
-    `SELECT id, name, email, role, organization_id, permissions, created_at, updated_at
-     FROM users WHERE email = ${sqlString(email.toLowerCase())} LIMIT 1`,
-  )
-  if (!user) {
-    console.log('1. La cuenta NO EXISTE en esta base de datos.')
-    console.log('   Eso explica el problema por completo: no es la contraseña.')
-    return
-  }
+  // Lo primero, y por eso va antes que nada: si producción está atrasada en
+  // migraciones, medio diagnóstico deja de tener sentido — y una columna que
+  // el código vivo espera y la base no tiene rompe el login entero, que se
+  // parece muchísimo a "no me deja entrar".
+  console.log('0. Estado del esquema')
+  paso('esquema', () => {
+    const migs = d1('SELECT name FROM d1_migrations ORDER BY id DESC LIMIT 4')
+    const [total] = d1('SELECT COUNT(*) AS n FROM d1_migrations')
+    console.log(`   ${total?.n ?? '?'} migraciones aplicadas. Últimas: ${migs.map((m) => m.name).join(', ') || 'ninguna'}`)
+    const cols = d1('PRAGMA table_info(users)').map((c) => c.name)
+    console.log(`   Columnas de users: ${cols.join(', ')}`)
+    if (!cols.includes('permissions')) {
+      console.log('   ⚠ NO EXISTE la columna `permissions`, que el código vivo lee en cada inicio')
+      console.log('     de sesión. Con eso, el login falla SIEMPRE, con cualquier contraseña.')
+      console.log('     Causa: código desplegado por delante de las migraciones.')
+    }
+  })
 
-  console.log(`1. Cuenta: id ${user.id}, rol "${user.role}", organization_id ${user.organization_id ?? 'NULL'}`)
-  console.log(`   Creada ${user.created_at} · actualizada ${user.updated_at}`)
-  if (user.role !== 'admin' && user.role !== 'super_admin') {
-    console.log(`   ⚠ El rol "${user.role}" NO tiene acceso al panel: el login funcionaría y aun así rebotaría.`)
-  }
+  let user = null
+  console.log('1. La cuenta')
+  paso('cuenta', () => {
+    const rows = d1(`SELECT * FROM users WHERE email = ${sqlString(email.toLowerCase())} LIMIT 1`)
+    user = rows[0] || null
+    if (!user) {
+      console.log('   NO EXISTE en esta base de datos. Eso solo ya explica el problema.')
+      return
+    }
+    console.log(`   id ${user.id}, rol "${user.role}", organization_id ${user.organization_id ?? 'NULL'}`)
+    console.log(`   creada ${user.created_at} · actualizada ${user.updated_at}`)
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
+      console.log(`   ⚠ El rol "${user.role}" no tiene acceso al panel: entraría y rebotaría.`)
+    }
+  })
 
-  const perms = describePermissions(user.permissions)
-  console.log(`\n2. permissions = ${perms.estado}`)
-  if (perms.problema) {
-    console.log('   ⚠ ESTA ES LA CAUSA MÁS PROBABLE. La sesión se crea bien, pero el panel')
-    console.log('     no muestra nada porque ningún área está permitida. Lo arregla la')
-    console.log('     migración 0061, o poner esta columna a NULL.')
-  }
+  console.log('2. Permisos efectivos')
+  paso('permisos', () => {
+    if (!user) return console.log('   (sin cuenta que mirar)')
+    if (!('permissions' in user)) return console.log('   la columna no existe — ver el punto 0.')
+    const perms = describePermissions(user.permissions)
+    console.log(`   permissions = ${perms.estado}`)
+    if (perms.problema) {
+      console.log('   ⚠ CAUSA PROBABLE: la sesión se crea bien, pero el panel no muestra nada')
+      console.log('     porque ninguna área está permitida. Lo arregla la migración 0061, o')
+      console.log('     poner esta columna a NULL.')
+    }
+  })
 
-  const applied = d1("SELECT name FROM d1_migrations WHERE name LIKE '0061%'")
-  console.log(`\n3. Migración 0061: ${applied.length ? `aplicada (${applied[0].name})` : 'NO APLICADA'}`)
+  console.log('3. Migración 0061 (la que normaliza los permisos)')
+  paso('0061', () => {
+    const applied = d1("SELECT name FROM d1_migrations WHERE name LIKE '0061%'")
+    console.log(`   ${applied.length ? `aplicada (${applied[0].name})` : 'NO APLICADA'}`)
+  })
 
-  const [token] = d1(
-    `SELECT created_at, expires_at, used_at FROM password_reset_tokens
-     WHERE user_id = ${user.id} ORDER BY id DESC LIMIT 1`,
-  )
-  console.log('\n4. Último enlace de acceso:')
-  if (!token) console.log('   no se ha acuñado ninguno.')
-  else console.log(`   creado ${token.created_at} · caduca ${token.expires_at} · ${token.used_at ? `USADO el ${token.used_at}` : 'SIN USAR'}`)
+  console.log('4. Último enlace de acceso acuñado')
+  paso('enlace', () => {
+    if (!user) return console.log('   (sin cuenta que mirar)')
+    const [token] = d1(
+      `SELECT created_at, expires_at, used_at FROM password_reset_tokens
+       WHERE user_id = ${user.id} ORDER BY id DESC LIMIT 1`,
+    )
+    if (!token) return console.log('   no se ha acuñado ninguno.')
+    console.log(`   creado ${token.created_at} · caduca ${token.expires_at} · ${token.used_at ? `USADO el ${token.used_at}` : 'SIN USAR'}`)
+    if (!token.used_at) console.log('   → no llegó a abrirse: el problema es anterior a la contraseña.')
+  })
 
-  // Sólo el recuento y la ventana: nunca la IP de nadie.
-  const [limits] = d1(
-    "SELECT COUNT(*) AS activos, MAX(window_start) AS ultima FROM rate_limits WHERE bucket LIKE 'login:%' AND count > 10",
-  )
-  console.log('\n5. Bloqueos de login activos (sin identificar a nadie):')
-  console.log(`   ${limits?.activos ?? 0} IP(s) por encima del límite. Última ventana: ${limits?.ultima ?? 'ninguna'}`)
-  if ((limits?.activos ?? 0) > 0) {
-    console.log('   ⚠ Hay al menos una IP bloqueada. Si es la tuya, la contraseña correcta')
-    console.log('     también falla hasta que pasen los 10 minutos.')
-  }
-  console.log('')
+  console.log('5. Bloqueos de login activos (sin identificar a nadie)')
+  paso('limitador', () => {
+    const [limits] = d1("SELECT COUNT(*) AS activos, MAX(window_start) AS ultima FROM rate_limits WHERE bucket LIKE 'login:%' AND count > 10")
+    console.log(`   ${limits?.activos ?? 0} IP(s) por encima del límite. Última ventana: ${limits?.ultima ?? 'ninguna'}`)
+    if ((limits?.activos ?? 0) > 0) {
+      console.log('   ⚠ Si una es la tuya, la contraseña correcta también falla hasta que pasen')
+      console.log('     los 10 minutos.')
+    }
+  })
 }
 
 try {
