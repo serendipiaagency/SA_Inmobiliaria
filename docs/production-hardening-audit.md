@@ -818,6 +818,47 @@ el que gane la carrera pondrá este paso en rojo en vez de pasar en verde.
 esperado (informa), con el correcto (pasa) y con uno equivocado (falla con
 código 1 nombrando ambos).
 
+### P1-17 — El aislamiento por agencia sólo lo protegía cobertura escrita a mano — ✅ resuelto
+
+El bloque 01 existió porque 147 de 156 rutas se habían "olvidado" de pasar el
+área de permisos. El aislamiento por `organizationId` se apoya exactamente en
+la misma clase de disciplina —acordarse de llamar a `requireOrgScope` /
+`resolvePublicOrgId` / `requireApiKey`— y hasta ahora sólo lo protegían
+`test/unit/multitenant.crossTenant.test.ts` y `tests/e2e/cross-tenant.spec.ts`:
+cobertura excelente de los endpoints que alguien se acordó de incluir, y muda
+sobre el que se añada mañana.
+
+**El diagnóstico salió bien**: de los 224 handlers de `server/api/**`, ninguno
+tenía un agujero real. Los 19 que no llaman a ningún helper de ámbito se
+revisaron uno a uno y todos tienen un motivo legítimo —anteriores a la sesión
+(`auth/*`), sondas de salud, webhooks firmados por el proveedor, URLs-capacidad
+con token de un solo uso, y `public/pois.get.ts`, que ni siquiera toca D1—.
+Esto no arregla nada roto: impide que se rompa.
+
+**Resuelto**: `test/unit/tenantScopeCoverage.test.ts` recorre `server/api/**` y
+falla si un handler no resuelve una organización por alguna de las cuatro vías
+reconocidas y no está exento **con un motivo escrito**. Además de la
+comprobación obvia, protege la propia lista de exenciones, que es donde este
+tipo de guardas se pudre:
+
+- una exención que ya no apunta a ningún fichero se marca como obsoleta;
+- una exención sobre un endpoint que **ya** acota se marca como redundante, para
+  que la lista no acabe autorizando cosas que no lo necesitan;
+- una exención que dice apoyarse en una URL-capacidad tiene que demostrar que el
+  endpoint sigue exigiendo el token (`requires`), porque el día que alguien lo
+  quite el motivo escrito seguiría ahí, ya mintiendo;
+- un motivo de menos de 40 caracteres no cuenta como motivo;
+- y si las exenciones pasaran del 15 % de la superficie, la guarda habría dejado
+  de proteger nada y lo dice.
+
+Es una comprobación de **exhaustividad, no de corrección**: confirma que cada
+handler se acuerda de acotar, no que use bien el ámbito una vez resuelto. De eso
+siguen encargándose las pruebas de cross-tenant y `server/utils/tenantPolicy.ts`.
+
+**Verificado**: 7 tests, y probado en negativo —creando un
+`server/api/admin/…/leak.get.ts` que lee `leads` sin acotar y confirmando que la
+prueba falla nombrándolo— para que no sea una comprobación vacía.
+
 ## Problemas P1 (reales, menor urgencia o menor probabilidad)
 
 | # | Hallazgo | Archivo | Nota |
@@ -838,6 +879,7 @@ código 1 nombrando ambos).
 | P1-14 | ~~`npm run typecheck` se rompía con 2 rutas más (TS2589 de Nitro), señalando un fichero sin relación con el cambio~~ — ✅ resuelto | `nitro-fetch-warmup.ts` | Margen de 1 ruta → más de 150, con guardas en `test/unit/nitroFetchWarmup.test.ts` — ver detalle arriba |
 | P1-15 | ~~Un email que no salía quedaba anotado en `email_log` y ahí se moría: nadie sumaba esas filas ni avisaba~~ — ✅ resuelto | `server/utils/email/health.ts` | `GET /api/admin/saas/email-health` + aviso en el Dashboard y en /admin/emails, sólo cuando hay algo roto — ver detalle arriba |
 | P1-16 | ~~No había forma de saber qué commit estaba vivo, y el smoke test no comprobaba que el build desplegado fuera el recién publicado~~ — ✅ resuelto | `scripts/build-info.mjs` | `version` en `/api/health/ready` (incluido **quién** lo construyó) + verificación en `scripts/smoke-test.mjs` — ver detalle arriba |
+| P1-17 | ~~Nada impedía que un endpoint nuevo se olvidara de acotar por `organizationId`, igual que 147 se olvidaron del área~~ — ✅ resuelto | `test/unit/tenantScopeCoverage.test.ts` | Recorre los 224 handlers; ningún agujero real encontrado, y las exenciones se protegen a sí mismas — ver detalle arriba |
 
 ## Problemas P2 (mejoras de calidad, no urgentes)
 
