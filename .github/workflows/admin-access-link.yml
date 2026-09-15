@@ -24,8 +24,9 @@ on:
         required: true
         type: string
       base_url:
-        description: 'URL pública de la instalación, con https:// (ej. https://panel.tudominio.com)'
-        required: true
+        description: 'URL pública con https://. Si se deja vacía se averigua el subdominio workers.dev de la cuenta.'
+        required: false
+        default: ''
         type: string
       ttl_minutes:
         description: 'Minutos de validez del enlace (1-60)'
