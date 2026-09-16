@@ -77,11 +77,11 @@ export function useHelpContent() {
       group: 'CRM',
       title: 'Visitas',
       route: '/admin/visitas',
-      summary: 'Agenda de citas con clientes: vista de calendario mensual, buffer entre citas y tope diario por agente.',
+      summary: 'Agenda de citas con clientes: vista de calendario mensual, buffer entre citas y tope diario por comercial.',
       steps: [
-        'Crea una visita manualmente o deja que se reserven solas desde la ficha pública del agente.',
+        'Crea una visita manualmente o deja que se reserven solas desde la ficha pública del comercial.',
         'Cada visita genera un enlace de gestión propio para el cliente (cancelar/reprogramar sin necesidad de llamar).',
-        'El feed iCal de cada agente (botón "Suscribirse al calendario") permite verlas en Google Calendar u Outlook.',
+        'El feed iCal de cada comercial (botón "Suscribirse al calendario") permite verlas en Google Calendar u Outlook.',
         'Las videollamadas usan Jitsi Meet automáticamente si el canal de la cita es "vídeo" — no requiere configuración.',
       ],
     },
@@ -90,8 +90,8 @@ export function useHelpContent() {
       group: 'CRM',
       title: 'Analítica de citas',
       route: '/admin/citas-analytics',
-      summary: 'No-shows, ocupación por agente y conversión de cita a venta.',
-      steps: ['Revisa la ocupación por agente para detectar quién tiene hueco para más visitas.'],
+      summary: 'No-shows, ocupación por comercial y conversión de cita a venta.',
+      steps: ['Revisa la ocupación por comercial para detectar quién tiene hueco para más visitas.'],
     },
     {
       key: 'reservas',
@@ -106,7 +106,7 @@ export function useHelpContent() {
       group: 'CRM',
       title: 'Referidos',
       route: '/admin/referidos',
-      summary: 'Programa de recomendación: cada cliente o agente recibe un enlace propio para recomendar la inmobiliaria.',
+      summary: 'Programa de recomendación: cada cliente o comercial recibe un enlace propio para recomendar la inmobiliaria.',
       steps: [
         'Pulsa "Nuevo enlace", indica quién recomienda y qué recompensa recibirá (efectivo, descuento o comisión).',
         'Copia el enlace generado (botón "Copiar") y compártelo con esa persona.',
@@ -184,7 +184,7 @@ export function useHelpContent() {
       key: 'agents',
       group: 'Portal Web',
       title: 'Comerciales',
-      route: '/admin/agents',
+      route: '/admin/comerciales',
       summary: 'Ficha profesional completa de cada comercial: datos laborales, especialización, propiedades asignadas, rendimiento y perfil público.',
       steps: [
         'El listado busca por nombre, puesto, email, teléfono, departamento u oficina; el botón "Filtros" añade zona, especialización, idioma y si tiene o no propiedades asignadas — cada filtro activo aparece como una chip que puedes quitar, o usa "Limpiar filtros" para quitarlos todos.',
@@ -197,7 +197,8 @@ export function useHelpContent() {
         '"Rendimiento" muestra leads, visitas, operaciones cerradas, volumen y comisión reales — calculados a partir de los leads/visitas/operaciones del CRM ya existentes, nunca cifras inventadas.',
         '"Documentos" admite adjuntar archivos internos (contratos, certificaciones…) — nunca se muestran en la ficha pública, solo son visibles desde el panel de administración.',
         'La visibilidad pública ("Mostrar este comercial en la web") y su orden se controlan en el paso "Perfil y presentación"; la ficha pública reutiliza la foto, el nombre, el puesto, la descripción y las redes de los pasos anteriores — no hay campos públicos duplicados.',
-        'La agenda de disponibilidad para citas (horario semanal, vacaciones) sigue gestionándose desde "Equipo" (Contenido → Equipo) — el paso "Información profesional" enlaza directamente a "Configurar horario" en vez de duplicar ese calendario.',
+        'La agenda de disponibilidad para citas (horario semanal, duración y margen entre citas, tope diario, vacaciones y días bloqueados) se configura dentro de la propia ficha: en el paso "Información profesional", el enlace "Configurar horario →". Antes era un módulo aparte llamado "Equipo"; ahora es una pantalla más de este comercial, y desde ella se vuelve a su ficha. Los enlaces antiguos a /admin/agents y /admin/team siguen funcionando: llevan solos a la dirección nueva.',
+        'Desde esa pantalla también sale la URL de calendario (.ics) para suscribirse a las citas de ese comercial desde Google Calendar u Outlook.',
       ],
     },
     {
@@ -273,10 +274,10 @@ export function useHelpContent() {
       group: 'Finanzas & Growth',
       title: 'Operaciones',
       route: '/admin/operaciones',
-      summary: 'Registro de ventas y alquileres cerrados, con cálculo automático de comisión por agente.',
+      summary: 'Registro de ventas y alquileres cerrados, con cálculo automático de comisión por comercial.',
       steps: [
         'Pulsa "Registrar operación", indica cliente, tipo (venta/alquiler), valor y porcentaje de comisión.',
-        'La comisión se calcula sola; márcala como "pagada" cuando la liquides con el agente.',
+        'La comisión se calcula sola; márcala como "pagada" cuando la liquides con el comercial.',
         'Estos datos alimentan directamente el panel de Ingresos.',
       ],
     },
@@ -285,7 +286,7 @@ export function useHelpContent() {
       group: 'Finanzas & Growth',
       title: 'Ingresos',
       route: '/admin/ingresos',
-      summary: 'Dashboard de ingresos y comisiones, agregado por mes y por agente a partir de las operaciones reales registradas.',
+      summary: 'Dashboard de ingresos y comisiones, agregado por mes y por comercial a partir de las operaciones reales registradas.',
       steps: ['Si no ves datos aquí, es porque todavía no has registrado ninguna operación en "Operaciones".'],
     },
     {
@@ -332,7 +333,7 @@ export function useHelpContent() {
       group: 'Finanzas & Growth',
       title: 'Automatizaciones',
       route: '/admin/automatizaciones',
-      summary: 'Reglas del tipo "cuando pase X, haz Y" (por ejemplo, asignar automáticamente un lead nuevo a un agente).',
+      summary: 'Reglas del tipo "cuando pase X, haz Y" (por ejemplo, asignar automáticamente un lead nuevo a un comercial).',
       steps: [],
     },
     {
@@ -459,14 +460,6 @@ export function useHelpContent() {
       route: '/admin/blogs',
       summary: 'Sistema de blog anterior, mantenido solo por compatibilidad con contenido antiguo.',
       steps: ['Para contenido nuevo usa siempre "Blog & CMS → Artículos", no esta sección.'],
-    },
-    {
-      key: 'team',
-      group: 'Contenido',
-      title: 'Equipo',
-      route: '/admin/team',
-      summary: 'Página pública "Sobre nosotros" con las fichas del equipo.',
-      steps: [],
     },
     // --- Bandeja -------------------------------------------------------------
     {

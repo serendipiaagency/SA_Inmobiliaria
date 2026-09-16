@@ -18,7 +18,7 @@
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <a v-if="!isNew && form.showOnWeb && form.slug" :href="`/equipo/${form.slug}`" target="_blank" rel="noopener" class="btn-quiet">Ver ficha pública</a>
-          <NuxtLink to="/admin/agents" class="btn-quiet">{{ isNew ? 'Cancelar' : 'Cancelar / Volver' }}</NuxtLink>
+          <NuxtLink to="/admin/comerciales" class="btn-quiet">{{ isNew ? 'Cancelar' : 'Cancelar / Volver' }}</NuxtLink>
           <button type="button" class="btn-primary" :disabled="saving" @click="save">{{ saving ? 'Guardando…' : isNew ? 'Guardar comercial' : 'Guardar cambios' }}</button>
         </div>
       </div>
@@ -98,8 +98,9 @@
             </label>
           </div>
           <p class="text-[12px] text-stone-400">
-            La agenda de disponibilidad para citas (horario semanal, vacaciones) se gestiona en su propio módulo, ya existente, para no duplicar el calendario.
-            <NuxtLink v-if="!isNew" :to="`/admin/team/${recordId}`" class="font-medium text-ink hover:underline">Configurar horario →</NuxtLink>
+            La agenda de disponibilidad para citas (horario semanal, margen entre citas, vacaciones) se configura en su propia pantalla, dentro de esta misma ficha, para no duplicar el calendario.
+            <NuxtLink v-if="!isNew" :to="`/admin/comerciales/${recordId}/horario`" class="font-medium text-ink hover:underline">Configurar horario →</NuxtLink>
+            <span v-else>Podrás hacerlo en cuanto guardes este comercial.</span>
           </p>
         </div>
 
@@ -572,7 +573,7 @@ async function save() {
     if (isNew.value) {
       const res = await $fetch<{ id: number }>('/api/admin/team', { method: 'POST', body })
       recordId.value = res.id
-      router.replace(`/admin/agents/${res.id}`)
+      router.replace(`/admin/comerciales/${res.id}`)
     } else {
       await $fetch(`/api/admin/team/${recordId.value}`, { method: 'PUT', body })
     }

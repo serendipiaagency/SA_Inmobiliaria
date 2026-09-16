@@ -117,7 +117,9 @@ describe('resolveAdminRouteAccess', () => {
     ['/api/admin/saas/settings', 'POST', 'system', 'write'],
     ['/api/admin/saas/email-log', 'GET', 'system', 'read'],
     ['/api/admin/saas/email-health', 'GET', 'system', 'read'],
-    ['/api/admin/saas/agents/2/availability', 'PUT', 'content', 'write'],
+    // El horario de un comercial pasó de "Equipo" (Contenido) a ser una
+    // pantalla de su propia ficha, en Portal Web — el área va con la pantalla.
+    ['/api/admin/saas/agents/2/availability', 'PUT', 'web', 'write'],
     ['/api/admin/cms/articles/5', 'PUT', 'cms', 'write'],
     ['/api/admin/cms/media', 'POST', 'cms', 'write'],
     ['/api/admin/cms/ai', 'POST', 'cms', 'write'],

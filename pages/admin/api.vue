@@ -163,7 +163,7 @@ const endpoints = [
   { method: 'GET', path: '/api/v1/properties/:id', desc: 'Detalle' },
   { method: 'GET', path: '/api/v1/communities', desc: 'Comunidades' },
   { method: 'POST', path: '/api/v1/leads', desc: 'Crear lead (requiere scope "write")' },
-  { method: 'GET', path: '/api/v1/agents', desc: 'Agentes' },
+  { method: 'GET', path: '/api/v1/agents', desc: 'Comerciales' },
   { method: 'GET', path: '/api/v1/scheduler/schedules', desc: 'Programaciones de publicación' },
   { method: 'GET', path: '/api/v1/scheduler/schedules/:id', desc: 'Detalle de una programación' },
   { method: 'GET', path: '/api/v1/scheduler/channels', desc: 'Canales de publicación disponibles' },

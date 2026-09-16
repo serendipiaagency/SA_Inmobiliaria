@@ -92,6 +92,17 @@ const RULES: Rule[] = [
   // --- Portal Web ---------------------------------------------------------
   { pattern: /^geocode$/, resolve: area('web') }, // components/property-builder/LocationSection.vue
   { pattern: /^site-pages(?:\/|$)/, resolve: area('web') }, // Constructor Web
+  // Disponibilidad y bloqueos de un comercial (`team_members`). A pesar del
+  // path `saas/agents`, respaldan pages/admin/comerciales/[id]/horario.vue.
+  //
+  // Estaban en `content` porque el horario vivía en un módulo aparte llamado
+  // "Equipo", en esa sección del menú. Al pasar el horario a ser una pantalla
+  // de la ficha del comercial (RE05), el área tiene que seguirle: si no, una
+  // cuenta con `web` abriría la pantalla y recibiría 403 en cada llamada, y
+  // una cuenta con `content` conservaría acceso a una pantalla que ya no
+  // aparece en su menú. **Esto cambia quién puede editar horarios**: pasa de
+  // `content` a `web`, la misma área que ya gobierna Comerciales.
+  { pattern: /^saas\/agents(?:\/|$)/, resolve: area('web') },
   // Marking a publication notification as read acknowledges something the
   // caller is already allowed to see; it changes no business data, so it
   // stays at read level (the bell itself is hidden without web:read).
@@ -117,12 +128,6 @@ const RULES: Rule[] = [
   // `cms-tags`, … do not match this and fall through to the resource lookup
   // below, which already tags them as `cms`.
   { pattern: /^cms(?:\/|$)/, resolve: area('cms') },
-
-  // --- Contenido ----------------------------------------------------------
-  // Despite the `saas/agents` path these back pages/admin/team*.vue (the
-  // "Equipo" section), not Comerciales — `team_members` availability and
-  // time off.
-  { pattern: /^saas\/agents(?:\/|$)/, resolve: area('content') },
 
   // --- Sistema ------------------------------------------------------------
   { pattern: /^saas\/settings(?:\/|$)/, resolve: area('system') }, // pages/admin/configuracion.vue

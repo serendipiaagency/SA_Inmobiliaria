@@ -3,7 +3,7 @@
     <div class="mb-6 flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">Operaciones cerradas</h1>
-        <p class="mt-1 text-sm text-stone-500">Ventas y alquileres cerrados, con seguimiento real de comisiones por agente.</p>
+        <p class="mt-1 text-sm text-stone-500">Ventas y alquileres cerrados, con seguimiento real de comisiones por comercial.</p>
       </div>
       <button type="button" class="dash-btn-primary" @click="showCreate = !showCreate">{{ showCreate ? 'Cancelar' : 'Registrar operación' }}</button>
     </div>
@@ -26,8 +26,8 @@
           <input v-model="form.propertyName" class="cfg-input" placeholder="Nombre de la propiedad" >
         </label>
         <label class="block">
-          <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Agente</span>
-          <input v-model="form.agentName" class="cfg-input" placeholder="Nombre del agente" >
+          <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Comercial</span>
+          <input v-model="form.agentName" class="cfg-input" placeholder="Nombre del comercial" >
         </label>
         <label class="block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Valor de la operación (€)</span>
@@ -58,7 +58,7 @@
             <tr>
               <th class="px-4 py-2.5 font-semibold">Cliente</th>
               <th class="px-4 py-2.5 font-semibold">Tipo</th>
-              <th class="px-4 py-2.5 font-semibold">Agente</th>
+              <th class="px-4 py-2.5 font-semibold">Comercial</th>
               <th class="px-4 py-2.5 text-right font-semibold">Valor</th>
               <th class="px-4 py-2.5 text-right font-semibold">Comisión</th>
               <th class="px-4 py-2.5 font-semibold">Cierre</th>

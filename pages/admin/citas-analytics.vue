@@ -3,7 +3,7 @@
     <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">Analítica de citas</h1>
-        <p class="mt-1 text-sm text-stone-500">Uso real de la agenda: no-show, ocupación por agente y conversión a venta</p>
+        <p class="mt-1 text-sm text-stone-500">Uso real de la agenda: no-show, ocupación por comercial y conversión a venta</p>
       </div>
       <select v-model.number="days" class="input !w-40">
         <option :value="7">Últimos 7 días</option>
@@ -19,12 +19,12 @@
       <AdminStatCard label="Conversión cita → venta" :value="pct(totals.conversionRate)" :sub="`${totals.convertedCount ?? 0} de ${totals.consideredForConversion ?? 0} citas completadas con email`" />
     </div>
 
-    <AdminPanel title="Ocupación por agente" sub="Citas reservadas ÷ capacidad teórica según su horario semanal y sus bloqueos, en el periodo seleccionado">
+    <AdminPanel title="Ocupación por comercial" sub="Citas reservadas ÷ capacidad teórica según su horario semanal y sus bloqueos, en el periodo seleccionado">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="border-b border-line text-left text-[11px] uppercase tracking-wide text-stone-400">
             <tr>
-              <th class="py-2 font-semibold">Agente</th>
+              <th class="py-2 font-semibold">Comercial</th>
               <th class="py-2 font-semibold">Citas</th>
               <th class="py-2 font-semibold">Capacidad</th>
               <th class="py-2 font-semibold">Ocupación</th>
@@ -33,7 +33,7 @@
           <tbody>
             <tr v-for="a in perAgent" :key="a.agentId" class="border-b border-line/60 last:border-0">
               <td class="py-2.5 font-medium">
-                <NuxtLink :to="`/admin/team/${a.agentId}`" class="hover:underline">{{ a.name }}</NuxtLink>
+                <NuxtLink :to="`/admin/comerciales/${a.agentId}`" class="hover:underline">{{ a.name }}</NuxtLink>
               </td>
               <td class="py-2.5 text-stone-600">{{ a.bookedCount }}</td>
               <td class="py-2.5 text-stone-600">{{ a.capacitySlots }}</td>
@@ -42,7 +42,7 @@
                 <span v-else class="font-medium">{{ pct(a.occupancy) }}</span>
               </td>
             </tr>
-            <tr v-if="!perAgent.length"><td colspan="4" class="py-10 text-center text-stone-400">Sin agentes</td></tr>
+            <tr v-if="!perAgent.length"><td colspan="4" class="py-10 text-center text-stone-400">Sin comerciales</td></tr>
           </tbody>
         </table>
       </div>

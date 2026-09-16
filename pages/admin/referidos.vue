@@ -3,7 +3,7 @@
     <div class="mb-6 flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">Programa de referidos</h1>
-        <p class="mt-1 text-sm text-stone-500">Enlaces de recomendación por cliente o agente, con seguimiento real de conversión y recompensa.</p>
+        <p class="mt-1 text-sm text-stone-500">Enlaces de recomendación por cliente o comercial, con seguimiento real de conversión y recompensa.</p>
       </div>
       <button type="button" class="dash-btn-primary" @click="showCreate = !showCreate">{{ showCreate ? 'Cancelar' : 'Nuevo enlace' }}</button>
     </div>
@@ -18,7 +18,7 @@
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Tipo</span>
           <select v-model="form.referrerType" class="cfg-input">
             <option value="client">Cliente</option>
-            <option value="agent">Agente</option>
+            <option value="agent">Comercial</option>
           </select>
         </label>
         <label class="block">
@@ -43,7 +43,7 @@
     <div v-if="!links.length" class="mb-6 rounded-xl border border-dashed border-line px-6 py-8 text-center text-sm text-stone-500">Sin enlaces de referido todavía.</div>
     <div v-else class="mb-6 grid gap-3 sm:grid-cols-2">
       <AdminPanel v-for="l in links" :key="l.id">
-        <p class="text-sm font-medium">{{ l.referrerName }} <span class="text-xs text-stone-400">({{ l.referrerType === 'agent' ? 'agente' : 'cliente' }})</span></p>
+        <p class="text-sm font-medium">{{ l.referrerName }} <span class="text-xs text-stone-400">({{ l.referrerType === 'agent' ? 'comercial' : 'cliente' }})</span></p>
         <p class="mt-1 text-xs text-stone-500">{{ l.referralCount }} referidos · recompensa: {{ l.rewardType }} {{ l.rewardAmount ? dt.money(l.rewardAmount) : '' }}</p>
         <div class="mt-2 flex items-center gap-2">
           <input :value="linkUrl(l.code)" readonly class="flex-1 rounded-lg border border-line bg-stone-50 px-2 py-1 text-xs" @click="($event.target as HTMLInputElement).select()" >

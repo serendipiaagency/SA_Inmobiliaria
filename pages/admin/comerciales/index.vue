@@ -5,7 +5,7 @@
         <h1 class="text-2xl font-semibold tracking-tight">Comerciales</h1>
         <p class="mt-1 text-sm text-stone-500">{{ data?.total ?? 0 }} comercial{{ data?.total === 1 ? '' : 'es' }}</p>
       </div>
-      <NuxtLink to="/admin/agents/new" class="btn-primary">+ Nuevo comercial</NuxtLink>
+      <NuxtLink to="/admin/comerciales/new" class="btn-primary">+ Nuevo comercial</NuxtLink>
     </div>
 
     <div class="mb-3 flex flex-wrap items-center gap-2">
@@ -112,7 +112,7 @@
         <tbody>
           <tr v-for="a in data.rows" :key="a.id" class="border-t border-line hover:bg-stone-50">
             <td class="px-4 py-3">
-              <NuxtLink :to="`/admin/agents/${a.id}`" class="flex items-center gap-2.5">
+              <NuxtLink :to="`/admin/comerciales/${a.id}`" class="flex items-center gap-2.5">
                 <img v-if="a.image" :src="mediaUrl(a.image)" class="h-9 w-9 shrink-0 rounded-full object-cover" >
                 <span v-else class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-stone-100 text-xs">👤</span>
                 <span class="min-w-0">
@@ -128,7 +128,7 @@
               <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold" :class="STATUS_CLASS[a.employmentStatus] || 'bg-stone-100 text-stone-500'">{{ STATUS_LABELS[a.employmentStatus] || a.employmentStatus }}</span>
             </td>
             <td class="whitespace-nowrap px-4 py-3 text-right text-xs">
-              <NuxtLink :to="`/admin/agents/${a.id}`" class="mr-2 font-medium text-stone-600 hover:underline">Editar</NuxtLink>
+              <NuxtLink :to="`/admin/comerciales/${a.id}`" class="mr-2 font-medium text-stone-600 hover:underline">Editar</NuxtLink>
               <button type="button" class="mr-2 font-medium text-stone-600 hover:underline" @click="toggleStatus(a.id)">{{ a.employmentStatus === 'active' ? 'Desactivar' : 'Activar' }}</button>
               <button type="button" class="font-medium text-red-600 hover:underline" @click="remove(a.id)">Eliminar</button>
             </td>
@@ -174,6 +174,9 @@ const filtersOpen = ref(false)
 
 const view = ref<'list' | 'grid'>('grid')
 onMounted(() => {
+  // La clave conserva el nombre antiguo del módulo a propósito: cambiarla
+  // borraría la preferencia de vista de todo el mundo sin ganar nada, porque
+  // no se ve en ninguna parte.
   const saved = localStorage.getItem('sa-admin-agents-view')
   if (saved === 'grid' || saved === 'list') view.value = saved
 })

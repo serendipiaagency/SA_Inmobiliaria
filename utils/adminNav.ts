@@ -65,7 +65,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: 'Propiedades (web)', to: '/admin/developer-properties', icon: 'building' },
       { label: 'Constructor Web', to: '/admin/site-builder', icon: 'widget' },
       { label: 'Propiedades 2ª mano', to: '/admin/properties', icon: 'layers' },
-      { label: 'Comerciales', to: '/admin/agents', icon: 'badge' },
+      { label: 'Comerciales', to: '/admin/comerciales', icon: 'badge' },
       { label: 'Comunidades', to: '/admin/communities', icon: 'store' },
       { label: 'Publicación multicanal', to: '/admin/scheduler', icon: 'bolt' },
       { label: 'Brand Kit', to: '/admin/asset-export/brand-kit', icon: 'sparkles' },
@@ -113,7 +113,11 @@ export const ADMIN_NAV: NavGroup[] = [
     area: 'content',
     items: [
       { label: 'Blog (legacy)', to: '/admin/blogs', icon: 'doc' },
-      { label: 'Equipo', to: '/admin/team', icon: 'team' },
+      // "Equipo" vivía aquí y editaba el horario de las mismas personas que
+      // "Comerciales" (ambas sobre team_members), con lo que la misma ficha
+      // aparecía en dos sitios del menú y con dos nombres. El horario es
+      // ahora una subruta de la ficha del comercial
+      // (/admin/comerciales/:id/horario), así que hay un solo módulo.
     ],
   },
   {

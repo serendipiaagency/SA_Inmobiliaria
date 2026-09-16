@@ -243,7 +243,52 @@ es dinámico, y cobertura en `site-builder.spec.ts`.
 
 ### RE05 | P2 — «Comerciales» convive con «Agentes» y «Equipo»
 
-**Estado**: Confirmado
+**Estado**: ✅ **Resuelto** (FASE 1, 16/09). El hallazgo se mantiene escrito
+tal cual para que conste qué se arregló.
+
+Lo entregado: un solo módulo **Comerciales** en `/admin/comerciales`, con el
+horario como pantalla de la propia ficha
+(`/admin/comerciales/:id/horario`). La entrada «Equipo» del menú desaparece:
+editaba el horario de las mismas filas de `team_members` desde otra sección,
+con otro nombre. Las URLs antiguas (`/admin/agents`, `/admin/agents/:id`,
+`/admin/team`, `/admin/team/:id`) redirigen 301 a la nueva, con el mismo
+planteamiento que `00.legacy-demo-redirect.ts` usa para las rutas públicas.
+
+La palabra «agente» ya no aparece en ninguna pantalla del panel ni en el
+módulo de ayuda: eran 20 cadenas repartidas por Leads, Clientes, Visitas,
+Operaciones, Ingresos, Analítica de citas, Referidos, Automatizaciones y el
+dashboard. `test/unit/comercialVocabulary.test.ts` falla si vuelve a
+aparecer, y comprobado en negativo.
+
+**Cambio de permisos, dicho en voz alta**: los endpoints de disponibilidad
+(`/api/admin/saas/agents/*`) pasan del área `content` al área `web`, porque
+la pantalla que los usa se ha mudado a Comerciales. Una cuenta con `content`
+y sin `web` deja de poder editar horarios; una con `web` empieza a poder. Es
+la alineación correcta —si no, la pantalla se abriría y se llenaría de
+403—, pero es un cambio real en quién puede hacer qué.
+
+**Lo que NO se ha tocado**: nombres internos en inglés. La tabla sigue siendo
+`team_members`, los endpoints siguen siendo `/api/admin/team`, y el endpoint
+público `/api/v1/agents` **no** se renombra: es contrato publicado. Sólo se
+ha corregido su etiqueta en la pantalla de documentación de la API.
+
+**Bug encontrado al ejecutar esta fase, y corregido**: la pantalla de horario
+devolvía **500 en cualquier carga directa**. Leía `window.location.origin`
+dentro de un `watch({ immediate: true })`, que también corre al renderizar en
+servidor, donde `window` no existe. No se notaba porque a esa pantalla sólo se
+llegaba pulsando un enlace desde el listado —navegación de cliente, sin render
+en servidor—; abrirla de primeras, **recargarla con F5 o compartir su URL
+fallaba siempre**, y lleva así desde que existe. Lo destapó la prueba e2e de
+las redirecciones, que es la primera que la carga de cero. Arreglado con
+`useRequestURL()`, que funciona en los dos lados. Comprobado que ningún otro
+`watch` inmediato del proyecto usa globales del navegador.
+
+**Hallazgo adicional durante la ejecución**: existe una **tercera** cosa
+llamada «agents» — la tabla `agents`, distinta de `team_members`, expuesta
+por el CRUD genérico `/api/admin/agents` y contada en `/api/admin/stats`.
+Ninguna página del panel la usa. No se ha tocado: retirar una tabla con datos
+es una decisión del propietario, no una limpieza de paso.
+
 **Área**: Consistencia de producto
 
 **Impacto funcional**: La misma persona es «Comercial» en una pantalla,
@@ -274,7 +319,25 @@ de la ficha en vez de un módulo aparte.
 
 ### RE06 | P2 — Dos páginas de listado casi idénticas para los dos módulos de propiedades
 
-**Estado**: Confirmado
+**Estado**: ✅ **Resuelto** (FASE 1, 16/09).
+
+Lo entregado: un solo `components/property-list/PropertyList.vue` para los dos
+catálogos, y las diferencias declaradas en `PROPERTY_LIST_CONFIG`
+(`composables/usePropertyListConfig.ts`) — el gemelo de
+`PROPERTY_BUILDER_SECTIONS`, con las mismas claves de recurso. Las dos páginas
+pasan de 330 y 327 líneas a 13 cada una. En el componente **no hay ni una
+condición sobre `resource`**, igual que en `PropertyBuilder.vue`.
+
+Lo que ahora está declarado en vez de duplicado: título, placeholder del
+buscador, estados, opciones de orden, si existe el filtro venta/alquiler, qué
+pinta cada fila (título, imagen, ubicación, chips de estado), si hay ficha
+pública que previsualizar, y la acción principal propia de cada catálogo
+(publicar/despublicar frente a marcar vendida/disponible).
+
+`test/unit/propertyListConfig.test.ts` vigila la forma de fallar que sustituye
+a la anterior: que un catálogo se añada a medias. Las e2e de los dos listados
+siguen pasando **sin tocarlas**, que era el criterio de aceptación.
+
 **Área**: Propiedades / Deuda técnica
 
 **Impacto funcional**: Bajo hoy, real mañana: toda mejora del listado
@@ -348,9 +411,9 @@ exactamente eso.
 | Multitenancy | Auditado — sin fugas encontradas | — | No |
 | Permisos y roles | Auditado — correcto | — | No |
 | Propiedades (web) | Editor auditado — correcto | — | No |
-| Propiedades 2ª mano | Editor auditado — correcto; listado duplicado (RE06) | P2 | No |
+| Propiedades 2ª mano | Editor auditado — correcto; listado unificado (RE06) | — | No |
 | Property Editor | Auditado — arquitectura correcta (R3) | — | No |
-| Comerciales | Constructor cubre casi todo el esquema; vocabulario inconsistente (RE05) | P2 | No |
+| Comerciales | Constructor cubre casi todo el esquema; vocabulario y módulo unificados (RE05) | — | No |
 | Constructor Web | Arquitectura correcta (R1, R2); rollback resuelto (RE03); catálogo corto (RE04) | P1 | **Sí** |
 | Publicación | Modelo correcto (R7); restauración entregada (RE03) | — | No |
 | Data binding | Auditado — en vivo, sin duplicación (R4) | — | No |
@@ -372,8 +435,8 @@ exactamente eso.
 externos, cuestan minutos y sin ellas no hay despliegue fiable de nada de lo
 que venga después. Nada de esto es código.
 
-**FASE 1 — Arquitectura y consistencia.** RE06 (unificar listados) y RE05
-(vocabulario Comerciales). Barato y evita que la divergencia siga creciendo.
+**FASE 1 — Arquitectura y consistencia.** RE06 (unificar listados) ✅ y RE05
+(vocabulario Comerciales) ✅. Hechas.
 
 **FASE 2 — Funcionalidades core.** RE03 (restauración de versiones) ✅ hecha.
 RE08 (conectar email) sigue pendiente y **no es código**: falta el secreto

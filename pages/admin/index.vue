@@ -59,12 +59,12 @@
 
       <!-- Secondary row -->
       <div class="mt-4 grid gap-4 lg:grid-cols-3">
-        <AdminPanel class="lg:col-span-2" title="Ranking de agentes" sub="Por operaciones ganadas">
+        <AdminPanel class="lg:col-span-2" title="Ranking de comerciales" sub="Por operaciones ganadas">
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
               <thead>
                 <tr class="border-b border-line text-left text-[11px] uppercase tracking-wide text-stone-400">
-                  <th class="pb-2 font-semibold">Agente</th>
+                  <th class="pb-2 font-semibold">Comercial</th>
                   <th class="pb-2 text-right font-semibold">Leads</th>
                   <th class="pb-2 text-right font-semibold">Ganados</th>
                   <th class="pb-2 text-right font-semibold">Win rate</th>

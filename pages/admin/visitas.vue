@@ -2,7 +2,7 @@
   <div>
     <div class="mb-6">
       <h1 class="text-2xl font-semibold tracking-tight">Visitas</h1>
-      <p class="mt-1 text-sm text-stone-500">Agenda de visitas y citas con agentes</p>
+      <p class="mt-1 text-sm text-stone-500">Agenda de visitas y citas con comerciales</p>
     </div>
 
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -51,7 +51,7 @@
             <tr>
               <th class="px-4 py-2.5 font-semibold">Cliente</th>
               <th class="px-4 py-2.5 font-semibold">Propiedad</th>
-              <th class="px-4 py-2.5 font-semibold">Agente</th>
+              <th class="px-4 py-2.5 font-semibold">Comercial</th>
               <th class="px-4 py-2.5 font-semibold">Canal</th>
               <th class="px-4 py-2.5 font-semibold">Fecha</th>
               <th class="px-4 py-2.5 font-semibold">Estado</th>
@@ -63,7 +63,7 @@
               <td class="px-4 py-3 font-medium">{{ v.clientName }}</td>
               <td class="px-4 py-3 text-stone-600">{{ v.propertyName || '—' }}</td>
               <td class="px-4 py-3 text-stone-600">
-                <NuxtLink v-if="v.agentId" :to="`/admin/team/${v.agentId}`" class="hover:underline">{{ v.agentName }}</NuxtLink>
+                <NuxtLink v-if="v.agentId" :to="`/admin/comerciales/${v.agentId}`" class="hover:underline">{{ v.agentName }}</NuxtLink>
                 <span v-else>{{ v.agentName || '—' }}</span>
               </td>
               <td class="px-4 py-3">
