@@ -66,6 +66,9 @@
       <span v-else class="toolbar-btn cursor-not-allowed opacity-40" title="Configura un dominio para esta organización para poder abrir el sitio publicado">
         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3" /></svg>
       </span>
+      <button type="button" class="toolbar-btn" title="Historial de versiones publicadas" @click="emit('open-history')">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v5h5" /><path stroke-linecap="round" stroke-linejoin="round" d="M3.05 13A9 9 0 1 0 6 5.3L3 8" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3.5 2" /></svg>
+      </button>
       <button type="button" class="toolbar-btn" title="SEO de la página" @click="emit('open-seo')">
         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8" /><path stroke-linecap="round" d="m21 21-4.3-4.3" /></svg>
       </button>
@@ -110,6 +113,7 @@ const emit = defineEmits<{
   redo: []
   'toggle-preview': []
   'open-seo': []
+  'open-history': []
   publish: []
 }>()
 </script>

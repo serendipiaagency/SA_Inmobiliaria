@@ -58,7 +58,7 @@ function d1(sql) {
     })
   } catch (err) {
     const detail = [err.stderr, err.stdout].filter(Boolean).join('\n').trim()
-    throw new Error(detail || err.message)
+    throw new Error(detail || err.message, { cause: err })
   }
   const start = out.indexOf('[')
   if (start === -1) throw new Error(`wrangler no devolvió JSON. Salida:\n${out.slice(0, 500)}`)

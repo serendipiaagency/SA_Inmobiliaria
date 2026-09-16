@@ -263,6 +263,38 @@ test.describe('Aislamiento entre inmobiliarias (cross-tenant)', () => {
     expect(draftA.seo?.title).not.toBe(marker)
   })
 
+  /**
+   * The history endpoints are the only place in the Constructor Web where a
+   * number from the request reaches the database. Version counters are
+   * per-organization, so both tenants have a "version 1" — the isolation
+   * rests on resolving the page row from the session before the version is
+   * ever looked up.
+   */
+  test('el historial de versiones de A no contiene nada de B, ni puede restaurarlo', async () => {
+    const marker = `Historial-${RUN}`
+    await b.put('/api/admin/site-pages/home', {
+      data: { blocks: [{ id: 'hero', type: 'hero', version: 1, content: { title1: marker } }], seo: { title: marker } },
+    })
+    const pubB = await b.post('/api/admin/site-pages/home/publish')
+    expect(pubB.ok()).toBeTruthy()
+    const bVersion = (await pubB.json()).version
+
+    const historyA = await (await a.get('/api/admin/site-pages/home/versions')).json()
+    expect(historyA.versions.map((v: any) => v.seoTitle), 'el historial de A muestra una publicación de B').not.toContain(marker)
+
+    // El número de versión de B existe en la tabla; A no debe poder alcanzarlo.
+    // Si A tiene esa misma versión, restaurarla debe devolver LA SUYA, no la
+    // de B — nunca el contenido del otro inquilino.
+    const restoreA = await a.post('/api/admin/site-pages/home/restore', { data: { version: bVersion } })
+    if (restoreA.ok()) {
+      const draftA = await (await a.get('/api/admin/site-pages/home')).json()
+      expect(draftA.blocks.map((blk: any) => blk.content?.title1), 'A restauró contenido de B').not.toContain(marker)
+      expect(draftA.seo?.title).not.toBe(marker)
+    } else {
+      expect(restoreA.status(), 'A no tiene esa versión: debe ser 404, nunca la de B').toBe(404)
+    }
+  })
+
   test('publicar en B no cambia la versión ni lo publicado de A', async () => {
     const beforeA = await (await a.get('/api/admin/site-pages/home')).json()
     const pub = await b.post('/api/admin/site-pages/home/publish')

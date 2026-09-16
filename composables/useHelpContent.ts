@@ -157,6 +157,8 @@ export function useHelpContent() {
         'Cambia entre Escritorio/Tablet/Móvil arriba para comprobar cómo se ve en cada tamaño real.',
         'Los cambios se autoguardan como borrador (verás "Guardando…"/"Guardado" junto al título, arriba a la izquierda). El sitio público no cambia hasta que pulses "Publicar cambios" — mientras haya cambios sin publicar, el botón lo indica con un punto de aviso.',
         'Deshacer/Rehacer (las flechas junto al selector de zoom, o Ctrl/Cmd+Z y Ctrl/Cmd+Mayús+Z) solo cubren la sesión actual del editor.',
+        'Cada vez que publicas se guarda una copia de la página. El icono del reloj ("Historial de versiones publicadas", en la barra superior) las lista de la más reciente a la más antigua, con la fecha, quién publicó, cuántas secciones tenía y cuál es la que está ahora mismo en la web. Pulsa "Restaurar" en cualquiera de ellas para recuperarla.',
+        'Restaurar una versión NO la publica: la copia sobre tu borrador para que la revises primero, y la web pública sigue mostrando lo mismo que antes hasta que pulses "Publicar cambios". Ojo: al restaurar, el borrador actual se sustituye — si tenías cambios sin publicar los pierdes, aunque puedes recuperarlos con Deshacer (Ctrl/Cmd+Z) sin salir del editor.',
         'El icono "Abrir sitio publicado" de la barra superior lleva al dominio propio de tu organización — si todavía no tienes uno asignado en Empresas (Sistema → Empresas), el icono aparece deshabilitado hasta que lo configures.',
       ],
     },
@@ -761,6 +763,13 @@ export function useHelpContent() {
       answer:
         'No, es el comportamiento esperado. Los bloques de Propiedades, Comunidades y Blog de la página de inicio no guardan una copia de esos datos — siempre muestran tus propiedades, comunidades y artículos reales y actuales. Solo necesitas volver a publicar en el Constructor Web si cambias textos, orden o ajustes de la propia página, nunca por cambios en el contenido en sí.',
       tags: ['constructor web', 'site builder', 'propiedades', 'sincronizacion'],
+    },
+    {
+      id: 'faq-site-builder-restore',
+      question: 'Publiqué la web y ha quedado mal, ¿puedo volver a como estaba antes?',
+      answer:
+        'Sí. En la barra superior del Constructor Web, el icono del reloj abre el "Historial de versiones publicadas": cada publicación anterior aparece con su fecha y quién la hizo. Pulsa "Restaurar" en la que quieras y volverá a tu borrador — ahí puedes revisarla y, cuando estés conforme, pulsar "Publicar cambios" para que sea la que vean tus visitantes. Hasta ese momento la web sigue mostrando lo que hay publicado ahora, así que restaurar nunca empeora la situación por sí solo.',
+      tags: ['constructor web', 'site builder', 'historial', 'versiones', 'restaurar', 'publicar'],
     },
   ]
 
