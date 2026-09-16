@@ -25,9 +25,9 @@ feature, not as optional follow-up.
 
 ## Shipping: validate, push, PR, merge — without being asked
 
-The owner has made this the standing rule (2026-09-15), replacing an earlier
-one that required them to type a keyword before anything left the machine,
-and an earlier backlog instruction not to merge to `main`. **Do not wait for
+The owner has made this the standing rule (2026-09-15). A local-only rule
+briefly replaced it on 2026-09-16 and the owner revoked it the same day
+(«ignora regla 28»), so this is the rule in force. **Do not wait for
 permission to ship.** When a piece of work is finished:
 
 1. Run the full gate: `npm run typecheck && npm test && npm run build && npm run migrations:check`.
@@ -61,5 +61,22 @@ plainly in the report — and, where it belongs, in the PR body — when:
 There are no Cloudflare credentials in these sessions, so `wrangler deploy`,
 `npm run release` and remote D1 migrations cannot be run directly regardless
 of authorisation — production is reached through the pipeline, not by hand.
-Destructive one-way operations against live data (deleting records, real
-sends, real charges) still need an explicit ask, every time.
+Destructive one-way operations against live data (applying migrations to
+production, deleting records, real sends, real charges) still need an explicit
+ask from the owner, every time, even when the shipping rule above is in force.
+
+### Hard-won lesson, 2026-09-15
+
+Production spent weeks with the deployed code **12 migrations ahead of the
+schema**, because Workers Builds published every push while the job that
+applies migrations never ran. The visible symptom was "I can't log in" — the
+live code read a `users.permissions` column that did not exist yet, so every
+login failed regardless of the password.
+
+The pending migration had been flagged in report after report as a footnote.
+When the symptom appeared, three plausible-but-wrong causes were chased
+(password, rate limit, dev bypass) before anyone looked at the schema.
+
+**The lesson: when a known pending item exists and a symptom shows up, check
+the known item before forming a new hypothesis.** A footnote that keeps
+reappearing is not a footnote.
