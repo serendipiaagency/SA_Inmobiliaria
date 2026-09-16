@@ -159,7 +159,23 @@ acceso, es `https://sa-inmobiliaria.polished-king-f919.workers.dev`.
 
 ### RE03 | P1 — Se guardan versiones de página pero no se pueden restaurar
 
-**Estado**: Confirmado
+**Estado**: ✅ **Resuelto** (FASE 2, 16/09). Se mantiene el hallazgo escrito
+tal cual estaba para que conste qué se arregló y por qué.
+
+Lo entregado: `GET /api/admin/site-pages/[pageKey]/versions` lista las 50
+publicaciones más recientes (versión, fecha, quién publicó, cuántas secciones,
+título SEO y cuál está en la web) y `POST .../restore` copia un snapshot **al
+borrador, nunca a lo publicado**. En el editor, el icono del reloj de la barra
+superior abre el historial; restaurar aplica la versión al lienzo y deja el
+botón «Publicar cambios» como único camino a la web pública. Queda registrado
+en auditoría con `action: 'restore'`.
+
+Cobertura: 6 pruebas unitarias de aislamiento (el caso peligroso es que
+**todas las agencias tienen una "versión 1"**, así que una consulta que
+olvidara el `pageId` serviría la de otra — verificado rompiendo el filtro a
+propósito y comprobando que las pruebas fallan) y 4 e2e sobre HTTP real,
+incluida la restauración conducida desde la interfaz.
+
 **Área**: Constructor Web / Publicación
 
 **Impacto funcional**: Si una inmobiliaria publica una web rota, **no hay
@@ -335,8 +351,8 @@ exactamente eso.
 | Propiedades 2ª mano | Editor auditado — correcto; listado duplicado (RE06) | P2 | No |
 | Property Editor | Auditado — arquitectura correcta (R3) | — | No |
 | Comerciales | Constructor cubre casi todo el esquema; vocabulario inconsistente (RE05) | P2 | No |
-| Constructor Web | Arquitectura correcta (R1, R2); catálogo corto (RE04); sin rollback (RE03) | P1 | **Sí** |
-| Publicación | Modelo correcto (R7); sin restauración (RE03) | P1 | Parcial |
+| Constructor Web | Arquitectura correcta (R1, R2); rollback resuelto (RE03); catálogo corto (RE04) | P1 | **Sí** |
+| Publicación | Modelo correcto (R7); restauración entregada (RE03) | — | No |
 | Data binding | Auditado — en vivo, sin duplicación (R4) | — | No |
 | Multimedia / Archivos | Propiedad y namespacing por inquilino verificados; huérfanos sin auditar | Sin auditar | Desconocido |
 | SEO | Existe schema.org, sitemap, robots y SEO por página; cobertura sin auditar | Sin auditar | Desconocido |
@@ -359,8 +375,9 @@ que venga después. Nada de esto es código.
 **FASE 1 — Arquitectura y consistencia.** RE06 (unificar listados) y RE05
 (vocabulario Comerciales). Barato y evita que la divergencia siga creciendo.
 
-**FASE 2 — Funcionalidades core.** RE03 (restauración de versiones) y RE08
-(conectar email). Son los dos que impiden operar con clientes reales.
+**FASE 2 — Funcionalidades core.** RE03 (restauración de versiones) ✅ hecha.
+RE08 (conectar email) sigue pendiente y **no es código**: falta el secreto
+`RESEND_API_KEY` en Cloudflare.
 
 **FASE 3 — UX y Constructor Web.** RE04, un bloque por ejecución, empezando
 por los que el negocio inmobiliario necesita de verdad: comerciales

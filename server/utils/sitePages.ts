@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, desc, eq, sql } from 'drizzle-orm'
 import { createError } from 'h3'
 import { schema, now } from './db'
 
@@ -121,6 +121,103 @@ export async function publishPage(db: any, orgIdInput: number | null, pageKey: s
   })
 
   return nextVersion
+}
+
+export interface SitePageVersionSummary {
+  version: number
+  createdAt: string
+  publishedByName: string | null
+  blockCount: number
+  seoTitle: string | null
+  /** True for the version the public site is serving right now. */
+  isCurrent: boolean
+}
+
+/**
+ * How many published versions the history shows. Snapshots are never deleted
+ * — this only bounds the read, so an org that has published a thousand times
+ * doesn't pull a thousand rows to render a panel nobody scrolls that far.
+ */
+export const VERSION_HISTORY_LIMIT = 50
+
+/**
+ * The org's published history, newest first.
+ *
+ * `site_page_versions` carries no `organizationId` of its own: it hangs off
+ * `page_id`. So the tenant boundary here *is* `getOrCreateSitePage`, which
+ * resolves the page row from the session's orgId — the version rows are then
+ * filtered by that row's id and never by anything the caller sent. Two orgs
+ * both having a "version 1" is normal and must not collide; that's what
+ * sitePages.crossTenant.test.ts pins down.
+ *
+ * The summary fields are computed in SQL on purpose. A snapshot can be up to
+ * MAX_JSON_BYTES, and the history only needs "how many blocks and what title"
+ * to tell versions apart — reading 50 full documents to count their blocks in
+ * JavaScript would move megabytes to render a list.
+ */
+export async function listPageVersions(db: any, orgIdInput: number | null, pageKey: string): Promise<SitePageVersionSummary[]> {
+  const page = await getOrCreateSitePage(db, orgIdInput, pageKey)
+  const rows = await db
+    .select({
+      version: schema.sitePageVersions.version,
+      createdAt: schema.sitePageVersions.createdAt,
+      publishedByName: schema.users.name,
+      blockCount: sql<number | null>`json_array_length(${schema.sitePageVersions.snapshotJson}, '$.blocks')`,
+      seoTitle: sql<string | null>`json_extract(${schema.sitePageVersions.snapshotJson}, '$.seo.title')`,
+    })
+    .from(schema.sitePageVersions)
+    .leftJoin(schema.users, eq(schema.users.id, schema.sitePageVersions.publishedBy))
+    .where(eq(schema.sitePageVersions.pageId, page.id))
+    .orderBy(desc(schema.sitePageVersions.version))
+    .limit(VERSION_HISTORY_LIMIT)
+
+  return rows.map((r: any) => ({
+    version: r.version,
+    createdAt: r.createdAt,
+    publishedByName: r.publishedByName ?? null,
+    // A malformed snapshot makes the JSON functions return null rather than
+    // fail the whole listing — the version is still there and still
+    // restorable, so it must still be listed.
+    blockCount: r.blockCount ?? 0,
+    seoTitle: r.seoTitle ?? null,
+    isCurrent: r.version === page.version,
+  }))
+}
+
+/**
+ * Copies a published snapshot back over the **draft**, and only the draft.
+ *
+ * Deliberately not a "republish": restoring puts the old page back on the
+ * editor's desk so it can be looked at (and, if it's the wrong one, undone)
+ * before it reaches the public site. Until Publish is pressed, visitors keep
+ * seeing whatever was already published — including the broken version being
+ * recovered from, which is the honest state of the world.
+ *
+ * Returns the restored document so the caller can hand it straight back to
+ * the builder without a second round-trip.
+ */
+export async function restorePageVersion(
+  db: any,
+  orgIdInput: number | null,
+  pageKey: string,
+  version: number,
+): Promise<SitePageDocument> {
+  const page = await getOrCreateSitePage(db, orgIdInput, pageKey)
+  const rows = await db
+    .select({ snapshotJson: schema.sitePageVersions.snapshotJson })
+    .from(schema.sitePageVersions)
+    .where(and(eq(schema.sitePageVersions.pageId, page.id), eq(schema.sitePageVersions.version, version)))
+    .limit(1)
+
+  if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Esa versión no existe en esta página' })
+
+  const doc = parsePageJson(rows[0].snapshotJson)
+  await db
+    .update(schema.sitePages)
+    .set({ draftJson: JSON.stringify(doc), updatedAt: now() })
+    .where(and(eq(schema.sitePages.organizationId, page.organizationId), eq(schema.sitePages.pageKey, pageKey)))
+
+  return doc
 }
 
 /** Public read: only ever the published document, for the resolved tenant. Never falls back to draft. */

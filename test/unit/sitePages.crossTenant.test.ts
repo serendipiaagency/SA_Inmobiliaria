@@ -4,6 +4,8 @@ import {
   saveDraft,
   publishPage,
   getPublishedPage,
+  listPageVersions,
+  restorePageVersion,
   validatePageDocument,
   type SitePageDocument,
 } from '../../server/utils/sitePages'
@@ -83,6 +85,114 @@ describe('site_pages tenant isolation', () => {
 
   it('a request with no resolvable org can never fall through to an unfiltered read', async () => {
     await expect(getOrCreateSitePage(db, null as any, 'home')).rejects.toThrow()
+  })
+})
+
+/**
+ * Version history is the one place in the Constructor Web where a number from
+ * the request reaches the database — `site_page_versions` has no
+ * organizationId of its own, so the row is found by (pageId, version), and
+ * pageId has to come from the session's org rather than from the caller.
+ *
+ * The dangerous case is specific and easy to get wrong: **every org's history
+ * starts at version 1**, so a query that forgot the pageId would happily hand
+ * Alpha whichever "version 1" it found first. These tests publish on both
+ * tenants precisely so those numbers collide.
+ */
+describe('site_page_versions tenant isolation', () => {
+  it('lists only this organization’s own history', async () => {
+    await saveDraft(db, A.orgId, 'home', doc('A v1'))
+    await publishPage(db, A.orgId, 'home', A.userId)
+    await saveDraft(db, A.orgId, 'home', doc('A v2'))
+    await publishPage(db, A.orgId, 'home', A.userId)
+
+    await saveDraft(db, B.orgId, 'home', doc('B v1'))
+    await publishPage(db, B.orgId, 'home', B.userId)
+
+    const historyA = await listPageVersions(db, A.orgId, 'home')
+    const historyB = await listPageVersions(db, B.orgId, 'home')
+
+    expect(historyA.map((v) => v.version)).toEqual([2, 1]) // newest first
+    expect(historyA.map((v) => v.seoTitle)).toEqual(['A v2', 'A v1'])
+    expect(historyB.map((v) => v.version)).toEqual([1])
+    expect(historyB[0].seoTitle).toBe('B v1')
+  })
+
+  it('summarises each version without reading the whole snapshot back', async () => {
+    const twoBlocks: SitePageDocument = {
+      blocks: [
+        { id: 'hero', type: 'hero', version: 1, content: {} },
+        { id: 'cta', type: 'cta', version: 1, content: {} },
+      ],
+      seo: { title: 'Portada' },
+    }
+    await saveDraft(db, A.orgId, 'home', twoBlocks)
+    await publishPage(db, A.orgId, 'home', A.userId)
+
+    const [v1] = await listPageVersions(db, A.orgId, 'home')
+    expect(v1.blockCount).toBe(2)
+    expect(v1.seoTitle).toBe('Portada')
+    expect(v1.publishedByName).toBe('Alpha Admin')
+    // The live site is serving exactly this version.
+    expect(v1.isCurrent).toBe(true)
+  })
+
+  it('restoring "version 1" restores THIS tenant’s version 1, never the other’s', async () => {
+    // B publishes FIRST on purpose: its version 1 is then the lower id, so a
+    // lookup that forgot the pageId would return B's row to A and this test
+    // would fail. Seeding A first would let that bug pass unnoticed.
+    await saveDraft(db, B.orgId, 'home', doc('B v1'))
+    await publishPage(db, B.orgId, 'home', B.userId)
+    await saveDraft(db, A.orgId, 'home', doc('A v1'))
+    await publishPage(db, A.orgId, 'home', A.userId)
+
+    // Both tenants now have a version 1. Move each draft away from it first,
+    // so a restore that did nothing would be indistinguishable from a pass.
+    await saveDraft(db, A.orgId, 'home', doc('A borrador nuevo'))
+    await saveDraft(db, B.orgId, 'home', doc('B borrador nuevo'))
+
+    const restoredA = await restorePageVersion(db, A.orgId, 'home', 1)
+    expect(restoredA.seo.title).toBe('A v1')
+
+    const pageA = await getOrCreateSitePage(db, A.orgId, 'home')
+    const pageB = await getOrCreateSitePage(db, B.orgId, 'home')
+    expect(JSON.parse(pageA.draftJson).seo.title).toBe('A v1')
+    // B's draft is untouched by A's restore.
+    expect(JSON.parse(pageB.draftJson).seo.title).toBe('B borrador nuevo')
+  })
+
+  it('restores onto the draft and leaves the published site alone', async () => {
+    await saveDraft(db, A.orgId, 'home', doc('v1'))
+    await publishPage(db, A.orgId, 'home', A.userId)
+    await saveDraft(db, A.orgId, 'home', doc('v2'))
+    await publishPage(db, A.orgId, 'home', A.userId)
+
+    await restorePageVersion(db, A.orgId, 'home', 1)
+
+    const page = await getOrCreateSitePage(db, A.orgId, 'home')
+    expect(JSON.parse(page.draftJson).seo.title).toBe('v1')
+    // Restoring is not republishing: visitors still see v2, and the counter
+    // has not moved, until someone presses Publicar.
+    expect((await getPublishedPage(db, A.orgId, 'home')).seo.title).toBe('v2')
+    expect(page.version).toBe(2)
+  })
+
+  it('rejects a version that belongs to another tenant, even though it exists', async () => {
+    await saveDraft(db, A.orgId, 'home', doc('A v1'))
+    await publishPage(db, A.orgId, 'home', A.userId)
+    await saveDraft(db, A.orgId, 'home', doc('A v2'))
+    await publishPage(db, A.orgId, 'home', A.userId)
+
+    await saveDraft(db, B.orgId, 'home', doc('B v1'))
+    await publishPage(db, B.orgId, 'home', B.userId)
+
+    // Version 2 exists in the table — it is Alpha's. Beta must not reach it.
+    await expect(restorePageVersion(db, B.orgId, 'home', 2)).rejects.toMatchObject({ statusCode: 404 })
+  })
+
+  it('a request with no resolvable org can neither list nor restore', async () => {
+    await expect(listPageVersions(db, null as any, 'home')).rejects.toThrow()
+    await expect(restorePageVersion(db, null as any, 'home', 1)).rejects.toThrow()
   })
 })
 

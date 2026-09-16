@@ -45,6 +45,14 @@ site_page_versions      ← un snapshot por Publish (no por autoguardado)
 ├─ id, pageId, version, snapshotJson, publishedBy, createdAt
 ```
 
+`site_page_versions` **no tiene `organizationId` propio**: cuelga de
+`page_id`. La frontera entre inquilinos en el historial es, por tanto,
+`getOrCreateSitePage()`, que resuelve la fila desde la sesión; las versiones
+se filtran después por el id de esa fila y nunca por nada que venga del
+cliente. Importa porque los contadores de versión son por organización —
+**todas las agencias tienen una "versión 1"**, así que una consulta que
+olvidara el `pageId` devolvería la primera que encontrase.
+
 Un `SiteBlock` es `{ id, type, version, content, style?, visibility? }`. El
 orden en el array ES el orden de la página — no hay un campo `order` que
 mantener sincronizado. `visibility` es `{desktop?, tablet?, mobile?}`;
@@ -230,6 +238,18 @@ alcance deliberadamente diferida" de más arriba.
   publicar" (además de cambiar de texto y mostrar un punto de aviso) cuando
   `hasUnpublishedChanges` es real — nunca se muestra ese estado si el borrador
   y lo publicado coinciden.
+- **Historial y restauración**: `GET .../versions` lista las últimas
+  `VERSION_HISTORY_LIMIT` (50) publicaciones — versión, fecha, quién publicó,
+  cuántos bloques y el título SEO, todo resumido **en SQL** (`json_array_length`
+  / `json_extract`) porque un snapshot llega a `MAX_JSON_BYTES` y el listado
+  sólo necesita distinguirlas, no leerlas. `POST .../restore` con `{version}`
+  copia ese snapshot **sobre el borrador, nunca sobre lo publicado**: restaurar
+  no es republicar, y hasta que alguien pulse Publicar los visitantes siguen
+  viendo lo de antes (incluida la versión rota de la que se está saliendo).
+  Se registra en auditoría con `action: 'restore'`, porque sobrescribe el
+  borrador — los cambios sin publicar que hubiera se pierden, recuperables
+  sólo con el deshacer en memoria del editor, que es justo por lo que el
+  cliente hace `pushUndo()` antes de aplicar lo restaurado.
 - **Atajos de teclado**: Ctrl/Cmd+Z y Ctrl/Cmd+Shift+Z (también Ctrl+Y) para
   deshacer/rehacer, ignorados mientras el foco está en un `<input>`/
   `<textarea>` para no interferir con el undo nativo del navegador dentro de

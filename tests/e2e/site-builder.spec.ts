@@ -62,6 +62,96 @@ test.describe('Constructor Web', () => {
     expect(after.blocks).toEqual(before.blocks)
   })
 
+  /**
+   * Version history, over real HTTP. The point of restoring is that it is
+   * *not* a republish: it puts the old page back on the editor's desk, and
+   * the public site only changes when someone deliberately publishes again.
+   * That two-step is the whole safety net — a test that only checked "the
+   * draft came back" would miss the half that matters.
+   */
+  test('restaurar una versión devuelve el borrador sin cambiar la web pública hasta republicar', async () => {
+    const v1Marker = `Portada v1 ${Date.now()}`
+    await a.put('/api/admin/site-pages/home', {
+      data: { blocks: [{ id: 'hero', type: 'hero', version: 1, content: { title1: v1Marker } }], seo: { title: v1Marker } },
+    })
+    const v1 = (await (await a.post('/api/admin/site-pages/home/publish')).json()).version
+
+    const v2Marker = `Portada v2 ${Date.now()}`
+    await a.put('/api/admin/site-pages/home', {
+      data: { blocks: [{ id: 'hero', type: 'hero', version: 1, content: { title1: v2Marker } }], seo: { title: v2Marker } },
+    })
+    const v2 = (await (await a.post('/api/admin/site-pages/home/publish')).json()).version
+    expect(v2).toBe(v1 + 1)
+
+    const history = await (await a.get('/api/admin/site-pages/home/versions')).json()
+    expect(history.versions[0].version, 'el historial debe venir de la más reciente a la más antigua').toBe(v2)
+    expect(history.versions[0].isCurrent, 'la versión más reciente es la que sirve la web').toBe(true)
+    expect(history.versions.find((v: any) => v.version === v1)).toBeTruthy()
+
+    const restore = await a.post('/api/admin/site-pages/home/restore', { data: { version: v1 } })
+    expect(restore.ok(), await restore.text()).toBeTruthy()
+
+    const draft = await (await a.get('/api/admin/site-pages/home')).json()
+    expect(draft.blocks[0].content.title1, 'el borrador debe volver a la versión restaurada').toBe(v1Marker)
+    expect(draft.hasUnpublishedChanges, 'tras restaurar quedan cambios sin publicar, por definición').toBe(true)
+    expect(draft.version, 'restaurar no incrementa la versión publicada').toBe(v2)
+
+    const stillLive = await (await a.get('/api/public/site-pages/home')).json()
+    expect(stillLive.blocks[0].content.title1, 'restaurar NO debe cambiar la web pública').toBe(v2Marker)
+
+    // Sólo ahora, y con un acto explícito, lo restaurado se hace público.
+    const v3 = (await (await a.post('/api/admin/site-pages/home/publish')).json()).version
+    expect(v3).toBe(v2 + 1)
+    const live = await (await a.get('/api/public/site-pages/home')).json()
+    expect(live.blocks[0].content.title1).toBe(v1Marker)
+  })
+
+  test('restaurar rechaza una versión inexistente o mal formada sin tocar el borrador', async () => {
+    const before = await (await a.get('/api/admin/site-pages/home')).json()
+
+    const missing = await a.post('/api/admin/site-pages/home/restore', { data: { version: 999_999 } })
+    expect(missing.status()).toBe(404)
+    const malformed = await a.post('/api/admin/site-pages/home/restore', { data: { version: 'la última' } })
+    expect(malformed.status()).toBe(422)
+
+    const after = await (await a.get('/api/admin/site-pages/home')).json()
+    expect(after.blocks).toEqual(before.blocks)
+  })
+
+  /**
+   * The same restore, driven through the actual UI rather than the API: the
+   * toolbar button, the panel, the confirmation, and — the part only a
+   * browser can prove — the canvas iframe re-rendering with the restored
+   * content.
+   */
+  test('el historial restaura desde la interfaz y el lienzo refleja la versión restaurada', async ({ page }) => {
+    const oldMarker = `Antigua ${Date.now()}`
+    await a.put('/api/admin/site-pages/home', {
+      data: { blocks: [{ id: 'hero', type: 'hero', version: 1, content: { title1: oldMarker } }], seo: {} },
+    })
+    const oldVersion = (await (await a.post('/api/admin/site-pages/home/publish')).json()).version
+
+    await a.put('/api/admin/site-pages/home', {
+      data: { blocks: [{ id: 'hero', type: 'hero', version: 1, content: { title1: `Nueva ${Date.now()}` } }], seo: {} },
+    })
+    await a.post('/api/admin/site-pages/home/publish')
+
+    await page.goto('/admin/site-builder')
+    const frameLocator = page.frameLocator('iframe[title="Vista previa del Constructor Web"]')
+    await expect(frameLocator.getByText(oldMarker)).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Historial de versiones publicadas' }).click()
+    await expect(page.getByTestId('version-history')).toBeVisible()
+
+    await page.getByTestId(`restore-v${oldVersion}`).click()
+    await page.getByRole('button', { name: 'Restaurar al borrador' }).click()
+
+    await expect(page.getByTestId('version-history')).toBeHidden()
+    await expect(frameLocator.getByText(oldMarker).first()).toBeVisible({ timeout: 10_000 })
+    // Y sigue sin publicarse: el botón vuelve a ofrecer publicar.
+    await expect(page.getByRole('button', { name: 'Publicar cambios' })).toBeVisible()
+  })
+
   test('un bloque de propiedades con fuente dinámica refleja cambios reales sin republicar', async () => {
     // A "properties" block whose dynamicFilter is 'latest' always renders
     // developer_properties fetched live at request time — publish a page

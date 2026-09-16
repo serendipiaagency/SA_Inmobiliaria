@@ -21,6 +21,7 @@
       @redo="redo"
       @toggle-preview="previewMode = !previewMode"
       @open-seo="seoOpen = true"
+      @open-history="historyOpen = true"
       @publish="publish"
     />
 
@@ -276,6 +277,9 @@
       </aside>
     </div>
 
+    <!-- Historial de versiones publicadas -->
+    <VersionHistory v-if="historyOpen" page-key="home" @close="historyOpen = false" @restored="onRestored" />
+
     <!-- SEO -->
     <div v-if="seoOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" @click.self="seoOpen = false">
       <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
@@ -306,6 +310,7 @@ import InspectorSection from '~/components/site-builder/inspector/InspectorSecti
 import CommonBlockSettings from '~/components/site-builder/inspector/CommonBlockSettings.vue'
 import TopBar from '~/components/site-builder/shell/TopBar.vue'
 import SectionCard from '~/components/site-builder/shell/SectionCard.vue'
+import VersionHistory from '~/components/site-builder/shell/VersionHistory.vue'
 
 definePageMeta({ layout: false, middleware: 'admin' })
 
@@ -334,6 +339,7 @@ const selectedBlockId = ref<string | null>(null)
 const previewMode = ref(false)
 const libraryOpen = ref(false)
 const seoOpen = ref(false)
+const historyOpen = ref(false)
 const dragOverId = ref<string | null>(null)
 function pad2(n: number): string {
   return String(n).padStart(2, '0')
@@ -692,6 +698,21 @@ async function publish() {
   } finally {
     publishing.value = false
   }
+}
+
+/**
+ * A restored version lands on the draft, exactly like any other edit — so it
+ * goes through the same undo stack (pushUndo first, so Ctrl+Z gets the
+ * pre-restore draft back) and the same autosave watcher, which is also what
+ * correctly flips the "cambios sin publicar" indicator: the draft now differs
+ * from what's live, and it stays that way until Publicar.
+ */
+function onRestored(payload: { version: number; blocks: SiteBlock[]; seo: { title?: string; description?: string } }) {
+  pushUndo()
+  blocks.value = payload.blocks
+  seo.title = payload.seo?.title || ''
+  seo.description = payload.seo?.description || ''
+  if (!blocks.value.some((b) => b.id === selectedBlockId.value)) selectedBlockId.value = null
 }
 
 // ---------------------------------------------------------------------------
