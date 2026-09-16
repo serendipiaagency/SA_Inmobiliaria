@@ -34,12 +34,12 @@
       </div>
     </AdminPanel>
 
-    <AdminPanel title="Por agente">
+    <AdminPanel title="Por comercial">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="border-b border-line text-left text-[11px] uppercase tracking-wide text-stone-400">
             <tr>
-              <th class="py-2 font-semibold">Agente</th>
+              <th class="py-2 font-semibold">Comercial</th>
               <th class="py-2 text-right font-semibold">Operaciones</th>
               <th class="py-2 text-right font-semibold">Volumen</th>
               <th class="py-2 text-right font-semibold">Comisión pagada</th>

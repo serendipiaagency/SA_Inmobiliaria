@@ -63,7 +63,7 @@ function actionLabel(a: string) {
     notify_slack: 'Avisar por Slack',
     create_invoice: 'Crear factura',
     social_post: 'Publicar en redes',
-    assign_agent: 'Asignar agente',
+    assign_agent: 'Asignar comercial',
   }[a] || a
 }
 async function toggle(a: any) {

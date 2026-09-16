@@ -11,6 +11,11 @@
  * etc.), and "translations" reuses the existing en/ar title+description
  * pattern. No new persistence model — this only reorganizes fields that
  * already exist on real columns/tables.
+ *
+ * El **listado** de propiedades tiene su gemelo en
+ * `composables/usePropertyListConfig.ts` (`PROPERTY_LIST_CONFIG`), con la
+ * misma forma y las mismas claves de recurso. Un catálogo nuevo necesita una
+ * entrada en los dos.
  */
 
 export interface FieldSpec {

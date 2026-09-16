@@ -2,7 +2,7 @@
   <div v-if="agent">
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <NuxtLink to="/admin/team" class="text-xs font-medium text-stone-400 hover:text-ink">← Equipo</NuxtLink>
+        <NuxtLink :to="`/admin/comerciales/${agentId}`" class="text-xs font-medium text-stone-400 hover:text-ink">← Ficha del comercial</NuxtLink>
         <h1 class="mt-1 text-2xl font-semibold tracking-tight">{{ agent.name }}</h1>
         <p class="mt-1 text-sm text-stone-500">Horario de disponibilidad para la agenda de citas pública</p>
       </div>
@@ -63,7 +63,7 @@
       </div>
     </div>
 
-    <AdminPanel title="Bloqueos puntuales" sub="Días concretos en los que este agente no está disponible (vacaciones, baja, etc.)" class="mt-6">
+    <AdminPanel title="Bloqueos puntuales" sub="Días concretos en los que este comercial no está disponible (vacaciones, baja, etc.)" class="mt-6">
       <div class="mb-4 flex flex-wrap items-end gap-2">
         <div>
           <label class="label">Fecha</label>
@@ -97,13 +97,26 @@ const DAY_LABELS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viern
 
 const { data } = await useFetch<any>(`/api/admin/saas/agents/${agentId}/availability`)
 const agent = computed(() => data.value?.agent || null)
-useHead({ title: () => `${agent.value?.name || 'Agente'} — Horario` })
+useHead({ title: () => `${agent.value?.name || 'Comercial'} — Horario` })
 
 const slotDurationMinutes = ref(60)
 const bufferMinutes = ref(0)
 const maxPerDayEnabled = ref(false)
 const maxAppointmentsPerDay = ref(8)
-const icalUrl = ref('')
+/**
+ * La URL del calendario se arma con el origen de la petición en curso
+ * (`useRequestURL()`), que existe tanto en el servidor como en el navegador.
+ *
+ * Antes se leía `window.location.origin` dentro del `watch` de abajo, que es
+ * `{ immediate: true }` y por tanto corre también durante el render en
+ * servidor: ahí `window` no existe y la página entera respondía 500. No se
+ * notaba porque a esta pantalla sólo se llegaba pulsando un enlace desde el
+ * listado —navegación de cliente, sin render en servidor—; abrirla de
+ * primeras, recargarla o compartir su URL fallaba siempre.
+ */
+const requestOrigin = useRequestURL().origin
+const icalToken = ref('')
+const icalUrl = computed(() => (icalToken.value ? `${requestOrigin}/calendar/${icalToken.value}.ics` : ''))
 const copied = ref(false)
 const days = ref(DAY_LABELS.map((label, dayOfWeek) => ({ dayOfWeek, label, active: false, startTime: '09:00', endTime: '18:00' })))
 const timeOff = ref<any[]>([])
@@ -116,7 +129,7 @@ watch(
     bufferMinutes.value = d.agent?.bufferMinutes || 0
     maxPerDayEnabled.value = d.agent?.maxAppointmentsPerDay != null
     maxAppointmentsPerDay.value = d.agent?.maxAppointmentsPerDay || 8
-    if (d.agent?.icalToken) icalUrl.value = `${window.location.origin}/calendar/${d.agent.icalToken}.ics`
+    icalToken.value = d.agent?.icalToken || ''
     for (const day of days.value) {
       const rule = (d.rules || []).find((r: any) => r.dayOfWeek === day.dayOfWeek)
       day.active = !!rule

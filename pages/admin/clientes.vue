@@ -43,7 +43,7 @@
               <th class="px-4 py-2.5 font-semibold">Ubicación</th>
               <th class="px-4 py-2.5 text-right font-semibold">Operaciones</th>
               <th class="px-4 py-2.5 text-right font-semibold">Valor de vida</th>
-              <th class="px-4 py-2.5 font-semibold">Agente</th>
+              <th class="px-4 py-2.5 font-semibold">Comercial</th>
             </tr>
           </thead>
           <tbody>

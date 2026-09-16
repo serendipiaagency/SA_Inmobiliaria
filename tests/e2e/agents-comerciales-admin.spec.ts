@@ -171,7 +171,7 @@ test.describe('Comerciales — admin', () => {
     page.on('console', (msg) => {
       if (msg.type() === 'error' && !msg.location().url.includes('/api/media/')) consoleErrors.push(msg.text())
     })
-    await page.goto('/admin/agents')
+    await page.goto('/admin/comerciales')
     await expect(page.getByRole('heading', { name: 'Comerciales' })).toBeVisible()
     await expect(page.getByText(marker)).toBeVisible()
 
@@ -204,7 +204,7 @@ test.describe('Comerciales — admin', () => {
       if (msg.type() === 'error' && !msg.location().url.includes('/api/media/')) consoleErrors.push(msg.text())
     })
 
-    await page.goto(`/admin/agents/${id}`)
+    await page.goto(`/admin/comerciales/${id}`)
     await expect(page.getByRole('heading', { name: 'Legacy Chips E2E' })).toBeVisible()
     // The 6 steps render as a horizontal stepper (not the old vertical <aside> tab list).
     for (const step of ['Datos personales', 'Información profesional', 'Contacto y redes', 'Perfil y presentación', 'Zonas y especialidades', 'Resumen']) {
@@ -223,6 +223,49 @@ test.describe('Comerciales — admin', () => {
     await expect(page.getByText('Inglés')).toBeVisible()
 
     expect(consoleErrors.filter((e) => !e.includes('favicon') && !e.includes('net::ERR_'))).toEqual([])
+  })
+
+  /**
+   * El módulo tenía tres nombres y dos puertas: el menú decía "Comerciales"
+   * pero la ruta era /admin/agents, y /admin/team ("Equipo") editaba el
+   * horario de esas mismas personas. Ahora hay una sola puerta. Lo que se
+   * comprueba aquí es lo que no puede romperse al renombrar: que las URLs
+   * antiguas —guardadas en marcadores y pegadas en correos— sigan llevando a
+   * algún sitio, y al sitio correcto.
+   */
+  test('las URLs antiguas del módulo siguen funcionando y llevan a la nueva', async ({ page }) => {
+    const id = await createAgent({ name: 'Redirect E2E', position: 'Comercial E2E' })
+
+    await page.goto('/admin/agents')
+    await expect(page).toHaveURL(/\/admin\/comerciales$/)
+    await expect(page.getByRole('heading', { name: 'Comerciales' })).toBeVisible()
+
+    await page.goto(`/admin/agents/${id}`)
+    await expect(page).toHaveURL(new RegExp(`/admin/comerciales/${id}$`))
+
+    // "Equipo" era solo la puerta a los horarios: su listado ya no hace falta.
+    await page.goto('/admin/team')
+    await expect(page).toHaveURL(/\/admin\/comerciales$/)
+
+    // El horario de una persona concreta sí tiene destino propio, ahora
+    // dentro de su ficha.
+    await page.goto(`/admin/team/${id}`)
+    await expect(page).toHaveURL(new RegExp(`/admin/comerciales/${id}/horario$`))
+    await expect(page.getByRole('heading', { name: 'Redirect E2E' })).toBeVisible()
+  })
+
+  test('el horario se alcanza desde la ficha del comercial, y vuelve a ella', async ({ page }) => {
+    const id = await createAgent({ name: 'Horario E2E', position: 'Comercial E2E' })
+
+    await page.goto(`/admin/comerciales/${id}`)
+    await page.getByRole('button', { name: 'Información profesional', exact: false }).first().click()
+    await page.getByRole('link', { name: 'Configurar horario →' }).click()
+
+    await expect(page).toHaveURL(new RegExp(`/admin/comerciales/${id}/horario$`))
+    await expect(page.getByRole('button', { name: 'Guardar horario' })).toBeVisible()
+
+    await page.getByRole('link', { name: '← Ficha del comercial' }).click()
+    await expect(page).toHaveURL(new RegExp(`/admin/comerciales/${id}$`))
   })
 
   test('crear y editar comparten el mismo Constructor de Comerciales, y las etiquetas/idiomas se guardan como listas reales', async () => {

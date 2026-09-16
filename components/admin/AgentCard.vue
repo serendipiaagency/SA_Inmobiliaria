@@ -1,6 +1,6 @@
 <template>
   <div class="group relative overflow-hidden rounded-xl border border-line bg-white transition hover:shadow-md">
-    <NuxtLink :to="`/admin/agents/${agent.id}`" class="flex items-start gap-3 p-4">
+    <NuxtLink :to="`/admin/comerciales/${agent.id}`" class="flex items-start gap-3 p-4">
       <img v-if="agent.image" :src="mediaUrl(agent.image)" class="h-14 w-14 shrink-0 rounded-full object-cover ring-1 ring-line" >
       <span v-else class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-stone-100 text-lg font-semibold text-stone-400">{{ initials }}</span>
       <div class="min-w-0 flex-1">
@@ -20,7 +20,7 @@
     </NuxtLink>
 
     <div class="flex items-center gap-1 border-t border-line px-3 py-2">
-      <NuxtLink :to="`/admin/agents/${agent.id}`" class="text-[12px] font-medium text-stone-600 hover:text-ink hover:underline">Editar</NuxtLink>
+      <NuxtLink :to="`/admin/comerciales/${agent.id}`" class="text-[12px] font-medium text-stone-600 hover:text-ink hover:underline">Editar</NuxtLink>
       <span class="ml-2 text-[12px] text-stone-400">{{ agent.assignedPropertiesCount ?? 0 }} propiedad{{ agent.assignedPropertiesCount === 1 ? '' : 'es' }}</span>
       <div ref="menuRoot" class="relative ml-auto">
         <button type="button" class="flex h-7 w-7 items-center justify-center rounded-full text-stone-400 hover:bg-stone-100 hover:text-ink" @click.stop="menuOpen = !menuOpen">
