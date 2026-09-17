@@ -8,6 +8,8 @@ import BlogListInspector from '~/components/site-builder/inspectors/BlogListInsp
 import TextInspector from '~/components/site-builder/inspectors/TextInspector.vue'
 import CtaInspector from '~/components/site-builder/inspectors/CtaInspector.vue'
 import TeamInspector from '~/components/site-builder/inspectors/TeamInspector.vue'
+import LeadFormInspector from '~/components/site-builder/inspectors/LeadFormInspector.vue'
+import BookVisitInspector from '~/components/site-builder/inspectors/BookVisitInspector.vue'
 
 /**
  * The Constructor Web's block catalogue — the single list that drives the
@@ -34,7 +36,7 @@ export function newBlockId(type: string): string {
   return `${type}-${randomSuffix()}`
 }
 
-export const BLOCK_CATEGORIES = ['Principal', 'Propiedades', 'Explora', 'Equipo', 'Herramientas', 'Contenido'] as const
+export const BLOCK_CATEGORIES = ['Principal', 'Propiedades', 'Explora', 'Equipo', 'Captación', 'Herramientas', 'Contenido'] as const
 
 export const BLOCK_PRESETS: BlockPreset[] = [
   {
@@ -147,6 +149,42 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     }),
   },
   {
+    presetId: 'lead-form',
+    type: 'lead-form',
+    label: 'Formulario de captación',
+    description: 'Formulario que crea un lead real en tu CRM, con aviso interno por email.',
+    category: 'Captación',
+    createContent: () => ({
+      eyebrow: '¿Buscas algo concreto?',
+      title: 'Cuéntanos qué necesitas',
+      description: 'Déjanos tus datos y un comercial te llama con opciones reales, no con un catálogo genérico.',
+      submitLabel: 'Quiero que me llamen',
+      messageLabel: '¿Qué estás buscando?',
+      messagePlaceholder: 'Zona, presupuesto, número de habitaciones…',
+      successMessage: '¡Gracias! Te contactamos enseguida.',
+      subject: 'Formulario de portada',
+      privacyNote: '',
+      showPhone: true,
+      layout: 'split',
+    }),
+  },
+  {
+    presetId: 'book-visit',
+    type: 'book-visit',
+    label: 'Reserva de visita',
+    description: 'Botón que abre la agenda real de un comercial y reserva una cita.',
+    category: 'Captación',
+    createContent: () => ({
+      eyebrow: 'Sin llamadas ni esperas',
+      title: 'Reserva una visita cuando te venga bien',
+      description: 'Elige el hueco que prefieras en la agenda de nuestro equipo. Te confirmamos al instante.',
+      ctaLabel: 'Reservar una visita',
+      agentId: null,
+      channel: 'in_person',
+      layout: 'split',
+    }),
+  },
+  {
     presetId: 'blog-list',
     type: 'blog-list',
     label: 'Últimos artículos',
@@ -175,13 +213,15 @@ export const BLOCK_PRESETS: BlockPreset[] = [
 // Curated shortlist for the library's "Recomendados" shelf — the presets
 // most home pages actually start from. Deliberately small: a shelf that
 // just repeats the full catalogue isn't a recommendation.
-export const RECOMMENDED_PRESET_IDS = ['hero', 'properties-row', 'map-teaser', 'cta']
+export const RECOMMENDED_PRESET_IDS = ['hero', 'properties-row', 'map-teaser', 'lead-form', 'cta']
 
 // Sparse on purpose (spec: "utilizarlos con moderación") — only where the
 // badge tells the admin something the label/description doesn't already.
 export const PRESET_BADGES: Record<string, string> = {
   hero: 'Popular',
   'properties-ai': 'IA',
+  'lead-form': 'Conversión',
+  'book-visit': 'Conversión',
   'properties-dark': 'Premium',
   cta: 'Conversión',
 }
@@ -195,6 +235,8 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
   'mortgage-calculator': 'Calculadora de hipoteca',
   'blog-list': 'Últimos artículos',
   team: 'Comerciales',
+  'lead-form': 'Formulario de captación',
+  'book-visit': 'Reserva de visita',
   text: 'Texto',
   cta: 'Llamada a la acción',
 }
@@ -237,6 +279,12 @@ export function blockSubtitle(block: { type: string; content?: Record<string, an
       return 'Calculadora interactiva'
     case 'blog-list':
       return `${c.limit ?? 0} artículo${c.limit === 1 ? '' : 's'}`
+    case 'lead-form':
+      return c.subject ? `Lead → "${c.subject}"` : 'Crea un lead en el CRM'
+    case 'book-visit': {
+      const channel = c.channel === 'video' ? 'Videollamada' : c.channel === 'phone' ? 'Llamada' : 'Presencial'
+      return `Agenda real · ${channel}`
+    }
     case 'team': {
       const count = c.source === 'manual' ? (c.manualIds?.length ?? 0) : (c.limit ?? 0)
       return `${count} comercial${count === 1 ? '' : 'es'} · ${c.layout === 'compact' ? 'Compacto' : 'Tarjetas'}`
@@ -273,6 +321,8 @@ export const BLOCK_INSPECTORS: Record<string, BlockInspectorEntry> = {
   'mortgage-calculator': { component: MortgageInspector },
   'blog-list': { component: BlogListInspector },
   team: { component: TeamInspector, needsPreviewData: true },
+  'lead-form': { component: LeadFormInspector },
+  'book-visit': { component: BookVisitInspector, needsPreviewData: true },
   text: { component: TextInspector },
   cta: { component: CtaInspector },
 }

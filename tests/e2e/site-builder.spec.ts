@@ -190,6 +190,86 @@ test.describe('Constructor Web', () => {
     await a.delete(`/api/admin/team/${memberId}`)
   })
 
+  /**
+   * El formulario de captación y la reserva de visita son los dos únicos
+   * bloques con efecto real: uno crea un lead en el CRM, el otro ocupa un
+   * hueco en la agenda de un comercial. En el lienzo el clic está
+   * interceptado, pero **Vista previa dispara handlers de verdad** — es su
+   * razón de ser. Sin bloqueo, revisar la portada antes de publicarla
+   * llenaría el CRM de datos inventados.
+   *
+   * Esto se comprueba en el navegador porque es lo único que puede
+   * distinguir "el botón está ahí" de "el botón está desactivado".
+   */
+  test('los bloques de captación quedan desactivados en el editor y en Vista previa', async ({ page }) => {
+    // Un comercial publicado propio, para no depender de lo que hayan dejado
+    // otras pruebas: sin ninguno, el bloque de reserva saldría desactivado
+    // por falta de agenda y esta prueba pasaría sin demostrar nada.
+    const agent = await a.post('/api/admin/team', {
+      data: { name: `Agenda E2E ${Date.now()}`, email: `agenda-${Date.now()}@mm.test`, position: 'Asesor', showOnWeb: 1 },
+    })
+    expect(agent.ok(), await agent.text()).toBeTruthy()
+    const agentId = (await agent.json()).id
+
+    const put = await a.put('/api/admin/site-pages/home', {
+      data: {
+        blocks: [
+          { id: 'lead-e2e', type: 'lead-form', version: 1, content: { title: 'Cuéntanos qué buscas', submitLabel: 'Quiero que me llamen', showPhone: true } },
+          { id: 'visit-e2e', type: 'book-visit', version: 1, content: { title: 'Reserva una visita', ctaLabel: 'Reservar una visita', channel: 'in_person' } },
+        ],
+        seo: {},
+      },
+    })
+    expect(put.ok(), await put.text()).toBeTruthy()
+
+    await page.goto('/admin/site-builder')
+    const canvas = page.frameLocator('iframe[title="Vista previa del Constructor Web"]')
+
+    const submit = canvas.getByRole('button', { name: 'Quiero que me llamen' })
+    await expect(submit).toBeVisible({ timeout: 10_000 })
+    await expect(submit, 'el formulario podría enviarse desde el lienzo').toBeDisabled()
+
+    const book = canvas.getByRole('button', { name: 'Reservar una visita' })
+    await expect(book, 'la reserva podría dispararse desde el lienzo').toBeDisabled()
+
+    // Los dos avisan de POR QUÉ están desactivados. Comprobarlo distingue
+    // "bloqueado por estar en el editor" de "bloqueado por no haber agenda",
+    // que se ven igual en el botón.
+    await expect(canvas.getByText(/Desactivado mientras editas/)).toHaveCount(2)
+
+    // Vista previa es el caso que de verdad importa: ahí los clics sí llegan.
+    await page.getByRole('button', { name: 'Vista previa' }).click()
+    await expect(canvas.getByRole('button', { name: 'Quiero que me llamen' })).toBeDisabled()
+    await expect(canvas.getByRole('button', { name: 'Reservar una visita' })).toBeDisabled()
+
+    await a.delete(`/api/admin/team/${agentId}`)
+  })
+
+  test('el formulario de captación publicado crea un lead real con su referencia', async () => {
+    const reference = `Portada E2E ${Date.now()}`
+    await a.put('/api/admin/site-pages/home', {
+      data: { blocks: [{ id: 'lead-pub', type: 'lead-form', version: 1, content: { title: 'Contacto', subject: reference } }], seo: {} },
+    })
+    expect((await a.post('/api/admin/site-pages/home/publish')).ok()).toBeTruthy()
+
+    const published = await (await a.get('/api/public/site-pages/home')).json()
+    expect(published.blocks[0].content.subject, 'la referencia interna debe llegar a lo publicado').toBe(reference)
+
+    // El bloque publica en /api/public/contact — el mismo camino ya
+    // limitado por IP que usa la página de Contacto, no uno nuevo. Aquí se
+    // recorre ese camino tal cual lo haría el visitante.
+    const visitorEmail = `lead-${Date.now()}@example.com`
+    const sent = await a.post('/api/public/contact', {
+      data: { name: 'Visitante E2E', email: visitorEmail, phone: '+34600000000', message: 'Busco piso de 3 habitaciones', type: 'contact', subject: reference },
+    })
+    expect(sent.ok(), await sent.text()).toBeTruthy()
+
+    const leads = await (await a.get('/api/admin/saas/leads')).json()
+    const lead = leads.rows?.find((l: any) => l.email === visitorEmail)
+    expect(lead, 'el envío no ha creado un lead en el CRM').toBeTruthy()
+    expect(lead.source).toBe('web')
+  })
+
   test('un bloque de propiedades con fuente dinámica refleja cambios reales sin republicar', async () => {
     // A "properties" block whose dynamicFilter is 'latest' always renders
     // developer_properties fetched live at request time — publish a page

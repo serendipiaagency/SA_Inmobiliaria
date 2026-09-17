@@ -77,6 +77,32 @@
       </template>
     </div>
 
+    <!-- Lead form: text beside (or above) a stack of input pills + button -->
+    <div v-else-if="type === 'lead-form'" class="flex w-[86%] items-center gap-3" :class="layout === 'centered' ? '!flex-col !gap-1.5' : ''">
+      <div class="flex-1 space-y-1" :class="layout === 'centered' ? 'w-full text-center' : ''">
+        <div class="h-1.5 w-2/3 rounded-full bg-stone-300" :class="layout === 'centered' ? 'mx-auto' : ''" />
+        <div class="h-1 w-full rounded-full bg-stone-200" />
+      </div>
+      <div class="flex-1 space-y-1 rounded bg-white p-1.5">
+        <div class="h-1.5 w-full rounded-sm bg-stone-200" />
+        <div class="h-1.5 w-full rounded-sm bg-stone-200" />
+        <div class="h-2 w-full rounded-sm bg-ink" />
+      </div>
+    </div>
+
+    <!-- Book visit: text + a calendar-ish button -->
+    <div v-else-if="type === 'book-visit'" class="flex w-[86%] items-center gap-3" :class="layout === 'centered' ? '!flex-col !gap-1.5 !text-center' : ''">
+      <div class="flex-1 space-y-1">
+        <div class="h-1.5 w-2/3 rounded-full bg-stone-300" :class="layout === 'centered' ? 'mx-auto' : ''" />
+        <div class="h-1 w-full rounded-full bg-stone-200" />
+        <div class="mt-1.5 flex items-center gap-1" :class="layout === 'centered' ? 'justify-center' : ''">
+          <div class="h-3 w-3 rounded-full bg-stone-300" />
+          <div class="h-1 w-10 rounded-full bg-stone-200" />
+        </div>
+      </div>
+      <div class="h-3 w-16 shrink-0 rounded-full bg-ink" />
+    </div>
+
     <!-- Text: title + paragraph lines -->
     <div v-else-if="type === 'text'" class="w-[80%] space-y-1">
       <div class="h-2 w-1/2 rounded-full bg-stone-400" />
