@@ -204,7 +204,21 @@ restaurar una anterior al borrador, para revisarla antes de republicar.
 
 ### RE04 | P1 — El catálogo de secciones cubre 9 de los ~26 tipos pedidos
 
-**Estado**: Confirmado (es una carencia de alcance, no un defecto)
+**Estado**: En curso (FASE 3). **10 de ~26** desde el 17/09: añadido el bloque
+de **Comerciales**, en dos diseños (tarjetas y compacto), que era la ausencia
+más llamativa —una inmobiliaria no podía poner a su propio equipo en la
+portada—. Guarda criterio y no copias, como los de propiedades: lee el equipo
+en vivo y respeta «Mostrar este comercial en la web».
+
+`test/unit/siteBuilderRegistry.test.ts` cubre ahora la forma en que se rompe
+un bloque nuevo: exige que cada tipo tenga preset, componente, caso en el
+renderizador, inspector propio, etiqueta, subtítulo y miniatura, y avisa de
+componentes o inspectores huérfanos. Verificado en negativo quitando el caso
+del renderizador.
+
+Siguen pendientes los otros dos que el negocio necesita de verdad: formulario
+de captación y reserva de visita.
+
 **Área**: Constructor Web
 
 **Impacto funcional**: Una inmobiliaria no puede construir la web que el
@@ -401,6 +415,51 @@ extremo contra un buzón real.
 
 ---
 
+### RE09 | P0 — La web pública publicaba datos internos de los comerciales, y su token de calendario
+
+**Estado**: ✅ **Resuelto** (FASE 3, 17/09). Encontrado al construir el bloque
+de comerciales, no buscado.
+
+**Impacto funcional**: `/api/public/team` y `/api/public/team/[slug]` hacían
+`db.select()` sin proyección, así que devolvían **la fila entera de
+`team_members` a cualquiera, sin sesión**. Entre esas columnas van datos
+internos de personal —`nid` (documento de identidad), `employeeCode`,
+`department`, `hireDate`, `contractType`, `employmentStatus`— y, sobre todo,
+**`icalToken`**.
+
+`icalToken` no es un dato: es una credencial. `/calendar/<token>.ics` está sin
+autenticar a propósito, porque una aplicación de calendario no puede enviar
+cookies — el token *es* la credencial. Publicarlo entregaba la agenda completa
+del comercial: **nombre del cliente, hora y enlace de videollamada de cada
+visita futura**.
+
+**Evidencia** (demostrado de extremo a extremo antes de tocar nada, contra el
+Worker real, sin sesión):
+
+1. Un admin abre el horario de un comercial → se acuña su `icalToken`.
+2. `GET /api/public/team` sin cookies → ese mismo token aparece en la
+   respuesta, junto a `nid`, `employeeCode`, `department`, `hireDate`,
+   `contractType`, `managerId` y `employmentStatus`.
+3. `GET /calendar/<ese token>.ics` sin cookies → **200**, con el calendario.
+
+**Resuelto**: una única definición de qué es público de un comercial
+(`server/utils/publicTeam.ts`), usada por los dos endpoints públicos, por el
+feed de la portada y por el lienzo del constructor. Nunca `select()` a secas
+sobre `team_members`.
+
+`test/unit/publicTeamProjection.test.ts` obliga a que **cada columna** de la
+tabla esté clasificada como pública o no-pública **con el motivo escrito**:
+una columna nueva rompe la prueba hasta que alguien decida de qué lado cae,
+que es exactamente como apareció este problema. Una e2e lo comprueba además
+sobre HTTP, sin sesión.
+
+**Nota**: no se ha tocado quién puede ver la ficha pública de un comercial no
+publicado (`/api/public/team/[slug]` sigue sin filtrar por `showOnWeb`, como
+estaba y como documenta el propio código). Eso es una decisión de producto
+distinta, y no es lo que estaba roto.
+
+---
+
 ## 4. Matriz
 
 Sólo se rellena lo verificado en esta pasada. «Sin auditar» significa
@@ -419,7 +478,7 @@ exactamente eso.
 | Data binding | Auditado — en vivo, sin duplicación (R4) | — | No |
 | Multimedia / Archivos | Propiedad y namespacing por inquilino verificados; huérfanos sin auditar | Sin auditar | Desconocido |
 | SEO | Existe schema.org, sitemap, robots y SEO por página; cobertura sin auditar | Sin auditar | Desconocido |
-| Seguridad | XSS del constructor cerrado (R8); resto parcial | P2 | No |
+| Seguridad | XSS del constructor cerrado (R8); fuga de datos de comerciales cerrada (RE09); resto parcial | P2 | No |
 | Despliegue | Roto: RE01 + RE02 | **P0** | **Sí** |
 | Comunicaciones | Sin conectar (RE08) | P1 | **Sí** |
 | Rendimiento | **Sin medir** | Sin auditar | Desconocido |
@@ -442,9 +501,8 @@ que venga después. Nada de esto es código.
 RE08 (conectar email) sigue pendiente y **no es código**: falta el secreto
 `RESEND_API_KEY` en Cloudflare.
 
-**FASE 3 — UX y Constructor Web.** RE04, un bloque por ejecución, empezando
-por los que el negocio inmobiliario necesita de verdad: comerciales
-destacados, formulario de captación, reserva de visita.
+**FASE 3 — UX y Constructor Web.** RE04, un bloque por ejecución. Comerciales
+destacados ✅. Pendientes: formulario de captación y reserva de visita.
 
 **FASE 4 — Preparación de piloto.** Completar la auditoría de lo que queda
 (sección 6) y ejecutar el recorrido E2E de abajo con una inmobiliaria de

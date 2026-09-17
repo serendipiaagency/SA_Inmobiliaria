@@ -62,6 +62,7 @@
         <PropertyTypesBlock v-else-if="block.type === 'property-types'" :content="block.content" :projects="homeData?.projects || []" />
         <MortgageBlock v-else-if="block.type === 'mortgage-calculator'" :content="block.content" :projects="homeData?.projects || []" />
         <BlogListBlock v-else-if="block.type === 'blog-list'" :content="block.content" :blogs="homeData?.blogs || []" />
+        <TeamBlock v-else-if="block.type === 'team'" :content="block.content" :team="homeData?.team || []" />
         <TextBlock v-else-if="block.type === 'text'" :content="block.content" />
         <CtaBlock v-else-if="block.type === 'cta'" :content="block.content" />
         <div v-else-if="mode !== 'production'" class="mx-auto max-w-screen-2xl px-6 py-10 text-sm text-red-500">
@@ -95,6 +96,7 @@ import CommunitiesBlock from './blocks/CommunitiesBlock.vue'
 import PropertyTypesBlock from './blocks/PropertyTypesBlock.vue'
 import MortgageBlock from './blocks/MortgageBlock.vue'
 import BlogListBlock from './blocks/BlogListBlock.vue'
+import TeamBlock from './blocks/TeamBlock.vue'
 import TextBlock from './blocks/TextBlock.vue'
 import CtaBlock from './blocks/CtaBlock.vue'
 
@@ -111,7 +113,7 @@ import CtaBlock from './blocks/CtaBlock.vue'
 const props = withDefaults(
   defineProps<{
     blocks: SiteBlock[]
-    homeData?: { projects?: any[]; communities?: any[]; blogs?: any[] } | null
+    homeData?: { projects?: any[]; communities?: any[]; blogs?: any[]; team?: any[] } | null
     mode?: 'production' | 'builder' | 'preview'
     /** builder-only: which breakpoint the canvas is currently simulating */
     device?: 'desktop' | 'tablet' | 'mobile'

@@ -152,6 +152,44 @@ test.describe('Constructor Web', () => {
     await expect(page.getByRole('button', { name: 'Publicar cambios' })).toBeVisible()
   })
 
+  /**
+   * El bloque de comerciales, con la misma garantía que el de propiedades:
+   * guarda criterio, no copias. Lo que se comprueba es que el dato llega en
+   * vivo desde /api/public/home — si el bloque guardase los nombres, editar
+   * la ficha del comercial no cambiaría nada hasta republicar.
+   */
+  test('el bloque de comerciales lee el equipo en vivo y respeta "mostrar en la web"', async () => {
+    const marker = `Comercial Bloque ${Date.now()}`
+    const created = await a.post('/api/admin/team', {
+      data: { name: marker, email: `bloque-${Date.now()}@mm.test`, position: 'Asesor E2E', slug: `bloque-${Date.now()}`, showOnWeb: 1 },
+    })
+    expect(created.ok(), await created.text()).toBeTruthy()
+    const memberId = (await created.json()).id
+
+    await a.put('/api/admin/site-pages/home', {
+      data: {
+        blocks: [{ id: 'team-e2e', type: 'team', version: 1, content: { eyebrow: 'e', title: 'Equipo', source: 'dynamic', limit: 12, layout: 'cards' } }],
+        seo: {},
+      },
+    })
+    expect((await a.post('/api/admin/site-pages/home/publish')).ok()).toBeTruthy()
+
+    const feed = await (await a.fetch('/api/public/home')).json()
+    expect(feed.team.map((m: any) => m.name), 'el comercial nuevo no llega al feed en vivo').toContain(marker)
+
+    // Despublicarlo lo saca del feed sin tocar el Constructor Web: la
+    // visibilidad la manda la ficha, no el bloque.
+    await a.put(`/api/admin/team/${memberId}`, { data: { showOnWeb: 0 } })
+    const afterHiding = await (await a.fetch('/api/public/home')).json()
+    expect(afterHiding.team.map((m: any) => m.name), 'sigue saliendo tras quitarle "mostrar en la web"').not.toContain(marker)
+
+    const page = await (await a.get('/api/public/site-pages/home')).json()
+    expect(page.blocks[0].content.source, 'el bloque debe guardar criterio, nunca las personas').toBe('dynamic')
+    expect(JSON.stringify(page.blocks[0].content), 'el bloque ha guardado una copia del comercial').not.toContain(marker)
+
+    await a.delete(`/api/admin/team/${memberId}`)
+  })
+
   test('un bloque de propiedades con fuente dinámica refleja cambios reales sin republicar', async () => {
     // A "properties" block whose dynamicFilter is 'latest' always renders
     // developer_properties fetched live at request time — publish a page

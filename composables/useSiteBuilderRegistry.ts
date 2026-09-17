@@ -7,6 +7,7 @@ import MortgageInspector from '~/components/site-builder/inspectors/MortgageInsp
 import BlogListInspector from '~/components/site-builder/inspectors/BlogListInspector.vue'
 import TextInspector from '~/components/site-builder/inspectors/TextInspector.vue'
 import CtaInspector from '~/components/site-builder/inspectors/CtaInspector.vue'
+import TeamInspector from '~/components/site-builder/inspectors/TeamInspector.vue'
 
 /**
  * The Constructor Web's block catalogue — the single list that drives the
@@ -33,7 +34,7 @@ export function newBlockId(type: string): string {
   return `${type}-${randomSuffix()}`
 }
 
-export const BLOCK_CATEGORIES = ['Principal', 'Propiedades', 'Explora', 'Herramientas', 'Contenido'] as const
+export const BLOCK_CATEGORIES = ['Principal', 'Propiedades', 'Explora', 'Equipo', 'Herramientas', 'Contenido'] as const
 
 export const BLOCK_PRESETS: BlockPreset[] = [
   {
@@ -124,6 +125,28 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     createContent: () => ({ eyebrow: 'Planifica', title: 'Calcula tu hipoteca', text: 'Estima tu cuota mensual y los costes de compra en segundos.' }),
   },
   {
+    presetId: 'team-cards',
+    type: 'team',
+    label: 'Comerciales — tarjetas',
+    description: 'Retratos del equipo con nombre y puesto, enlazando a su ficha pública.',
+    category: 'Equipo',
+    createContent: () => ({
+      eyebrow: 'Quiénes te acompañan', title: 'Habla con un comercial', cta: 'Ver todo el equipo', ctaTo: '/equipo',
+      source: 'dynamic', limit: 4, layout: 'cards',
+    }),
+  },
+  {
+    presetId: 'team-compact',
+    type: 'team',
+    label: 'Comerciales — compacto',
+    description: 'Fila de retratos redondos con puesto y teléfono, como prueba de confianza.',
+    category: 'Equipo',
+    createContent: () => ({
+      eyebrow: 'Tu equipo', title: 'Personas, no formularios', cta: '', ctaTo: '',
+      source: 'dynamic', limit: 3, layout: 'compact', cardFields: { position: true, contact: true },
+    }),
+  },
+  {
     presetId: 'blog-list',
     type: 'blog-list',
     label: 'Últimos artículos',
@@ -171,6 +194,7 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
   'property-types': 'Tipos de propiedad',
   'mortgage-calculator': 'Calculadora de hipoteca',
   'blog-list': 'Últimos artículos',
+  team: 'Comerciales',
   text: 'Texto',
   cta: 'Llamada a la acción',
 }
@@ -213,6 +237,10 @@ export function blockSubtitle(block: { type: string; content?: Record<string, an
       return 'Calculadora interactiva'
     case 'blog-list':
       return `${c.limit ?? 0} artículo${c.limit === 1 ? '' : 's'}`
+    case 'team': {
+      const count = c.source === 'manual' ? (c.manualIds?.length ?? 0) : (c.limit ?? 0)
+      return `${count} comercial${count === 1 ? '' : 'es'} · ${c.layout === 'compact' ? 'Compacto' : 'Tarjetas'}`
+    }
     case 'text':
       return c.title || 'Bloque de texto libre'
     case 'cta':
@@ -244,6 +272,7 @@ export const BLOCK_INSPECTORS: Record<string, BlockInspectorEntry> = {
   'property-types': { component: PropertyTypesInspector },
   'mortgage-calculator': { component: MortgageInspector },
   'blog-list': { component: BlogListInspector },
+  team: { component: TeamInspector, needsPreviewData: true },
   text: { component: TextInspector },
   cta: { component: CtaInspector },
 }

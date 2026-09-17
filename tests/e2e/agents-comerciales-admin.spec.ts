@@ -159,6 +159,50 @@ test.describe('Comerciales — admin', () => {
     expect(names).not.toContain(hiddenName)
   })
 
+  /**
+   * Los endpoints públicos de comerciales devolvían la fila entera de
+   * `team_members`, sin sesión. Entre esas columnas viaja `icalToken`, que no
+   * es un dato sino una credencial: `/calendar/<token>.ics` está sin
+   * autenticar a propósito (una app de calendario no puede mandar cookies),
+   * así que publicarlo entregaba la agenda del comercial —nombre de cliente,
+   * hora y enlace de videollamada de cada visita futura— a cualquiera. Salían
+   * también `nid` (documento de identidad), `employeeCode`, `hireDate`,
+   * `contractType` y `employmentStatus`.
+   *
+   * La proyección está fijada en server/utils/publicTeam.ts y hay una prueba
+   * unitaria que obliga a clasificar cada columna nueva. Esto lo comprueba
+   * donde importa: sobre HTTP, sin sesión, contra el Worker de verdad.
+   */
+  test('los endpoints públicos de comerciales no filtran datos internos ni el token de calendario', async () => {
+    const id = await createAgent({ name: `Fuga E2E ${Date.now()}`, position: 'Comercial E2E', showOnWeb: 1 })
+
+    // Abrir su horario como admin es lo que acuña el token iCal: sin esto la
+    // columna estaría a null y la prueba pasaría sin demostrar nada.
+    const availability = await (await a.get(`/api/admin/saas/agents/${id}/availability`)).json()
+    expect(availability.agent.icalToken, 'el token no llegó a acuñarse').toBeTruthy()
+
+    const INTERNAL = ['icalToken', 'nid', 'employeeCode', 'department', 'officeName', 'managerId', 'hireDate', 'contractType', 'employmentStatus', 'organizationId']
+
+    // `fetch` a pelo, sin cookies — exactamente lo que ve un visitante. Y no
+    // un segundo APIRequestContext: en esta versión de Playwright se ha
+    // observado que dos contextos contra el mismo baseURL se filtran cookies
+    // entre sí, lo que convertiría esto en un falso negativo (ver la prueba
+    // del documento privado, más arriba).
+    const listing = (await (await fetch(`${BASE_URL}/api/public/team`)).json()) as any
+    const member = listing.rows.find((r: any) => r.id === id)
+    expect(member, 'el comercial publicado debería listarse').toBeTruthy()
+    expect(INTERNAL.filter((f) => f in member), 'el listado público expone campos internos').toEqual([])
+
+    const profile = (await (await fetch(`${BASE_URL}/api/public/team/${member.slug}`)).json()) as any
+    expect(INTERNAL.filter((f) => f in profile.member), 'la ficha pública expone campos internos').toEqual([])
+
+    // Y el feed de la portada, que alimenta el bloque de comerciales.
+    const home = (await (await fetch(`${BASE_URL}/api/public/home`)).json()) as any
+    const inHome = home.team.find((m: any) => m.id === id)
+    expect(inHome, 'el comercial debería llegar al feed de la portada').toBeTruthy()
+    expect(INTERNAL.filter((f) => f in inHome), 'el feed de la portada expone campos internos').toEqual([])
+  })
+
   test('el listado admin carga en el navegador, muestra las tarjetas y la ficha navega por pestañas sin errores', async ({ page }) => {
     const marker = `Tarjeta visible Comercial E2E ${Date.now()}`
     await createAgent({ name: marker, position: 'Agente Senior E2E' })

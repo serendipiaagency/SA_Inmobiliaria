@@ -34,7 +34,7 @@ import type { SiteBlock } from '~/server/utils/sitePages'
 definePageMeta({ layout: false, middleware: 'admin' })
 
 const blocks = ref<SiteBlock[]>([])
-const homeData = ref<{ projects: any[]; communities: any[]; blogs: any[] } | null>(null)
+const homeData = ref<{ projects: any[]; communities: any[]; blogs: any[]; team: any[] } | null>(null)
 const device = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
 const selectedBlockId = ref<string | null>(null)
 const mode = ref<'builder' | 'preview'>('builder')
@@ -70,9 +70,9 @@ function handleMessage(e: MessageEvent) {
 onMounted(async () => {
   window.addEventListener('message', handleMessage)
   try {
-    homeData.value = await $fetch<{ projects: any[]; communities: any[]; blogs: any[] }>('/api/admin/site-pages/preview-data')
+    homeData.value = await $fetch<{ projects: any[]; communities: any[]; blogs: any[]; team: any[] }>('/api/admin/site-pages/preview-data')
   } catch {
-    homeData.value = { projects: [], communities: [], blogs: [] }
+    homeData.value = { projects: [], communities: [], blogs: [], team: [] }
   }
   window.parent.postMessage({ source: 'sa-builder-canvas', type: 'ready' }, window.location.origin)
 })
