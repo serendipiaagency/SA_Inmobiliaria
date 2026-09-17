@@ -261,6 +261,7 @@
             :content="selectedBlock.content"
             :projects="previewData?.projects || []"
             :communities="previewData?.communities || []"
+            :team="previewData?.team || []"
           />
           <p v-else-if="inspectorTab === 'content'" class="text-sm text-stone-400">Este tipo de bloque no tiene opciones adicionales todavía.</p>
 
@@ -466,14 +467,14 @@ const breadcrumb = computed(() => (selectedBlock.value ? blockLabel(selectedBloc
 // dynamic filters + manual selection) — fetched once here in the shell,
 // independently of the canvas iframe's own copy for rendering. Never
 // snapshotted into block content, exactly like the canvas's live data.
-const previewData = ref<{ projects: any[]; communities: any[]; blogs: any[] } | null>(null)
+const previewData = ref<{ projects: any[]; communities: any[]; blogs: any[]; team: any[] } | null>(null)
 const previewDataLoaded = ref(false)
 function ensurePreviewData() {
   if (previewDataLoaded.value) return
   previewDataLoaded.value = true
-  $fetch<{ projects: any[]; communities: any[]; blogs: any[] }>('/api/admin/site-pages/preview-data')
+  $fetch<{ projects: any[]; communities: any[]; blogs: any[]; team: any[] }>('/api/admin/site-pages/preview-data')
     .then((data) => (previewData.value = data))
-    .catch(() => (previewData.value = { projects: [], communities: [], blogs: [] }))
+    .catch(() => (previewData.value = { projects: [], communities: [], blogs: [], team: [] }))
 }
 watch(selectedBlock, (b) => {
   if (b && inspectorFor(b.type)?.needsPreviewData) ensurePreviewData()

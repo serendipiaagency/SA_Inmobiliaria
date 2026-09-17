@@ -57,6 +57,26 @@
       </div>
     </div>
 
+    <!-- Team: portraits — tall cards, or a compact row of round avatars -->
+    <div v-else-if="type === 'team'" class="flex w-[86%] gap-1.5">
+      <template v-if="layout === 'compact'">
+        <div v-for="i in 3" :key="i" class="flex flex-1 items-center gap-1">
+          <div class="h-5 w-5 shrink-0 rounded-full bg-stone-300" />
+          <div class="min-w-0 flex-1 space-y-0.5">
+            <div class="h-1 w-full rounded-full bg-stone-300" />
+            <div class="h-1 w-2/3 rounded-full bg-stone-200" />
+          </div>
+        </div>
+      </template>
+      <template v-else>
+        <div v-for="i in 4" :key="i" class="flex-1 space-y-1">
+          <div class="h-9 w-full rounded bg-stone-300" />
+          <div class="h-1 w-3/4 rounded-full bg-stone-300" />
+          <div class="h-1 w-1/2 rounded-full bg-stone-200" />
+        </div>
+      </template>
+    </div>
+
     <!-- Text: title + paragraph lines -->
     <div v-else-if="type === 'text'" class="w-[80%] space-y-1">
       <div class="h-2 w-1/2 rounded-full bg-stone-400" />
