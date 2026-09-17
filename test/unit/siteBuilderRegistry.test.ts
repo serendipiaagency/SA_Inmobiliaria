@@ -95,6 +95,59 @@ describe('catálogo de bloques del Constructor Web', () => {
   })
 })
 
+/**
+ * Dos bloques tienen **efecto real**: el formulario de captación crea un lead
+ * en el CRM y dispara un aviso por email, y la reserva de visita ocupa un
+ * hueco en la agenda de un comercial y envía su confirmación.
+ *
+ * El lienzo intercepta el clic, así que ahí no pasa nada — pero **Vista
+ * previa navega y dispara handlers de verdad**, que es justo para lo que
+ * existe. Sin un bloqueo explícito, revisar la portada antes de publicarla
+ * llenaría el CRM de leads inventados y la agenda de citas falsas.
+ *
+ * Es una comprobación sobre el código fuente a propósito: lo que tiene que
+ * saltar es el bloque nuevo con efectos que nadie se acuerde de proteger.
+ */
+describe('los bloques con efecto real no disparan nada desde el editor', () => {
+  const SIDE_EFFECT_BLOCKS: Record<string, string> = {
+    'lead-form': 'LeadFormBlock.vue',
+    'book-visit': 'BookVisitBlock.vue',
+  }
+
+  it.each(Object.entries(SIDE_EFFECT_BLOCKS))('el renderizador le pasa `mode` a «%s»', (type) => {
+    // Sin `:mode` el bloque cae en su valor por defecto ('production') y se
+    // creería publicado también dentro del constructor.
+    const line = RENDERER.split('\n').find((l) => l.includes(`block.type === '${type}'`))
+    expect(line, `no hay caso para "${type}"`).toBeTruthy()
+    expect(line, `el caso de "${type}" no recibe :mode`).toContain(':mode="mode"')
+  })
+
+  it.each(Object.values(SIDE_EFFECT_BLOCKS))('%s se bloquea fuera de producción', (file) => {
+    const source = readFileSync(join(ROOT, 'components/site-builder/blocks', file), 'utf8')
+    expect(source, 'no comprueba el modo').toContain("mode !== 'production'")
+    // Y el bloqueo tiene que cortar de verdad el envío, no sólo pintar un
+    // botón deshabilitado: un `disabled` en el HTML no protege de un submit
+    // con Enter desde un campo de texto.
+    expect(source, 'el bloqueo no corta la acción').toMatch(/if \(locked\.value\) return/)
+  })
+
+  it('ningún otro bloque hace peticiones de escritura', () => {
+    // Si un bloque nuevo empieza a hacer POST/PUT/DELETE, es que tiene efecto
+    // real y le toca entrar en la lista de arriba.
+    const dir = join(ROOT, 'components/site-builder/blocks')
+    const offenders: string[] = []
+    for (const file of readdirSync(dir).filter((f) => f.endsWith('.vue'))) {
+      if (Object.values(SIDE_EFFECT_BLOCKS).includes(file)) continue
+      const source = readFileSync(join(dir, file), 'utf8')
+      if (/method:\s*'(POST|PUT|DELETE|PATCH)'/i.test(source)) offenders.push(file)
+    }
+    expect(
+      offenders,
+      `Estos bloques escriben pero no declaran efecto real: ${offenders.join(', ')}. Añádelos a SIDE_EFFECT_BLOCKS y protégelos con \`mode\`.`,
+    ).toEqual([])
+  })
+})
+
 describe('el bloque de comerciales', () => {
   const presets = BLOCK_PRESETS.filter((p) => p.type === 'team')
 

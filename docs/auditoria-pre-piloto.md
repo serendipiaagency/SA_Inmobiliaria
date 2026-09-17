@@ -204,20 +204,42 @@ restaurar una anterior al borrador, para revisarla antes de republicar.
 
 ### RE04 | P1 — El catálogo de secciones cubre 9 de los ~26 tipos pedidos
 
-**Estado**: En curso (FASE 3). **10 de ~26** desde el 17/09: añadido el bloque
-de **Comerciales**, en dos diseños (tarjetas y compacto), que era la ausencia
-más llamativa —una inmobiliaria no podía poner a su propio equipo en la
-portada—. Guarda criterio y no copias, como los de propiedades: lee el equipo
-en vivo y respeta «Mostrar este comercial en la web».
+**Estado**: FASE 3 entregada. **12 de ~26** desde el 17/09, y los tres que el
+encargo señalaba como prioritarios:
+
+- **Comerciales** (tarjetas / compacto). Era la ausencia más llamativa: una
+  inmobiliaria no podía poner a su propio equipo en su portada. Lee el equipo
+  en vivo y respeta «Mostrar este comercial en la web».
+- **Formulario de captación**. Crea un lead real en CRM → Leads (origen
+  `web`), guarda el mensaje y dispara el aviso interno. Publica en
+  `/api/public/contact`, el camino que ya existe y ya está limitado por IP:
+  **no se ha añadido un endpoint nuevo**, para no duplicar también su
+  superficie de abuso.
+- **Reserva de visita**. Abre `BookAppointmentModal`, el mismo selector que la
+  ficha pública del comercial, contra su agenda real — horario, margen entre
+  citas, tope diario y días bloqueados salen de su ficha y aquí no se
+  duplican.
+
+Ninguno guarda copias: el de comerciales guarda criterio, el de reserva guarda
+a quién enlaza.
+
+**Decisión que merece constar**: los dos bloques de captación **se bloquean
+fuera de producción**. El lienzo ya intercepta el clic, pero *Vista previa
+dispara handlers de verdad* —es su razón de ser—, así que sin ese bloqueo
+revisar la portada antes de publicarla llenaría el CRM de leads inventados y
+la agenda de citas falsas. El corte está en el handler, no sólo en un
+`disabled` del botón: un formulario se envía también con Enter.
 
 `test/unit/siteBuilderRegistry.test.ts` cubre ahora la forma en que se rompe
-un bloque nuevo: exige que cada tipo tenga preset, componente, caso en el
-renderizador, inspector propio, etiqueta, subtítulo y miniatura, y avisa de
-componentes o inspectores huérfanos. Verificado en negativo quitando el caso
-del renderizador.
+un bloque nuevo —ninguna de sus siete piezas da error rojo si falta— y exige
+que un bloque que haga POST/PUT/DELETE declare su efecto y reciba `mode`.
+Verificado en negativo por partida doble: quitando el caso del renderizador y
+quitando el `:mode`.
 
-Siguen pendientes los otros dos que el negocio necesita de verdad: formulario
-de captación y reserva de visita.
+**RE07 de paso**: el bloque de reserva resuelve a la vista el riesgo de las
+referencias rotas. Si el comercial elegido deja de estar publicado, la web
+pública sigue funcionando con el primero disponible y el editor ve un aviso,
+en vez de que la sección desaparezca en silencio.
 
 **Área**: Constructor Web
 
@@ -376,7 +398,11 @@ módulos siguen pasando `properties-secondhand-admin.spec.ts` y
 
 ### RE07 | P2 — Un bloque con propiedades elegidas a mano no avisa si una desaparece
 
-**Estado**: Riesgo a reproducir
+**Estado**: Riesgo a reproducir — **sigue abierto para propiedades**. El patrón
+sí está resuelto en el bloque de reserva de visita (FASE 3): si el comercial
+elegido deja de estar publicado, la web pública sigue funcionando con el
+primero disponible y el editor ve un aviso. Es el modelo a replicar en
+`PropertiesBlock` y `CommunitiesBlock`.
 **Área**: Constructor Web / Data binding
 
 **Impacto funcional**: Si se borra o despublica una propiedad referenciada en
@@ -473,7 +499,7 @@ exactamente eso.
 | Propiedades 2ª mano | Editor auditado — correcto; listado unificado (RE06) | — | No |
 | Property Editor | Auditado — arquitectura correcta (R3) | — | No |
 | Comerciales | Constructor cubre casi todo el esquema; vocabulario y módulo unificados (RE05) | — | No |
-| Constructor Web | Arquitectura correcta (R1, R2); rollback resuelto (RE03); catálogo corto (RE04) | P1 | **Sí** |
+| Constructor Web | Arquitectura correcta (R1, R2); rollback resuelto (RE03); catálogo 12/~26, los 3 prioritarios hechos (RE04) | P2 | No |
 | Publicación | Modelo correcto (R7); restauración entregada (RE03) | — | No |
 | Data binding | Auditado — en vivo, sin duplicación (R4) | — | No |
 | Multimedia / Archivos | Propiedad y namespacing por inquilino verificados; huérfanos sin auditar | Sin auditar | Desconocido |
@@ -501,8 +527,9 @@ que venga después. Nada de esto es código.
 RE08 (conectar email) sigue pendiente y **no es código**: falta el secreto
 `RESEND_API_KEY` en Cloudflare.
 
-**FASE 3 — UX y Constructor Web.** RE04, un bloque por ejecución. Comerciales
-destacados ✅. Pendientes: formulario de captación y reserva de visita.
+**FASE 3 — UX y Constructor Web.** RE04 ✅ en lo prioritario: comerciales
+destacados, formulario de captación y reserva de visita. El catálogo pasa de 9
+a 12 tipos; el resto de los ~26 sigue siendo alcance por decidir, no deuda.
 
 **FASE 4 — Preparación de piloto.** Completar la auditoría de lo que queda
 (sección 6) y ejecutar el recorrido E2E de abajo con una inmobiliaria de

@@ -68,15 +68,45 @@ dos tenants reales.
 ## Bloques disponibles hoy
 
 `hero`, `map-teaser`, `properties` (con `layout: row | dark-grid | ai-grid`),
-`communities`, `property-types`, `mortgage-calculator`, `blog-list`, `text`,
-`cta`. El catálogo — con su icono de categoría y su contenido por defecto —
-vive en `composables/useSiteBuilderRegistry.ts` (`BLOCK_PRESETS`). Añadir un
-bloque nuevo es: una entrada en `BLOCK_PRESETS`; un componente en
+`communities`, `property-types`, `mortgage-calculator`, `blog-list`, `team`
+(con `layout: cards | compact`), `lead-form`, `book-visit`, `text`, `cta`. El
+catálogo — con su icono de categoría y su contenido por defecto — vive en
+`composables/useSiteBuilderRegistry.ts` (`BLOCK_PRESETS`).
+
+Añadir un bloque nuevo es: una entrada en `BLOCK_PRESETS`; un componente en
 `components/site-builder/blocks/*.vue` (renderer, usado tal cual en
 producción y en el lienzo); una rama en `SiteBlockRenderer.vue`; un
 componente en `components/site-builder/inspectors/*.vue` (su propio Block
-Inspector, ver más abajo) registrado en `BLOCK_INSPECTORS`. Nada más del
-builder necesita tocarse — ese es el punto del registro.
+Inspector, ver más abajo) registrado en `BLOCK_INSPECTORS`; su etiqueta en
+`BLOCK_TYPE_LABELS`, su caso en `blockSubtitle()` y su miniatura en
+`SectionPreview.vue`. Nada más del builder necesita tocarse — ese es el punto
+del registro.
+
+**Ninguna de esas siete piezas da un error rojo si falta**: sin rama en el
+renderizador el bloque sale como «Tipo de bloque desconocido»; sin inspector
+el panel derecho se queda vacío; sin subtítulo dos bloques del mismo tipo son
+indistinguibles en la lista de Estructura; sin miniatura la biblioteca enseña
+un rectángulo gris. Por eso `test/unit/siteBuilderRegistry.test.ts` las exige
+todas, y avisa además de componentes o inspectores huérfanos.
+
+### Bloques con efecto real
+
+`lead-form` y `book-visit` son los únicos que **escriben**: el primero crea un
+lead en el CRM (vía `/api/public/contact`, el mismo camino ya limitado por IP
+que usa la página de Contacto — no se añadió un endpoint nuevo), el segundo
+reserva un hueco en la agenda de un comercial (vía `BookAppointmentModal`, el
+mismo que usa su ficha pública).
+
+Los dos reciben `mode` desde `SiteBlockRenderer` y **se bloquean fuera de
+producción**. El lienzo ya intercepta el clic, pero **Vista previa dispara
+handlers de verdad** — es exactamente para lo que existe—, así que sin ese
+bloqueo revisar la portada antes de publicarla llenaría el CRM de leads
+inventados y la agenda de citas falsas. El bloqueo corta la acción en el
+handler, no sólo con un `disabled` en el botón: un formulario se envía también
+con Enter desde un campo de texto.
+
+Un bloque nuevo que haga POST/PUT/DELETE y no declare ese efecto rompe la
+prueba del registro.
 
 **Decisión de alcance: cabecera y pie de página quedan fuera de este bloque.**
 `layouts/default.vue` los renderiza igual para *todas* las páginas del sitio

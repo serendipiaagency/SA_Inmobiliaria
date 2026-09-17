@@ -63,6 +63,11 @@
         <MortgageBlock v-else-if="block.type === 'mortgage-calculator'" :content="block.content" :projects="homeData?.projects || []" />
         <BlogListBlock v-else-if="block.type === 'blog-list'" :content="block.content" :blogs="homeData?.blogs || []" />
         <TeamBlock v-else-if="block.type === 'team'" :content="block.content" :team="homeData?.team || []" />
+        <!-- Los dos únicos bloques con efecto real (crean un lead, reservan
+             una cita) reciben `mode`: lo usan para no disparar nada desde el
+             lienzo ni desde Vista previa. -->
+        <LeadFormBlock v-else-if="block.type === 'lead-form'" :content="block.content" :mode="mode" />
+        <BookVisitBlock v-else-if="block.type === 'book-visit'" :content="block.content" :team="homeData?.team || []" :mode="mode" />
         <TextBlock v-else-if="block.type === 'text'" :content="block.content" />
         <CtaBlock v-else-if="block.type === 'cta'" :content="block.content" />
         <div v-else-if="mode !== 'production'" class="mx-auto max-w-screen-2xl px-6 py-10 text-sm text-red-500">
@@ -97,6 +102,8 @@ import PropertyTypesBlock from './blocks/PropertyTypesBlock.vue'
 import MortgageBlock from './blocks/MortgageBlock.vue'
 import BlogListBlock from './blocks/BlogListBlock.vue'
 import TeamBlock from './blocks/TeamBlock.vue'
+import LeadFormBlock from './blocks/LeadFormBlock.vue'
+import BookVisitBlock from './blocks/BookVisitBlock.vue'
 import TextBlock from './blocks/TextBlock.vue'
 import CtaBlock from './blocks/CtaBlock.vue'
 
