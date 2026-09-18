@@ -137,8 +137,10 @@ test.describe('Propiedades 2ª mano — listado admin', () => {
     const nav = page.locator('aside')
     await nav.getByRole('button', { name: 'Galería' }).click()
     await page.getByRole('button', { name: 'Usar como portada' }).click()
-    await page.getByRole('button', { name: 'Guardar' }).click()
-    await expect(page.getByText('Guardado')).toBeVisible({ timeout: 5000 })
+    await page.getByTestId('property-editor-save').click()
+    // El indicador de la cabecera y no un `getByText('Guardado')` suelto: el
+    // aviso flotante dice lo mismo, así que el texto a secas es ambiguo.
+    await expect(page.getByTestId('property-editor-save-state')).toHaveText('Guardado', { timeout: 5000 })
 
     const row = (await (await a.get(`/api/admin/properties/${id}`)).json()).row
     expect(row.mainImage).toBe('public/1/properties/e2e-cover.jpg')

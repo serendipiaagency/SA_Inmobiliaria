@@ -14,7 +14,7 @@
     <div>
       <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p class="text-[11px] font-semibold uppercase tracking-widest text-stone-500">Mapa</p>
-        <button type="button" class="btn-quiet" :disabled="geocoding" @click="geocode">
+        <button type="button" class="pe-btn-quiet" :disabled="geocoding" @click="geocode">
           {{ geocoding ? 'Buscando…' : 'Buscar dirección en el mapa' }}
         </button>
       </div>

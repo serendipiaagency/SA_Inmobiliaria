@@ -104,6 +104,57 @@
   .link-underline:hover {
     background-size: 100% 1px;
   }
+
+  /* ---------------------------------------------------------------------
+     Property Editor (components/property-builder/*)
+     ---------------------------------------------------------------------
+     El editor de propiedades tiene su propio lenguaje visual: tarjetas
+     blancas sobre fondo crema, esquinas redondeadas, campos altos y botones
+     de esquina suave en vez de las píldoras en versales del resto del
+     portal. No se reutilizan `.input` / `.btn-primary` porque son
+     deliberadamente distintos (`.input` no tiene radio y `.btn-primary` es
+     una píldora en mayúsculas), y forzarlos aquí obligaría a sobrescribirlos
+     campo a campo con `!`.
+
+     Viven en el CSS global, y no dentro de un componente, porque los
+     comparten el armazón, los campos, la galería, los planos, el plan de
+     pagos y las redes sociales: una esquina o un alto distintos entre dos de
+     ellos se ven a simple vista. */
+  .pe-label {
+    @apply mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.12em] text-stone-450;
+  }
+  .pe-input {
+    @apply w-full rounded-[10px] border border-line bg-white px-4 py-3 text-[15px] text-ink transition-colors duration-150 placeholder:text-stone-400 focus:border-ink focus:outline-none disabled:cursor-not-allowed disabled:bg-surface disabled:text-stone-400;
+  }
+  .pe-input[aria-invalid='true'] {
+    @apply border-red-400 focus:border-red-500;
+  }
+  /* Tarjeta blanca del editor. `.card` usa `bg-surface`, que aquí es el
+     fondo de la página: una tarjeta del mismo color desaparecería. */
+  .pe-card {
+    @apply rounded-2xl border border-line bg-white;
+  }
+  .pe-btn-dark {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-[10px] bg-ink px-5 py-2.5 text-[13px] font-semibold text-white transition hover:bg-black active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100;
+  }
+  .pe-btn-quiet {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-[10px] border border-line bg-white px-5 py-2.5 text-[13px] font-medium text-stone-600 transition hover:border-ink hover:text-ink active:scale-[0.98] disabled:opacity-40 disabled:active:scale-100;
+  }
+  /* Interruptor en forma de píldora: sustituye a la casilla de verificación
+     para equipamiento y condiciones, que es como se leen de un vistazo. */
+  .pe-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-medium transition;
+  }
+  .pe-chip-off {
+    @apply border-line bg-white text-stone-600 hover:border-stone-400;
+  }
+  .pe-chip-on {
+    @apply border-amber-300 bg-amber-50 text-ink;
+  }
+  /* Zona de arrastre / estado vacío con borde discontinuo. */
+  .pe-drop {
+    @apply flex w-full flex-col items-center justify-center rounded-xl border border-dashed border-line bg-surface/50 px-6 py-10 text-center transition hover:border-stone-400;
+  }
 }
 
 /* Scroll reveal */

@@ -1,8 +1,8 @@
 <template>
   <div class="block" :class="span === 2 ? 'sm:col-span-2' : ''">
-    <span class="label">{{ label }}</span>
+    <span class="pe-label">{{ label }}</span>
     <div ref="root" class="relative">
-      <button type="button" class="input flex w-full items-center gap-2 text-left" @click="open = !open">
+      <button type="button" class="pe-input flex w-full items-center gap-2 text-left" @click="open = !open">
         <template v-if="selected">
           <img v-if="selected.image" :src="mediaUrl(selected.image)" class="h-6 w-6 shrink-0 rounded-full object-cover" >
           <span v-else class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-stone-100 text-[10px] font-semibold text-stone-400">{{ initials(selected.name) }}</span>

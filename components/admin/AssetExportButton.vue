@@ -1,6 +1,6 @@
 <template>
   <div>
-    <button type="button" class="btn-primary" @click="open">Crear dossier y creatividades</button>
+    <button type="button" :class="variant === 'quiet' ? 'pe-btn-quiet' : 'btn-primary'" @click="open">{{ variant === 'quiet' ? 'Dossier y creatividades' : 'Crear dossier y creatividades' }}</button>
 
     <div v-if="show" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="close">
       <div class="w-full max-w-md rounded-xl bg-white p-5">
@@ -43,7 +43,10 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{ assetId: number; propertyType?: string | null }>()
+const props = defineProps<{ assetId: number; propertyType?: string | null
+  /** 'quiet' lo integra en la cabecera del Property Editor, donde el CTA principal es Guardar. */
+  variant?: 'primary' | 'quiet'
+}>()
 
 interface Template {
   id: number

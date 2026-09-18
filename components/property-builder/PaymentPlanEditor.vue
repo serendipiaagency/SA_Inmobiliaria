@@ -10,22 +10,22 @@
       </span>
       <div class="grid flex-1 gap-2 sm:grid-cols-3">
         <label class="block">
-          <span class="label">Concepto</span>
-          <input v-model="row.label" class="input" placeholder="Ej. Reserva, A la entrega…" @input="emitUpdate" >
+          <span class="pe-label">Concepto</span>
+          <input v-model="row.label" class="pe-input" placeholder="Ej. Reserva, A la entrega…" @input="emitUpdate" >
         </label>
         <label class="block">
-          <span class="label">Importe o %</span>
-          <input v-model="row.value" class="input" placeholder="Ej. 10% o 25.000 €" @input="emitUpdate" >
+          <span class="pe-label">Importe o %</span>
+          <input v-model="row.value" class="pe-input" placeholder="Ej. 10% o 25.000 €" @input="emitUpdate" >
         </label>
         <label class="block">
-          <span class="label">Descripción <em class="font-normal normal-case text-stone-400">opcional</em></span>
-          <input v-model="row.description" class="input" placeholder="Ej. Al firmar el contrato" @input="emitUpdate" >
+          <span class="pe-label">Descripción <em class="font-normal normal-case text-stone-400">opcional</em></span>
+          <input v-model="row.description" class="pe-input" placeholder="Ej. Al firmar el contrato" @input="emitUpdate" >
         </label>
       </div>
       <button type="button" class="mt-6 shrink-0 text-[12px] font-semibold text-red-600 hover:underline" @click="remove(i)">Eliminar</button>
     </div>
 
-    <button type="button" class="btn-quiet" @click="add">+ Añadir fase</button>
+    <button type="button" class="pe-btn-quiet" @click="add">+ Añadir fase</button>
   </div>
 </template>
 
