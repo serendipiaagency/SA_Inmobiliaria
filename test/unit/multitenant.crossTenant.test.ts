@@ -29,6 +29,7 @@ const RESOURCE_ROWS: Record<string, (f: TenantFixture, tag: string) => Record<st
   'audit-log': (f, tag) => ({ organizationId: f.orgId, userId: f.userId, userEmail: `${tag}@example.com`, action: 'update', resource: 'agents' }),
   agents: (f, tag) => ({ organizationId: f.orgId, name: `${tag} agent`, email: `${tag}-agent@example.com`, status: 'active' }),
   developers: (f, tag) => ({ organizationId: f.orgId, name: `${tag} developer`, status: 'active' }),
+  clients: (f, tag) => ({ organizationId: f.orgId, name: `${tag} client`, email: `${tag}-client@example.com`, type: 'buyer', stage: 'active' }),
   properties: (f, tag) => ({ organizationId: f.orgId, slug: `${tag}-secondary`, location: tag, price: 1000, status: 'available' }),
   'developer-properties': (f, tag) => ({ organizationId: f.orgId, developerId: f.developerId, name: `${tag} project`, slug: `${tag}-project`, status: 'new', price: 1000 }),
   'floor-plans': (f, tag) => ({ developerPropertyId: f.projectId, category: `${tag} floor`, unitType: '1BR' }),
