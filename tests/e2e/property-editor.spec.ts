@@ -326,6 +326,8 @@ test.describe('Property Editor — permisos', () => {
 
   let owner: APIRequestContext
   let userId: number
+  let developerId: number
+  /** De obra nueva a propósito: es el catálogo cuya cabecera trae acciones que escriben. */
   let propertyId: number
 
   test.beforeAll(async () => {
@@ -337,8 +339,14 @@ test.describe('Property Editor — permisos', () => {
     expect(created.ok(), await created.text()).toBeTruthy()
     userId = (await created.json()).id
 
-    const prop = await owner.post('/api/admin/properties', {
-      data: { slug: `editor-ro-${RUN}`, price: 200000, city: 'E2E-ReadOnly' },
+    const dev = await owner.post('/api/admin/developers', {
+      data: { name: `Editor RO promotora ${RUN}`, email: `editor-ro-dev-${RUN}@mm.test`, status: 'active' },
+    })
+    expect(dev.ok(), await dev.text()).toBeTruthy()
+    developerId = (await dev.json()).id
+
+    const prop = await owner.post('/api/admin/developer-properties', {
+      data: { developerId, name: `Editor RO torre ${RUN}`, price: 200000, city: 'E2E-ReadOnly', status: 'ready' },
     })
     expect(prop.ok(), await prop.text()).toBeTruthy()
     propertyId = (await prop.json()).id
@@ -351,7 +359,8 @@ test.describe('Property Editor — permisos', () => {
   })
 
   test.afterAll(async () => {
-    if (propertyId) await owner.delete(`/api/admin/properties/${propertyId}`).catch(() => null)
+    if (propertyId) await owner.delete(`/api/admin/developer-properties/${propertyId}`).catch(() => null)
+    if (developerId) await owner.delete(`/api/admin/developers/${developerId}`).catch(() => null)
     if (userId) await owner.delete(`/api/admin/users/${userId}`).catch(() => null)
     await owner?.dispose()
   })
@@ -360,12 +369,17 @@ test.describe('Property Editor — permisos', () => {
     const ctx = await browser.newContext({ storageState: READONLY_STATE })
     const page = await ctx.newPage()
     try {
-      await page.goto(`${BASE_URL}/admin/properties/${propertyId}`)
+      await page.goto(`${BASE_URL}/admin/developer-properties/${propertyId}`)
       await expect(page.getByTestId('property-editor')).toBeVisible()
       await expect(page.getByTestId('property-editor-readonly')).toBeVisible()
 
-      // Ni el botón de la cabecera ni el de Finalizar existen…
+      // Ni el botón de guardar, ni las acciones de la cabecera que escriben,
+      // ni el Finalizar del último paso…
       await expect(page.getByTestId('property-editor-save')).toHaveCount(0)
+      await expect(page.getByRole('link', { name: 'Generar contenido' })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Dossier y creatividades' })).toHaveCount(0)
+      // …pero «Vista previa» sí, porque sólo abre la ficha pública.
+      await expect(page.getByRole('link', { name: 'Vista previa' })).toBeVisible()
       await step(page, 'commercial').click()
       await expect(page.getByTestId('property-editor-finish')).toHaveCount(0)
 
