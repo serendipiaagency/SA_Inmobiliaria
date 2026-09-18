@@ -58,8 +58,8 @@
             <button v-if="editing.id" type="button" class="text-[12px] font-semibold text-red-600 hover:underline" @click="removeFromModal">Eliminar</button>
             <span v-else />
             <div class="flex items-center gap-2">
-              <button type="button" class="btn-quiet" @click="editing = null">Cancelar</button>
-              <button type="button" class="btn-primary" :disabled="saving" @click="saveEditing">{{ saving ? 'Guardando…' : 'Guardar' }}</button>
+              <button type="button" class="pe-btn-quiet" @click="editing = null">Cancelar</button>
+              <button type="button" class="pe-btn-dark" :disabled="saving" @click="saveEditing">{{ saving ? 'Guardando…' : 'Guardar' }}</button>
             </div>
           </div>
         </div>

@@ -3,7 +3,7 @@
   <!-- Property Builder: a dedicated, sectioned editor replaces the flat generic
        form for these two resources only — every other resource below is
        untouched. See components/property-builder/. -->
-  <PropertyBuilder v-if="meta && isPropertyBuilderResource" :id="id" :resource="propertyBuilderResource" />
+  <PropertyBuilder v-if="meta && isPropertyBuilderResource" :id="id" :resource="propertyBuilderResource" :can-edit="canEdit" />
 
   <div v-else-if="meta">
     <div class="mb-6 flex items-center justify-between">

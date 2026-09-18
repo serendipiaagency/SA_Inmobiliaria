@@ -1,6 +1,6 @@
 <template>
   <div class="block" :class="span === 2 ? 'sm:col-span-2' : ''">
-    <span class="label">{{ label }}</span>
+    <span class="pe-label">{{ label }}</span>
     <div class="flex items-center gap-2">
       <button type="button" class="stepper-btn" :disabled="value <= min" @click="set(value - 1)">−</button>
       <span class="w-8 text-center text-sm font-semibold tabular-nums text-ink">{{ value }}</span>

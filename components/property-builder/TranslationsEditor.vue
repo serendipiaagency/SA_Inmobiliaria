@@ -3,11 +3,11 @@
     <div v-for="tr in modelValue" :key="tr.locale">
       <p class="mb-2 text-[11px] font-bold uppercase tracking-widest text-ink">{{ tr.locale === 'en' ? 'Inglés' : 'Árabe' }}</p>
       <label class="mb-3 block">
-        <span class="label">Título</span>
-        <input :value="tr.title" class="input" @input="update(tr.locale, 'title', ($event.target as HTMLInputElement).value)" >
+        <span class="pe-label">Título</span>
+        <input :value="tr.title" class="pe-input" @input="update(tr.locale, 'title', ($event.target as HTMLInputElement).value)" >
       </label>
       <div>
-        <span class="label">Descripción</span>
+        <span class="pe-label">Descripción</span>
         <RichTextField :model-value="tr.description" @update:model-value="(v) => update(tr.locale, 'description', v)" />
       </div>
     </div>

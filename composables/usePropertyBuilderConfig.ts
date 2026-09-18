@@ -23,6 +23,13 @@ export interface FieldSpec {
   label: string
   type: 'text' | 'textarea' | 'rich-text' | 'number' | 'stepper' | 'select' | 'checkbox' | 'image' | 'url' | 'json' | 'relation' | 'agent' | 'payment-plan' | 'video'
   options?: string[]
+  /**
+   * Etiqueta legible por valor, para los `select` cuyo valor guardado es una
+   * clave interna (`under_construction`, `sale`…). Sin esto el desplegable
+   * enseña la clave cruda, que es lo que veía la inmobiliaria: el valor que
+   * se guarda no cambia, sólo lo que se lee.
+   */
+  optionLabels?: Record<string, string>
   /** For type 'relation': the admin resource to fetch options from. */
   relationResource?: string
   hint?: string
@@ -118,7 +125,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'name', label: 'Nombre', type: 'text', required: true, span: 2, group: 'Identificación' },
         { key: 'slug', label: 'Slug', type: 'text', hint: 'Se genera solo si lo dejas vacío.', group: 'Identificación' },
         { key: 'developerId', label: 'Promotora', type: 'relation', relationResource: 'developers', required: true, group: 'Clasificación' },
-        { key: 'status', label: 'Estado', type: 'select', options: ['new', 'under_construction', 'ready'], group: 'Clasificación' },
+        { key: 'status', label: 'Estado', type: 'select', options: ['new', 'under_construction', 'ready'], optionLabels: { new: 'Obra nueva', under_construction: 'En construcción', ready: 'Lista' }, group: 'Clasificación' },
         { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, group: 'Clasificación' },
         { key: 'yearBuilt', label: 'Año de construcción', type: 'number', group: 'Clasificación' },
       ],
@@ -296,8 +303,8 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       fields: [
         { key: 'slug', label: 'Slug', type: 'text', span: 2, group: 'Identificación' },
         { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, recommended: true, group: 'Clasificación' },
-        { key: 'transactionType', label: 'Operación', type: 'select', options: ['sale', 'rent'], recommended: true, group: 'Clasificación' },
-        { key: 'status', label: 'Estado', type: 'select', options: ['available', 'sold'], group: 'Clasificación' },
+        { key: 'transactionType', label: 'Operación', type: 'select', options: ['sale', 'rent'], optionLabels: { sale: 'Venta', rent: 'Alquiler' }, recommended: true, group: 'Clasificación' },
+        { key: 'status', label: 'Estado', type: 'select', options: ['available', 'sold'], optionLabels: { available: 'Disponible', sold: 'Vendida' }, group: 'Clasificación' },
         { key: 'yearBuilt', label: 'Año de construcción', type: 'number', group: 'Clasificación' },
         { key: 'keyHighlights', label: 'Puntos clave', type: 'textarea', span: 2, group: 'Contenido' },
       ],

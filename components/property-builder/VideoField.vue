@@ -10,7 +10,7 @@
     </div>
 
     <div v-if="mode === 'url'">
-      <input v-model="urlDraft" type="url" class="input" placeholder="YouTube, Vimeo o enlace directo .mp4" @change="applyUrl" >
+      <input v-model="urlDraft" type="url" class="pe-input" placeholder="YouTube, Vimeo o enlace directo .mp4" @change="applyUrl" >
       <p class="mt-1 text-[11px] text-stone-400">Al guardar una URL se sustituye cualquier vídeo subido anteriormente.</p>
     </div>
     <div v-else>
