@@ -1,0 +1,101 @@
+name: Sembrar catálogo de demostración
+
+# ESCRIBE EN PRODUCCIÓN. Sólo se dispara a mano.
+#
+# Mete en el catálogo de UNA organización un conjunto de propiedades de
+# demostración con la ficha completa: ubicación con coordenadas, precio con
+# plan de pagos, características, galería, planos, tipos de unidad, redes
+# sociales y comercial asignado.
+#
+# Por qué es manual y por qué pide la organización a mano: estas propiedades
+# aparecen en el panel de esa agencia y también en su web pública — el feed de
+# la portada (`/api/public/home`) no filtra por publicada. Sembrar en la
+# organización equivocada le pone anuncios inventados a una inmobiliaria real.
+# Ese es exactamente el tipo de decisión que no se toma por defecto.
+#
+# Es reversible: `accion: limpiar` borra lo sembrado y no toca nada más. Todo
+# lo que crea el script lleva el prefijo `demo-` en el slug y sólo borra lo
+# que lleve ese prefijo.
+on:
+  workflow_dispatch:
+    inputs:
+      organizacion:
+        description: 'ID de la organización (agencia) donde sembrar. Míralo en Sistema → Empresas.'
+        required: true
+        type: string
+      accion:
+        description: 'Qué hacer'
+        required: true
+        default: sembrar
+        type: choice
+        options:
+          - sembrar
+          - limpiar
+      confirmar:
+        description: 'Escribe APLICAR para confirmar que se va a escribir en la base de datos de producción'
+        required: true
+        type: string
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Comprobar la confirmación
+        run: |
+          if [ "${{ inputs.confirmar }}" != "APLICAR" ]; then
+            echo "::error::Confirmación ausente o incorrecta. No se ha tocado nada."
+            exit 1
+          fi
+          case "${{ inputs.organizacion }}" in
+            ''|*[!0-9]*)
+              echo "::error::La organización debe ser un número. No se ha tocado nada."
+              exit 1
+              ;;
+          esac
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Qué hay ahora en ese catálogo
+        run: |
+          npx wrangler d1 execute sa_inmobiliaria --remote --env="" --command \
+            "SELECT
+               (SELECT count(*) FROM developer_properties WHERE organization_id = ${{ inputs.organizacion }}) AS obra_nueva_total,
+               (SELECT count(*) FROM developer_properties WHERE organization_id = ${{ inputs.organizacion }} AND slug LIKE 'demo-%') AS obra_nueva_demo,
+               (SELECT count(*) FROM agent_properties WHERE organization_id = ${{ inputs.organizacion }}) AS segunda_mano_total,
+               (SELECT count(*) FROM agent_properties WHERE organization_id = ${{ inputs.organizacion }} AND slug LIKE 'demo-%') AS segunda_mano_demo"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Copia de seguridad de D1 antes de escribir
+        run: npx wrangler d1 export sa_inmobiliaria --remote --output=pre-seed-backup.sql --env=""
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Guardar la copia como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-seed-backup-${{ github.run_id }}
+          path: pre-seed-backup.sql
+          retention-days: 30
+
+      - name: Ejecutar
+        # Sólo se llega aquí si la copia se subió: el paso anterior falla el
+        # job si no.
+        run: |
+          if [ "${{ inputs.accion }}" = "limpiar" ]; then
+            node scripts/seed-demo-properties.mjs --org "${{ inputs.organizacion }}" --wipe --remote --confirm APLICAR
+          else
+            node scripts/seed-demo-properties.mjs --org "${{ inputs.organizacion }}" --remote --confirm APLICAR
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

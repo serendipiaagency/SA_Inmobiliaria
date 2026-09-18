@@ -622,6 +622,45 @@ export const adminResources: Record<string, ResourceDef> = {
     translations: { table: schema.blogTranslations, foreignKey: 'blogId' },
   },
 
+  /**
+   * Clientes. Hasta ahora esta tabla no tenía CRUD: sólo un listado de
+   * lectura (`/api/admin/saas/clients.get.ts`) y filas sembradas por las
+   * migraciones. Darla de alta aquí le da alta, edición, borrado, ámbito por
+   * inquilino y registro en auditoría con el mismo motor que el resto del
+   * panel, en vez de cuatro endpoints nuevos que habría que volver a
+   * auditar.
+   *
+   * `lifetimeValue` y `dealsCount` **no son editables a propósito**: son
+   * columnas denormalizadas que nadie mantiene (sólo las escriben las
+   * migraciones de siembra), así que dejarlas a mano sería dar por buena una
+   * cifra inventada. La ficha del cliente enseña en su lugar las operaciones
+   * reales de la tabla `deals`.
+   *
+   * `agentName` es texto libre, no una referencia a `team_members`. No se
+   * convierte en FK aquí porque eso es una migración sobre datos vivos, no
+   * una decisión de este fichero.
+   */
+  clients: {
+    area: 'crm',
+    table: schema.clients,
+    label: 'Clientes',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      email: { type: 'text', label: 'Email' },
+      phone: { type: 'text', label: 'Teléfono' },
+      type: { type: 'select', label: 'Tipo', options: ['buyer', 'seller', 'tenant', 'investor'] },
+      stage: { type: 'select', label: 'Estado', options: ['active', 'closed', 'inactive'] },
+      agentName: { type: 'text', label: 'Comercial responsable' },
+      location: { type: 'text', label: 'Ubicación' },
+      notes: { type: 'textarea', label: 'Notas' },
+    },
+    listFields: ['id', 'name', 'email', 'phone', 'type', 'stage', 'agentName'],
+    searchFields: ['name', 'email', 'phone', 'location', 'agentName', 'notes'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+  },
+
   team: {
     area: 'web',
     table: schema.teamMembers,
