@@ -35,6 +35,20 @@
 # --- Error alerting (server/plugins/error-logging.ts) — Slack/Discord-compatible incoming webhook ---
 # ERROR_ALERT_WEBHOOK_URL=
 
+# --- WhatsApp para avisos de citas, vía Twilio (server/utils/whatsapp.ts) ---
+# Sin los tres primeros, los avisos por WhatsApp se registran como "no
+# conectado" y no salen. El sandbox de Twilio vale para probar: FROM es
+# +14155238886 y cada teléfono destino tiene que haber enviado antes el
+# "join <palabra>" del sandbox.
+# TWILIO_ACCOUNT_SID=
+# TWILIO_AUTH_TOKEN=
+# TWILIO_WHATSAPP_FROM=+14155238886
+# Opcional: plantilla aprobada (Content SID) para poder escribir fuera de la
+# ventana de 24 h; la variable {{1}} recibe el texto del aviso.
+# TWILIO_WHATSAPP_CONTENT_SID=
+# Opcional: prefijo de país para teléfonos guardados sin "+" (p. ej. +34).
+# WHATSAPP_DEFAULT_COUNTRY_PREFIX=
+
 # --- Verificación en dos pasos (server/utils/twoFactor.ts) ---
 # Cifra el secreto TOTP de cada cuenta en D1. Sin esto nadie puede activar el
 # 2FA (Estado del sistema lo dice). Cualquier cadena larga y aleatoria vale;

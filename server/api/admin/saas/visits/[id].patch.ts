@@ -95,6 +95,7 @@ export default defineEventHandler(async (event) => {
         scheduledAt: visit.scheduledAt,
         agentName: visit.agentName,
         requestId: getRequestId(event),
+        publicOrigin: getRequestURL(event).origin,
       })
     } else if (patch.scheduledAt && patch.scheduledAt !== visit.scheduledAt) {
       await notifyAppointment(db, cfEnv(event), {
@@ -107,6 +108,7 @@ export default defineEventHandler(async (event) => {
         scheduledAt: patch.scheduledAt,
         agentName: patch.agentName || visit.agentName,
         requestId: getRequestId(event),
+        publicOrigin: getRequestURL(event).origin,
       })
     }
   } catch {

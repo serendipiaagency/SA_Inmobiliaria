@@ -77,6 +77,8 @@ const EXEMPT: Record<string, Exemption> = {
   'auth/totp/status.get.ts': { reason: 'Sólo la PROPIA cuenta (requireUser + user.id): no consulta datos de nadie más.', requires: /requireUser\(event\)/ },
   'auth/totp/setup.post.ts': { reason: 'Sólo la PROPIA cuenta (requireUser + user.id): genera el secreto de quien llama.', requires: /requireUser\(event\)/ },
 
+  'twilio/status.post.ts': { reason: 'Servidor a servidor: la firma X-Twilio-Signature (HMAC con el auth token) es la credencial, y sólo actualiza la fila cuyo SID de Twilio coincide.', requires: /verifyTwilioSignature\(/ },
+
   'health/live.get.ts': { reason: 'Sonda de vida: sólo confirma que el Worker responde. No toca D1 ni ningún dato de inquilino, a propósito.' },
   'health/ready.get.ts': { reason: 'Sonda de dependencias: sólo comprueba que D1 y R2 responden, y la identidad del build. Ningún dato de inquilino.' },
 

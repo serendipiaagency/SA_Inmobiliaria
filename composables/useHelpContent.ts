@@ -92,6 +92,7 @@ export function useHelpContent() {
         'Cada visita genera un enlace de gestión propio para el cliente (cancelar/reprogramar sin necesidad de llamar).',
         'El feed iCal de cada comercial (botón "Suscribirse al calendario") permite verlas en Google Calendar u Outlook.',
         'Las videollamadas usan Jitsi Meet automáticamente si el canal de la cita es "vídeo" — no requiere configuración.',
+        'Cada cita avisa al cliente por email y, si tiene teléfono, por WhatsApp (confirmación, recordatorios 24 h y 1 h antes, cancelación y cambios). El WhatsApp sale de verdad cuando la plataforma tiene conectado Twilio — Sistema → Estado del sistema lo dice; si no, el aviso queda registrado como "no conectado" y no se envía. El teléfono necesita prefijo internacional (+34…). Ojo a una regla de WhatsApp, no nuestra: fuera de las 24 h siguientes al último mensaje del cliente sólo se puede enviar con una plantilla aprobada, que quien administre la plataforma configura una vez (docs/whatsapp.md).',
       ],
     },
     {
@@ -522,6 +523,7 @@ export function useHelpContent() {
       steps: [
         'Crea una cuenta con rol "usuario" y el mismo email que un cliente para que pueda ver sus propias visitas y contratos desde /mi-cuenta.',
         'Al editar una cuenta con rol "admin", un super_admin ve un bloque "Permisos": por defecto tiene acceso completo; elige "Restringir a áreas concretas" y marca "Ver"/"Editar" por cada sección (CRM, Portal Web, Finanzas & Growth, Blog & CMS, Contenido, Bandeja, Sistema, General) para limitar esa cuenta. Las secciones sin acceso concedido desaparecen del menú lateral de esa persona.',
+        'Para no tener que saber qué casillas marcar, el desplegable "Plantilla" trae los perfiles habituales: **Comercial** (lleva el CRM, consulta el catálogo; no ve facturación, RGPD ni usuarios), **Marketing y web** (portal, constructor, publicación, blog; consulta el CRM), **Facturación y operaciones** (finanzas, contratos, depósitos, claves de API; consulta el CRM; no ve usuarios ni RGPD), **Administración y RGPD** (usuarios, webhooks, emails, privacidad, auditoría; consulta el resto) y **Sólo consulta**. Elegir una rellena las casillas y puedes ajustarlas después; el desplegable dice también a qué plantilla equivale lo que tiene la cuenta ahora, o "Personalizado" si no coincide con ninguna.',
         'Solo un super_admin puede ver o cambiar los permisos de otra cuenta — un admin normal no ve ese bloque aunque tenga acceso de escritura a Usuarios.',
         'Las restricciones se aplican en el servidor, no solo en el menú: una cuenta sin acceso a un área recibe un error de permisos aunque llame directamente a la API o escriba la dirección de la página a mano. Los botones de crear, editar y borrar también desaparecen en las áreas donde solo tiene "Ver".',
         'Si eliges "Restringir a áreas concretas" y no marcas ninguna casilla, esa cuenta se queda sin acceso a nada (solo verá la Ayuda). Para devolverle el acceso completo, vuelve a marcar "Acceso completo".',

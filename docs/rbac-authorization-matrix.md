@@ -181,6 +181,38 @@ nada de este bloque.
 
 ---
 
+## 8. Plantillas de permisos (y por qué no son "roles")
+
+Los roles siguen siendo tres (`super_admin` / `admin` / `user`) y no van a
+crecer: la granularidad está en `users.permissions`, no en `users.role`. Lo
+que sí faltaba era que alguien tuviera que *saber* qué casillas marcar para
+cada perfil. `utils/rolePresets.ts` define seis plantillas con nombre que el
+editor de permisos (`components/admin/UserPermissionsEditor.vue`) ofrece en
+un desplegable:
+
+| Plantilla | Concede | No concede |
+| --- | --- | --- |
+| Acceso completo | todo (`permissions = NULL`) | — |
+| Comercial | CRM (editar), Portal Web y Bandeja (ver), General | Finanzas, Blog, Contenido, Sistema |
+| Marketing y web | Portal Web, Blog & CMS, Contenido, Bandeja (editar), CRM (ver), General | Finanzas, Sistema |
+| Facturación y operaciones | Finanzas & Growth (editar), CRM (ver), General | Sistema (usuarios, RGPD), Portal Web, Blog |
+| Administración y RGPD | Sistema (editar), todo lo demás (ver) | escribir en CRM, web, finanzas o contenidos |
+| Sólo consulta | todas las áreas (ver) | escribir en ninguna |
+
+Una plantilla **sólo rellena las casillas**: lo que se guarda es el mismo
+array de `"<área>:<acción>"` de siempre, y el servidor no sabe que las
+plantillas existen. Una cuenta creada con "Comercial" es indistinguible de
+una con esas cinco casillas marcadas a mano; cambiar una plantilla en el
+código no cambia ninguna cuenta guardada. El desplegable enseña qué
+plantilla equivale al valor actual (o "Personalizado" si no coincide con
+ninguna), así que sirve también para leer de un vistazo qué tiene una cuenta.
+
+`test/unit/rolePresets.test.ts` comprueba, con el mismo `hasAreaAccess` que
+aplica el servidor, que cada plantilla es un valor válido, que un comercial
+no ve facturación ni RGPD, que quien factura no ve usuarios, que "sólo
+consulta" no escribe en ninguna área y que toda área tiene al menos una
+plantilla que la concede con escritura.
+
 ## 7. Cobertura de pruebas
 
 | Prueba | Qué demuestra |

@@ -71,6 +71,7 @@ export default defineEventHandler(async (event) => {
       scheduledAt: body.startAt,
       agentName: visit.agentName,
       requestId: getRequestId(event),
+      publicOrigin: getRequestURL(event).origin,
     })
   } catch {
     // El cambio ya quedó guardado.

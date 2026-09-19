@@ -30,6 +30,7 @@ export default defineEventHandler(async (event) => {
       scheduledAt: visit.scheduledAt,
       agentName: visit.agentName,
       requestId: getRequestId(event),
+      publicOrigin: getRequestURL(event).origin,
     })
   } catch {
     // La cancelación ya quedó guardada.

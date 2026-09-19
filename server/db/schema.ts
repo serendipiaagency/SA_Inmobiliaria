@@ -873,6 +873,9 @@ export const appointmentNotifications = sqliteTable(
     errorMessage: text('error_message'),
     readAt: text('read_at'),
     createdAt: text('created_at').notNull().default(''),
+    // SID del mensaje en Twilio para el canal whatsapp (migración 0064): el
+    // webhook de estado actualiza `delivered`/`error_message` por esta clave.
+    externalId: text('external_id'),
   },
   (t) => [index('appointment_notifications_visit').on(t.visitId, t.createdAt), index('appointment_notifications_org_read').on(t.organizationId, t.readAt)],
 )

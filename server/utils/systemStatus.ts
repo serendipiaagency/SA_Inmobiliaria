@@ -189,6 +189,21 @@ export function buildSystemStatus(input: SystemStatusInput): SystemStatusReport 
       'Sin esto, un email se queda en "Enviado" para siempre: nadie confirma si llegó, rebotó o fue marcado como spam.',
     ),
 
+    {
+      key: 'whatsapp',
+      label: 'WhatsApp para avisos de citas (Twilio)',
+      group: 'Comunicaciones',
+      state: has('TWILIO_ACCOUNT_SID') && has('TWILIO_AUTH_TOKEN') && has('TWILIO_WHATSAPP_FROM') ? 'ok' : 'not-configured',
+      detail:
+        has('TWILIO_ACCOUNT_SID') && has('TWILIO_AUTH_TOKEN') && has('TWILIO_WHATSAPP_FROM')
+          ? 'Las confirmaciones y recordatorios de cita salen por WhatsApp; el webhook de estado confirma la entrega.'
+          : 'Los avisos de cita por WhatsApp se registran como "no conectado" y no salen. El código ya está: faltan las credenciales de Twilio.',
+      remedy:
+        has('TWILIO_ACCOUNT_SID') && has('TWILIO_AUTH_TOKEN') && has('TWILIO_WHATSAPP_FROM')
+          ? null
+          : 'Configura TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN y TWILIO_WHATSAPP_FROM en el Worker (docs/whatsapp.md).',
+      setting: 'TWILIO_ACCOUNT_SID',
+    },
     secretBacked(
       'stripe',
       'Cobros (Stripe)',
@@ -292,4 +307,7 @@ export const TRACKED_SECRETS = [
   'ERROR_ALERT_WEBHOOK_URL',
   'CHANNEL_CREDENTIALS_ENCRYPTION_KEY',
   'TOTP_ENCRYPTION_KEY',
+  'TWILIO_ACCOUNT_SID',
+  'TWILIO_AUTH_TOKEN',
+  'TWILIO_WHATSAPP_FROM',
 ] as const

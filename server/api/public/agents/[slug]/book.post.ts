@@ -167,6 +167,7 @@ export default defineEventHandler(async (event) => {
       manageUrl,
       videoLink,
       requestId: getRequestId(event),
+      publicOrigin: getRequestURL(event).origin,
     })
   } catch {
     // La cita ya quedó guardada — un fallo al notificar nunca debe deshacerla.
