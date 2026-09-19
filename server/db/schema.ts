@@ -68,7 +68,49 @@ export const users = sqliteTable('users', {
   permissions: text('permissions'),
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
+  // Segundo factor TOTP (migración 0063, server/utils/twoFactor.ts). El
+  // secreto va cifrado con TOTP_ENCRYPTION_KEY; enabled_at NULL = no activo.
+  totpSecret: text('totp_secret'),
+  totpSecretIv: text('totp_secret_iv'),
+  totpEnabledAt: text('totp_enabled_at'),
+  totpLastUsedStep: integer('totp_last_used_step'),
 })
+
+/** Códigos de recuperación del 2FA: sólo el hash; un uso cada uno (migración 0063). */
+export const userRecoveryCodes = sqliteTable(
+  'user_recovery_codes',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    codeHash: text('code_hash').notNull(),
+    usedAt: text('used_at'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('user_recovery_codes_user').on(t.userId, t.usedAt)],
+)
+
+/**
+ * Contraseña correcta pero segundo factor pendiente (migración 0063). La
+ * sesión no existe hasta que el código pasa; esto es lo único que hay entre
+ * medias, y caduca en minutos.
+ */
+export const loginChallenges = sqliteTable(
+  'login_challenges',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: text('expires_at').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    consumedAt: text('consumed_at'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('login_challenges_user').on(t.userId, t.expiresAt)],
+)
 
 export const sessions = sqliteTable('sessions', {
   // Opaque internal id, unrelated to the session cookie's raw token — see

@@ -590,7 +590,26 @@ export function useHelpContent() {
       title: 'Auditoría',
       route: '/admin/audit-log',
       summary: 'Registro de qué usuario de tu equipo hizo qué acción y cuándo, dentro del panel.',
-      steps: [],
+      steps: [
+        'Cada fila dice quién, qué acción, sobre qué registro y cuándo. La columna "Detalle" es donde consta lo sensible: una contraseña cambiada (nunca la contraseña), un rol que sube, unos permisos que cambian, un dominio que se mueve, una clave de API creada o revocada, un secreto de webhook rotado, el segundo factor activado o desactivado, o un inicio de sesión con código de recuperación.',
+        'Busca por email, recurso o detalle. Las acciones de la plataforma (Empresas, estado del sistema) las hace el super_admin y no salen aquí: esto es el registro de tu propia agencia.',
+      ],
+    },
+    {
+      key: 'cuenta',
+      group: 'Sistema',
+      title: 'Mi cuenta (verificación en dos pasos)',
+      route: '/admin/cuenta',
+      summary: 'Activa el segundo factor de tu propia cuenta: además de la contraseña, un código de 6 dígitos de tu app de autenticación cada vez que entras. Se abre desde el icono de escudo junto a tu nombre, abajo en el menú.',
+      steps: [
+        'Instala una app de autenticación en el teléfono si no tienes ya una (Google Authenticator, Authy, Microsoft Authenticator, 1Password, Bitwarden…). Cualquiera que genere códigos TOTP vale.',
+        'Pulsa "Activar", escanea el código QR con la app (o teclea la clave que aparece debajo) y escribe el código de 6 dígitos que te muestra. Hasta que no confirmes con un código correcto, nada cambia: si cancelas, tu cuenta sigue como estaba.',
+        'Al confirmar aparecen 10 códigos de recuperación. **Guárdalos ahora** (cópialos o apúntalos): cada uno vale una sola vez y son la forma de entrar si pierdes el teléfono. No se vuelven a mostrar; si los pierdes, genera unos nuevos con tu contraseña.',
+        'A partir de ahí, al entrar se te pedirá el código después de la contraseña. Tienes 5 minutos y 5 intentos por cada login; si se agotan, vuelve a empezar por la contraseña. Un código sólo vale una vez, aunque siga siendo válido 30 segundos: espera al siguiente.',
+        'Sin el teléfono a mano, elige "Usa un código de recuperación" en la pantalla de login. Cada uso descuenta uno y queda en Sistema → Auditoría; cuando te queden 2 o menos, la pantalla te avisa para que generes otros.',
+        'Desactivar exige tu contraseña y un código válido: una sesión abierta en otro ordenador no basta para quitar la protección. Activar y desactivar constan en la auditoría.',
+        'Si el panel dice que la verificación en dos pasos "no está disponible en esta instalación", falta el secreto TOTP_ENCRYPTION_KEY en el Worker (el secreto de tu app se guarda cifrado con él). Quien administre la plataforma lo ve en Sistema → Estado del sistema.',
+      ],
     },
     {
       key: 'organizations',

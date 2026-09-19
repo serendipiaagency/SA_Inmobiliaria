@@ -229,6 +229,15 @@ export function buildSystemStatus(input: SystemStatusInput): SystemStatusReport 
     ),
 
     secretBacked(
+      'two-factor',
+      'Verificación en dos pasos (2FA)',
+      'Seguridad',
+      has('TOTP_ENCRYPTION_KEY'),
+      'TOTP_ENCRYPTION_KEY',
+      'Cada cuenta puede activar el segundo factor desde Mi cuenta; el secreto se guarda cifrado.',
+      'Nadie puede activar el segundo factor: el secreto TOTP se guarda cifrado con esta clave y sin ella el alta se niega. Las cuentas que ya lo tuvieran activo tampoco podrían entrar.',
+    ),
+    secretBacked(
       'channel-credentials',
       'Cifrado de credenciales de canales',
       'Publicación',
@@ -282,4 +291,5 @@ export const TRACKED_SECRETS = [
   'AI_API_KEY',
   'ERROR_ALERT_WEBHOOK_URL',
   'CHANNEL_CREDENTIALS_ENCRYPTION_KEY',
+  'TOTP_ENCRYPTION_KEY',
 ] as const

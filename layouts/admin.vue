@@ -50,6 +50,13 @@
             <p class="truncate text-[13px] font-medium">{{ user?.name || 'Admin' }}</p>
             <p class="truncate text-[11px] text-stone-450">{{ user?.email }}</p>
           </div>
+          <!-- Mi cuenta (2FA) no tiene área de permisos: cualquier admin,
+               por restringido que esté, tiene que poder proteger su cuenta. -->
+          <NuxtLink to="/admin/cuenta" class="rounded-md p-1.5 text-stone-400 transition hover:bg-stone-100 hover:text-ink" title="Mi cuenta y seguridad" data-testid="nav-mi-cuenta">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </NuxtLink>
           <button class="rounded-md p-1.5 text-stone-400 transition hover:bg-stone-100 hover:text-ink" title="Cerrar sesión" @click="doLogout">
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />

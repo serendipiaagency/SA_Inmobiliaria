@@ -69,6 +69,13 @@ const EXEMPT: Record<string, Exemption> = {
   'auth/me.get.ts': { reason: 'Devuelve la propia sesión, que ya incluye su organizationId. No consulta datos de otros.' },
   'auth/forgot-password.post.ts': { reason: 'Anterior a la sesión. Busca por email en users, que es global por diseño.' },
   'auth/reset-password.post.ts': { reason: 'Anterior a la sesión. El token de recuperación es la credencial.' },
+  'auth/totp/verify.post.ts': { reason: 'Anterior a la sesión: el desafío de login (contraseña ya comprobada) es la credencial y determina la cuenta.', requires: /resolveLoginChallenge\(/ },
+  // enable/disable/recovery-codes no están aquí: además de requireUser
+  // anotan la auditoría con user.organizationId, y eso ya los reconoce el
+  // marcador "requireUser() + organizationId". Estos dos sólo leen o generan
+  // el secreto de quien llama y no tocan ninguna organización.
+  'auth/totp/status.get.ts': { reason: 'Sólo la PROPIA cuenta (requireUser + user.id): no consulta datos de nadie más.', requires: /requireUser\(event\)/ },
+  'auth/totp/setup.post.ts': { reason: 'Sólo la PROPIA cuenta (requireUser + user.id): genera el secreto de quien llama.', requires: /requireUser\(event\)/ },
 
   'health/live.get.ts': { reason: 'Sonda de vida: sólo confirma que el Worker responde. No toca D1 ni ningún dato de inquilino, a propósito.' },
   'health/ready.get.ts': { reason: 'Sonda de dependencias: sólo comprueba que D1 y R2 responden, y la identidad del build. Ningún dato de inquilino.' },

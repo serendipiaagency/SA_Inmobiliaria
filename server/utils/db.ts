@@ -13,6 +13,7 @@ export function cfEnv(event: H3Event): {
   STRIPE_WEBHOOK_SECRET?: string
   RESEND_API_KEY?: string
   RESEND_WEBHOOK_SECRET?: string
+  TOTP_ENCRYPTION_KEY?: string
 } {
   const env = (event.context as any).cloudflare?.env
   if (!env?.DB) {

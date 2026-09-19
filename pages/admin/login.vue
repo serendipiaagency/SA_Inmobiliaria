@@ -3,9 +3,14 @@
     <div class="w-full max-w-md">
       <div class="mb-8 text-center">
         <Logo size="md" class="mx-auto" />
-        <p class="mt-4 text-sm text-stone-500">Panel de administración</p>
+        <p class="mt-4 text-sm text-stone-500">{{ challenge ? 'Verificación en dos pasos' : 'Panel de administración' }}</p>
       </div>
-      <form class="card space-y-5 p-8" @submit.prevent="submit">
+
+      <div v-if="challenge" class="card p-8">
+        <AuthTotpStep :challenge="challenge" @success="onTotpSuccess" @restart="challenge = ''" />
+      </div>
+
+      <form v-else class="card space-y-5 p-8" @submit.prevent="submit">
         <div>
           <label class="label" for="admin-login-email">Email</label>
           <input id="admin-login-email" v-model="email" type="email" class="input" required autocomplete="email" autofocus >
@@ -40,18 +45,29 @@ const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
+/** Con 2FA: la contraseña ya ha pasado y falta el código (components/auth/TotpStep.vue). */
+const challenge = ref('')
+
+async function enterPanel() {
+  if (user.value?.role !== 'admin' && user.value?.role !== 'super_admin') {
+    await logout()
+    error.value = 'Esta cuenta no tiene acceso al panel de administración.'
+    challenge.value = ''
+    return
+  }
+  router.push('/admin')
+}
 
 async function submit() {
   loading.value = true
   error.value = ''
   try {
-    await login(email.value, password.value)
-    if (user.value?.role !== 'admin' && user.value?.role !== 'super_admin') {
-      await logout()
-      error.value = 'Esta cuenta no tiene acceso al panel de administración.'
+    const result = await login(email.value, password.value)
+    if (result.requiresTotp) {
+      challenge.value = result.challenge
       return
     }
-    router.push('/admin')
+    await enterPanel()
   } catch (e: any) {
     // The backend's statusMessage ("Invalid credentials") is an internal,
     // English-only string — never surface it on this Spanish-language form.
@@ -63,5 +79,9 @@ async function submit() {
   } finally {
     loading.value = false
   }
+}
+
+async function onTotpSuccess() {
+  await enterPanel()
 }
 </script>

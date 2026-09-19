@@ -35,13 +35,31 @@ export function useAuth() {
     loaded.value = true
   }
 
-  async function login(email: string, password: string) {
-    const res = await $fetch<{ ok: boolean; user: SessionUser }>('/api/auth/login', {
+  /**
+   * Contraseña correcta → sesión, salvo que la cuenta tenga segundo factor:
+   * entonces no hay sesión todavía y se devuelve el desafío que
+   * `verifyTotp()` convierte en sesión con un código válido.
+   */
+  async function login(email: string, password: string): Promise<{ requiresTotp: false } | { requiresTotp: true; challenge: string }> {
+    const res = await $fetch<{ ok: boolean; user?: SessionUser; requiresTotp?: boolean; challenge?: string }>('/api/auth/login', {
       method: 'POST',
       body: { email, password },
     })
+    if (res.requiresTotp && res.challenge) return { requiresTotp: true, challenge: res.challenge }
+    user.value = res.user ?? null
+    loaded.value = true
+    return { requiresTotp: false }
+  }
+
+  /** Segundo paso del login: el desafío de `login()` más un código TOTP o de recuperación. */
+  async function verifyTotp(challenge: string, code: string) {
+    const res = await $fetch<{ ok: boolean; user: SessionUser; method: 'totp' | 'recovery'; recoveryCodesLeft?: number }>('/api/auth/totp/verify', {
+      method: 'POST',
+      body: { challenge, code },
+    })
     user.value = res.user
     loaded.value = true
+    return res
   }
 
   async function logout() {
@@ -49,5 +67,5 @@ export function useAuth() {
     user.value = null
   }
 
-  return { user, loaded, devAuthBypass, refresh, login, logout }
+  return { user, loaded, devAuthBypass, refresh, login, verifyTotp, logout }
 }
