@@ -35,6 +35,12 @@
 # --- Error alerting (server/plugins/error-logging.ts) — Slack/Discord-compatible incoming webhook ---
 # ERROR_ALERT_WEBHOOK_URL=
 
+# --- Verificación en dos pasos (server/utils/twoFactor.ts) ---
+# Cifra el secreto TOTP de cada cuenta en D1. Sin esto nadie puede activar el
+# 2FA (Estado del sistema lo dice). Cualquier cadena larga y aleatoria vale;
+# NO se puede cambiar una vez haya cuentas con 2FA activo sin re-cifrar.
+# TOTP_ENCRYPTION_KEY=
+
 # --- Per-org publication channel credential encryption (server/utils/publication/credentials.ts) ---
 # Only needed to test saving/reading an org's own channel credentials locally.
 # CHANNEL_CREDENTIALS_ENCRYPTION_KEY=

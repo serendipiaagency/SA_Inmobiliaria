@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { now } from '../db'
+import { decryptString, encryptString } from '../encryption'
 
 /**
  * Per-organization channel credentials, encrypted at rest with AES-GCM.
@@ -19,28 +20,8 @@ import { now } from '../db'
  * with the version they were written under until they're rotated too.
  */
 
-function toBase64(bytes: Uint8Array): string {
-  let binary = ''
-  for (const b of bytes) binary += String.fromCharCode(b)
-  return btoa(binary)
-}
-// Typed as BufferSource (not just Uint8Array) at the return site: TS's DOM
-// lib types crypto.subtle.decrypt's params against ArrayBuffer specifically,
-// and a bare `Uint8Array<ArrayBufferLike>` return doesn't narrow to that on
-// its own — this Uint8Array is always backed by a real, non-shared
-// ArrayBuffer (constructed fresh above), so the assertion is safe.
-function fromBase64(b64: string): BufferSource {
-  const binary = atob(b64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-  return bytes
-}
-
-async function deriveKey(secret: string): Promise<CryptoKey> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret))
-  return crypto.subtle.importKey('raw', digest, 'AES-GCM', false, ['encrypt', 'decrypt'])
-}
-
+// El cifrado en sí (AES-GCM, clave derivada por SHA-256, IV por valor) vive
+// en server/utils/encryption.ts, compartido con el secreto TOTP del 2FA.
 export class CredentialEncryptionUnavailableError extends Error {
   constructor() {
     super('CHANNEL_CREDENTIALS_ENCRYPTION_KEY no está configurado en este Worker')
@@ -51,18 +32,13 @@ export class CredentialEncryptionUnavailableError extends Error {
 async function encrypt(env: Record<string, any>, plaintext: string): Promise<{ ciphertext: string; iv: string }> {
   const secret = env?.CHANNEL_CREDENTIALS_ENCRYPTION_KEY
   if (!secret) throw new CredentialEncryptionUnavailableError()
-  const key = await deriveKey(secret)
-  const iv = crypto.getRandomValues(new Uint8Array(12))
-  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(plaintext))
-  return { ciphertext: toBase64(new Uint8Array(encrypted)), iv: toBase64(iv) }
+  return encryptString(secret, plaintext)
 }
 
 async function decrypt(env: Record<string, any>, ciphertext: string, iv: string): Promise<string> {
   const secret = env?.CHANNEL_CREDENTIALS_ENCRYPTION_KEY
   if (!secret) throw new CredentialEncryptionUnavailableError()
-  const key = await deriveKey(secret)
-  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromBase64(iv) }, key, fromBase64(ciphertext))
-  return new TextDecoder().decode(decrypted)
+  return decryptString(secret, { ciphertext, iv })
 }
 
 export async function saveChannelCredential(

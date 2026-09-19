@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm'
-import { useDb, schema } from '../../utils/db'
+import { useDb, schema, cfEnv } from '../../utils/db'
 import { verifyPassword, dummyVerify, createSession } from '../../utils/auth'
 import { rateLimit } from '../../utils/rateLimit'
+import { createLoginChallenge } from '../../utils/twoFactor'
 
 export default defineEventHandler(async (event) => {
   // Brute-force guard: 10 attempts / 10 min per IP. Keyed on IP only (not email) so an
@@ -26,6 +27,16 @@ export default defineEventHandler(async (event) => {
   if (!(await verifyPassword(body.password, user.password))) {
     throw createError({ statusCode: 401, statusMessage: 'Invalid credentials' })
   }
+
+  // Segundo factor activo: la contraseña sola no crea sesión. Se devuelve un
+  // desafío de corta vida que /api/auth/totp/verify convierte en sesión con
+  // un código válido (server/utils/twoFactor.ts). Sin el desafío no hay forma
+  // de llegar a createSession() desde aquí.
+  if (user.totpEnabledAt) {
+    const challenge = await createLoginChallenge(db, user.id)
+    return { ok: true, requiresTotp: true, challenge, available: Boolean(cfEnv(event).TOTP_ENCRYPTION_KEY) }
+  }
+
   await createSession(event, user.id)
   return { ok: true, user: { id: user.id, name: user.name, email: user.email, role: user.role } }
 })

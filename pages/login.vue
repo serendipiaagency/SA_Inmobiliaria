@@ -1,7 +1,10 @@
 <template>
   <div class="mx-auto flex max-w-md flex-col justify-center px-4 py-20">
     <h1 class="text-center heading-serif text-4xl">{{ t('login.title', 'Acceder') }}</h1>
-    <form class="card mt-10 space-y-5 p-8" @submit.prevent="submit">
+    <div v-if="challenge" class="card mt-10 p-8">
+      <AuthTotpStep :challenge="challenge" @success="onTotpSuccess" @restart="challenge = ''" />
+    </div>
+    <form v-else class="card mt-10 space-y-5 p-8" @submit.prevent="submit">
       <div>
         <label class="label" for="login-email">{{ t('login.form.emailLabel', 'Email') }}</label>
         <input id="login-email" v-model="email" type="email" class="input" required autocomplete="email" >
@@ -32,14 +35,28 @@ const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
+/** Con 2FA: la contraseña ya ha pasado y falta el código (components/auth/TotpStep.vue). */
+const challenge = ref('')
+
+function goHome() {
+  const isStaff = user.value?.role === 'admin' || user.value?.role === 'super_admin'
+  router.push(isStaff ? '/admin' : '/mi-cuenta')
+}
+
+function onTotpSuccess() {
+  goHome()
+}
 
 async function submit() {
   loading.value = true
   error.value = ''
   try {
-    await login(email.value, password.value)
-    const isStaff = user.value?.role === 'admin' || user.value?.role === 'super_admin'
-    router.push(isStaff ? '/admin' : '/mi-cuenta')
+    const result = await login(email.value, password.value)
+    if (result.requiresTotp) {
+      challenge.value = result.challenge
+      return
+    }
+    goHome()
   } catch (e: any) {
     // The backend's statusMessage ("Invalid credentials") is an internal,
     // English-only string — never surface it on this localized form. El
