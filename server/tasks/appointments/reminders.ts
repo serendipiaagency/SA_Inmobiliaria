@@ -50,6 +50,10 @@ export default defineTask<{ skipped: true; reason: string } | { sent24h: number;
           message: `Recordatorio: tienes una cita el ${visit.scheduledAt} con ${visit.agentName || 'tu agente'}.`,
           scheduledAt: visit.scheduledAt,
           agentName: visit.agentName,
+          // Un cron no tiene petición de la que sacar el origen público: el
+          // webhook de estado del WhatsApp sólo se registra si PRIMARY_DOMAIN
+          // está configurado. Sin él el aviso sale igual, sin confirmación.
+          publicOrigin: env.PRIMARY_DOMAIN ? `https://${env.PRIMARY_DOMAIN}` : null,
         })
         sent24h++
       }
@@ -79,6 +83,10 @@ export default defineTask<{ skipped: true; reason: string } | { sent24h: number;
           message: `Recordatorio: tu cita con ${visit.agentName || 'tu agente'} es a las ${visit.scheduledAt.slice(11, 16)}.`,
           scheduledAt: visit.scheduledAt,
           agentName: visit.agentName,
+          // Un cron no tiene petición de la que sacar el origen público: el
+          // webhook de estado del WhatsApp sólo se registra si PRIMARY_DOMAIN
+          // está configurado. Sin él el aviso sale igual, sin confirmación.
+          publicOrigin: env.PRIMARY_DOMAIN ? `https://${env.PRIMARY_DOMAIN}` : null,
         })
         sent1h++
       }

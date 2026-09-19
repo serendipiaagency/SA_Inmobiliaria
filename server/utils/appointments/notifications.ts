@@ -2,6 +2,7 @@ import * as schema from '../../db/schema'
 import { now } from '../db'
 import { sendTransactionalEmail } from '../email/send'
 import type { TemplateKey } from '../email/templates'
+import { sendWhatsAppMessage } from '../whatsapp'
 
 export type NotificationType = 'confirmation' | 'reminder_24h' | 'reminder_1h' | 'cancelled' | 'rescheduled'
 
@@ -28,6 +29,8 @@ interface NotifyAppointmentInput {
   videoLink?: string | null
   /** Correlation id (server/utils/requestId.ts) of the request that triggered this notification, when there is one — see email_log.requestId. */
   requestId?: string | null
+  /** Origen público del Worker (https://…) para que Twilio devuelva el estado del WhatsApp al webhook; sin él se envía igual, sin confirmación de entrega. */
+  publicOrigin?: string | null
 }
 
 /**
@@ -39,9 +42,11 @@ interface NotifyAppointmentInput {
  * forget call — and this row's `delivered` reflects whether the SEND
  * attempt was accepted, same meaning it always had (real delivery
  * confirmation lives on email_log/the Resend webhook, not here); `whatsapp`
- * has no credential-free provider so it's recorded but honestly marked
- * undelivered with the reason, ready to light up the moment a provider
- * (WhatsApp Business API / Twilio) is wired in.
+ * goes out through Twilio once TWILIO_* is configured (server/utils/whatsapp.ts)
+ * — `delivered` means Twilio ACCEPTED it, and the status webhook
+ * (server/api/twilio/status.post.ts) later flips it to the real outcome by
+ * `externalId`; without credentials it's recorded and honestly marked
+ * undelivered with the reason, exactly as before.
  */
 export async function notifyAppointment(db: any, env: Record<string, any>, input: NotifyAppointmentInput): Promise<void> {
   const nowTs = now()
@@ -79,6 +84,11 @@ export async function notifyAppointment(db: any, env: Record<string, any>, input
   }
 
   if (input.recipientPhone) {
+    const result = await sendWhatsAppMessage(env, {
+      to: input.recipientPhone,
+      body: input.message,
+      statusCallbackUrl: input.publicOrigin ? `${input.publicOrigin.replace(/\/$/, '')}/api/twilio/status` : null,
+    })
     await db.insert(schema.appointmentNotifications).values({
       organizationId: input.organizationId,
       visitId: input.visitId,
@@ -86,8 +96,9 @@ export async function notifyAppointment(db: any, env: Record<string, any>, input
       channel: 'whatsapp',
       recipient: input.recipientPhone,
       message: input.message,
-      delivered: 0,
-      errorMessage: 'WhatsApp no conectado: requiere configurar WhatsApp Business API o Twilio en el Worker.',
+      delivered: result.ok ? 1 : 0,
+      errorMessage: result.ok ? null : result.message,
+      externalId: result.sid,
       createdAt: nowTs,
     })
   }

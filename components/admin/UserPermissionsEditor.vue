@@ -3,6 +3,17 @@
     <legend class="px-1 text-sm font-semibold text-slate-700">Permisos</legend>
     <p class="text-xs text-slate-500">Por defecto un admin tiene acceso completo al panel. Puedes restringir esta cuenta a solo las áreas que necesite.</p>
 
+    <!-- Plantillas: rellenan las casillas de abajo y nada más. Lo que se
+         guarda es el mismo JSON de áreas de siempre (utils/rolePresets.ts). -->
+    <label class="block">
+      <span class="mb-1 block text-xs font-medium text-slate-600">Plantilla</span>
+      <select class="w-full rounded-md border border-slate-200 px-3 py-2 text-sm" :value="activePresetKey" data-testid="permissions-preset" @change="applyPreset(($event.target as HTMLSelectElement).value)">
+        <option v-for="p in ROLE_PRESETS" :key="p.key" :value="p.key">{{ p.label }}</option>
+        <option value="custom" disabled>Personalizado (casillas a mano)</option>
+      </select>
+      <span class="mt-1 block text-[11px] leading-snug text-slate-500">{{ activePresetDescription }}</span>
+    </label>
+
     <div class="space-y-1.5">
       <label class="flex items-center gap-2 text-sm text-slate-700">
         <input type="radio" name="permissions-mode" :checked="!restricted" @change="setRestricted(false)">
@@ -35,6 +46,7 @@
 
 <script setup lang="ts">
 import { ADMIN_AREAS, type AdminArea } from '~/utils/adminAreas'
+import { findPreset, matchPreset, ROLE_PRESETS } from '~/utils/rolePresets'
 
 /**
  * Visual editor for `users.permissions` (P2 granular RBAC,
@@ -86,6 +98,20 @@ function parse(raw: string | null | undefined) {
 }
 
 watch(() => props.modelValue, parse, { immediate: true })
+
+/** Qué plantilla equivale al valor actual (o "custom" si las casillas no coinciden con ninguna). */
+const activePresetKey = computed(() => matchPreset(props.modelValue)?.key ?? 'custom')
+const activePresetDescription = computed(
+  () => matchPreset(props.modelValue)?.description ?? 'Combinación hecha a mano: no coincide con ninguna plantilla. Elige una para partir de ella.',
+)
+
+function applyPreset(key: string) {
+  const preset = findPreset(key)
+  if (!preset) return
+  const value = preset.permissions === null ? null : JSON.stringify(preset.permissions)
+  parse(value)
+  emit('update:modelValue', value)
+}
 
 function emitChange() {
   if (!restricted.value) {
