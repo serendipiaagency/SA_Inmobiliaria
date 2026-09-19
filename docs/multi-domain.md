@@ -81,6 +81,43 @@ organización cualquiera de estos, porque ya tienen un significado especial
 También rechaza un valor que no tenga forma de hostname real (sin punto, con
 espacios, con esquema `http://`, etc.).
 
+## Monitorización: cada dominio se comprueba cada 10 minutos
+
+Un dominio de cliente que deja de enrutar a su agencia no lo detectaba
+nadie hasta que un administrador no podía entrar — así apareció el caso de
+`inmobiliaria.serendipiaagency.com`, que respondía pero enrutaba mal.
+Desde entonces `server/tasks/system/check-custom-domains.ts` (montada
+sobre el Cron Trigger por minuto, se ejecuta en los minutos múltiplo de 10)
+hace, por cada `organizations.domain` de una agencia activa y sin
+credenciales de ningún tipo:
+
+1. `GET https://<dominio>/api/auth/me` — la superficie de inicio de sesión.
+   Tiene que responder 200 con `{ "user": null }`. Un dominio que el tenant
+   no reconoce devuelve el 404 del enrutado; uno que no apunta al Worker
+   devuelve HTML de otro sitio, o nada.
+2. `GET https://<dominio>/api/public/tenant` — a qué agencia resuelve el
+   host. Su `id` tiene que ser el de la organización dueña del dominio, y
+   `isCustomDomain` tiene que ser `true`. **Esto es lo que atrapa el
+   incidente**: un dominio que responde 200 pero sirve otra agencia (o la
+   plataforma por defecto) pasa la comprobación 1 y falla ésta.
+
+El resultado de cada comprobación se guarda en `domain_checks` (migración
+0062, 30 días de historial) y se enseña en **Sistema → Estado del sistema**
+("Dominios personalizados": en rojo si alguno falla, con el motivo exacto).
+
+El aviso sale **sólo al cambiar de estado** — una vez al caer y una vez al
+recuperarse, nunca cada diez minutos — por las tres vías que ya existían:
+
+- el webhook de incidencias (`ERROR_ALERT_WEBHOOK_URL`, Slack/Discord),
+- el buzón interno de la propia agencia (sus destinatarios de avisos en
+  Empresas), plantilla `domain_check_failed` / `domain_check_recovered`,
+- el correo de cada `super_admin` de la plataforma.
+
+Si ninguna vía está configurada, el resultado consta igualmente en la tabla
+y en Estado del sistema. `server/utils/domainMonitor.ts` tiene la lógica
+pura y `test/unit/domainMonitor.test.ts` cubre cada forma de fallo (otra
+agencia, host primario, 404, HTML, sin conexión, tiempo agotado).
+
 ## Slugs por organización, no globales
 
 Los slugs de proyectos (`developer_properties`), propiedades de reventa

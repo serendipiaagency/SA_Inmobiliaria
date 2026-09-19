@@ -2,6 +2,7 @@ import { drizzle } from 'drizzle-orm/d1'
 import * as schema from '../db/schema'
 import { now } from '../utils/db'
 import { getRequestId } from '../utils/requestId'
+import { postOpsAlert } from '../utils/alerts'
 
 /**
  * Central incident log: writes every server error (status >= 500) to D1 and,
@@ -54,18 +55,7 @@ export default defineNitroPlugin((nitroApp) => {
       console.error('Failed to write to error_logs', loggingError)
     }
 
-    const webhookUrl = env.ERROR_ALERT_WEBHOOK_URL
-    if (webhookUrl) {
-      const summary = `🔴 [${statusCode}] ${method || ''} ${path || ''} — ${message}`.slice(0, 1900)
-      try {
-        await fetch(webhookUrl, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ text: summary, content: summary }),
-        })
-      } catch (webhookError) {
-        console.error('Failed to post error alert webhook', webhookError)
-      }
-    }
+    // Mismo canal que el resto de avisos de operación (server/utils/alerts.ts).
+    await postOpsAlert(env, `🔴 [${statusCode}] ${method || ''} ${path || ''} — ${message}`)
   })
 })

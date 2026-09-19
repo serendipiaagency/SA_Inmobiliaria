@@ -1,5 +1,6 @@
 import { requireOrgScope } from '../../../utils/auth'
 import { now } from '../../../utils/db'
+import { logAdminAction } from '../../../utils/audit'
 
 async function sha256Hex(input: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
@@ -17,7 +18,7 @@ function randomHex(bytes: number): string {
 
 /** Generate a new API key. Returns the plaintext key once — only the hash is stored. */
 export default defineEventHandler(async (event) => {
-  const { orgId } = await requireOrgScope(event)
+  const { user, orgId } = await requireOrgScope(event)
   const raw = (event.context as any).cloudflare.env.DB as D1Database
   const body = await readBody<{ name?: string; environment?: string; scopes?: string }>(event)
 
@@ -39,8 +40,14 @@ export default defineEventHandler(async (event) => {
     .bind(orgId, name, prefix, keyHash, scopes, environment, createdAt)
     .run()
 
+  const id = result.meta.last_row_id
+  // Una clave de API es una credencial de larga duración con acceso a los
+  // datos de la agencia: su alta debe constar, con quién y con qué alcance.
+  // El prefijo es lo mismo que enseña el listado; la clave entera, nunca.
+  await logAdminAction(event, { user, orgId, action: 'create', resource: 'api-key', resourceId: id, detail: `${prefix}… (${environment}, ${scopes}) «${name}»` })
+
   return {
-    id: result.meta.last_row_id,
+    id,
     name,
     prefix,
     environment,

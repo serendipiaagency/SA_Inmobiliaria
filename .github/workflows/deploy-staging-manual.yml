@@ -1,0 +1,84 @@
+name: Poblar y desplegar staging
+
+# Escribe en STAGING (sa_inmobiliaria_staging + sa-inmobiliaria-staging),
+# nunca en producción: el entorno `staging` de GitHub tiene su propio token.
+#
+# Por qué existe: el job `deploy-staging` de ci.yml hace esto mismo en cada
+# pull request, pero su preflight exige la variable STAGING_URL del entorno y
+# mientras no esté puesta se salta entero — y así staging llevaba existiendo
+# con 0 tablas. Este workflow hace el mismo trabajo a mano, sin depender de
+# esa variable: descubre la URL del Worker de staging preguntándosela a
+# Cloudflare (scripts/worker-url.mjs) y la usa para el smoke test.
+#
+# Cuando STAGING_URL esté configurada, ci.yml vuelve a hacerlo solo en cada
+# PR y esto queda como el botón de "reconstruir staging ahora".
+on:
+  workflow_dispatch:
+    inputs:
+      confirmar:
+        description: 'Escribe STAGING para confirmar (aplica migraciones y despliega el Worker de staging)'
+        required: true
+        type: string
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+    steps:
+      - name: Comprobar la confirmación
+        run: |
+          if [ "${{ inputs.confirmar }}" != "STAGING" ]; then
+            echo "::error::Confirmación ausente o incorrecta. No se ha tocado nada."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Comprobar acceso a la cuenta y a los recursos de staging
+        run: |
+          npx wrangler whoami
+          npx wrangler d1 info sa_inmobiliaria_staging --env staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Migraciones pendientes en staging (antes)
+        run: npx wrangler d1 migrations list sa_inmobiliaria_staging --remote --env staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Aplicar migraciones a la D1 de staging
+        run: npx wrangler d1 migrations apply sa_inmobiliaria_staging --remote --env staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Build
+        run: npm run build
+
+      - name: Desplegar el Worker de staging
+        run: npx wrangler deploy --env staging
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Smoke test contra la URL real de staging
+        run: |
+          url=$(WORKER_NAME=sa-inmobiliaria-staging node scripts/worker-url.mjs)
+          if [ -z "$url" ]; then
+            echo "::warning::No se pudo descubrir la URL de staging desde la API de Cloudflare; el smoke test no se ejecuta. Ponla en la variable STAGING_URL del entorno para que ci.yml la use."
+            exit 0
+          fi
+          echo "Staging: $url"
+          echo "Para que ci.yml despliegue staging en cada PR, pon STAGING_URL=$url en Settings → Environments → staging → Variables."
+          npm run smoke-test -- "$url"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

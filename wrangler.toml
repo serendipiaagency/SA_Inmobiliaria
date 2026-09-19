@@ -62,9 +62,12 @@ enabled = true
 #                 server/tasks/notifications/retry-webhook-queue.ts (retries
 #                 any outbound webhook delivery that failed)
 # "* * * *  *" -> server/tasks/scheduler/dispatch.ts (Publication Scheduler
-#                 dispatcher — every minute, so staged-launch offsets land on time)
-#                 and server/tasks/appointments/reminders.ts (24h/1h
-#                 appointment reminders, same per-minute tick)
+#                 dispatcher — every minute, so staged-launch offsets land on time),
+#                 server/tasks/appointments/reminders.ts (24h/1h
+#                 appointment reminders, same per-minute tick) and
+#                 server/tasks/system/check-custom-domains.ts (every 10th
+#                 minute: verifies each custom domain still routes to its
+#                 organization, alerts on state changes — see that file)
 # "30 3 * * *" -> server/tasks/system/backup-d1.ts (daily JSON snapshot of
 #                 every D1 table to R2, kept 14 days — see that file for why)
 # "0 5 * * *"  -> server/tasks/system/media-lifecycle.ts (daily, purges media

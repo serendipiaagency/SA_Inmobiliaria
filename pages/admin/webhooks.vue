@@ -46,7 +46,12 @@
           <button type="button" class="text-xs font-medium text-ink hover:underline" @click="test(ep)">{{ testing === ep.id ? 'Enviando…' : 'Enviar prueba' }}</button>
           <button type="button" class="text-xs font-medium text-ink hover:underline" @click="toggleLog(ep)">{{ expanded === ep.id ? 'Ocultar historial' : 'Ver historial' }}</button>
           <button type="button" class="text-xs font-medium text-stone-500 hover:underline" @click="toggleActive(ep)">{{ ep.active ? 'Pausar' : 'Reactivar' }}</button>
+          <button type="button" class="text-xs font-medium text-stone-500 hover:underline" @click="rotateSecret(ep)">Rotar secreto</button>
           <button type="button" class="text-xs font-medium text-red-600 hover:underline" @click="remove(ep)">Eliminar</button>
+        </div>
+        <div v-if="rotatedSecret[ep.id]" class="mt-3 rounded-lg bg-amber-50 px-4 py-3 text-xs text-amber-800">
+          Secreto nuevo — se muestra sólo ahora. Las próximas entregas ya van firmadas con él; actualízalo en el sistema receptor antes de cerrar esto:
+          <code class="mt-1 block break-all font-mono">{{ rotatedSecret[ep.id] }}</code>
         </div>
         <p v-if="lastTestResult[ep.id]" class="mt-2 text-xs" :class="lastTestResult[ep.id].status === 'delivered' ? 'text-emerald-700' : 'text-red-600'">
           Última prueba: {{ lastTestResult[ep.id].status }} {{ lastTestResult[ep.id].responseCode ? `(HTTP ${lastTestResult[ep.id].responseCode})` : '' }} {{ lastTestResult[ep.id].errorMessage || '' }}
@@ -123,6 +128,15 @@ async function toggleLog(ep: any) {
 async function toggleActive(ep: any) {
   await $fetch(`/api/admin/saas/webhooks/${ep.id}`, { method: 'PATCH', body: { active: !ep.active } })
   await refresh()
+}
+
+const rotatedSecret = reactive<Record<number, string>>({})
+async function rotateSecret(ep: any) {
+  if (!confirm('El secreto actual dejará de valer en cuanto se rote: las entregas siguientes irán firmadas con el nuevo. ¿Continuar?')) return
+  const res = await $fetch<{ secret: string }>(`/api/admin/saas/webhooks/${ep.id}/rotate-secret`, { method: 'POST' })
+  rotatedSecret[ep.id] = res.secret
+  await refresh()
+  toast.success('Secreto rotado')
 }
 
 async function remove(ep: any) {

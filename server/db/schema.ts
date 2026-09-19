@@ -2193,6 +2193,27 @@ export const resendWebhookEvents = sqliteTable(
   (t) => [index('resend_webhook_events_org').on(t.organizationId, t.receivedAt)],
 )
 
+/**
+ * Resultado de cada comprobación sintética de un dominio personalizado
+ * (server/tasks/system/check-custom-domains.ts, migración 0062). El aviso
+ * sólo sale cuando `ok` cambia respecto a la fila anterior de la misma
+ * organización; Estado del sistema enseña la última por dominio.
+ */
+export const domainChecks = sqliteTable(
+  'domain_checks',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    domain: text('domain').notNull(),
+    ok: integer('ok').notNull().default(0),
+    httpStatus: integer('http_status'),
+    latencyMs: integer('latency_ms'),
+    error: text('error'),
+    checkedAt: text('checked_at').notNull().default(''),
+  },
+  (t) => [index('domain_checks_org_checked').on(t.organizationId, t.checkedAt)],
+)
+
 /** The "recuperación de contraseña" email needs a real reset flow — only the token's SHA-256 hash is ever stored, same principle as api_keys. */
 export const passwordResetTokens = sqliteTable(
   'password_reset_tokens',

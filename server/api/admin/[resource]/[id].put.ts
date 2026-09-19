@@ -6,6 +6,7 @@ import { logAdminAction } from '../../../utils/audit'
 import { fireAutomationRules } from '../../../utils/publication/automations'
 import { authorizeRecord, buildTenantWhere } from '../../../utils/tenantPolicy'
 import { validatePermissionsInput } from '../../../utils/permissions'
+import { describeOrganizationChanges, describeUserChanges } from '../../../utils/sensitiveAudit'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -100,6 +101,15 @@ export default defineEventHandler(async (event) => {
     await db.update(def.table).set(data).where(where as any)
   }
   await syncTranslations(db, def, authorized, body?.translations)
-  await logAdminAction(event, { user, orgId, action: 'update', resource: key, resourceId: id })
+  // Lo sensible se anota con detalle (server/utils/sensitiveAudit.ts): una
+  // contraseña cambiada, un rol que sube, unos permisos que cambian, un
+  // dominio que se mueve. El resto sigue como "update <recurso> <id>".
+  const detail =
+    key === 'users'
+      ? describeUserChanges(existing as any, data)
+      : key === 'organizations'
+        ? describeOrganizationChanges(existing as any, data)
+        : undefined
+  await logAdminAction(event, { user, orgId, action: 'update', resource: key, resourceId: id, detail })
   return { ok: true, id, automationsFired: automationsFired || undefined }
 })

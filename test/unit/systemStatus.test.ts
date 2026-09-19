@@ -13,6 +13,7 @@ const BASE: SystemStatusInput = {
   storage: { ok: true },
   channels: { total: 22, implemented: 0 },
   email: { connected: true, status: 'ok', headline: '12 envíos en los últimos 7 días, ninguno fallido.' },
+  domains: { total: 2, failing: [], lastCheckedAt: '2026-09-19 10:00:00' },
   build: { commit: '2192e1b', branch: 'main', builtAt: '2026-09-15T09:33:00.000Z', source: 'github-actions' },
 }
 
@@ -108,5 +109,37 @@ describe('buildSystemStatus', () => {
       expect(item.label, item.key).toBeTruthy()
       expect(item.detail, item.key).toBeTruthy()
     }
+  })
+
+  describe('dominios personalizados', () => {
+    // Un dominio de cliente caído es la plataforma caída para esa agencia,
+    // por muy bien que respondan D1 y R2: tiene que salir en rojo y arriba.
+    it('un solo dominio caído pone la fila en "con problemas" y manda el titular', () => {
+      const r = report({ domains: { total: 2, failing: [{ domain: 'inmobiliaria.ejemplo.com', error: 'sirve la organización #1 en vez de la #2' }], lastCheckedAt: '2026-09-19 10:00:00' } })
+      const row = r.integrations.find((i) => i.key === 'custom-domains')!
+      expect(row.state).toBe('degraded')
+      expect(row.detail).toContain('inmobiliaria.ejemplo.com')
+      expect(row.detail).toContain('organización #1')
+      expect(row.remedy).toContain('Custom Domain')
+      expect(r.headline).toContain('Dominios personalizados')
+    })
+
+    it('sin dominios configurados está bien, no "sin configurar": no hay nada que arreglar', () => {
+      const row = find({ domains: { total: 0, failing: [], lastCheckedAt: null } }, 'custom-domains')
+      expect(row.state).toBe('ok')
+      expect(row.remedy).toBeNull()
+    })
+
+    it('dominios configurados pero nunca comprobados no se dan por buenos', () => {
+      const row = find({ domains: { total: 1, failing: [], lastCheckedAt: null } }, 'custom-domains')
+      expect(row.state).toBe('not-configured')
+      expect(row.detail).toContain('todavía no se ha ejecutado')
+    })
+
+    it('todo respondiendo dice cuándo se miró por última vez', () => {
+      const row = find({}, 'custom-domains')
+      expect(row.state).toBe('ok')
+      expect(row.detail).toContain('2026-09-19 10:00:00')
+    })
   })
 })
