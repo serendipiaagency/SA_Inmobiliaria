@@ -16,6 +16,8 @@ export type TemplateKey =
   | 'user_welcome'
   | 'password_reset'
   | 'saved_search_alert'
+  | 'domain_check_failed'
+  | 'domain_check_recovered'
 
 export interface TemplateDef {
   kind: 'transactional' | 'commercial'
@@ -218,5 +220,43 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
           : `Han aparecido ${d.count} propiedad${d.count === 1 ? '' : 'es'} nueva${d.count === 1 ? '' : 's'} que coincide${d.count === 1 ? '' : 'n'} con tu búsqueda guardada:`,
       ) +
       `<ul style="margin:0 0 20px;padding-left:20px;">${(d.items || []).map((i: string) => `<li style="margin-bottom:4px;">${i}</li>`).join('')}</ul>`,
+  },
+
+  // Monitorización de dominios personalizados (server/tasks/system/check-custom-domains.ts).
+  // Sólo al cambiar de estado: uno al caer, uno al recuperarse.
+  domain_check_failed: {
+    kind: 'transactional',
+    audience: 'internal',
+    subject: (d, l) => (l === 'en' ? `Your website is not responding: ${d.domain}` : `Tu web no responde: ${d.domain}`),
+    body: (d, l) =>
+      emailHeading(l === 'en' ? 'Website not reachable' : 'La web no está accesible') +
+      emailParagraph(
+        l === 'en'
+          ? `The automatic check of ${d.domain} failed. Visitors and your own team may not be able to reach the site or sign in until this is fixed.`
+          : `La comprobación automática de ${d.domain} ha fallado. Puede que ni los visitantes ni tu equipo lleguen a la web ni puedan iniciar sesión hasta que se arregle.`,
+      ) +
+      emailInfoTable([
+        [l === 'en' ? 'Domain' : 'Dominio', d.domain || '—'],
+        [l === 'en' ? 'Organisation' : 'Agencia', d.organizationName || '—'],
+        [l === 'en' ? 'What failed' : 'Qué ha fallado', d.error || '—'],
+        [l === 'en' ? 'Checked at (UTC)' : 'Comprobado a las (UTC)', d.checkedAt || '—'],
+      ]) +
+      emailParagraph(
+        l === 'en'
+          ? 'Usual causes: the DNS record was changed, the custom domain was removed in Cloudflare, or the domain was edited in the platform. You will get one more email when it is back.'
+          : 'Causas habituales: se cambió el registro DNS, se retiró el dominio personalizado en Cloudflare, o se editó el dominio en la plataforma. Recibirás un único correo más cuando vuelva a funcionar.',
+      ),
+  },
+  domain_check_recovered: {
+    kind: 'transactional',
+    audience: 'internal',
+    subject: (d, l) => (l === 'en' ? `Your website is back: ${d.domain}` : `Tu web vuelve a responder: ${d.domain}`),
+    body: (d, l) =>
+      emailHeading(l === 'en' ? 'Website reachable again' : 'La web vuelve a estar accesible') +
+      emailParagraph(
+        l === 'en'
+          ? `${d.domain} answered correctly again at ${d.checkedAt} UTC and serves ${d.organizationName}. No action needed.`
+          : `${d.domain} ha vuelto a responder correctamente a las ${d.checkedAt} UTC y sirve ${d.organizationName}. No hace falta hacer nada.`,
+      ),
   },
 }

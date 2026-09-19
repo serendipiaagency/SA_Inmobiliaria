@@ -4,6 +4,7 @@ import { getResource, buildPayload, syncTranslations, assertPayloadReferences } 
 import { logAdminAction } from '../../../utils/audit'
 import { authorizeRecord } from '../../../utils/tenantPolicy'
 import { validatePermissionsInput } from '../../../utils/permissions'
+import { describeUserCreation } from '../../../utils/sensitiveAudit'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -51,7 +52,11 @@ export default defineEventHandler(async (event) => {
     const { authorized } = await authorizeRecord(db, { resourceKey: key, table: def.table, policy: def.tenantPolicy, id, orgId })
     await syncTranslations(db, def, authorized, body.translations)
   }
-  await logAdminAction(event, { user, orgId, action: 'create', resource: key, resourceId: id })
+  // Un alta de usuario deja constancia del rol (y, si lo hay, del
+  // super_admin concedido): es lo que se busca cuando aparece una cuenta que
+  // nadie recuerda haber creado. Nunca la contraseña.
+  const detail = key === 'users' ? describeUserCreation(data) : undefined
+  await logAdminAction(event, { user, orgId, action: 'create', resource: key, resourceId: id, detail })
   if (def.afterCreate) await def.afterCreate(event, id, data)
   return { ok: true, id }
 })

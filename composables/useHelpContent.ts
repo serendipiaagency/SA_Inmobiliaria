@@ -539,6 +539,7 @@ export function useHelpContent() {
         'Guarda el secreto que se muestra al crearlo — solo se ve una vez, y sirve para verificar que la notificación viene realmente de esta plataforma (firma HMAC).',
         'Usa "Probar" para enviar un evento de prueba real y comprobar que tu sistema lo recibe.',
         'El histórico de entregas muestra cada intento real, incluidos los fallos, con el código de respuesta que devolvió tu servidor.',
+        '"Rotar secreto" genera uno nuevo sin borrar el endpoint ni su historial: úsalo si el actual se ha filtrado o al cambiar de proveedor. El secreto nuevo se muestra una sola vez y las entregas siguientes ya van firmadas con él, así que actualízalo en el sistema receptor en ese mismo momento. Cada rotación queda en Sistema → Auditoría (quién y cuándo, nunca el valor).',
       ],
     },
     {
@@ -567,6 +568,7 @@ export function useHelpContent() {
         '"Con problemas" es lo único urgente: algo que debería funcionar y no está funcionando. Sale primero en el resumen de arriba.',
         'Cada fila dice qué deja de funcionar mientras tanto, en vez de limitarse a un semáforo. Por ejemplo, sin la confirmación de entrega de emails un envío se queda en "Enviado" para siempre, aunque haya llegado.',
         'La pantalla nunca muestra el valor de un secreto, sólo si está puesto o no — se puede enseñar o capturar sin filtrar nada.',
+        '"Dominios personalizados" (grupo Infraestructura) dice si cada dominio de cliente sigue llegando a su agencia: la plataforma lo comprueba sola cada 10 minutos, sin credenciales, pidiendo la pantalla de login y preguntando a qué agencia resuelve el host. Si un dominio responde pero sirve otra agencia, o devuelve un 404, la fila pasa a "Con problemas" con el motivo exacto y sale un aviso (webhook de incidencias, buzón interno de la agencia y correo de los super_admin) — una vez al caer y otra al recuperarse, no cada 10 minutos.',
         'Abajo, "Build desplegado" dice qué código está sirviendo: el commit, la rama y quién lo publicó. Si pone "Se saltó el pipeline", ese despliegue no pasó por la copia de seguridad ni por las migraciones.',
       ],
     },

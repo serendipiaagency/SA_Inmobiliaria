@@ -3,7 +3,7 @@ import { cfEnv, now } from './db'
 import * as schema from '../db/schema'
 import { drizzle } from 'drizzle-orm/d1'
 
-export type AuditAction = 'create' | 'update' | 'delete' | 'restore' | 'run' | 'pause' | 'resume' | 'retry' | 'duplicate' | 'priority'
+export type AuditAction = 'create' | 'update' | 'delete' | 'restore' | 'run' | 'pause' | 'resume' | 'retry' | 'duplicate' | 'priority' | 'rotate' | 'revoke'
 
 /**
  * Records a write action to admin_audit_log — "who did what, to which

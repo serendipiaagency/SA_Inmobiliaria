@@ -79,7 +79,12 @@ este repositorio):
     únicamente (no sobre los recursos de producción).
   * Variable: `STAGING_URL` (la URL pública del Worker de staging, p. ej.
     `https://sa-inmobiliaria-staging.<subdominio>.workers.dev` o el dominio
-    que se le asigne).
+    que se le asigne). **Mientras no esté puesta, `deploy-staging` se salta
+    en cada PR** — así es como staging llegó a existir con 0 tablas. El
+    workflow manual "Poblar y desplegar staging"
+    (`.github/workflows/deploy-staging-manual.yml`) hace ese mismo trabajo
+    sin depender de la variable, descubre la URL real preguntando a
+    Cloudflare y la imprime en el log para copiarla aquí.
 * Entorno `production`:
   * Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` — un token con
     permiso sobre el Worker `sa-inmobiliaria`, la D1 `sa_inmobiliaria` y el
@@ -119,17 +124,63 @@ nuestro:
 wrangler d1 time-travel restore sa_inmobiliaria --timestamp=<ISO-8601>
 ```
 
-Si hace falta ir más atrás de esa ventana, o Time Travel no está disponible,
-usar el artefacto de `deploy-production`:
+### Restaurar: el camino probado
 
-```
-gh run download <run-id> -n pre-deploy-backup-<sha>
-wrangler d1 execute sa_inmobiliaria --remote --file=pre-deploy-backup.sql
-```
+Hasta el 19-09-2026 esta sección decía que el volcado SQL se restauraba
+con `wrangler d1 execute --file=pre-deploy-backup.sql`. **Eso no funciona**,
+y se comprobó ejecutándolo en local contra una D1 real:
 
-Verificar primero el contenido del archivo (`wrangler d1 export` genera
-sentencias `CREATE TABLE`/`INSERT` reales, no un diff) y probarlo contra la
-D1 de staging antes de tocar producción si hay tiempo para hacerlo.
+1. Sobre una base con datos falla en el primer `INSERT` (`UNIQUE constraint
+   failed: d1_migrations.id`): el volcado trae el ledger de migraciones y
+   todos los ids. Como wrangler ejecuta el fichero como un lote atómico, no
+   cambia nada — pero tampoco restaura nada.
+2. Sobre una base vacía **también falla**: el volcado va tabla a tabla en el
+   orden de `sqlite_master`, que no respeta las claves foráneas (los planos
+   de una vivienda van antes que la tabla de viviendas), y con las claves
+   foráneas activas el primer `INSERT` en una tabla hija cuyo padre aún no
+   existe muere con `no such table: main.agent_properties`. `PRAGMA
+   foreign_keys = OFF` no ayuda: dentro de una transacción SQLite lo ignora.
+
+`scripts/restore-d1-backup.mjs` hace lo que sí funciona, y el workflow
+manual **"Restaurar una copia de seguridad de D1 en producción"**
+(`.github/workflows/restore-d1-backup.yml`) lo ejecuta con los secretos del
+entorno `production`, guardando antes un volcado del estado actual como
+punto de retorno. Dos orígenes:
+
+- **Instantánea diaria** (`backups/AAAA-MM-DD.json.gz` en R2):
+  `node scripts/restore-d1-backup.mjs --from-r2 backups/2026-09-18.json.gz --remote --confirm RESTAURAR`.
+  Por cada tabla de la instantánea: `DELETE FROM` + `INSERT` con las
+  claves foráneas diferidas, en un solo lote. No toca el esquema ni el
+  ledger de migraciones. Por defecto **omite `sessions`, `rate_limits` y
+  `password_reset_tokens`** (efímeras y sensibles: restaurarlas resucitaría
+  sesiones cerradas y enlaces ya usados); `--include-ephemeral` las
+  incluye. `--tables leads,clients` limita la restauración.
+- **Volcado SQL de `wrangler d1 export`** (artefacto `pre-deploy-backup-<sha>`,
+  `pre-migration-backup-*`, `pre-seed-backup-*`, `pre-restore-backup-*`):
+  `node scripts/restore-d1-backup.mjs --sql volcado.sql --remote --confirm RESTAURAR`.
+  Borra todas las tablas (las hijas antes que sus padres, leyendo las claves
+  foráneas reales con `PRAGMA foreign_key_list`), reordena el volcado
+  (todos los `CREATE TABLE`, luego todos los `INSERT`, luego los índices) y
+  lo ejecuta. La base queda **exactamente** como al exportar, ledger
+  incluido; si hay migraciones posteriores, `npm run db:migrate` las aplica
+  encima (el workflow lo hace solo).
+
+En los dos casos el script **cuenta las filas** de cada tabla restaurada
+contra la copia y falla si no cuadran: nunca da por hecho que fue bien.
+
+Resultado de la prueba real en local (volcado de 109 tablas, 847 filas):
+las 52 tablas con datos quedaron con exactamente las filas del volcado,
+`d1_migrations` incluida (61 → 61), y la migración posterior al volcado
+(0062) apareció como pendiente y se aplicó limpia encima. La tabla interna
+`sqlite_sequence` se excluye del import y de la verificación a propósito
+(ver el comentario en el script). `test/unit/backup.restore.test.ts`
+repite el ciclo completo copia → restauración → comparación fila a fila en
+cada ejecución de `npm test`, con el mismo código que corre en producción a
+las dos puntas.
+
+`--dry-run` genera el SQL, dice dónde lo ha dejado y el orden de borrado, y
+no ejecuta nada. Sin `--remote` todo va contra la D1 local: es la forma de
+ensayar una restauración antes de hacerla de verdad.
 
 ## Procedimiento de rollback completo
 
@@ -149,8 +200,10 @@ D1 de staging antes de tocar producción si hay tiempo para hacerlo.
    hacia adelante. Las opciones son:
    - Escribir una migración nueva que revierta el cambio (lo preferible
      cuando es viable — mantiene el historial y no requiere Time Travel).
-   - Restaurar con Time Travel o el backup pre-despliegue (ver arriba) si
-     el cambio no es reversible de forma segura con una migración nueva
+   - Restaurar con Time Travel o el backup pre-despliegue (ver arriba:
+     workflow "Restaurar una copia de seguridad de D1", origen
+     `volcado-sql`, referencia = id del run de `deploy-production`) si el
+     cambio no es reversible de forma segura con una migración nueva
      (p. ej. una columna ya eliminada con datos reales perdidos).
 
 3. **Comprobar la integridad de R2.** Ningún paso de este pipeline modifica

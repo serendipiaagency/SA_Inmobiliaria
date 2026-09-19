@@ -43,7 +43,9 @@ export default defineNuxtConfig({
     // column means it never needs its own cron entry.
     scheduledTasks: {
       '0 * * * *': ['cms:expire-articles', 'system:cleanup-error-logs', 'marketing:saved-search-alerts', 'payments:reconcile-deposits', 'notifications:retry-email-queue', 'notifications:retry-webhook-queue'],
-      '* * * * *': ['scheduler:dispatch', 'appointments:reminders'],
+      // system:check-custom-domains se sale solo en los minutos que no son
+      // múltiplo de 10 — va aquí para no gastar un Cron Trigger más.
+      '* * * * *': ['scheduler:dispatch', 'appointments:reminders', 'system:check-custom-domains'],
       '30 3 * * *': ['system:backup-d1'],
       // Runs after the D1 backup — purges media past its 30-day soft-delete
       // grace period and reconciles per-tenant storage usage.

@@ -1,0 +1,132 @@
+name: Restaurar una copia de seguridad de D1 en producción
+
+# ESCRIBE EN PRODUCCIÓN Y SOBREESCRIBE DATOS. Sólo se dispara a mano y sólo
+# con el visto bueno explícito del propietario, cada vez.
+#
+# Es el camino inverso, probado, de las dos copias de seguridad que ya
+# existían (docs/deployment.md → "Backups y restauración de D1"):
+#
+#   - `instantanea-diaria`: el JSON comprimido que server/tasks/system/backup-d1.ts
+#     deja cada noche en R2 (`backups/AAAA-MM-DD.json.gz`). Restaura tabla a
+#     tabla (DELETE + INSERT) sin tocar el esquema ni el ledger de
+#     migraciones; por defecto omite sessions, rate_limits y
+#     password_reset_tokens (efímeras y sensibles).
+#   - `volcado-sql`: el `.sql` de `wrangler d1 export` que guarda como
+#     artefacto cada despliegue (`pre-deploy-backup-<sha>`) y cada
+#     aplicación manual de migraciones. Vacía el esquema entero (hijas antes
+#     que padres, según las claves foráneas reales) y ejecuta el volcado: la
+#     base queda EXACTAMENTE como al exportar, ledger de migraciones
+#     incluido. Si después hay migraciones nuevas, el último paso las aplica.
+#
+# Antes de restaurar nada se exporta el estado actual y se guarda como
+# artefacto (30 días): es el punto de retorno si la restauración era un error.
+#
+# El script hace la verificación de verdad (cuenta filas contra la copia) y
+# falla el job si no cuadra. `scripts/restore-d1-backup.mjs` explica el
+# resto y test/unit/backup.restore.test.ts lo ejecuta contra una base real.
+on:
+  workflow_dispatch:
+    inputs:
+      origen:
+        description: 'Qué copia restaurar'
+        required: true
+        default: instantanea-diaria
+        type: choice
+        options:
+          - instantanea-diaria
+          - volcado-sql
+      referencia:
+        description: 'instantanea-diaria: clave en R2 (p. ej. backups/2026-09-18.json.gz). volcado-sql: id del run de Actions cuyo artefacto pre-deploy-backup-* / pre-migration-backup-* / pre-seed-backup-* se quiere restaurar.'
+        required: true
+        type: string
+      tablas:
+        description: 'Sólo para instantanea-diaria, opcional: lista separada por comas para restaurar únicamente esas tablas (vacío = todas las no efímeras).'
+        required: false
+        type: string
+      confirmar:
+        description: 'Escribe RESTAURAR para confirmar que se van a SOBREESCRIBIR datos de producción'
+        required: true
+        type: string
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    steps:
+      - name: Comprobar la confirmación
+        run: |
+          if [ "${{ inputs.confirmar }}" != "RESTAURAR" ]; then
+            echo "::error::Confirmación ausente o incorrecta. No se ha tocado nada."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Punto de retorno — exportar el estado ACTUAL antes de restaurar
+        run: npx wrangler d1 export sa_inmobiliaria --remote --output=pre-restore-backup.sql --env=""
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Guardar el punto de retorno como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-restore-backup-${{ github.run_id }}
+          path: pre-restore-backup.sql
+          retention-days: 30
+
+      - name: Restaurar la instantánea diaria desde R2
+        if: inputs.origen == 'instantanea-diaria'
+        # Sólo se llega aquí si el punto de retorno se subió.
+        run: |
+          extra=""
+          if [ -n "${{ inputs.tablas }}" ]; then extra="--tables ${{ inputs.tablas }}"; fi
+          node scripts/restore-d1-backup.mjs --from-r2 "${{ inputs.referencia }}" --remote --confirm RESTAURAR $extra
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Descargar el volcado SQL del run indicado
+        if: inputs.origen == 'volcado-sql'
+        run: |
+          mkdir -p volcado
+          gh run download "${{ inputs.referencia }}" --dir volcado --pattern 'pre-*-backup-*'
+          file=$(find volcado -name '*.sql' | head -1)
+          if [ -z "$file" ]; then
+            echo "::error::El run ${{ inputs.referencia }} no tiene ningún artefacto pre-*-backup-* con un .sql dentro."
+            exit 1
+          fi
+          cp "$file" volcado-a-restaurar.sql
+          echo "Volcado: $file ($(wc -c < volcado-a-restaurar.sql) bytes)"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Restaurar el volcado SQL
+        if: inputs.origen == 'volcado-sql'
+        run: node scripts/restore-d1-backup.mjs --sql volcado-a-restaurar.sql --remote --confirm RESTAURAR
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Aplicar las migraciones posteriores al volcado (si las hay)
+        if: inputs.origen == 'volcado-sql'
+        # El volcado deja el ledger tal y como estaba al exportar; el código
+        # desplegado puede necesitar migraciones más recientes que ésas.
+        run: |
+          npx wrangler d1 migrations list sa_inmobiliaria --remote --env=""
+          npx wrangler d1 migrations apply sa_inmobiliaria --remote --env=""
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Comprobar que el panel sigue siendo utilizable
+        run: node scripts/diagnose-access.mjs "admin@sa-inmobiliaria.com"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

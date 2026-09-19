@@ -1,4 +1,5 @@
 import type { EmailChannelHealth } from './email/health'
+import type { DomainHealthSummary } from './domainMonitor'
 
 /**
  * Estado real de cada integración de la plataforma, en una sola lista.
@@ -56,6 +57,8 @@ export interface SystemStatusInput {
   storage: { ok: boolean; error?: string }
   channels: { total: number; implemented: number }
   email: Pick<EmailChannelHealth, 'connected' | 'status' | 'headline'>
+  /** Última comprobación de cada dominio personalizado (server/utils/domainMonitor.ts). */
+  domains: DomainHealthSummary
   build: { commit: string; branch: string; builtAt: string; source: string }
 }
 
@@ -112,12 +115,53 @@ function secretBacked(
       }
 }
 
+/**
+ * Los dominios de cliente son infraestructura *de cada agencia*: si uno deja
+ * de llegar a la suya, para esa agencia la plataforma entera está caída
+ * aunque D1 y R2 respondan de maravilla. Por eso va en este grupo y por eso
+ * un solo dominio caído pone la fila en rojo.
+ */
+function describeDomains(domains: DomainHealthSummary): IntegrationStatus {
+  const base = { key: 'custom-domains', label: 'Dominios personalizados', group: 'Infraestructura', setting: null }
+  if (domains.total === 0) {
+    return {
+      ...base,
+      state: 'ok',
+      detail: 'Ninguna agencia tiene dominio propio todavía; todas se sirven en el host de la plataforma.',
+      remedy: null,
+    }
+  }
+  if (domains.lastCheckedAt === null) {
+    return {
+      ...base,
+      state: 'not-configured',
+      detail: `${domains.total} ${domains.total === 1 ? 'dominio configurado' : 'dominios configurados'}, pero todavía no se ha ejecutado ninguna comprobación.`,
+      remedy: 'La comprobación corre cada 10 minutos en el Worker desplegado (system:check-custom-domains). Si esto sigue así, revisa que los Cron Triggers estén activos.',
+    }
+  }
+  if (domains.failing.length) {
+    return {
+      ...base,
+      state: 'degraded',
+      detail: domains.failing.map((f) => `${f.domain}: ${f.error}`).join(' · '),
+      remedy: 'Comprueba el registro DNS del dominio, que siga añadido como Custom Domain del Worker en Cloudflare y que la organización tenga ese dominio en Empresas (docs/multi-domain.md).',
+    }
+  }
+  return {
+    ...base,
+    state: 'ok',
+    detail: `${domains.total === 1 ? 'El dominio responde' : `Los ${domains.total} dominios responden`} y ${domains.total === 1 ? 'llega' : 'llegan'} a su agencia. Última comprobación: ${domains.lastCheckedAt} UTC.`,
+    remedy: null,
+  }
+}
+
 export function buildSystemStatus(input: SystemStatusInput): SystemStatusReport {
   const has = (name: string) => Boolean(input.secrets[name])
 
   const integrations: IntegrationStatus[] = [
     dependency('database', 'Base de datos (D1)', input.database, 'Responde con normalidad.'),
     dependency('storage', 'Almacenamiento de archivos (R2)', input.storage, 'Responde con normalidad.'),
+    describeDomains(input.domains),
 
     // El email tiene su propio diagnóstico, que mira el historial real de
     // envíos y no sólo si hay clave: aquí se reutiliza su veredicto en vez de

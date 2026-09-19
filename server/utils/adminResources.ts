@@ -179,8 +179,12 @@ export const adminResources: Record<string, ResourceDef> = {
     table: schema.adminAuditLog,
     label: 'Auditoría',
     fields: {},
-    listFields: ['id', 'userEmail', 'action', 'resource', 'resourceId', 'createdAt'],
-    searchFields: ['userEmail', 'resource', 'resourceId'],
+    // `detail` es donde consta lo sensible (server/utils/sensitiveAudit.ts):
+    // "contraseña cambiada", "rol admin → super_admin", "secreto rotado".
+    // Sin verlo en el listado, la auditoría de esas acciones existiría pero
+    // nadie la leería.
+    listFields: ['id', 'userEmail', 'action', 'resource', 'resourceId', 'detail', 'createdAt'],
+    searchFields: ['userEmail', 'resource', 'resourceId', 'detail'],
     // Org-scoped on purpose (unlike error-logs): a tenant's own admin should
     // see who on their team did what to their data. Rows logged for
     // platform-level actions (organizationId null, e.g. managing "Empresas"

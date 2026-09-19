@@ -18,12 +18,13 @@
  * Uso como CLI: `node scripts/worker-url.mjs` imprime la URL, o nada.
  */
 
-/** Igual que `name` en wrangler.toml. */
+/** Igual que `name` en wrangler.toml. Con WORKER_NAME en el entorno se pregunta por otro (p. ej. `sa-inmobiliaria-staging`). */
 export const WORKER_NAME = 'sa-inmobiliaria'
 
 export async function discoverWorkerUrl(env = process.env) {
   const token = env.CLOUDFLARE_API_TOKEN
   const accountId = env.CLOUDFLARE_ACCOUNT_ID
+  const workerName = env.WORKER_NAME || WORKER_NAME
   if (!token || !accountId) return null
   try {
     const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/subdomain`, {
@@ -32,7 +33,7 @@ export async function discoverWorkerUrl(env = process.env) {
     if (!res.ok) return null
     const json = await res.json()
     const subdomain = json?.result?.subdomain
-    return subdomain ? `https://${WORKER_NAME}.${subdomain}.workers.dev` : null
+    return subdomain ? `https://${workerName}.${subdomain}.workers.dev` : null
   } catch {
     // Sin red, sin permisos en el token, o una respuesta inesperada: no saber
     // la URL nunca debe ser lo que rompa la operación que llamó aquí.
