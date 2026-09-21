@@ -133,12 +133,7 @@ export function serializeConversation(row: ConversationRow, contact: ContactRow,
 }
 
 export function serializeMessage(row: MessageRow) {
-  let payload: any = null
-  try {
-    payload = row.payloadJson ? JSON.parse(row.payloadJson) : null
-  } catch {
-    payload = null
-  }
+  const payload: any = safeJson(row.payloadJson)
   const hasMedia = Boolean(row.mediaKey || payload?.media)
   return {
     id: row.id,

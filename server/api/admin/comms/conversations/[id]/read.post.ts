@@ -12,13 +12,8 @@ export default defineEventHandler(async (event) => {
   const env = cfEnv(event) as Record<string, any>
   const id = Number(getRouterParam(event, 'id'))
   const { conversation, channelRow } = await loadConversationForOrg(db, orgId, id)
-  let channel = null
-  try {
-    channel = await loadChannel(db, env, { id: channelRow.id, orgId })
-  } catch {
-    // Sin clave de cifrado no se puede avisar al proveedor; el contador local se limpia igual.
-    channel = null
-  }
+  // Sin clave de cifrado no se puede avisar al proveedor; el contador local se limpia igual.
+  const channel = await loadChannel(db, env, { id: channelRow.id, orgId }).catch(() => null)
   if (channel) {
     await markConversationRead(db, env, channel, conversation)
   } else if (conversation.unreadCount > 0) {

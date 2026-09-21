@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
   const body = (await readBody(event)) || {}
   const nowTs = now()
   const patch: Record<string, any> = { updatedAt: nowTs }
-  let detail = ''
+  let detail: string
 
   if (body.unlink) {
     patch.clientId = null

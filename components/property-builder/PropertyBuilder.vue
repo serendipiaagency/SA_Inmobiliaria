@@ -38,8 +38,10 @@
           </NuxtLink>
           <AdminAssetExportButton v-if="resource === 'developer-properties' && !isNew && canEdit" :asset-id="recordId!" :property-type="form.propertyType" variant="quiet" />
           <a v-if="resource === 'developer-properties' && !isNew" :href="`/propiedades/${form.slug || recordId}`" target="_blank" rel="noopener" class="pe-btn-quiet">Vista previa</a>
+          <button v-if="resource === 'developer-properties' && !isNew" type="button" class="pe-btn-quiet" data-testid="property-share-whatsapp" @click="shareOpen = true">Compartir por WhatsApp</button>
         </template>
       </PropertyEditorHeader>
+      <AdminCommsSharePropertyModal v-if="shareOpen && recordId" :property="{ id: recordId, name: headerTitle, slug: form.slug || null }" @close="shareOpen = false" />
 
       <div class="mx-auto max-w-[1400px] px-4 py-6 sm:px-6">
         <!-- Móvil y tablet: los pasos pasan a una tira horizontal. La columna
@@ -274,6 +276,7 @@ const savedSnapshot = ref('')
 const isDirty = computed(() => JSON.stringify({ form, translations: hasTranslationsSection ? translations.value : undefined }) !== savedSnapshot.value)
 
 const saving = ref(false)
+const shareOpen = ref(false)
 const saved = ref(false)
 const error = ref('')
 

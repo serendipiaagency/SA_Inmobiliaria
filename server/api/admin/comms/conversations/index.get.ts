@@ -23,7 +23,6 @@ export default defineEventHandler(async (event) => {
   else if (/^\d+$/.test(assigned)) conds.push(eq(schema.commsConversations.assignedAgentId, Number(assigned)))
   if (before) conds.push(lt(schema.commsConversations.lastMessageAt, before))
 
-  let contactFilterIds: number[] | null = null
   if (search) {
     const pattern = `%${search.replace(/[%_]/g, '')}%`
     const matches = await db
@@ -43,7 +42,7 @@ export default defineEventHandler(async (event) => {
       .innerJoin(schema.leads, eq(schema.leads.id, schema.commsContacts.leadId))
       .where(and(eq(schema.commsContacts.organizationId, orgId), like(schema.leads.name, pattern)))
       .limit(200)
-    contactFilterIds = [...new Set([...matches, ...crmClients, ...crmLeads].map((r: any) => r.id as number))]
+    const contactFilterIds = [...new Set([...matches, ...crmClients, ...crmLeads].map((r: any) => r.id as number))]
     conds.push(contactFilterIds.length ? or(inArray(schema.commsConversations.contactId, contactFilterIds), like(schema.commsConversations.lastMessagePreview, pattern))! : like(schema.commsConversations.lastMessagePreview, pattern))
   }
 

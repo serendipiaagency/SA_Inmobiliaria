@@ -61,6 +61,10 @@
         <transition name="fade"><span v-if="saved" class="text-sm font-medium text-emerald-600">✓ Guardado</span></transition>
       </div>
     </form>
+
+    <AdminPanel title="Comunicaciones" sub="WhatsApp Business por agencia: números conectados, llamadas, plantillas y ajustes de la bandeja." class="mt-4">
+      <NuxtLink to="/admin/comunicaciones/configuracion" class="btn-quiet !py-2" data-testid="config-comms-link">Abrir configuración de Comunicaciones →</NuxtLink>
+    </AdminPanel>
   </div>
 </template>
 

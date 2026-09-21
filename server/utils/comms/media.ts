@@ -52,15 +52,25 @@ export interface EnsureMediaResult {
 
 type MessageRow = typeof schema.commsMessages.$inferSelect
 
+interface MediaRef {
+  providerMediaId?: string | null
+  url?: string | null
+  mime?: string | null
+  filename?: string | null
+}
+
+function mediaRefOf(payloadJson: string | null): MediaRef | null {
+  try {
+    return payloadJson ? (JSON.parse(payloadJson)?.media ?? null) : null
+  } catch {
+    return null
+  }
+}
+
 /** Devuelve la clave R2 del medio de un mensaje entrante, descargándolo del proveedor la primera vez. */
 export async function ensureInboundMedia(db: any, env: Record<string, any>, channel: LoadedChannel, message: MessageRow, fetchImpl: typeof fetch = fetch): Promise<EnsureMediaResult> {
   if (message.mediaKey) return { ok: true, key: message.mediaKey, mime: message.mediaMime, error: null }
-  let ref: { providerMediaId?: string | null; url?: string | null; mime?: string | null; filename?: string | null } | null = null
-  try {
-    ref = message.payloadJson ? JSON.parse(message.payloadJson)?.media ?? null : null
-  } catch {
-    ref = null
-  }
+  const ref = mediaRefOf(message.payloadJson)
   if (!ref) return { ok: false, key: null, mime: null, error: 'Este mensaje no tiene ningún archivo adjunto.' }
 
   let download: { ok: boolean; bytes: Uint8Array | null; mime: string | null; error: string | null }

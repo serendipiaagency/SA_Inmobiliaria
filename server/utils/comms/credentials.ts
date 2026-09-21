@@ -126,12 +126,7 @@ export async function listChannels(db: any, env: Record<string, any>, orgId: num
   const rows: ChannelRow[] = await db.select().from(schema.commsChannels).where(eq(schema.commsChannels.organizationId, orgId)).orderBy(asc(schema.commsChannels.id))
   const out: ChannelView[] = []
   for (const row of rows) {
-    let credentials: ChannelCredentials | null = null
-    try {
-      credentials = isCommsEncryptionAvailable(env) ? await decryptChannelCredentials(env, row) : null
-    } catch {
-      credentials = null
-    }
+    const credentials: ChannelCredentials | null = isCommsEncryptionAvailable(env) ? await decryptChannelCredentials(env, row).catch(() => null) : null
     out.push(channelView(row, credentials))
   }
   return out

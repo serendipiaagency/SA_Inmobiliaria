@@ -28,7 +28,8 @@
           </div>
         </div>
 
-        <div class="flex shrink-0 items-center gap-2">
+        <div class="flex shrink-0 flex-wrap items-center gap-2">
+          <AdminCommsContactActions :client-id="Number(id)" :phone="client.phone" :name="client.name" />
           <NuxtLink :to="`/admin/clientes/${id}/editar`" class="btn-primary">Editar cliente</NuxtLink>
           <ClientRowMenu :client="{ id: Number(id), name: client.name }" @deleted="navigateTo('/admin/clientes')" />
         </div>
@@ -161,8 +162,36 @@
 
     <!-- ACTIVIDAD -->
     <div v-show="tab === 'actividad'">
-      <AdminPanel title="Histórico" sub="Sólo hechos registrados: visitas, operaciones, reservas, contratos, leads y cambios hechos desde el panel.">
+      <AdminPanel title="Histórico" sub="Sólo hechos registrados: visitas, operaciones, reservas, contratos, leads, mensajes de WhatsApp, llamadas y cambios hechos desde el panel.">
         <ClientTimeline :events="timeline" />
+      </AdminPanel>
+    </div>
+
+    <!-- COMUNICACIONES -->
+    <div v-show="tab === 'comunicaciones'" data-testid="client-tab-comunicaciones" class="grid gap-6 lg:grid-cols-2">
+      <AdminPanel title="Conversaciones de WhatsApp" sub="Vinculadas a esta ficha por el teléfono del contacto.">
+        <p v-if="!related?.conversations?.length" class="py-6 text-center text-sm text-stone-400">
+          Ninguna todavía. Usa el botón «WhatsApp» de arriba para abrir una.
+        </p>
+        <ul v-else class="divide-y divide-line">
+          <li v-for="c in related.conversations" :key="c.id" class="py-2.5">
+            <NuxtLink :to="`/admin/comunicaciones?conversation=${c.id}`" class="block hover:underline">
+              <span class="text-[13px] font-medium text-ink">{{ c.lastMessagePreview || 'Conversación' }}</span>
+              <span class="ml-2 text-[11px] text-stone-400">{{ formatRelative(c.lastMessageAt) }} · {{ c.status === 'open' ? 'abierta' : c.status === 'pending' ? 'pendiente' : 'cerrada' }}<span v-if="c.unreadCount"> · {{ c.unreadCount }} sin leer</span></span>
+            </NuxtLink>
+          </li>
+        </ul>
+      </AdminPanel>
+      <AdminPanel title="Llamadas" sub="Por WhatsApp desde el panel o registradas a mano.">
+        <p v-if="!related?.calls?.length" class="py-6 text-center text-sm text-stone-400">Ninguna registrada. El botón «Llamar» de arriba anota el resultado al terminar.</p>
+        <ul v-else class="divide-y divide-line">
+          <li v-for="c in related.calls" :key="c.id" class="py-2.5 text-[13px]">
+            <span class="font-medium text-ink">{{ c.direction === 'inbound' ? 'Recibida' : 'Realizada' }}</span>
+            <span class="text-stone-500"> · {{ c.status }}<template v-if="c.outcome"> · {{ c.outcome }}</template><template v-if="c.durationSeconds"> · {{ Math.round(c.durationSeconds / 60) }} min</template></span>
+            <span class="ml-2 text-[11px] text-stone-400">{{ formatDateTime(c.startedAt || c.createdAt) }}</span>
+            <p v-if="c.notes" class="text-[12px] text-stone-500">{{ c.notes }}</p>
+          </li>
+        </ul>
       </AdminPanel>
     </div>
   </div>
@@ -193,7 +222,7 @@ const route = useRoute()
 const id = route.params.id as string
 const dt = useDash()
 
-const tab = ref<'resumen' | 'informacion' | 'propiedades' | 'actividad'>('resumen')
+const tab = ref<'resumen' | 'informacion' | 'propiedades' | 'actividad' | 'comunicaciones'>('resumen')
 const loadError = ref('')
 
 const { data: clientRes } = await useFetch<any>(`/api/admin/clients/${id}`, {
@@ -217,5 +246,6 @@ const tabs = computed(() => [
   { key: 'informacion' as const, label: 'Información', count: 0 },
   { key: 'propiedades' as const, label: 'Propiedades', count: related.value?.properties?.length || 0 },
   { key: 'actividad' as const, label: 'Actividad', count: timeline.value.length },
+  { key: 'comunicaciones' as const, label: 'Comunicaciones', count: (related.value?.conversations?.length || 0) + (related.value?.calls?.length || 0) },
 ])
 </script>

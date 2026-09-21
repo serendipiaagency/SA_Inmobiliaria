@@ -118,6 +118,10 @@
         </div>
         <slot />
       </main>
+      <!-- Centro de Comunicaciones: la llamada de voz en curso y el aviso de
+           llamada entrante viven fuera de cualquier página, para sobrevivir
+           a la navegación. Sólo para quien puede ver el CRM. -->
+      <AdminCommsVoiceWidget v-if="canRead('crm')" />
     </div>
   </div>
 </template>
@@ -168,9 +172,25 @@ const icons: Record<string, string> = {
 const nav = computed<NavGroup[]>(() =>
   ADMIN_NAV.map((group) => ({
     ...group,
-    items: group.items.filter((item) => !item.superAdminOnly || isSuperAdmin.value),
+    items: group.items
+      .filter((item) => !item.superAdminOnly || isSuperAdmin.value)
+      // El contador de WhatsApp sin leer se pone sobre una copia del item,
+      // nunca sobre el módulo compartido (ver el comentario de arriba).
+      .map((item) => (item.to === '/admin/comunicaciones' && commsUnread.value > 0 ? { ...item, badge: commsUnread.value > 99 ? '99+' : String(commsUnread.value) } : item)),
   })).filter((group) => group.items.length > 0),
 )
+
+// Sondeo del Centro de Comunicaciones (no leídos, llamadas entrantes):
+// sólo en el navegador y sólo para quien puede ver el CRM.
+const comms = useComms()
+const commsUnread = comms.unread
+onMounted(() => {
+  if (canRead('crm')) {
+    comms.loadOverview()
+    comms.startPolling()
+  }
+})
+onBeforeUnmount(() => comms.stopPolling())
 
 // Granular RBAC (utils/permissions.ts) — a restricted admin only sees the nav
 // groups whose area they have at least read access to. Unrestricted accounts
