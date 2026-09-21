@@ -260,8 +260,11 @@ export function useHelpContent() {
       group: 'Portal Web',
       title: 'Piezas generadas',
       route: '/admin/asset-export/projects',
-      summary: 'Piezas individuales (PDF) ya generadas a partir de una plantilla y una propiedad concreta.',
-      steps: ['El QR de cada pieza se valida automáticamente al generarla — si no seria legible, el sistema bloquea la descarga en vez de entregar un archivo roto.'],
+      summary: 'Piezas individuales (PDF, y PNG para redes cuando la plataforma tiene activado el renderizado de imágenes) ya generadas a partir de una plantilla y una propiedad concreta.',
+      steps: [
+        'El QR de cada pieza se valida automáticamente al generarla — si no seria legible, el sistema bloquea la descarga en vez de entregar un archivo roto.',
+        'Los formatos de imagen para redes (feed cuadrado 1080×1080, feed vertical 1080×1350, story 1080×1920) se generan como PNG sólo si la plataforma tiene activado Browser Rendering; si no, al generar verás "necesita Browser Rendering" y Sistema → Estado del sistema lo indica en la fila "Imágenes para redes". Los PDF no dependen de eso. La exportación masiva y los catálogos combinados siguen siendo PDF: las imágenes se generan pieza a pieza.',
+      ],
     },
     {
       key: 'asset-export-batches',

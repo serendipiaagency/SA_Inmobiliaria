@@ -59,6 +59,8 @@ export interface SystemStatusInput {
   email: Pick<EmailChannelHealth, 'connected' | 'status' | 'headline'>
   /** Última comprobación de cada dominio personalizado (server/utils/domainMonitor.ts). */
   domains: DomainHealthSummary
+  /** Presencia del binding BROWSER (Browser Rendering), que es lo que produce los formatos de imagen para redes. */
+  browserRendering: boolean
   build: { commit: string; branch: string; builtAt: string; source: string }
 }
 
@@ -261,6 +263,17 @@ export function buildSystemStatus(input: SystemStatusInput): SystemStatusReport 
       'Las credenciales de los canales se guardan cifradas.',
       'No se pueden guardar credenciales de canales: el alta se niega antes que guardarlas en claro.',
     ),
+    {
+      key: 'social-images',
+      label: 'Imágenes para redes (Browser Rendering)',
+      group: 'Publicación',
+      state: input.browserRendering ? 'ok' : 'not-configured',
+      detail: input.browserRendering
+        ? 'Los formatos 1080×1080, 1080×1350 y 1080×1920 se generan como PNG con Browser Rendering.'
+        : 'Los formatos de imagen para redes (feed cuadrado, feed vertical, story) responden "no disponible": el código ya está, falta el binding BROWSER del Worker. Los PDF no dependen de esto.',
+      remedy: input.browserRendering ? null : 'Descomenta el bloque [browser] de wrangler.toml (primero en staging), despliega y genera una pieza de prueba (docs/asset-export-studio.md).',
+      setting: 'BROWSER',
+    },
     {
       key: 'channels',
       label: 'Canales de publicación',

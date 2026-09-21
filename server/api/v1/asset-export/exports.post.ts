@@ -45,7 +45,7 @@ export default defineEventHandler(async (event) => {
   if (!template) throw createError({ statusCode: 404, statusMessage: 'Template not found' })
 
   const format = FORMAT_BY_KEY[template.formatKey]
-  if (!format?.renderReady) throw createError({ statusCode: 422, statusMessage: `El formato "${template.formatKey}" todavía no tiene renderizador` })
+  if (!format?.renderReady) throw createError({ statusCode: 422, statusMessage: `La API v1 exporta PDF: el formato "${template.formatKey}" (imagen para redes) se genera desde el panel, pieza a pieza.` })
 
   const asset = (
     await db

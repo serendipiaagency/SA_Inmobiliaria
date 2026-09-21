@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
   )[0]
   if (!template) throw createError({ statusCode: 404, statusMessage: 'Template not found' })
   if (!FORMAT_BY_KEY[template.formatKey]?.renderReady) {
-    throw createError({ statusCode: 422, statusMessage: `El formato de esta plantilla todavía no tiene renderizador` })
+    throw createError({ statusCode: 422, statusMessage: `La exportación masiva es de PDF: los formatos de imagen para redes se generan pieza a pieza desde "Piezas generadas".` })
   }
 
   const assetIds = [...new Set(body.assetIds)]
