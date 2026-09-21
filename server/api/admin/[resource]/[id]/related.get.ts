@@ -121,10 +121,16 @@ export default defineEventHandler(async (event) => {
   // --- Comunicaciones (WhatsApp y llamadas) ---------------------------------
   // Aquí SÍ hay vínculo guardado: comms_contacts.client_id lo escribe el
   // Centro de Comunicaciones al cruzar el teléfono o al vincular a mano.
+  //
+  // Si la migración 0065 todavía no está aplicada (el pipeline de producción
+  // no aplica migraciones mientras production-preflight falle), estas
+  // tablas no existen: la ficha del cliente sigue funcionando sin la parte
+  // de comunicaciones en vez de caer entera.
   const commsContacts = await db
     .select({ id: schema.commsContacts.id })
     .from(schema.commsContacts)
     .where(and(eq(schema.commsContacts.organizationId, orgId), eq(schema.commsContacts.clientId, id)))
+    .catch(() => [] as { id: number }[])
   const contactIds = commsContacts.map((c) => c.id)
   const [conversations, messages, calls] = contactIds.length
     ? await Promise.all([
