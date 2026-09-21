@@ -75,6 +75,10 @@ Key modules (`server/utils/assetExport/`):
 
 Add an entry to `FORMATS` in `formats.ts` with `renderReady: true` only once `pdfRenderer.ts` can actually produce it. Setting `renderReady: false` is the honest way to let templates/UI reference a format that doesn't render yet — the batch/catalog/v1 endpoints check this flag and 422 before attempting anything. The single-piece render endpoint uses `isFormatRenderable(format, env)` instead: PDF/print formats follow `renderReady`, social formats follow the presence of the `BROWSER` binding at runtime.
 
+### Por qué hay un `overrides` en package.json
+
+`@cloudflare/puppeteer` fija `@puppeteer/browsers@2.2.4`, que arrastra `extract-zip` (aviso de seguridad alto sin versión corregida: GHSA-jmr9-qjv8-65gv). Ese paquete sólo lo usan los lanzadores de Node de puppeteer (descargar un Chromium local); la entrada de Cloudflare no lo importa y el bundle del Worker no lo contiene (`grep @puppeteer/browsers .output/server/chunks/_/puppeteer-cloudflare.mjs` → nada). El `overrides` lo sube a la rama 3.x, que ya no depende de `extract-zip`, para que `npm audit --omit=dev` (paso bloqueante de CI) quede limpio sin excluir nada. Si se quita el override, CI vuelve a fallar en el audit.
+
 ## Roadmap (real gaps, not fabricated ones)
 
 - Activar y verificar Browser Rendering (ver la actualización de arriba): descomentar `[env.staging.browser]` en `wrangler.toml`, desplegar staging, generar una pieza 1080×1080 desde Piezas generadas y comprobar el PNG; después lo mismo en producción. Si la captura sale bien, cambiar `renderReady` de los tres formatos sociales deja de ser necesario — `isFormatRenderable()` ya decide por el binding.
