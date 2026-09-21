@@ -59,13 +59,23 @@ export function phoneTail(phone: string, n = 9): string {
   return digits.slice(-n)
 }
 
+/** Prefijos de país de dos cifras (los de una cifra son 1 y 7; el resto, tres). Sólo para partir el número al mostrarlo. */
+const TWO_DIGIT_COUNTRY_CODES = new Set(['20', '27', '30', '31', '32', '33', '34', '36', '39', '40', '41', '43', '44', '45', '46', '47', '48', '49', '51', '52', '53', '54', '55', '56', '57', '58', '60', '61', '62', '63', '64', '65', '66', '81', '82', '84', '86', '90', '91', '92', '93', '94', '95', '98'])
+
+function countryCodeLength(digits: string): number {
+  if (digits[0] === '1' || digits[0] === '7') return 1
+  return TWO_DIGIT_COUNTRY_CODES.has(digits.slice(0, 2)) ? 2 : 3
+}
+
 /** Formato legible: `+34 600 112 233`. Sólo para mostrar; nunca se guarda así. */
 export function formatPhone(phoneE164: string | null | undefined): string {
   if (!phoneE164) return ''
-  const m = phoneE164.match(/^\+(\d{1,3})(\d+)$/)
+  const m = phoneE164.match(/^\+(\d+)$/)
   if (!m) return phoneE164
-  const rest = m[2].replace(/(\d{3})(?=\d)/g, '$1 ')
-  return `+${m[1]} ${rest}`
+  const digits = m[1]
+  const cc = countryCodeLength(digits)
+  const rest = digits.slice(cc).replace(/(\d{3})(?=\d)/g, '$1 ')
+  return `+${digits.slice(0, cc)} ${rest}`
 }
 
 /**

@@ -2,7 +2,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { isUniqueConstraintError, now } from '../db'
 import { sendInternalNotification } from '../email/send'
-import { formatPhone } from './phone'
+import { formatPhone, normalizePhone } from './phone'
 import { matchCrmByPhone } from './matching'
 import { metaMarkRead, metaSendMessage } from './providers/metaCloud'
 import { twilioSendMessage } from './providers/twilio'
@@ -255,6 +255,9 @@ export interface IngestMessageResult {
 export async function ingestInboundMessage(db: any, env: Record<string, any>, channel: LoadedChannel, event: InboundMessageEvent, ctx: IngestContext = {}): Promise<IngestMessageResult> {
   const orgId = channel.organizationId
   const ts = isoToDbTs(event.timestamp)
+  // Los parsers ya normalizan; esto atrapa un payload corrupto antes de que
+  // un "teléfono" que no lo es acabe como contacto.
+  if (normalizePhone(event.from) !== event.from) throw new Error(`Remitente no válido: ${event.from}`)
   const contact = await upsertContact(db, orgId, event.from, { waId: event.raw && (event.raw as any).from ? String((event.raw as any).from) : null, displayName: event.profileName ?? null, inboundAt: ts })
   const conversation = await findOrCreateConversation(db, orgId, channel.id, contact.id)
 

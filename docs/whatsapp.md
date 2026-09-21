@@ -1,5 +1,10 @@
 # WhatsApp para avisos de citas (Twilio)
 
+> Esto cubre sólo los **avisos automáticos de cita** con las credenciales
+> de Twilio del Worker. La **bandeja de WhatsApp por agencia** (recibir y
+> responder, compartir propiedades, llamadas) es otra pieza:
+> [docs/communications.md](./communications.md).
+
 Los avisos de cita (confirmación, recordatorios de 24 h y 1 h, cancelación,
 cambio) salen por tres canales: aviso interno (siempre), email (Resend) y
 WhatsApp. El canal WhatsApp se reportaba honestamente como "no conectado";
