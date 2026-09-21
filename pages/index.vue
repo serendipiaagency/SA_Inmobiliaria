@@ -1,5 +1,5 @@
 <template>
-  <SiteBlockRenderer v-if="isPortal" :blocks="page?.blocks || []" :home-data="data" mode="production" />
+  <SiteBlockRenderer v-if="isPortal" :blocks="page?.blocks || []" :styles="page?.styles || null" :home-data="data" mode="production" />
   <div v-else class="sa-landing">
     <header class="sa-header">
       <div class="sa-shell sa-header-inner">

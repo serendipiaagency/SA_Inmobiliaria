@@ -1,5 +1,5 @@
 <template>
-  <div class="group relative" @mouseenter="onEnter" @mouseleave="onLeave">
+  <SbBox field="card" kind="card" label="Tarjeta de propiedad" :dynamic="dynamicLabel('property', 'Ficha')" :source-href="SOURCES.property.href" class="group relative" @mouseenter="onEnter" @mouseleave="onLeave">
     <!-- Media -->
     <div class="relative aspect-[4/3] overflow-hidden rounded-2xl bg-stone-100">
       <!-- Slides -->
@@ -9,13 +9,17 @@
         class="absolute inset-0 transition-opacity duration-500"
         :style="{ opacity: i === index && !showVideo ? 1 : 0 }"
       >
-        <img
+        <SbImage
+          field="card.image"
+          label="Foto de la propiedad"
+          :dynamic="dynamicLabel('property', 'Fotos')"
+          :source-href="SOURCES.property.href"
           :src="mediaUrl(ph)"
           :alt="`${project.name} — ${i + 1}`"
           class="h-full w-full object-cover transition-transform duration-[1200ms] ease-out"
           :class="{ 'scale-105': hovering }"
           loading="lazy"
-        >
+        />
       </div>
       <!-- Hover video (only when the listing has a real showcase clip attached) -->
       <video
@@ -103,7 +107,7 @@
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <p class="flex items-baseline gap-2">
-            <span class="text-lg font-semibold tracking-tight">{{ formatPrice(project.price) }}</span>
+            <SbText tag="span" field="card.price" label="Precio" :dynamic="dynamicLabel('property', 'Precio')" :source-href="SOURCES.property.href" class="text-lg font-semibold tracking-tight" :text="formatPrice(project.price)" />
             <span v-if="priceDrop" class="text-xs font-semibold text-emerald-600">−{{ priceDrop }}%</span>
           </p>
           <p v-if="pricePerM2" class="text-[12px] text-stone-400">{{ pricePerM2 }} / m²</p>
@@ -113,12 +117,8 @@
         </span>
       </div>
 
-      <h3 class="mt-1 truncate font-serif text-xl font-medium">{{ project.name }}</h3>
-      <p class="mt-0.5 truncate text-[13px] text-stone-500">
-        <span v-if="project.community">{{ project.community }}</span>
-        <span v-if="project.community && project.developerName" class="mx-1.5 text-stone-300">·</span>
-        <span v-if="project.developerName">{{ project.developerName }}</span>
-      </p>
+      <SbText tag="h3" field="card.name" kind="heading" label="Nombre de la propiedad" :dynamic="dynamicLabel('property', 'Nombre')" :source-href="SOURCES.property.href" class="mt-1 truncate font-serif text-xl font-medium" :text="project.name" />
+      <SbText v-if="locationLine" tag="p" field="card.community" kind="caption" label="Comunidad y promotora" :dynamic="dynamicLabel('property', 'Comunidad')" :source-href="SOURCES.property.href" class="mt-0.5 truncate text-[13px] text-stone-500" :text="locationLine" />
 
       <!-- Meta -->
       <div class="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-stone-500">
@@ -139,15 +139,25 @@
       <!-- Footer: published + CTA -->
       <div class="mt-3 flex items-center justify-between">
         <span class="text-[11px] uppercase tracking-widest text-stone-400">{{ publishedLabel }}</span>
-        <NuxtLink :to="to" class="cta">{{ t('card.viewDetails') }}</NuxtLink>
+        <SbLink field="card.cta" kind="link" label="Enlace a la ficha" :dynamic="dynamicLabel('site', 'Ver propiedad')" :source-href="SOURCES.site.href" :to="to" class="cta" :text="t('card.viewDetails')" />
       </div>
     </div>
 
     <QuickViewModal :open="quickViewOpen" :project="project" @close="quickViewOpen = false" />
-  </div>
+  </SbBox>
 </template>
 
 <script setup lang="ts">
+// Dentro del Constructor Web la tarjeta y sus partes (foto, precio, nombre,
+// comunidad, enlace) son nodos seleccionables: se puede cambiar cómo se
+// ven, nunca el dato, que es el de la propiedad. Fuera de él (listados,
+// favoritos, similares) los mismos componentes no añaden nada.
+import SbBox from '~/components/site-builder/nodes/SbBox.vue'
+import SbImage from '~/components/site-builder/nodes/SbImage.vue'
+import SbText from '~/components/site-builder/nodes/SbText.vue'
+import SbLink from '~/components/site-builder/nodes/SbLink.vue'
+import { SOURCES, dynamicLabel } from '~/utils/siteBuilder/sources'
+
 const props = defineProps<{
   project: {
     id: number
@@ -179,6 +189,7 @@ const { t } = useI18n()
 const { format: formatPrice } = useCurrency()
 
 const to = computed(() => `/propiedades/${props.project.slug || props.project.id}`)
+const locationLine = computed(() => [props.project.community, props.project.developerName].filter(Boolean).join(' · '))
 const photos = computed(() => (props.project.photos?.length ? props.project.photos : [props.project.coverImage].filter(Boolean) as string[]))
 
 const index = ref(0)

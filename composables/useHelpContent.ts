@@ -157,8 +157,19 @@ export function useHelpContent() {
       group: 'Portal Web',
       title: 'Constructor Web',
       route: '/admin/site-builder',
-      summary: 'Editor visual de la página de inicio de tu web pública — arrastra, edita y reordena secciones sin tocar código.',
+      summary: 'Editor visual de la página de inicio de tu web pública — pulsa cualquier texto, botón o imagen del lienzo y edítalo ahí mismo; añade, ordena y reordena secciones sin tocar código.',
       steps: [
+        'El lienzo es la página real y se edita directamente: pasa el ratón por un título, un párrafo, un botón, una imagen o una tarjeta y verás su contorno; púlsalo y queda seleccionado, con una pequeña barra encima (qué es, "Editar" o "Cambiar imagen", y "↑ Sección" para subir a la sección entera). El panel de la derecha cambia según lo que hayas pulsado: "Propiedades del texto", "de la imagen", "del botón", "de la tarjeta" o "de la sección". No necesitas saber cómo está construida una sección para cambiar su título o su foto.',
+        'Para cambiar un texto, haz doble clic sobre él (o pulsa Enter con el texto seleccionado) y escribe directamente en la página; Enter confirma, Escape lo deja como estaba. El campo del panel de la derecha se actualiza a la vez, y al revés: si escribes en el panel, el lienzo cambia al instante. Nada de esto necesita guardar ni recargar.',
+        'En la pestaña "Diseño" de un elemento cambias su fuente (las de tu Brand Kit salen primero), tamaño, peso, cursiva, mayúsculas, interlineado, color (colores de marca primero, luego la paleta, luego uno personalizado), alineación, márgenes y —en botones y tarjetas— fondo, borde, radio y relleno. Cada cambio se ve en el lienzo en tiempo real. Un punto azul junto a un control indica que ese elemento tiene un valor propio; "Restablecer" lo devuelve al estilo global de la página.',
+        'Con Tablet o Móvil elegidos arriba, cualquier ajuste de diseño se aplica sólo a ese tamaño (el panel lo avisa: "Editando la vista Móvil"); lo que no definas ahí se hereda de Escritorio. Así puedes tener un título a 64 px en escritorio y a 32 px en móvil sin duplicar nada.',
+        'Para cambiar una imagen, púlsala y usa "Cambiar imagen" (o doble clic): subes una nueva o eliges de la Biblioteca de medios sin salir del lienzo. En las imágenes también ajustas encaje (rellenar/encajar), punto focal, radio y opacidad.',
+        'Los botones se editan como cualquier texto (doble clic) y su destino en "Contenido" → "Enlace": página de tu web (con las rutas sugeridas), URL externa, ancla de otra sección, teléfono o email. Mientras editas, pulsar un botón o un enlace nunca navega: lo selecciona. Para probar los enlaces de verdad, usa "Vista previa".',
+        'Los datos reales no se editan desde aquí: si pulsas el nombre, el precio o la foto de una propiedad en una tarjeta (o un comercial, una comunidad, un artículo), el panel dice "Contenido dinámico — procede de Propiedades (web)" y te lleva a su ficha para cambiar el dato. Lo que sí puedes cambiar es cómo se ve (fuente, color, tamaño…), y ese estilo se aplica a todas las tarjetas del bloque. Cambiar el nombre real en Propiedades (web) se refleja en la web manteniendo el estilo que configuraste.',
+        'Pulsa en el hueco de una tarjeta (no sobre su texto) para seleccionar la tarjeta entera; pulsa en el fondo de una sección para seleccionar la sección; usa la miga de pan del panel ("Sección › Elemento") o "↑ Sección" para subir de nivel, y Escape para bajar la selección paso a paso (sale de la edición, luego del elemento, luego de la sección).',
+        'La cabecera y el pie de página también se ven en el lienzo, pero son elementos globales de toda la web (no sólo de Inicio): al pulsarlos, el panel explica de dónde salen (logo y nombre en Sistema → Empresas; datos legales en Privacidad) en vez de dejarte crear una copia distinta sólo para la portada.',
+        '"Estilos globales" (icono "Aa" de la barra superior) fija la tipografía de los títulos, la del texto y el radio de los botones de toda la página; cada elemento hereda de ahí salvo que le des un estilo propio. Se guarda y publica con la página.',
+        'Atajos: Enter edita el texto seleccionado; Esc sube de nivel; Supr elimina la sección seleccionada (pide confirmación); Ctrl/Cmd+D la duplica; Ctrl/Cmd+Z y Ctrl/Cmd+Mayús+Z deshacen y rehacen cualquier cambio (texto, color, fuente, imagen, espaciado, estilos globales y estructura), agrupados por ráfaga de cambios y no por tecla.',
         'La lista "Estructura" (izquierda) muestra una tarjeta por sección con su número, nombre y un resumen real (p. ej. "4 propiedades · Fila") — así puedes distinguir de un vistazo varias secciones del mismo tipo. Debajo, "Páginas" lista las páginas reales de tu web; hoy solo "Inicio" es editable aquí.',
         'Para añadir una sección, pasa el ratón entre dos secciones (en la lista de Estructura o directamente sobre el lienzo) y pulsa "+ Añadir sección aquí" — se abre la biblioteca y la sección elegida se inserta exactamente en esa posición, se selecciona sola y su panel de opciones se abre listo para editar. El botón "+" de la cabecera de Estructura, o "+ Añadir sección" al final de la lista, añaden al final.',
         'La biblioteca de secciones tiene buscador, categorías, una miniatura real de cada sección (no solo un icono) y guarda tus favoritos y usados recientemente — pulsa el corazón para marcar una sección como favorita.',
@@ -807,6 +818,20 @@ export function useHelpContent() {
       answer:
         'No, es el comportamiento esperado. Los bloques de Propiedades, Comunidades y Blog de la página de inicio no guardan una copia de esos datos — siempre muestran tus propiedades, comunidades y artículos reales y actuales. Solo necesitas volver a publicar en el Constructor Web si cambias textos, orden o ajustes de la propia página, nunca por cambios en el contenido en sí.',
       tags: ['constructor web', 'site builder', 'propiedades', 'sincronizacion'],
+    },
+    {
+      id: 'faq-site-builder-dynamic-text',
+      question: 'En el Constructor Web pulso el nombre de una propiedad y no me deja escribir, ¿por qué?',
+      answer:
+        'Porque ese nombre no es un texto de la página: es el dato real de la propiedad, y el bloque sólo lo muestra. Si lo convirtieras en texto fijo dejaría de actualizarse cuando cambies la propiedad. El panel te lo indica ("Contenido dinámico") y te lleva a la ficha en Propiedades (web) para cambiarlo. Lo que sí puedes cambiar desde el Constructor es cómo se ve — fuente, tamaño, color — y ese estilo se aplica a todas las tarjetas del bloque y se mantiene aunque cambies el nombre.',
+      tags: ['constructor web', 'site builder', 'propiedades', 'dinámico', 'editar texto'],
+    },
+    {
+      id: 'faq-site-builder-inline-edit',
+      question: '¿Cómo cambio un título o una foto de la portada sin buscar el campo en el panel?',
+      answer:
+        'Púlsalo directamente en el lienzo del Constructor Web. Un clic selecciona el elemento y abre sus opciones a la derecha; doble clic sobre un texto te deja escribir ahí mismo (Enter confirma, Escape cancela); sobre una imagen, doble clic o "Cambiar imagen" abre la subida y la Biblioteca de medios. Los cambios se ven al instante y se autoguardan como borrador; la web pública cambia cuando pulses "Publicar cambios".',
+      tags: ['constructor web', 'site builder', 'editar', 'título', 'imagen', 'doble clic'],
     },
     {
       id: 'faq-site-builder-restore',

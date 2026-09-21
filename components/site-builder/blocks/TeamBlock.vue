@@ -2,41 +2,58 @@
   <section v-reveal class="mx-auto max-w-screen-2xl px-6 py-16 lg:px-10">
     <div class="flex items-end justify-between">
       <div>
-        <p class="eyebrow">{{ content.eyebrow }}</p>
-        <h2 class="heading-serif mt-3 text-3xl md:text-4xl">{{ content.title }}</h2>
+        <SbText tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow" :text="content.eyebrow || ''" />
+        <SbText tag="h2" field="title" kind="heading" label="Título" class="heading-serif mt-3 text-3xl md:text-4xl" :text="content.title || ''" />
       </div>
-      <NuxtLink v-if="content.cta && content.ctaTo" :to="content.ctaTo" class="btn-quiet hidden shrink-0 md:inline-flex">{{ content.cta }}</NuxtLink>
+      <SbLink v-if="content.cta && content.ctaTo" field="cta" link-field="ctaTo" label="Botón" :to="content.ctaTo" class="btn-quiet hidden shrink-0 md:inline-flex" :text="content.cta" />
     </div>
 
     <!-- layout: cards — misma tarjeta que /equipo, para que la portada y la
          página del equipo no parezcan dos sitios distintos -->
     <div v-if="layout === 'cards'" class="mt-8 grid gap-x-6 gap-y-12" :class="gridClasses">
-      <NuxtLink v-for="m in items" :key="m.id" :to="`/equipo/${m.slug}`" class="group block">
+      <SbBox
+        v-for="m in items"
+        :key="m.id"
+        :tag="NuxtLink"
+        :tag-props="{ to: `/equipo/${m.slug}` }"
+        field="card"
+        label="Tarjeta de comercial"
+        :dynamic="dynamicLabel('team', 'Ficha')"
+        :source-href="SOURCES.team.href"
+        class="group block"
+      >
         <div class="aspect-[3/4] overflow-hidden rounded-2xl bg-stone-100">
-          <img :src="mediaUrl(m.image)" :alt="m.name" class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" loading="lazy" >
+          <SbImage field="card.image" label="Foto del comercial" :dynamic="dynamicLabel('team', 'Foto')" :source-href="SOURCES.team.href" :src="mediaUrl(m.image)" :alt="m.name" class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" loading="lazy" />
         </div>
-        <h3 class="mt-4 font-serif text-xl font-medium group-hover:underline group-hover:underline-offset-4">{{ m.name }}</h3>
-        <p v-if="cardFields.position" class="eyebrow mt-1.5">{{ m.position }}</p>
-        <p v-if="cardFields.specialties && specialtiesOf(m)" class="mt-1.5 text-[13px] text-stone-500">{{ specialtiesOf(m) }}</p>
-        <div v-if="cardFields.contact" class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-stone-450">
-          <span v-if="m.phone">{{ m.phone }}</span>
-          <span v-if="m.email" class="truncate">{{ m.email }}</span>
-        </div>
-      </NuxtLink>
+        <SbText tag="h3" field="card.name" kind="heading" label="Nombre" :dynamic="dynamicLabel('team', 'Nombre')" :source-href="SOURCES.team.href" class="mt-4 font-serif text-xl font-medium group-hover:underline group-hover:underline-offset-4" :text="m.name" />
+        <SbText v-if="cardFields.position" tag="p" field="card.position" kind="eyebrow" label="Puesto" :dynamic="dynamicLabel('team', 'Puesto')" :source-href="SOURCES.team.href" class="eyebrow mt-1.5" :text="m.position || ''" />
+        <SbText v-if="cardFields.specialties && specialtiesOf(m)" tag="p" field="card.specialties" kind="caption" label="Especialidades" :dynamic="dynamicLabel('team', 'Especialidades')" :source-href="SOURCES.team.href" class="mt-1.5 text-[13px] text-stone-500" :text="specialtiesOf(m)" />
+        <SbText v-if="cardFields.contact && contactOf(m)" tag="p" field="card.contact" kind="caption" label="Contacto" :dynamic="dynamicLabel('team', 'Teléfono y email')" :source-href="SOURCES.team.href" class="mt-2 text-[12px] text-stone-450" :text="contactOf(m)" />
+      </SbBox>
     </div>
 
     <!-- layout: compact — fila horizontal de retratos redondos, para cuando
          el equipo es una prueba de confianza y no la sección protagonista -->
     <div v-else class="mt-8 grid gap-x-6 gap-y-8" :class="gridClasses">
-      <NuxtLink v-for="m in items" :key="m.id" :to="`/equipo/${m.slug}`" class="group flex items-center gap-4">
-        <img :src="mediaUrl(m.image)" :alt="m.name" class="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-line transition group-hover:ring-ink" loading="lazy" >
+      <SbBox
+        v-for="m in items"
+        :key="m.id"
+        :tag="NuxtLink"
+        :tag-props="{ to: `/equipo/${m.slug}` }"
+        field="card"
+        label="Tarjeta de comercial"
+        :dynamic="dynamicLabel('team', 'Ficha')"
+        :source-href="SOURCES.team.href"
+        class="group flex items-center gap-4"
+      >
+        <SbImage field="card.image" label="Foto del comercial" :dynamic="dynamicLabel('team', 'Foto')" :source-href="SOURCES.team.href" :src="mediaUrl(m.image)" :alt="m.name" class="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-line transition group-hover:ring-ink" loading="lazy" />
         <div class="min-w-0">
-          <h3 class="truncate font-serif text-lg font-medium group-hover:underline group-hover:underline-offset-4">{{ m.name }}</h3>
-          <p v-if="cardFields.position" class="truncate text-[12px] font-semibold uppercase tracking-widest2 text-stone-450">{{ m.position }}</p>
-          <p v-if="cardFields.specialties && specialtiesOf(m)" class="truncate text-[12px] text-stone-500">{{ specialtiesOf(m) }}</p>
-          <p v-if="cardFields.contact && m.phone" class="truncate text-[12px] text-stone-450">{{ m.phone }}</p>
+          <SbText tag="h3" field="card.name" kind="heading" label="Nombre" :dynamic="dynamicLabel('team', 'Nombre')" :source-href="SOURCES.team.href" class="truncate font-serif text-lg font-medium group-hover:underline group-hover:underline-offset-4" :text="m.name" />
+          <SbText v-if="cardFields.position" tag="p" field="card.position" kind="caption" label="Puesto" :dynamic="dynamicLabel('team', 'Puesto')" :source-href="SOURCES.team.href" class="truncate text-[12px] font-semibold uppercase tracking-widest2 text-stone-450" :text="m.position || ''" />
+          <SbText v-if="cardFields.specialties && specialtiesOf(m)" tag="p" field="card.specialties" kind="caption" label="Especialidades" :dynamic="dynamicLabel('team', 'Especialidades')" :source-href="SOURCES.team.href" class="truncate text-[12px] text-stone-500" :text="specialtiesOf(m)" />
+          <SbText v-if="cardFields.contact && m.phone" tag="p" field="card.contact" kind="caption" label="Contacto" :dynamic="dynamicLabel('team', 'Teléfono')" :source-href="SOURCES.team.href" class="truncate text-[12px] text-stone-450" :text="m.phone" />
         </div>
-      </NuxtLink>
+      </SbBox>
     </div>
 
     <p v-if="!items.length" class="mt-8 text-sm text-stone-400">
@@ -46,6 +63,12 @@
 </template>
 
 <script setup lang="ts">
+import SbText from '../nodes/SbText.vue'
+import SbLink from '../nodes/SbLink.vue'
+import SbImage from '../nodes/SbImage.vue'
+import SbBox from '../nodes/SbBox.vue'
+import { SOURCES, dynamicLabel } from '~/utils/siteBuilder/sources'
+
 /**
  * Comerciales destacados.
  *
@@ -59,6 +82,7 @@
  * `sortOrder` desde el servidor, con la proyección de columnas públicas
  * (server/utils/publicTeam.ts). Aquí no se decide quién es visible.
  */
+const NuxtLink = resolveComponent('NuxtLink')
 const props = defineProps<{ content: Record<string, any>; team: any[] }>()
 
 const layout = computed(() => (props.content.layout === 'compact' ? 'compact' : 'cards'))
@@ -98,6 +122,10 @@ function specialtiesOf(member: any): string {
     list = String(raw).split(',')
   }
   return list.map((s) => s.trim()).filter(Boolean).slice(0, 3).join(' · ')
+}
+
+function contactOf(member: any): string {
+  return [member?.phone, member?.email].filter(Boolean).join(' · ')
 }
 
 // Mismo planteamiento que PropertiesBlock: Tailwind no ejecuta JS, así que

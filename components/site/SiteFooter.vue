@@ -44,7 +44,13 @@
 </template>
 
 <script setup lang="ts">
+import type { TenantBranding } from '~/composables/useTenant'
+
+/** Igual que en SiteHeader: el lienzo del Constructor Web pasa la marca de la organización que edita. */
+const props = withDefaults(defineProps<{ tenantOverride?: TenantBranding | null }>(), { tenantOverride: null })
+
 const { t } = useI18n()
-const { tenant, load: loadTenant } = useTenant()
+const { tenant: hostTenant, load: loadTenant } = useTenant()
 await loadTenant()
+const tenant = computed(() => props.tenantOverride ?? hostTenant.value)
 </script>
