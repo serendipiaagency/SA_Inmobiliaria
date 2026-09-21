@@ -699,12 +699,15 @@ test.describe('Constructor Web — edición directa sobre el lienzo', () => {
     await expect.poll(async () => (await draft()).blocks[0].content.ctaPrimaryTo, { timeout: 10_000 }).toBe('/equipo')
 
     // Imagen: un clic la selecciona; doble clic abre "Cambiar imagen" con subida directa.
-    // (La imagen de fondo cubre toda la sección; se pulsa en su margen
-    // izquierdo, lejos del texto centrado y de la barra del nodo.)
+    // La imagen de fondo cubre toda la sección y el texto va centrado
+    // encima, así que un clic "en el centro" cae sobre el texto; y el lienzo
+    // es un iframe escalado (38 %), donde Playwright no escala las
+    // coordenadas de `position`. Se dispara el clic sobre el propio elemento:
+    // recorre la misma captura del marco del bloque que un clic real.
     const image = canvas.locator('[data-sb-node="cta-e2e:image"]')
-    await image.click({ position: { x: 24, y: 160 } })
+    await image.dispatchEvent('click')
     await expect(page.getByTestId('inspector-title')).toHaveText('Propiedades de la imagen')
-    await image.dblclick({ position: { x: 24, y: 160 } })
+    await image.dispatchEvent('dblclick')
     await expect(page.getByTestId('media-picker')).toBeVisible()
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64')
     await page.getByTestId('media-picker').locator('input[type="file"]').setInputFiles({ name: 'fondo.png', mimeType: 'image/png', buffer: png })
@@ -747,14 +750,18 @@ test.describe('Constructor Web — edición directa sobre el lienzo', () => {
     expect(Object.keys(content).some((k) => k.startsWith('card.')), 'el dato dinámico se ha copiado al contenido').toBe(false)
     expect(JSON.stringify(content)).not.toContain(propertyName)
 
-    // La tarjeta entera: clic en el hueco entre la foto y el precio.
+    // La tarjeta entera: un clic cuyo objetivo es la propia tarjeta (su hueco,
+    // no un nodo interior). Antes, la miga de pan sube a la sección para que
+    // la barra contextual del nombre no quede en medio. (dispatchEvent: mismo
+    // motivo que en la prueba de la imagen — el iframe va escalado.)
+    await page.getByTestId('breadcrumb-block').click()
+    await expect(page.getByTestId('breadcrumb-node')).toHaveCount(0)
     const card = canvas.locator('[data-sb-node="props-e2e:card"]').first()
-    const imageBox = await card.locator('[data-sb-node="props-e2e:card.image"]').boundingBox()
-    await card.click({ position: { x: 8, y: imageBox!.height + 6 } })
+    await card.dispatchEvent('click')
     await expect(page.getByTestId('inspector-title')).toHaveText('Propiedades de la tarjeta')
 
     // Y el fondo de la sección: la propia sección.
-    await canvas.locator('[data-site-block-id="props-e2e"]').click({ position: { x: 6, y: 6 } })
+    await canvas.locator('[data-site-block-id="props-e2e"]').dispatchEvent('click')
     await expect(page.getByTestId('inspector-title')).toHaveText('Propiedades de la sección')
   })
 
@@ -834,10 +841,13 @@ test.describe('Constructor Web — edición directa sobre el lienzo', () => {
       expect(html).toContain('[data-site-page] [data-sb-node="text-e2e:title"]{font-size:64px!important}')
       expect(html).toContain('@media (max-width: 639.98px){[data-site-page] [data-sb-node="text-e2e:title"]{font-size:32px!important}}')
       expect(html).toContain('family=Lora')
-      // Y nada del editor se cuela en producción.
-      expect(html).not.toContain('data-sb-selected')
-      expect(html).not.toContain('data-sb-label')
-      expect(html).not.toContain('sb-editing')
+      // Y nada del editor se cuela en producción: ningún elemento lleva las
+      // marcas del lienzo (el CSS del renderer sí nombra esos selectores, por
+      // eso se comprueba el atributo con su `="`, no la palabra suelta).
+      expect(html).not.toContain('data-sb-selected="')
+      expect(html).not.toContain('data-sb-label="')
+      expect(html).not.toContain('class="sb-editing"')
+      expect(html).not.toContain('data-sb-toolbar')
     } finally {
       await a.put('/api/admin/organizations/1', { data: { domain: '' } })
     }
