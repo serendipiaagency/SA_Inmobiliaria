@@ -71,6 +71,7 @@ export default defineEventHandler(async (event) => {
     channels: { total: CHANNELS.length, implemented: CHANNELS.filter((c) => isChannelImplemented(c.key)).length },
     email: summarizeEmailHealth(emailRows, { connected: Boolean(env.RESEND_API_KEY) }),
     domains,
+    browserRendering: Boolean((env as Record<string, any>).BROWSER),
     build: useRuntimeConfig(event).buildInfo,
   })
 })

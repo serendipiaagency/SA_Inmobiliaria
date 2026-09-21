@@ -16,6 +16,8 @@ export default defineEventHandler(async (event) => {
   if (!obj) throw createError({ statusCode: 404, statusMessage: 'File missing from storage' })
 
   setHeader(event, 'Content-Type', obj.httpMetadata?.contentType || 'application/octet-stream')
-  setHeader(event, 'Content-Disposition', `attachment; filename="export-${render.projectId}-${render.id}.pdf"`)
+  // La extensión sigue al tipo de salida: los formatos de redes son PNG.
+  const extension = render.outputType === 'png' ? 'png' : 'pdf'
+  setHeader(event, 'Content-Disposition', `attachment; filename="export-${render.projectId}-${render.id}.${extension}"`)
   return obj.body
 })

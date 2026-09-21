@@ -2,7 +2,7 @@ import { and, eq, isNull, lt } from 'drizzle-orm'
 import * as schema from '../db/schema'
 import { now } from './db'
 import { decryptString, encryptString } from './encryption'
-import { generateRecoveryCodes, generateTotpSecret, hashRecoveryCode, normalizeRecoveryCode, otpauthUrl, totpStep, verifyTotp } from './totp'
+import { generateRecoveryCodes, generateTotpSecret, hashRecoveryCode, normalizeRecoveryCode, otpauthUrl, verifyTotp } from './totp'
 
 /**
  * Segundo factor de una cuenta: alta, activación, comprobación en el login,
@@ -277,5 +277,3 @@ export async function pruneLoginChallenges(db: any, nowMs = Date.now()): Promise
   const deleted = await db.delete(schema.loginChallenges).where(lt(schema.loginChallenges.expiresAt, stamp(nowMs - 86_400_000))).returning({ id: schema.loginChallenges.id })
   return deleted.length
 }
-
-export { totpStep }

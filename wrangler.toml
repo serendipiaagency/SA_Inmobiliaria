@@ -50,6 +50,17 @@ SESSION_TTL_DAYS = "7"
 [observability]
 enabled = true
 
+# --- Browser Rendering (formatos de imagen para redes del Asset Export) ---
+# server/utils/assetExport/socialRenderer.ts rasteriza las piezas 1080×1080,
+# 1080×1350 y 1080×1920 con un Chromium sin cabeza de Cloudflare. Mientras
+# este binding esté comentado, esos formatos responden 422 diciendo que falta
+# (Estado del sistema también lo dice); los PDF no dependen de esto. Está
+# comentado porque no se puede probar en `wrangler dev` ni en CI: quien tenga
+# acceso a la cuenta lo activa (Browser Rendering viene con Workers Paid),
+# despliega y genera una pieza de prueba — ver docs/asset-export-studio.md.
+# [browser]
+# binding = "BROWSER"
+
 # "0 * * * *"  -> server/tasks/cms/expire-articles.ts (hourly, auto-hides
 #                 published articles whose expires_at has passed),
 #                 server/tasks/system/cleanup-error-logs.ts (purges error_logs
@@ -107,6 +118,11 @@ SESSION_TTL_DAYS = "7"
 
 [env.staging.observability]
 enabled = true
+
+# Igual que en producción: actívalo aquí primero para probar los formatos de
+# imagen sin tocar producción.
+# [env.staging.browser]
+# binding = "BROWSER"
 
 [env.staging.triggers]
 crons = ["0 * * * *", "* * * * *", "30 3 * * *", "0 5 * * *", "0 4 * * 1"]

@@ -14,6 +14,7 @@ const BASE: SystemStatusInput = {
   channels: { total: 22, implemented: 0 },
   email: { connected: true, status: 'ok', headline: '12 envíos en los últimos 7 días, ninguno fallido.' },
   domains: { total: 2, failing: [], lastCheckedAt: '2026-09-19 10:00:00' },
+  browserRendering: true,
   build: { commit: '2192e1b', branch: 'main', builtAt: '2026-09-15T09:33:00.000Z', source: 'github-actions' },
 }
 
