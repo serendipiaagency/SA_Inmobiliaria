@@ -3,7 +3,7 @@
     <!-- La hoja de estilos de los nodos y las fuentes que usa la página van
          en el propio árbol (no en useHead): así se actualizan con la misma
          reactividad que el resto del lienzo, y en el SSR salen tal cual. -->
-    <component :is="'style'" v-if="pageCss" data-site-page-css :innerHTML="pageCss" />
+    <component :is="'style'" v-if="pageCss" :key="cspNonce || 'no-nonce'" :nonce="cspNonce" data-site-page-css :innerHTML="pageCss" />
     <component :is="'link'" v-if="fontsHref" rel="stylesheet" :href="fontsHref" />
     <template v-for="(block, index) in visibleBlocks" :key="block.id">
       <!-- Insert-between affordance — builder-only, zero layout impact when
@@ -175,6 +175,19 @@ const visibleBlocks = computed(() =>
 // saneados (números, hex, fuentes del catálogo), nunca texto del usuario.
 const pageCss = computed(() => buildPageCss({ blocks: props.blocks, styles: props.styles }))
 const fontsHref = computed(() => pageFontsHref({ blocks: props.blocks, styles: props.styles }))
+
+// CSP: style-src-elem lleva un nonce por petición (server/middleware/
+// security-headers.ts) y, con un nonce presente, el navegador ignora
+// 'unsafe-inline' — un <style> insertado desde JS sin nonce se descarta en
+// silencio. En el SSR lo estampa server/plugins/csp-nonce.ts; en el cliente
+// (el lienzo, que pinta la hoja al recibir cada estado) se lee del script de
+// Nuxt, que ya lo lleva. El `key` recrea el elemento cuando el nonce se
+// conoce, porque un <style> ya rechazado no se reevalúa al cambiarle el nonce.
+const cspNonce = ref<string | undefined>(undefined)
+onMounted(() => {
+  const nonced = document.querySelector('script[nonce], style[nonce]') as (HTMLElement & { nonce?: string }) | null
+  cspNonce.value = nonced?.nonce || undefined
+})
 
 // ---------------------------------------------------------------------------
 // Contexto de edición (sólo hace algo en mode="builder")
