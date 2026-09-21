@@ -88,6 +88,18 @@ const RULES: Rule[] = [
   { pattern: /^saas\/appointments-analytics$/, resolve: area('crm') },
   { pattern: /^saas\/referrals(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/referral-links(?:\/|$)/, resolve: area('crm') },
+  // Centro de Comunicaciones (pages/admin/comunicaciones.vue). Los números
+  // conectados, sus credenciales y los ajustes son configuración de la
+  // agencia → `system`, como Configuración; la bandeja, los hilos y las
+  // llamadas son trabajo de CRM. Marcar un hilo como leído y el sondeo de
+  // cambios no modifican datos de negocio: quedan a nivel de lectura.
+  { pattern: /^comms\/channels(?:\/|$)/, resolve: area('system') },
+  { pattern: /^comms\/settings(?:\/|$)/, resolve: area('system') },
+  { pattern: /^comms\/templates\/\d+$/, resolve: area('system') }, // borrar una plantilla
+  { pattern: /^comms\/templates$/, resolve: (action) => (action === 'read' ? { kind: 'area', area: 'crm', action: 'read' } : { kind: 'area', area: 'system', action: 'write' }) },
+  { pattern: /^comms\/updates$/, resolve: fixed('crm', 'read') },
+  { pattern: /^comms\/conversations\/\d+\/read$/, resolve: fixed('crm', 'read') },
+  { pattern: /^comms(?:\/|$)/, resolve: area('crm') },
 
   // --- Portal Web ---------------------------------------------------------
   { pattern: /^geocode$/, resolve: area('web') }, // components/property-builder/LocationSection.vue

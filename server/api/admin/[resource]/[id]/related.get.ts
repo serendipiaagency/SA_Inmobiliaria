@@ -118,6 +118,38 @@ export default defineEventHandler(async (event) => {
       .limit(50),
   ])
 
+  // --- Comunicaciones (WhatsApp y llamadas) ---------------------------------
+  // Aquí SÍ hay vínculo guardado: comms_contacts.client_id lo escribe el
+  // Centro de Comunicaciones al cruzar el teléfono o al vincular a mano.
+  const commsContacts = await db
+    .select({ id: schema.commsContacts.id })
+    .from(schema.commsContacts)
+    .where(and(eq(schema.commsContacts.organizationId, orgId), eq(schema.commsContacts.clientId, id)))
+  const contactIds = commsContacts.map((c) => c.id)
+  const [conversations, messages, calls] = contactIds.length
+    ? await Promise.all([
+        db
+          .select({ id: schema.commsConversations.id, status: schema.commsConversations.status, lastMessageAt: schema.commsConversations.lastMessageAt, lastMessagePreview: schema.commsConversations.lastMessagePreview, unreadCount: schema.commsConversations.unreadCount, contactId: schema.commsConversations.contactId })
+          .from(schema.commsConversations)
+          .where(and(eq(schema.commsConversations.organizationId, orgId), inArray(schema.commsConversations.contactId, contactIds)))
+          .orderBy(desc(schema.commsConversations.lastMessageAt))
+          .limit(10),
+        db
+          .select({ id: schema.commsMessages.id, conversationId: schema.commsMessages.conversationId, direction: schema.commsMessages.direction, type: schema.commsMessages.type, body: schema.commsMessages.body, status: schema.commsMessages.status, createdAt: schema.commsMessages.createdAt })
+          .from(schema.commsMessages)
+          .innerJoin(schema.commsConversations, eq(schema.commsConversations.id, schema.commsMessages.conversationId))
+          .where(and(eq(schema.commsMessages.organizationId, orgId), inArray(schema.commsConversations.contactId, contactIds)))
+          .orderBy(desc(schema.commsMessages.id))
+          .limit(50),
+        db
+          .select({ id: schema.commsCalls.id, conversationId: schema.commsCalls.conversationId, direction: schema.commsCalls.direction, provider: schema.commsCalls.provider, status: schema.commsCalls.status, outcome: schema.commsCalls.outcome, notes: schema.commsCalls.notes, durationSeconds: schema.commsCalls.durationSeconds, startedAt: schema.commsCalls.startedAt, createdAt: schema.commsCalls.createdAt })
+          .from(schema.commsCalls)
+          .where(and(eq(schema.commsCalls.organizationId, orgId), inArray(schema.commsCalls.contactId, contactIds)))
+          .orderBy(desc(schema.commsCalls.id))
+          .limit(50),
+      ])
+    : [[], [], []]
+
   // --- Propiedades relacionadas, resueltas en vivo -------------------------
   const RELATION_LABELS = { visit: 'Visita', deal: 'Operación', reservation: 'Reserva', lead: 'Interés' } as const
   type RelationKey = keyof typeof RELATION_LABELS
@@ -200,6 +232,8 @@ export default defineEventHandler(async (event) => {
     ...leads.map((l) => l.lastContactAt || l.createdAt),
     ...contracts.map((c) => c.createdAt),
     ...activity.map((a) => a.createdAt),
+    ...messages.map((m) => m.createdAt),
+    ...calls.map((c) => c.startedAt || c.createdAt),
   ]
     .filter(Boolean)
     .sort()
@@ -215,6 +249,9 @@ export default defineEventHandler(async (event) => {
     invoices,
     properties,
     activity,
+    conversations,
+    messages,
+    calls,
     totals: {
       leads: leads.length,
       visits: visits.length,
@@ -226,6 +263,8 @@ export default defineEventHandler(async (event) => {
       contracts: contracts.length,
       invoices: invoices.length,
       properties: properties.length,
+      messages: messages.length,
+      calls: calls.length,
       lastActivityAt,
     },
   }

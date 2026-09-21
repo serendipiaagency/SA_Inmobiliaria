@@ -207,6 +207,27 @@ export function buildSystemStatus(input: SystemStatusInput): SystemStatusReport 
       setting: 'TWILIO_ACCOUNT_SID',
     },
     secretBacked(
+      'comms-encryption',
+      'Centro de Comunicaciones (WhatsApp Business)',
+      'Comunicaciones',
+      has('COMMS_CREDENTIALS_ENCRYPTION_KEY'),
+      'COMMS_CREDENTIALS_ENCRYPTION_KEY',
+      'Cada agencia puede conectar su número de WhatsApp (Meta Cloud API o Twilio) desde Configuración → Comunicaciones; las credenciales se guardan cifradas.',
+      'Nadie puede conectar un número: sin esta clave las credenciales de los canales no se pueden cifrar ni leer, y los webhooks de WhatsApp responden 503.',
+    ),
+    {
+      key: 'comms-meta-app',
+      label: 'App de Meta compartida (webhooks de WhatsApp)',
+      group: 'Comunicaciones',
+      state: has('WHATSAPP_APP_SECRET') && has('WHATSAPP_WEBHOOK_VERIFY_TOKEN') ? 'ok' : 'not-configured',
+      detail:
+        has('WHATSAPP_APP_SECRET') && has('WHATSAPP_WEBHOOK_VERIFY_TOKEN')
+          ? 'Los números de Meta conectados sin App Secret propio verifican sus webhooks con el de la plataforma.'
+          : 'Opcional: cada canal de Meta puede llevar su propio App Secret y token de verificación. Sin estos dos valores en el Worker, cada agencia tiene que aportarlos al conectar su número.',
+      remedy: has('WHATSAPP_APP_SECRET') && has('WHATSAPP_WEBHOOK_VERIFY_TOKEN') ? null : 'Si la plataforma usa una sola app de Meta para todas las agencias, configura WHATSAPP_APP_SECRET y WHATSAPP_WEBHOOK_VERIFY_TOKEN en el Worker (docs/communications.md).',
+      setting: 'WHATSAPP_APP_SECRET',
+    },
+    secretBacked(
       'stripe',
       'Cobros (Stripe)',
       'Pagos',
@@ -323,4 +344,7 @@ export const TRACKED_SECRETS = [
   'TWILIO_ACCOUNT_SID',
   'TWILIO_AUTH_TOKEN',
   'TWILIO_WHATSAPP_FROM',
+  'COMMS_CREDENTIALS_ENCRYPTION_KEY',
+  'WHATSAPP_APP_SECRET',
+  'WHATSAPP_WEBHOOK_VERIFY_TOKEN',
 ] as const
