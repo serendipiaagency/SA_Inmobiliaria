@@ -21,6 +21,7 @@
       @redo="redo"
       @toggle-preview="previewMode = !previewMode"
       @open-seo="seoOpen = true"
+      @open-styles="stylesOpen = true"
       @open-history="historyOpen = true"
       @publish="publish"
     />
@@ -71,7 +72,7 @@
                 selectedBlockId === block.id ? 'border-ink bg-paper' : 'border-transparent hover:bg-stone-50',
                 dragOverId === block.id ? 'border-dashed border-blue-400' : '',
               ]"
-              @click="selectedBlockId = block.id"
+              @click="selectFromStructure(block.id)"
               @dragstart="onDragStart(i)"
               @dragover.prevent="dragOverId = block.id"
               @dragleave="dragOverId === block.id && (dragOverId = null)"
@@ -220,24 +221,44 @@
         </button>
       </aside>
 
-      <!-- Right panel: Block Inspector -->
+      <!-- Right panel: cabecera/pie seleccionados (elementos globales) -->
+      <aside v-else-if="!previewMode && selectedGlobal" class="flex w-96 shrink-0 flex-col overflow-hidden border-l border-line bg-white">
+        <div class="shrink-0 border-b border-line p-4">
+          <div class="flex items-center justify-between">
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-500" data-testid="inspector-title">Elemento global</p>
+            <button type="button" aria-label="Cerrar inspector" class="text-stone-300 hover:text-ink" @click="selectedGlobal = null">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
+            </button>
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4">
+          <GlobalZoneInspector :zone="selectedGlobal.zone" :element="selectedGlobal.element" />
+        </div>
+      </aside>
+
+      <!-- Right panel: Inspector (del nodo seleccionado, o del bloque) -->
       <aside v-else-if="!previewMode && selectedBlock" class="flex w-96 shrink-0 flex-col overflow-hidden border-l border-line bg-white" @focusin="onPanelFocusIn" @focusout="onPanelFocusOut">
         <div class="shrink-0 border-b border-line p-4">
           <div class="mb-3 flex items-center justify-between">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-500">Propiedades del bloque</p>
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-500" data-testid="inspector-title">{{ inspectorTitle }}</p>
             <div class="flex shrink-0 items-center gap-1">
               <button type="button" class="flex h-6 w-6 items-center justify-center rounded text-stone-400 transition hover:bg-stone-100 hover:text-ink" title="Contraer inspector" aria-expanded="true" @click="toggleInspectorCollapsed">
                 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6" /></svg>
               </button>
-              <button type="button" aria-label="Cerrar inspector" class="text-stone-300 hover:text-ink" @click="selectedBlockId = null">
+              <button type="button" aria-label="Cerrar inspector" class="text-stone-300 hover:text-ink" @click="clearSelection">
                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
               </button>
             </div>
           </div>
-          <div class="mb-3 flex items-center gap-2 rounded-lg bg-paper px-3 py-2">
+          <!-- Miga de pan: Sección › Elemento. Pulsar la sección sube de nivel. -->
+          <div class="mb-3 flex items-center gap-2 rounded-lg bg-paper px-3 py-2" data-testid="inspector-breadcrumb">
             <div class="min-w-0">
-              <p class="truncate text-[13px] font-semibold text-ink">{{ pad2(selectedBlockIndex + 1) }} · {{ breadcrumb }}</p>
-              <p class="truncate text-[11px] text-stone-500">{{ blockSubtitle(selectedBlock) }}</p>
+              <p class="truncate text-[13px] font-semibold text-ink">
+                <button v-if="selectedNode" type="button" class="text-stone-500 hover:text-ink hover:underline" data-testid="breadcrumb-block" @click="selectedNode = null">{{ pad2(selectedBlockIndex + 1) }} · {{ breadcrumb }}</button>
+                <template v-else>{{ pad2(selectedBlockIndex + 1) }} · {{ breadcrumb }}</template>
+                <template v-if="selectedNode"><span class="mx-1 text-stone-300">›</span><span data-testid="breadcrumb-node">{{ selectedNode.label }}</span></template>
+              </p>
+              <p class="truncate text-[11px] text-stone-500">{{ selectedNode ? (selectedNode.dynamic ? `Contenido dinámico · ${selectedNode.dynamic}` : nodeKindLabel(selectedNode.kind)) : blockSubtitle(selectedBlock) }}</p>
             </div>
           </div>
           <div class="flex gap-1 rounded-lg bg-stone-100 p-1">
@@ -255,17 +276,29 @@
         </div>
 
         <div class="flex-1 overflow-y-auto p-4">
-          <component
-            :is="inspectorFor(selectedBlock.type)?.component"
-            v-if="inspectorFor(selectedBlock.type)"
-            :content="selectedBlock.content"
-            :projects="previewData?.projects || []"
-            :communities="previewData?.communities || []"
-            :team="previewData?.team || []"
+          <NodeInspector
+            v-if="selectedNode"
+            :key="`${selectedBlock.id}:${selectedNode.field}`"
+            :block="selectedBlock"
+            :node="selectedNode"
+            :device="device"
+            :global-styles="styles"
+            :brand-colors="brandColors"
+            :brand-fonts="brandFonts"
           />
-          <p v-else-if="inspectorTab === 'content'" class="text-sm text-stone-400">Este tipo de bloque no tiene opciones adicionales todavía.</p>
+          <template v-else>
+            <component
+              :is="inspectorFor(selectedBlock.type)?.component"
+              v-if="inspectorFor(selectedBlock.type)"
+              :content="selectedBlock.content"
+              :projects="previewData?.projects || []"
+              :communities="previewData?.communities || []"
+              :team="previewData?.team || []"
+            />
+            <p v-else-if="inspectorTab === 'content'" class="text-sm text-stone-400">Este tipo de bloque no tiene opciones adicionales todavía.</p>
+          </template>
 
-          <InspectorSection title="Avanzado" tab="advanced">
+          <InspectorSection :title="selectedNode ? 'Avanzado de la sección' : 'Avanzado'" tab="advanced">
             <CommonBlockSettings :block="selectedBlock" />
           </InspectorSection>
         </div>
@@ -274,12 +307,18 @@
         <button type="button" class="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded text-stone-400 transition hover:bg-stone-100 hover:text-ink" title="Contraer inspector" aria-expanded="true" @click="toggleInspectorCollapsed">
           <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 18l6-6-6-6" /></svg>
         </button>
-        Selecciona un bloque en el lienzo o en la estructura para editarlo.
+        <span data-testid="inspector-empty">Pulsa cualquier texto, botón, imagen o sección del lienzo para editarlo. Doble clic sobre un texto para escribir directamente.</span>
       </aside>
     </div>
 
     <!-- Historial de versiones publicadas -->
     <VersionHistory v-if="historyOpen" page-key="home" @close="historyOpen = false" @restored="onRestored" />
+
+    <!-- Estilos globales -->
+    <GlobalStylesPanel v-if="stylesOpen" :styles="styles" :brand-fonts="brandFonts" @close="stylesOpen = false" />
+
+    <!-- "Cambiar imagen" desde el lienzo -->
+    <MediaPickerModal v-if="mediaPickerTarget" :label="mediaPickerTarget.label" @close="mediaPickerTarget = null" @select="onMediaPicked" />
 
     <!-- SEO -->
     <div v-if="seoOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" @click.self="seoOpen = false">
@@ -306,12 +345,20 @@
 
 <script setup lang="ts">
 import type { SiteBlock } from '~/server/utils/sitePages'
+import type { SiteGlobalStyles } from '~/utils/siteBuilder/globalStyles'
+import { nodeKindLabel, normalizeColor, type NodeKind } from '~/utils/siteBuilder/nodes'
+import { isKnownFont } from '~/utils/siteBuilder/fonts'
+import type { SiteNodeRef } from '~/composables/useSiteEditor'
 import { BLOCK_PRESETS, BLOCK_CATEGORIES, BLOCK_INSPECTORS, RECOMMENDED_PRESET_IDS, blockLabel, blockSubtitle, newBlockId, type BlockPreset } from '~/composables/useSiteBuilderRegistry'
 import InspectorSection from '~/components/site-builder/inspector/InspectorSection.vue'
 import CommonBlockSettings from '~/components/site-builder/inspector/CommonBlockSettings.vue'
+import NodeInspector from '~/components/site-builder/inspector/NodeInspector.vue'
+import GlobalZoneInspector from '~/components/site-builder/inspector/GlobalZoneInspector.vue'
 import TopBar from '~/components/site-builder/shell/TopBar.vue'
 import SectionCard from '~/components/site-builder/shell/SectionCard.vue'
 import VersionHistory from '~/components/site-builder/shell/VersionHistory.vue'
+import GlobalStylesPanel from '~/components/site-builder/shell/GlobalStylesPanel.vue'
+import MediaPickerModal from '~/components/site-builder/shell/MediaPickerModal.vue'
 
 definePageMeta({ layout: false, middleware: 'admin' })
 
@@ -335,11 +382,14 @@ const DEVICE_WIDTH: Record<string, number> = { desktop: 1440, tablet: 768, mobil
 
 const blocks = ref<SiteBlock[]>([])
 const seo = reactive({ title: '', description: '' })
+// Estilos globales de la página (utils/siteBuilder/globalStyles.ts) — se
+// guardan y publican con el documento, igual que `seo`.
+const styles = reactive<SiteGlobalStyles>({})
 const device = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
-const selectedBlockId = ref<string | null>(null)
 const previewMode = ref(false)
 const libraryOpen = ref(false)
 const seoOpen = ref(false)
+const stylesOpen = ref(false)
 const historyOpen = ref(false)
 const dragOverId = ref<string | null>(null)
 function pad2(n: number): string {
@@ -349,6 +399,33 @@ function pad2(n: number): string {
 // today (server/utils/sitePages.ts hard-rejects any other pageKey), so the
 // rest are listed for orientation, not as a page CRUD that doesn't exist yet.
 const OTHER_PAGES = ['Propiedades', 'Ficha de propiedad', 'Nosotros', 'Servicios', 'Contacto', 'Blog']
+
+// ---------------------------------------------------------------------------
+// Selección — un solo modelo para todo el editor (Selection Manager):
+//   selectedBlockId  la sección seleccionada (lienzo, Estructura o miga de pan)
+//   selectedNode     el elemento dentro de ella (título, botón, imagen…), o null
+//   selectedGlobal   cabecera/pie, que no son de la página sino del sitio
+// El lienzo (iframe) es el que sabe qué hay bajo el puntero y lo reporta por
+// postMessage; aquí se decide, y se manda de vuelta con `sendState`, así que
+// lienzo, Estructura e Inspector siempre enseñan la misma selección.
+// ---------------------------------------------------------------------------
+const selectedBlockId = ref<string | null>(null)
+const selectedNode = ref<SiteNodeRef | null>(null)
+const selectedGlobal = ref<{ zone: 'header' | 'footer'; element: string | null } | null>(null)
+
+function selectBlock(id: string | null, node: SiteNodeRef | null = null) {
+  selectedGlobal.value = null
+  selectedBlockId.value = id
+  selectedNode.value = id && node && node.blockId === id ? node : null
+}
+function selectFromStructure(id: string) {
+  selectBlock(id)
+  // Una sección elegida en la lista tiene que verse: scroll suave en el lienzo.
+  iframeEl.value?.contentWindow?.postMessage({ source: 'sa-builder-shell', type: 'scroll-to', id }, window.location.origin)
+}
+function clearSelection() {
+  selectBlock(null)
+}
 
 // Session-only UI preference (not page state): read after mount to avoid an
 // SSR/client hydration mismatch, same pattern as useFavorites()/useCompare().
@@ -412,6 +489,23 @@ provide('inspectorTab', inspectorTab)
 watch(selectedBlockId, () => {
   inspectorTab.value = 'content'
 })
+watch(selectedNode, (node, prev) => {
+  if (node?.field !== prev?.field) inspectorTab.value = 'content'
+  if (node) ensureBrandKit()
+})
+
+const INSPECTOR_TITLES: Record<NodeKind, string> = {
+  heading: 'Propiedades del texto',
+  text: 'Propiedades del texto',
+  eyebrow: 'Propiedades de la etiqueta',
+  caption: 'Propiedades del texto',
+  button: 'Propiedades del botón',
+  link: 'Propiedades del enlace',
+  image: 'Propiedades de la imagen',
+  card: 'Propiedades de la tarjeta',
+  box: 'Propiedades del contenedor',
+}
+const inspectorTitle = computed(() => (selectedNode.value ? INSPECTOR_TITLES[selectedNode.value.kind] : 'Propiedades de la sección'))
 
 // ---------------------------------------------------------------------------
 // Section library — search/category filter, "recientes" and "favoritos"
@@ -480,6 +574,42 @@ watch(selectedBlock, (b) => {
   if (b && inspectorFor(b.type)?.needsPreviewData) ensurePreviewData()
 })
 
+// Brand Kit (colores y fuentes de marca) para los accesos rápidos del
+// inspector de nodos — se pide una vez, la primera vez que se selecciona un
+// elemento; sin Brand Kit los campos funcionan igual, sólo sin esa fila.
+const brandKit = ref<any | null>(null)
+let brandKitRequested = false
+function ensureBrandKit() {
+  if (brandKitRequested) return
+  brandKitRequested = true
+  $fetch<any>('/api/admin/asset-export/brand-kit')
+    .then((kit) => (brandKit.value = kit))
+    .catch(() => (brandKit.value = null))
+}
+const brandColors = computed(() => {
+  const kit = brandKit.value
+  if (!kit) return []
+  let accents: string[] = []
+  try {
+    accents = JSON.parse(kit.colorAccentsJson || '[]')
+  } catch {
+    accents = []
+  }
+  const raw = [
+    { label: 'Principal', value: kit.colorPrimary },
+    { label: 'Secundario', value: kit.colorSecondary },
+    ...accents.map((c, i) => ({ label: `Acento ${i + 1}`, value: c })),
+    { label: 'Fondo', value: kit.colorBackground },
+    { label: 'Texto', value: kit.colorText },
+  ]
+  return raw.filter((c) => normalizeColor(c.value)).map((c) => ({ label: c.label, value: normalizeColor(c.value)! }))
+})
+const brandFonts = computed(() => {
+  const kit = brandKit.value
+  if (!kit) return []
+  return [kit.fontHeading, kit.fontBody, kit.fontAlt].filter(isKnownFont)
+})
+
 function isHiddenOnDevice(block: SiteBlock, d: 'desktop' | 'tablet' | 'mobile' = device.value) {
   return block.visibility?.[d] === false
 }
@@ -493,8 +623,11 @@ function toggleHide(block: SiteBlock) {
 
 // ---------------------------------------------------------------------------
 // Undo/redo — session-only, in-memory. A snapshot is pushed before a
-// structural change (add/delete/duplicate/reorder/visibility) and once per
-// "edit burst" in the right panel (see onPanelFocusIn), never per keystroke.
+// structural change (add/delete/duplicate/reorder/visibility), once per
+// "edit burst" from the inspector or the canvas (beginEditBurst: a run of
+// changes with less than 1.2 s between them is one undo step — never per
+// keystroke), and once when an inline edit starts. Covers text, colour,
+// font, image, spacing and global styles alike, not just drag & drop.
 // ---------------------------------------------------------------------------
 const undoStack: string[] = []
 const redoStack: string[] = []
@@ -503,7 +636,21 @@ const canRedo = ref(false)
 const MAX_HISTORY = 50
 
 function snapshot() {
-  return JSON.stringify(blocks.value)
+  return JSON.stringify({ blocks: blocks.value, styles })
+}
+/** Sustituye los estilos globales en sitio (el objeto reactivo es el que observan el autoguardado y el lienzo). */
+function replaceStyles(next: SiteGlobalStyles | undefined) {
+  for (const key of Object.keys(styles) as (keyof SiteGlobalStyles)[]) {
+    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+    delete styles[key]
+  }
+  Object.assign(styles, next || {})
+}
+function restoreSnapshot(json: string) {
+  const parsed = JSON.parse(json)
+  blocks.value = parsed.blocks || []
+  replaceStyles(parsed.styles)
+  if (selectedBlockId.value && !blocks.value.some((b) => b.id === selectedBlockId.value)) selectBlock(null)
 }
 function pushUndo() {
   undoStack.push(snapshot())
@@ -515,31 +662,36 @@ function pushUndo() {
 function undo() {
   if (!undoStack.length) return
   redoStack.push(snapshot())
-  blocks.value = JSON.parse(undoStack.pop()!)
+  restoreSnapshot(undoStack.pop()!)
   canUndo.value = undoStack.length > 0
   canRedo.value = true
 }
 function redo() {
   if (!redoStack.length) return
   undoStack.push(snapshot())
-  blocks.value = JSON.parse(redoStack.pop()!)
+  restoreSnapshot(redoStack.pop()!)
   canRedo.value = redoStack.length > 0
   canUndo.value = true
 }
 
 let editBurstActive = false
 let editBurstTimer: ReturnType<typeof setTimeout> | null = null
-function onPanelFocusIn() {
+function beginEditBurst() {
   if (!editBurstActive) {
     pushUndo()
     editBurstActive = true
   }
   if (editBurstTimer) clearTimeout(editBurstTimer)
+  editBurstTimer = setTimeout(() => (editBurstActive = false), 1200)
+}
+provide('sbBeginEdit', beginEditBurst)
+
+function onPanelFocusIn() {
+  beginEditBurst()
 }
 function onPanelFocusOut(e: FocusEvent) {
-  if (editBurstTimer) clearTimeout(editBurstTimer)
   const panel = (e.currentTarget as HTMLElement) || null
-  editBurstTimer = setTimeout(() => {
+  setTimeout(() => {
     if (!panel || !panel.contains(document.activeElement)) editBurstActive = false
   }, 60)
 }
@@ -563,7 +715,7 @@ function addBlock(preset: BlockPreset) {
         ? blocks.value.findIndex((b) => b.id === selectedBlockId.value) + 1
         : blocks.value.length
   blocks.value.splice(insertAt, 0, block)
-  selectedBlockId.value = block.id
+  selectBlock(block.id)
   rememberRecentPreset(preset.presetId)
   closeLibrary()
   nextTick(() => {
@@ -588,13 +740,14 @@ function moveBlock(id: string, dir: -1 | 1) {
   blocks.value.splice(j, 0, moved)
 }
 function duplicateBlock(id: string) {
-  pushUndo()
   const idx = blocks.value.findIndex((b) => b.id === id)
   if (idx === -1) return
+  pushUndo()
   const original = blocks.value[idx]
+  // Copia completa: contenido, opciones comunes y estilos de sus elementos.
   const copy: SiteBlock = { ...JSON.parse(JSON.stringify(original)), id: newBlockId(original.type) }
   blocks.value.splice(idx + 1, 0, copy)
-  selectedBlockId.value = copy.id
+  selectBlock(copy.id)
 }
 async function deleteBlock(id: string) {
   const ok = await confirm('Esta acción se puede deshacer con Ctrl+Z / el botón Deshacer, pero no se puede recuperar después de publicar.', {
@@ -605,7 +758,7 @@ async function deleteBlock(id: string) {
   if (!ok) return
   pushUndo()
   blocks.value = blocks.value.filter((b) => b.id !== id)
-  if (selectedBlockId.value === id) selectedBlockId.value = null
+  if (selectedBlockId.value === id) selectBlock(null)
 }
 
 let dragFromIndex: number | null = null
@@ -622,6 +775,30 @@ function onDrop(i: number) {
 }
 
 // ---------------------------------------------------------------------------
+// Edición desde el lienzo (mensajes del iframe)
+// ---------------------------------------------------------------------------
+function blockById(id: string): SiteBlock | undefined {
+  return blocks.value.find((b) => b.id === id)
+}
+/** Una tecla pulsada dentro de un texto del lienzo: el modelo cambia al instante; el inspector lo ve por reactividad. */
+function applyInlineText(id: string, field: string, text: string) {
+  const block = blockById(id)
+  if (!block) return
+  block.content[field] = text
+}
+
+const mediaPickerTarget = ref<{ blockId: string; field: string; label: string } | null>(null)
+function onMediaPicked(key: string) {
+  const target = mediaPickerTarget.value
+  mediaPickerTarget.value = null
+  if (!target) return
+  const block = blockById(target.blockId)
+  if (!block) return
+  beginEditBurst()
+  block.content[target.field] = key
+}
+
+// ---------------------------------------------------------------------------
 // Load / autosave / publish
 // ---------------------------------------------------------------------------
 const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
@@ -633,6 +810,7 @@ interface DraftResponse {
   pageKey: string
   blocks: SiteBlock[]
   seo: { title?: string; description?: string }
+  styles?: SiteGlobalStyles
   version: number
   publishedAt: string | null
   hasUnpublishedChanges: boolean
@@ -652,13 +830,14 @@ onMounted(async () => {
   blocks.value = data.blocks as SiteBlock[]
   seo.title = data.seo?.title || ''
   seo.description = data.seo?.description || ''
+  Object.assign(styles, data.styles || {})
   pageVersion.value = data.version || 0
   hasUnpublishedChanges.value = data.hasUnpublishedChanges
   loaded = true
 })
 
 watch(
-  [blocks, seo],
+  [blocks, seo, styles],
   () => {
     if (!loaded) return
     hasUnpublishedChanges.value = true
@@ -667,12 +846,17 @@ watch(
   { deep: true },
 )
 
+function draftBody() {
+  return { blocks: blocks.value, seo, styles }
+}
+
 function scheduleSave() {
   saveState.value = 'saving'
   if (saveTimer) clearTimeout(saveTimer)
   saveTimer = setTimeout(async () => {
+    saveTimer = null
     try {
-      await $fetch<{ ok: true }>('/api/admin/site-pages/home', { method: 'PUT', body: { blocks: blocks.value, seo } })
+      await $fetch<{ ok: true }>('/api/admin/site-pages/home', { method: 'PUT', body: draftBody() })
       saveState.value = 'saved'
     } catch {
       saveState.value = 'error'
@@ -687,7 +871,8 @@ async function publish() {
     // Flush any pending autosave first so Publish never ships a stale draft.
     if (saveTimer) {
       clearTimeout(saveTimer)
-      await $fetch('/api/admin/site-pages/home', { method: 'PUT', body: { blocks: blocks.value, seo } })
+      saveTimer = null
+      await $fetch('/api/admin/site-pages/home', { method: 'PUT', body: draftBody() })
     }
     const res = await $fetch<{ ok: true; version: number }>('/api/admin/site-pages/home/publish', { method: 'POST' })
     pageVersion.value = res.version
@@ -701,6 +886,17 @@ async function publish() {
   }
 }
 
+// Un borrador sin guardar no se pierde por cerrar la pestaña: el navegador
+// pregunta. (Recargar el editor recupera siempre el último autoguardado.)
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (saveTimer || saveState.value === 'saving' || saveState.value === 'error') {
+    e.preventDefault()
+    e.returnValue = ''
+  }
+}
+onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
+
 /**
  * A restored version lands on the draft, exactly like any other edit — so it
  * goes through the same undo stack (pushUndo first, so Ctrl+Z gets the
@@ -708,12 +904,13 @@ async function publish() {
  * correctly flips the "cambios sin publicar" indicator: the draft now differs
  * from what's live, and it stays that way until Publicar.
  */
-function onRestored(payload: { version: number; blocks: SiteBlock[]; seo: { title?: string; description?: string } }) {
+function onRestored(payload: { version: number; blocks: SiteBlock[]; seo: { title?: string; description?: string }; styles?: SiteGlobalStyles }) {
   pushUndo()
   blocks.value = payload.blocks
   seo.title = payload.seo?.title || ''
   seo.description = payload.seo?.description || ''
-  if (!blocks.value.some((b) => b.id === selectedBlockId.value)) selectedBlockId.value = null
+  replaceStyles(payload.styles)
+  if (!blocks.value.some((b) => b.id === selectedBlockId.value)) selectBlock(null)
 }
 
 // ---------------------------------------------------------------------------
@@ -786,14 +983,17 @@ function sendState() {
       source: 'sa-builder-shell',
       type: 'set-state',
       blocks: JSON.parse(JSON.stringify(blocks.value)),
+      styles: JSON.parse(JSON.stringify(styles)),
       device: device.value,
       selectedBlockId: previewMode.value ? null : selectedBlockId.value,
+      selectedNodeField: previewMode.value ? null : (selectedNode.value?.field ?? null),
+      selectedGlobal: previewMode.value ? null : (selectedGlobal.value?.zone ?? null),
       mode: previewMode.value ? 'preview' : 'builder',
     },
     window.location.origin,
   )
 }
-watch([blocks, device, selectedBlockId, previewMode], sendState, { deep: true })
+watch([blocks, styles, device, selectedBlockId, selectedNode, selectedGlobal, previewMode], sendState, { deep: true })
 
 function handleMessage(e: MessageEvent) {
   if (e.origin !== window.location.origin) return
@@ -805,9 +1005,32 @@ function handleMessage(e: MessageEvent) {
       sendState()
       break
     case 'select':
-      selectedBlockId.value = msg.id
+      selectBlock(msg.id ?? null, msg.node ?? null)
+      break
+    case 'select-global':
+      selectedBlockId.value = null
+      selectedNode.value = null
+      selectedGlobal.value = { zone: msg.zone === 'footer' ? 'footer' : 'header', element: msg.element ?? null }
       break
     case 'hover':
+      break
+    case 'edit-start':
+      pushUndo()
+      break
+    case 'edit-node':
+      applyInlineText(msg.id, msg.field, String(msg.text ?? ''))
+      break
+    case 'node-action':
+      if (msg.action === 'change-image' && msg.node) {
+        selectBlock(msg.id, msg.node)
+        mediaPickerTarget.value = { blockId: msg.id, field: msg.field, label: msg.node.label || 'Imagen' }
+      }
+      break
+    case 'command':
+      if (msg.name === 'undo') undo()
+      else if (msg.name === 'redo') redo()
+      else if (msg.name === 'delete' && selectedBlockId.value && !selectedNode.value) deleteBlock(selectedBlockId.value)
+      else if (msg.name === 'duplicate' && selectedBlockId.value) duplicateBlock(selectedBlockId.value)
       break
     case 'insert-at':
       openLibraryAt(msg.index)
@@ -827,7 +1050,7 @@ function handleMessage(e: MessageEvent) {
       duplicateBlock(msg.id)
       break
     case 'toggle-hide': {
-      const block = blocks.value.find((b) => b.id === msg.id)
+      const block = blockById(msg.id)
       if (block) toggleHide(block)
       break
     }
@@ -839,21 +1062,35 @@ function handleMessage(e: MessageEvent) {
 onMounted(() => window.addEventListener('message', handleMessage))
 onUnmounted(() => window.removeEventListener('message', handleMessage))
 
-// Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z (and the Ctrl+Y Windows convention) for
-// undo/redo — ignored while typing in a text field so it doesn't fight the
-// browser's own native undo inside inputs/textareas.
+// Atajos con el foco en el shell (con el foco en el lienzo los maneja
+// canvas.vue y llegan como `command`): Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z (y
+// Ctrl+Y) para deshacer/rehacer, Ctrl/Cmd+D duplica, Supr elimina la
+// sección seleccionada (con confirmación), Esc sube de nivel. Ignorados
+// mientras se escribe en un campo, para no pelear con el undo nativo.
 function isEditableTarget(el: EventTarget | null): boolean {
   const tag = (el as HTMLElement)?.tagName
-  return tag === 'INPUT' || tag === 'TEXTAREA' || (el as HTMLElement)?.isContentEditable === true
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (el as HTMLElement)?.isContentEditable === true
 }
 function onKeydown(e: KeyboardEvent) {
-  if (!(e.ctrlKey || e.metaKey) || isEditableTarget(e.target)) return
-  if (e.key.toLowerCase() === 'z' && !e.shiftKey) {
+  if (isEditableTarget(e.target)) return
+  const meta = e.ctrlKey || e.metaKey
+  const key = e.key.toLowerCase()
+  if (meta && key === 'z' && !e.shiftKey) {
     e.preventDefault()
     undo()
-  } else if ((e.key.toLowerCase() === 'z' && e.shiftKey) || e.key.toLowerCase() === 'y') {
+  } else if ((meta && key === 'z' && e.shiftKey) || (meta && key === 'y')) {
     e.preventDefault()
     redo()
+  } else if (meta && key === 'd' && selectedBlockId.value && !previewMode.value) {
+    e.preventDefault()
+    duplicateBlock(selectedBlockId.value)
+  } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedBlockId.value && !selectedNode.value && !previewMode.value) {
+    e.preventDefault()
+    deleteBlock(selectedBlockId.value)
+  } else if (e.key === 'Escape' && !previewMode.value) {
+    if (libraryOpen.value) closeLibrary()
+    else if (selectedNode.value) selectedNode.value = null
+    else if (selectedBlockId.value || selectedGlobal.value) clearSelection()
   }
 }
 onMounted(() => window.addEventListener('keydown', onKeydown))

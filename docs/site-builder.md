@@ -35,7 +35,7 @@ site_pages
 ├─ id
 ├─ organizationId     ← el tenant dueño (tenantPolicy: direct, igual que el resto del CRUD)
 ├─ pageKey             'home' hoy — el modelo admite más páginas, aún sin UI
-├─ draftJson            { blocks: SiteBlock[], seo: {title, description} }
+├─ draftJson            { blocks: SiteBlock[], seo: {title, description}, styles?: {fontHeading, fontBody, buttonRadius} }
 ├─ publishedJson         mismo shape, o null si nunca se publicó
 ├─ version               se incrementa en cada Publish
 ├─ publishedAt, publishedBy
@@ -53,10 +53,11 @@ cliente. Importa porque los contadores de versión son por organización —
 **todas las agencias tienen una "versión 1"**, así que una consulta que
 olvidara el `pageId` devolvería la primera que encontrase.
 
-Un `SiteBlock` es `{ id, type, version, content, style?, visibility? }`. El
-orden en el array ES el orden de la página — no hay un campo `order` que
+Un `SiteBlock` es `{ id, type, version, content, style?, visibility?, nodeStyles? }`.
+El orden en el array ES el orden de la página — no hay un campo `order` que
 mantener sincronizado. `visibility` es `{desktop?, tablet?, mobile?}`;
-ausente = visible en todos.
+ausente = visible en todos. `nodeStyles` son los estilos por elemento del
+editor visual (ver «Edición directa» más abajo), saneados en el servidor.
 
 No hay id-en-URL para `site_pages`: cada endpoint de `/api/admin/site-pages/*`
 resuelve la fila únicamente a partir de `requireOrgScope()` (la sesión) más
@@ -284,6 +285,166 @@ alcance deliberadamente diferida" de más arriba.
   deshacer/rehacer, ignorados mientras el foco está en un `<input>`/
   `<textarea>` para no interferir con el undo nativo del navegador dentro de
   un campo de texto.
+
+## Edición directa: nodos, selección y estilos por elemento
+
+Desde el editor visual directo (2026-09-21), el lienzo no es "una preview con
+un panel al lado": es un **canvas editable**. Ver → pulsar → seleccionar →
+editar → ver el cambio. Un clic sobre un título selecciona *ese título*, no la
+sección; el inspector de la derecha cambia a "Propiedades del texto"; doble
+clic (o Enter) lo edita ahí mismo. Lo mismo con párrafos, etiquetas, botones,
+enlaces, imágenes, tarjetas y sus elementos internos. En **Vista previa**
+nada de esto existe: los clics navegan, exactamente como en la web publicada.
+
+### El modelo: un bloque, muchos nodos
+
+Un `SiteBlock` sigue siendo la unidad de la página (se añade, ordena,
+duplica, oculta y publica igual que antes). Dentro de él, cada elemento
+editable es un **nodo**, identificado por el bloque y un campo:
+`hero-abc:title1`, `props-xyz:card.name`. El registro de tipos de nodo y sus
+capacidades vive en `utils/siteBuilder/nodes.ts` (`NODE_KINDS`): un
+`heading` tiene texto, tipografía, color, alineación y espaciado; una `image`
+tiene medios, ajuste, radio y opacidad; un `button` tiene además enlace, fondo
+y borde. **El inspector se construye a partir de esas capacidades, no de un
+`switch` por bloque** (`components/site-builder/inspector/NodeInspector.vue`).
+
+Los bloques exponen sus nodos con cinco componentes
+(`components/site-builder/nodes/`): `SbText` (cualquier etiqueta de texto),
+`SbLink` (un `NuxtLink` con el texto editable y el destino en `linkField`),
+`SbButton` (un `<button>` real), `SbImage` (un `<img>`) y `SbBox` (un
+contenedor: tarjeta, formulario, mapa). Son **el mismo elemento de siempre**
+—misma etiqueta, mismas clases— con un atributo `data-sb-node` de gancho; no
+envuelven nada, así que la semántica (`h2`, `a`, `button`, `img` con `alt`) y
+el layout se conservan. `test/unit/siteBuilderRegistry.test.ts` exige que
+todo bloque use al menos un nodo y que ningún título se pinte fuera de uno.
+
+### Selección: un solo modelo, tres niveles
+
+El shell (`pages/admin/site-builder/index.vue`) es el Selection Manager:
+`selectedBlockId` (sección), `selectedNode` (elemento dentro de ella) y
+`selectedGlobal` (cabecera/pie). El lienzo reporta qué hay bajo el puntero y
+el shell decide; lienzo, Estructura, miga de pan e inspector enseñan siempre
+la misma selección porque la reciben del mismo sitio (`sendState`).
+
+En el lienzo, `SiteBlockFrame.vue` (el `<div>` envolvente de cada bloque,
+antes parte de `SiteBlockRenderer`) intercepta el clic en fase de captura
+—igual que antes, para que nada navegue— y resuelve el **nodo más interno**
+bajo el puntero con `closest('[data-sb-node]')`: el título de una tarjeta
+selecciona el título; el hueco de la tarjeta, la tarjeta; el fondo de la
+sección, la sección. Esa es la respuesta a los elementos superpuestos, junto
+con la miga de pan del inspector (`Sección › Elemento`, pulsable para subir) y
+Esc, que sube de nivel: edición → elemento → sección → nada. El nodo
+seleccionado lleva una barra contextual (`canvas/NodeToolbar.vue`): tipo,
+"Editar"/"Cambiar imagen" y "↑ Sección".
+
+Un nodo no sabe nada de todo esto: `useSbNode()`
+(`composables/useSiteEditor.ts`) le da los atributos según el contexto que
+`SiteBlockRenderer` provee (modo, selección) y el que `SiteBlockFrame` provee
+(id de bloque). Sin contexto de bloque —`ProjectCard` en `/propiedades`— no
+añade nada. En producción sólo quedan `data-sb-node` y `data-sb-kind`, los
+ganchos de la hoja de estilos; las marcas de selección, las etiquetas y los
+contornos existen únicamente bajo `.sb-editing`, que sólo pone el lienzo.
+
+### Edición inline
+
+`useInlineText()` pone `contenteditable="plaintext-only"` sobre el propio
+elemento: lo que se pega entra como texto plano y lo que se escribe sale con
+`innerText` — **nunca HTML**, y el modelo sigue siendo `content[campo]`. Cada
+tecla manda `edit-node` al shell, que actualiza el bloque; el inspector lo ve
+por reactividad (sincronización bidireccional sin dos estados). Mientras se
+edita, el nodo ignora el eco que vuelve por `set-state` (movería el cursor).
+Escape devuelve el texto original; Enter confirma (Ctrl/Cmd+Enter en textos
+de varias líneas); perder el foco confirma. `edit-start` deja un punto de
+deshacer por edición, no por tecla.
+
+Los dos `<button>` reales (enviar formulario, reservar visita) no llevan
+`disabled` en el lienzo —un botón deshabilitado no recibe clics y no se
+podría seleccionar—; ahí protegen la intercepción del clic y el
+`if (locked) return` del handler, y el botón lo declara con `aria-disabled`.
+En Vista previa y en producción vuelven a estar deshabilitados de verdad.
+
+### Estilos estructurados, nunca CSS libre; el DOM nunca es la verdad
+
+La presentación de un nodo se guarda en `block.nodeStyles[campo]` como
+propiedades con nombre y rango (`NodeStyle`: `fontSize` en px, `fontWeight`
+numérico, `color` hex, `align`, `marginTop`, `objectFit`…), con overrides por
+dispositivo en `responsive.tablet` / `responsive.mobile`. Llegan al servidor
+por el mismo `PUT` del borrador y **se sanean contra la lista cerrada**
+`STYLE_SPECS` (`sanitizeNodeStyles`): clave desconocida, valor fuera de rango,
+fuente fuera del catálogo o color que no sea hex se descartan. Lo que no se
+puede convertir a CSS no se guarda.
+
+La única traducción a CSS es `buildNodeStylesCss()`: una regla
+`[data-site-page] [data-sb-node="bloque:campo"]{…!important}` por nodo, más
+una `@media (max-width: …)` por breakpoint con override. Móvil hereda de
+tablet y tablet de escritorio, como en CSS. `SiteBlockRenderer` la inyecta con
+`useHead` en los tres modos —en el lienzo se recalcula con cada cambio; en
+producción se sirve en el SSR desde lo publicado—, así que **lo que se ve
+editando es exactamente la hoja de estilos que se publica**. `!important` es
+deliberado: es la elección explícita de quien edita y tiene que ganar a las
+utilidades del bloque (incluidas las que ya llevan `!`, como el color de las
+etiquetas sobre fondo oscuro); la especificidad (raíz + atributo) hace que un
+nodo gane además a los estilos globales.
+
+**Estilos globales** (`utils/siteBuilder/globalStyles.ts`, panel "Estilos
+globales" de la barra superior): tipografía de títulos, de texto y radio de los
+botones, en `SitePageDocument.styles`, acotados a `[data-site-page]` (no tocan
+cabecera ni pie). Un nodo hereda de ahí; "Restablecer" en el inspector lo
+devuelve al global. Fuentes: catálogo cerrado en `utils/siteBuilder/fonts.ts`
+(Google Fonts); `pageFontsHref()` compone el único `<link>` que la página
+necesita, y el lienzo y la web lo cargan igual.
+
+**Dispositivo**: con Tablet o Móvil elegidos en la barra, cualquier propiedad
+que se cambie es un override de ese dispositivo (`withNodeProp`); el inspector
+lo dice ("Editando la vista Móvil…"), marca con un punto lo que tiene valor
+propio, enseña lo heredado como placeholder y ofrece quitar los overrides del
+dispositivo o restablecer todo el elemento.
+
+**Brand Kit**: si la organización tiene uno, sus colores salen primero en
+cada selector de color y sus fuentes (las del catálogo) primero en cada
+selector de tipografía. Sin Brand Kit, los controles funcionan igual.
+
+### Contenido estático vs dinámico
+
+Un nodo que pinta un dato real —el nombre de una propiedad, la foto de un
+comercial, el título de un artículo— lleva `dynamic="Propiedades (web) →
+Nombre"` y `sourceHref` (`utils/siteBuilder/sources.ts`). El inspector
+enseña "Contenido dinámico", dice de dónde procede y ofrece "Editar en
+Propiedades (web)"; **no hay campo de texto, y el doble clic no lo edita**.
+Lo que sí se puede cambiar es su presentación (tipografía, color, tamaño…),
+que se guarda bajo el campo de plantilla (`card.name`) y se aplica a todas
+las tarjetas del bloque. Por convención, todo campo `card.*` o `agent.*`
+tiene que ser dinámico — la prueba del registro lo vigila. El principio de
+siempre sigue en pie: PROPIEDADES = DATOS, CONSTRUCTOR = PRESENTACIÓN.
+
+### Cabecera y pie: elementos globales en el lienzo
+
+El lienzo pinta ahora `SiteHeader` y `SiteFooter` (con `tenantOverride`, la
+marca de la organización que se edita, no la del host del panel) dentro de
+`SiteGlobalZone.vue`, con `transparentHero` como la portada real: lo que se
+ve es la página completa. Son **elementos globales** del sitio, no de Inicio:
+pulsarlos los selecciona y el inspector (`GlobalZoneInspector.vue`) explica
+que aparecen en todas las páginas y dónde se cambian (logo y nombre en
+Sistema → Empresas; los datos legales en Privacidad). No se crea una copia
+divergente para Inicio.
+
+### Rendimiento
+
+El hover es CSS puro (`:hover`), sin estado. El shell manda la página entera
+en cada cambio, pero el lienzo (`applyBlocks` en `canvas.vue`) conserva el
+objeto de cada bloque cuyo JSON no ha cambiado, así que sólo el bloque tocado
+vuelve a pintarse — también mientras se escribe inline. La hoja de estilos es
+un `computed` sobre los bloques.
+
+### Atajos
+
+Doble clic / Enter: editar el texto seleccionado · Esc: salir de la edición,
+luego subir de nivel · Supr: eliminar la sección seleccionada (con
+confirmación) · Ctrl/Cmd+D: duplicar · Ctrl/Cmd+Z, Ctrl/Cmd+Mayús+Z
+(Ctrl+Y): deshacer/rehacer — cubren texto, color, fuente, imagen, espaciado,
+estilos globales y estructura, con un punto por "ráfaga" de cambios, no por
+tecla. Funcionan con el foco en el lienzo (lo maneja `canvas.vue` y llegan al
+shell como `command`) y en el shell.
 
 ## El Block Inspector: un componente por tipo de bloque, no un formulario genérico
 

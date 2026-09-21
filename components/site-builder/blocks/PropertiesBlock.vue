@@ -14,26 +14,38 @@
     <div class="mx-auto max-w-screen-2xl px-6 lg:px-10">
       <div class="mb-8 flex items-end justify-between">
         <div>
-          <p class="eyebrow !text-white/50">{{ content.eyebrow }}</p>
-          <h2 class="mt-3 font-serif text-3xl font-medium md:text-4xl">{{ content.title }}</h2>
+          <SbText tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow !text-white/50" :text="content.eyebrow || ''" />
+          <SbText tag="h2" field="title" kind="heading" label="Título" class="mt-3 font-serif text-3xl font-medium md:text-4xl" :text="content.title || ''" />
         </div>
-        <NuxtLink
+        <SbLink
           v-if="content.cta && content.ctaTo"
+          field="cta"
+          link-field="ctaTo"
+          label="Botón"
           :to="content.ctaTo"
           class="hidden shrink-0 border border-white/40 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-widest2 transition hover:bg-white hover:text-ink md:inline-flex"
-        >
-          {{ content.cta }}
-        </NuxtLink>
+          :text="content.cta"
+        />
       </div>
       <div class="grid gap-x-6 gap-y-10" :class="gridClasses">
-        <NuxtLink v-for="p in items" :key="p.id" :to="`/propiedades/${p.slug || p.id}`" class="group block">
+        <SbBox
+          v-for="p in items"
+          :key="p.id"
+          :tag="NuxtLink"
+          :tag-props="{ to: `/propiedades/${p.slug || p.id}` }"
+          field="card"
+          label="Tarjeta de propiedad"
+          :dynamic="dynamicLabel('property', 'Ficha')"
+          :source-href="SOURCES.property.href"
+          class="group block"
+        >
           <div class="aspect-[4/3] overflow-hidden rounded-2xl bg-black/30">
-            <img :src="mediaUrl(p.coverImage)" :alt="p.name" class="h-full w-full object-cover opacity-90 transition duration-700 group-hover:scale-105 group-hover:opacity-100" loading="lazy" >
+            <SbImage field="card.image" label="Foto de la propiedad" :dynamic="dynamicLabel('property', 'Foto de portada')" :source-href="SOURCES.property.href" :src="mediaUrl(p.coverImage)" :alt="p.name" class="h-full w-full object-cover opacity-90 transition duration-700 group-hover:scale-105 group-hover:opacity-100" loading="lazy" />
           </div>
-          <p v-if="cardFields.price" class="mt-4 text-lg font-semibold">{{ formatPrice(p.price) }}</p>
-          <h3 v-if="cardFields.name" class="font-serif text-xl font-medium">{{ p.name }}</h3>
-          <p v-if="cardFields.community && p.community" class="text-[13px] text-white/60">{{ p.community }}</p>
-        </NuxtLink>
+          <SbText v-if="cardFields.price" tag="p" field="card.price" label="Precio" :dynamic="dynamicLabel('property', 'Precio')" :source-href="SOURCES.property.href" class="mt-4 text-lg font-semibold" :text="formatPrice(p.price)" />
+          <SbText v-if="cardFields.name" tag="h3" field="card.name" kind="heading" label="Nombre de la propiedad" :dynamic="dynamicLabel('property', 'Nombre')" :source-href="SOURCES.property.href" class="font-serif text-xl font-medium" :text="p.name" />
+          <SbText v-if="cardFields.community && p.community" tag="p" field="card.community" kind="caption" label="Comunidad" :dynamic="dynamicLabel('property', 'Comunidad')" :source-href="SOURCES.property.href" class="text-[13px] text-white/60" :text="p.community" />
+        </SbBox>
       </div>
     </div>
   </section>
@@ -42,10 +54,10 @@
   <section v-else-if="content.layout === 'ai-grid'" v-reveal class="border-t border-line bg-paper py-16">
     <div class="mx-auto max-w-screen-2xl px-6 lg:px-10">
       <div class="flex items-center gap-2">
-        <span v-if="content.badge" class="rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">{{ content.badge }}</span>
-        <p class="eyebrow !text-stone-450">{{ content.eyebrow }}</p>
+        <SbText v-if="content.badge" tag="span" field="badge" kind="eyebrow" label="Insignia" class="rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white" :text="content.badge" />
+        <SbText tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow !text-stone-450" :text="content.eyebrow || ''" />
       </div>
-      <h2 class="heading-serif mt-3 text-3xl md:text-4xl">{{ content.title }}</h2>
+      <SbText tag="h2" field="title" kind="heading" label="Título" class="heading-serif mt-3 text-3xl md:text-4xl" :text="content.title || ''" />
       <div class="mt-8 grid gap-x-6 gap-y-10" :class="gridClasses">
         <ProjectCard v-for="p in items" :key="p.id" :project="p" />
       </div>
@@ -54,6 +66,13 @@
 </template>
 
 <script setup lang="ts">
+import SbText from '../nodes/SbText.vue'
+import SbLink from '../nodes/SbLink.vue'
+import SbImage from '../nodes/SbImage.vue'
+import SbBox from '../nodes/SbBox.vue'
+import { SOURCES, dynamicLabel } from '~/utils/siteBuilder/sources'
+
+const NuxtLink = resolveComponent('NuxtLink')
 const props = defineProps<{
   content: Record<string, any>
   projects: any[]

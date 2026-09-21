@@ -3,23 +3,35 @@
     <div class="mx-auto max-w-screen-2xl px-6 py-16 lg:px-10">
       <div :class="layout === 'split' ? 'flex flex-wrap items-center justify-between gap-8' : 'mx-auto max-w-xl text-center'">
         <div :class="layout === 'split' ? 'max-w-xl' : ''">
-          <p v-if="content.eyebrow" class="eyebrow">{{ content.eyebrow }}</p>
-          <h2 class="heading-serif mt-3 text-3xl md:text-4xl">{{ content.title }}</h2>
-          <p v-if="content.description" class="mt-4 text-[15px] text-stone-500">{{ content.description }}</p>
+          <SbText v-if="content.eyebrow" tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow" :text="content.eyebrow" />
+          <SbText tag="h2" field="title" kind="heading" label="Título" class="heading-serif mt-3 text-3xl md:text-4xl" :text="content.title || ''" />
+          <SbText v-if="content.description" tag="p" field="description" label="Descripción" multiline class="mt-4 text-[15px] text-stone-500" :text="content.description" />
 
           <div v-if="agent" class="mt-6 flex items-center gap-3" :class="layout === 'split' ? '' : 'justify-center'">
-            <img :src="mediaUrl(agent.image)" :alt="agent.name" class="h-11 w-11 rounded-full object-cover ring-1 ring-line" loading="lazy" >
+            <SbImage field="agent.image" label="Foto del comercial" :dynamic="dynamicLabel('team', 'Foto')" :source-href="SOURCES.team.href" :src="mediaUrl(agent.image)" :alt="agent.name" class="h-11 w-11 rounded-full object-cover ring-1 ring-line" loading="lazy" />
             <div class="text-left">
-              <p class="text-[14px] font-medium text-ink">{{ agent.name }}</p>
-              <p class="text-[12px] text-stone-500">{{ agent.position }}</p>
+              <SbText tag="p" field="agent.name" label="Nombre del comercial" :dynamic="dynamicLabel('team', 'Nombre')" :source-href="SOURCES.team.href" class="text-[14px] font-medium text-ink" :text="agent.name" />
+              <SbText tag="p" field="agent.position" kind="caption" label="Puesto" :dynamic="dynamicLabel('team', 'Puesto')" :source-href="SOURCES.team.href" class="text-[12px] text-stone-500" :text="agent.position || ''" />
             </div>
           </div>
         </div>
 
         <div class="shrink-0" :class="layout === 'split' ? '' : 'mt-8'">
-          <button type="button" class="btn-primary" :disabled="!agent || locked" @click="open">
-            {{ content.ctaLabel || 'Reservar una visita' }}
-          </button>
+          <!-- En el lienzo no se usa `disabled` (un botón deshabilitado no
+               recibe clics y no se podría seleccionar): la intercepción del
+               clic y el `if (locked) return` de open() ya protegen. En Vista
+               previa y en producción sí. -->
+          <SbButton
+            type="button"
+            class="btn-primary"
+            :class="mode === 'builder' && (!agent || locked) ? 'opacity-40' : ''"
+            :disabled="mode === 'builder' ? undefined : !agent || locked"
+            :aria-disabled="!agent || locked ? 'true' : undefined"
+            field="ctaLabel"
+            label="Botón de reserva"
+            :text="content.ctaLabel || 'Reservar una visita'"
+            @click="open"
+          />
 
           <p v-if="!agent" class="mt-3 max-w-xs text-[12px] text-stone-500">
             Para reservar visitas hace falta al menos un comercial publicado con horario configurado.
@@ -52,6 +64,10 @@
 
 <script setup lang="ts">
 import BookAppointmentModal from '~/components/BookAppointmentModal.vue'
+import SbText from '../nodes/SbText.vue'
+import SbImage from '../nodes/SbImage.vue'
+import SbButton from '../nodes/SbButton.vue'
+import { SOURCES, dynamicLabel } from '~/utils/siteBuilder/sources'
 
 /**
  * Reserva de visita.

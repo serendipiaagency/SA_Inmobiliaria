@@ -1,4 +1,4 @@
-interface TenantBranding {
+export interface TenantBranding {
   id: number
   name: string
   companyName: string | null

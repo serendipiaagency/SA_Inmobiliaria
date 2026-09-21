@@ -18,26 +18,21 @@
     <!-- Content -->
     <div class="relative z-10 mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-6 lg:px-10">
       <div class="flex flex-1 flex-col justify-center pb-4 pt-24 md:pt-28" :class="contentAlign === 'center' ? 'items-center text-center' : ''">
-        <p class="rise eyebrow !text-white/70" :style="delay(0)">{{ heroEyebrow }}</p>
+        <SbText tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="rise eyebrow !text-white/70" :style="delay(0)" :text="heroEyebrow" />
         <h1
           class="rise mt-7 max-w-4xl font-serif text-[clamp(3rem,7.5vw,6.75rem)] font-medium leading-[1.01] tracking-[-0.01em] text-white"
           :style="delay(1)"
         >
-          {{ heroTitle1 }} <br class="hidden sm:block" ><span class="italic">{{ heroTitle2 }}</span>
+          <SbText tag="span" field="title1" kind="heading" label="Título (línea 1)" :text="heroTitle1" /> <br class="hidden sm:block" ><SbText tag="span" field="title2" kind="heading" label="Título (línea 2)" class="italic" :text="heroTitle2" />
         </h1>
-        <p class="rise mt-8 max-w-md text-base leading-relaxed text-white/80 md:text-lg" :style="delay(2)">
-          {{ heroSubtitle }}
-        </p>
+        <SbText tag="p" field="subtitle" label="Subtítulo" multiline class="rise mt-8 max-w-md text-base leading-relaxed text-white/80 md:text-lg" :style="delay(2)" :text="heroSubtitle" />
 
         <!-- Secondary CTAs -->
         <div class="rise mt-8 flex flex-wrap items-center gap-x-7 gap-y-3" :class="contentAlign === 'center' ? 'justify-center' : ''" :style="delay(2)">
-          <NuxtLink :to="heroExploreCtaTo" class="hero-cta-outline group">
-            {{ heroExploreCta }}
+          <SbLink field="exploreCta" link-field="exploreCtaTo" label="Botón principal" :to="heroExploreCtaTo" class="hero-cta-outline group" :text="heroExploreCta">
             <svg class="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6" /></svg>
-          </NuxtLink>
-          <NuxtLink :to="heroAdvisorCtaTo" class="hero-cta-ghost">
-            {{ heroAdvisorCta }}
-          </NuxtLink>
+          </SbLink>
+          <SbLink field="advisorCta" link-field="advisorCtaTo" label="Botón secundario" kind="link" :to="heroAdvisorCtaTo" class="hero-cta-ghost" :text="heroAdvisorCta" />
         </div>
 
         <!-- Search — the protagonist -->
@@ -300,7 +295,12 @@
 // (via i18n) so this component keeps working standalone. They exist so the
 // Website Builder's hero block editor can override the copy per tenant
 // without forking this component — the search form/tabs logic below stays
-// shared and untouched either way.
+// shared and untouched either way. Los textos y los dos CTA son nodos
+// editables cuando el hero lo pinta el Constructor Web (doble clic sobre el
+// título para escribir); fuera de él, los mismos componentes no añaden nada.
+import SbText from '~/components/site-builder/nodes/SbText.vue'
+import SbLink from '~/components/site-builder/nodes/SbLink.vue'
+
 const props = defineProps<{
   eyebrow?: string
   title1?: string

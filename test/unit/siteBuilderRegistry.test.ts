@@ -148,6 +148,53 @@ describe('los bloques con efecto real no disparan nada desde el editor', () => {
   })
 })
 
+/**
+ * El editor visual no es un parche por bloque: cada bloque expone sus
+ * textos, botones e imágenes como nodos (components/site-builder/nodes/*)
+ * y es eso lo que los hace seleccionables y editables desde el lienzo. Un
+ * bloque nuevo que pinte un `<h2>{{ content.title }}</h2>` a pelo se vería
+ * igual en la web pero no se podría pulsar — y nadie lo notaría hasta que
+ * un usuario lo intentase. Esta comprobación lo atrapa antes.
+ */
+describe('todos los bloques exponen nodos editables', () => {
+  const dir = join(ROOT, 'components/site-builder/blocks')
+  const files = readdirSync(dir).filter((f) => f.endsWith('.vue'))
+  // El hero y la fila de propiedades delegan en componentes compartidos; sus
+  // nodos viven allí.
+  const DELEGATES: Record<string, string> = { 'HeroBlock.vue': 'components/HeroSearch.vue', 'PropertiesBlock.vue': 'components/SectionRow.vue' }
+
+  it.each(files)('%s usa al menos un nodo (SbText/SbLink/SbImage/SbBox/SbButton)', (file) => {
+    const own = readFileSync(join(dir, file), 'utf8')
+    const delegate = DELEGATES[file] ? readFileSync(join(ROOT, DELEGATES[file]), 'utf8') : ''
+    expect(own + delegate, `${file} no usa ningún nodo editable`).toMatch(/<Sb(Text|Link|Image|Box|Button)\b/)
+  })
+
+  it('ningún bloque pinta un título estático fuera de un nodo', () => {
+    // Un <h2>/<h3> con interpolación directa es un título que no se puede pulsar.
+    const offenders: string[] = []
+    for (const file of files) {
+      const source = readFileSync(join(dir, file), 'utf8')
+      if (/<h[1-3][^>]*>\s*\{\{/.test(source)) offenders.push(file)
+    }
+    expect(offenders, `Títulos sin nodo en: ${offenders.join(', ')}`).toEqual([])
+  })
+
+  it('los datos dinámicos se marcan como tales (nunca como texto editable)', () => {
+    // Todo nodo que pinte un dato de una entidad (propiedad, comunidad,
+    // comercial, artículo) lleva `dynamic`: el inspector enseña de dónde
+    // sale y no ofrece cambiar el texto. El campo se llama `card.*` o
+    // `agent.*` por convención — un `card.name` sin `dynamic` sería el
+    // nombre real de una propiedad convertido en texto estático.
+    const offenders: string[] = []
+    for (const file of [...files.map((f) => join(dir, f)), join(ROOT, 'components/ProjectCard.vue')]) {
+      const source = readFileSync(file, 'utf8')
+      const tags = source.match(/<Sb(?:Text|Link|Image|Box)\b[^>]*field="(?:card|agent)\.[^"]*"[^>]*>/g) || []
+      for (const tag of tags) if (!/:dynamic=|\bdynamic=/.test(tag)) offenders.push(`${file.split('/').pop()}: ${tag.slice(0, 60)}…`)
+    }
+    expect(offenders, 'Nodos de datos sin marcar como dinámicos').toEqual([])
+  })
+})
+
 describe('el bloque de comerciales', () => {
   const presets = BLOCK_PRESETS.filter((p) => p.type === 'team')
 

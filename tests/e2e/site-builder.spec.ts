@@ -225,12 +225,17 @@ test.describe('Constructor Web', () => {
     await page.goto('/admin/site-builder')
     const canvas = page.frameLocator('iframe[title="Vista previa del Constructor Web"]')
 
+    // En el lienzo el botón no lleva `disabled` (un botón deshabilitado no
+    // recibe clics y no se podría seleccionar para editarlo): lo que protege
+    // ahí es la intercepción del clic en fase de captura más el guard del
+    // handler, y el botón lo dice con aria-disabled. En Vista previa —donde
+    // los clics sí llegan— vuelve a estar deshabilitado de verdad.
     const submit = canvas.getByRole('button', { name: 'Quiero que me llamen' })
     await expect(submit).toBeVisible({ timeout: 10_000 })
-    await expect(submit, 'el formulario podría enviarse desde el lienzo').toBeDisabled()
+    await expect(submit, 'el formulario debe declararse desactivado en el lienzo').toHaveAttribute('aria-disabled', 'true')
 
     const book = canvas.getByRole('button', { name: 'Reservar una visita' })
-    await expect(book, 'la reserva podría dispararse desde el lienzo').toBeDisabled()
+    await expect(book, 'la reserva debe declararse desactivada en el lienzo').toHaveAttribute('aria-disabled', 'true')
 
     // Los dos avisan de POR QUÉ están desactivados. Comprobarlo distingue
     // "bloqueado por estar en el editor" de "bloqueado por no haber agenda",
@@ -555,5 +560,284 @@ test.describe('Constructor Web', () => {
     await expect(page.locator('aside.border-l')).not.toHaveClass(/w-11/)
     await expect(page.locator('aside.border-r [draggable="true"]').first()).toHaveClass(/border-ink/)
     await expect(page.locator('aside.border-l').getByText('01 · Hero')).toBeVisible()
+  })
+})
+
+/**
+ * El editor visual directo: la página del lienzo es un canvas editable.
+ * Pulsar un título lo selecciona y abre SUS opciones (no las del bloque);
+ * doble clic lo edita ahí mismo; fuente, tamaño y color cambian el lienzo al
+ * instante; los datos dinámicos se distinguen de los estáticos; todo se
+ * autoguarda, se deshace, se publica y llega a la web pública con la misma
+ * hoja de estilos. Cada prueba se apoya en la anterior sólo a través de la
+ * API (borrador conocido), nunca del estado del navegador.
+ */
+test.describe('Constructor Web — edición directa sobre el lienzo', () => {
+  test.use({ storageState: STATE_A })
+
+  let a: APIRequestContext
+  let originalDraftBody: any
+  const CANVAS = 'iframe[title="Vista previa del Constructor Web"]'
+
+  async function draft() {
+    return (await a.get('/api/admin/site-pages/home')).json()
+  }
+  async function setDraft(blocks: any[], extra: Record<string, any> = {}) {
+    const res = await a.put('/api/admin/site-pages/home', { data: { blocks, seo: {}, ...extra } })
+    expect(res.ok(), await res.text()).toBeTruthy()
+  }
+
+  test.beforeAll(async () => {
+    a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
+    const d = await draft()
+    originalDraftBody = { blocks: d.blocks, seo: d.seo, styles: d.styles }
+  })
+
+  test.afterAll(async () => {
+    await a.put('/api/admin/site-pages/home', { data: originalDraftBody })
+    await a.post('/api/admin/site-pages/home/publish')
+    await a?.dispose()
+  })
+
+  test('pulsar un título lo selecciona; doble clic lo edita inline; el inspector y el borrador siguen al lienzo', async ({ page }) => {
+    await setDraft([{ id: 'text-e2e', type: 'text', version: 1, content: { title: 'Encuentra tu hogar ideal', body: 'Cuerpo de prueba', align: 'left', maxWidth: 'md' } }])
+
+    await page.goto('/admin/site-builder')
+    const canvas = page.frameLocator(CANVAS)
+    const title = canvas.locator('[data-sb-node="text-e2e:title"]')
+    await expect(title).toBeVisible({ timeout: 10_000 })
+    await expect(title).toHaveText('Encuentra tu hogar ideal')
+
+    // Un clic selecciona el título, no sólo la sección: el inspector cambia
+    // de "sección" a "texto" y la miga de pan enseña ambos niveles.
+    await title.click()
+    await expect(page.getByTestId('inspector-title')).toHaveText('Propiedades del texto')
+    await expect(page.getByTestId('breadcrumb-node')).toHaveText('Título')
+    await expect(title).toHaveAttribute('data-sb-selected', '1')
+    await expect(canvas.locator('[data-sb-toolbar]')).toBeVisible()
+
+    // Doble clic → edición inline; se escribe directamente en el lienzo.
+    await title.dblclick()
+    await expect(title).toHaveAttribute('data-sb-editing', '1')
+    await page.keyboard.press('End')
+    await page.keyboard.type(' — editado')
+    // Sincronización bidireccional: el campo del inspector ya lo refleja.
+    await expect(page.getByTestId('node-text').locator('input, textarea')).toHaveValue('Encuentra tu hogar ideal — editado')
+    await page.keyboard.press('Enter')
+    await expect(title).not.toHaveAttribute('data-sb-editing', '1')
+    await expect(title).toHaveText('Encuentra tu hogar ideal — editado')
+
+    // Autoguardado sin tocar nada más.
+    await expect.poll(async () => (await draft()).blocks[0].content.title, { timeout: 10_000 }).toBe('Encuentra tu hogar ideal — editado')
+
+    // Y el camino inverso: editar desde el inspector cambia el lienzo al instante.
+    const field = page.getByTestId('node-text').locator('input, textarea')
+    await field.fill('Desde el inspector')
+    await expect(title).toHaveText('Desde el inspector')
+
+    // Deshacer cubre la edición de texto, no sólo la estructura.
+    await page.getByTitle('Deshacer').click()
+    await expect(title).not.toHaveText('Desde el inspector')
+  })
+
+  test('fuente, tamaño y color cambian el lienzo en tiempo real y se guardan como estilos estructurados', async ({ page }) => {
+    await setDraft([{ id: 'text-e2e', type: 'text', version: 1, content: { title: 'Estilos', body: 'Cuerpo', align: 'left', maxWidth: 'md' } }])
+
+    await page.goto('/admin/site-builder')
+    const canvas = page.frameLocator(CANVAS)
+    const title = canvas.locator('[data-sb-node="text-e2e:title"]')
+    await expect(title).toBeVisible({ timeout: 10_000 })
+    await title.click()
+    await page.locator('aside.border-l').getByRole('button', { name: 'Diseño', exact: true }).click()
+
+    await page.getByTestId('node-font-size').fill('72')
+    await page.getByTestId('node-font-size').press('Enter')
+    await expect(title).toHaveCSS('font-size', '72px')
+
+    await page.getByTestId('node-color').fill('#ff0000')
+    await page.getByTestId('node-color').press('Enter')
+    await expect(title).toHaveCSS('color', 'rgb(255, 0, 0)')
+
+    await page.locator('aside.border-l').getByLabel('Fuente').selectOption('Playfair Display')
+    await expect(title).toHaveCSS('font-family', /Playfair Display/)
+    // La fuente se pide a Google en el propio lienzo, igual que hará la web.
+    await expect(canvas.locator('link[href*="fonts.googleapis.com"][href*="Playfair"]')).toHaveCount(1)
+
+    await expect
+      .poll(async () => (await draft()).blocks[0].nodeStyles?.title, { timeout: 10_000 })
+      .toEqual({ fontSize: 72, color: '#ff0000', fontFamily: 'Playfair Display' })
+
+    // Restablecer vuelve al estilo global y deja el JSON limpio.
+    await page.getByTestId('node-reset-all').click()
+    await expect(title).not.toHaveCSS('color', 'rgb(255, 0, 0)')
+    await expect.poll(async () => (await draft()).blocks[0].nodeStyles, { timeout: 10_000 }).toBeUndefined()
+  })
+
+  test('un botón se selecciona (no navega), su texto y su enlace se editan, y una imagen se cambia sin pasar por el inspector', async ({ page }) => {
+    await setDraft([
+      {
+        id: 'cta-e2e',
+        type: 'cta',
+        version: 1,
+        content: { title: 'Cierre', ctaPrimary: 'Contactar', ctaPrimaryTo: '/contacto', align: 'center', image: 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=200' },
+      },
+    ])
+
+    await page.goto('/admin/site-builder')
+    const canvas = page.frameLocator(CANVAS)
+    const button = canvas.locator('[data-sb-node="cta-e2e:ctaPrimary"]')
+    await expect(button).toBeVisible({ timeout: 10_000 })
+
+    await button.click()
+    await expect(page.getByTestId('inspector-title')).toHaveText('Propiedades del botón')
+    expect(page.frames().find((f) => f.url().includes('/admin/site-builder/canvas'))!.url()).not.toContain('/contacto')
+
+    // Enlace por tipo, sin escribir la URL a mano.
+    await page.getByTestId('node-link').fill('/equipo')
+    await page.getByTestId('node-link').press('Enter')
+    await expect(button).toHaveAttribute('href', '/equipo')
+    await expect.poll(async () => (await draft()).blocks[0].content.ctaPrimaryTo, { timeout: 10_000 }).toBe('/equipo')
+
+    // Imagen: un clic la selecciona; doble clic abre "Cambiar imagen" con subida directa.
+    const image = canvas.locator('[data-sb-node="cta-e2e:image"]')
+    await image.click()
+    await expect(page.getByTestId('inspector-title')).toHaveText('Propiedades de la imagen')
+    await image.dblclick()
+    await expect(page.getByTestId('media-picker')).toBeVisible()
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64')
+    await page.getByTestId('media-picker').locator('input[type="file"]').setInputFiles({ name: 'fondo.png', mimeType: 'image/png', buffer: png })
+    await expect(page.getByTestId('media-picker')).toBeHidden({ timeout: 10_000 })
+    await expect.poll(async () => (await draft()).blocks[0].content.image, { timeout: 10_000 }).not.toContain('unsplash')
+    await expect(image).toHaveAttribute('src', /\/api\/media|\/media\//)
+  })
+
+  test('en una tarjeta dinámica se distingue el dato (intocable) de su presentación (editable), y pulsar el fondo selecciona la tarjeta', async ({ page }) => {
+    const devRes = await a.post('/api/admin/developers', { data: { name: `Editor dev ${Date.now()}`, email: `editor-${Date.now()}@mm.test`, status: 'active' } })
+    expect(devRes.ok()).toBeTruthy()
+    const propertyName = `Villa Editor ${Date.now()}`
+    const propRes = await a.post('/api/admin/developer-properties', { data: { developerId: (await devRes.json()).id, name: propertyName, status: 'new', price: 750000 } })
+    expect(propRes.ok()).toBeTruthy()
+
+    await setDraft([{ id: 'props-e2e', type: 'properties', version: 1, content: { title: 'Premium', source: 'dynamic', dynamicFilter: 'latest', limit: 3, layout: 'dark-grid' } }])
+
+    await page.goto('/admin/site-builder')
+    const canvas = page.frameLocator(CANVAS)
+    const name = canvas.locator('[data-sb-node="props-e2e:card.name"]').first()
+    await expect(name).toBeVisible({ timeout: 10_000 })
+    await expect(name).toHaveText(propertyName)
+
+    await name.click()
+    await expect(page.getByTestId('breadcrumb-node')).toHaveText('Nombre de la propiedad')
+    await expect(page.getByTestId('node-dynamic-notice')).toContainText('procede de Propiedades (web)')
+    // No hay campo de texto: el nombre no se puede convertir en estático.
+    await expect(page.getByTestId('node-text')).toHaveCount(0)
+    // Doble clic tampoco lo edita.
+    await name.dblclick()
+    await expect(name).not.toHaveAttribute('data-sb-editing', '1')
+
+    // Pero su presentación sí — y se aplica a TODAS las tarjetas del bloque.
+    await page.locator('aside.border-l').getByRole('button', { name: 'Diseño', exact: true }).click()
+    await page.getByTestId('node-color').fill('#00ff00')
+    await page.getByTestId('node-color').press('Enter')
+    await expect(name).toHaveCSS('color', 'rgb(0, 255, 0)')
+    await expect.poll(async () => (await draft()).blocks[0].nodeStyles?.['card.name']?.color, { timeout: 10_000 }).toBe('#00ff00')
+    const content = (await draft()).blocks[0].content
+    expect(Object.keys(content).some((k) => k.startsWith('card.')), 'el dato dinámico se ha copiado al contenido').toBe(false)
+    expect(JSON.stringify(content)).not.toContain(propertyName)
+
+    // La tarjeta entera: clic en el hueco entre la foto y el precio.
+    const card = canvas.locator('[data-sb-node="props-e2e:card"]').first()
+    const imageBox = await card.locator('[data-sb-node="props-e2e:card.image"]').boundingBox()
+    await card.click({ position: { x: 8, y: imageBox!.height + 6 } })
+    await expect(page.getByTestId('inspector-title')).toHaveText('Propiedades de la tarjeta')
+
+    // Y el fondo de la sección: la propia sección.
+    await canvas.locator('[data-site-block-id="props-e2e"]').click({ position: { x: 6, y: 6 } })
+    await expect(page.getByTestId('inspector-title')).toHaveText('Propiedades de la sección')
+  })
+
+  test('cabecera y pie se ven en el lienzo como elementos globales; Esc sube de nivel hasta deseleccionar', async ({ page }) => {
+    await setDraft([{ id: 'text-e2e', type: 'text', version: 1, content: { title: 'Niveles', body: 'Cuerpo' } }])
+
+    await page.goto('/admin/site-builder')
+    const canvas = page.frameLocator(CANVAS)
+    await expect(canvas.locator('[data-sb-node="text-e2e:title"]')).toBeVisible({ timeout: 10_000 })
+
+    await canvas.locator('[data-sb-zone="header"] a[href="/"]').first().click()
+    await expect(page.getByTestId('global-zone-inspector')).toBeVisible()
+    await expect(page.getByTestId('global-zone-inspector')).toContainText('elemento global')
+    await expect(canvas.locator('footer')).toBeVisible()
+
+    const title = canvas.locator('[data-sb-node="text-e2e:title"]')
+    await title.click()
+    await expect(page.getByTestId('breadcrumb-node')).toHaveText('Título')
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('breadcrumb-node')).toHaveCount(0)
+    await expect(page.getByTestId('inspector-title')).toHaveText('Propiedades de la sección')
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('inspector-empty')).toBeVisible()
+  })
+
+  test('los estilos por dispositivo se guardan aparte, heredan, y llegan publicados a la web pública', async ({ page }) => {
+    await setDraft([{ id: 'text-e2e', type: 'text', version: 1, content: { title: 'Responsive', body: 'Cuerpo' } }])
+
+    await page.goto('/admin/site-builder')
+    const canvas = page.frameLocator(CANVAS)
+    const title = canvas.locator('[data-sb-node="text-e2e:title"]')
+    await expect(title).toBeVisible({ timeout: 10_000 })
+    await title.click()
+    await page.locator('aside.border-l').getByRole('button', { name: 'Diseño', exact: true }).click()
+    await page.getByTestId('node-font-size').fill('64')
+    await page.getByTestId('node-font-size').press('Enter')
+
+    // Con Móvil en el lienzo, el mismo control escribe el override de móvil.
+    await page.getByTitle('Móvil').click()
+    await expect(page.getByTestId('node-device-banner')).toContainText('Editando la vista Móvil')
+    await page.getByTestId('node-font-size').fill('32')
+    await page.getByTestId('node-font-size').press('Enter')
+    await expect(title).toHaveCSS('font-size', '32px')
+    await page.getByTitle('Escritorio').click()
+    await expect(title).toHaveCSS('font-size', '64px')
+
+    // Estilos globales de la página.
+    await page.getByTestId('open-global-styles').click()
+    await page.getByTestId('global-styles-panel').getByLabel('Tipografía de los títulos').selectOption('Lora')
+    await page.getByRole('button', { name: 'Cerrar estilos globales' }).click()
+    await expect(title).toHaveCSS('font-family', /Lora/)
+
+    await expect
+      .poll(async () => (await draft()).blocks[0].nodeStyles?.title, { timeout: 10_000 })
+      .toEqual({ fontSize: 64, responsive: { mobile: { fontSize: 32 } } })
+    expect((await draft()).styles).toEqual({ fontHeading: 'Lora' })
+
+    // Recargar el editor recupera exactamente lo mismo (persistencia).
+    await page.reload()
+    await expect(page.frameLocator(CANVAS).locator('[data-sb-node="text-e2e:title"]')).toHaveCSS('font-size', '64px', { timeout: 10_000 })
+
+    // Publicar → la web pública lleva la misma hoja de estilos, con la media
+    // query de móvil, servida en el SSR del dominio de la organización.
+    expect((await a.post('/api/admin/site-pages/home/publish')).ok()).toBeTruthy()
+    const published = await (await a.get('/api/public/site-pages/home')).json()
+    expect(published.blocks[0].nodeStyles.title.responsive.mobile.fontSize).toBe(32)
+    expect(published.styles.fontHeading).toBe('Lora')
+
+    const domain = `editor-e2e-${Date.now()}.test`
+    const assign = await a.put('/api/admin/organizations/1', { data: { domain } })
+    expect(assign.ok(), await assign.text()).toBeTruthy()
+    try {
+      const anon = await pwRequest.newContext({ baseURL: BASE_URL })
+      const html = await (await anon.get('/', { headers: { host: domain } })).text()
+      await anon.dispose()
+      expect(html).toContain('data-sb-node="text-e2e:title"')
+      expect(html).toContain('[data-site-page] [data-sb-node="text-e2e:title"]{font-size:64px!important}')
+      expect(html).toContain('@media (max-width: 639.98px){[data-site-page] [data-sb-node="text-e2e:title"]{font-size:32px!important}}')
+      expect(html).toContain('family=Lora')
+      // Y nada del editor se cuela en producción.
+      expect(html).not.toContain('data-sb-selected')
+      expect(html).not.toContain('data-sb-label')
+      expect(html).not.toContain('sb-editing')
+    } finally {
+      await a.put('/api/admin/organizations/1', { data: { domain: '' } })
+    }
   })
 })

@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div data-site-page :class="mode === 'builder' ? 'sb-editing' : ''">
     <template v-for="(block, index) in visibleBlocks" :key="block.id">
       <!-- Insert-between affordance — builder-only, zero layout impact when
            not hovered (see .site-gap below), mirrors the "+ Añadir sección
@@ -18,43 +18,21 @@
         </div>
       </div>
 
-      <div v-bind="wrapperAttrs(block)">
-        <span
-          v-if="mode === 'builder'"
-          class="pointer-events-none absolute left-2 top-2 z-10 rounded bg-blue-500 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow transition-opacity"
-          :class="selectedBlockId === block.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
-        >
-          {{ index + 1 }}. {{ blockLabel(block.type) }}
-        </span>
-
-        <div
-          v-if="mode === 'builder' && selectedBlockId === block.id"
-          data-block-toolbar
-          class="absolute right-2 top-2 z-20 flex items-center gap-0.5 rounded-lg border border-line bg-white p-1 shadow-lg"
-        >
-          <button type="button" class="canvas-toolbar-btn" title="Subir" :disabled="index === 0" @click="emit('move-up', block.id)">
-            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M5 12l7-7 7 7" /></svg>
-          </button>
-          <button type="button" class="canvas-toolbar-btn" title="Bajar" :disabled="index === visibleBlocks.length - 1" @click="emit('move-down', block.id)">
-            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12l7 7 7-7" /></svg>
-          </button>
-          <span class="mx-0.5 h-4 w-px bg-line" />
-          <button type="button" class="canvas-toolbar-btn" title="Añadir debajo" @click="emit('add-below', block.id)">
-            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
-          </button>
-          <button type="button" class="canvas-toolbar-btn" title="Duplicar" @click="emit('duplicate', block.id)">
-            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
-          </button>
-          <button type="button" class="canvas-toolbar-btn" :title="isHiddenOnDevice(block) ? 'Mostrar' : 'Ocultar en este dispositivo'" @click="emit('toggle-hide', block.id)">
-            <svg v-if="isHiddenOnDevice(block)" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a20.4 20.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" /></svg>
-            <svg v-else class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-          </button>
-          <span class="mx-0.5 h-4 w-px bg-line" />
-          <button type="button" class="canvas-toolbar-btn hover:!bg-red-50 hover:!text-red-600" title="Eliminar" @click="emit('delete', block.id)">
-            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16z" /></svg>
-          </button>
-        </div>
-
+      <SiteBlockFrame
+        :block="block"
+        :index="index"
+        :count="visibleBlocks.length"
+        :mode="mode"
+        :device="device"
+        :selected="mode === 'builder' && selection.blockId === block.id"
+        @hover="(id) => emit('hover', id)"
+        @move-up="(id) => emit('move-up', id)"
+        @move-down="(id) => emit('move-down', id)"
+        @add-below="(id) => emit('add-below', id)"
+        @duplicate="(id) => emit('duplicate', id)"
+        @toggle-hide="(id) => emit('toggle-hide', id)"
+        @delete="(id) => emit('delete', id)"
+      >
         <HeroBlock v-if="block.type === 'hero'" :content="block.content" />
         <MapTeaserBlock v-else-if="block.type === 'map-teaser'" :content="block.content" />
         <PropertiesBlock v-else-if="block.type === 'properties'" :content="block.content" :projects="homeData?.projects || []" />
@@ -73,7 +51,7 @@
         <div v-else-if="mode !== 'production'" class="mx-auto max-w-screen-2xl px-6 py-10 text-sm text-red-500">
           Tipo de bloque desconocido: {{ block.type }}
         </div>
-      </div>
+      </SiteBlockFrame>
     </template>
 
     <div v-if="mode === 'builder'" class="group/gap relative z-20 h-3 -my-1.5">
@@ -88,12 +66,24 @@
         </button>
       </div>
     </div>
+
+    <NodeToolbar
+      v-if="mode === 'builder'"
+      :node="selectedNodeRef"
+      :editing="!!editingNodeField"
+      @edit="startEditSelected"
+      @change-image="selectedNodeRef && nodeAction(selectedNodeRef, 'change-image')"
+      @select-parent="selection.blockId && select(selection.blockId, null)"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import type { SiteBlock } from '~/server/utils/sitePages'
-import { blockLabel } from '~/composables/useSiteBuilderRegistry'
+import type { SiteBlock, SitePageDocument } from '~/server/utils/sitePages'
+import { buildPageCss, pageFontsHref } from '~/utils/siteBuilder/pageCss'
+import { SITE_EDITOR_KEY, nodeRefFromElement, type SiteEditorContext, type SiteNodeRef } from '~/composables/useSiteEditor'
+import SiteBlockFrame from './SiteBlockFrame.vue'
+import NodeToolbar from './canvas/NodeToolbar.vue'
 import HeroBlock from './blocks/HeroBlock.vue'
 import MapTeaserBlock from './blocks/MapTeaserBlock.vue'
 import PropertiesBlock from './blocks/PropertiesBlock.vue'
@@ -114,8 +104,18 @@ import CtaBlock from './blocks/CtaBlock.vue'
  * type that renders differently in the builder than in production is
  * exactly the bug this component exists to prevent.
  *
+ * Lo que la página necesita en <head> para verse como se editó —la hoja de
+ * estilos de los nodos y de los estilos globales, y las fuentes que usa—
+ * sale de aquí en los tres modos (utils/siteBuilder/pageCss.ts): en el
+ * lienzo se recalcula en vivo con cada cambio; en producción se sirve en el
+ * SSR desde lo publicado. El DOM nunca es la fuente de verdad.
+ *
  * mode="builder" adds selection/hover plumbing only — no visual chrome of
- * its own, so nothing here can leak into the published site.
+ * its own, so nothing here can leak into the published site. Provee a los
+ * nodos el contexto de edición (composables/useSiteEditor.ts): quién está
+ * seleccionado lo decide el shell y llega por props; qué texto se está
+ * editando inline es local, porque el cursor no puede esperar al
+ * postMessage.
  */
 const props = withDefaults(
   defineProps<{
@@ -125,12 +125,16 @@ const props = withDefaults(
     /** builder-only: which breakpoint the canvas is currently simulating */
     device?: 'desktop' | 'tablet' | 'mobile'
     selectedBlockId?: string | null
+    /** builder-only: campo del nodo seleccionado dentro de selectedBlockId */
+    selectedNodeField?: string | null
+    /** Estilos globales de la página (fuentes, radio de botones). */
+    styles?: SitePageDocument['styles'] | null
   }>(),
-  { mode: 'production', device: 'desktop', homeData: null, selectedBlockId: null },
+  { mode: 'production', device: 'desktop', homeData: null, selectedBlockId: null, selectedNodeField: null, styles: null },
 )
 
 const emit = defineEmits<{
-  select: [id: string]
+  select: [id: string | null, node: SiteNodeRef | null]
   hover: [id: string | null]
   'insert-at': [index: number]
   'move-up': [id: string]
@@ -139,11 +143,10 @@ const emit = defineEmits<{
   duplicate: [id: string]
   'toggle-hide': [id: string]
   delete: [id: string]
+  'edit-start': [node: SiteNodeRef]
+  'edit-node': [node: SiteNodeRef, text: string]
+  'node-action': [node: SiteNodeRef, action: string]
 }>()
-
-function isHiddenOnDevice(block: SiteBlock): boolean {
-  return block.visibility?.[props.device] === false
-}
 
 const visibleBlocks = computed(() =>
   (props.blocks || []).filter((b) => {
@@ -158,65 +161,120 @@ const visibleBlocks = computed(() =>
   }),
 )
 
-const BACKGROUND_CLASS: Record<string, string> = { paper: 'bg-paper', white: 'bg-white', surface: 'bg-surface', ink: 'bg-ink' }
-const SPACING_REM: Record<string, string> = { sm: '1.5rem', lg: '3rem' }
+// ---------------------------------------------------------------------------
+// Hoja de estilos de la página + fuentes, en los tres modos
+// ---------------------------------------------------------------------------
+const pageCss = computed(() => buildPageCss({ blocks: props.blocks, styles: props.styles }))
+const fontsHref = computed(() => pageFontsHref({ blocks: props.blocks, styles: props.styles }))
+useHead({
+  style: () => (pageCss.value ? [{ key: 'site-page-css', innerHTML: pageCss.value }] : []),
+  link: () => (fontsHref.value ? [{ key: 'site-page-fonts', rel: 'stylesheet', href: fontsHref.value }] : []),
+})
 
-/**
- * Applies the "Avanzado" common options (CommonBlockSettings.vue) — anchor,
- * background, extra spacing — identically in every mode, since these are
- * real published styling, not builder chrome. Only the selection outline,
- * hover, and click-to-select wiring below are builder-only.
- */
-function wrapperAttrs(block: SiteBlock) {
-  const style = block.style || {}
-  const common: Record<string, any> = {}
-  if (style.anchorId) common.id = style.anchorId
-  const classes = ['relative', style.background ? BACKGROUND_CLASS[style.background] : '']
-  const inlineStyle: Record<string, string> = {}
-  if (style.paddingTop && SPACING_REM[style.paddingTop]) inlineStyle.paddingTop = SPACING_REM[style.paddingTop]
-  if (style.paddingBottom && SPACING_REM[style.paddingBottom]) inlineStyle.paddingBottom = SPACING_REM[style.paddingBottom]
-  if (Object.keys(inlineStyle).length) common.style = inlineStyle
+// ---------------------------------------------------------------------------
+// Contexto de edición (sólo hace algo en mode="builder")
+// ---------------------------------------------------------------------------
+// Selección optimista: se refleja al instante al hacer clic y se
+// sobreescribe con lo que el shell confirme por props.
+const selection = reactive<{ blockId: string | null; nodeField: string | null }>({ blockId: props.selectedBlockId, nodeField: props.selectedNodeField })
+watch(
+  () => [props.selectedBlockId, props.selectedNodeField] as const,
+  ([blockId, nodeField]) => {
+    selection.blockId = blockId
+    selection.nodeField = nodeField
+    if (editingNodeField.value && (editingBlockId !== blockId || editingNodeField.value !== nodeField)) stopEdit()
+  },
+)
 
-  if (props.mode !== 'builder') return { ...common, class: classes }
+const modeRef = computed(() => props.mode)
+const selectedBlockIdRef = computed(() => selection.blockId)
+const selectedNodeFieldRef = computed(() => selection.nodeField)
+const editingNodeField = ref<string | null>(null)
+let editingBlockId: string | null = null
 
-  const hiddenOnDevice = block.visibility && block.visibility[props.device] === false
-  return {
-    ...common,
-    'data-site-block-id': block.id,
-    'data-site-block-type': block.type,
-    class: [
-      ...classes,
-      'group site-block-wrap outline-offset-[-2px] transition-[outline-color]',
-      props.selectedBlockId === block.id ? 'outline outline-2 outline-blue-500' : 'outline outline-2 outline-transparent hover:outline-blue-300',
-      hiddenOnDevice ? 'opacity-40' : '',
-    ],
-    // Capture phase, not bubble: a plain `onClick` here would fire *after*
-    // a nested <a>/button's own handler (router.push, a real href
-    // navigation…), since those live further down the tree and get first
-    // dispatch. Intercepting on the way down and calling preventDefault
-    // blocks the browser's default navigation before it's decided, and
-    // stopPropagation keeps the event from ever reaching the nested
-    // element's own listeners at all — so no per-component patching is
-    // needed for links, buttons, cards or forms nested inside a block.
-    // The one deliberate exception is the floating block toolbar itself
-    // ([data-block-toolbar], rendered inside this same wrapper so it can be
-    // positioned relative to the block): its buttons must receive their own
-    // click normally, so this returns early for anything inside it instead
-    // of also intercepting those.
-    onClickCapture: (e: MouseEvent) => {
-      if ((e.target as HTMLElement)?.closest?.('[data-block-toolbar]')) return
-      e.preventDefault()
-      e.stopPropagation()
-      emit('select', block.id)
-    },
-    onMouseenter: () => emit('hover', block.id),
-    onMouseleave: () => emit('hover', null),
-  }
+function select(blockId: string | null, node: SiteNodeRef | null) {
+  if (editingNodeField.value) stopEdit()
+  selection.blockId = blockId
+  selection.nodeField = node?.field ?? null
+  emit('select', blockId, node)
 }
+function startEdit(node: SiteNodeRef) {
+  selection.blockId = node.blockId
+  selection.nodeField = node.field
+  editingBlockId = node.blockId
+  editingNodeField.value = node.field
+  emit('edit-start', node)
+}
+function stopEdit() {
+  editingNodeField.value = null
+  editingBlockId = null
+}
+function updateText(node: SiteNodeRef, text: string) {
+  emit('edit-node', node, text)
+}
+function nodeAction(node: SiteNodeRef, action: string) {
+  emit('node-action', node, action)
+}
+
+const context: SiteEditorContext = {
+  mode: modeRef,
+  selectedBlockId: selectedBlockIdRef,
+  selectedNodeField: selectedNodeFieldRef,
+  editingNodeField,
+  select,
+  startEdit,
+  stopEdit,
+  updateText,
+  nodeAction,
+}
+provide(SITE_EDITOR_KEY, context)
+
+/** Descripción del nodo seleccionado, leída del DOM (el shell sólo conoce bloque + campo). */
+const selectedNodeRef = ref<SiteNodeRef | null>(null)
+watch(
+  () => [selection.blockId, selection.nodeField, props.mode, props.blocks] as const,
+  async () => {
+    if (props.mode !== 'builder' || !selection.blockId || !selection.nodeField) {
+      selectedNodeRef.value = null
+      return
+    }
+    await nextTick()
+    const el = document.querySelector(`[data-sb-node="${selection.blockId}:${selection.nodeField}"]`)
+    selectedNodeRef.value = el ? nodeRefFromElement(el) : null
+  },
+  { immediate: true, flush: 'post' },
+)
+
+function startEditSelected() {
+  const node = selectedNodeRef.value
+  if (node && !node.dynamic) startEdit(node)
+}
+
+defineExpose({ startEditSelected, stopEdit, selectedNodeRef })
 </script>
 
-<style scoped>
-.canvas-toolbar-btn {
-  @apply flex h-6 w-6 items-center justify-center rounded text-stone-500 transition hover:bg-stone-100 hover:text-ink disabled:cursor-not-allowed disabled:opacity-30;
+<style>
+/* Sólo bajo .sb-editing (el lienzo del Constructor): en producción esa
+   clase no existe y ninguna de estas reglas se aplica. Los contornos son
+   `outline`, que no ocupa sitio: el layout que se ve editando es el real. */
+.sb-editing [data-sb-node] {
+  cursor: default;
+}
+.sb-editing [data-sb-node]:hover {
+  outline: 1px dashed rgba(59, 130, 246, 0.75);
+  outline-offset: 2px;
+}
+.sb-editing [data-sb-node][data-sb-selected] {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+.sb-editing [data-sb-node][data-sb-editing],
+.sb-editing [data-sb-node][data-sb-editing] [contenteditable] {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
+  cursor: text;
+}
+.sb-editing [contenteditable]:focus {
+  outline: none;
 }
 </style>

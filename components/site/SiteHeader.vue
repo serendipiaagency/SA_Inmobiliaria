@@ -94,13 +94,24 @@
 </template>
 
 <script setup lang="ts">
+import type { TenantBranding } from '~/composables/useTenant'
+
+/**
+ * `tenantOverride`: el lienzo del Constructor Web pinta esta misma cabecera
+ * para la organización que se está editando, que no es necesariamente la
+ * que resuelve el host del panel — le pasa la marca de esa organización en
+ * vez de la del dominio. Fuera del lienzo no se usa.
+ */
+const props = withDefaults(defineProps<{ tenantOverride?: TenantBranding | null }>(), { tenantOverride: null })
+
 const open = ref(false)
 const { t } = useI18n()
 const { user, loaded, refresh } = useAuth()
 const isStaff = computed(() => user.value?.role === 'admin' || user.value?.role === 'super_admin')
 const { load: loadFav, ids: favIds } = useFavorites()
-const { tenant, load: loadTenant } = useTenant()
+const { tenant: hostTenant, load: loadTenant } = useTenant()
 await loadTenant()
+const tenant = computed(() => props.tenantOverride ?? hostTenant.value)
 
 // Pages that opt in (e.g. the home page, via definePageMeta({ transparentHero: true }))
 // get a nav that starts transparent over a fullscreen hero and solidifies on scroll.

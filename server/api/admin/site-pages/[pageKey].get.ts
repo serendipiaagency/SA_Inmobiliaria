@@ -15,6 +15,7 @@ export default defineEventHandler(async (event) => {
     pageKey,
     blocks: draft.blocks,
     seo: draft.seo,
+    styles: draft.styles || {},
     version: page.version,
     publishedAt: page.publishedAt,
     // The builder shows a "cambios sin publicar" indicator from this, never

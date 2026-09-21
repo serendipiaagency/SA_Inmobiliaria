@@ -1,6 +1,8 @@
 import { and, desc, eq, sql } from 'drizzle-orm'
 import { createError } from 'h3'
 import { schema, now } from './db'
+import { sanitizeNodeStyles, type NodeStyle } from '../../utils/siteBuilder/nodes'
+import { sanitizeGlobalStyles, type SiteGlobalStyles } from '../../utils/siteBuilder/globalStyles'
 
 /**
  * The Constructor Web's data model. A page is a flat, ordered array of
@@ -11,6 +13,13 @@ import { schema, now } from './db'
  * content shape (see components/site-builder/blocks/*.vue and the matching
  * editors). This file only knows how to read/write the envelope, never what
  * a specific block means.
+ *
+ * `nodeStyles` is the one part of a block this file *does* understand: the
+ * per-element overrides of the visual editor (a title's font, a button's
+ * colour…), keyed by the element's field name and sanitised against the
+ * closed list in utils/siteBuilder/nodes.ts — structured properties, never
+ * free CSS, so nothing the client sends can reach the published stylesheet
+ * unchecked.
  */
 export interface SiteBlock {
   id: string
@@ -20,6 +29,8 @@ export interface SiteBlock {
   style?: Record<string, any>
   /** Per-breakpoint visibility. Missing = visible everywhere. */
   visibility?: { desktop?: boolean; tablet?: boolean; mobile?: boolean }
+  /** Visual-editor overrides per editable element of this block (see utils/siteBuilder/nodes.ts). */
+  nodeStyles?: Record<string, NodeStyle>
 }
 
 export interface SitePageSeo {
@@ -30,6 +41,8 @@ export interface SitePageSeo {
 export interface SitePageDocument {
   blocks: SiteBlock[]
   seo: SitePageSeo
+  /** Page-wide defaults the elements inherit (fonts, button radius) — utils/siteBuilder/globalStyles.ts. */
+  styles?: SiteGlobalStyles
 }
 
 export const DEFAULT_PAGE_KEY = 'home'
@@ -40,10 +53,13 @@ export function parsePageJson(json: string | null | undefined): SitePageDocument
   if (!json) return { blocks: [], seo: {} }
   try {
     const parsed = JSON.parse(json)
-    return {
+    const doc: SitePageDocument = {
       blocks: Array.isArray(parsed?.blocks) ? parsed.blocks : [],
       seo: parsed?.seo && typeof parsed.seo === 'object' ? parsed.seo : {},
     }
+    const styles = sanitizeGlobalStyles(parsed?.styles)
+    if (styles) doc.styles = styles
+    return doc
   } catch {
     return { blocks: [], seo: {} }
   }
@@ -260,7 +276,7 @@ export function validatePageDocument(input: unknown): SitePageDocument {
     if (!id || !type) throw createError({ statusCode: 422, statusMessage: `Bloque #${i}: id y type son obligatorios` })
     if (seenIds.has(id)) throw createError({ statusCode: 422, statusMessage: `Id de bloque duplicado: ${id}` })
     seenIds.add(id)
-    return {
+    const block: SiteBlock = {
       id,
       type,
       version: Number.isInteger(b.version) ? b.version : 1,
@@ -268,6 +284,12 @@ export function validatePageDocument(input: unknown): SitePageDocument {
       style: b.style && typeof b.style === 'object' ? b.style : undefined,
       visibility: b.visibility && typeof b.visibility === 'object' ? b.visibility : undefined,
     }
+    // Sanitised, never passed through: an unknown property or an
+    // out-of-range value is dropped here, so the stylesheet built from the
+    // saved JSON only ever contains what utils/siteBuilder/nodes.ts allows.
+    const nodeStyles = sanitizeNodeStyles(b.nodeStyles)
+    if (nodeStyles) block.nodeStyles = nodeStyles
+    return block
   })
 
   const seo: SitePageSeo = {}
@@ -277,6 +299,8 @@ export function validatePageDocument(input: unknown): SitePageDocument {
   }
 
   const doc: SitePageDocument = { blocks, seo }
+  const styles = sanitizeGlobalStyles(raw.styles)
+  if (styles) doc.styles = styles
   if (JSON.stringify(doc).length > MAX_JSON_BYTES) {
     throw createError({ statusCode: 413, statusMessage: 'Página demasiado grande' })
   }
