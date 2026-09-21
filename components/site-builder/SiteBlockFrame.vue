@@ -1,8 +1,10 @@
 <template>
   <div ref="wrapper" v-bind="wrapperAttrs">
+    <!-- z-50: por encima de la cabecera fija del sitio (z-40), que en el
+         lienzo se superpone al primer bloque igual que en la portada real. -->
     <span
       v-if="mode === 'builder'"
-      class="pointer-events-none absolute left-2 top-2 z-10 rounded bg-blue-500 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow transition-opacity"
+      class="pointer-events-none absolute left-2 top-2 z-50 rounded bg-blue-500 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow transition-opacity"
       :class="selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
     >
       {{ index + 1 }}. {{ blockLabel(block.type) }}
@@ -11,7 +13,7 @@
     <div
       v-if="mode === 'builder' && selected"
       data-block-toolbar
-      class="absolute right-2 top-2 z-20 flex items-center gap-0.5 rounded-lg border border-line bg-white p-1 shadow-lg"
+      class="absolute right-2 top-2 z-50 flex items-center gap-0.5 rounded-lg border border-line bg-white p-1 shadow-lg"
     >
       <button type="button" class="canvas-toolbar-btn" title="Subir" :disabled="index === 0" @click="emit('move-up', block.id)">
         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M5 12l7-7 7 7" /></svg>

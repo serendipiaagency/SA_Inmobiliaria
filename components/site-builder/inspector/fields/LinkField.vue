@@ -20,6 +20,7 @@
       :placeholder="placeholder"
       :data-testid="testId"
       @change="onChange"
+      @keydown.enter.prevent="onChange"
     >
     <datalist v-if="type === 'page'" :id="listId">
       <option v-for="p in SITE_PAGES" :key="p.path" :value="p.path">{{ p.label }}</option>

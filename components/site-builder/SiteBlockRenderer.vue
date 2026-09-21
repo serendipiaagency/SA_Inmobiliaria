@@ -1,11 +1,16 @@
 <template>
   <div data-site-page :class="mode === 'builder' ? 'sb-editing' : ''">
+    <!-- La hoja de estilos de los nodos y las fuentes que usa la página van
+         en el propio árbol (no en useHead): así se actualizan con la misma
+         reactividad que el resto del lienzo, y en el SSR salen tal cual. -->
+    <component :is="'style'" v-if="pageCss" data-site-page-css :innerHTML="pageCss" />
+    <component :is="'link'" v-if="fontsHref" rel="stylesheet" :href="fontsHref" />
     <template v-for="(block, index) in visibleBlocks" :key="block.id">
       <!-- Insert-between affordance — builder-only, zero layout impact when
            not hovered (see .site-gap below), mirrors the "+ Añadir sección
            aquí" insertion point in the Estructura panel so either surface
            can start the same "position → pick a block → it lands there" flow. -->
-      <div v-if="mode === 'builder'" class="group/gap relative z-20 h-3 -my-1.5">
+      <div v-if="mode === 'builder'" class="group/gap relative z-50 h-3 -my-1.5">
         <div class="pointer-events-none absolute inset-x-0 top-1/2 z-10 flex -translate-y-1/2 justify-center opacity-0 transition-opacity group-hover/gap:pointer-events-auto group-hover/gap:opacity-100">
           <button
             type="button"
@@ -54,7 +59,7 @@
       </SiteBlockFrame>
     </template>
 
-    <div v-if="mode === 'builder'" class="group/gap relative z-20 h-3 -my-1.5">
+    <div v-if="mode === 'builder'" class="group/gap relative z-50 h-3 -my-1.5">
       <div class="pointer-events-none absolute inset-x-0 top-1/2 z-10 flex -translate-y-1/2 justify-center opacity-0 transition-opacity group-hover/gap:pointer-events-auto group-hover/gap:opacity-100">
         <button
           type="button"
@@ -164,12 +169,12 @@ const visibleBlocks = computed(() =>
 // ---------------------------------------------------------------------------
 // Hoja de estilos de la página + fuentes, en los tres modos
 // ---------------------------------------------------------------------------
+// `innerHTML` a propósito (y no interpolación): dentro de <style> el texto
+// no se decodifica, así que las comillas de los selectores tienen que salir
+// crudas — es CSS generado por utils/siteBuilder a partir de valores ya
+// saneados (números, hex, fuentes del catálogo), nunca texto del usuario.
 const pageCss = computed(() => buildPageCss({ blocks: props.blocks, styles: props.styles }))
 const fontsHref = computed(() => pageFontsHref({ blocks: props.blocks, styles: props.styles }))
-useHead({
-  style: () => (pageCss.value ? [{ key: 'site-page-css', innerHTML: pageCss.value }] : []),
-  link: () => (fontsHref.value ? [{ key: 'site-page-fonts', rel: 'stylesheet', href: fontsHref.value }] : []),
-})
 
 // ---------------------------------------------------------------------------
 // Contexto de edición (sólo hace algo en mode="builder")

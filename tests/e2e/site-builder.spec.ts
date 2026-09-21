@@ -699,10 +699,12 @@ test.describe('Constructor Web — edición directa sobre el lienzo', () => {
     await expect.poll(async () => (await draft()).blocks[0].content.ctaPrimaryTo, { timeout: 10_000 }).toBe('/equipo')
 
     // Imagen: un clic la selecciona; doble clic abre "Cambiar imagen" con subida directa.
+    // (La imagen de fondo cubre toda la sección; se pulsa en su margen
+    // izquierdo, lejos del texto centrado y de la barra del nodo.)
     const image = canvas.locator('[data-sb-node="cta-e2e:image"]')
-    await image.click()
+    await image.click({ position: { x: 24, y: 160 } })
     await expect(page.getByTestId('inspector-title')).toHaveText('Propiedades de la imagen')
-    await image.dblclick()
+    await image.dblclick({ position: { x: 24, y: 160 } })
     await expect(page.getByTestId('media-picker')).toBeVisible()
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64')
     await page.getByTestId('media-picker').locator('input[type="file"]').setInputFiles({ name: 'fondo.png', mimeType: 'image/png', buffer: png })
