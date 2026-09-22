@@ -768,10 +768,18 @@ export const leads = sqliteTable(
     agentName: text('agent_name'),
     notes: text('notes'),
     lastContactAt: text('last_contact_at'),
+    /**
+     * La persona detrás de la oportunidad (migración 0066). NULLable a
+     * propósito: un lead puede entrar antes de que su identidad esté
+     * resuelta, y convertirlo nunca lo elimina — los datos de captación
+     * (name/email/phone de arriba) son la foto de la entrada original y se
+     * conservan aunque el Contact evolucione después.
+     */
+    contactId: integer('contact_id'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
-  (t) => [index('leads_status').on(t.status), index('leads_source').on(t.source)],
+  (t) => [index('leads_status').on(t.status), index('leads_source').on(t.source), index('leads_contact').on(t.contactId)],
 )
 
 export const clients = sqliteTable(
@@ -789,10 +797,12 @@ export const clients = sqliteTable(
     agentName: text('agent_name'),
     location: text('location'),
     notes: text('notes'),
+    /** La persona detrás de la relación comercial (migración 0066). */
+    contactId: integer('contact_id'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
-  (t) => [index('clients_type').on(t.type), index('clients_stage').on(t.stage)],
+  (t) => [index('clients_type').on(t.type), index('clients_stage').on(t.stage), index('clients_contact').on(t.contactId)],
 )
 
 export const visits = sqliteTable(
@@ -2494,4 +2504,153 @@ export const commsWebhookEvents = sqliteTable(
     receivedAt: text('received_at').notNull().default(''),
   },
   (t) => [uniqueIndex('comms_webhook_events_key').on(t.provider, t.eventKey), index('comms_webhook_events_org').on(t.organizationId, t.receivedAt)],
+)
+
+// ---------------------------------------------------------------------------
+// FASE 10 — Contact y Buyer Requirement (migración 0066)
+// ---------------------------------------------------------------------------
+
+/**
+ * La persona (u organización). Hasta la migración 0066 el dominio no tenía
+ * ninguna: `leads` y `clients` guardaban cada uno su propio nombre/email/
+ * teléfono sueltos, y para cruzarlos había que comparar los últimos dígitos
+ * del teléfono (server/utils/comms/matching.ts). `contacts` es la fuente de
+ * verdad de la identidad; `leads` sigue siendo la oportunidad y `clients` la
+ * relación comercial, ambos ahora apuntando aquí.
+ *
+ * Los `normalized*` existen para deduplicar y se rellenan con
+ * server/utils/comms/phone.ts (E.164) y el email en minúsculas — nunca se
+ * comparan los valores tal y como los escribió una persona.
+ */
+export const contacts = sqliteTable(
+  'contacts',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    kind: text('kind').notNull().default('person'), // person | company
+    name: text('name').notNull(),
+    email: text('email'),
+    phone: text('phone'),
+    whatsapp: text('whatsapp'),
+    normalizedEmail: text('normalized_email'),
+    normalizedPhone: text('normalized_phone'),
+    normalizedWhatsapp: text('normalized_whatsapp'),
+    /** Un id externo sólo es único dentro de su origen: "12345" de Idealista no es "12345" de otro CRM. */
+    externalSource: text('external_source'),
+    externalId: text('external_id'),
+    language: text('language'),
+    /** team_members.id — el "Comercial" real del producto. */
+    assignedCommercialId: integer('assigned_commercial_id'),
+    notes: text('notes'),
+    status: text('status').notNull().default('active'), // active | archived
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [
+    index('contacts_org_email').on(t.organizationId, t.normalizedEmail),
+    index('contacts_org_phone').on(t.organizationId, t.normalizedPhone),
+    index('contacts_org_whatsapp').on(t.organizationId, t.normalizedWhatsapp),
+    index('contacts_org_created').on(t.organizationId, t.createdAt),
+    index('contacts_org_commercial').on(t.organizationId, t.assignedCommercialId),
+    uniqueIndex('contacts_org_external').on(t.organizationId, t.externalSource, t.externalId),
+  ],
+)
+
+/**
+ * La necesidad inmobiliaria. Una misma persona puede tener varias a la vez
+ * (vivienda habitual, inversión, local) con criterios distintos, por eso es
+ * una entidad y no un bloque de campos dentro de Contact.
+ *
+ * Un campo a NULL significa "no especificado", que NO es lo mismo que 0 ni
+ * que "no lo quiere": esa diferencia la respeta el motor de matching.
+ */
+export const buyerRequirements = sqliteTable(
+  'buyer_requirements',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    contactId: integer('contact_id')
+      .notNull()
+      .references(() => contacts.id, { onDelete: 'cascade' }),
+    assignedCommercialId: integer('assigned_commercial_id'),
+    title: text('title').notNull().default(''),
+    status: text('status').notNull().default('active'), // active | paused | fulfilled | archived
+    /** Misma taxonomía que agent_properties.transaction_type, sin capa de equivalencia. */
+    operation: text('operation').notNull().default('sale'), // sale | rent
+    /** Valores estables del catálogo (Apartment|Villa|Townhouse|Penthouse|Studio), no etiquetas libres. */
+    propertyTypesJson: text('property_types_json').notNull().default('[]'),
+    priceMin: real('price_min'),
+    priceMax: real('price_max'),
+    areaMin: real('area_min'),
+    areaMax: real('area_max'),
+    bedroomsMin: integer('bedrooms_min'),
+    bathroomsMin: integer('bathrooms_min'),
+    /** Referencias estructuradas {communityId|locationId|city|district|postalCode}, nunca "Chamberí, Salamanca" en un string. */
+    desiredZonesJson: text('desired_zones_json').notNull().default('[]'),
+    /** Las exclusiones tienen precedencia sobre las zonas deseadas cuando hay conflicto. */
+    excludedZonesJson: text('excluded_zones_json').notNull().default('[]'),
+    centerLat: real('center_lat'),
+    centerLng: real('center_lng'),
+    radiusKm: real('radius_km'),
+    /** Estado físico del inmueble; no confundir con el estado comercial de la Property. */
+    conditionPref: text('condition_pref'), // good | to_reform | any
+    /** NUNCA se deduce del módulo de origen: crear una ficha en "2ª mano" no hace que el inmueble lo sea. */
+    buildPref: text('build_pref'), // new | second_hand | renovated
+    /** Cuándo quiere comprar/alquilar. No es createdAt. */
+    desiredDate: text('desired_date'),
+    needsMortgage: integer('needs_mortgage'), // NULL = desconocido
+    mortgageStatus: text('mortgage_status'), // required | requested | preapproved | approved | not_needed
+    financingNotes: text('financing_notes'),
+    /** Sólo lo marca una acción real, con autor y fecha: no basta con que el cliente diga una cifra. */
+    budgetValidated: integer('budget_validated').notNull().default(0),
+    budgetValidatedAt: text('budget_validated_at'),
+    budgetValidatedBy: integer('budget_validated_by'),
+    urgency: text('urgency'), // low | medium | high | urgent
+    notes: text('notes'),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [
+    index('buyer_requirements_org_contact').on(t.organizationId, t.contactId),
+    index('buyer_requirements_org_status').on(t.organizationId, t.status, t.operation),
+    index('buyer_requirements_commercial').on(t.assignedCommercialId),
+  ],
+)
+
+/**
+ * La importancia de cada criterio: imprescindible / preferible / indiferente.
+ *
+ * Se resuelve con filas y no con columnas (terraceImportance, garageImportance,
+ * poolImportance…) porque esa vía hace el modelo rígido. Pero los valores que
+ * se consultan constantemente siguen siendo columnas indexables en
+ * buyer_requirements: aquí vive la importancia y los criterios que no merecen
+ * columna propia. El valor va tipado en tres columnas en lugar de un blob JSON
+ * para poder filtrar sin parsear.
+ */
+export const buyerRequirementCriteria = sqliteTable(
+  'buyer_requirement_criteria',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    buyerRequirementId: integer('buyer_requirement_id')
+      .notNull()
+      .references(() => buyerRequirements.id, { onDelete: 'cascade' }),
+    criterionType: text('criterion_type').notNull(),
+    operator: text('operator').notNull().default('eq'), // eq | lte | gte | in | between
+    valueNumber: real('value_number'),
+    valueText: text('value_text'),
+    valueBool: integer('value_bool'),
+    importance: text('importance').notNull().default('preferred'), // required | preferred | indifferent
+    metadataJson: text('metadata_json'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [
+    index('brc_requirement').on(t.buyerRequirementId, t.criterionType),
+    index('brc_org_type').on(t.organizationId, t.criterionType),
+    uniqueIndex('brc_requirement_type').on(t.buyerRequirementId, t.criterionType),
+  ],
 )
