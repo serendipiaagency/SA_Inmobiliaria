@@ -64,7 +64,8 @@
             </div>
             <div class="mt-2 flex items-center gap-1.5 border-t border-line pt-2 text-[11px] text-stone-500">
               <span class="flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 text-[9px] font-semibold text-stone-600">{{ dt.initials(l.agentName) }}</span>
-              <span class="truncate">{{ l.agentName }}</span>
+              <span class="min-w-0 flex-1 truncate">{{ l.agentName }}</span>
+              <AdminCommsContactActions v-if="l.phone" :lead-id="l.id" :phone="l.phone" :name="l.name" compact />
             </div>
           </article>
           <p v-if="!byStatus(col.key).length" class="py-6 text-center text-xs text-stone-400">Vacío</p>
@@ -85,6 +86,7 @@
               <th class="px-4 py-2.5 text-right font-semibold">Presupuesto</th>
               <th class="px-4 py-2.5 font-semibold">Comercial</th>
               <th class="px-4 py-2.5 font-semibold">Últ. contacto</th>
+              <th class="px-2 py-2.5 font-semibold"><span class="sr-only">Contactar</span></th>
             </tr>
           </thead>
           <tbody>
@@ -99,6 +101,7 @@
               <td class="px-4 py-3 text-right tabular-nums">{{ dt.money(l.budget, { compact: true }) }}</td>
               <td class="px-4 py-3 text-stone-600">{{ l.agentName }}</td>
               <td class="px-4 py-3 text-stone-500">{{ dt.relative(l.lastContactAt) }}</td>
+              <td class="px-2 py-3"><AdminCommsContactActions v-if="l.phone" :lead-id="l.id" :phone="l.phone" :name="l.name" compact /></td>
             </tr>
           </tbody>
         </table>

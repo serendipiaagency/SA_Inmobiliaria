@@ -79,6 +79,14 @@ const EXEMPT: Record<string, Exemption> = {
 
   'twilio/status.post.ts': { reason: 'Servidor a servidor: la firma X-Twilio-Signature (HMAC con el auth token) es la credencial, y sólo actualiza la fila cuyo SID de Twilio coincide.', requires: /verifyTwilioSignature\(/ },
 
+  // Centro de Comunicaciones: los webhooks de los proveedores. La organización
+  // sale del canal (comms_channels) al que iba el evento, y el cuerpo sólo se
+  // acepta si la firma cuadra con el secreto de ESE canal.
+  'comms/webhooks/meta.get.ts': { reason: 'Handshake de verificación de Meta: sin sesión por diseño; la credencial es el token de verificación (hub.verify_token) y no se lee ningún dato de inquilino.', requires: /verifyMetaWebhookToken\(/ },
+  'comms/webhooks/meta.post.ts': { reason: 'Webhook de Meta firmado con X-Hub-Signature-256: el phone_number_id del cuerpo elige el canal (y con él la organización) y la firma se verifica con el App Secret de ese canal antes de procesar nada.', requires: /verifyMetaSignature\(/ },
+  'comms/webhooks/twilio/inbound.post.ts': { reason: 'Webhook de Twilio firmado con X-Twilio-Signature: el número destino (To) elige el canal y la organización, y la firma se verifica con el auth token de ese canal.', requires: /verifyTwilioSignature\(/ },
+  'comms/webhooks/twilio/status.post.ts': { reason: 'Webhook de estado de Twilio: el remitente (From) elige el canal y la organización, y la firma se verifica con el auth token de ese canal; sólo cambia el estado del mensaje con ese SID.', requires: /verifyTwilioSignature\(/ },
+
   'health/live.get.ts': { reason: 'Sonda de vida: sólo confirma que el Worker responde. No toca D1 ni ningún dato de inquilino, a propósito.' },
   'health/ready.get.ts': { reason: 'Sonda de dependencias: sólo comprueba que D1 y R2 responden, y la identidad del build. Ningún dato de inquilino.' },
 

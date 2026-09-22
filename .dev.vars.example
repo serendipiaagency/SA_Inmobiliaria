@@ -59,6 +59,20 @@
 # Only needed to test saving/reading an org's own channel credentials locally.
 # CHANNEL_CREDENTIALS_ENCRYPTION_KEY=
 
+# --- Centro de Comunicaciones: WhatsApp Business por agencia (server/utils/comms/) ---
+# Cifra las credenciales de los números conectados (token de Meta / auth
+# token de Twilio) en D1. Sin esto no se puede conectar ningún número y los
+# webhooks de /api/comms/webhooks/* responden 503. Cualquier cadena larga y
+# aleatoria; NO cambiarla con canales guardados sin re-cifrar.
+# COMMS_CREDENTIALS_ENCRYPTION_KEY=
+# Opcionales: si la plataforma usa UNA app de Meta para todas las agencias,
+# el App Secret (verifica X-Hub-Signature-256) y el token de verificación
+# del webhook. Cada canal puede llevar los suyos propios en su lugar.
+# WHATSAPP_APP_SECRET=
+# WHATSAPP_WEBHOOK_VERIFY_TOKEN=
+# Versión de la Graph API (por defecto v23.0).
+# WHATSAPP_GRAPH_VERSION=v23.0
+
 # --- Publication Scheduler channel secrets (server/utils/publication/channels.ts) ---
 # None of these 19 channels has a real adapter implemented yet — setting
 # these only affects the "Conectado" badge in the admin UI, not real

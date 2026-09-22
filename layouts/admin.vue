@@ -118,6 +118,10 @@
         </div>
         <slot />
       </main>
+      <!-- Centro de Comunicaciones: la llamada de voz en curso y el aviso de
+           llamada entrante viven fuera de cualquier página, para sobrevivir
+           a la navegación. Sólo para quien puede ver el CRM. -->
+      <AdminCommsVoiceWidget v-if="canRead('crm')" />
     </div>
   </div>
 </template>
@@ -157,6 +161,7 @@ const icons: Record<string, string> = {
   alert: 'M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01',
   help: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4M12 17h.01',
   mail: 'M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM22 6l-10 7L2 6',
+  chat: 'M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z',
 }
 
 // Nav definition and page→area mapping live in utils/adminNav.ts so this
@@ -167,9 +172,25 @@ const icons: Record<string, string> = {
 const nav = computed<NavGroup[]>(() =>
   ADMIN_NAV.map((group) => ({
     ...group,
-    items: group.items.filter((item) => !item.superAdminOnly || isSuperAdmin.value),
+    items: group.items
+      .filter((item) => !item.superAdminOnly || isSuperAdmin.value)
+      // El contador de WhatsApp sin leer se pone sobre una copia del item,
+      // nunca sobre el módulo compartido (ver el comentario de arriba).
+      .map((item) => (item.to === '/admin/comunicaciones' && commsUnread.value > 0 ? { ...item, badge: commsUnread.value > 99 ? '99+' : String(commsUnread.value) } : item)),
   })).filter((group) => group.items.length > 0),
 )
+
+// Sondeo del Centro de Comunicaciones (no leídos, llamadas entrantes):
+// sólo en el navegador y sólo para quien puede ver el CRM.
+const comms = useComms()
+const commsUnread = comms.unread
+onMounted(() => {
+  if (canRead('crm')) {
+    comms.loadOverview()
+    comms.startPolling()
+  }
+})
+onBeforeUnmount(() => comms.stopPolling())
 
 // Granular RBAC (utils/permissions.ts) — a restricted admin only sees the nav
 // groups whose area they have at least read access to. Unrestricted accounts

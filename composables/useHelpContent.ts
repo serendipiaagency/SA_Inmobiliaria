@@ -82,6 +82,27 @@ export function useHelpContent() {
       ],
     },
     {
+      key: 'comunicaciones',
+      group: 'CRM',
+      title: 'Comunicaciones',
+      route: '/admin/comunicaciones',
+      summary: 'Bandeja de WhatsApp de la agencia dentro del panel: recibir y responder mensajes, compartir propiedades, vincular cada conversación a un cliente o lead, anotar llamadas y programar seguimientos.',
+      steps: [
+        'Antes de nada hace falta un número de WhatsApp conectado (Configuración → Comunicaciones, área Sistema): Meta WhatsApp Cloud API (la API oficial de Meta: mensajes, plantillas, medios y llamadas de voz donde Meta las permite) o Twilio (mensajes, medios y plantillas). Sin número, los botones "WhatsApp" de Clientes y Leads abren la app de WhatsApp con el enlace oficial wa.me; no se finge ninguna bandeja.',
+        'La bandeja tiene tres columnas: la lista de conversaciones (abiertas, pendientes, cerradas; buscador por nombre, teléfono o texto; filtro por comercial), el hilo, y la ficha del contacto. El contador del menú son los mensajes sin leer; abrir un hilo los pone a cero (y, con Meta, marca "leído" en el WhatsApp del cliente).',
+        'Escribe en el hilo y pulsa Enter para enviar (Mayús+Enter salta de línea). El clip adjunta una imagen o un PDF; la casita comparte una propiedad de la web con su foto y su enlace público; el lápiz cambia a "nota interna" (amarilla), que se guarda en el hilo y nunca se envía al contacto.',
+        'Regla de WhatsApp, no nuestra: sólo se puede escribir texto libre durante las 24 h siguientes al último mensaje del cliente. Pasado ese tiempo (o si el cliente nunca os escribió), el redactor lo dice y sólo permite enviar una plantilla aprobada — el icono de plantilla abre la lista, pide los valores ({{1}}, {{2}}…) y muestra la vista previa. Las plantillas se registran en Configuración → Comunicaciones (a mano, o "Sincronizar desde Meta").',
+        'Los mensajes enviados llevan su estado real: ✓ aceptado por el proveedor, ✓✓ entregado, ✓✓ azul leído, ⚠ no entregado con el motivo que devolvió el proveedor. Nada se marca como enviado si el proveedor lo rechazó.',
+        'Un número que no está en ningún cliente ni lead aparece como "Contacto desconocido". Desde la ficha del contacto se vincula a uno existente (buscador) o se crea un lead nuevo con origen "whatsapp". En Ajustes puedes hacer que los desconocidos se conviertan en lead automáticamente.',
+        'La ficha del contacto también fija el estado de la conversación (abierta, pendiente, cerrada), el comercial asignado, la propiedad de contexto y el consentimiento: un mensaje del cliente lo pone en "acepta mensajes"; si escribe STOP o BAJA queda dado de baja y no se le envía nada (ni plantillas) hasta que vuelva a escribir o alguien lo cambie a mano.',
+        '"Programar seguimiento" crea una cita real en la agenda del comercial (llamada, videollamada o visita), la misma que ves en CRM → Visitas, con la comprobación de huecos ocupados.',
+        'Llamadas: con un número de Meta con las llamadas activas, "Llamar por WhatsApp" llama desde el navegador (pide el micrófono); el contacto tiene que haber dado permiso antes ("Pedir permiso" en su ficha; Meta limita las peticiones a 1 al día y 2 por semana). La llamada sigue en un widget abajo a la derecha aunque cambies de página, se puede minimizar, y al colgar se anota el resultado. Las entrantes aparecen como aviso para contestar o rechazar. No se graba ni se transcribe nada: el audio va directo entre tu navegador y WhatsApp.',
+        'Si el número no admite llamadas (Twilio, o Meta sin la función activa), "Llamar" marca con el teléfono y abre "Registrar llamada" para anotar dirección, resultado, duración y notas; también cuenta como actividad de la ficha.',
+        'Todo queda en la actividad 360º del cliente: la pestaña "Comunicaciones" de su ficha lista conversaciones y llamadas, y la cronología muestra "WhatsApp recibido/enviado" y "Llamada realizada/recibida" con enlace al hilo.',
+        'Desde la ficha de una propiedad (web), "Compartir por WhatsApp" elige el cliente o lead y envía la ficha con foto y enlace; sin número conectado ofrece el enlace listo para pegar.',
+      ],
+    },
+    {
       key: 'visitas',
       group: 'CRM',
       title: 'Visitas',
@@ -645,6 +666,27 @@ export function useHelpContent() {
   ]
 
   const faqs: HelpFaq[] = [
+    {
+      id: 'faq-comms-window',
+      question: 'En Comunicaciones no me deja escribir a un cliente: dice que sólo puedo enviar una plantilla, ¿por qué?',
+      answer:
+        'Es una regla de WhatsApp para todos los negocios, no de esta plataforma: sólo se puede escribir texto libre durante las 24 horas siguientes al último mensaje que ESE cliente os envió. Pasado ese tiempo (o si nunca os escribió), WhatsApp exige una plantilla aprobada por Meta. Registra tus plantillas en Configuración → Comunicaciones (a mano, o "Sincronizar desde Meta" si el número es de Meta) y envíalas desde el icono de plantilla del redactor; cuando el cliente responda, la ventana de 24 h vuelve a abrirse y podrás escribir con normalidad.',
+      tags: ['comunicaciones', 'whatsapp', 'plantilla', 'ventana 24 horas', 'no me deja escribir'],
+    },
+    {
+      id: 'faq-comms-connect',
+      question: '¿Qué necesito para tener el WhatsApp de la agencia en el panel?',
+      answer:
+        'Un número de WhatsApp Business conectado por uno de los dos proveedores oficiales. Con Meta WhatsApp Cloud API: una cuenta de WhatsApp Business (WABA), el phone_number_id del número, un token de usuario del sistema y el App Secret de la app de Meta, y registrar en la app el webhook que muestra Configuración → Comunicaciones (campos "messages" y "calls"). Con Twilio: el Account SID, el Auth Token y un remitente de WhatsApp aprobado (o el sandbox para probar), con sus webhooks apuntando a las URL que muestra la misma pantalla. Además, quien administre la plataforma tiene que haber configurado la clave de cifrado COMMS_CREDENTIALS_ENCRYPTION_KEY en el Worker — Sistema → Estado del sistema lo indica. Las credenciales se guardan cifradas y no vuelven a mostrarse. Los pasos completos están en docs/communications.md.',
+      tags: ['comunicaciones', 'whatsapp', 'conectar', 'meta', 'twilio', 'configuración'],
+    },
+    {
+      id: 'faq-comms-calls',
+      question: '¿Puedo llamar por WhatsApp desde el panel?',
+      answer:
+        'Sólo con un número de Meta WhatsApp Cloud API que tenga las llamadas activadas (Configuración → Comunicaciones → "Activar" en la fila del número; Meta exige un límite de mensajería de al menos 2000 destinatarios al día) y sólo a contactos que hayan dado permiso ("Pedir permiso" en la ficha del contacto; el permiso temporal dura 7 días). Twilio no ofrece llamadas por WhatsApp para números españoles, y Meta no permite llamadas salientes a Estados Unidos, Canadá, Egipto, Vietnam ni Nigeria. Cuando no se puede llamar por WhatsApp, el botón "Llamar" marca con tu teléfono y te deja registrar la llamada con su resultado, que también cuenta en la ficha del cliente. Ninguna llamada se graba ni se transcribe.',
+      tags: ['comunicaciones', 'whatsapp', 'llamadas', 'llamar', 'permiso'],
+    },
     {
       id: 'faq-editor-propiedad-autoguardado',
       question: '¿El editor de propiedades guarda solo mientras escribo?',

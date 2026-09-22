@@ -18,6 +18,7 @@ export type TemplateKey =
   | 'saved_search_alert'
   | 'domain_check_failed'
   | 'domain_check_recovered'
+  | 'whatsapp_message_received'
 
 export interface TemplateDef {
   kind: 'transactional' | 'commercial'
@@ -258,5 +259,21 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
           ? `${d.domain} answered correctly again at ${d.checkedAt} UTC and serves ${d.organizationName}. No action needed.`
           : `${d.domain} ha vuelto a responder correctamente a las ${d.checkedAt} UTC y sirve ${d.organizationName}. No hace falta hacer nada.`,
       ),
+  },
+
+  // Centro de Comunicaciones: primera vez que un número escribe por WhatsApp
+  // (sólo al abrirse la conversación, no por cada mensaje).
+  whatsapp_message_received: {
+    kind: 'transactional',
+    audience: 'internal',
+    subject: (d, l) => (l === 'en' ? `New WhatsApp conversation: ${d.contactName}` : `Nueva conversación de WhatsApp: ${d.contactName}`),
+    body: (d, l) =>
+      emailHeading(l === 'en' ? 'New WhatsApp message' : 'Nuevo mensaje de WhatsApp') +
+      emailInfoTable([
+        [l === 'en' ? 'From' : 'De', d.contactName || '—'],
+        [l === 'en' ? 'Phone' : 'Teléfono', d.phone || '—'],
+      ]) +
+      emailParagraph(d.preview || '') +
+      (d.inboxUrl ? emailButton(l === 'en' ? 'Open in Communications' : 'Abrir en Comunicaciones', d.inboxUrl) : ''),
   },
 }

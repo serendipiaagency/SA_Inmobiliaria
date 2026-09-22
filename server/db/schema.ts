@@ -2274,3 +2274,224 @@ export const passwordResetTokens = sqliteTable(
   },
   (t) => [index('password_reset_tokens_user').on(t.userId, t.expiresAt)],
 )
+
+// ---------------------------------------------------------------------------
+// Centro de Comunicaciones (migración 0065) — WhatsApp Business + llamadas
+// ---------------------------------------------------------------------------
+// Bandeja de conversaciones por agencia con el proveedor detrás de
+// server/utils/comms/providers (Meta WhatsApp Cloud API o Twilio). Las
+// credenciales del canal van cifradas (server/utils/comms/credentials.ts);
+// nada de esto llega en claro al navegador.
+
+/** Ajustes del centro de comunicaciones de una agencia. Una fila por organización; ausente = valores por defecto. */
+export const commsSettings = sqliteTable('comms_settings', {
+  organizationId: integer('organization_id').primaryKey(),
+  /** Prefijo para teléfonos guardados sin "+" (p. ej. "+34"). Sin él, un teléfono sin prefijo internacional se rechaza. */
+  defaultCountryPrefix: text('default_country_prefix'),
+  /** ask = el contacto desconocido se queda como tal hasta que alguien lo vincule; lead = se crea un lead automáticamente. */
+  unknownContactPolicy: text('unknown_contact_policy').notNull().default('ask'),
+  notifyInternal: integer('notify_internal').notNull().default(1),
+  createdAt: text('created_at').notNull().default(''),
+  updatedAt: text('updated_at').notNull().default(''),
+})
+
+/**
+ * Un número de WhatsApp conectado. `externalPhoneId` es el phone_number_id
+ * de Meta o el remitente `whatsapp:+E.164` de Twilio, y (provider,
+ * externalPhoneId) es la clave por la que un webhook entrante encuentra la
+ * agencia a la que pertenece — antes de fiarse de nada del cuerpo, que sólo
+ * se acepta si la firma cuadra con el secreto de ESE canal.
+ */
+export const commsChannels = sqliteTable(
+  'comms_channels',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    provider: text('provider').notNull(), // meta_cloud | twilio
+    label: text('label').notNull().default(''),
+    phoneE164: text('phone_e164').notNull(),
+    externalPhoneId: text('external_phone_id').notNull(),
+    businessAccountId: text('business_account_id'),
+    credentialsCiphertext: text('credentials_ciphertext').notNull(),
+    credentialsIv: text('credentials_iv').notNull(),
+    keyVersion: integer('key_version').notNull().default(1),
+    status: text('status').notNull().default('active'), // active | disabled
+    isDefault: integer('is_default').notNull().default(0),
+    callingStatus: text('calling_status').notNull().default('unknown'), // unknown | unavailable | disabled | enabled
+    callingCheckedAt: text('calling_checked_at'),
+    callingNote: text('calling_note'),
+    lastError: text('last_error'),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('comms_channels_provider_phone').on(t.provider, t.externalPhoneId), index('comms_channels_org').on(t.organizationId, t.status)],
+)
+
+/** El teléfono con el que se habla, normalizado a E.164, vinculado (o no) a un cliente o un lead. */
+export const commsContacts = sqliteTable(
+  'comms_contacts',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    phoneE164: text('phone_e164').notNull(),
+    waId: text('wa_id'),
+    /** Nombre de perfil que manda el proveedor; NO es el nombre del cliente del CRM. */
+    displayName: text('display_name'),
+    clientId: integer('client_id'),
+    leadId: integer('lead_id'),
+    consentStatus: text('consent_status').notNull().default('unknown'), // unknown | opted_in | opted_out
+    consentSource: text('consent_source'),
+    consentUpdatedAt: text('consent_updated_at'),
+    callPermissionStatus: text('call_permission_status').notNull().default('unknown'), // unknown | temporary | permanent | denied | expired
+    callPermissionExpiresAt: text('call_permission_expires_at'),
+    callPermissionUpdatedAt: text('call_permission_updated_at'),
+    lastInboundAt: text('last_inbound_at'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [
+    uniqueIndex('comms_contacts_org_phone').on(t.organizationId, t.phoneE164),
+    index('comms_contacts_client').on(t.clientId),
+    index('comms_contacts_lead').on(t.leadId),
+  ],
+)
+
+/** Un hilo por (canal, contacto). `lastInboundAt` es de donde sale la ventana de 24 h de WhatsApp. */
+export const commsConversations = sqliteTable(
+  'comms_conversations',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    channelId: integer('channel_id').notNull(),
+    contactId: integer('contact_id').notNull(),
+    status: text('status').notNull().default('open'), // open | pending | closed
+    assignedAgentId: integer('assigned_agent_id'), // team_members.id
+    propertyId: integer('property_id'), // developer_properties.id (contexto del hilo)
+    lastMessageAt: text('last_message_at'),
+    lastMessagePreview: text('last_message_preview'),
+    lastInboundAt: text('last_inbound_at'),
+    unreadCount: integer('unread_count').notNull().default(0),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [
+    uniqueIndex('comms_conversations_channel_contact').on(t.channelId, t.contactId),
+    index('comms_conversations_org_last').on(t.organizationId, t.status, t.lastMessageAt),
+    index('comms_conversations_contact').on(t.contactId),
+  ],
+)
+
+/**
+ * Cada mensaje. `direction = note` es una nota interna que nunca se envía.
+ * `externalId` (wamid.… / SM…) es único cuando existe: un webhook repetido
+ * choca con el índice y no duplica.
+ */
+export const commsMessages = sqliteTable(
+  'comms_messages',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    conversationId: integer('conversation_id').notNull(),
+    direction: text('direction').notNull(), // in | out | note
+    type: text('type').notNull().default('text'), // text | image | document | audio | video | template | interactive | location | property_share | unsupported | note
+    body: text('body'),
+    mediaKey: text('media_key'), // R2 (medios entrantes descargados)
+    mediaUrl: text('media_url'), // enlace externo con el que se envió
+    mediaMime: text('media_mime'),
+    mediaFilename: text('media_filename'),
+    templateName: text('template_name'),
+    templateLanguage: text('template_language'),
+    templateParamsJson: text('template_params_json'),
+    propertyId: integer('property_id'),
+    externalId: text('external_id'),
+    status: text('status').notNull().default('queued'), // queued | sent | delivered | read | failed | received
+    errorCode: text('error_code'),
+    errorMessage: text('error_message'),
+    sentByUserId: integer('sent_by_user_id'),
+    providerTimestamp: text('provider_timestamp'),
+    payloadJson: text('payload_json'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [
+    uniqueIndex('comms_messages_external').on(t.externalId),
+    index('comms_messages_conversation').on(t.conversationId, t.id),
+    index('comms_messages_org_created').on(t.organizationId, t.createdAt),
+  ],
+)
+
+/** Cada llamada, por WhatsApp Calling o registrada a mano, con su resultado y la visita de seguimiento creada desde ella. */
+export const commsCalls = sqliteTable(
+  'comms_calls',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    channelId: integer('channel_id'),
+    contactId: integer('contact_id').notNull(),
+    conversationId: integer('conversation_id'),
+    direction: text('direction').notNull(), // inbound | outbound
+    provider: text('provider').notNull(), // meta_cloud | manual
+    externalId: text('external_id'), // wacid.…
+    status: text('status').notNull().default('initiated'), // initiated | ringing | accepted | in_progress | completed | failed | rejected | missed | cancelled
+    outcome: text('outcome'), // answered | no_answer | busy | voicemail | wrong_number | callback | not_interested | interested
+    notes: text('notes'),
+    agentId: integer('agent_id'),
+    userId: integer('user_id'),
+    propertyId: integer('property_id'),
+    followUpVisitId: integer('follow_up_visit_id'),
+    startedAt: text('started_at'),
+    answeredAt: text('answered_at'),
+    endedAt: text('ended_at'),
+    durationSeconds: integer('duration_seconds'),
+    errorMessage: text('error_message'),
+    /** SDP de la sesión WebRTC mientras la llamada está viva (oferta entrante / respuesta de Meta). Se vacía al terminar. */
+    sessionJson: text('session_json'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [
+    uniqueIndex('comms_calls_external').on(t.externalId),
+    index('comms_calls_org_created').on(t.organizationId, t.createdAt),
+    index('comms_calls_contact').on(t.contactId, t.createdAt),
+    index('comms_calls_channel_status').on(t.channelId, t.status),
+  ],
+)
+
+/** Plantillas aprobadas del número, para escribir fuera de la ventana de 24 h. A mano o sincronizadas desde Meta. */
+export const commsTemplates = sqliteTable(
+  'comms_templates',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    channelId: integer('channel_id').notNull(),
+    name: text('name').notNull(),
+    language: text('language').notNull().default('es'),
+    category: text('category'),
+    /** Texto con {{1}}, {{2}}… tal como lo aprobó Meta: sirve para previsualizar y para guardar lo que se envió. */
+    body: text('body').notNull(),
+    status: text('status').notNull().default('unknown'), // approved | pending | rejected | paused | unknown
+    externalId: text('external_id'),
+    syncedAt: text('synced_at'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('comms_templates_channel_name_lang').on(t.channelId, t.name, t.language), index('comms_templates_org').on(t.organizationId)],
+)
+
+/** Idempotencia de webhooks: (provider, eventKey) único, mismo patrón que stripe_webhook_events. */
+export const commsWebhookEvents = sqliteTable(
+  'comms_webhook_events',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    provider: text('provider').notNull(),
+    eventKey: text('event_key').notNull(),
+    organizationId: integer('organization_id'),
+    channelId: integer('channel_id'),
+    payloadJson: text('payload_json').notNull(),
+    processedOk: integer('processed_ok').notNull().default(1),
+    note: text('note'),
+    receivedAt: text('received_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('comms_webhook_events_key').on(t.provider, t.eventKey), index('comms_webhook_events_org').on(t.organizationId, t.receivedAt)],
+)

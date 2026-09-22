@@ -17,9 +17,34 @@
 export interface TimelineEvent {
   id: string
   at: string
-  kind: 'visit' | 'deal' | 'reservation' | 'contract' | 'lead' | 'admin'
+  kind: 'visit' | 'deal' | 'reservation' | 'contract' | 'lead' | 'admin' | 'message' | 'call'
   title: string
   detail: string | null
+  /** Enlace a la pantalla donde se ve el hecho completo (el hilo de WhatsApp, por ejemplo). */
+  to?: string | null
+}
+
+const CALL_OUTCOME: Record<string, string> = {
+  answered: 'contestó',
+  interested: 'interesado',
+  callback: 'pide que le llamen',
+  no_answer: 'no contesta',
+  busy: 'comunica',
+  voicemail: 'buzón de voz',
+  wrong_number: 'número equivocado',
+  not_interested: 'no interesado',
+}
+
+const CALL_STATUS: Record<string, string> = {
+  completed: 'completada',
+  missed: 'perdida',
+  cancelled: 'sin respuesta',
+  failed: 'fallida',
+  rejected: 'rechazada',
+  ringing: 'sonando',
+  in_progress: 'en curso',
+  accepted: 'en curso',
+  initiated: 'iniciada',
 }
 
 const AUDIT_LABELS: Record<string, string> = {
@@ -96,6 +121,33 @@ export function buildClientTimeline(related: any): TimelineEvent[] {
       kind: 'admin',
       title: AUDIT_LABELS[a.action] || a.action,
       detail: a.userEmail || null,
+    })
+  }
+
+  // WhatsApp: cada mensaje real del Centro de Comunicaciones (las notas
+  // internas y las entradas de llamada del hilo tienen su propio hecho).
+  for (const m of related.messages || []) {
+    if (m.direction === 'note' || m.type === 'call') continue
+    const text = (m.body || '').replace(/\s+/g, ' ').trim()
+    events.push({
+      id: `message-${m.id}`,
+      at: m.createdAt,
+      kind: 'message',
+      title: m.direction === 'in' ? 'WhatsApp recibido' : m.status === 'failed' ? 'WhatsApp no entregado' : 'WhatsApp enviado',
+      detail: text ? (text.length > 120 ? `${text.slice(0, 119)}…` : text) : m.type === 'property_share' ? 'Propiedad compartida' : m.type,
+      to: `/admin/comunicaciones?conversation=${m.conversationId}`,
+    })
+  }
+
+  for (const c of related.calls || []) {
+    const parts = [CALL_OUTCOME[c.outcome] || null, c.durationSeconds ? `${Math.round(c.durationSeconds / 60)} min` : null, c.notes || null].filter(Boolean)
+    events.push({
+      id: `call-${c.id}`,
+      at: c.startedAt || c.createdAt,
+      kind: 'call',
+      title: `${c.direction === 'inbound' ? 'Llamada recibida' : 'Llamada realizada'} ${c.provider === 'manual' ? '' : 'por WhatsApp '}(${CALL_STATUS[c.status] || c.status})`.replace(/\s+\(/, ' ('),
+      detail: parts.join(' · ') || null,
+      to: c.conversationId ? `/admin/comunicaciones?conversation=${c.conversationId}` : null,
     })
   }
 

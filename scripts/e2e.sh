@@ -57,6 +57,7 @@ npx wrangler dev --local --port "${PORT}" \
   --var STRIPE_WEBHOOK_SECRET:whsec_e2e_test_placeholder \
   --var RESEND_WEBHOOK_SECRET:whsec_ZTJlX3Rlc3RfcGxhY2Vob2xkZXJfMzJieXRlcw== \
   --var TOTP_ENCRYPTION_KEY:e2e_totp_key_placeholder \
+  --var COMMS_CREDENTIALS_ENCRYPTION_KEY:e2e_comms_key_placeholder \
   >"${LOG_FILE}" 2>&1 &
 PID=$!
 
