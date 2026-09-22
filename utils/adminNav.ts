@@ -50,6 +50,8 @@ export const ADMIN_NAV: NavGroup[] = [
     label: 'CRM',
     area: 'crm',
     items: [
+      { label: 'Contactos', to: '/admin/contactos', icon: 'users' },
+      { label: 'Compatibilidades', to: '/admin/compatibilidades', icon: 'sparkles' },
       { label: 'Leads', to: '/admin/leads', icon: 'contact' },
       { label: 'Clientes', to: '/admin/clientes', icon: 'users' },
       { label: 'Comunicaciones', to: '/admin/comunicaciones', icon: 'chat' },

@@ -53,6 +53,52 @@ export function useHelpContent() {
     },
     // --- CRM ---------------------------------------------------------------
     {
+      key: 'contactos',
+      group: 'CRM',
+      title: 'Contactos',
+      route: '/admin/contactos',
+      summary:
+        'Las personas. Un contacto es la ficha de alguien —comprador, vendedor, inquilino— independiente de cuántas veces te haya escrito o de si ya es cliente.',
+      steps: [
+        'Al crear un contacto, el sistema busca duplicados por email y teléfono dentro de tu agencia y te avisa antes de guardarlo. Nunca fusiona a dos personas por su cuenta: te enseña el candidato y tú decides.',
+        'Si la coincidencia es exacta (mismo email o mismo teléfono), lo normal es abrir el contacto existente en vez de crear otro.',
+        'Si de verdad son dos personas distintas que comparten un dato, usa "Crear igualmente": queda registrado que la decisión fue consciente.',
+        'Desde la ficha, la pestaña Necesidades guarda qué busca esa persona, y la pestaña Leads reúne todas las veces que ha contactado contigo.',
+      ],
+    },
+    {
+      key: 'necesidades',
+      group: 'CRM',
+      title: 'Necesidades del comprador',
+      route: '/admin/contactos',
+      summary:
+        'Qué busca cada persona, en estructurado: operación, tipo, presupuesto, zonas, superficie, habitaciones y características, con la importancia de cada criterio.',
+      steps: [
+        'Entra en un contacto y abre la pestaña "Necesidades" → "Nueva necesidad".',
+        'Una misma persona puede tener varias a la vez (vivienda habitual, inversión, local): crea una por cada búsqueda real, porque los criterios son distintos.',
+        'En cada característica marca si es imprescindible, preferible o indiferente. Lo que no marques queda sin declarar — que no pidas garaje no significa que lo rechaces, y esa diferencia importa al cruzar con el catálogo.',
+        'Deja en blanco lo que el cliente no haya concretado. Un precio máximo vacío significa "no lo ha dicho", nunca "cero".',
+        '"Validar presupuesto" es una acción con autor y fecha: márcala sólo cuando lo hayas comprobado de verdad, no porque el cliente haya mencionado una cifra.',
+      ],
+    },
+    {
+      key: 'compatibilidades',
+      group: 'CRM',
+      title: 'Compatibilidades (matching)',
+      route: '/admin/compatibilidades',
+      summary:
+        'Cruza necesidades con inmuebles en las dos direcciones y te dice, criterio a criterio, por qué encaja cada uno. El porcentaje nunca viene solo: siempre lleva su explicación.',
+      steps: [
+        'Desde una necesidad (ficha del contacto → Necesidades → "Buscar propiedades") ves los inmuebles compatibles.',
+        'Desde "Compatibilidades" eliges un inmueble y ves qué compradores registrados encajan con él. Es el mismo cálculo, al revés.',
+        'Cada línea del desglose dice qué se comparó: ✓ cumple, △ se queda cerca (78 m² frente a 80), ✕ no cumple, ? no hay dato para saberlo.',
+        'Un criterio imprescindible incumplido descarta el inmueble y se marca como tal; uno preferible sólo baja el porcentaje.',
+        'Si un imprescindible no se puede comprobar, el inmueble no se descarta: sale como "revisar", porque esconderlo por una ficha incompleta haría perder operaciones.',
+        '"Seleccionar" y "Descartar" guardan la decisión (el descarte, con motivo). Consultar compatibilidades no guarda nada.',
+        'En un inmueble sin características repasadas, lo que no está marcado cuenta como desconocido. Pulsa "He repasado las características" para que a partir de ahí un hueco signifique de verdad "no lo tiene".',
+      ],
+    },
+    {
       key: 'leads',
       group: 'CRM',
       title: 'Leads',
@@ -749,6 +795,48 @@ export function useHelpContent() {
       answer:
         'Es el comportamiento esperado: una propiedad solo puede tener una fuente de vídeo activa a la vez (una URL externa de YouTube/Vimeo/enlace directo, o un archivo subido), para evitar que queden dos vídeos contradictorios guardados. Al subir un archivo, sustituye a la URL que hubiera antes (y viceversa). Si necesitas volver a la URL anterior, tendrás que volver a introducirla en la pestaña "URL externa".',
       tags: ['propiedades', 'video', 'multimedia', 'developer-properties'],
+    },
+    {
+      id: 'faq-contacto-vs-lead',
+      question: '¿Qué diferencia hay entre un contacto, un lead y un cliente?',
+      answer:
+        'El contacto es la persona. El lead es una oportunidad concreta: la vez que esa persona preguntó por algo. El cliente es la relación comercial ya cerrada. María puede ser un contacto con tres leads (preguntó por tres pisos en meses distintos) y acabar siendo cliente: sigue siendo una sola persona.',
+      tags: ['contactos', 'leads', 'clientes', 'crm'],
+    },
+    {
+      id: 'faq-duplicados',
+      question: 'Me avisa de un posible duplicado, ¿qué hago?',
+      answer:
+        'Si coincide el email o el teléfono, casi siempre es la misma persona: abre el contacto existente y añádele ahí la nueva necesidad o el nuevo lead. Si sólo coincide el nombre, el sistema lo marca como coincidencia débil — "García" y "García" suelen ser dos personas — y puedes crear el contacto igualmente. Nunca se fusiona nada automáticamente, porque unir a dos personas distintas por error no tiene arreglo fácil.',
+      tags: ['contactos', 'duplicados', 'dedup'],
+    },
+    {
+      id: 'faq-necesidad-vacia',
+      question: 'En una necesidad, ¿qué pasa si dejo un campo en blanco?',
+      answer:
+        'Queda como "no especificado", que no es lo mismo que cero ni que un no. Si no pones precio máximo, no se entiende que el cliente no quiera pagar nada; si no marcas piscina, no se entiende que la rechace. Esa distinción es la que permite después cruzar necesidades con inmuebles sin descartar cosas por un dato que nadie llegó a preguntar.',
+      tags: ['necesidades', 'buyer requirement'],
+    },
+    {
+      id: 'faq-match-porcentaje',
+      question: '¿De dónde sale el porcentaje de compatibilidad?',
+      answer:
+        'De una suma de pesos fija y pública, no de una IA. Cada criterio (precio, zona, dormitorios, superficie, características…) tiene un peso, y el porcentaje es lo obtenido sobre lo que se pudo comprobar. Por eso debajo del número siempre está el desglose línea a línea: si dos personas miran el mismo inmueble y la misma necesidad, ven exactamente el mismo resultado. Los imprescindibles no puntúan — o se cumplen, o descartan el inmueble.',
+      tags: ['matching', 'compatibilidades', 'score'],
+    },
+    {
+      id: 'faq-match-sin-dato',
+      question: 'Pedí piscina como imprescindible y sale un piso del que no consta que la tenga. ¿Por qué?',
+      answer:
+        'Porque "no consta" no es "no la tiene". Si el inmueble se descartara por un dato que nadie ha rellenado, perderías operaciones por fichas incompletas. Sale marcado como "revisar" para que lo compruebes. En cuanto alguien pulsa "He repasado las características" en ese inmueble, lo que no esté marcado pasa a significar que de verdad no lo tiene, y entonces sí se descarta.',
+      tags: ['matching', 'compatibilidades', 'datos'],
+    },
+    {
+      id: 'faq-match-enviar',
+      question: '¿Por qué no puedo marcar un match como "enviado"?',
+      answer:
+        'Porque marcarlo sin que exista un envío real convertiría el historial en algo que no se puede creer. El estado "enviado" lo pondrá el Centro de Comunicaciones cuando registre el envío de verdad, y lo mismo con "visitado" y "ofertado" cuando existan las visitas y las ofertas. De momento puedes seleccionar y descartar, que son decisiones que sí tomas tú.',
+      tags: ['matching', 'compatibilidades', 'estados'],
     },
     {
       id: 'faq-lead-source',
