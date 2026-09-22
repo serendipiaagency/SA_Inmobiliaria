@@ -46,6 +46,24 @@ export function normalizedIdentity(input: ContactInput, defaultCountryPrefix?: s
   }
 }
 
+/**
+ * El prefijo internacional configurado por la agencia
+ * (comms_settings.default_country_prefix). Sin él, un número escrito en
+ * local ("600112233") no se puede normalizar y se queda fuera del cruce de
+ * duplicados: quien lo escribió vería crearse un contacto repetido.
+ */
+export async function orgDefaultCountryPrefix(event: H3Event, orgId: number): Promise<string | null> {
+  const db = useDb(event)
+  const row = (
+    await db
+      .select({ prefix: schema.commsSettings.defaultCountryPrefix })
+      .from(schema.commsSettings)
+      .where(eq(schema.commsSettings.organizationId, orgId))
+      .limit(1)
+  )[0]
+  return row?.prefix || null
+}
+
 export type DuplicateLevel = 'exact' | 'possible'
 
 export interface DuplicateCandidate {
@@ -211,7 +229,15 @@ export async function updateContact(
   if (input.kind !== undefined) patch.kind = input.kind === 'company' ? 'company' : 'person'
 
   await db.update(schema.contacts).set(patch).where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.organizationId, orgId)))
-  return (await db.select().from(schema.contacts).where(eq(schema.contacts.id, contactId)).limit(1))[0]
+  // Acotada por organización igual que la escritura: nunca se devuelve una
+  // fila localizada sólo por su id global.
+  return (
+    await db
+      .select()
+      .from(schema.contacts)
+      .where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.organizationId, orgId)))
+      .limit(1)
+  )[0]
 }
 
 /**

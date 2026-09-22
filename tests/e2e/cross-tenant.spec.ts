@@ -304,4 +304,42 @@ test.describe('Aislamiento entre inmobiliarias (cross-tenant)', () => {
     expect(afterA.version, 'publicar en B incrementó la versión de A').toBe(beforeA.version)
     expect(afterA.publishedAt).toBe(beforeA.publishedAt)
   })
+
+  /**
+   * FASE 10. El riesgo concreto: una escritura acotada por organización
+   * seguida de una lectura acotada sólo por el id. El UPDATE no toca nada
+   * —correcto— pero la respuesta devolvía la fila de la otra agencia con un
+   * 200. `tenantScopeCoverage` no puede verlo, porque el endpoint sí llama a
+   * requireOrgScope: el descuido estaba dentro del servicio.
+   */
+  test('A no puede leer ni tocar los contactos y necesidades de B', async () => {
+    const contactRes = await b.post('/api/admin/saas/contacts', {
+      data: { name: `Cliente Secreto ${RUN}`, email: `secreto-${RUN}@skyline.test`, force: true },
+    })
+    expect(contactRes.ok(), `B no pudo crear el contacto: ${contactRes.status()}`).toBeTruthy()
+    const bContactId = (await contactRes.json()).id
+
+    const reqRes = await b.post('/api/admin/saas/buyer-requirements', {
+      data: { contactId: bContactId, title: `Necesidad Secreta ${RUN}`, priceMax: 999999 },
+    })
+    expect(reqRes.ok(), `B no pudo crear la necesidad: ${reqRes.status()}`).toBeTruthy()
+    const bRequirementId = (await reqRes.json()).id
+
+    expectCrossTenantDenied((await a.get(`/api/admin/saas/contacts/${bContactId}`)).status(), 'leer contacto de B')
+
+    // Validar el presupuesto de una necesidad ajena no puede devolverla.
+    const validate = await a.post(`/api/admin/saas/buyer-requirements/${bRequirementId}/validate-budget`, { data: { validated: true } })
+    expectCrossTenantDenied(validate.status(), 'validar presupuesto de B')
+
+    const patch = await a.patch(`/api/admin/saas/buyer-requirements/${bRequirementId}`, { data: { title: 'Secuestrada' } })
+    expectCrossTenantDenied(patch.status(), 'editar necesidad de B')
+
+    // Y nada de B ha cambiado ni aparece en los listados de A.
+    const bAfter = await (await b.get(`/api/admin/saas/buyer-requirements?contactId=${bContactId}`)).json()
+    expect(bAfter[0].title, 'A modificó la necesidad de B').toBe(`Necesidad Secreta ${RUN}`)
+    expect(bAfter[0].budgetValidated, 'A validó el presupuesto de B').toBe(0)
+
+    const aList = await (await a.get('/api/admin/saas/contacts')).json()
+    expect(aList.map((c: any) => c.id), 'el listado de A incluye un contacto de B').not.toContain(bContactId)
+  })
 })

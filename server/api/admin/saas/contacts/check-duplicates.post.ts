@@ -1,5 +1,5 @@
 import { requireOrgScope } from '../../../../utils/auth'
-import { findDuplicateContacts, type ContactInput } from '../../../../utils/contacts/service'
+import { findDuplicateContacts, orgDefaultCountryPrefix, type ContactInput } from '../../../../utils/contacts/service'
 
 /**
  * Consulta de duplicados antes de crear. Es POST porque recibe los datos del
@@ -12,6 +12,15 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<ContactInput & { excludeContactId?: number }>(event)
   if (!body?.name && !body?.email && !body?.phone) return { duplicates: [] }
 
-  const duplicates = await findDuplicateContacts(event, orgId, { name: body.name || '', email: body.email, phone: body.phone, whatsapp: body.whatsapp, externalSource: body.externalSource, externalId: body.externalId }, { excludeContactId: body.excludeContactId })
+  // Mismo prefijo que usa el alta: si la previsualización normalizara de otra
+  // forma, avisaría de duplicados distintos de los que luego bloquean.
+  const defaultCountryPrefix = await orgDefaultCountryPrefix(event, orgId)
+
+  const duplicates = await findDuplicateContacts(
+    event,
+    orgId,
+    { name: body.name || '', email: body.email, phone: body.phone, whatsapp: body.whatsapp, externalSource: body.externalSource, externalId: body.externalId },
+    { excludeContactId: body.excludeContactId, defaultCountryPrefix },
+  )
   return { duplicates }
 })

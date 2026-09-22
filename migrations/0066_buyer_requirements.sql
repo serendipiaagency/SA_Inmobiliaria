@@ -319,13 +319,25 @@ WHERE contact_id IS NULL AND phone IS NOT NULL AND TRIM(phone) <> '';
 
 -- (c) Leads sin email ni teléfono: ficha individual, porque no hay ninguna
 -- señal con la que agruparlos sin inventar.
-INSERT INTO contacts (organization_id, kind, name, notes, status, created_at, updated_at)
+--
+-- Aquí el emparejamiento NO puede hacerse por nombre: dos leads antiguos de
+-- la misma organización llamados "Juan Pérez", ambos sin email ni teléfono,
+-- son con toda probabilidad dos personas distintas, y buscarlos por nombre
+-- mandaría los dos leads al mismo contacto dejando el otro huérfano — justo
+-- la fusión silenciosa que este backfill evita en todos los demás casos.
+--
+-- Se usa un marcador de procedencia temporal en external_source/external_id
+-- (el índice único (org, source, id) garantiza que sea 1:1) y se limpia al
+-- terminar, de modo que cada lead queda con SU contacto y no queda residuo.
+INSERT INTO contacts (organization_id, kind, name, notes, status, external_source, external_id, created_at, updated_at)
 SELECT
   l.organization_id,
   'person',
   l.name,
   l.notes,
   'active',
+  'migracion:0066:lead',
+  CAST(l.id AS TEXT),
   COALESCE(NULLIF(l.created_at, ''), datetime('now')),
   COALESCE(NULLIF(l.updated_at, ''), datetime('now'))
 FROM leads l
@@ -334,9 +346,12 @@ WHERE l.contact_id IS NULL;
 UPDATE leads SET contact_id = (
   SELECT ct.id FROM contacts ct
   WHERE ct.organization_id = leads.organization_id
-    AND ct.name = leads.name
-    AND ct.normalized_email IS NULL
-    AND ct.normalized_phone IS NULL
-  ORDER BY ct.id DESC LIMIT 1
+    AND ct.external_source = 'migracion:0066:lead'
+    AND ct.external_id = CAST(leads.id AS TEXT)
 )
 WHERE contact_id IS NULL;
+
+-- El marcador ya cumplió su función: se retira para que external_source
+-- siga significando únicamente "viene de un sistema externo".
+UPDATE contacts SET external_source = NULL, external_id = NULL
+WHERE external_source = 'migracion:0066:lead';

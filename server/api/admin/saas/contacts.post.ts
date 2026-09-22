@@ -1,6 +1,6 @@
 import { requireOrgScope } from '../../../utils/auth'
 import { logAdminAction } from '../../../utils/audit'
-import { createContact, findDuplicateContacts, type ContactInput } from '../../../utils/contacts/service'
+import { createContact, findDuplicateContacts, orgDefaultCountryPrefix, type ContactInput } from '../../../utils/contacts/service'
 
 /**
  * Crea un contacto.
@@ -18,7 +18,12 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 422, statusMessage: 'Indica al menos un email o un teléfono' })
   }
 
-  const candidates = await findDuplicateContacts(event, orgId, body)
+  // El prefijo configurado por la agencia hace que "600112233" se normalice
+  // igual que "+34600112233": sin él ni se detecta el duplicado ni se guarda
+  // el teléfono normalizado.
+  const defaultCountryPrefix = await orgDefaultCountryPrefix(event, orgId)
+
+  const candidates = await findDuplicateContacts(event, orgId, body, { defaultCountryPrefix })
   if (candidates.length && !body.force) {
     throw createError({
       statusCode: 409,
@@ -27,7 +32,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const contact = await createContact(event, orgId, body, { createdBy: user.id })
+  const contact = await createContact(event, orgId, body, { createdBy: user.id, defaultCountryPrefix })
   await logAdminAction(event, {
     user,
     orgId,

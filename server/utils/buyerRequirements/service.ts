@@ -269,7 +269,10 @@ export async function updateBuyerRequirement(
   if (input.desiredZones !== undefined) patch.desiredZonesJson = JSON.stringify(input.desiredZones)
   if (input.excludedZones !== undefined) patch.excludedZonesJson = JSON.stringify(input.excludedZones)
 
-  await db.update(schema.buyerRequirements).set(patch).where(eq(schema.buyerRequirements.id, requirementId))
+  await db
+    .update(schema.buyerRequirements)
+    .set(patch)
+    .where(and(eq(schema.buyerRequirements.id, requirementId), eq(schema.buyerRequirements.organizationId, orgId)))
 
   // Los criterios se reemplazan en bloque cuando el formulario los envía:
   // conservar los antiguos dejaría importancias huérfanas de criterios que
@@ -280,7 +283,13 @@ export async function updateBuyerRequirement(
     if (rows.length) await db.insert(schema.buyerRequirementCriteria).values(rows)
   }
 
-  return (await db.select().from(schema.buyerRequirements).where(eq(schema.buyerRequirements.id, requirementId)).limit(1))[0]
+  return (
+    await db
+      .select()
+      .from(schema.buyerRequirements)
+      .where(and(eq(schema.buyerRequirements.id, requirementId), eq(schema.buyerRequirements.organizationId, orgId)))
+      .limit(1)
+  )[0]
 }
 
 /** Marcar el presupuesto como validado es una acción con autor y fecha, no un checkbox suelto. */
@@ -295,7 +304,16 @@ export async function validateBudget(event: H3Event, orgId: number, requirementI
       updatedAt: now(),
     })
     .where(and(eq(schema.buyerRequirements.id, requirementId), eq(schema.buyerRequirements.organizationId, orgId)))
-  return (await db.select().from(schema.buyerRequirements).where(eq(schema.buyerRequirements.id, requirementId)).limit(1))[0]
+  // La lectura va acotada por organización igual que la escritura. Con el id
+  // suelto, pedir el id de otra agencia devolvía su necesidad entera con un
+  // 200 aunque el UPDATE no hubiera tocado nada.
+  return (
+    await db
+      .select()
+      .from(schema.buyerRequirements)
+      .where(and(eq(schema.buyerRequirements.id, requirementId), eq(schema.buyerRequirements.organizationId, orgId)))
+      .limit(1)
+  )[0]
 }
 
 export async function listBuyerRequirements(event: H3Event, orgId: number, opts: { contactId?: number } = {}) {
