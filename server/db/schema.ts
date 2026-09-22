@@ -212,6 +212,14 @@ export const agentProperties = sqliteTable(
     afterPhoto: text('after_photo'),
     aiStagedPhoto: text('ai_staged_photo'),
     paymentPlan: text('payment_plan'), // JSON string
+    /**
+     * Cuándo se repasaron las características (has_*). Esas columnas son NOT
+     * NULL DEFAULT 0, así que sin esto un 0 no se puede leer: podría ser "no
+     * lo tiene" o "nadie lo ha rellenado". El motor de matching lo necesita
+     * para distinguir NO de DESCONOCIDO (migración 0067).
+     */
+    featuresReviewedAt: text('features_reviewed_at'),
+    featuresReviewedBy: integer('features_reviewed_by'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
@@ -2652,5 +2660,49 @@ export const buyerRequirementCriteria = sqliteTable(
     index('brc_requirement').on(t.buyerRequirementId, t.criterionType),
     index('brc_org_type').on(t.organizationId, t.criterionType),
     uniqueIndex('brc_requirement_type').on(t.buyerRequirementId, t.criterionType),
+  ],
+)
+
+/**
+ * PropertyMatch — la compatibilidad entre una necesidad y un inmueble, cuando
+ * merece la pena guardarla (FASE 11, migración 0067).
+ *
+ * El motor calcula bajo demanda; aquí sólo se persiste lo que representa una
+ * decisión comercial real (seleccionado, enviado, descartado), junto con el
+ * desglose con el que se tomó y la versión de las reglas que lo produjo.
+ * Guardar cada comparación posible serían millones de filas sin valor.
+ */
+export const propertyMatches = sqliteTable(
+  'property_matches',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    propertyId: integer('property_id')
+      .notNull()
+      .references(() => agentProperties.id, { onDelete: 'cascade' }),
+    buyerRequirementId: integer('buyer_requirement_id')
+      .notNull()
+      .references(() => buyerRequirements.id, { onDelete: 'cascade' }),
+    contactId: integer('contact_id')
+      .notNull()
+      .references(() => contacts.id, { onDelete: 'cascade' }),
+    /** Compatibilidad necesidad ↔ inmueble. NO es el lead score (intención comercial). */
+    score: integer('score'),
+    eligibility: text('eligibility').notNull().default('eligible'), // eligible | ineligible | needs_review
+    confidence: real('confidence'),
+    /** Estado comercial, independiente del score: un 95 % puede estar descartado. */
+    status: text('status').notNull().default('new'), // new | selected | sent | discarded | viewing | offered
+    discardedReason: text('discarded_reason'),
+    breakdownJson: text('breakdown_json'),
+    rulesVersion: integer('rules_version').notNull().default(1),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [
+    uniqueIndex('property_matches_pair').on(t.buyerRequirementId, t.propertyId),
+    index('property_matches_org_status').on(t.organizationId, t.status),
+    index('property_matches_org_property').on(t.organizationId, t.propertyId),
+    index('property_matches_org_contact').on(t.organizationId, t.contactId),
   ],
 )

@@ -156,6 +156,52 @@
               <button type="button" class="font-medium text-ink hover:underline" @click="toggleBudget(r)">
                 {{ r.budgetValidated ? 'Retirar validación' : 'Validar presupuesto' }}
               </button>
+              <button type="button" class="font-medium text-ink hover:underline" :data-testid="`match-search-${r.id}`" @click="searchProperties(r)">
+                {{ matches[r.id] ? 'Ocultar propiedades' : 'Buscar propiedades' }}
+              </button>
+            </div>
+
+            <!-- Necesidad → inmuebles compatibles. El score y su explicación
+                 vienen del motor; esta pantalla sólo los enseña. -->
+            <div v-if="matches[r.id]" class="mt-3 border-t border-line pt-3" :data-testid="`match-results-${r.id}`">
+              <p v-if="matchLoading[r.id]" class="text-xs text-stone-400">Buscando…</p>
+              <p v-else-if="!matches[r.id].results.length" class="text-xs text-stone-500">
+                Ningún inmueble disponible encaja con esta necesidad ahora mismo.
+              </p>
+              <ul v-else class="space-y-3">
+                <li v-for="m in matches[r.id].results" :key="m.property.id" class="rounded-lg border border-line p-3">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="truncate text-sm font-medium">{{ m.property.location || `Inmueble #${m.property.id}` }}</p>
+                      <p class="text-xs text-stone-400">
+                        {{ m.property.propertyType || 'Sin tipo' }} · {{ m.property.price != null ? money(m.property.price) : 'Sin precio' }}
+                      </p>
+                    </div>
+                    <div class="flex shrink-0 gap-2 text-xs">
+                      <button
+                        type="button"
+                        class="rounded-lg border border-line px-2 py-1 font-medium hover:bg-stone-50"
+                        :class="m.persisted?.status === 'selected' ? 'border-emerald-300 text-emerald-700' : ''"
+                        @click="decide(r, m, 'selected')"
+                      >
+                        {{ m.persisted?.status === 'selected' ? 'Seleccionado' : 'Seleccionar' }}
+                      </button>
+                      <button
+                        type="button"
+                        class="rounded-lg border border-line px-2 py-1 font-medium hover:bg-stone-50"
+                        :class="m.persisted?.status === 'discarded' ? 'border-rose-300 text-rose-700' : ''"
+                        @click="decide(r, m, 'discarded')"
+                      >
+                        {{ m.persisted?.status === 'discarded' ? 'Descartado' : 'Descartar' }}
+                      </button>
+                    </div>
+                  </div>
+                  <AdminMatchBreakdown :result="m.result" class="mt-2" />
+                  <p v-if="m.persisted?.discardedReason" class="mt-1 text-[11px] text-stone-400">
+                    Motivo: {{ m.persisted.discardedReason }}
+                  </p>
+                </li>
+              </ul>
             </div>
           </AdminPanel>
         </div>
@@ -274,6 +320,51 @@ async function toggleBudget(r: any) {
     await refresh()
   } catch {
     toast.error('No se pudo actualizar')
+  }
+}
+
+// --- Matching (FASE 11) ----------------------------------------------------
+// Consultar compatibilidades no guarda nada: el match se persiste sólo cuando
+// alguien decide algo sobre él (seleccionar / descartar).
+const matches = reactive<Record<number, any>>({})
+const matchLoading = reactive<Record<number, boolean>>({})
+
+function money(n: number) {
+  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
+}
+
+async function searchProperties(r: any) {
+  if (matches[r.id]) {
+    matches[r.id] = null
+    return
+  }
+  matches[r.id] = { results: [] }
+  matchLoading[r.id] = true
+  try {
+    matches[r.id] = await $fetch<any>(`/api/admin/saas/matching/requirement/${r.id}`)
+  } catch {
+    matches[r.id] = null
+    toast.error('No se pudo buscar propiedades')
+  } finally {
+    matchLoading[r.id] = false
+  }
+}
+
+async function decide(r: any, m: any, status: 'selected' | 'discarded') {
+  // Descartar pide motivo: un match descartado sin explicación vuelve a
+  // aparecer mañana sin que nadie recuerde por qué se cayó.
+  let discardedReason: string | undefined
+  if (status === 'discarded') {
+    discardedReason = window.prompt('Motivo del descarte (opcional)') || undefined
+  }
+  try {
+    const saved = await $fetch<any>('/api/admin/saas/matching/matches', {
+      method: 'POST',
+      body: { buyerRequirementId: r.id, propertyId: m.property.id, status, discardedReason },
+    })
+    m.persisted = { id: saved.id, status: saved.status, discardedReason: saved.discardedReason }
+  } catch (err: any) {
+    toast.error(err?.data?.statusMessage || 'No se pudo guardar la decisión')
   }
 }
 

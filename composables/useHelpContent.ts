@@ -82,6 +82,23 @@ export function useHelpContent() {
       ],
     },
     {
+      key: 'compatibilidades',
+      group: 'CRM',
+      title: 'Compatibilidades (matching)',
+      route: '/admin/compatibilidades',
+      summary:
+        'Cruza necesidades con inmuebles en las dos direcciones y te dice, criterio a criterio, por qué encaja cada uno. El porcentaje nunca viene solo: siempre lleva su explicación.',
+      steps: [
+        'Desde una necesidad (ficha del contacto → Necesidades → "Buscar propiedades") ves los inmuebles compatibles.',
+        'Desde "Compatibilidades" eliges un inmueble y ves qué compradores registrados encajan con él. Es el mismo cálculo, al revés.',
+        'Cada línea del desglose dice qué se comparó: ✓ cumple, △ se queda cerca (78 m² frente a 80), ✕ no cumple, ? no hay dato para saberlo.',
+        'Un criterio imprescindible incumplido descarta el inmueble y se marca como tal; uno preferible sólo baja el porcentaje.',
+        'Si un imprescindible no se puede comprobar, el inmueble no se descarta: sale como "revisar", porque esconderlo por una ficha incompleta haría perder operaciones.',
+        '"Seleccionar" y "Descartar" guardan la decisión (el descarte, con motivo). Consultar compatibilidades no guarda nada.',
+        'En un inmueble sin características repasadas, lo que no está marcado cuenta como desconocido. Pulsa "He repasado las características" para que a partir de ahí un hueco signifique de verdad "no lo tiene".',
+      ],
+    },
+    {
       key: 'leads',
       group: 'CRM',
       title: 'Leads',
@@ -799,6 +816,27 @@ export function useHelpContent() {
       answer:
         'Queda como "no especificado", que no es lo mismo que cero ni que un no. Si no pones precio máximo, no se entiende que el cliente no quiera pagar nada; si no marcas piscina, no se entiende que la rechace. Esa distinción es la que permite después cruzar necesidades con inmuebles sin descartar cosas por un dato que nadie llegó a preguntar.',
       tags: ['necesidades', 'buyer requirement'],
+    },
+    {
+      id: 'faq-match-porcentaje',
+      question: '¿De dónde sale el porcentaje de compatibilidad?',
+      answer:
+        'De una suma de pesos fija y pública, no de una IA. Cada criterio (precio, zona, dormitorios, superficie, características…) tiene un peso, y el porcentaje es lo obtenido sobre lo que se pudo comprobar. Por eso debajo del número siempre está el desglose línea a línea: si dos personas miran el mismo inmueble y la misma necesidad, ven exactamente el mismo resultado. Los imprescindibles no puntúan — o se cumplen, o descartan el inmueble.',
+      tags: ['matching', 'compatibilidades', 'score'],
+    },
+    {
+      id: 'faq-match-sin-dato',
+      question: 'Pedí piscina como imprescindible y sale un piso del que no consta que la tenga. ¿Por qué?',
+      answer:
+        'Porque "no consta" no es "no la tiene". Si el inmueble se descartara por un dato que nadie ha rellenado, perderías operaciones por fichas incompletas. Sale marcado como "revisar" para que lo compruebes. En cuanto alguien pulsa "He repasado las características" en ese inmueble, lo que no esté marcado pasa a significar que de verdad no lo tiene, y entonces sí se descarta.',
+      tags: ['matching', 'compatibilidades', 'datos'],
+    },
+    {
+      id: 'faq-match-enviar',
+      question: '¿Por qué no puedo marcar un match como "enviado"?',
+      answer:
+        'Porque marcarlo sin que exista un envío real convertiría el historial en algo que no se puede creer. El estado "enviado" lo pondrá el Centro de Comunicaciones cuando registre el envío de verdad, y lo mismo con "visitado" y "ofertado" cuando existan las visitas y las ofertas. De momento puedes seleccionar y descartar, que son decisiones que sí tomas tú.',
+      tags: ['matching', 'compatibilidades', 'estados'],
     },
     {
       id: 'faq-lead-source',

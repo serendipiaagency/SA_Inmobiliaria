@@ -90,6 +90,11 @@ const RULES: Rule[] = [
   { pattern: /^saas\/contacts\/check-duplicates$/, resolve: fixed('crm', 'read') },
   { pattern: /^saas\/contacts(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/buyer-requirements(?:\/|$)/, resolve: area('crm') },
+  // FASE 11: el motor de matching. Consultar compatibilidades es lectura;
+  // guardar la decisión comercial (seleccionar/descartar) y marcar las
+  // características como revisadas son escrituras.
+  { pattern: /^saas\/matching\/(?:requirement|property)\//, resolve: fixed('crm', 'read') },
+  { pattern: /^saas\/matching(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/visits(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/reservations(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/appointments-analytics$/, resolve: area('crm') },
