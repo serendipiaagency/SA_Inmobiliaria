@@ -220,10 +220,65 @@ export const agentProperties = sqliteTable(
      */
     featuresReviewedAt: text('features_reviewed_at'),
     featuresReviewedBy: integer('features_reviewed_by'),
+    // --- Property Core — identificación, ubicación/privacidad, superficies,
+    // distribución, características (migración 0068). Ver esa migración para
+    // el porqué de cada default/backfill.
+    reference: text('reference'),
+    externalSource: text('external_source'),
+    externalReference: text('external_reference'),
+    agencyReference: text('agency_reference'),
+    mandateType: text('mandate_type'),
+    exclusiveFrom: text('exclusive_from'),
+    exclusiveUntil: text('exclusive_until'),
+    captureDate: text('capture_date'),
+    captureSource: text('capture_source'),
+    publishedAt: text('published_at'),
+    locationPrivacy: text('location_privacy').notNull().default('exact'), // exact | approximate | hidden_number
+    locationPrivacyRadius: real('location_privacy_radius'),
+    usableArea: real('usable_area'),
+    plotArea: real('plot_area'),
+    terraceArea: real('terrace_area'),
+    gardenArea: real('garden_area'),
+    balconyArea: real('balcony_area'),
+    storageArea: real('storage_area'),
+    toilets: integer('toilets'),
+    livingRooms: integer('living_rooms'),
+    kitchens: integer('kitchens'),
+    garageSpaces: integer('garage_spaces'),
+    condition: text('condition'), // new | excellent | good | to_renovate | to_reform — estado físico, distinto de `status` (comercial)
+    furnished: text('furnished'), // yes | no | partially — NULL = no especificado
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
-  (t) => [uniqueIndex('agent_properties_org_slug').on(t.organizationId, t.slug), index('agent_properties_org').on(t.organizationId)],
+  (t) => [
+    uniqueIndex('agent_properties_org_slug').on(t.organizationId, t.slug),
+    index('agent_properties_org').on(t.organizationId),
+    uniqueIndex('agent_properties_org_reference').on(t.organizationId, t.reference),
+  ],
+)
+
+// Estancias personalizadas de una propiedad 2ª mano (FASE 3) — mismo
+// concepto que developerPropertyRooms, tabla separada porque este proyecto
+// usa una tabla hija por tipo de propiedad por concepto (ver floorPlans vs
+// agentPropertyFloorPlans más abajo), no una tabla polimórfica.
+export const agentPropertyRooms = sqliteTable(
+  'agent_property_rooms',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    propertyId: integer('property_id')
+      .notNull()
+      .references(() => agentProperties.id, { onDelete: 'cascade' }),
+    type: text('type'),
+    name: text('name'),
+    area: real('area'),
+    floor: text('floor'),
+    orientation: text('orientation'),
+    notes: text('notes'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('agent_property_rooms_parent').on(t.propertyId)],
 )
 
 export const propertyTranslations = sqliteTable(
@@ -384,10 +439,64 @@ export const developerProperties = sqliteTable(
     // Commercial assignment (added 0047) — null until a Comercial is
     // assigned; no such relationship existed on this table before.
     agentId: integer('agent_id'),
+    // --- Property Core — identificación, ubicación/privacidad, superficies,
+    // distribución, características (migración 0068). Ver esa migración
+    // para el porqué de cada default/backfill.
+    reference: text('reference'),
+    externalSource: text('external_source'),
+    externalReference: text('external_reference'),
+    agencyReference: text('agency_reference'),
+    transactionType: text('transaction_type').notNull().default('sale'), // sale | rent — obra nueva era venta implícita hasta ahora
+    mandateType: text('mandate_type'),
+    exclusiveFrom: text('exclusive_from'),
+    exclusiveUntil: text('exclusive_until'),
+    captureDate: text('capture_date'),
+    captureSource: text('capture_source'),
+    locationPrivacy: text('location_privacy').notNull().default('exact'), // exact | approximate | hidden_number
+    locationPrivacyRadius: real('location_privacy_radius'),
+    usableArea: real('usable_area'),
+    plotArea: real('plot_area'),
+    terraceArea: real('terrace_area'),
+    gardenArea: real('garden_area'),
+    balconyArea: real('balcony_area'),
+    storageArea: real('storage_area'),
+    toilets: integer('toilets'),
+    livingRooms: integer('living_rooms'),
+    kitchens: integer('kitchens'),
+    garageSpaces: integer('garage_spaces'),
+    condition: text('condition'), // new | excellent | good | to_renovate | to_reform — estado físico, distinto de `status` (comercial)
+    furnished: text('furnished'), // yes | no | partially — NULL = no especificado
+    featuresReviewedAt: text('features_reviewed_at'),
+    featuresReviewedBy: integer('features_reviewed_by'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
-  (t) => [uniqueIndex('developer_properties_org_slug').on(t.organizationId, t.slug), index('developer_properties_org').on(t.organizationId)],
+  (t) => [
+    uniqueIndex('developer_properties_org_slug').on(t.organizationId, t.slug),
+    index('developer_properties_org').on(t.organizationId),
+    uniqueIndex('developer_properties_org_reference').on(t.organizationId, t.reference),
+  ],
+)
+
+// Estancias personalizadas de un proyecto sobre plano (FASE 3).
+export const developerPropertyRooms = sqliteTable(
+  'developer_property_rooms',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    developerPropertyId: integer('developer_property_id')
+      .notNull()
+      .references(() => developerProperties.id, { onDelete: 'cascade' }),
+    type: text('type'),
+    name: text('name'),
+    area: real('area'),
+    floor: text('floor'),
+    orientation: text('orientation'),
+    notes: text('notes'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('developer_property_rooms_parent').on(t.developerPropertyId)],
 )
 
 export const priceHistory = sqliteTable('price_history', {

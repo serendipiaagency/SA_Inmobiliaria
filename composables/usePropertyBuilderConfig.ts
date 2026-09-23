@@ -88,7 +88,13 @@ export interface TranslationsSection extends BaseSection {
   kind: 'translations'
 }
 
-export type BuilderSection = FieldsSection | LocationSection | GallerySection | ChildTableSection | SocialSection | TranslationsSection
+export interface RoomsSection extends BaseSection {
+  kind: 'rooms'
+  childResource: string
+  parentField: string
+}
+
+export type BuilderSection = FieldsSection | LocationSection | GallerySection | ChildTableSection | SocialSection | TranslationsSection | RoomsSection
 
 /**
  * Splits a section's fields into visual subsections by their `group` label,
@@ -112,6 +118,12 @@ export function groupFields(fields: FieldSpec[]): { label: string | null; fields
 const PROPERTY_TYPE_OPTIONS = ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio']
 const ORIENTATION_OPTIONS = ['N', 'S', 'E', 'W', 'SE', 'SW', 'NE', 'NW']
 const ENERGY_OPTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+const CONDITION_OPTIONS = ['new', 'excellent', 'good', 'to_renovate', 'to_reform']
+const CONDITION_LABELS: Record<string, string> = { new: 'A estrenar', excellent: 'Excelente', good: 'Buen estado', to_renovate: 'A renovar', to_reform: 'A reformar' }
+const FURNISHED_OPTIONS = ['yes', 'no', 'partially']
+const FURNISHED_LABELS: Record<string, string> = { yes: 'Sí', no: 'No', partially: 'Parcialmente' }
+const LOCATION_PRIVACY_OPTIONS = ['exact', 'approximate', 'hidden_number']
+const LOCATION_PRIVACY_LABELS: Record<string, string> = { exact: 'Exacta', approximate: 'Aproximada', hidden_number: 'Ocultar número' }
 
 export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
   'developer-properties': [
@@ -124,10 +136,17 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       fields: [
         { key: 'name', label: 'Nombre', type: 'text', required: true, span: 2, group: 'Identificación' },
         { key: 'slug', label: 'Slug', type: 'text', hint: 'Se genera solo si lo dejas vacío.', group: 'Identificación' },
+        { key: 'reference', label: 'Referencia interna', type: 'text', hint: 'Se genera sola si la dejas vacía.', group: 'Identificación' },
+        { key: 'agencyReference', label: 'Referencia de agencia', type: 'text', group: 'Identificación' },
+        { key: 'externalSource', label: 'Origen externo', type: 'text', hint: 'De dónde procede si viene de un sistema externo.', group: 'Identificación' },
+        { key: 'externalReference', label: 'Referencia externa', type: 'text', group: 'Identificación' },
         { key: 'developerId', label: 'Promotora', type: 'relation', relationResource: 'developers', required: true, group: 'Clasificación' },
         { key: 'status', label: 'Estado', type: 'select', options: ['new', 'under_construction', 'ready'], optionLabels: { new: 'Obra nueva', under_construction: 'En construcción', ready: 'Lista' }, group: 'Clasificación' },
+        { key: 'transactionType', label: 'Operación', type: 'select', options: ['sale', 'rent'], optionLabels: { sale: 'Venta', rent: 'Alquiler' }, group: 'Clasificación' },
         { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, group: 'Clasificación' },
         { key: 'yearBuilt', label: 'Año de construcción', type: 'number', group: 'Clasificación' },
+        { key: 'captureDate', label: 'Fecha de captación', type: 'text', group: 'Captación' },
+        { key: 'captureSource', label: 'Origen de captación', type: 'text', group: 'Captación' },
       ],
     },
     {
@@ -150,6 +169,16 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'doorLetter', label: 'Letra', type: 'text' },
         { key: 'postalCode', label: 'Código postal', type: 'text' },
         { key: 'district', label: 'Distrito', type: 'text' },
+        {
+          key: 'locationPrivacy',
+          label: 'Privacidad de la ubicación',
+          type: 'select',
+          options: LOCATION_PRIVACY_OPTIONS,
+          optionLabels: LOCATION_PRIVACY_LABELS,
+          hint: 'Exacta: se publica tal cual. Aproximada: coordenadas redondeadas y sin número. Ocultar número: coordenadas exactas pero sin número/portal/bloque/planta/letra en público.',
+          span: 2,
+        },
+        { key: 'locationPrivacyRadius', label: 'Radio de privacidad (m)', type: 'number', hint: 'Referencia visual del área aproximada; no afecta al cálculo de la ubicación aproximada.' },
       ],
     },
     {
@@ -177,7 +206,19 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       fields: [
         { key: 'bedrooms', label: 'Habitaciones', type: 'stepper', recommended: true, group: 'Dimensiones' },
         { key: 'bathrooms', label: 'Baños', type: 'stepper', recommended: true, group: 'Dimensiones' },
-        { key: 'area', label: 'Superficie (m²)', type: 'number', recommended: true, group: 'Dimensiones' },
+        { key: 'toilets', label: 'Aseos', type: 'stepper', group: 'Dimensiones' },
+        { key: 'livingRooms', label: 'Salones', type: 'stepper', group: 'Dimensiones' },
+        { key: 'kitchens', label: 'Cocinas', type: 'stepper', group: 'Dimensiones' },
+        { key: 'garageSpaces', label: 'Plazas de garaje', type: 'stepper', group: 'Dimensiones' },
+        { key: 'area', label: 'Superficie construida (m²)', type: 'number', recommended: true, group: 'Superficies' },
+        { key: 'usableArea', label: 'Superficie útil (m²)', type: 'number', group: 'Superficies' },
+        { key: 'plotArea', label: 'Superficie de parcela (m²)', type: 'number', group: 'Superficies' },
+        { key: 'terraceArea', label: 'Superficie de terraza (m²)', type: 'number', group: 'Superficies' },
+        { key: 'gardenArea', label: 'Superficie de jardín (m²)', type: 'number', group: 'Superficies' },
+        { key: 'balconyArea', label: 'Superficie de balcón (m²)', type: 'number', group: 'Superficies' },
+        { key: 'storageArea', label: 'Superficie de trastero (m²)', type: 'number', group: 'Superficies' },
+        { key: 'condition', label: 'Estado físico', type: 'select', options: CONDITION_OPTIONS, optionLabels: CONDITION_LABELS, group: 'Estado' },
+        { key: 'furnished', label: 'Amueblado', type: 'select', options: FURNISHED_OPTIONS, optionLabels: FURNISHED_LABELS, group: 'Estado' },
         { key: 'orientation', label: 'Orientación', type: 'select', options: ORIENTATION_OPTIONS, group: 'Certificación' },
         { key: 'energyRating', label: 'Calificación energética', type: 'select', options: ENERGY_OPTIONS, group: 'Certificación' },
         { key: 'hasElevator', label: 'Ascensor', type: 'checkbox', group: 'Equipamiento' },
@@ -187,7 +228,23 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'hasGarden', label: 'Jardín', type: 'checkbox', group: 'Equipamiento' },
         { key: 'petsAllowed', label: 'Se admiten mascotas', type: 'checkbox', group: 'Equipamiento' },
         { key: 'accessible', label: 'Accesible', type: 'checkbox', group: 'Equipamiento' },
+        {
+          key: 'featuresReviewedAt',
+          label: 'Características repasadas',
+          type: 'checkbox',
+          hint: 'Márcalo tras revisar el equipamiento de arriba — así un "No" marcado se distingue de "todavía sin repasar" (usado por el motor de compatibilidad).',
+          group: 'Equipamiento',
+        },
       ],
+    },
+    {
+      key: 'rooms',
+      label: 'Estancias personalizadas',
+      icon: 'layers',
+      description: 'Dormitorios, despachos u otras estancias con su propia superficie y orientación.',
+      kind: 'rooms',
+      childResource: 'developer-property-rooms',
+      parentField: 'developerPropertyId',
     },
     {
       key: 'description',
@@ -279,6 +336,9 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       kind: 'fields',
       fields: [
         { key: 'agentId', label: 'Comercial asignado', type: 'agent', group: 'Comercial' },
+        { key: 'mandateType', label: 'Tipo de mandato', type: 'text', group: 'Comercial' },
+        { key: 'exclusiveFrom', label: 'Exclusividad — inicio', type: 'text', group: 'Comercial' },
+        { key: 'exclusiveUntil', label: 'Exclusividad — vencimiento', type: 'text', group: 'Comercial' },
         { key: 'isExclusive', label: 'Exclusiva', type: 'checkbox', group: 'Inversión' },
         { key: 'isReserved', label: 'Reservada', type: 'checkbox', group: 'Inversión' },
         { key: 'hasTour', label: 'Tiene tour virtual', type: 'checkbox', group: 'Inversión' },
@@ -302,10 +362,16 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       kind: 'fields',
       fields: [
         { key: 'slug', label: 'Slug', type: 'text', span: 2, group: 'Identificación' },
+        { key: 'reference', label: 'Referencia interna', type: 'text', hint: 'Se genera sola si la dejas vacía.', group: 'Identificación' },
+        { key: 'agencyReference', label: 'Referencia de agencia', type: 'text', group: 'Identificación' },
+        { key: 'externalSource', label: 'Origen externo', type: 'text', hint: 'De dónde procede si viene de un sistema externo.', group: 'Identificación' },
+        { key: 'externalReference', label: 'Referencia externa', type: 'text', group: 'Identificación' },
         { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, recommended: true, group: 'Clasificación' },
         { key: 'transactionType', label: 'Operación', type: 'select', options: ['sale', 'rent'], optionLabels: { sale: 'Venta', rent: 'Alquiler' }, recommended: true, group: 'Clasificación' },
         { key: 'status', label: 'Estado', type: 'select', options: ['available', 'sold'], optionLabels: { available: 'Disponible', sold: 'Vendida' }, group: 'Clasificación' },
         { key: 'yearBuilt', label: 'Año de construcción', type: 'number', group: 'Clasificación' },
+        { key: 'captureDate', label: 'Fecha de captación', type: 'text', group: 'Captación' },
+        { key: 'captureSource', label: 'Origen de captación', type: 'text', group: 'Captación' },
         { key: 'keyHighlights', label: 'Puntos clave', type: 'textarea', span: 2, group: 'Contenido' },
       ],
     },
@@ -330,6 +396,16 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'postalCode', label: 'Código postal', type: 'text' },
         { key: 'district', label: 'Distrito', type: 'text' },
         { key: 'location', label: 'Referencia de ubicación (heredado)', type: 'text', span: 2, hint: 'Campo de texto libre anterior. Se conserva por compatibilidad; usa los campos de arriba para direcciones nuevas.' },
+        {
+          key: 'locationPrivacy',
+          label: 'Privacidad de la ubicación',
+          type: 'select',
+          options: LOCATION_PRIVACY_OPTIONS,
+          optionLabels: LOCATION_PRIVACY_LABELS,
+          hint: 'Exacta: se publica tal cual. Aproximada: coordenadas redondeadas y sin número. Ocultar número: coordenadas exactas pero sin número/portal/bloque/planta/letra en público.',
+          span: 2,
+        },
+        { key: 'locationPrivacyRadius', label: 'Radio de privacidad (m)', type: 'number', hint: 'Referencia visual del área aproximada; no afecta al cálculo de la ubicación aproximada.' },
       ],
     },
     {
@@ -351,9 +427,21 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Superficie, habitaciones, baños y equipamiento.',
       kind: 'fields',
       fields: [
-        { key: 'area', label: 'Superficie (m²)', type: 'number', recommended: true, group: 'Dimensiones' },
+        { key: 'area', label: 'Superficie construida (m²)', type: 'number', recommended: true, group: 'Dimensiones' },
         { key: 'bedrooms', label: 'Habitaciones', type: 'stepper', recommended: true, group: 'Dimensiones' },
         { key: 'bathrooms', label: 'Baños', type: 'stepper', recommended: true, group: 'Dimensiones' },
+        { key: 'toilets', label: 'Aseos', type: 'stepper', group: 'Dimensiones' },
+        { key: 'livingRooms', label: 'Salones', type: 'stepper', group: 'Dimensiones' },
+        { key: 'kitchens', label: 'Cocinas', type: 'stepper', group: 'Dimensiones' },
+        { key: 'garageSpaces', label: 'Plazas de garaje', type: 'stepper', group: 'Dimensiones' },
+        { key: 'usableArea', label: 'Superficie útil (m²)', type: 'number', group: 'Superficies' },
+        { key: 'plotArea', label: 'Superficie de parcela (m²)', type: 'number', group: 'Superficies' },
+        { key: 'terraceArea', label: 'Superficie de terraza (m²)', type: 'number', group: 'Superficies' },
+        { key: 'gardenArea', label: 'Superficie de jardín (m²)', type: 'number', group: 'Superficies' },
+        { key: 'balconyArea', label: 'Superficie de balcón (m²)', type: 'number', group: 'Superficies' },
+        { key: 'storageArea', label: 'Superficie de trastero (m²)', type: 'number', group: 'Superficies' },
+        { key: 'condition', label: 'Estado físico', type: 'select', options: CONDITION_OPTIONS, optionLabels: CONDITION_LABELS, group: 'Estado' },
+        { key: 'furnished', label: 'Amueblado', type: 'select', options: FURNISHED_OPTIONS, optionLabels: FURNISHED_LABELS, group: 'Estado' },
         { key: 'orientation', label: 'Orientación', type: 'select', options: ORIENTATION_OPTIONS, group: 'Certificación' },
         { key: 'energyRating', label: 'Calificación energética', type: 'select', options: ENERGY_OPTIONS, group: 'Certificación' },
         { key: 'hasElevator', label: 'Ascensor', type: 'checkbox', group: 'Equipamiento' },
@@ -363,7 +451,23 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'hasGarden', label: 'Jardín', type: 'checkbox', group: 'Equipamiento' },
         { key: 'petsAllowed', label: 'Se admiten mascotas', type: 'checkbox', group: 'Equipamiento' },
         { key: 'accessible', label: 'Accesible', type: 'checkbox', group: 'Equipamiento' },
+        {
+          key: 'featuresReviewedAt',
+          label: 'Características repasadas',
+          type: 'checkbox',
+          hint: 'Márcalo tras revisar el equipamiento de arriba — así un "No" marcado se distingue de "todavía sin repasar" (usado por el motor de compatibilidad).',
+          group: 'Equipamiento',
+        },
       ],
+    },
+    {
+      key: 'rooms',
+      label: 'Estancias personalizadas',
+      icon: 'layers',
+      description: 'Dormitorios, despachos u otras estancias con su propia superficie y orientación.',
+      kind: 'rooms',
+      childResource: 'agent-property-rooms',
+      parentField: 'propertyId',
     },
     {
       key: 'description',
@@ -432,6 +536,9 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       kind: 'fields',
       fields: [
         { key: 'agentId', label: 'Comercial asignado', type: 'agent', span: 2, group: 'Comercial' },
+        { key: 'mandateType', label: 'Tipo de mandato', type: 'text', group: 'Comercial' },
+        { key: 'exclusiveFrom', label: 'Exclusividad — inicio', type: 'text', group: 'Comercial' },
+        { key: 'exclusiveUntil', label: 'Exclusividad — vencimiento', type: 'text', group: 'Comercial' },
         { key: 'isExclusive', label: 'Exclusiva', type: 'checkbox', group: 'Inversión' },
         { key: 'isReserved', label: 'Reservada', type: 'checkbox', group: 'Inversión' },
         { key: 'hasTour', label: 'Tiene tour virtual', type: 'checkbox', group: 'Inversión' },

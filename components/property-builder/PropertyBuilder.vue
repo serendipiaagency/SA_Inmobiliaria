@@ -168,6 +168,7 @@
                   />
                   <ChildCardManager v-else-if="s.kind === 'child-table'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" :columns="s.columns" />
                   <SocialLinksManager v-else-if="s.kind === 'social'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" />
+                  <PropertyRoomManager v-else-if="s.kind === 'rooms'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" />
                 </fieldset>
 
                 <PropertyEditorFooter
@@ -215,6 +216,7 @@ import TranslationsEditor from './TranslationsEditor.vue'
 import GalleryManager from './GalleryManager.vue'
 import ChildCardManager from './ChildCardManager.vue'
 import SocialLinksManager from './SocialLinksManager.vue'
+import PropertyRoomManager from './PropertyRoomManager.vue'
 
 /**
  * El Property Editor: **uno solo** para los cuatro recorridos — alta y

@@ -1,5 +1,6 @@
 import { and, eq, inArray, like } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../../utils/db'
+import { toPublicProperties } from '../../../utils/propertyPrivacy'
 
 export default defineEventHandler(async (event) => {
   const id = parseInt(getRouterParam(event, 'id') || '', 10)
@@ -41,5 +42,5 @@ export default defineEventHandler(async (event) => {
       ),
     )
 
-  return { community, amenities: communityAmenities, projects }
+  return { community, amenities: communityAmenities, projects: toPublicProperties(projects) }
 })

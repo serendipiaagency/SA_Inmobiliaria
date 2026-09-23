@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, like, lte, or, sql, type SQL } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { attachPhotos } from '../../utils/photos'
+import { toPublicProperties } from '../../utils/propertyPrivacy'
 
 const P = schema.developerProperties
 
@@ -11,8 +12,8 @@ const ENERGY_ORDER = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
  *
  * Filters: q, community, street, postalCode, status, developerId, minPrice, maxPrice,
  *   minArea, maxArea, bedrooms (min), bathrooms (min), type, new, orientation, minYear,
- *   energy (max letter), and boolean features: elevator, pool, garage, terrace, garden,
- *   pets, accessible.
+ *   energy (max letter), condition, furnished, and boolean features: elevator, pool,
+ *   garage, terrace, garden, pets, accessible.
  * Params: sort (price_asc|price_desc|newest), page, perPage, countOnly.
  */
 export default defineEventHandler(async (event) => {
@@ -46,6 +47,8 @@ export default defineEventHandler(async (event) => {
   if (query.developerId) conds.push(eq(P.developerId, Number(query.developerId)))
   if (query.type) conds.push(eq(P.propertyType, String(query.type)))
   if (query.orientation) conds.push(eq(P.orientation, String(query.orientation)))
+  if (query.condition) conds.push(eq(P.condition, String(query.condition)))
+  if (query.furnished) conds.push(eq(P.furnished, String(query.furnished)))
 
   // Fetch by exact ids (favorites/compare) — bypasses the normal page size
   // cap so a saved item never silently disappears once the catalog grows
@@ -125,5 +128,5 @@ export default defineEventHandler(async (event) => {
   const merged = rows.map((r) => ({ ...r.project, developerName: r.developerName }))
   const withPhotos = await attachPhotos(db, merged)
 
-  return { rows: withPhotos, total, page, perPage }
+  return { rows: toPublicProperties(withPhotos), total, page, perPage }
 })
