@@ -1,6 +1,6 @@
 import { requireOrgScope } from '../../../../utils/auth'
 import { logAdminAction } from '../../../../utils/audit'
-import { markFeaturesReviewed } from '../../../../utils/matching/service'
+import { markFeaturesReviewed, PROPERTY_KINDS, type PropertyKind } from '../../../../utils/matching/service'
 
 /**
  * Deja constancia de que alguien repasó las características del inmueble.
@@ -11,10 +11,11 @@ import { markFeaturesReviewed } from '../../../../utils/matching/service'
  */
 export default defineEventHandler(async (event) => {
   const { user, orgId } = await requireOrgScope(event)
-  const body = await readBody<{ propertyId: number }>(event)
+  const body = await readBody<{ propertyId: number; propertyKind?: PropertyKind }>(event)
   if (!Number.isInteger(body?.propertyId)) throw createError({ statusCode: 422, statusMessage: 'Falta el inmueble' })
+  const propertyKind: PropertyKind = PROPERTY_KINDS.includes(body.propertyKind as PropertyKind) ? (body.propertyKind as PropertyKind) : 'agent'
 
-  const row = await markFeaturesReviewed(event, orgId, body.propertyId, user.id)
+  const row = await markFeaturesReviewed(event, orgId, body.propertyId, propertyKind, user.id)
   if (!row) throw createError({ statusCode: 404, statusMessage: 'Inmueble no encontrado' })
 
   await logAdminAction(event, { user, orgId, action: 'update', resource: 'property', resourceId: body.propertyId, detail: 'características revisadas' })

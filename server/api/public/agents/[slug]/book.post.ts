@@ -5,6 +5,7 @@ import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { dispatchWebhook } from '../../../../utils/webhooks'
 import { generateVideoLink } from '../../../../utils/appointments/videoLink'
 import { upsertLead } from '../../../../utils/leads'
+import { readFirstTouch } from '../../../../utils/firstTouch'
 import { rateLimit } from '../../../../utils/rateLimit'
 import { getRequestId } from '../../../../utils/requestId'
 import { isValidEmail, isValidPhone } from '../../../../utils/validate'
@@ -148,6 +149,7 @@ export default defineEventHandler(async (event) => {
       budget: clientBudget,
       notes: [`Cita agendada con ${agent.name} (${channel})`, clientInterest && `Interés: ${clientInterest}`].filter(Boolean).join(' — '),
       scoreBump: 25,
+      ...readFirstTouch(event),
     })
   } catch {
     // La cita ya quedó guardada — el pipeline de leads nunca debe bloquearla.

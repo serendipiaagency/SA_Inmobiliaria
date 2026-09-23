@@ -15,6 +15,7 @@ import { useDb, schema, now } from '../db'
  * características: no pedir garaje no es pedir que NO tenga garaje.
  */
 
+export const STATUSES = ['active', 'paused', 'fulfilled', 'archived'] as const
 export const OPERATIONS = ['sale', 'rent'] as const
 export const IMPORTANCES = ['required', 'preferred', 'indifferent'] as const
 export const URGENCIES = ['low', 'medium', 'high', 'urgent'] as const
@@ -48,6 +49,7 @@ export interface ZoneRef {
 export interface BuyerRequirementInput {
   contactId: number
   title?: string
+  status?: string
   operation?: string
   propertyTypes?: string[]
   priceMin?: number | null
@@ -85,6 +87,7 @@ function assert(condition: unknown, message: string): asserts condition {
 /** Valida lo que el dominio exige. Se ejecuta en el servidor siempre, aunque el formulario ya haya validado. */
 export function validateBuyerRequirement(input: BuyerRequirementInput) {
   assert(Number.isFinite(input.contactId) && input.contactId > 0, 'contactId es obligatorio')
+  if (input.status !== undefined) assert(STATUSES.includes(input.status as any), 'status no reconocido')
   if (input.operation !== undefined) assert(OPERATIONS.includes(input.operation as any), 'operation debe ser sale o rent')
 
   for (const t of input.propertyTypes || []) {
@@ -260,7 +263,7 @@ export async function updateBuyerRequirement(
 
   const patch: Record<string, unknown> = { updatedAt: now() }
   const direct: (keyof BuyerRequirementInput)[] = [
-    'title', 'operation', 'priceMin', 'priceMax', 'areaMin', 'areaMax', 'bedroomsMin', 'bathroomsMin',
+    'title', 'status', 'operation', 'priceMin', 'priceMax', 'areaMin', 'areaMax', 'bedroomsMin', 'bathroomsMin',
     'centerLat', 'centerLng', 'radiusKm', 'conditionPref', 'buildPref', 'desiredDate', 'needsMortgage',
     'mortgageStatus', 'financingNotes', 'urgency', 'notes', 'assignedCommercialId',
   ]

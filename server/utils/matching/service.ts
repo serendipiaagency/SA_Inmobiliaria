@@ -16,12 +16,21 @@ import type { ZoneRef } from '../buyerRequirements/service'
  * existe porque el motor admite cumplimiento parcial: si el prefiltro cortara
  * exactamente en el precio máximo, un piso 2 % por encima nunca llegaría a
  * evaluarse y no se podría enseñar como "casi".
+ *
+ * El motor y el prefiltro son agnósticos al catálogo: `developer_properties`
+ * (obra nueva) y `agent_properties` (2ª mano) comparten exactamente las
+ * columnas que el motor necesita desde Property Core (migración 0068), así
+ * que las dos direcciones funcionan igual sobre cualquiera de los dos — nunca
+ * dos motores paralelos (FASE 11 §58).
  */
+
+export type PropertyKind = 'developer' | 'agent'
+export const PROPERTY_KINDS: PropertyKind[] = ['developer', 'agent']
 
 /** Margen del prefiltro, alineado con PARTIAL_TOLERANCE del motor. */
 const PREFILTER_SLACK = 0.1
 
-/** Tope de candidatos que se puntúan en detalle en una petición. */
+/** Tope de candidatos que se puntúan en detalle en una petición (por catálogo). */
 const MAX_CANDIDATES = 400
 
 export const MATCH_STATUSES = ['new', 'selected', 'sent', 'discarded', 'viewing', 'offered'] as const
@@ -37,6 +46,22 @@ export type MatchStatus = (typeof MATCH_STATUSES)[number]
  * simularlos.
  */
 export const MANUAL_STATUSES: MatchStatus[] = ['new', 'selected', 'discarded']
+
+/**
+ * Todo lo que distingue un catálogo del otro para el motor: qué tabla de
+ * propiedades consultar y en qué tabla persistir sus matches. `as any` en los
+ * accesos a columnas dentro de este archivo es deliberado — developer_properties
+ * y agent_properties son tablas Drizzle distintas que comparten forma pero no
+ * tipo, y una function genérica sobre "la que toque" no puede tipar cada
+ * columna sin duplicar las dos direcciones enteras por catálogo. El motor
+ * (evaluateMatch) sigue totalmente tipado; sólo la capa de acceso a datos
+ * relaja el tipo.
+ */
+function tablesFor(kind: PropertyKind) {
+  return kind === 'developer'
+    ? { property: schema.developerProperties as any, match: schema.developerPropertyMatches as any }
+    : { property: schema.agentProperties as any, match: schema.propertyMatches as any }
+}
 
 function safeParse<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback
@@ -87,19 +112,51 @@ async function criteriaFor(event: H3Event, orgId: number, requirementIds: number
 }
 
 export interface ScoredProperty {
-  property: MatchableProperty & { slug: string | null; mainImage: string | null; location: string | null }
+  propertyKind: PropertyKind
+  property: MatchableProperty & { slug: string | null; mainImage: string | null; location: string | null; name: string | null }
   result: MatchResult
   /** El match guardado, si alguien ya decidió algo sobre este par. */
   persisted: { id: number; status: string; discardedReason: string | null } | null
 }
 
+/** Candidatos con margen de precio de un catálogo, ya recortados en SQL. */
+async function candidatesInCatalog(event: H3Event, orgId: number, kind: PropertyKind, matchable: MatchableRequirement) {
+  const db = useDb(event)
+  const { property: P } = tablesFor(kind)
+
+  const filters = [eq(P.organizationId, orgId)]
+  // agent_properties usa status='available'; developer_properties no tiene ese
+  // concepto de disponibilidad binaria (new/under_construction/ready son todas
+  // comercializables) — sólo se filtra por estado en el catálogo que lo define.
+  if (kind === 'agent') filters.push(eq(P.status, 'available'))
+
+  filters.push(or(isNull(P.transactionType), eq(P.transactionType, matchable.operation))!)
+  if (matchable.propertyTypes?.length) {
+    filters.push(or(isNull(P.propertyType), inArray(P.propertyType, matchable.propertyTypes))!)
+  }
+  if (matchable.priceMax != null) {
+    filters.push(or(isNull(P.price), lte(P.price, matchable.priceMax * (1 + PREFILTER_SLACK)))!)
+  }
+  if (matchable.priceMin != null) {
+    filters.push(or(isNull(P.price), gte(P.price, matchable.priceMin * (1 - PREFILTER_SLACK)))!)
+  }
+
+  const candidates = await db.select().from(P).where(and(...filters)).limit(MAX_CANDIDATES)
+  return candidates as (MatchableProperty & { slug: string | null; mainImage: string | null; location: string | null; name: string | null })[]
+}
+
+async function persistedMatchesForRequirement(event: H3Event, orgId: number, kind: PropertyKind, requirementId: number) {
+  const db = useDb(event)
+  const { match: M } = tablesFor(kind)
+  const rows = await db.select().from(M).where(and(eq(M.organizationId, orgId), eq(M.buyerRequirementId, requirementId)))
+  return new Map<number, any>(rows.map((m: any) => [m.propertyId, m]))
+}
+
 /**
- * Necesidad → inmuebles compatibles.
- *
- * El prefiltro SQL recorta por organización, operación, estado disponible,
- * tipo y precio con margen. Lo que pasa el filtro se puntúa con el motor;
- * lo que el motor declara `ineligible` se puede ocultar, pero por defecto se
- * devuelve marcado para que se vea POR QUÉ quedó fuera.
+ * Necesidad → inmuebles compatibles, en los DOS catálogos a la vez (FASE 11
+ * §133: "verificar ambos contextos — Propiedades web y 2ª mano"). El resultado
+ * de cada propiedad lleva su `propertyKind` para que quien lo consuma sepa a
+ * qué ficha enlazar.
  */
 export async function findPropertiesForRequirement(
   event: H3Event,
@@ -121,49 +178,29 @@ export async function findPropertiesForRequirement(
   const criteriaMap = await criteriaFor(event, orgId, [requirementId])
   const matchable = toMatchable(requirement, criteriaMap.get(requirementId) || [])
 
-  // --- Prefiltro en SQL -----------------------------------------------------
-  const filters = [eq(schema.agentProperties.organizationId, orgId), eq(schema.agentProperties.status, 'available')]
-
-  // Un inmueble sin transaction_type no se descarta: es un dato ausente, y el
-  // motor lo tratará como tal.
-  filters.push(or(isNull(schema.agentProperties.transactionType), eq(schema.agentProperties.transactionType, matchable.operation))!)
-
-  if (matchable.propertyTypes?.length) {
-    filters.push(or(isNull(schema.agentProperties.propertyType), inArray(schema.agentProperties.propertyType, matchable.propertyTypes))!)
-  }
-  if (matchable.priceMax != null) {
-    filters.push(or(isNull(schema.agentProperties.price), lte(schema.agentProperties.price, matchable.priceMax * (1 + PREFILTER_SLACK)))!)
-  }
-  if (matchable.priceMin != null) {
-    filters.push(or(isNull(schema.agentProperties.price), gte(schema.agentProperties.price, matchable.priceMin * (1 - PREFILTER_SLACK)))!)
-  }
-
-  const candidates = await db
-    .select()
-    .from(schema.agentProperties)
-    .where(and(...filters))
-    .limit(MAX_CANDIDATES)
-
-  const persisted = await db
-    .select()
-    .from(schema.propertyMatches)
-    .where(and(eq(schema.propertyMatches.organizationId, orgId), eq(schema.propertyMatches.buyerRequirementId, requirementId)))
-  const byProperty = new Map(persisted.map((m) => [m.propertyId, m]))
-
   const results: ScoredProperty[] = []
-  for (const property of candidates) {
-    const result = evaluateMatch(property as MatchableProperty, matchable)
-    if (result.eligibility === 'ineligible' && !opts.includeIneligible) continue
-    const saved = byProperty.get(property.id)
-    results.push({
-      property: property as ScoredProperty['property'],
-      result,
-      persisted: saved ? { id: saved.id, status: saved.status, discardedReason: saved.discardedReason } : null,
-    })
+  let scanned = 0
+
+  for (const kind of PROPERTY_KINDS) {
+    const candidates = await candidatesInCatalog(event, orgId, kind, matchable)
+    scanned += candidates.length
+    const byProperty = await persistedMatchesForRequirement(event, orgId, kind, requirementId)
+
+    for (const property of candidates) {
+      const result = evaluateMatch(property, matchable)
+      if (result.eligibility === 'ineligible' && !opts.includeIneligible) continue
+      const saved = byProperty.get(property.id)
+      results.push({
+        propertyKind: kind,
+        property,
+        result,
+        persisted: saved ? { id: saved.id, status: saved.status, discardedReason: saved.discardedReason } : null,
+      })
+    }
   }
 
   sortByScore(results)
-  return { requirement: matchable, results: results.slice(0, opts.limit ?? 50), scanned: candidates.length }
+  return { requirement: matchable, results: results.slice(0, opts.limit ?? 50), scanned }
 }
 
 export interface ScoredRequirement {
@@ -176,23 +213,21 @@ export interface ScoredRequirement {
 /**
  * Inmueble → compradores compatibles. Misma lógica de puntuación, prefiltro
  * simétrico: sólo necesidades activas de la organización cuya operación
- * coincide y cuyo rango de precio puede alcanzar al del inmueble.
+ * coincide y cuyo rango de precio puede alcanzar al del inmueble. `kind` dice
+ * en qué catálogo vive el inmueble — una Property es de uno u otro, nunca de
+ * los dos a la vez, así que aquí no hace falta recorrer ambos.
  */
 export async function findRequirementsForProperty(
   event: H3Event,
   orgId: number,
   propertyId: number,
+  kind: PropertyKind,
   opts: { includeIneligible?: boolean; limit?: number } = {},
 ): Promise<{ property: MatchableProperty; results: ScoredRequirement[]; scanned: number } | null> {
   const db = useDb(event)
+  const { property: P, match: M } = tablesFor(kind)
 
-  const property = (
-    await db
-      .select()
-      .from(schema.agentProperties)
-      .where(and(eq(schema.agentProperties.id, propertyId), eq(schema.agentProperties.organizationId, orgId)))
-      .limit(1)
-  )[0]
+  const property = (await db.select().from(P).where(and(eq(P.id, propertyId), eq(P.organizationId, orgId))).limit(1))[0]
   if (!property) return null
 
   const filters = [
@@ -225,11 +260,8 @@ export async function findRequirementsForProperty(
     : []
   const byContact = new Map(contacts.map((c) => [c.id, c]))
 
-  const persisted = await db
-    .select()
-    .from(schema.propertyMatches)
-    .where(and(eq(schema.propertyMatches.organizationId, orgId), eq(schema.propertyMatches.propertyId, propertyId)))
-  const byRequirement = new Map(persisted.map((m) => [m.buyerRequirementId, m]))
+  const persisted = await db.select().from(M).where(and(eq(M.organizationId, orgId), eq(M.propertyId, propertyId)))
+  const byRequirement = new Map<number, any>(persisted.map((m: any) => [m.buyerRequirementId, m]))
 
   const results: ScoredRequirement[] = []
   for (const row of candidates) {
@@ -278,10 +310,11 @@ export class MatchStatusError extends Error {}
 export async function setMatchStatus(
   event: H3Event,
   orgId: number,
-  input: { buyerRequirementId: number; propertyId: number; status: MatchStatus; discardedReason?: string | null },
+  input: { buyerRequirementId: number; propertyId: number; propertyKind: PropertyKind; status: MatchStatus; discardedReason?: string | null },
   opts: { userId?: number | null } = {},
 ) {
   const db = useDb(event)
+  const { property: P, match: M } = tablesFor(input.propertyKind)
 
   if (!MANUAL_STATUSES.includes(input.status)) {
     // No se marca como enviado/visitado/ofertado algo que el sistema no ha
@@ -301,13 +334,7 @@ export async function setMatchStatus(
   )[0]
   if (!requirement) throw new MatchStatusError('Necesidad no encontrada')
 
-  const property = (
-    await db
-      .select()
-      .from(schema.agentProperties)
-      .where(and(eq(schema.agentProperties.id, input.propertyId), eq(schema.agentProperties.organizationId, orgId)))
-      .limit(1)
-  )[0]
+  const property = (await db.select().from(P).where(and(eq(P.id, input.propertyId), eq(P.organizationId, orgId))).limit(1))[0]
   if (!property) throw new MatchStatusError('Inmueble no encontrado')
 
   const criteriaMap = await criteriaFor(event, orgId, [requirement.id])
@@ -334,10 +361,10 @@ export async function setMatchStatus(
   }
 
   await db
-    .insert(schema.propertyMatches)
+    .insert(M)
     .values(values)
     .onConflictDoUpdate({
-      target: [schema.propertyMatches.buyerRequirementId, schema.propertyMatches.propertyId],
+      target: [M.buyerRequirementId, M.propertyId],
       set: {
         score: values.score,
         eligibility: values.eligibility,
@@ -353,30 +380,25 @@ export async function setMatchStatus(
   return (
     await db
       .select()
-      .from(schema.propertyMatches)
-      .where(
-        and(
-          eq(schema.propertyMatches.organizationId, orgId),
-          eq(schema.propertyMatches.buyerRequirementId, input.buyerRequirementId),
-          eq(schema.propertyMatches.propertyId, input.propertyId),
-        ),
-      )
+      .from(M)
+      .where(and(eq(M.organizationId, orgId), eq(M.buyerRequirementId, input.buyerRequirementId), eq(M.propertyId, input.propertyId)))
       .limit(1)
   )[0]
 }
 
 /** Deja constancia de que alguien repasó las características del inmueble, que es lo que convierte un 0 en un "no". */
-export async function markFeaturesReviewed(event: H3Event, orgId: number, propertyId: number, userId: number | null) {
+export async function markFeaturesReviewed(event: H3Event, orgId: number, propertyId: number, kind: PropertyKind, userId: number | null) {
   const db = useDb(event)
+  const { property: P } = tablesFor(kind)
   await db
-    .update(schema.agentProperties)
+    .update(P)
     .set({ featuresReviewedAt: now(), featuresReviewedBy: userId, updatedAt: now() })
-    .where(and(eq(schema.agentProperties.id, propertyId), eq(schema.agentProperties.organizationId, orgId)))
+    .where(and(eq(P.id, propertyId), eq(P.organizationId, orgId)))
   return (
     await db
-      .select({ id: schema.agentProperties.id, featuresReviewedAt: schema.agentProperties.featuresReviewedAt })
-      .from(schema.agentProperties)
-      .where(and(eq(schema.agentProperties.id, propertyId), eq(schema.agentProperties.organizationId, orgId)))
+      .select({ id: P.id, featuresReviewedAt: P.featuresReviewedAt })
+      .from(P)
+      .where(and(eq(P.id, propertyId), eq(P.organizationId, orgId)))
       .limit(1)
   )[0]
 }

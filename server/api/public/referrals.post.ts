@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { useDb, schema, now } from '../../utils/db'
 import { upsertLead } from '../../utils/leads'
 import { rateLimit } from '../../utils/rateLimit'
+import { readFirstTouch } from '../../utils/firstTouch'
 
 interface Body {
   code?: string
@@ -40,8 +41,10 @@ export default defineEventHandler(async (event) => {
     email: body.email || null,
     phone: body.phone || null,
     source: 'referral',
+    sourceDetail: link.referrerName,
     notes: `Referido por ${link.referrerName}`,
     scoreBump: 15,
+    ...readFirstTouch(event),
   })
 
   return { ok: true, id: referral.id, referrerName: link.referrerName }

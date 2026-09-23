@@ -4,6 +4,7 @@ import { useDb, schema, now, cfEnv } from './db'
 import { dispatchWebhook } from './webhooks'
 import { sendInternalNotification } from './email/send'
 import { getRequestId } from './requestId'
+import { resolveContact, orgDefaultCountryPrefix } from './contacts/service'
 
 interface UpsertLeadInput {
   /** Which tenant this lead belongs to — always the caller's resolved org, never client input. */
@@ -11,7 +12,19 @@ interface UpsertLeadInput {
   name: string
   email?: string | null
   phone?: string | null
+  whatsapp?: string | null
   source: string
+  sourceDetail?: string | null
+  campaign?: string | null
+  utmSource?: string | null
+  utmMedium?: string | null
+  utmCampaign?: string | null
+  utmContent?: string | null
+  utmTerm?: string | null
+  landingPage?: string | null
+  referrer?: string | null
+  /** El mensaje de captación tal cual, nunca reescrito — distinto de `notes`. */
+  originalMessage?: string | null
   propertyId?: number | null
   propertyName?: string | null
   agentId?: number | null
@@ -28,11 +41,36 @@ interface UpsertLeadInput {
  * scoped to organizationId too, so two tenants sharing a prospect's email can never
  * read or overwrite each other's lead (real bug found and fixed while building the
  * public API: this used to match by email alone across every tenant).
+ *
+ * FASE 12 (migración 0069): además resuelve la persona detrás de la entrada vía
+ * `resolveContact()` — la misma función de dedup que ya usa el CRM manual, no una
+ * nueva. Un email/teléfono que ya coincide EXACTO con un Contact existente enlaza
+ * ahí; si no, crea un Contact nuevo. Nunca fusiona: `resolveContact` ya deja los
+ * casos ambiguos como contacto nuevo + candidatos, que es la política de FASE 14.
+ * Antes de esta fase, `contactId` se quedaba NULL en todo lead creado después del
+ * backfill de la migración 0066 — esto lo corrige hacia delante.
  */
 export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
   const db = useDb(event)
   const nowTs = now()
   const bump = input.scoreBump ?? 10
+
+  let contactId: number | null = null
+  if (input.email || input.phone || input.whatsapp) {
+    try {
+      const defaultCountryPrefix = await orgDefaultCountryPrefix(event, input.organizationId)
+      const resolved = await resolveContact(
+        event,
+        input.organizationId,
+        { name: input.name, email: input.email, phone: input.phone, whatsapp: input.whatsapp },
+        { defaultCountryPrefix },
+      )
+      contactId = resolved.contactId
+    } catch {
+      // Resolver el Contact nunca debe impedir que el lead se guarde — si algo
+      // falla aquí, el lead se crea igual con contactId NULL, recuperable a mano.
+    }
+  }
 
   if (input.email) {
     const existing = await db
@@ -51,6 +89,7 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
           ...(input.agentId ? { agentId: input.agentId, agentName: input.agentName || null } : {}),
           ...(input.phone ? { phone: input.phone } : {}),
           ...(input.budget ? { budget: input.budget } : {}),
+          ...(contactId && { contactId }),
         })
         .where(eq(schema.leads.id, existing[0].id))
       return
@@ -64,8 +103,20 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
       name: input.name.slice(0, 200),
       email: input.email || null,
       phone: input.phone || null,
+      whatsapp: input.whatsapp || null,
       source: input.source,
+      sourceDetail: input.sourceDetail || null,
+      campaign: input.campaign || input.utmCampaign || null,
+      utmSource: input.utmSource || null,
+      utmMedium: input.utmMedium || null,
+      utmCampaign: input.utmCampaign || null,
+      utmContent: input.utmContent || null,
+      utmTerm: input.utmTerm || null,
+      landingPage: input.landingPage || null,
+      referrer: input.referrer || null,
+      originalMessage: input.originalMessage || null,
       status: 'new',
+      stage: 'new',
       score: bump,
       budget: input.budget || null,
       propertyId: input.propertyId || null,
@@ -74,6 +125,7 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
       agentName: input.agentName || null,
       notes: input.notes || null,
       lastContactAt: nowTs,
+      contactId,
       createdAt: nowTs,
       updatedAt: nowTs,
     })

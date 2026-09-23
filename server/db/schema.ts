@@ -875,8 +875,35 @@ export const leads = sqliteTable(
     name: text('name').notNull(),
     email: text('email'),
     phone: text('phone'),
+    whatsapp: text('whatsapp'),
     source: text('source').notNull().default('web'), // web | portal | referral | ads | social | call
+    /** Más específico que `source` sin acoplar el modelo a un proveedor concreto: source=portal, sourceDetail="Idealista". */
+    sourceDetail: text('source_detail'),
+    campaign: text('campaign'),
+    utmSource: text('utm_source'),
+    utmMedium: text('utm_medium'),
+    utmCampaign: text('utm_campaign'),
+    utmContent: text('utm_content'),
+    utmTerm: text('utm_term'),
+    /** Preparado para integraciones de portales inmobiliarios — ningún flujo real lo rellena todavía (migración 0069). */
+    portal: text('portal'),
+    landingPage: text('landing_page'),
+    referrer: text('referrer'),
+    /** El mensaje de captación tal cual llegó — nunca reescrito por IA; `notes` es para anotaciones internas posteriores. */
+    originalMessage: text('original_message'),
     status: text('status').notNull().default('new'), // new | contacted | qualified | proposal | won | lost
+    /**
+     * Posición real en el pipeline (FASE 13, migración 0069) — deliberadamente
+     * distinta de `status`, que 20+ rutas ya consultan con su significado
+     * actual y que server/utils/leads/pipeline.ts mantiene sincronizado en
+     * cada transición para no romperlas. `stage` es la fuente de verdad del
+     * Kanban y de lead_stage_history.
+     */
+    stage: text('stage').notNull().default('new'), // new | contacted | qualifying | qualified | viewing | offer | negotiation | won
+    /** Sólo tiene sentido cuando status = 'lost'. No confundir con `status` en sí. */
+    lostReason: text('lost_reason'), // no_response | not_interested | duplicate | other
+    /** Explícita y distinta de `score` (intención vs urgencia percibida). */
+    priority: text('priority'), // low | medium | high | urgent
     score: integer('score').notNull().default(0), // 0..100
     budget: real('budget'),
     propertyId: integer('property_id'),
@@ -885,6 +912,10 @@ export const leads = sqliteTable(
     agentName: text('agent_name'),
     notes: text('notes'),
     lastContactAt: text('last_contact_at'),
+    /** Preparado (FASE 12 §76): sólo lo rellena una respuesta real, nunca createdAt. */
+    firstResponseAt: text('first_response_at'),
+    /** Proyección/caché para cuando exista Task/Appointment reales — no es una segunda agenda manual. */
+    nextActionAt: text('next_action_at'),
     /**
      * La persona detrás de la oportunidad (migración 0066). NULLable a
      * propósito: un lead puede entrar antes de que su identidad esté
@@ -896,7 +927,30 @@ export const leads = sqliteTable(
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
-  (t) => [index('leads_status').on(t.status), index('leads_source').on(t.source), index('leads_contact').on(t.contactId)],
+  (t) => [index('leads_status').on(t.status), index('leads_stage').on(t.stage), index('leads_source').on(t.source), index('leads_contact').on(t.contactId)],
+)
+
+/**
+ * Historial inmutable de transiciones de stage (FASE 13, migración 0069).
+ * Sólo INSERT — ninguna ruta actualiza o borra una fila de aquí. Cada
+ * movimiento real del pipeline (drag&drop, cambio manual) pasa por
+ * server/utils/leads/pipeline.ts, que es lo único que escribe en esta tabla.
+ */
+export const leadStageHistory = sqliteTable(
+  'lead_stage_history',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    leadId: integer('lead_id')
+      .notNull()
+      .references(() => leads.id, { onDelete: 'cascade' }),
+    userId: integer('user_id'),
+    fromStage: text('from_stage'),
+    toStage: text('to_stage').notNull(),
+    reason: text('reason'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('lead_stage_history_lead').on(t.leadId, t.createdAt), index('lead_stage_history_org').on(t.organizationId, t.createdAt)],
 )
 
 export const clients = sqliteTable(
@@ -2813,5 +2867,46 @@ export const propertyMatches = sqliteTable(
     index('property_matches_org_status').on(t.organizationId, t.status),
     index('property_matches_org_property').on(t.organizationId, t.propertyId),
     index('property_matches_org_contact').on(t.organizationId, t.contactId),
+  ],
+)
+
+/**
+ * Gemela de `propertyMatches`, para `developer_properties` (migración 0069).
+ * `propertyMatches` nació con FK fija a `agent_properties`: sin esta tabla, el
+ * motor de matching era ciego a toda la obra nueva. Misma forma exacta,
+ * siguiendo la convención ya establecida ("una tabla por tipo de propiedad y
+ * concepto hijo") en vez de una FK polimórfica — ver developerPropertyRooms/
+ * agentPropertyRooms para el mismo patrón.
+ */
+export const developerPropertyMatches = sqliteTable(
+  'developer_property_matches',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    propertyId: integer('property_id')
+      .notNull()
+      .references(() => developerProperties.id, { onDelete: 'cascade' }),
+    buyerRequirementId: integer('buyer_requirement_id')
+      .notNull()
+      .references(() => buyerRequirements.id, { onDelete: 'cascade' }),
+    contactId: integer('contact_id')
+      .notNull()
+      .references(() => contacts.id, { onDelete: 'cascade' }),
+    score: integer('score'),
+    eligibility: text('eligibility').notNull().default('eligible'),
+    confidence: real('confidence'),
+    status: text('status').notNull().default('new'),
+    discardedReason: text('discarded_reason'),
+    breakdownJson: text('breakdown_json'),
+    rulesVersion: integer('rules_version').notNull().default(1),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [
+    uniqueIndex('developer_property_matches_pair').on(t.buyerRequirementId, t.propertyId),
+    index('developer_property_matches_org_status').on(t.organizationId, t.status),
+    index('developer_property_matches_org_property').on(t.organizationId, t.propertyId),
+    index('developer_property_matches_org_contact').on(t.organizationId, t.contactId),
   ],
 )
