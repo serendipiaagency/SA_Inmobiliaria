@@ -16,12 +16,20 @@
     </header>
 
     <AdminPanel title="Inmueble" class="mb-5">
-      <select v-model="propertyId" class="cfg-input" data-testid="match-property-select">
+      <select v-model="selected" class="cfg-input" data-testid="match-property-select">
         <option :value="null">Selecciona un inmueble…</option>
-        <option v-for="p in properties" :key="p.id" :value="p.id">
-          {{ p.location || `Inmueble #${p.id}` }}
-          — {{ p.propertyType || 'sin tipo' }}{{ p.price != null ? ` · ${money(p.price)}` : '' }}
-        </option>
+        <optgroup label="Propiedades (web)">
+          <option v-for="p in developerProperties" :key="`developer-${p.id}`" :value="`developer:${p.id}`">
+            {{ p.name || `Proyecto #${p.id}` }}
+            — {{ p.propertyType || 'sin tipo' }}{{ p.price != null ? ` · ${money(p.price)}` : '' }}
+          </option>
+        </optgroup>
+        <optgroup label="Propiedades 2ª mano">
+          <option v-for="p in agentProperties" :key="`agent-${p.id}`" :value="`agent:${p.id}`">
+            {{ p.location || `Inmueble #${p.id}` }}
+            — {{ p.propertyType || 'sin tipo' }}{{ p.price != null ? ` · ${money(p.price)}` : '' }}
+          </option>
+        </optgroup>
       </select>
 
       <div v-if="current" class="mt-4 border-t border-line pt-4">
@@ -101,40 +109,52 @@ useHead({ title: 'Compatibilidades — M&M Real Estate' })
 const dt = useDash()
 const toast = useToast()
 
-const propertyId = ref<number | null>(null)
+/** `"developer:12"` / `"agent:7"` — un único v-model para un selector con dos catálogos. */
+const selected = ref<string | null>(null)
+const propertyKind = computed<'developer' | 'agent' | null>(() => (selected.value ? (selected.value.split(':')[0] as 'developer' | 'agent') : null))
+const propertyId = computed<number | null>(() => (selected.value ? Number(selected.value.split(':')[1]) : null))
+
 const data = ref<any>(null)
 const loading = ref(false)
 
-const { data: list } = await useFetch<any>('/api/admin/properties', { query: { perPage: 100 } })
-const properties = computed<any[]>(() => list.value?.items || list.value?.rows || [])
-const current = computed(() => properties.value.find((p) => p.id === propertyId.value) || null)
+const [{ data: devList }, { data: agentList }] = await Promise.all([
+  useFetch<any>('/api/admin/developer-properties', { query: { perPage: 100 } }),
+  useFetch<any>('/api/admin/properties', { query: { perPage: 100 } }),
+])
+const developerProperties = computed<any[]>(() => devList.value?.items || devList.value?.rows || [])
+const agentProperties = computed<any[]>(() => agentList.value?.items || agentList.value?.rows || [])
+const current = computed(() => {
+  if (propertyKind.value === 'developer') return developerProperties.value.find((p) => p.id === propertyId.value) || null
+  if (propertyKind.value === 'agent') return agentProperties.value.find((p) => p.id === propertyId.value) || null
+  return null
+})
 
 function money(n: number) {
   return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
 }
 
-watch(propertyId, async (id) => {
+async function fetchMatches() {
   data.value = null
-  if (!id) return
+  if (!propertyId.value || !propertyKind.value) return
   loading.value = true
   try {
-    data.value = await $fetch<any>(`/api/admin/saas/matching/property/${id}`)
+    data.value = await $fetch<any>(`/api/admin/saas/matching/property/${propertyId.value}`, { query: { kind: propertyKind.value } })
   } catch {
     toast.error('No se pudo buscar compradores')
   } finally {
     loading.value = false
   }
-})
+}
+watch(selected, fetchMatches)
 
 async function markReviewed() {
-  if (!propertyId.value) return
+  if (!propertyId.value || !propertyKind.value) return
   try {
-    await $fetch('/api/admin/saas/matching/features-reviewed', { method: 'POST', body: { propertyId: propertyId.value } })
+    await $fetch('/api/admin/saas/matching/features-reviewed', { method: 'POST', body: { propertyId: propertyId.value, propertyKind: propertyKind.value } })
     // Se recarga el listado para que la ficha traiga la fecha, y el matching
     // para que los "no consta" que ahora son "no" se recalculen.
-    const id = propertyId.value
     await refreshNuxtData()
-    data.value = await $fetch<any>(`/api/admin/saas/matching/property/${id}`)
+    await fetchMatches()
     toast.success('Características marcadas como revisadas')
   } catch {
     toast.error('No se pudo guardar')
@@ -147,7 +167,7 @@ async function decide(m: any, status: 'selected' | 'discarded') {
   try {
     const saved = await $fetch<any>('/api/admin/saas/matching/matches', {
       method: 'POST',
-      body: { buyerRequirementId: m.requirement.id, propertyId: propertyId.value, status, discardedReason },
+      body: { buyerRequirementId: m.requirement.id, propertyId: propertyId.value, propertyKind: propertyKind.value, status, discardedReason },
     })
     m.persisted = { id: saved.id, status: saved.status, discardedReason: saved.discardedReason }
   } catch (err: any) {

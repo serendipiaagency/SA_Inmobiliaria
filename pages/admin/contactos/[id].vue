@@ -147,7 +147,18 @@
                 <p class="text-sm font-medium">{{ r.title || 'Necesidad' }}</p>
                 <p class="mt-1 text-sm text-stone-600">{{ r.summary }}</p>
               </div>
-              <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium" :class="statusClass(r.status)">{{ statusLabel(r.status) }}</span>
+              <select
+                class="shrink-0 rounded-full border-0 px-2 py-0.5 text-[11px] font-medium"
+                :class="statusClass(r.status)"
+                :value="r.status"
+                :data-testid="`requirement-status-${r.id}`"
+                @change="setRequirementStatus(r, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="active">Activa</option>
+                <option value="paused">En pausa</option>
+                <option value="fulfilled">Cubierta</option>
+                <option value="archived">Archivada</option>
+              </select>
             </div>
             <div class="mt-3 flex flex-wrap items-center gap-3 border-t border-line pt-3 text-xs">
               <span :class="r.budgetValidated ? 'text-emerald-700' : 'text-stone-400'">
@@ -172,8 +183,9 @@
                 <li v-for="m in matches[r.id].results" :key="m.property.id" class="rounded-lg border border-line p-3">
                   <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                      <p class="truncate text-sm font-medium">{{ m.property.location || `Inmueble #${m.property.id}` }}</p>
+                      <p class="truncate text-sm font-medium">{{ m.property.name || m.property.location || `Inmueble #${m.property.id}` }}</p>
                       <p class="text-xs text-stone-400">
+                        {{ m.propertyKind === 'developer' ? 'Propiedades (web)' : 'Propiedades 2ª mano' }} ·
                         {{ m.property.propertyType || 'Sin tipo' }} · {{ m.property.price != null ? money(m.property.price) : 'Sin precio' }}
                       </p>
                     </div>
@@ -236,6 +248,50 @@
             <div><dt class="text-stone-400">Alta</dt><dd>{{ dt.date(data.contact.createdAt) }}</dd></div>
             <div v-if="data.clients.length"><dt class="text-stone-400">Ficha de cliente</dt><dd>{{ data.clients.map((c: any) => c.type).join(', ') }}</dd></div>
           </dl>
+        </AdminPanel>
+
+        <!-- Deduplicación (FASE 14): sólo detecta y ofrece fusionar — nunca automático. -->
+        <AdminPanel title="Posibles duplicados" class="mt-4">
+          <button v-if="!dupChecked" type="button" class="dash-btn-primary" :disabled="dupLoading" @click="checkDuplicates">
+            {{ dupLoading ? 'Buscando…' : 'Buscar duplicados' }}
+          </button>
+          <template v-else>
+            <p v-if="!duplicates.length" class="text-sm text-stone-500">No se ha encontrado ningún posible duplicado dentro de tu organización.</p>
+            <ul v-else class="space-y-2">
+              <li v-for="c in duplicates" :key="c.contactId" class="flex items-center justify-between gap-3 rounded-lg border border-line p-3 text-sm">
+                <div class="min-w-0">
+                  <p class="font-medium">{{ c.name }}</p>
+                  <p class="text-xs text-stone-400">{{ c.email || c.phone || '—' }} · coincide por {{ c.matchedOn }} ({{ c.level === 'exact' ? 'exacto' : 'posible' }})</p>
+                </div>
+                <button type="button" class="shrink-0 font-medium text-ink hover:underline" @click="openMergePreview(c.contactId)">Revisar y fusionar</button>
+              </li>
+            </ul>
+          </template>
+
+          <!-- Preview de fusión: nunca se fusiona sin ver antes qué se pierde/gana. -->
+          <div v-if="mergePreview" class="mt-4 rounded-xl border border-line bg-stone-50 p-4">
+            <p class="text-sm font-medium">Fusionar «{{ mergePreview.duplicate.name }}» en «{{ mergePreview.master.name }}»</p>
+            <p class="mt-1 text-xs text-stone-500">
+              Se moverán {{ mergePreview.relations.buyerRequirements }} necesidad(es), {{ mergePreview.relations.leads }} lead(s) y
+              {{ mergePreview.relations.clients }} ficha(s) de cliente. «{{ mergePreview.duplicate.name }}» quedará archivado, nunca borrado.
+            </p>
+            <div v-if="mergePreview.conflicts.length" class="mt-3 space-y-2">
+              <p class="text-xs font-medium text-stone-600">Estos campos no coinciden — elige cuál se queda:</p>
+              <div v-for="conflict in mergePreview.conflicts" :key="conflict.field" class="text-xs">
+                <p class="mb-1 capitalize text-stone-500">{{ conflict.field }}</p>
+                <label class="mr-4 inline-flex items-center gap-1.5">
+                  <input v-model="mergeFields[conflict.field]" type="radio" :value="conflict.masterValue" > {{ conflict.masterValue }} (actual)
+                </label>
+                <label class="inline-flex items-center gap-1.5">
+                  <input v-model="mergeFields[conflict.field]" type="radio" :value="conflict.duplicateValue" > {{ conflict.duplicateValue }} (duplicado)
+                </label>
+              </div>
+            </div>
+            <div class="mt-3 flex items-center gap-2">
+              <button type="button" class="dash-btn-primary" :disabled="merging" @click="confirmMerge">{{ merging ? 'Fusionando…' : 'Confirmar fusión' }}</button>
+              <button type="button" class="text-xs font-medium text-stone-500 hover:underline" @click="mergePreview = null">Cancelar</button>
+            </div>
+          </div>
         </AdminPanel>
       </section>
     </template>
@@ -323,6 +379,18 @@ async function toggleBudget(r: any) {
   }
 }
 
+/** El estado de la necesidad (activa/pausada/cubierta/archivada) — no confundir con el estado comercial de un match concreto. */
+async function setRequirementStatus(r: any, status: string) {
+  const previous = r.status
+  r.status = status
+  try {
+    await $fetch(`/api/admin/saas/buyer-requirements/${r.id}`, { method: 'PATCH', body: { status } })
+  } catch (err: any) {
+    r.status = previous
+    toast.error(err?.data?.statusMessage || 'No se pudo actualizar el estado')
+  }
+}
+
 // --- Matching (FASE 11) ----------------------------------------------------
 // Consultar compatibilidades no guarda nada: el match se persiste sólo cuando
 // alguien decide algo sobre él (seleccionar / descartar).
@@ -360,7 +428,7 @@ async function decide(r: any, m: any, status: 'selected' | 'discarded') {
   try {
     const saved = await $fetch<any>('/api/admin/saas/matching/matches', {
       method: 'POST',
-      body: { buyerRequirementId: r.id, propertyId: m.property.id, status, discardedReason },
+      body: { buyerRequirementId: r.id, propertyId: m.property.id, propertyKind: m.propertyKind, status, discardedReason },
     })
     m.persisted = { id: saved.id, status: saved.status, discardedReason: saved.discardedReason }
   } catch (err: any) {
@@ -368,11 +436,66 @@ async function decide(r: any, m: any, status: 'selected' | 'discarded') {
   }
 }
 
-function statusLabel(s: string) {
-  return { active: 'Activa', paused: 'En pausa', fulfilled: 'Cubierta', archived: 'Archivada' }[s] || s
-}
 function statusClass(s: string) {
   return { active: 'bg-emerald-100 text-emerald-700', paused: 'bg-amber-100 text-amber-700', fulfilled: 'bg-sky-100 text-sky-700', archived: 'bg-stone-200 text-stone-500' }[s] || 'bg-stone-100 text-stone-600'
+}
+
+// --- Deduplicación de Contact (FASE 14) -------------------------------------
+const dupChecked = ref(false)
+const dupLoading = ref(false)
+const duplicates = ref<any[]>([])
+
+async function checkDuplicates() {
+  dupLoading.value = true
+  try {
+    duplicates.value = (
+      await $fetch<any>('/api/admin/saas/contacts/check-duplicates', {
+        method: 'POST',
+        body: { name: data.value.contact.name, email: data.value.contact.email, phone: data.value.contact.phone, excludeContactId: Number(route.params.id) },
+      })
+    ).duplicates
+    dupChecked.value = true
+  } catch {
+    toast.error('No se pudo buscar duplicados')
+  } finally {
+    dupLoading.value = false
+  }
+}
+
+const mergePreview = ref<any>(null)
+const mergeFields = reactive<Record<string, string>>({})
+const merging = ref(false)
+
+async function openMergePreview(duplicateId: number) {
+  try {
+    mergePreview.value = await $fetch<any>('/api/admin/saas/contacts/merge-preview', {
+      query: { masterId: Number(route.params.id), duplicateId },
+    })
+    Object.keys(mergeFields).forEach((k) => { mergeFields[k] = undefined as any })
+    for (const c of mergePreview.value.conflicts) mergeFields[c.field] = c.masterValue
+  } catch (err: any) {
+    toast.error(err?.data?.statusMessage || 'No se pudo cargar la comparación')
+  }
+}
+
+async function confirmMerge() {
+  if (!mergePreview.value) return
+  merging.value = true
+  try {
+    await $fetch('/api/admin/saas/contacts/merge', {
+      method: 'POST',
+      body: { masterId: Number(route.params.id), duplicateId: mergePreview.value.duplicate.id, fields: { ...mergeFields } },
+    })
+    mergePreview.value = null
+    dupChecked.value = false
+    duplicates.value = []
+    await refresh()
+    toast.success('Contactos fusionados')
+  } catch (err: any) {
+    toast.error(err?.data?.statusMessage || 'No se pudo fusionar')
+  } finally {
+    merging.value = false
+  }
 }
 </script>
 

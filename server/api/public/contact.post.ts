@@ -4,6 +4,7 @@ import { rateLimit } from '../../utils/rateLimit'
 import { requireValidEmail } from '../../utils/validate'
 import { sendInternalNotification } from '../../utils/email/send'
 import { getRequestId } from '../../utils/requestId'
+import { readFirstTouch } from '../../utils/firstTouch'
 
 export default defineEventHandler(async (event) => {
   await rateLimit(event, 'contact', { limit: 5, windowSeconds: 600 })
@@ -33,6 +34,7 @@ export default defineEventHandler(async (event) => {
   // not prospects, so they get their own internal notification here instead.
   if (type === 'contact') {
     try {
+      const firstTouch = readFirstTouch(event)
       await upsertLead(event, {
         organizationId: orgId,
         name: String(name).slice(0, 200),
@@ -40,6 +42,8 @@ export default defineEventHandler(async (event) => {
         phone: body.phone ? String(body.phone).slice(0, 50) : null,
         source: 'web',
         notes: body.subject ? String(body.subject).slice(0, 300) : null,
+        originalMessage: String(message).slice(0, 5000),
+        ...firstTouch,
       })
     } catch {
       // Lead pipeline must never block the visitor's message from being saved.

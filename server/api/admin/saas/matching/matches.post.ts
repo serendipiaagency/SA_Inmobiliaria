@@ -1,6 +1,6 @@
 import { requireOrgScope } from '../../../../utils/auth'
 import { logAdminAction } from '../../../../utils/audit'
-import { MatchStatusError, setMatchStatus, type MatchStatus } from '../../../../utils/matching/service'
+import { MatchStatusError, setMatchStatus, PROPERTY_KINDS, type MatchStatus, type PropertyKind } from '../../../../utils/matching/service'
 
 /**
  * Guarda la decisión comercial sobre un match: seleccionarlo o descartarlo.
@@ -11,11 +11,12 @@ import { MatchStatusError, setMatchStatus, type MatchStatus } from '../../../../
  */
 export default defineEventHandler(async (event) => {
   const { user, orgId } = await requireOrgScope(event)
-  const body = await readBody<{ buyerRequirementId: number; propertyId: number; status: MatchStatus; discardedReason?: string }>(event)
+  const body = await readBody<{ buyerRequirementId: number; propertyId: number; propertyKind?: PropertyKind; status: MatchStatus; discardedReason?: string }>(event)
 
   if (!Number.isInteger(body?.buyerRequirementId) || !Number.isInteger(body?.propertyId)) {
     throw createError({ statusCode: 422, statusMessage: 'Faltan la necesidad y el inmueble' })
   }
+  const propertyKind: PropertyKind = PROPERTY_KINDS.includes(body.propertyKind as PropertyKind) ? (body.propertyKind as PropertyKind) : 'agent'
 
   try {
     const match = await setMatchStatus(
@@ -24,6 +25,7 @@ export default defineEventHandler(async (event) => {
       {
         buyerRequirementId: body.buyerRequirementId,
         propertyId: body.propertyId,
+        propertyKind,
         status: body.status,
         discardedReason: body.discardedReason,
       },

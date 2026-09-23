@@ -18,7 +18,8 @@ export default defineEventHandler(async (event) => {
   const rows = (
     await raw
       .prepare(
-        `SELECT id, name, email, phone, source, status, score, budget, property_name AS propertyName,
+        `SELECT id, name, email, phone, source, source_detail AS sourceDetail, status, stage, lost_reason AS lostReason,
+                priority, score, budget, property_name AS propertyName,
                 agent_name AS agentName, last_contact_at AS lastContactAt, created_at AS createdAt
          FROM leads ${clause} ORDER BY created_at DESC LIMIT 200`,
       )
@@ -26,14 +27,19 @@ export default defineEventHandler(async (event) => {
       .all<any>()
   ).results
 
-  const byStatus = (
+  // El Kanban agrupa por stage (FASE 13) — status se queda para la tabla y
+  // para quien todavía filtre por él, pero ya no es la dimensión de posición.
+  const byStage = (
     await raw
-      .prepare('SELECT status, count(*) AS n FROM leads WHERE organization_id = ? GROUP BY status')
-      .bind(orgId)
-      .all<{ status: string; n: number }>()
+      .prepare('SELECT stage, count(*) AS n FROM leads WHERE organization_id = ? AND status != ? GROUP BY stage')
+      .bind(orgId, 'lost')
+      .all<{ stage: string; n: number }>()
   ).results
   const counts: Record<string, number> = {}
-  for (const r of byStatus) counts[r.status] = r.n
+  for (const r of byStage) counts[r.stage] = r.n
+  counts.lost = (
+    await raw.prepare("SELECT count(*) AS n FROM leads WHERE organization_id = ? AND status = 'lost'").bind(orgId).first<{ n: number }>()
+  )?.n || 0
 
   return { rows, counts, total: rows.length }
 })

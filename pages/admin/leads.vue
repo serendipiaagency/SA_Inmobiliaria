@@ -43,7 +43,7 @@
         </div>
         <div class="flex-1 space-y-2 overflow-y-auto p-2.5" style="max-height: 62vh">
           <article
-            v-for="l in byStatus(col.key)"
+            v-for="l in byColumn(col.key)"
             :key="l.id"
             draggable="true"
             class="group cursor-grab rounded-lg border border-line bg-white p-3 shadow-sm transition hover:shadow-md active:cursor-grabbing"
@@ -62,13 +62,14 @@
               <span class="capitalize">{{ l.source }}</span>
               <span>{{ dt.money(l.budget, { compact: true }) }}</span>
             </div>
+            <p v-if="col.key === 'lost' && l.lostReason" class="mt-1 text-[11px] text-stone-400">{{ lostReasonLabel(l.lostReason) }}</p>
             <div class="mt-2 flex items-center gap-1.5 border-t border-line pt-2 text-[11px] text-stone-500">
               <span class="flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 text-[9px] font-semibold text-stone-600">{{ dt.initials(l.agentName) }}</span>
               <span class="min-w-0 flex-1 truncate">{{ l.agentName }}</span>
               <AdminCommsContactActions v-if="l.phone" :lead-id="l.id" :phone="l.phone" :name="l.name" compact />
             </div>
           </article>
-          <p v-if="!byStatus(col.key).length" class="py-6 text-center text-xs text-stone-400">Vacío</p>
+          <p v-if="!byColumn(col.key).length" class="py-6 text-center text-xs text-stone-400">Vacío</p>
         </div>
       </div>
     </div>
@@ -81,6 +82,7 @@
             <tr>
               <th class="px-4 py-2.5 font-semibold">Lead</th>
               <th class="px-4 py-2.5 font-semibold">Origen</th>
+              <th class="px-4 py-2.5 font-semibold">Fase</th>
               <th class="px-4 py-2.5 font-semibold">Estado</th>
               <th class="px-4 py-2.5 text-right font-semibold">Score</th>
               <th class="px-4 py-2.5 text-right font-semibold">Presupuesto</th>
@@ -96,6 +98,7 @@
                 <p class="text-xs text-stone-400">{{ l.email }}</p>
               </td>
               <td class="px-4 py-3 capitalize text-stone-600">{{ l.source }}</td>
+              <td class="px-4 py-3 text-stone-600">{{ stageLabel(l.stage) }}</td>
               <td class="px-4 py-3"><AdminStatusPill :status="l.status" /></td>
               <td class="px-4 py-3 text-right"><span class="rounded px-1.5 py-0.5 text-xs font-semibold" :class="scoreCls(l.score)">{{ l.score }}</span></td>
               <td class="px-4 py-3 text-right tabular-nums">{{ dt.money(l.budget, { compact: true }) }}</td>
@@ -129,41 +132,91 @@ const counts = ref<Record<string, number>>({})
 watch(data, (d) => { if (d?.counts) counts.value = { ...d.counts } }, { immediate: true })
 const total = computed(() => Object.values(counts.value).reduce((a, b) => a + b, 0))
 
+/**
+ * Columnas del Kanban = stage (FASE 13), no status: `stage` es la posición
+ * real en el pipeline y la que se mueve por drag&drop. "Perdidos" es la
+ * excepción a propósito — es la dimensión de resultado (status), no un
+ * stage, y arrastrar una tarjeta ahí fija el resultado sin perder en qué
+ * stage se quedó (por eso no tiene su propio `l.stage`, se filtra por
+ * `l.status === 'lost'` dentro de `byColumn`).
+ */
 const columns = [
   { key: 'new', label: 'Nuevos', dot: '#2563eb' },
   { key: 'contacted', label: 'Contactados', dot: '#7c3aed' },
+  { key: 'qualifying', label: 'Cualificando', dot: '#a855f7' },
   { key: 'qualified', label: 'Cualificados', dot: '#d97706' },
-  { key: 'proposal', label: 'Propuesta', dot: '#ea580c' },
+  { key: 'viewing', label: 'Visita', dot: '#0ea5e9' },
+  { key: 'offer', label: 'Oferta', dot: '#ea580c' },
+  { key: 'negotiation', label: 'Negociación', dot: '#f59e0b' },
   { key: 'won', label: 'Ganados', dot: '#059669' },
   { key: 'lost', label: 'Perdidos', dot: '#a8a29e' },
 ]
-function byStatus(status: string) {
-  return rows.value.filter((l) => l.status === status)
+function byColumn(key: string) {
+  if (key === 'lost') return rows.value.filter((l) => l.status === 'lost')
+  return rows.value.filter((l) => l.stage === key && l.status !== 'lost')
 }
 function scoreCls(s: number) {
   if (s >= 75) return 'bg-emerald-50 text-emerald-700'
   if (s >= 45) return 'bg-amber-50 text-amber-700'
   return 'bg-stone-100 text-stone-500'
 }
+function stageLabel(stage: string) {
+  return columns.find((c) => c.key === stage)?.label || stage
+}
+const LOST_REASON_LABELS: Record<string, string> = { no_response: 'Sin respuesta', not_interested: 'Sin interés', duplicate: 'Duplicado', other: 'Otro motivo' }
+function lostReasonLabel(reason: string) {
+  return LOST_REASON_LABELS[reason] || reason
+}
 
 const dragId = ref<number | null>(null)
-async function onDrop(status: string) {
+async function onDrop(columnKey: string) {
   const id = dragId.value
   dragId.value = null
   if (!id) return
   const lead = rows.value.find((l) => l.id === id)
-  if (!lead || lead.status === status) return
-  const old = lead.status
+  if (!lead) return
+  const wasLost = lead.status === 'lost'
+  const fromColumn = wasLost ? 'lost' : lead.stage
+  if (fromColumn === columnKey) return
+
   // optimistic
-  counts.value[old] = Math.max(0, (counts.value[old] || 1) - 1)
-  counts.value[status] = (counts.value[status] || 0) + 1
-  lead.status = status
+  counts.value[fromColumn] = Math.max(0, (counts.value[fromColumn] || 1) - 1)
+  counts.value[columnKey] = (counts.value[columnKey] || 0) + 1
+  const previousStage = lead.stage
+  const previousStatus = lead.status
+  const previousLostReason = lead.lostReason
+
   try {
-    await $fetch(`/api/admin/saas/leads/${id}`, { method: 'PATCH', body: { status } })
+    if (columnKey === 'lost') {
+      // Perder pide motivo: un lead perdido sin explicación no dice nada al
+      // repasar el pipeline la semana siguiente.
+      const reason = window.prompt('Motivo de la pérdida (sin respuesta / sin interés / duplicado / otro)') || 'other'
+      const lostReason = ['no_response', 'not_interested', 'duplicate'].includes(reason) ? reason : 'other'
+      lead.status = 'lost'
+      lead.lostReason = lostReason
+      const res = await $fetch<any>(`/api/admin/saas/leads/${id}`, { method: 'PATCH', body: { lost: true, lostReason } })
+      lead.status = res.status
+      lead.stage = res.stage
+      lead.lostReason = res.lostReason
+    } else if (wasLost) {
+      // Reactivar desde "Perdidos": vuelve al stage en el que se quedó.
+      lead.status = 'active'
+      const res = await $fetch<any>(`/api/admin/saas/leads/${id}`, { method: 'PATCH', body: { lost: false } })
+      lead.status = res.status
+      lead.stage = res.stage
+      lead.lostReason = null
+    } else {
+      lead.stage = columnKey
+      const res = await $fetch<any>(`/api/admin/saas/leads/${id}`, { method: 'PATCH', body: { stage: columnKey } })
+      lead.status = res.status
+      lead.stage = res.stage
+    }
   } catch {
-    lead.status = old
-    counts.value[status] = Math.max(0, (counts.value[status] || 1) - 1)
-    counts.value[old] = (counts.value[old] || 0) + 1
+    lead.stage = previousStage
+    lead.status = previousStatus
+    lead.lostReason = previousLostReason
+    counts.value[columnKey] = Math.max(0, (counts.value[columnKey] || 1) - 1)
+    counts.value[fromColumn] = (counts.value[fromColumn] || 0) + 1
     toast.error('No se pudo actualizar el lead')
     refresh()
   }

@@ -4,6 +4,7 @@ import { storeAndRegisterFile } from '../../utils/media'
 import { upsertLead } from '../../utils/leads'
 import { rateLimit } from '../../utils/rateLimit'
 import { isValidEmail } from '../../utils/validate'
+import { readFirstTouch } from '../../utils/firstTouch'
 
 const PDF_FIELDS = [
   'passport_pdf',
@@ -101,6 +102,7 @@ export default defineEventHandler(async (event) => {
       source: 'web',
       notes: [text.property_type, text.preferred_location, text.budget_range].filter(Boolean).join(' · ') || null,
       scoreBump: 30,
+      ...readFirstTouch(event),
     })
   } catch {
     // Lead pipeline must never block the visitor form from being saved.

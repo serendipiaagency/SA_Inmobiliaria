@@ -64,6 +64,8 @@ export function useHelpContent() {
         'Si la coincidencia es exacta (mismo email o mismo teléfono), lo normal es abrir el contacto existente en vez de crear otro.',
         'Si de verdad son dos personas distintas que comparten un dato, usa "Crear igualmente": queda registrado que la decisión fue consciente.',
         'Desde la ficha, la pestaña Necesidades guarda qué busca esa persona, y la pestaña Leads reúne todas las veces que ha contactado contigo.',
+        'La pestaña "Posibles duplicados" busca, dentro de tu agencia, otras fichas que coincidan en email, teléfono o WhatsApp con esta persona. Antes de fusionar te enseña los dos registros completos, en qué campos difieren (por ejemplo, dos emails distintos) y cuántas necesidades, leads y clientes se moverían al contacto que sobrevive.',
+        'Al fusionar eliges, campo a campo, cuál de los dos valores se queda cuando hay conflicto; lo que no elijas se rellena con el dato del duplicado sólo si el superviviente lo tenía vacío. El duplicado nunca se borra: se archiva, y todo lo que colgaba de él (necesidades, leads, clientes) pasa a la ficha que queda activa.',
       ],
     },
     {
@@ -79,6 +81,7 @@ export function useHelpContent() {
         'En cada característica marca si es imprescindible, preferible o indiferente. Lo que no marques queda sin declarar — que no pidas garaje no significa que lo rechaces, y esa diferencia importa al cruzar con el catálogo.',
         'Deja en blanco lo que el cliente no haya concretado. Un precio máximo vacío significa "no lo ha dicho", nunca "cero".',
         '"Validar presupuesto" es una acción con autor y fecha: márcala sólo cuando lo hayas comprobado de verdad, no porque el cliente haya mencionado una cifra.',
+        'El estado de cada necesidad (activa, pausada, cubierta, archivada) se cambia desde el propio desplegable de la tarjeta, sin abrir un formulario aparte. Pausa una búsqueda cuando el cliente te dice "de momento lo dejamos", márcala cubierta cuando ya ha comprado o alquilado, y archívala si ya no aplica — una necesidad pausada o archivada sigue viendo sus compatibilidades, simplemente deja de aparecer como una búsqueda activa.',
       ],
     },
     {
@@ -89,8 +92,8 @@ export function useHelpContent() {
       summary:
         'Cruza necesidades con inmuebles en las dos direcciones y te dice, criterio a criterio, por qué encaja cada uno. El porcentaje nunca viene solo: siempre lleva su explicación.',
       steps: [
-        'Desde una necesidad (ficha del contacto → Necesidades → "Buscar propiedades") ves los inmuebles compatibles.',
-        'Desde "Compatibilidades" eliges un inmueble y ves qué compradores registrados encajan con él. Es el mismo cálculo, al revés.',
+        'Desde una necesidad (ficha del contacto → Necesidades → "Buscar propiedades") ves los inmuebles compatibles — de los dos catálogos a la vez: Propiedades (web, obra nueva) y Propiedades 2ª mano. Cada resultado dice de cuál de los dos viene.',
+        'Desde "Compatibilidades" eliges un inmueble (el desplegable agrupa "Propiedades (web)" y "Propiedades 2ª mano" por separado) y ves qué compradores registrados encajan con él. Es el mismo cálculo, al revés, y usa exactamente el mismo motor sea cual sea el catálogo.',
         'Cada línea del desglose dice qué se comparó: ✓ cumple, △ se queda cerca (78 m² frente a 80), ✕ no cumple, ? no hay dato para saberlo.',
         'Un criterio imprescindible incumplido descarta el inmueble y se marca como tal; uno preferible sólo baja el porcentaje.',
         'Si un imprescindible no se puede comprobar, el inmueble no se descarta: sale como "revisar", porque esconderlo por una ficha incompleta haría perder operaciones.',
@@ -103,11 +106,12 @@ export function useHelpContent() {
       group: 'CRM',
       title: 'Leads',
       route: '/admin/leads',
-      summary: 'Pipeline Kanban de todos los contactos interesados: nuevo → contactado → cualificado → propuesta → ganado/perdido.',
+      summary: 'Pipeline Kanban de todos los contactos interesados: nuevo → contactado → cualificando → cualificado → visita → oferta → negociación → ganado, con "perdido" como columna aparte.',
       steps: [
-        'Arrastra una tarjeta de columna para cambiar su estado (se guarda automáticamente).',
-        'Haz clic en un lead para ver su origen (web, referido, llamada…), notas y datos de contacto.',
-        'Los leads se crean solos desde el formulario público, las reservas de visita y el programa de referidos — no hace falta darlos de alta a mano salvo excepción.',
+        'Arrastra una tarjeta a otra columna para mover el lead de fase — se guarda automáticamente y queda registrado en su historial (quién lo movió, desde qué fase y hasta cuál).',
+        'Arrastrar a "Perdido" pide un motivo (sin respuesta, no le interesa, duplicado, otro) y mueve la tarjeta ahí. Por debajo, la fase en la que estaba se congela tal cual — si luego lo recuperas arrastrándolo fuera de "Perdido", vuelve exactamente a esa fase, no a "Nuevo": no se pierde en qué punto del proceso se cayó la operación.',
+        'Haz clic en un lead para ver su origen (web, referido, llamada…), campaña y UTM si llegó de un enlace de marketing, la página de aterrizaje, el mensaje original tal cual lo escribió, notas y datos de contacto.',
+        'Los leads se crean solos desde el formulario público, las reservas de visita y el programa de referidos — no hace falta darlos de alta a mano salvo excepción. Si el email o el teléfono coincide con un contacto que ya existe en tu agencia, el lead se enlaza automáticamente a esa ficha en vez de crear una persona duplicada.',
       ],
     },
     {
@@ -857,6 +861,20 @@ export function useHelpContent() {
       answer:
         'Se crean automáticamente desde el formulario de contacto público, la reserva de una visita, el envío del programa de referidos, o la API pública (v1) si tienes una integración externa. También puedes crear uno manualmente desde Leads.',
       tags: ['leads', 'crm', 'referidos'],
+    },
+    {
+      id: 'faq-lead-fase-vs-estado',
+      question: 'En un lead, ¿qué diferencia hay entre su columna del Kanban y que esté "perdido"?',
+      answer:
+        'La columna es la fase: en qué punto del proceso está (nuevo, contactado, cualificando…, hasta ganado). "Perdido" es aparte, un resultado: se puede perder un lead desde cualquier fase, y al perderlo la tarjeta se va a la columna "Perdido" pero la fase en la que iba se queda guardada tal cual. Si luego lo recuperas, vuelve a esa fase — nunca se reinicia a "Nuevo".',
+      tags: ['leads', 'pipeline', 'kanban', 'estados'],
+    },
+    {
+      id: 'faq-merge-contacto',
+      question: 'Al fusionar dos contactos, ¿qué pasa con sus necesidades, leads y clientes?',
+      answer:
+        'Se reasignan todos al contacto que sobrevive — ninguna relación se pierde ni se borra por archivar el duplicado. El registro de qué se fusionó y cuándo queda en el historial de acciones administrativas, así que un error se puede revisar después aunque el duplicado ya no aparezca en los listados activos.',
+      tags: ['contactos', 'duplicados', 'dedup', 'fusion'],
     },
     {
       id: 'faq-contract-signature',
