@@ -6,13 +6,7 @@
 
 <script setup lang="ts">
 import L from 'leaflet'
-// Imported here (not nuxt.config.ts's global `css:` array) so it travels with
-// this .client.vue's own async chunk. A global import gets tied to whichever
-// entry first pulls the JS in (pages/mapa.vue, in this app's build) and that
-// chunk's CSS never actually gets <link>-ed here or in EmbedMiniMap.client.vue —
-// Nuxt only preloads CSS for components it renders server-side, and a
-// .client.vue by design renders nothing there. See docs/production-hardening-audit.md.
-import 'leaflet/dist/leaflet.css'
+import { useLeafletMap, createTileLayer } from '~/composables/useLeafletMap'
 
 const props = defineProps<{ lat: number | null | undefined; lng: number | null | undefined }>()
 const emit = defineEmits<{ 'update:lat': [number]; 'update:lng': [number] }>()
@@ -23,17 +17,27 @@ const FALLBACK_CENTER: [number, number] = [40.4168, -3.7038]
 const FALLBACK_ZOOM = 5
 const PIN_ZOOM = 15
 
+function hasPin() {
+  return typeof props.lat === 'number' && typeof props.lng === 'number'
+}
+
 const el = ref<HTMLElement | null>(null)
-let map: L.Map | null = null
+const start: [number, number] = hasPin() ? [props.lat as number, props.lng as number] : FALLBACK_CENTER
+// useLeafletMap crea el mapa en su propio onMounted, registrado antes que el
+// de aquí abajo — Vue dispara los hooks de un mismo componente en el orden
+// en que se registran, así que map.value ya existe cuando llega el nuestro.
+// Corrige de raíz el mapa en gris/mal encajado que salía al montarse en la
+// pestaña "Ubicación" (oculta con v-show, no la primera del editor): antes
+// nada llamaba a invalidateSize() al mostrarla; ahora el ResizeObserver del
+// composable lo hace solo, para esta pestaña y para cualquier otro sitio
+// oculto donde se monte este picker en el futuro.
+const { map } = useLeafletMap(el, { zoomControl: true, scrollWheelZoom: true, center: start, zoom: hasPin() ? PIN_ZOOM : FALLBACK_ZOOM })
+
 let marker: L.Marker | null = null
 // Distinguishes a lat/lng prop change caused by this component's own
 // click/drag (emit → parent → prop comes back down) from one caused
 // externally (a geocode result) — only the latter should re-center/zoom.
 let lastEmitted: string | null = null
-
-function hasPin() {
-  return typeof props.lat === 'number' && typeof props.lng === 'number'
-}
 
 function emitPosition(latlng: L.LatLng) {
   const lat = Math.round(latlng.lat * 1e6) / 1e6
@@ -44,11 +48,11 @@ function emitPosition(latlng: L.LatLng) {
 }
 
 function ensureMarker(latlng: L.LatLng) {
-  if (!map) return
+  if (!map.value) return
   if (marker) {
     marker.setLatLng(latlng)
   } else {
-    marker = L.marker(latlng, { draggable: true }).addTo(map)
+    marker = L.marker(latlng, { draggable: true }).addTo(map.value)
     marker.on('dragend', () => emitPosition(marker!.getLatLng()))
   }
 }
@@ -59,14 +63,10 @@ function placeMarker(latlng: L.LatLng) {
 }
 
 onMounted(() => {
-  if (!el.value) return
-  const start: [number, number] = hasPin() ? [props.lat as number, props.lng as number] : FALLBACK_CENTER
-  map = L.map(el.value, { zoomControl: true, scrollWheelZoom: true }).setView(start, hasPin() ? PIN_ZOOM : FALLBACK_ZOOM)
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 20, attribution: '© OSM · CARTO' }).addTo(map)
-
+  if (!map.value) return
+  createTileLayer('light').addTo(map.value)
   if (hasPin()) ensureMarker(L.latLng(start[0], start[1]))
-
-  map.on('click', (e: L.LeafletMouseEvent) => placeMarker(e.latlng))
+  map.value.on('click', (e: L.LeafletMouseEvent) => placeMarker(e.latlng))
 })
 
 // A successful geocode from the parent updates props.lat/lng externally —
@@ -75,16 +75,12 @@ onMounted(() => {
 watch(
   () => [props.lat, props.lng],
   ([lat, lng]) => {
-    if (!map || typeof lat !== 'number' || typeof lng !== 'number') return
+    if (!map.value || typeof lat !== 'number' || typeof lng !== 'number') return
     const key = `${lat},${lng}`
     if (key === lastEmitted) return
     const latlng = L.latLng(lat, lng)
     ensureMarker(latlng)
-    map.setView(latlng, Math.max(map.getZoom(), PIN_ZOOM))
+    map.value.setView(latlng, Math.max(map.value.getZoom(), PIN_ZOOM))
   },
 )
-
-onBeforeUnmount(() => {
-  if (map) map.remove()
-})
 </script>

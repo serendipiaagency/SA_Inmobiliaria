@@ -396,6 +396,66 @@ test.describe('Constructor Web', () => {
   })
 
   /**
+   * The map-teaser block's real Leaflet map (MapTeaserMap.client.vue) must
+   * actually mount in the canvas — never the decorative gray/dotted
+   * `#fallback` staying up forever — and clicking it must select the block
+   * like any other node, not pan/zoom the map or navigate off the canvas.
+   * The block previously rendered manual illustrative pins; this proves the
+   * real-map replacement both initializes and stays inert while editing.
+   */
+  test('el mapa del bloque «Mapa (teaser)» se renderiza de verdad en el lienzo y un clic lo selecciona sin interactuar con él', async ({ page }) => {
+    const devRes = await a.post('/api/admin/developers', { data: { name: `Mapa E2E dev ${Date.now()}`, email: `mapa-e2e-${Date.now()}@mm.test`, status: 'active' } })
+    expect(devRes.ok(), await devRes.text()).toBeTruthy()
+    const marker = `Mapa E2E Property ${Date.now()}`
+    const propRes = await a.post('/api/admin/developer-properties', {
+      data: { developerId: (await devRes.json()).id, name: marker, status: 'new', price: 350000, lat: 40.4168, lng: -3.7038 },
+    })
+    expect(propRes.ok(), await propRes.text()).toBeTruthy()
+    const propertyId = (await propRes.json()).id
+
+    const put = await a.put('/api/admin/site-pages/home', {
+      data: {
+        blocks: [{
+          id: 'map-e2e',
+          type: 'map-teaser',
+          version: 1,
+          content: { eyebrow: 'e', title: 't', source: 'manual', manualIds: [propertyId] },
+        }],
+        seo: {},
+      },
+    })
+    expect(put.ok(), await put.text()).toBeTruthy()
+
+    await page.goto('/admin/site-builder')
+    const canvas = page.frameLocator('iframe[title="Vista previa del Constructor Web"]')
+
+    // Real map, real marker for the real property — not the placeholder
+    // gradient box, and not an empty map with no pins.
+    await expect(canvas.locator('.leaflet-container')).toBeVisible({ timeout: 10_000 })
+    await expect(canvas.locator('.mtm-pin')).toBeVisible({ timeout: 10_000 })
+
+    // A click on the map selects the block (same guarantee as any other
+    // node) instead of panning/zooming Leaflet or leaving the canvas route.
+    // It lands on the lock overlay (the real click target in builder mode —
+    // MapTeaserMap.client.vue's `.mtm-lock-overlay`), same as a real user's
+    // mouse would: clicking `.leaflet-container` directly would be a false
+    // positive, since Leaflet is genuinely covered and unclickable here.
+    await canvas.locator('.mtm-lock-overlay').click()
+    await expect(page.locator('aside.border-l').getByText('Mapa (teaser)')).toBeVisible()
+    const canvasFrame = page.frames().find((f) => f.url().includes('/admin/site-builder/canvas'))
+    expect(canvasFrame, 'el iframe del lienzo debe seguir cargado').toBeTruthy()
+
+    // Vista previa: el mapa real sigue ahí (esto no era un placeholder que
+    // sólo aparecía tras seleccionar el bloque) — y sigue siendo
+    // `.leaflet-container`: la capa de bloqueo de arriba es un elemento
+    // aparte, así que desactivarla al cambiar de modo no le toca ninguna
+    // clase al mapa.
+    await page.getByRole('button', { name: 'Vista previa' }).click()
+    await expect(canvas.locator('.leaflet-container')).toBeVisible({ timeout: 10_000 })
+    await expect(canvas.locator('.mtm-pin')).toBeVisible({ timeout: 10_000 })
+  })
+
+  /**
    * The floating block toolbar (SiteBlockRenderer.vue) is rendered *inside*
    * the same wrapper whose capture-phase click handler blocks navigation
    * (see the test above) — without the `[data-block-toolbar]` early-return

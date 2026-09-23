@@ -1,6 +1,11 @@
 <template>
   <transition name="fade">
-    <div v-if="open" class="fixed inset-0 z-50 flex items-end justify-center sm:items-center" @click.self="close">
+    <!-- z-[1000]: por encima de cualquier overlay del sitio público, incluido
+         el botón flotante "Ver mapa/Ver lista" de /mapa (z-[600]) — un modal
+         de filtros tiene que bloquear de verdad lo que hay detrás, no
+         quedar por debajo de un botón flotante que seguía siendo
+         clicable con el fondo oscurecido encima. -->
+    <div v-if="open" class="fixed inset-0 z-[1000] flex items-end justify-center sm:items-center" @click.self="close">
       <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <transition name="sheet" appear>
         <div

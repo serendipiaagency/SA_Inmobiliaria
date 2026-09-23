@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../../../utils/db'
 import { POI_TAG_FILTERS, overpassAroundQuery, queryOverpass, distanceMeters } from '../../../../utils/pois'
+import { hasValidCoords } from '../../../../../utils/maps/coords'
 
 const RADIUS_METERS = 2000
 
@@ -22,7 +23,9 @@ export default defineEventHandler(async (event) => {
     .limit(1)
   const project = rows[0]
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
-  if (!project.lat || !project.lng) return { categories: [] }
+  // typeof-check (no `!lat || !lng`): esa versión descartaba en silencio una
+  // propiedad real en el ecuador o el meridiano de Greenwich (0 es falsy).
+  if (!hasValidCoords(project)) return { categories: [] }
 
   const types = Object.keys(POI_TAG_FILTERS)
   const pois = await queryOverpass(overpassAroundQuery(types, RADIUS_METERS, project.lat, project.lng))

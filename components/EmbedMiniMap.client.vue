@@ -4,13 +4,10 @@
 
 <script setup lang="ts">
 import L from 'leaflet'
-// See the same import in LocationPicker.client.vue for why this lives here
-// and not in nuxt.config.ts's global `css:` array.
-import 'leaflet/dist/leaflet.css'
+import { useLeafletMap, createTileLayer } from '~/composables/useLeafletMap'
+import { withValidCoords } from '~/utils/maps/coords'
 
 const props = defineProps<{ items: any[]; accent?: string; dark?: boolean; origin?: string; currency?: string }>()
-const el = ref<HTMLElement | null>(null)
-let map: any = null
 
 const RATES: Record<string, { r: number; s: string }> = {
   AED: { r: 1, s: 'AED ' }, USD: { r: 0.2723, s: '$' }, EUR: { r: 0.2532, s: '€' }, GBP: { r: 0.2151, s: '£' }, CNY: { r: 1.962, s: '¥' },
@@ -22,18 +19,18 @@ function priceShort(v: number) {
   return `${c.s}${Math.round(val / 1000)}k`
 }
 
-onMounted(async () => {
-  await nextTick()
-  const pts = props.items.filter((i) => i.lat && i.lng)
-  const center = pts.length ? [pts[0].lat, pts[0].lng] : [25.15, 55.25]
-  map = L.map(el.value as HTMLElement, { zoomControl: true, scrollWheelZoom: false }).setView(center as any, 12)
-  const url = props.dark
-    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-  L.tileLayer(url, { maxZoom: 20, attribution: '© OSM · CARTO' }).addTo(map)
+const FALLBACK_CENTER: [number, number] = [25.15, 55.25]
+const el = ref<HTMLElement | null>(null)
+const pts = withValidCoords(props.items)
+const initialCenter: [number, number] = pts.length ? [pts[0].lat, pts[0].lng] : FALLBACK_CENTER
+const { map } = useLeafletMap(el, { zoomControl: true, scrollWheelZoom: false, center: initialCenter, zoom: 12 })
+
+onMounted(() => {
+  if (!map.value) return
+  createTileLayer(props.dark ? 'dark' : 'light').addTo(map.value)
 
   const accent = props.accent || '#16150f'
-  const bounds: any[] = []
+  const bounds: [number, number][] = []
   for (const p of pts) {
     const m = L.marker([p.lat, p.lng], {
       icon: L.divIcon({
@@ -48,10 +45,9 @@ onMounted(async () => {
         `<div style="color:#78716c;font-size:12px">${p.community || ''}</div>` +
         `<div style="font-weight:700;margin-top:3px;color:${accent}">${priceShort(p.price)}</div></div>`,
     )
-    m.addTo(map)
+    m.addTo(map.value)
     bounds.push([p.lat, p.lng])
   }
-  if (bounds.length > 1) map.fitBounds(bounds, { padding: [40, 40] })
+  if (bounds.length > 1) map.value.fitBounds(bounds, { padding: [40, 40] })
 })
-onBeforeUnmount(() => { if (map) map.remove() })
 </script>

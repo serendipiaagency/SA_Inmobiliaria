@@ -6,7 +6,8 @@ import { getCspNonce } from '../utils/cspNonce'
  * everything else (including /admin) blocks it to prevent clickjacking.
  *
  * CSP allowlists the specific third-party origins this app actually loads at runtime: map
- * tiles (CartoDB), Google Fonts, the Instagram/TikTok embed scripts used on blog posts, and
+ * tiles (CartoDB for the standard/dark base layers, Esri/ArcGIS Online for the "Satélite"
+ * base layer on /mapa), Google Fonts, the Instagram/TikTok embed scripts used on blog posts, and
  * Unsplash — property/community/blog/floor-plan images are content fields that hold either
  * an R2-backed /api/media/ key or a direct Unsplash URL (used as placeholder photography
  * until real listing photos are uploaded), never assume every image is same-origin.
@@ -41,7 +42,7 @@ export default defineEventHandler((event) => {
     [
       "default-src 'self'",
       `frame-ancestors ${isEmbeddable ? '*' : "'self'"}`,
-      "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://images.unsplash.com",
+      "img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://server.arcgisonline.com https://images.unsplash.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       `style-src-elem 'self' 'nonce-${nonce}' 'unsafe-inline' https://fonts.googleapis.com`,
       "style-src-attr 'unsafe-inline'",

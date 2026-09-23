@@ -70,6 +70,8 @@
 </template>
 
 <script setup lang="ts">
+import { withValidCoords } from '~/utils/maps/coords'
+
 const { t } = useI18n()
 const { tenant, load: loadTenant } = useTenant()
 await loadTenant()
@@ -94,7 +96,7 @@ watch(
 const { data } = await useFetch('/api/public/properties', {
   query: computed(() => ({ ...route.query, perPage: 48 })),
 })
-const items = computed(() => (data.value?.rows || []).filter((p: any) => p.lat && p.lng))
+const items = computed(() => withValidCoords((data.value?.rows as any[]) || []))
 
 // Advanced filter keys that count toward the badge
 const ADV = ['minPrice','maxPrice','minArea','maxArea','bedrooms','bathrooms','type','status','orientation','minYear','energy','elevator','pool','garage','terrace','garden','pets','accessible']
