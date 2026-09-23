@@ -94,12 +94,13 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     presetId: 'map-teaser',
     type: 'map-teaser',
     label: 'Mapa (teaser)',
-    description: 'Bloque de dos columnas con texto y un mapa ilustrativo.',
+    description: 'Bloque de dos columnas con texto y un mapa real, con las propiedades que elijas.',
     category: 'Explora',
     createContent: () => ({
       eyebrow: 'Explora por zona', title: 'Encuentra tu barrio en el mapa',
       text: 'Descubre las propiedades por ubicación, con transporte, colegios y servicios a un vistazo.',
-      cta: 'Abrir el mapa', ctaTo: '/propiedades', pins: [],
+      cta: 'Abrir el mapa', ctaTo: '/propiedades',
+      source: 'dynamic', dynamicFilter: 'latest', limit: 6,
     }),
   },
   {
@@ -315,7 +316,7 @@ export interface BlockInspectorEntry {
 export const BLOCK_INSPECTORS: Record<string, BlockInspectorEntry> = {
   hero: { component: HeroInspector },
   properties: { component: PropertiesInspector, needsPreviewData: true },
-  'map-teaser': { component: MapTeaserInspector },
+  'map-teaser': { component: MapTeaserInspector, needsPreviewData: true },
   communities: { component: CommunitiesInspector, needsPreviewData: true },
   'property-types': { component: PropertyTypesInspector },
   'mortgage-calculator': { component: MortgageInspector },

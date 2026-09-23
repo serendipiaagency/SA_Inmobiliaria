@@ -22,29 +22,42 @@
 <script setup lang="ts">
 import L from 'leaflet'
 import 'leaflet.markercluster'
-// See the same import in LocationPicker.client.vue for why these live here
-// and not in nuxt.config.ts's global `css:` array.
-import 'leaflet/dist/leaflet.css'
+// leaflet/dist/leaflet.css ya viaja con useLeafletMap.ts (mismo motivo: sólo
+// se resuelve para un `.client.vue`). Las de markercluster sí son propias
+// de este componente, el único que las usa.
 import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
+import { useLeafletMap, createTileLayer, type TileKey } from '~/composables/useLeafletMap'
+import { withValidCoords } from '~/utils/maps/coords'
 
 const { t } = useI18n()
 const props = defineProps<{ items: any[]; activeId?: number | null }>()
 const emit = defineEmits<{ 'marker-click': [number]; 'marker-hover': [number | null] }>()
 
+// Centra sólo la vista inicial cuando todavía no hay ningún punto que
+// mostrar — nunca marca una propiedad ahí. Dubái, el mercado principal de
+// este portal; ver LocationPicker.client.vue para el equivalente de admin
+// (Madrid), un valor de negocio distinto a propósito, no una inconsistencia.
+const FALLBACK_CENTER: [number, number] = [25.15, 55.25]
+const INITIAL_ZOOM = 12
+
 const el = ref<HTMLElement | null>(null)
 const ready = ref(false)
-let map: any = null
-let cluster: any = null
-let baseLayers: Record<string, any> = {}
-const markers: Record<number, any> = {}
-let poiGroup: any = null
 
-const base = ref('plano')
+const initialPts = withValidCoords(props.items)
+const initialCenter: [number, number] = initialPts.length ? [initialPts[0].lat, initialPts[0].lng] : FALLBACK_CENTER
+const { map } = useLeafletMap(el, { zoomControl: true, scrollWheelZoom: true, center: initialCenter, zoom: INITIAL_ZOOM })
+
+let cluster: any = null
+let baseLayers: Partial<Record<TileKey, L.TileLayer>> = {}
+const markers = new Map<number, any>()
+let poiGroup: L.LayerGroup | null = null
+
+const base = ref<TileKey>('light')
 const baseOptions = computed(() => [
-  { key: 'plano', label: t('map.layers.standard', 'Plano') },
-  { key: 'satelite', label: t('map.layers.satellite', 'Satélite') },
-  { key: 'oscuro', label: t('map.layers.dark', 'Oscuro') },
+  { key: 'light' as const, label: t('map.layers.standard', 'Plano') },
+  { key: 'satellite' as const, label: t('map.layers.satellite', 'Satélite') },
+  { key: 'dark' as const, label: t('map.layers.dark', 'Oscuro') },
 ])
 const poiTypes = computed(() => [
   { key: 'transporte', label: t('map.poi.transport', 'Transporte'), color: '#2563eb' },
@@ -55,25 +68,17 @@ const poiTypes = computed(() => [
 ])
 const poiOn = reactive<Record<string, boolean>>({ transporte: false, colegios: false, hospitales: false, super: false, playas: false })
 
-function tile(key: string) {
-  if (key === 'satelite')
-    return L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Esri' })
-  if (key === 'oscuro')
-    return L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 20, attribution: '© OSM · CARTO' })
-  return L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 20, attribution: '© OSM · CARTO' })
-}
-
 function priceShort(v: number) {
   if (!v) return '—'
   if (v >= 1e6) return `${(v / 1e6).toFixed(v % 1e6 ? 1 : 0)}M`
   return `${Math.round(v / 1000)}k`
 }
 
-function setBase(key: string) {
-  if (!map) return
-  Object.values(baseLayers).forEach((l: any) => map.removeLayer(l))
+function setBase(key: TileKey) {
+  if (!map.value) return
+  for (const layer of Object.values(baseLayers)) if (layer) map.value.removeLayer(layer)
   base.value = key
-  baseLayers[key].addTo(map)
+  baseLayers[key]?.addTo(map.value)
 }
 
 function makeIcon(p: any, active = false) {
@@ -97,13 +102,13 @@ function renderPois() {
 }
 
 async function fetchAndRenderPois() {
-  if (!map) return
+  if (!map.value || !poiGroup) return
   const active = poiTypes.value.filter((pt) => poiOn[pt.key])
   if (!active.length) {
     poiGroup.clearLayers()
     return
   }
-  const b = map.getBounds()
+  const b = map.value.getBounds()
   const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].join(',')
   const seq = ++poiFetchSeq
   let pois: any[] = []
@@ -125,20 +130,20 @@ async function fetchAndRenderPois() {
   }
 }
 
-onMounted(async () => {
-  await nextTick()
-  const pts = props.items.filter((i) => i.lat && i.lng)
-  const center = pts.length ? [pts[0].lat, pts[0].lng] : [25.15, 55.25]
-  map = L.map(el.value as HTMLElement, { zoomControl: true, scrollWheelZoom: true }).setView(center as any, 12)
-  baseLayers = { plano: tile('plano'), satelite: tile('satelite'), oscuro: tile('oscuro') }
-  baseLayers.plano.addTo(map)
-  baseLayers.plano.once('load', () => (ready.value = true))
-  setTimeout(() => (ready.value = true), 4000)
-  poiGroup = L.layerGroup().addTo(map)
-  map.on('moveend', renderPois)
-
-  cluster = (L as any).markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 48 })
-  const bounds: any[] = []
+/**
+ * (Re)construye marcadores y bounds desde `props.items`. Antes esto sólo se
+ * ejecutaba una vez dentro de onMounted: cambiar los filtros de /mapa
+ * actualizaba la lista lateral pero el mapa se quedaba con los marcadores
+ * del primer render — corregido llamando a esta misma función también desde
+ * un watcher sobre `props.items`, así que la lista y el mapa nunca pueden
+ * divergir.
+ */
+function buildMarkers() {
+  if (!map.value || !cluster) return
+  cluster.clearLayers()
+  markers.clear()
+  const pts = withValidCoords(props.items)
+  const bounds: [number, number][] = []
   for (const p of pts) {
     const m = L.marker([p.lat, p.lng], { icon: makeIcon(p) })
     const sv = `https://www.google.com/maps?q=&layer=c&cbll=${p.lat},${p.lng}`
@@ -159,31 +164,42 @@ onMounted(async () => {
     m.on('click', () => emit('marker-click', p.id))
     m.on('mouseover', () => emit('marker-hover', p.id))
     m.on('mouseout', () => emit('marker-hover', null))
-    markers[p.id] = m
+    markers.set(p.id, m)
     cluster.addLayer(m)
     bounds.push([p.lat, p.lng])
   }
-  map.addLayer(cluster)
-  if (bounds.length > 1) map.fitBounds(bounds, { padding: [60, 60] })
+  if (bounds.length > 1) map.value.fitBounds(bounds, { padding: [60, 60] })
+}
+
+onMounted(() => {
+  if (!map.value) return
+  baseLayers = { light: createTileLayer('light'), satellite: createTileLayer('satellite'), dark: createTileLayer('dark') }
+  baseLayers.light!.addTo(map.value)
+  baseLayers.light!.once('load', () => (ready.value = true))
+  setTimeout(() => (ready.value = true), 4000)
+  poiGroup = L.layerGroup().addTo(map.value)
+  map.value.on('moveend', renderPois)
+
+  cluster = (L as any).markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 48 })
+  map.value.addLayer(cluster)
+  buildMarkers()
 })
+
+watch(() => props.items, buildMarkers)
 
 watch(
   () => props.activeId,
   (id, prev) => {
-    if (prev && markers[prev]) markers[prev].setIcon(makeIcon(props.items.find((i) => i.id === prev), false))
-    if (id && markers[id]) {
+    if (prev && markers.has(prev)) markers.get(prev).setIcon(makeIcon(props.items.find((i) => i.id === prev), false))
+    if (id && markers.has(id)) {
       const p = props.items.find((i) => i.id === id)
-      markers[id].setIcon(makeIcon(p, true))
-      if (map) {
-        cluster.zoomToShowLayer(markers[id], () => markers[id].openPopup())
+      markers.get(id).setIcon(makeIcon(p, true))
+      if (map.value) {
+        cluster.zoomToShowLayer(markers.get(id), () => markers.get(id).openPopup())
       }
     }
   },
 )
-
-onBeforeUnmount(() => {
-  if (map) map.remove()
-})
 </script>
 
 <style scoped>

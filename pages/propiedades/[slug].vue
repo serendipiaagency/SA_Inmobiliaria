@@ -173,12 +173,22 @@
             <p class="eyebrow !text-blue-700">{{ t('propertyDetails.location.eyebrow', 'Ubicación') }}</p>
             <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.location.heading', 'Dónde está') }}</h2>
             <div class="relative mt-7 h-80 overflow-hidden rounded-2xl border border-line">
-              <div class="absolute inset-0 bg-gradient-to-br from-blue-50 to-blue-100" />
-              <div class="absolute inset-0" style="background-image:radial-gradient(circle,rgba(30,64,175,0.08) 1px,transparent 1px);background-size:26px 26px" />
-              <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-700 text-white shadow-lg ring-4 ring-white">●</span>
-              </div>
-              <span class="absolute bottom-4 left-4 rounded-full bg-white/90 px-4 py-2 text-[11px] uppercase tracking-widest2 text-stone-600 backdrop-blur">{{ data.project.community }} — {{ t('propertyDetails.location.mapComingSoon', 'mapa interactivo próximamente') }}</span>
+              <ClientOnly>
+                <PropertyLocationMap v-if="hasValidCoords(data.project)" :lat="data.project.lat" :lng="data.project.lng" :label="data.project.community || data.project.name" />
+                <template v-else>
+                  <div class="absolute inset-0 flex items-center justify-center bg-paper">
+                    <p class="max-w-xs text-center text-[12px] text-stone-400">{{ t('propertyDetails.location.noCoords') }}</p>
+                  </div>
+                </template>
+                <template #fallback>
+                  <div class="absolute inset-0 bg-gradient-to-br from-blue-50 to-blue-100" />
+                  <div class="absolute inset-0" style="background-image:radial-gradient(circle,rgba(30,64,175,0.08) 1px,transparent 1px);background-size:26px 26px" />
+                  <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-700 text-white shadow-lg ring-4 ring-white">●</span>
+                  </div>
+                  <span class="absolute bottom-4 left-4 rounded-full bg-white/90 px-4 py-2 text-[11px] uppercase tracking-widest2 text-stone-600 backdrop-blur">{{ data.project.community }}</span>
+                </template>
+              </ClientOnly>
             </div>
           </section>
 
@@ -263,6 +273,8 @@
 </template>
 
 <script setup lang="ts">
+import { hasValidCoords } from '~/utils/maps/coords'
+
 const route = useRoute()
 const { t } = useI18n()
 const { data } = await useFetch(`/api/public/properties/${route.params.slug}`)

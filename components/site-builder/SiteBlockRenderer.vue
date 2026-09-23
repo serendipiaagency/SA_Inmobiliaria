@@ -39,7 +39,7 @@
         @delete="(id) => emit('delete', id)"
       >
         <HeroBlock v-if="block.type === 'hero'" :content="block.content" />
-        <MapTeaserBlock v-else-if="block.type === 'map-teaser'" :content="block.content" />
+        <MapTeaserBlock v-else-if="block.type === 'map-teaser'" :content="block.content" :projects="homeData?.projects || []" :mode="mode" />
         <PropertiesBlock v-else-if="block.type === 'properties'" :content="block.content" :projects="homeData?.projects || []" />
         <CommunitiesBlock v-else-if="block.type === 'communities'" :content="block.content" :communities="homeData?.communities || []" />
         <PropertyTypesBlock v-else-if="block.type === 'property-types'" :content="block.content" :projects="homeData?.projects || []" />
