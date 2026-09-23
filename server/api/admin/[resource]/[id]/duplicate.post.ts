@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { schema, now, slugify, useDb } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
-import { getResource } from '../../../../utils/adminResources'
+import { getResource, generateReferenceCode } from '../../../../utils/adminResources'
 import { authorizeRecord } from '../../../../utils/tenantPolicy'
 import { logAdminAction } from '../../../../utils/audit'
 
@@ -31,6 +31,9 @@ export default defineEventHandler(async (event) => {
   delete clone.id
   clone.name = `${original.name} (copia)`
   clone.slug = `${slugify(String(original.name))}-copia-${Math.floor(Math.random() * 10000)}`
+  // La referencia interna es única por organización (migración 0068) — una
+  // copia con la misma referencia que el original violaría ese índice.
+  clone.reference = `W-${generateReferenceCode()}`
   clone.status = 'new'
   clone.publishedAt = null
   clone.isExclusive = 0

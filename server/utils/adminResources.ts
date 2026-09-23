@@ -104,7 +104,7 @@ export interface ResourceDef {
  * per organization by the unique index — the same collision-tolerance
  * `slugFrom` above already accepts with its 4-digit random suffix.
  */
-function generateReferenceCode(): string {
+export function generateReferenceCode(): string {
   return Math.floor(Math.random() * 36 ** 6)
     .toString(36)
     .toUpperCase()
