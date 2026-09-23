@@ -115,6 +115,38 @@ export function useHelpContent() {
       ],
     },
     {
+      key: 'asignacion',
+      group: 'CRM',
+      title: 'Asignación y plazos',
+      route: '/admin/asignacion',
+      summary:
+        'Decide a qué comercial va cada lead y avisa cuando alguno se queda sin atender. Cada asignación dice por qué se hizo.',
+      steps: [
+        'Las reglas se evalúan de arriba abajo por prioridad. La primera que encaja y encuentra a alguien disponible gana.',
+        'Si ninguna regla lo consigue, el lead se reparte por turno rotatorio entre los comerciales activos. Nunca se queda sin dueño en silencio: si tampoco hay nadie, aparece en "Leads sin dueño".',
+        'El turno rotatorio es un contador real, no azar: reparte en orden y dos leads simultáneos van a comerciales distintos.',
+        'Cada lead guarda la frase que explica su asignación ("Zona Chamberí → oficina Centro → turno rotatorio → Laura"), y el historial conserva quién se lo quitó a quién y cuándo.',
+        'En Plazos indicas en cuántos minutos hay que responder y a los cuántos días sin contacto quieres que te avise. Mientras no lo actives, no se genera ninguna alerta.',
+        'Las alertas se cierran solas cuando desaparece el motivo: si alguien responde al lead, el aviso de "sin atender" se resuelve sin que tengas que tocarlo.',
+      ],
+    },
+    {
+      key: 'visitas-resultado',
+      group: 'CRM',
+      title: 'Citas, tours y resultado de visita',
+      route: '/admin/visitas',
+      summary:
+        'Un único calendario para visitas, llamadas, videollamadas, tasaciones y firmas. Varios inmuebles en una tarde se organizan como tour, y cada visita puede recoger qué opinó el comprador.',
+      steps: [
+        'Todas las citas viven en la misma agenda. El tipo dice para qué es (visita, llamada, tasación, firma) y el canal dice cómo se hace (presencial, vídeo, teléfono): son cosas distintas, porque una tasación puede ser presencial o por videollamada.',
+        'Para enseñar varios pisos en una tarde, crea un tour. Cada parada tiene su propia cita, así que el tiempo está reservado de verdad y no hay dos calendarios que puedan descuadrar.',
+        'Puedes reordenar las paradas sin tocar las horas, y cancelar una parada sin cancelar la tarde entera.',
+        'Tras la visita, anota el resultado: si se realizó, el interés de 0 a 5, qué le gustó y qué no, cómo vio el precio, y si quiere segunda visita, ofertar o descartarlo.',
+        'Puedes rellenar sólo una parte. Es preferible un hueco honesto a que alguien ponga cualquier cosa por salir del paso.',
+        'Descartar exige decir por qué, y pedir seguimiento exige una fecha: un descarte sin motivo no sirve de nada tres meses después, y un seguimiento sin fecha no lo hace nadie.',
+      ],
+    },
+    {
       key: 'clientes',
       group: 'CRM',
       title: 'Clientes',
@@ -875,6 +907,48 @@ export function useHelpContent() {
       answer:
         'Se reasignan todos al contacto que sobrevive — ninguna relación se pierde ni se borra por archivar el duplicado. El registro de qué se fusionó y cuándo queda en el historial de acciones administrativas, así que un error se puede revisar después aunque el duplicado ya no aparezca en los listados activos.',
       tags: ['contactos', 'duplicados', 'dedup', 'fusion'],
+    },
+    {
+      id: 'faq-feedback-no-cambia-inmueble',
+      question: 'Un cliente dijo que la cocina está anticuada. ¿Eso cambia la ficha del inmueble?',
+      answer:
+        'No, y es deliberado. Lo que se guarda es su percepción de esa tarde, no un hecho comprobado del inmueble. Si cambiara el estado oficial, el siguiente comprador vería como dato verificado la opinión de alguien que quizá venía de ver un piso reformado — y la ficha acabaría reflejando al visitante más quejica en vez del inmueble. Si de verdad la cocina está anticuada, se cambia en la ficha del inmueble, a mano y a sabiendas. Por lo mismo, que a alguien le parezca caro no baja su presupuesto en su necesidad registrada.',
+      tags: ['visitas', 'feedback', 'inmuebles'],
+    },
+    {
+      id: 'faq-tour-varios-pisos',
+      question: 'Voy a enseñar cuatro pisos el sábado. ¿Creo cuatro visitas sueltas?',
+      answer:
+        'Puedes, pero es mejor un tour: agrupa la salida y mantiene el orden, y cada parada sigue teniendo su propia cita, así que el tiempo queda reservado en la agenda y el control de solapamientos sigue funcionando. Podrás reordenar las paradas sin tocar las horas y cancelar una sin anular la tarde. Además, cada parada recoge su propio resultado — que es justo lo que se pierde cuando se apunta todo en una sola visita.',
+      tags: ['visitas', 'tours', 'agenda'],
+    },
+    {
+      id: 'faq-por-que-asignado',
+      question: '¿Por qué este lead le ha tocado a este comercial?',
+      answer:
+        'Abre el lead y lo verás escrito: "Zona Chamberí → oficina Centro → turno rotatorio → Laura". Esa frase la genera el propio sistema al asignar, no se reconstruye después, así que dice exactamente lo que pasó. Si alguien lo reasignó a mano, el historial guarda quién, cuándo, de quién a quién y el motivo si lo escribió.',
+      tags: ['leads', 'asignación', 'routing'],
+    },
+    {
+      id: 'faq-lead-sin-duenyo',
+      question: 'Tengo leads en "sin dueño". ¿Qué ha pasado?',
+      answer:
+        'Que ninguna regla encontró a quién asignarlos y tampoco había comerciales activos para el reparto general — normalmente porque no hay comerciales dados de alta o todos están inactivos. El sistema prefiere dejarlo visible antes que asignarlo a cualquiera fingiendo que alguien lo atiende. Puedes asignarlos con "Asignar ahora", que vuelve a pasar las reglas.',
+      tags: ['leads', 'asignación', 'sin asignar'],
+    },
+    {
+      id: 'faq-sla-intento',
+      question: 'Llamé al cliente y no me lo cogió. ¿Cuenta como atendido?',
+      answer:
+        'No, y es a propósito. El plazo mide la primera respuesta humana real, porque es lo que nota el cliente. El intento sí se guarda aparte y aparece en el aviso ("ya se intentó contactar"), que es muy distinto de no haber hecho nada — pero no cierra el plazo. Si contara, un lead al que se llama diez veces sin éxito figuraría como atendido mientras nadie ha hablado con él.',
+      tags: ['leads', 'sla', 'plazos'],
+    },
+    {
+      id: 'faq-sla-mediana',
+      question: 'En los plazos, ¿por qué dice "medido sobre 12 de 67 leads"?',
+      answer:
+        'Porque sólo se pueden medir los leads de los que consta cuándo se respondió. De los demás no se inventa un tiempo: contarlos como cero bajaría la media y haría creer que se atiende más rápido de lo real. Por lo mismo se usa la mediana y no la media — un solo lead olvidado tres semanas desplaza la media lo suficiente como para esconder que el resto se atiende en diez minutos.',
+      tags: ['leads', 'sla', 'métricas'],
     },
     {
       id: 'faq-contract-signature',

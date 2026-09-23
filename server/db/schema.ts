@@ -780,10 +780,17 @@ export const teamMembers = sqliteTable(
     // anyone by accident.
     showOnWeb: integer('show_on_web').notNull().default(1),
     sortOrder: integer('sort_order').notNull().default(0),
+    /**
+     * La cuenta del panel de este comercial (FASE 15, migración 0071).
+     * NULLable: hay fichas de comerciales que nunca entran al panel, y exigir
+     * cuenta para todas dejaría fuera del reparto a quien sí atiende leads.
+     */
+    userId: integer('user_id'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
   (t) => [
+    index('team_members_user').on(t.userId),
     uniqueIndex('team_members_org_slug').on(t.organizationId, t.slug),
     // email is scoped (organizationId, email), not globally unique — migration 0053.
     uniqueIndex('team_members_org_email').on(t.organizationId, t.email),
@@ -924,10 +931,35 @@ export const leads = sqliteTable(
      * conservan aunque el Contact evolucione después.
      */
     contactId: integer('contact_id'),
+    /**
+     * Los tiempos del ciclo de atención (FASE 16, migración 0071).
+     *
+     * `firstContactAt` es el INTENTO (se llamó, se escribió) y `firstResponseAt`
+     * de arriba es la RESPUESTA real. Son dos cosas distintas a propósito: tres
+     * llamadas que nadie coge no son atención al cliente, y medirlas como si lo
+     * fueran haría que el SLA diera por cumplido lo que no se cumplió.
+     *
+     * Todos quedan a NULL hasta que ocurran. Rellenarlos con createdAt diría que
+     * a todos los leads se les atendió al instante.
+     */
+    firstContactAt: text('first_contact_at'),
+    qualifiedAt: text('qualified_at'),
+    firstAppointmentAt: text('first_appointment_at'),
+    /** Por qué está asignado a quien está, sin consultar el historial (FASE 15). */
+    routingRuleId: integer('routing_rule_id'),
+    routingExplanation: text('routing_explanation'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
-  (t) => [index('leads_status').on(t.status), index('leads_stage').on(t.stage), index('leads_source').on(t.source), index('leads_contact').on(t.contactId)],
+  (t) => [
+    index('leads_status').on(t.status),
+    index('leads_stage').on(t.stage),
+    index('leads_source').on(t.source),
+    index('leads_contact').on(t.contactId),
+    // Sostiene "cuántos leads vivos lleva cada comercial": la consulta del
+    // reparto por carga y la del SLA.
+    index('leads_org_agent_status').on(t.organizationId, t.agentId, t.status),
+  ],
 )
 
 /**
@@ -1000,9 +1032,41 @@ export const visits = sqliteTable(
     reminder24hSentAt: text('reminder_24h_sent_at'),
     reminder1hSentAt: text('reminder_1h_sent_at'),
     videoLink: text('video_link'),
+    /**
+     * La cita canónica (FASE 17, migración 0072).
+     *
+     * Una visita, una llamada agendada, una tasación y una firma son lo mismo:
+     * tiempo reservado con alguien. Por eso comparten tabla y calendario en vez
+     * de tener una agenda por cada cosa.
+     *
+     * `type` y `channel` son ejes distintos y ninguno sustituye al otro: una
+     * tasación (type) puede hacerse por videollamada (channel).
+     */
+    type: text('type').notNull().default('property_viewing'),
+    /** Con quién es la cita, cuando se sabe. La foto de contacto de arriba (clientName/clientEmail) se conserva igual. */
+    contactId: integer('contact_id'),
+    leadId: integer('lead_id'),
+    /** La zona horaria en la que se acordó la cita: 'a las 5' significa algo distinto en Canarias. */
+    timezone: text('timezone'),
+    confirmationStatus: text('confirmation_status').notNull().default('pending'), // pending | confirmed | declined
+    confirmedAt: text('confirmed_at'),
+    /** Dónde se queda de verdad — el portal, la oficina, el bar de enfrente. */
+    meetingPoint: text('meeting_point'),
+    /** Notas que NO ve el cliente, separadas de `notes`, que sí puede acabar viendo. */
+    internalNotes: text('internal_notes'),
+    cancellationReason: text('cancellation_reason'),
+    cancelledAt: text('cancelled_at'),
+    cancelledBy: integer('cancelled_by'),
+    organizationTimezoneApplied: integer('organization_timezone_applied').notNull().default(0),
     createdAt: text('created_at').notNull().default(''),
   },
-  (t) => [index('visits_status').on(t.status), index('visits_agent_scheduled').on(t.agentId, t.scheduledAt)],
+  (t) => [
+    index('visits_status').on(t.status),
+    index('visits_agent_scheduled').on(t.agentId, t.scheduledAt),
+    index('visits_org_type').on(t.organizationId, t.type),
+    index('visits_contact').on(t.contactId),
+    index('visits_lead').on(t.leadId),
+  ],
 )
 
 /** Weekly recurring working hours per agent — the real availability source for the appointment booker. */
@@ -2718,8 +2782,22 @@ export const contacts = sqliteTable(
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
     deletedAt: text('deleted_at'),
+    /**
+     * Hacia dónde se fue un contacto fusionado (FASE 14, migración 0070).
+     *
+     * `deletedAt` por sí solo dice "archivado", que no distingue una fusión de
+     * un borrado ni dice con quién quedó unido. Un id archivado puede seguir
+     * vivo en un email enviado o en un export antiguo, y esto es lo que permite
+     * resolverlo — y lo único que haría reversible un merge equivocado.
+     */
+    mergedIntoContactId: integer('merged_into_contact_id'),
+    mergedAt: text('merged_at'),
+    mergedBy: integer('merged_by'),
+    /** Qué valores había a cada lado y cuál se eligió: el "por qué" de la fusión. */
+    mergeDetailsJson: text('merge_details_json'),
   },
   (t) => [
+    index('contacts_merged_into').on(t.mergedIntoContactId),
     index('contacts_org_email').on(t.organizationId, t.normalizedEmail),
     index('contacts_org_phone').on(t.organizationId, t.normalizedPhone),
     index('contacts_org_whatsapp').on(t.organizationId, t.normalizedWhatsapp),
@@ -2909,4 +2987,228 @@ export const developerPropertyMatches = sqliteTable(
     index('developer_property_matches_org_property').on(t.organizationId, t.propertyId),
     index('developer_property_matches_org_contact').on(t.organizationId, t.contactId),
   ],
+)
+
+/**
+ * Reglas de asignación de leads (FASE 15, migración 0071).
+ *
+ * Son datos de cada organización y no código: una agencia reparte por el dueño
+ * del inmueble y otra por oficina y turno rotatorio, y no hay una política
+ * global correcta. `priority` existe para que el orden sea una decisión y no
+ * el resultado accidental de cómo devuelva las filas la base de datos.
+ */
+export const leadRoutingRules = sqliteTable(
+  'lead_routing_rules',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    priority: integer('priority').notNull().default(100), // menor = se evalúa antes
+    enabled: integer('enabled').notNull().default(1),
+    /** Condiciones. NULL = esta regla no filtra por ese criterio. */
+    matchSource: text('match_source'),
+    matchPortal: text('match_portal'),
+    matchZone: text('match_zone'),
+    matchPropertyType: text('match_property_type'),
+    matchLanguage: text('match_language'),
+    strategy: text('strategy').notNull().default('round_robin'), // property_owner | specific | round_robin | least_load
+    targetCommercialId: integer('target_commercial_id'),
+    targetOffice: text('target_office'),
+    /** Desactivado por defecto: activarlo sin horarios configurados dejaría leads sin asignar. */
+    respectWorkingHours: integer('respect_working_hours').notNull().default(0),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('lead_routing_rules_org').on(t.organizationId, t.enabled, t.priority)],
+)
+
+/**
+ * El contador del turno rotatorio, por ámbito.
+ *
+ * No es Math.random(): con azar, dos leads seguidos irían al mismo comercial
+ * la mitad de las veces y nadie podría explicar el reparto. El avance se hace
+ * con `counter = counter + 1`, que en SQLite es atómico, así que dos leads
+ * simultáneos obtienen contadores distintos. Y vive en la base, no en memoria,
+ * para sobrevivir a los despliegues.
+ */
+export const leadRoutingCursors = sqliteTable(
+  'lead_routing_cursors',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    scopeKey: text('scope_key').notNull(),
+    counter: integer('counter').notNull().default(0),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('lead_routing_cursors_scope').on(t.organizationId, t.scopeKey)],
+)
+
+/**
+ * Historial de asignaciones. Guarda la explicación completa y no sólo el id de
+ * la regla: si la regla cambia mañana, la explicación de ayer sigue siendo
+ * legible.
+ */
+export const leadAssignments = sqliteTable(
+  'lead_assignments',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    leadId: integer('lead_id')
+      .notNull()
+      .references(() => leads.id, { onDelete: 'cascade' }),
+    fromCommercialId: integer('from_commercial_id'),
+    toCommercialId: integer('to_commercial_id'),
+    ruleId: integer('rule_id'),
+    source: text('source').notNull().default('automatic'), // automatic | manual | fallback
+    /** "Zona Chamberí → Oficina Centro → turno rotatorio → Laura" */
+    explanation: text('explanation'),
+    reason: text('reason'),
+    assignedBy: integer('assigned_by'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('lead_assignments_lead').on(t.leadId, t.id), index('lead_assignments_org').on(t.organizationId, t.createdAt)],
+)
+
+/** Plazos de atención, por organización. Mientras nadie configure nada, el SLA no alerta. */
+export const slaSettings = sqliteTable(
+  'sla_settings',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    enabled: integer('enabled').notNull().default(0),
+    firstResponseMinutes: integer('first_response_minutes').notNull().default(60),
+    staleDays: integer('stale_days').notNull().default(7),
+    businessHoursOnly: integer('business_hours_only').notNull().default(0),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('sla_settings_org').on(t.organizationId)],
+)
+
+/**
+ * Alertas de SLA. Tienen ciclo de vida: nacen y se cierran solas cuando
+ * desaparece el motivo. No se borran — se marcan resueltas, para que "cuántas
+ * veces se nos pasó el plazo el mes pasado" siga teniendo respuesta.
+ */
+export const leadAlerts = sqliteTable(
+  'lead_alerts',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    leadId: integer('lead_id')
+      .notNull()
+      .references(() => leads.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(), // unanswered | qualified_without_next_action | stale
+    status: text('status').notNull().default('open'), // open | resolved | dismissed
+    detail: text('detail'),
+    commercialId: integer('commercial_id'),
+    resolvedAt: text('resolved_at'),
+    resolvedReason: text('resolved_reason'),
+    notifiedAt: text('notified_at'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('lead_alerts_org_status').on(t.organizationId, t.status, t.kind)],
+)
+
+/**
+ * Tour de varios inmuebles en una salida (FASE 18, migración 0072).
+ *
+ * El tour AGRUPA; cada parada real es una cita de tipo `property_viewing`, que
+ * es la que reserva el tiempo. Así no hay dos calendarios que puedan divergir.
+ */
+export const propertyTours = sqliteTable(
+  'property_tours',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    contactId: integer('contact_id'),
+    leadId: integer('lead_id'),
+    buyerRequirementId: integer('buyer_requirement_id'),
+    commercialId: integer('commercial_id'),
+    title: text('title').notNull().default(''),
+    scheduledDate: text('scheduled_date'),
+    timezone: text('timezone'),
+    status: text('status').notNull().default('planned'), // planned | in_progress | completed | cancelled
+    notes: text('notes'),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('property_tours_org').on(t.organizationId, t.status), index('property_tours_contact').on(t.contactId)],
+)
+
+/**
+ * Una parada del tour. Apunta a su cita, que es la fuente de la hora: aquí NO
+ * se copia el horario, para que no existan dos versiones que se contradigan.
+ */
+export const propertyTourStops = sqliteTable(
+  'property_tour_stops',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    tourId: integer('tour_id')
+      .notNull()
+      .references(() => propertyTours.id, { onDelete: 'cascade' }),
+    propertyId: integer('property_id')
+      .notNull()
+      .references(() => agentProperties.id, { onDelete: 'cascade' }),
+    visitId: integer('visit_id'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    status: text('status').notNull().default('planned'), // planned | visited | skipped | cancelled
+    meetingPoint: text('meeting_point'),
+    notes: text('notes'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [
+    index('property_tour_stops_tour').on(t.tourId, t.sortOrder),
+    uniqueIndex('property_tour_stops_unique').on(t.tourId, t.propertyId),
+  ],
+)
+
+/**
+ * Qué opinó el comprador tras la visita (FASE 19, migración 0072).
+ *
+ * UN resultado por cita: el índice único lo garantiza, porque dos resultados
+ * contradictorios sobre la misma visita harían imposible responder "¿le gustó
+ * o no?".
+ *
+ * Esto es PERCEPCIÓN del comprador, no un hecho del inmueble. Que alguien diga
+ * "la cocina está anticuada" no cambia el estado del inmueble, ni su precio,
+ * ni la necesidad del comprador: son opiniones de una persona sobre una tarde
+ * concreta, y convertirlas en datos del catálogo dejaría la ficha a merced de
+ * quien peor humor tuviera ese día.
+ */
+export const visitOutcomes = sqliteTable(
+  'visit_outcomes',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    visitId: integer('visit_id')
+      .notNull()
+      .references(() => visits.id, { onDelete: 'cascade' }),
+    tourStopId: integer('tour_stop_id'),
+    /** NULL = todavía no consta si se realizó. No se da por hecho que sí. */
+    completed: integer('completed'),
+    /** 0..5. NULL = no se preguntó, distinto de 0 = "no le interesó nada". */
+    interestScore: integer('interest_score'),
+    liked: text('liked'),
+    disliked: text('disliked'),
+    /** Lo que le pareció A ÉL, no lo que vale: too_expensive | fair | bargain. */
+    pricePerception: text('price_perception'),
+    locationFeedback: text('location_feedback'),
+    conditionFeedback: text('condition_feedback'),
+    layoutFeedback: text('layout_feedback'),
+    wantsSecondViewing: integer('wants_second_viewing').notNull().default(0),
+    wantsOffer: integer('wants_offer').notNull().default(0),
+    discarded: integer('discarded').notNull().default(0),
+    discardReason: text('discard_reason'),
+    followUpRequired: integer('follow_up_required').notNull().default(0),
+    followUpAt: text('follow_up_at'),
+    notes: text('notes'),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('visit_outcomes_visit').on(t.visitId), index('visit_outcomes_org').on(t.organizationId, t.createdAt)],
 )

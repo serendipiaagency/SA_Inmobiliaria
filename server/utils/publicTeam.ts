@@ -76,6 +76,7 @@ export const NEVER_PUBLIC_TEAM_COLUMNS: Record<string, string> = {
   maxAppointmentsPerDay: 'Configuración de la agenda; además deja deducir la carga de trabajo.',
   showOnWeb: 'Bandera de administración: quien la ve ya está viendo sólo a los publicados.',
   sortOrder: 'Bandera de administración: ordena el listado público, pero el orden ya viene aplicado en la respuesta.',
+  userId: 'Enlaza al comercial con su cuenta del panel: publicarlo deja emparejar una ficha pública con un usuario interno y acotar a quién atacar.',
   createdAt: 'Metadato interno de la fila, sin ningún uso en la web pública.',
   updatedAt: 'Metadato interno de la fila, sin ningún uso en la web pública.',
 }

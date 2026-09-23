@@ -109,3 +109,4 @@ export async function setLeadOutcome(
 
   return (await db.select().from(schema.leads).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId))).limit(1))[0]
 }
+

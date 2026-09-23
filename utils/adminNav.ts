@@ -53,6 +53,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: 'Contactos', to: '/admin/contactos', icon: 'users' },
       { label: 'Compatibilidades', to: '/admin/compatibilidades', icon: 'sparkles' },
       { label: 'Leads', to: '/admin/leads', icon: 'contact' },
+      { label: 'Asignación y plazos', to: '/admin/asignacion', icon: 'contact' },
       { label: 'Clientes', to: '/admin/clientes', icon: 'users' },
       { label: 'Comunicaciones', to: '/admin/comunicaciones', icon: 'chat' },
       { label: 'Visitas', to: '/admin/visitas', icon: 'calendar' },
