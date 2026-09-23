@@ -2,6 +2,7 @@ import { and, eq, ne, sql } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../../../utils/db'
 import { attachPhotos } from '../../../../utils/photos'
 import { explainSimilarity, type SimilarityFacts } from '../../../../utils/ai'
+import { toPublicProperty } from '../../../../utils/propertyPrivacy'
 
 /**
  * Real similar-property ranking: a deterministic attribute-similarity score
@@ -63,7 +64,7 @@ export default defineEventHandler(async (event) => {
   const results = await Promise.all(
     scored.map(async (s, i) => {
       const { text, engine } = await explainSimilarity(event, base, s.project, s.facts)
-      return { ...withPhotos[i], similarityReason: text, similarityEngine: engine }
+      return { ...toPublicProperty(withPhotos[i]), similarityReason: text, similarityEngine: engine }
     }),
   )
 

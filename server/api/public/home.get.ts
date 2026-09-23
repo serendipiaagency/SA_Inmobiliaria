@@ -2,6 +2,7 @@ import { and, asc, desc, eq } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { attachPhotos } from '../../utils/photos'
 import { PUBLIC_TEAM_COLUMNS } from '../../utils/publicTeam'
+import { toPublicProperties } from '../../utils/propertyPrivacy'
 
 export default defineEventHandler(async (event) => {
   const db = useDb(event)
@@ -39,7 +40,7 @@ export default defineEventHandler(async (event) => {
   }
 
   return {
-    projects: await attachPhotos(db, projects),
+    projects: toPublicProperties(await attachPhotos(db, projects)),
     communities,
     developers,
     blogs: blogs.map((b) => ({ ...b, ...blogTitles[b.id] })),

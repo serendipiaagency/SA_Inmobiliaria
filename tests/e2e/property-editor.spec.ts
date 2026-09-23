@@ -264,6 +264,57 @@ test.describe('Property Editor — los cuatro recorridos', () => {
     expect(stillUntouched.price).toBe(before.price)
   })
 
+  test('estancias personalizadas: añadir y editar persiste de inmediato, sin pasar por Guardar', async ({ page }) => {
+    await page.goto(`/admin/developer-properties/${existing['developer-properties']}`)
+    await step(page, 'rooms').click()
+    await expect(visible(page, 'property-editor-section-title')).toHaveText('Estancias personalizadas')
+
+    const addRoom = page.getByRole('button', { name: '+ Añadir estancia' })
+    const deleteRoom = page.getByRole('button', { name: 'Eliminar', exact: true })
+
+    await addRoom.click()
+    await expect(deleteRoom).toHaveCount(1)
+
+    // Cada campo persiste con su propio PUT en @change — que en un
+    // input[type=number] sólo dispara al perder el foco de verdad, no al
+    // rellenarlo. `fill()` dejaba el valor en el DOM sin confirmar y la
+    // siguiente acción no siempre lo blureaba primero, así que aquí se hace
+    // explícito con Tab tras cada campo, como tabularía una persona real.
+    await page.getByLabel('Tipo de estancia').fill('Dormitorio')
+    await page.keyboard.press('Tab')
+    await page.getByLabel('Nombre de la estancia').fill('Suite principal')
+    await page.keyboard.press('Tab')
+    await page.getByLabel('Superficie de la estancia').fill('22')
+    await page.keyboard.press('Tab')
+    await page.getByLabel('Orientación de la estancia').selectOption('SE')
+
+    await addRoom.click()
+    await expect(deleteRoom).toHaveCount(2)
+    await page.getByLabel('Tipo de estancia').nth(1).fill('Despacho')
+    await page.keyboard.press('Tab')
+
+    // Cada campo persiste con su propio PUT en cuanto pierde el foco, sin
+    // ningún indicador visible de "guardando" que esperar — recargar antes de
+    // que esas peticiones terminen las cancela de verdad (navegar aborta el
+    // fetch en curso), así que hay que dejar la red en reposo primero.
+    await page.waitForLoadState('networkidle')
+
+    // Se guarda solo — recargar sin tocar el botón Guardar del editor debe
+    // conservar lo escrito.
+    await page.reload()
+    await step(page, 'rooms').click()
+    await expect(page.getByLabel('Tipo de estancia').first()).toHaveValue('Dormitorio')
+    await expect(page.getByLabel('Nombre de la estancia').first()).toHaveValue('Suite principal')
+    await expect(page.getByLabel('Superficie de la estancia').first()).toHaveValue('22')
+    await expect(page.getByLabel('Orientación de la estancia').first()).toHaveValue('SE')
+    await expect(page.getByLabel('Tipo de estancia').nth(1)).toHaveValue('Despacho')
+
+    // Eliminar pide confirmación (useConfirm, no window.confirm) y borra de verdad.
+    await deleteRoom.nth(1).click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Eliminar' }).click()
+    await expect(deleteRoom).toHaveCount(1)
+  })
+
   test('el editor no abre la ficha de otra inmobiliaria', async ({ page }) => {
     const b = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_B })
     const created = await b.post('/api/admin/properties', {

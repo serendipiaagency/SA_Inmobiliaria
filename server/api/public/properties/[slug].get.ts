@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../../utils/db'
+import { toPublicProperty } from '../../../utils/propertyPrivacy'
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug')
@@ -48,7 +49,7 @@ export default defineEventHandler(async (event) => {
   const distances = Object.fromEntries(locationLinks.map((l) => [l.locationId, l.distance]))
 
   return {
-    project,
+    project: toPublicProperty(project),
     developer: developer[0] || null,
     gallery,
     floorPlans,

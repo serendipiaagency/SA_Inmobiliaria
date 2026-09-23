@@ -80,12 +80,35 @@ export interface ResourceDef {
   softDelete?: boolean
   /** Generate `slug` column from this field when missing. */
   slugFrom?: string
+  /**
+   * Generate `reference` (a stable internal identifier, independent of
+   * `slug`'s SEO-facing role) as `${referencePrefix}-${randomCode}` when
+   * missing on create — same mechanism/timing as slugFrom, just a different
+   * column. Existing rows are backfilled once in the migration that adds the
+   * column (deterministic `'<prefix>-'||id`, not random).
+   */
+  referencePrefix?: string
   /** Translation child table (locale/title/description pattern). */
   translations?: { table: any; foreignKey: string }
   /** Transform payload before insert/update. `event` is available for prepare hooks that need Worker bindings (e.g. checking a domain against Resend's API). */
   prepare?: (data: Record<string, any>, isCreate: boolean, event?: H3Event) => Promise<Record<string, any>>
   /** Side effect after a successful create (e.g. the welcome email for a new user) — never blocks or fails the create itself. */
   afterCreate?: (event: H3Event, id: number, data: Record<string, any>) => Promise<void>
+}
+
+/**
+ * A short, human-scannable reference suffix (base36, uppercase — "K3F9QZ").
+ * Not sequential: the row's `id` isn't known until after insert, and adding
+ * a per-org counter table just for this would be new infrastructure for a
+ * cosmetic property. 6 chars of base36 is ~2.2 billion combinations, scoped
+ * per organization by the unique index — the same collision-tolerance
+ * `slugFrom` above already accepts with its 4-digit random suffix.
+ */
+export function generateReferenceCode(): string {
+  return Math.floor(Math.random() * 36 ** 6)
+    .toString(36)
+    .toUpperCase()
+    .padStart(6, '0')
 }
 
 export const adminResources: Record<string, ResourceDef> = {
@@ -289,14 +312,43 @@ export const adminResources: Record<string, ResourceDef> = {
       afterPhoto: { type: 'image', label: 'Foto después' },
       aiStagedPhoto: { type: 'image', label: 'Foto con puesta en escena por IA' },
       paymentPlan: { type: 'json', label: 'Plan de pago (JSON)' },
+      // --- Property Core (migración 0068) — ver developer-properties más
+      // abajo para el mismo bloque comentado; idéntico significado aquí.
+      reference: { type: 'text', label: 'Referencia interna' },
+      externalSource: { type: 'text', label: 'Origen externo' },
+      externalReference: { type: 'text', label: 'Referencia externa' },
+      agencyReference: { type: 'text', label: 'Referencia de agencia' },
+      mandateType: { type: 'text', label: 'Tipo de mandato' },
+      exclusiveFrom: { type: 'text', label: 'Exclusividad — inicio' },
+      exclusiveUntil: { type: 'text', label: 'Exclusividad — vencimiento' },
+      captureDate: { type: 'text', label: 'Fecha de captación' },
+      captureSource: { type: 'text', label: 'Origen de captación' },
+      publishedAt: { type: 'text', label: 'Publicado el' },
+      locationPrivacy: { type: 'select', label: 'Privacidad de ubicación', options: ['exact', 'approximate', 'hidden_number'] },
+      locationPrivacyRadius: { type: 'number', label: 'Radio de privacidad (m)' },
+      usableArea: { type: 'number', label: 'Superficie útil (m²)' },
+      plotArea: { type: 'number', label: 'Superficie de parcela (m²)' },
+      terraceArea: { type: 'number', label: 'Superficie de terraza (m²)' },
+      gardenArea: { type: 'number', label: 'Superficie de jardín (m²)' },
+      balconyArea: { type: 'number', label: 'Superficie de balcón (m²)' },
+      storageArea: { type: 'number', label: 'Superficie de trastero (m²)' },
+      toilets: { type: 'number', label: 'Aseos' },
+      livingRooms: { type: 'number', label: 'Salones' },
+      kitchens: { type: 'number', label: 'Cocinas' },
+      garageSpaces: { type: 'number', label: 'Plazas de garaje' },
+      condition: { type: 'select', label: 'Estado físico', options: ['new', 'excellent', 'good', 'to_renovate', 'to_reform'] },
+      furnished: { type: 'select', label: 'Amueblado', options: ['yes', 'no', 'partially'] },
+      featuresReviewedAt: { type: 'text', label: 'Características repasadas el' },
+      featuresReviewedBy: { type: 'number', label: 'Características repasadas por (ID)' },
     },
-    listFields: ['id', 'slug', 'location', 'city', 'propertyType', 'price', 'status'],
-    searchFields: ['slug', 'location', 'city', 'district', 'postalCode', 'propertyType'],
+    listFields: ['id', 'reference', 'slug', 'location', 'city', 'propertyType', 'price', 'status'],
+    searchFields: ['reference', 'slug', 'location', 'city', 'district', 'postalCode', 'propertyType'],
     hasTimestamps: true,
     hasUpdatedAt: true,
     tenantPolicy: { type: 'direct' },
     relations: { agentId: { table: schema.teamMembers, label: 'Comercial' } },
     translations: { table: schema.propertyTranslations, foreignKey: 'propertyId' },
+    referencePrefix: 'S',
   },
 
   'developer-properties': {
@@ -373,9 +425,43 @@ export const adminResources: Record<string, ResourceDef> = {
       aiStagedPhoto: { type: 'image', label: 'Foto con puesta en escena por IA' },
       serviceChargeAnnual: { type: 'number', label: 'Gastos de comunidad anuales (AED)' },
       agentId: { type: 'number', label: 'Comercial (ID)' },
+      // --- Property Core (migración 0068) ---
+      // Identificación (FASE 1): la referencia interna la genera
+      // referencePrefix si se deja vacía; el resto son opcionales y se
+      // dejan NULL hasta que alguien los rellene a propósito — nunca se
+      // inventa una fecha de captación o un mandato que no existía.
+      reference: { type: 'text', label: 'Referencia interna' },
+      externalSource: { type: 'text', label: 'Origen externo' },
+      externalReference: { type: 'text', label: 'Referencia externa' },
+      agencyReference: { type: 'text', label: 'Referencia de agencia' },
+      transactionType: { type: 'select', label: 'Operación', options: ['sale', 'rent'] },
+      mandateType: { type: 'text', label: 'Tipo de mandato' },
+      exclusiveFrom: { type: 'text', label: 'Exclusividad — inicio' },
+      exclusiveUntil: { type: 'text', label: 'Exclusividad — vencimiento' },
+      captureDate: { type: 'text', label: 'Fecha de captación' },
+      captureSource: { type: 'text', label: 'Origen de captación' },
+      // Ubicación / privacidad (FASE 2).
+      locationPrivacy: { type: 'select', label: 'Privacidad de ubicación', options: ['exact', 'approximate', 'hidden_number'] },
+      locationPrivacyRadius: { type: 'number', label: 'Radio de privacidad (m)' },
+      // Superficies y distribución (FASE 3).
+      usableArea: { type: 'number', label: 'Superficie útil (m²)' },
+      plotArea: { type: 'number', label: 'Superficie de parcela (m²)' },
+      terraceArea: { type: 'number', label: 'Superficie de terraza (m²)' },
+      gardenArea: { type: 'number', label: 'Superficie de jardín (m²)' },
+      balconyArea: { type: 'number', label: 'Superficie de balcón (m²)' },
+      storageArea: { type: 'number', label: 'Superficie de trastero (m²)' },
+      toilets: { type: 'number', label: 'Aseos' },
+      livingRooms: { type: 'number', label: 'Salones' },
+      kitchens: { type: 'number', label: 'Cocinas' },
+      garageSpaces: { type: 'number', label: 'Plazas de garaje' },
+      // Características (FASE 4).
+      condition: { type: 'select', label: 'Estado físico', options: ['new', 'excellent', 'good', 'to_renovate', 'to_reform'] },
+      furnished: { type: 'select', label: 'Amueblado', options: ['yes', 'no', 'partially'] },
+      featuresReviewedAt: { type: 'text', label: 'Características repasadas el' },
+      featuresReviewedBy: { type: 'number', label: 'Características repasadas por (ID)' },
     },
-    listFields: ['id', 'name', 'slug', 'community', 'price', 'status'],
-    searchFields: ['name', 'slug', 'community', 'street', 'city', 'district', 'postalCode'],
+    listFields: ['id', 'reference', 'name', 'slug', 'community', 'price', 'status'],
+    searchFields: ['reference', 'name', 'slug', 'community', 'street', 'city', 'district', 'postalCode'],
     hasTimestamps: true,
     hasUpdatedAt: true,
     tenantPolicy: { type: 'direct' },
@@ -383,6 +469,7 @@ export const adminResources: Record<string, ResourceDef> = {
     // attach its project to tenant B's developer or commercial record.
     relations: { developerId: { table: schema.developers, label: 'Promotora' }, agentId: { table: schema.teamMembers, label: 'Comercial' } },
     slugFrom: 'name',
+    referencePrefix: 'W',
   },
 
   'floor-plans': {
@@ -422,6 +509,32 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'developerPropertyId', 'propertyType', 'unitType', 'size'],
     searchFields: ['propertyType', 'unitType'],
     hasTimestamps: true,
+    tenantPolicy: {
+      type: 'parent',
+      foreignKey: 'developerPropertyId',
+      parentTable: schema.developerProperties,
+      parentLabel: 'Proyecto',
+    },
+  },
+
+  'developer-property-rooms': {
+    area: 'web',
+    table: schema.developerPropertyRooms,
+    label: 'Estancias personalizadas',
+    fields: {
+      developerPropertyId: { type: 'number', label: 'Proyecto (ID)', required: true },
+      type: { type: 'text', label: 'Tipo' },
+      name: { type: 'text', label: 'Nombre' },
+      area: { type: 'number', label: 'Superficie (m²)' },
+      floor: { type: 'text', label: 'Planta' },
+      orientation: { type: 'select', label: 'Orientación', options: ['N', 'S', 'E', 'W', 'SE', 'SW', 'NE', 'NW'] },
+      notes: { type: 'textarea', label: 'Notas' },
+      sortOrder: { type: 'number', label: 'Orden' },
+    },
+    listFields: ['id', 'developerPropertyId', 'type', 'name', 'area', 'sortOrder'],
+    searchFields: ['type', 'name'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
     tenantPolicy: {
       type: 'parent',
       foreignKey: 'developerPropertyId',
@@ -486,6 +599,32 @@ export const adminResources: Record<string, ResourceDef> = {
     listFields: ['id', 'propertyId', 'category', 'unitType', 'type'],
     searchFields: ['category', 'unitType', 'type'],
     hasTimestamps: true,
+    tenantPolicy: {
+      type: 'parent',
+      foreignKey: 'propertyId',
+      parentTable: schema.agentProperties,
+      parentLabel: 'Propiedad',
+    },
+  },
+
+  'agent-property-rooms': {
+    area: 'web',
+    table: schema.agentPropertyRooms,
+    label: 'Estancias personalizadas (2ª mano)',
+    fields: {
+      propertyId: { type: 'number', label: 'Propiedad (ID)', required: true },
+      type: { type: 'text', label: 'Tipo' },
+      name: { type: 'text', label: 'Nombre' },
+      area: { type: 'number', label: 'Superficie (m²)' },
+      floor: { type: 'text', label: 'Planta' },
+      orientation: { type: 'select', label: 'Orientación', options: ['N', 'S', 'E', 'W', 'SE', 'SW', 'NE', 'NW'] },
+      notes: { type: 'textarea', label: 'Notas' },
+      sortOrder: { type: 'number', label: 'Orden' },
+    },
+    listFields: ['id', 'propertyId', 'type', 'name', 'area', 'sortOrder'],
+    searchFields: ['type', 'name'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
     tenantPolicy: {
       type: 'parent',
       foreignKey: 'propertyId',
@@ -974,6 +1113,9 @@ export async function buildPayload(
   }
   if (def.slugFrom && isCreate && !data.slug && data[def.slugFrom]) {
     data.slug = `${slugify(String(data[def.slugFrom]))}-${Math.floor(Math.random() * 10000)}`
+  }
+  if (def.referencePrefix && isCreate && !data.reference) {
+    data.reference = `${def.referencePrefix}-${generateReferenceCode()}`
   }
   if (def.hasTimestamps && isCreate) data.createdAt = now()
   if (def.hasUpdatedAt) data.updatedAt = now()
