@@ -42,7 +42,7 @@ export default defineNuxtConfig({
     // on that same per-minute tick — a ±30min window plus a sent-once guard
     // column means it never needs its own cron entry.
     scheduledTasks: {
-      '0 * * * *': ['cms:expire-articles', 'system:cleanup-error-logs', 'marketing:saved-search-alerts', 'payments:reconcile-deposits', 'notifications:retry-email-queue', 'notifications:retry-webhook-queue'],
+      '0 * * * *': ['cms:expire-articles', 'system:cleanup-error-logs', 'marketing:saved-search-alerts', 'payments:reconcile-deposits', 'notifications:retry-email-queue', 'notifications:retry-webhook-queue', 'leads:sla-check'],
       // system:check-custom-domains se sale solo en los minutos que no son
       // múltiplo de 10 — va aquí para no gastar un Cron Trigger más.
       '* * * * *': ['scheduler:dispatch', 'appointments:reminders', 'system:check-custom-domains'],

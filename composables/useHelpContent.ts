@@ -115,6 +115,21 @@ export function useHelpContent() {
       ],
     },
     {
+      key: 'enrutamiento',
+      group: 'CRM',
+      title: 'Enrutamiento y SLA',
+      route: '/admin/enrutamiento',
+      summary: 'A qué comercial va cada lead nuevo, y si se está atendiendo a tiempo: reglas de reparto automático y alertas cuando un lead lleva demasiado tiempo sin moverse.',
+      steps: [
+        'Las reglas de reparto se gestionan en "Gestionar reglas de enrutado" (enlace en la cabecera de esta página): cada regla tiene una prioridad (se evalúan de menor a mayor, gana la primera que encaje) y un ámbito — propiedad (el comercial responsable de ese inmueble en Propiedades 2ª mano), zona, idioma, tipo de propiedad, obra nueva, o un reparto por equipo/general sin condición, típicamente la última como red de seguridad.',
+        'Una regla puede apuntar a un comercial concreto, o a un grupo (todos los de un "equipo" — el campo Departamento de la ficha del comercial en Comerciales) repartido por Round Robin (por turnos, siempre el siguiente de la lista) o por Carga de trabajo (al que menos leads activos tiene ahora mismo).',
+        'El reparto ocurre solo, en cuanto se crea un lead nuevo sin comercial ya asignado (por ejemplo, uno que llega con una cita reservada con un comercial concreto no se reasigna). Si ninguna regla aplica, o el grupo de destino no tiene nadie disponible, el lead se queda sin asignar en vez de bloquear su creación — queda en la cola, recuperable a mano.',
+        'Desde la ficha de un lead (CRM → Leads) puedes reasignarlo manualmente a otro comercial en cualquier momento; queda constancia de quién lo tenía, a quién pasó y por qué en su historial de asignaciones.',
+        'En esta página fijas los tres umbrales de SLA de tu agencia (nunca una regla universal): minutos hasta que un lead nuevo se considera "sin atender", horas sin próxima acción prevista tras cualificarlo, y días sin contacto antes de darlo por inactivo. Se recalculan cada hora.',
+        '"Alertas abiertas" lista los leads que están incumpliendo alguno de esos tres umbrales ahora mismo. Se resuelven solas en cuanto el lead deja de cumplir la condición (te responden, avanza de fase, hay una próxima acción), o puedes marcarlas resueltas a mano si ya la has revisado y no hace falta actuar.',
+      ],
+    },
+    {
       key: 'clientes',
       group: 'CRM',
       title: 'Clientes',
@@ -868,6 +883,20 @@ export function useHelpContent() {
       answer:
         'La columna es la fase: en qué punto del proceso está (nuevo, contactado, cualificando…, hasta ganado). "Perdido" es aparte, un resultado: se puede perder un lead desde cualquier fase, y al perderlo la tarjeta se va a la columna "Perdido" pero la fase en la que iba se queda guardada tal cual. Si luego lo recuperas, vuelve a esa fase — nunca se reinicia a "Nuevo".',
       tags: ['leads', 'pipeline', 'kanban', 'estados'],
+    },
+    {
+      id: 'faq-lead-sin-asignar',
+      question: 'Un lead nuevo se quedó sin comercial asignado, ¿por qué?',
+      answer:
+        'Porque ninguna regla de Enrutamiento aplicaba, o la que aplicaba apuntaba a un equipo (Departamento) sin nadie disponible en ese momento. Nunca se bloquea la creación del lead por eso: se queda en cola, sin dueño, y se reasigna a mano desde su ficha cuando quieras. Revisa CRM → Enrutamiento y SLA → "Gestionar reglas de enrutado" para añadir una regla de reparto general como red de seguridad.',
+      tags: ['leads', 'enrutamiento', 'routing', 'asignacion'],
+    },
+    {
+      id: 'faq-sla-alerta',
+      question: 'Una alerta de SLA dice que un lead está "sin atender" pero ya le respondí, ¿por qué sigue abierta?',
+      answer:
+        'Las alertas se recalculan una vez por hora (el cron de SLA), así que puede tardar hasta esa siguiente pasada en resolverse sola. Si no puede esperar, márcala como resuelta a mano desde CRM → Enrutamiento y SLA.',
+      tags: ['leads', 'sla', 'alertas'],
     },
     {
       id: 'faq-merge-contacto',

@@ -58,6 +58,7 @@ const RESOURCE_ROWS: Record<string, (f: TenantFixture, tag: string) => Record<st
   'visitor-submissions': (f, tag) => ({ organizationId: f.orgId, name: `${tag} visitor`, email: `${tag}-visitor@example.com`, phoneNumber: '+34600000000', nationality: 'ES' }),
   'vendor-registrations': (f, tag) => ({ organizationId: f.orgId, name: `${tag} vendor`, email: `${tag}-vendor@example.com` }),
   'contact-messages': (f, tag) => ({ organizationId: f.orgId, type: 'contact', name: `${tag} sender`, email: `${tag}-sender@example.com`, message: 'hola' }),
+  'lead-routing-rules': (f, tag) => ({ organizationId: f.orgId, name: `${tag} rule`, scope: 'department', targetCommercialId: f.teamMemberId }),
 }
 
 /** Resources deliberately outside the tenant matrix, each with a stated reason. */
@@ -237,7 +238,7 @@ describe('cross-tenant CREATE with a foreign relation is refused', () => {
 
   it('the declared relations cover the known client-supplied foreign keys', () => {
     expect(relationKeys.sort()).toEqual(
-      ['cms-authors', 'cms-categories', 'cms-comments', 'cms-media-folders', 'developer-properties', 'properties', 'team', 'team-member-documents'].sort(),
+      ['cms-authors', 'cms-categories', 'cms-comments', 'cms-media-folders', 'developer-properties', 'lead-routing-rules', 'properties', 'team', 'team-member-documents'].sort(),
     )
   })
 
@@ -295,6 +296,13 @@ describe('cross-tenant CREATE with a foreign relation is refused', () => {
     await expectCrossTenantDenied(
       () => assertPayloadReferences(db, adminResources['team-member-documents'], { teamMemberId: B.teamMemberId }, A.orgId, { isCreate: true }),
       'team-member-documents.teamMemberId',
+    )
+  })
+
+  it('tenant A cannot target a lead routing rule at a tenant B comercial', async () => {
+    await expectCrossTenantDenied(
+      () => assertPayloadReferences(db, adminResources['lead-routing-rules'], { targetCommercialId: B.teamMemberId }, A.orgId, { isCreate: true }),
+      'lead-routing-rules.targetCommercialId',
     )
   })
 

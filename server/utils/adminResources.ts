@@ -804,6 +804,35 @@ export const adminResources: Record<string, ResourceDef> = {
     tenantPolicy: { type: 'direct' },
   },
 
+  /**
+   * Reglas de Lead Routing (FASE 15, migración 0071). `priority` decide el
+   * orden de evaluación (menor primero) — server/utils/leads/routing.ts es
+   * quien las lee y decide, este CRUD sólo las mantiene. `targetDepartment`
+   * reutiliza `team_members.department` (texto libre ya existente): no hay
+   * entidad Team ni Office en el repositorio.
+   */
+  'lead-routing-rules': {
+    area: 'crm',
+    table: schema.leadRoutingRules,
+    label: 'Reglas de enrutado de leads',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      priority: { type: 'number', label: 'Prioridad (menor = antes)' },
+      scope: { type: 'select', label: 'Ámbito', required: true, options: ['property', 'zone', 'language', 'property_type', 'new_build', 'department'] },
+      matchValue: { type: 'text', label: 'Valor a comparar (zona/idioma/tipo/depto.)' },
+      targetCommercialId: { type: 'number', label: 'Comercial fijo (ID, opcional)' },
+      targetDepartment: { type: 'text', label: 'Departamento destino (reparto)' },
+      strategy: { type: 'select', label: 'Reparto', options: ['round_robin', 'workload'] },
+      enabled: { type: 'number', label: 'Activa (1/0)' },
+    },
+    listFields: ['id', 'name', 'priority', 'scope', 'matchValue', 'targetDepartment', 'strategy', 'enabled'],
+    searchFields: ['name', 'scope', 'matchValue', 'targetDepartment'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    relations: { targetCommercialId: { table: schema.teamMembers, label: 'Comercial' } },
+  },
+
   team: {
     area: 'web',
     table: schema.teamMembers,

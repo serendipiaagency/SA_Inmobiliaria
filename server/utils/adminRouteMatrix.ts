@@ -82,6 +82,8 @@ const RULES: Rule[] = [
 
   // --- CRM ----------------------------------------------------------------
   { pattern: /^saas\/leads(?:\/|$)/, resolve: area('crm') },
+  // FASE 15/16: reglas de enrutado, umbrales de SLA y sus alertas (pages/admin/enrutamiento.vue).
+  { pattern: /^saas\/leads-routing(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/clients(?:\/|$)/, resolve: area('crm') },
   // FASE 10: la persona (contacts) y su necesidad inmobiliaria
   // (buyer-requirements). Buscar duplicados es lectura aunque se invoque con

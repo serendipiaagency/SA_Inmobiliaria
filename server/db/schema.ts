@@ -916,6 +916,10 @@ export const leads = sqliteTable(
     firstResponseAt: text('first_response_at'),
     /** Proyección/caché para cuando exista Task/Appointment reales — no es una segunda agenda manual. */
     nextActionAt: text('next_action_at'),
+    /** FASE 16, migración 0071. Primera vez que alcanza el stage 'qualified' — nunca se recalcula si el lead retrocede. */
+    qualifiedAt: text('qualified_at'),
+    /** FASE 16, migración 0071. Cuándo se consiguió la primera cita (creación de la visita, no su fecha futura). */
+    firstAppointmentAt: text('first_appointment_at'),
     /**
      * La persona detrás de la oportunidad (migración 0066). NULLable a
      * propósito: un lead puede entrar antes de que su identidad esté
@@ -951,6 +955,96 @@ export const leadStageHistory = sqliteTable(
     createdAt: text('created_at').notNull().default(''),
   },
   (t) => [index('lead_stage_history_lead').on(t.leadId, t.createdAt), index('lead_stage_history_org').on(t.organizationId, t.createdAt)],
+)
+
+/**
+ * Reglas de Lead Routing (FASE 15, migración 0071). Se evalúan en orden de
+ * `priority` (menor primero). No existe entidad Office ni Team en el
+ * repositorio — "Team" se resuelve con `teamMembers.department` (texto ya
+ * existente), reutilizado aquí en vez de inventar una tabla `teams` para un
+ * concepto que hoy sólo es una etiqueta.
+ */
+export const leadRoutingRules = sqliteTable(
+  'lead_routing_rules',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    priority: integer('priority').notNull().default(0),
+    scope: text('scope').notNull(), // property | zone | language | property_type | new_build | department
+    matchValue: text('match_value'),
+    /** team_members.id — sin FK real, mismo criterio que leads.agentId/visits.agentId. */
+    targetCommercialId: integer('target_commercial_id'),
+    targetDepartment: text('target_department'),
+    strategy: text('strategy').notNull().default('round_robin'), // round_robin | workload — sólo si targetCommercialId es null
+    enabled: integer('enabled').notNull().default(1),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('lead_routing_rules_org_priority').on(t.organizationId, t.priority)],
+)
+
+/** Historial de asignaciones de Lead → Comercial (FASE 15). `assignedBy` null = lo decidió el routing automático. */
+export const leadAssignmentHistory = sqliteTable(
+  'lead_assignment_history',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    leadId: integer('lead_id')
+      .notNull()
+      .references(() => leads.id, { onDelete: 'cascade' }),
+    fromCommercialId: integer('from_commercial_id'),
+    toCommercialId: integer('to_commercial_id'),
+    ruleId: integer('rule_id').references(() => leadRoutingRules.id, { onDelete: 'set null' }),
+    reason: text('reason').notNull(),
+    assignedBy: integer('assigned_by'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('lead_assignment_history_lead').on(t.leadId, t.createdAt), index('lead_assignment_history_org').on(t.organizationId, t.createdAt)],
+)
+
+/** Estado persistente del round robin por (organización, ámbito). Concurrency-safe vía compare-and-swap en el servicio, no por transacción de D1. */
+export const leadRoundRobinState = sqliteTable(
+  'lead_round_robin_state',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    scopeKey: text('scope_key').notNull(), // 'org' o un nombre de department
+    lastAssignedCommercialId: integer('last_assigned_commercial_id'),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('lead_round_robin_state_scope').on(t.organizationId, t.scopeKey)],
+)
+
+/** Umbrales de SLA por organización (FASE 16, migración 0071). Nunca una regla universal hardcodeada. */
+export const slaSettings = sqliteTable('sla_settings', {
+  organizationId: integer('organization_id').primaryKey(),
+  newLeadUnattendedMinutes: integer('new_lead_unattended_minutes').notNull().default(30),
+  qualifiedWithoutActionHours: integer('qualified_without_action_hours').notNull().default(24),
+  inactiveLeadDays: integer('inactive_lead_days').notNull().default(7),
+  /** Preparada (FASE 16 §33); el cálculo de esta fase usa tiempo natural, no horario comercial. */
+  useBusinessHours: integer('use_business_hours').notNull().default(0),
+  createdAt: text('created_at').notNull().default(''),
+  updatedAt: text('updated_at').notNull().default(''),
+})
+
+/** Alertas de SLA con ciclo de vida (FASE 16). El índice único parcial (sólo status='open') impide duplicados sin check-then-insert. */
+export const leadSlaAlerts = sqliteTable(
+  'lead_sla_alerts',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    leadId: integer('lead_id')
+      .notNull()
+      .references(() => leads.id, { onDelete: 'cascade' }),
+    type: text('type').notNull(), // unattended | qualified_no_action | inactive
+    status: text('status').notNull().default('open'), // open | resolved
+    openedAt: text('opened_at').notNull().default(''),
+    resolvedAt: text('resolved_at'),
+    resolvedReason: text('resolved_reason'), // auto | manual
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('lead_sla_alerts_org_status').on(t.organizationId, t.status)],
 )
 
 export const clients = sqliteTable(
