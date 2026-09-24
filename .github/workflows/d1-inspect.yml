@@ -17,6 +17,11 @@ on:
 jobs:
   inspect:
     runs-on: ubuntu-latest
+    # Sin esto, secrets.CLOUDFLARE_* llegan vacíos: son secretos del
+    # Environment `production`, no del repositorio (mismo motivo documentado
+    # en production-preflight de ci.yml).
+    environment:
+      name: production
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
