@@ -4,7 +4,7 @@ import { useDb, schema, now } from '../db'
 import { normalizedIdentity } from './service'
 
 /**
- * Fusión de Contact (FASE 14, migración 0069).
+ * Fusión de Contact (FASE 14, migraciones 0069 y 0070).
  *
  * Nunca es un DELETE: el duplicado se archiva (soft delete, mismo
  * `deletedAt` que ya usa Contact) y todo lo que colgaba de él —
@@ -121,12 +121,42 @@ export async function mergeContacts(
   // contactId correcto. Los ya persistidos con el contactId antiguo son
   // histórico de una decisión tomada en su momento y no se reescriben.
 
+  // OJO si alguien amplía la lista de reasignaciones de arriba:
+  // `comms_conversations.contact_id` y `comms_calls.contact_id` se llaman
+  // igual pero NO apuntan a esta tabla — apuntan a `comms_contacts`, que es
+  // otra entidad con su propia numeración. Moverlas en una fusión reasignaría
+  // conversaciones al contacto equivocado del Centro de Comunicaciones.
+  // Coinciden en el nombre de la columna, no en lo que significa.
+
   // Nunca DELETE: se archiva. Un merge revisado más tarde y encontrado
   // erróneo tiene registro de qué pasó (audit log) y el duplicado sigue
   // pudiendo consultarse, sólo que ya no aparece en listados activos.
+  //
+  // Y se deja escrito HACIA DÓNDE se fue (migración 0070). Sin
+  // `mergedIntoContactId`, un id archivado que sigue vivo en un email enviado
+  // o en un export antiguo no se puede resolver: "archivado" no distingue una
+  // fusión de un borrado. Es además lo único que haría reversible un merge
+  // equivocado.
   await db
     .update(schema.contacts)
-    .set({ status: 'archived', deletedAt: nowTs, updatedAt: nowTs })
+    .set({
+      status: 'archived',
+      deletedAt: nowTs,
+      updatedAt: nowTs,
+      mergedIntoContactId: input.masterId,
+      mergedAt: nowTs,
+      mergedBy: opts.userId ?? null,
+      // Los valores de los dos lados y el elegido, tal y como se vieron en el
+      // preview: el "por qué" de la fusión, que seis meses después es lo único
+      // que distingue un email descartado a propósito de uno perdido.
+      mergeDetailsJson: JSON.stringify({
+        masterId: input.masterId,
+        duplicateId: input.duplicateId,
+        conflicts: preview.conflicts,
+        chosen: input.fields ?? {},
+        relationsMoved: preview.relations,
+      }),
+    })
     .where(and(eq(schema.contacts.id, input.duplicateId), eq(schema.contacts.organizationId, orgId)))
 
   return (await db.select().from(schema.contacts).where(eq(schema.contacts.id, input.masterId)).limit(1))[0]

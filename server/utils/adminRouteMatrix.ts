@@ -95,6 +95,14 @@ const RULES: Rule[] = [
   // características como revisadas son escrituras.
   { pattern: /^saas\/matching\/(?:requirement|property)\//, resolve: fixed('crm', 'read') },
   { pattern: /^saas\/matching(?:\/|$)/, resolve: area('crm') },
+  // FASES 15-16: asignación de leads y plazos de atención. Consultar la cola
+  // de leads sin dueño es lectura; asignar y configurar plazos, escritura.
+  { pattern: /^saas\/routing\/unassigned$/, resolve: fixed('crm', 'read') },
+  { pattern: /^saas\/routing(?:\/|$)/, resolve: area('crm') },
+  { pattern: /^saas\/sla(?:\/|$)/, resolve: area('crm') },
+  // FASES 17-19: tours de varios inmuebles. El resultado de visita cuelga de
+  // saas/visits, que ya tiene su regla justo debajo.
+  { pattern: /^saas\/tours(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/visits(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/reservations(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/appointments-analytics$/, resolve: area('crm') },
