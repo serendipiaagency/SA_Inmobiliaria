@@ -5,6 +5,7 @@ import { dispatchWebhook } from './webhooks'
 import { sendInternalNotification } from './email/send'
 import { getRequestId } from './requestId'
 import { resolveContact, orgDefaultCountryPrefix } from './contacts/service'
+import { routeLead, assignLead, buildRoutingContextFromProperty } from './leads/routing'
 
 interface UpsertLeadInput {
   /** Which tenant this lead belongs to — always the caller's resolved org, never client input. */
@@ -92,7 +93,7 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
           ...(contactId && { contactId }),
         })
         .where(eq(schema.leads.id, existing[0].id))
-      return
+      return { id: existing[0].id, created: false }
     }
   }
 
@@ -138,4 +139,19 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
   } catch {
     // The lead is already saved — a notification failure must never undo that.
   }
+
+  // FASE 15 (migración 0071): sólo enruta si quien llamó no trajo ya un
+  // comercial (p.ej. una reserva de cita con un agente concreto vino con
+  // dueño desde el principio — el routing nunca pisa una elección explícita).
+  if (!input.agentId) {
+    try {
+      const ctx = await buildRoutingContextFromProperty(event, input.organizationId, input.propertyId)
+      const decision = await routeLead(event, input.organizationId, ctx)
+      if (decision.commercialId) await assignLead(event, input.organizationId, row.id, decision)
+    } catch {
+      // El lead ya está guardado — un fallo del routing nunca debe deshacerlo; queda sin asignar, recuperable a mano.
+    }
+  }
+
+  return { id: row.id, created: true }
 }

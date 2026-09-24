@@ -54,12 +54,19 @@ export async function transitionLeadStage(
 
   const nowTs = now()
   const toStage = input.toStage as Stage
+  // FASE 16 (migración 0071): firstResponseAt sólo lo rellena un movimiento
+  // real hecho por una persona (opts.userId), nunca el 'new' automático de
+  // upsertLead() — así nunca cuenta como "respondido" algo que nadie ha
+  // tocado. qualifiedAt es la primera vez que se alcanza 'qualified'; si el
+  // lead retrocede después, no se recalcula (histórico, no estado actual).
   await db
     .update(schema.leads)
     .set({
       stage: toStage,
       status: STATUS_FOR_STAGE[toStage],
       updatedAt: nowTs,
+      ...(opts.userId && !existing.firstResponseAt && existing.stage !== toStage ? { firstResponseAt: nowTs } : {}),
+      ...(toStage === 'qualified' && !existing.qualifiedAt ? { qualifiedAt: nowTs } : {}),
     })
     .where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId)))
 

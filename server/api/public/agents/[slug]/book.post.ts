@@ -5,6 +5,7 @@ import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { dispatchWebhook } from '../../../../utils/webhooks'
 import { generateVideoLink } from '../../../../utils/appointments/videoLink'
 import { upsertLead } from '../../../../utils/leads'
+import { markFirstAppointment } from '../../../../utils/leads/sla'
 import { readFirstTouch } from '../../../../utils/firstTouch'
 import { rateLimit } from '../../../../utils/rateLimit'
 import { getRequestId } from '../../../../utils/requestId'
@@ -136,7 +137,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    await upsertLead(event, {
+    const lead = await upsertLead(event, {
       organizationId: orgId,
       name,
       email: body.email || null,
@@ -151,6 +152,7 @@ export default defineEventHandler(async (event) => {
       scoreBump: 25,
       ...readFirstTouch(event),
     })
+    if (lead?.id) await markFirstAppointment(db, orgId, lead.id)
   } catch {
     // La cita ya quedó guardada — el pipeline de leads nunca debe bloquearla.
   }
