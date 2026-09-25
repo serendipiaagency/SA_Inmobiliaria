@@ -18,9 +18,13 @@
         <a v-if="visit.videoLink && visit.status === 'scheduled'" :href="visit.videoLink" target="_blank" rel="noopener" class="mt-2 inline-block text-sm text-blue-600 underline">
           Unirse a la videollamada
         </a>
+        <p v-if="visit.status === 'scheduled'" class="mt-2 text-xs font-medium" :class="visit.confirmationStatus === 'confirmed' ? 'text-emerald-600' : 'text-amber-600'">
+          {{ visit.confirmationStatus === 'confirmed' ? '✓ Has confirmado tu asistencia' : 'Aún no has confirmado tu asistencia' }}
+        </p>
       </div>
 
       <template v-if="visit.status === 'scheduled' && !rescheduling">
+        <button v-if="visit.confirmationStatus !== 'confirmed'" class="btn-primary w-full" :disabled="acting" @click="confirmAttendance">Confirmar asistencia</button>
         <div class="flex gap-2.5">
           <button class="btn-secondary flex-1" :disabled="acting" @click="rescheduling = true">Reprogramar</button>
           <button class="btn-secondary flex-1 text-red-600" :disabled="acting" @click="cancelAppointment">Cancelar cita</button>
@@ -69,12 +73,25 @@ const { data, pending, refresh } = await useFetch<any>(`/api/public/appointments
 const visit = computed(() => data.value?.visit || null)
 
 const statusLabel = computed(() => {
-  const map: Record<string, string> = { scheduled: 'Cita confirmada', completed: 'Cita completada', cancelled: 'Cita cancelada', no_show: 'No asististe' }
+  const map: Record<string, string> = { scheduled: 'Cita agendada', completed: 'Cita completada', cancelled: 'Cita cancelada', no_show: 'No asististe' }
   return map[visit.value?.status] || visit.value?.status
 })
 
 const acting = ref(false)
 const error = ref('')
+
+async function confirmAttendance() {
+  acting.value = true
+  error.value = ''
+  try {
+    await $fetch(`/api/public/appointments/${token}/confirm`, { method: 'POST' })
+    await refresh()
+  } catch (e: any) {
+    error.value = e?.data?.statusMessage || 'No se pudo confirmar la cita'
+  } finally {
+    acting.value = false
+  }
+}
 
 async function cancelAppointment() {
   if (!confirm('¿Seguro que quieres cancelar esta cita?')) return

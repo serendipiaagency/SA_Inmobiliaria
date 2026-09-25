@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
   try {
     await db
       .update(schema.visits)
-      .set({ scheduledAt: body.startAt, endsAt, reminder24hSentAt: null, reminder1hSentAt: null })
+      .set({ scheduledAt: body.startAt, endsAt, reminder24hSentAt: null, reminder1hSentAt: null, confirmationStatus: 'pending', confirmedAt: null })
       .where(eq(schema.visits.id, visit.id))
   } catch (e: any) {
     if (isUniqueConstraintError(e)) {

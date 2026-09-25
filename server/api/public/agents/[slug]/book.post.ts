@@ -152,7 +152,13 @@ export default defineEventHandler(async (event) => {
       scoreBump: 25,
       ...readFirstTouch(event),
     })
-    if (lead?.id) await markFirstAppointment(db, orgId, lead.id)
+    if (lead?.id) {
+      await markFirstAppointment(db, orgId, lead.id)
+      // FASE 17 (migración 0072): el lead se resuelve/crea después de guardar la
+      // cita (así un fallo del pipeline de leads nunca la bloquea) — se enlaza
+      // aquí, a posteriori, en vez de reordenar los dos pasos.
+      await db.update(schema.visits).set({ leadId: lead.id }).where(eq(schema.visits.id, visit.id))
+    }
   } catch {
     // La cita ya quedó guardada — el pipeline de leads nunca debe bloquearla.
   }

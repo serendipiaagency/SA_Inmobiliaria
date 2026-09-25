@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
       .prepare(
         `SELECT id, name, email, phone, source, source_detail AS sourceDetail, status, stage, lost_reason AS lostReason,
                 priority, score, budget, property_name AS propertyName,
-                agent_name AS agentName, last_contact_at AS lastContactAt, created_at AS createdAt
+                agent_id AS agentId, agent_name AS agentName, last_contact_at AS lastContactAt, created_at AS createdAt
          FROM leads ${clause} ORDER BY created_at DESC LIMIT 200`,
       )
       .bind(...binds)
