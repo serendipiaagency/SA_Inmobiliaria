@@ -1,9 +1,10 @@
 import { and, eq } from 'drizzle-orm'
 import { useDb, schema, now, resolvePublicOrgId, cfEnv, isUniqueConstraintError } from '../../../../utils/db'
-import { isSlotAvailable } from '../../../../utils/appointments/availability'
+import { isSlotAvailable, shiftDateTime } from '../../../../utils/appointments/availability'
 import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { dispatchWebhook } from '../../../../utils/webhooks'
 import { generateVideoLink } from '../../../../utils/appointments/videoLink'
+import { generateManagementToken } from '../../../../utils/appointments/managementToken'
 import { upsertLead } from '../../../../utils/leads'
 import { markFirstAppointment } from '../../../../utils/leads/sla'
 import { readFirstTouch } from '../../../../utils/firstTouch'
@@ -24,13 +25,6 @@ interface BookAppointmentBody {
   notes?: string
   budget?: number
   interest?: string
-}
-
-function generateManagementToken(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(24))
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
 }
 
 /** Books a real appointment with an agent — re-validates the slot server-side, never trusts the client's picker state. */
@@ -84,10 +78,7 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const endsAt = new Date(new Date(`${body.startAt.replace(' ', 'T')}Z`).getTime() + agent.slotDurationMinutes * 60_000)
-    .toISOString()
-    .replace('T', ' ')
-    .slice(0, 19)
+  const endsAt = shiftDateTime(body.startAt, agent.slotDurationMinutes)
 
   const clientBudget = Number.isFinite(Number(body.budget)) && Number(body.budget) > 0 ? Number(body.budget) : null
   const clientInterest = body.interest?.trim().slice(0, 500) || null

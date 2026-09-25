@@ -11,9 +11,13 @@
           {{ f.label }} <span class="ml-1 opacity-60">{{ f.key === 'all' ? totalCount : (counts[f.key] || 0) }}</span>
         </button>
       </div>
-      <div class="flex gap-1 rounded-lg border border-line p-0.5">
-        <button class="rounded-md px-3 py-1 text-xs font-medium transition" :class="view === 'list' ? 'bg-ink text-white' : 'text-stone-500'" @click="view = 'list'">Lista</button>
-        <button class="rounded-md px-3 py-1 text-xs font-medium transition" :class="view === 'calendar' ? 'bg-ink text-white' : 'text-stone-500'" @click="view = 'calendar'">Calendario</button>
+      <div class="flex items-center gap-2">
+        <div class="flex gap-1 rounded-lg border border-line p-0.5">
+          <button class="rounded-md px-3 py-1 text-xs font-medium transition" :class="view === 'list' ? 'bg-ink text-white' : 'text-stone-500'" @click="view = 'list'">Lista</button>
+          <button class="rounded-md px-3 py-1 text-xs font-medium transition" :class="view === 'calendar' ? 'bg-ink text-white' : 'text-stone-500'" @click="view = 'calendar'">Calendario</button>
+          <button class="rounded-md px-3 py-1 text-xs font-medium transition" :class="view === 'tours' ? 'bg-ink text-white' : 'text-stone-500'" @click="view = 'tours'">Tours</button>
+        </div>
+        <button v-if="view === 'tours'" class="btn-quiet !px-3 !py-1.5" @click="openNewTour">+ Nuevo tour</button>
       </div>
     </div>
 
@@ -42,6 +46,37 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <div v-else-if="view === 'tours'" class="space-y-3">
+      <p v-if="!tours.length" class="rounded-xl border border-dashed border-line px-6 py-10 text-center text-sm text-stone-500">
+        Sin tours todavía — "+ Nuevo tour" para agendar varias paradas de una vez.
+      </p>
+      <AdminPanel v-for="t in tours" :key="t.id" class="!p-0">
+        <div class="flex items-center justify-between border-b border-line px-4 py-3">
+          <div>
+            <p class="font-medium">{{ t.clientName }}</p>
+            <p class="text-xs text-stone-400">{{ [t.clientEmail, t.clientPhone].filter(Boolean).join(' · ') || '—' }}{{ t.notes ? ` · ${t.notes}` : '' }}</p>
+          </div>
+          <span class="text-xs text-stone-400">{{ t.stops.length }} paradas</span>
+        </div>
+        <div class="divide-y divide-line/60">
+          <div v-for="(s, i) in t.stops" :key="s.id" class="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+            <div class="min-w-0">
+              <p class="truncate font-medium">{{ i + 1 }}. {{ s.propertyName || 'Sin inmueble' }}</p>
+              <p class="truncate text-xs text-stone-400">
+                {{ s.agentName }} · {{ dt.dateTime(s.scheduledAt) }}
+                <span v-if="s.status === 'scheduled' && s.confirmationStatus === 'confirmed'" class="text-emerald-600">· ✓ confirmada</span>
+              </p>
+            </div>
+            <div class="flex shrink-0 items-center gap-1.5">
+              <AdminStatusPill :status="s.status" />
+              <button v-if="s.status === 'scheduled'" class="btn-quiet !px-2 !py-1 text-xs" :disabled="busyId === s.id" @click="setStatus(s, 'completed')">Completada</button>
+              <button v-if="s.status === 'scheduled'" class="btn-quiet !px-2 !py-1 text-xs text-red-600" :disabled="busyId === s.id" @click="setStatus(s, 'cancelled')">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      </AdminPanel>
     </div>
 
     <AdminPanel v-else :pad="false">
@@ -108,6 +143,41 @@
         </div>
       </div>
     </div>
+
+    <div v-if="newTour" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="newTour = false">
+      <div class="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl bg-white p-6">
+        <h2 class="mb-4 text-lg font-semibold">Nuevo tour</h2>
+
+        <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <label class="text-sm"><span class="label">Cliente</span><input v-model="tourForm.clientName" type="text" class="input" ></label>
+          <label class="text-sm"><span class="label">Email</span><input v-model="tourForm.clientEmail" type="email" class="input" ></label>
+          <label class="text-sm"><span class="label">Teléfono</span><input v-model="tourForm.clientPhone" type="tel" class="input" ></label>
+        </div>
+
+        <p class="label mb-2">Paradas</p>
+        <div class="space-y-2.5">
+          <div v-for="(s, i) in tourForm.stops" :key="i" class="grid grid-cols-1 gap-2 rounded-lg border border-line p-2.5 sm:grid-cols-[1fr_1fr_1fr_auto]">
+            <select v-model="s.propertyId" class="input !py-1.5 text-xs">
+              <option :value="null">Sin inmueble</option>
+              <option v-for="p in developerProperties" :key="p.id" :value="p.id">{{ p.name }}</option>
+            </select>
+            <select v-model="s.agentId" class="input !py-1.5 text-xs">
+              <option :value="null">Comercial…</option>
+              <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
+            </select>
+            <input v-model="s.scheduledAt" type="datetime-local" class="input !py-1.5 text-xs" >
+            <button type="button" class="btn-quiet !px-2 !py-1 text-xs text-red-600" :disabled="tourForm.stops.length <= 1" @click="tourForm.stops.splice(i, 1)">Quitar</button>
+          </div>
+        </div>
+        <button type="button" class="btn-quiet mt-2.5 !px-3 !py-1.5 text-xs" @click="tourForm.stops.push({ propertyId: null, agentId: null, scheduledAt: '' })">+ Añadir parada</button>
+
+        <p v-if="tourError" class="mt-3 text-sm font-medium text-red-600">{{ tourError }}</p>
+        <div class="mt-4 flex justify-end gap-2">
+          <button class="btn-secondary" @click="newTour = false">Cancelar</button>
+          <button class="btn-primary" :disabled="creatingTour" @click="submitNewTour">{{ creatingTour ? 'Creando…' : 'Crear tour' }}</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -124,6 +194,29 @@ const counts = ref<Record<string, number>>({})
 watch(data, (d) => { if (d?.counts) counts.value = d.counts }, { immediate: true })
 const totalCount = computed(() => Object.values(counts.value).reduce((a, b) => a + b, 0))
 
+interface TourStop {
+  id: number
+  propertyName: string | null
+  agentName: string
+  scheduledAt: string
+  status: string
+  confirmationStatus: string
+}
+interface Tour {
+  id: number
+  clientName: string
+  clientEmail: string | null
+  clientPhone: string | null
+  notes: string | null
+  stops: TourStop[]
+}
+const { data: toursData, refresh: refreshTours } = await useFetch<any>('/api/admin/saas/tours')
+const tours = computed<Tour[]>(() => toursData.value?.rows || [])
+const { data: devPropsData } = await useFetch<any>('/api/admin/developer-properties', { query: { perPage: 100 } })
+const developerProperties = computed<any[]>(() => devPropsData.value?.items || devPropsData.value?.rows || [])
+const { data: agentsData } = await useFetch<any>('/api/admin/saas/agents')
+const agents = computed<any[]>(() => agentsData.value?.rows || [])
+
 const filters = [
   { key: 'all', label: 'Todas' },
   { key: 'scheduled', label: 'Agendadas' },
@@ -131,7 +224,7 @@ const filters = [
   { key: 'cancelled', label: 'Canceladas' },
   { key: 'no_show', label: 'No asistió' },
 ]
-const view = ref<'list' | 'calendar'>('list')
+const view = ref<'list' | 'calendar' | 'tours'>('list')
 const calendarMonth = ref(new Date())
 const weekdayLabels = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 const monthLabel = computed(() => calendarMonth.value.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }))
@@ -179,7 +272,7 @@ async function setStatus(v: any, next: string) {
   busyId.value = v.id
   try {
     await $fetch(`/api/admin/saas/visits/${v.id}`, { method: 'PATCH', body: { status: next } })
-    await refresh()
+    await Promise.all([refresh(), refreshTours()])
     toast.success('Visita actualizada')
   } catch (e: any) {
     toast.error(e?.data?.statusMessage || 'No se pudo actualizar la visita')
@@ -200,12 +293,61 @@ async function confirmReschedule() {
   try {
     await $fetch(`/api/admin/saas/visits/${reschedule.value.id}`, { method: 'PATCH', body: { scheduledAt: `${rescheduleAt.value.replace('T', ' ')}:00` } })
     reschedule.value = null
-    await refresh()
+    await Promise.all([refresh(), refreshTours()])
     toast.success('Visita reprogramada')
   } catch (e: any) {
     toast.error(e?.data?.statusMessage || 'No se pudo reprogramar')
   } finally {
     busyId.value = null
+  }
+}
+
+interface NewTourStop {
+  propertyId: number | null
+  agentId: number | null
+  scheduledAt: string
+}
+const newTour = ref(false)
+const tourForm = reactive<{ clientName: string; clientEmail: string; clientPhone: string; stops: NewTourStop[] }>({
+  clientName: '',
+  clientEmail: '',
+  clientPhone: '',
+  stops: [{ propertyId: null, agentId: null, scheduledAt: '' }],
+})
+const tourError = ref('')
+const creatingTour = ref(false)
+function openNewTour() {
+  tourForm.clientName = ''
+  tourForm.clientEmail = ''
+  tourForm.clientPhone = ''
+  tourForm.stops = [{ propertyId: null, agentId: null, scheduledAt: '' }]
+  tourError.value = ''
+  newTour.value = true
+}
+async function submitNewTour() {
+  tourError.value = ''
+  if (!tourForm.clientName.trim()) { tourError.value = 'Falta el nombre del cliente'; return }
+  if (!tourForm.clientEmail.trim() && !tourForm.clientPhone.trim()) { tourError.value = 'Falta un email o un teléfono de contacto'; return }
+  if (tourForm.stops.some((s) => !s.agentId || !s.scheduledAt)) { tourError.value = 'Cada parada necesita comercial y fecha/hora'; return }
+
+  creatingTour.value = true
+  try {
+    await $fetch('/api/admin/saas/tours', {
+      method: 'POST',
+      body: {
+        clientName: tourForm.clientName,
+        clientEmail: tourForm.clientEmail || null,
+        clientPhone: tourForm.clientPhone || null,
+        stops: tourForm.stops.map((s) => ({ propertyId: s.propertyId, agentId: s.agentId, scheduledAt: `${s.scheduledAt.replace('T', ' ')}:00` })),
+      },
+    })
+    newTour.value = false
+    await Promise.all([refreshTours(), refresh()])
+    toast.success('Tour creado')
+  } catch (e: any) {
+    tourError.value = e?.data?.statusMessage || 'No se pudo crear el tour'
+  } finally {
+    creatingTour.value = false
   }
 }
 </script>
