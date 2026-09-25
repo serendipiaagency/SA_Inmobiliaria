@@ -52,12 +52,22 @@ test.describe('Agenda de citas con agentes', () => {
     expect(body.days[0].slots[0].start.startsWith(dateStr)).toBe(true)
   })
 
-  test('reservar un hueco real funciona, y repetirlo devuelve 409', async ({ request }) => {
+  test('reservar un hueco real funciona, enlaza la cita al lead creado (FASE 17), y repetirlo devuelve 409', async ({ request }) => {
     const { start } = randomFutureSlot()
     const first = await request.post(`/api/public/agents/${AGENT_SLUG}/book`, {
       data: { name: 'E2E Cliente', email: 'e2e-cliente@example.com', startAt: start },
     })
     expect(first.status()).toBe(200)
+    const { visitId } = await first.json()
+
+    const admin = await pwRequest.newContext({ baseURL: process.env.E2E_BASE_URL || 'http://localhost:8788', storageState: STATE_A })
+    const visitsRes = await admin.get('/api/admin/saas/visits')
+    const { rows } = await visitsRes.json()
+    const visit = rows.find((v: any) => v.id === visitId)
+    expect(visit?.leadId, 'la cita debería quedar enlazada al lead que upsertLead() resolvió/creó').toBeTruthy()
+    expect(visit?.type).toBe('property_viewing')
+    expect(visit?.confirmationStatus).toBe('pending')
+    await admin.dispose()
 
     const second = await request.post(`/api/public/agents/${AGENT_SLUG}/book`, {
       data: { name: 'E2E Cliente Duplicado', email: 'e2e-duplicado@example.com', startAt: start },
@@ -80,6 +90,42 @@ test.describe('Agenda de citas con agentes', () => {
       data: { name: 'Sin contacto', startAt: `${nextSlot.toISOString().slice(0, 10)} 09:00:00` },
     })
     expect(res.status()).toBe(422)
+  })
+
+  test('la página de gestión de cita permite confirmar la asistencia (FASE 17)', async ({ page, request }) => {
+    const { start } = randomFutureSlot()
+    const res = await request.post(`/api/public/agents/${AGENT_SLUG}/book`, {
+      data: { name: 'E2E Confirmación', email: 'e2e-confirmacion@example.com', startAt: start },
+    })
+    expect(res.status()).toBe(200)
+    const { manageUrl } = await res.json()
+    expect(manageUrl).toBeTruthy()
+
+    await page.goto(manageUrl)
+    await expect(page.getByText(/aún no has confirmado tu asistencia/i)).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('button', { name: /confirmar asistencia/i }).click()
+    await expect(page.getByText(/has confirmado tu asistencia/i)).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('reprogramar una cita ya confirmada exige volver a confirmarla (FASE 17)', async ({ request }) => {
+    const { start } = randomFutureSlot()
+    const booked = await request.post(`/api/public/agents/${AGENT_SLUG}/book`, {
+      data: { name: 'E2E Reprogramación', email: 'e2e-reprogramacion@example.com', startAt: start },
+    })
+    expect(booked.status()).toBe(200)
+    const { manageUrl } = await booked.json()
+    const token = new URL(manageUrl, 'http://x').pathname.split('/').pop()
+
+    const confirmRes = await request.post(`/api/public/appointments/${token}/confirm`)
+    expect(confirmRes.ok()).toBeTruthy()
+    const afterConfirm = await (await request.get(`/api/public/appointments/${token}`)).json()
+    expect(afterConfirm.visit.confirmationStatus).toBe('confirmed')
+
+    const { start: newStart } = randomFutureSlot()
+    const rescheduleRes = await request.post(`/api/public/appointments/${token}/reschedule`, { data: { startAt: newStart } })
+    expect(rescheduleRes.ok()).toBeTruthy()
+    const afterReschedule = await (await request.get(`/api/public/appointments/${token}`)).json()
+    expect(afterReschedule.visit.confirmationStatus).toBe('pending')
   })
 
   test('el perfil público del agente abre el selector de citas y permite reservar de extremo a extremo', async ({ page }) => {

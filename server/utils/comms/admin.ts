@@ -315,6 +315,12 @@ export async function createFollowUpVisit(db: any, input: FollowUpInput): Promis
     throw createError({ statusCode: 409, statusMessage: 'Ese comercial ya tiene otra cita en ese horario.' })
   }
   const nowTs = now()
+  // FASE 17 (migración 0072): un seguimiento con inmueble adjunto es una
+  // visita de verdad (el cliente va a ver algo concreto); sin inmueble es
+  // sólo contacto (llamada o videollamada de seguimiento) — `type` es el
+  // PARA QUÉ, independiente del canal (`channel`, el CÓMO) que ya elige quien
+  // programa el seguimiento.
+  const type = input.propertyId ? 'property_viewing' : 'call'
   try {
     const [visit] = await db
       .insert(schema.visits)
@@ -330,6 +336,7 @@ export async function createFollowUpVisit(db: any, input: FollowUpInput): Promis
         endsAt,
         status: 'scheduled',
         channel: input.channel || 'phone',
+        type,
         notes: [`Seguimiento creado desde Comunicaciones (WhatsApp ${formatPhone(input.contact.phoneE164)})`, input.notes?.trim() || null].filter(Boolean).join('\n'),
         clientPhone: input.contact.phoneE164,
         managementToken: managementToken(),

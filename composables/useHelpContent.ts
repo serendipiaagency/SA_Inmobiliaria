@@ -110,8 +110,8 @@ export function useHelpContent() {
       steps: [
         'Arrastra una tarjeta a otra columna para mover el lead de fase — se guarda automáticamente y queda registrado en su historial (quién lo movió, desde qué fase y hasta cuál).',
         'Arrastrar a "Perdido" pide un motivo (sin respuesta, no le interesa, duplicado, otro) y mueve la tarjeta ahí. Por debajo, la fase en la que estaba se congela tal cual — si luego lo recuperas arrastrándolo fuera de "Perdido", vuelve exactamente a esa fase, no a "Nuevo": no se pierde en qué punto del proceso se cayó la operación.',
-        'Haz clic en un lead para ver su origen (web, referido, llamada…), campaña y UTM si llegó de un enlace de marketing, la página de aterrizaje, el mensaje original tal cual lo escribió, notas y datos de contacto.',
-        'Los leads se crean solos desde el formulario público, las reservas de visita y el programa de referidos — no hace falta darlos de alta a mano salvo excepción. Si el email o el teléfono coincide con un contacto que ya existe en tu agencia, el lead se enlaza automáticamente a esa ficha en vez de crear una persona duplicada.',
+        'Cada tarjeta (y cada fila de la vista Tabla) tiene un desplegable con el comercial asignado — cámbialo ahí mismo para reasignar el lead a otra persona, o a "Sin asignar", sin salir del listado. Queda registrado quién lo tenía, a quién pasó y cuándo en su historial de asignaciones.',
+        'Los leads se crean solos desde el formulario público, las reservas de visita y el programa de referidos — no hace falta darlos de alta a mano salvo excepción. Si el email o el teléfono coincide con un contacto que ya existe en tu agencia, el lead se enlaza automáticamente a esa ficha en vez de crear una persona duplicada. Si tienes reglas de enrutado configuradas (CRM → Enrutamiento y SLA), el comercial se asigna solo al crearse — salvo que ya llegue con uno explícito, como una reserva de cita con un comercial concreto.',
       ],
     },
     {
@@ -175,7 +175,8 @@ export function useHelpContent() {
       summary: 'Agenda de citas con clientes: vista de calendario mensual, buffer entre citas y tope diario por comercial.',
       steps: [
         'Crea una visita manualmente o deja que se reserven solas desde la ficha pública del comercial.',
-        'Cada visita genera un enlace de gestión propio para el cliente (cancelar/reprogramar sin necesidad de llamar).',
+        'La columna "Tipo" distingue el PARA QUÉ de la cita (visita a un inmueble, llamada de seguimiento) del "Canal" (el CÓMO: presencial, videollamada, teléfono) — son dos cosas independientes, una videollamada puede ser perfectamente una visita a un inmueble.',
+        'Cada visita genera un enlace de gestión propio para el cliente (confirmar asistencia, cancelar o reprogramar sin necesidad de llamar). Un ✓ verde junto al estado de la fila indica que el cliente ya ha confirmado su asistencia desde ese enlace; reprogramar la cita (desde aquí o desde el enlace del cliente) borra esa confirmación, porque ya no es la misma cita que había confirmado.',
         'El feed iCal de cada comercial (botón "Suscribirse al calendario") permite verlas en Google Calendar u Outlook.',
         'Las videollamadas usan Jitsi Meet automáticamente si el canal de la cita es "vídeo" — no requiere configuración.',
         'Cada cita avisa al cliente por email y, si tiene teléfono, por WhatsApp (confirmación, recordatorios 24 h y 1 h antes, cancelación y cambios). El WhatsApp sale de verdad cuando la plataforma tiene conectado Twilio — Sistema → Estado del sistema lo dice; si no, el aviso queda registrado como "no conectado" y no se envía. El teléfono necesita prefijo internacional (+34…). Ojo a una regla de WhatsApp, no nuestra: fuera de las 24 h siguientes al último mensaje del cliente sólo se puede enviar con una plantilla aprobada, que quien administre la plataforma configura una vez (docs/whatsapp.md).',
@@ -897,6 +898,20 @@ export function useHelpContent() {
       answer:
         'Las alertas se recalculan una vez por hora (el cron de SLA), así que puede tardar hasta esa siguiente pasada en resolverse sola. Si no puede esperar, márcala como resuelta a mano desde CRM → Enrutamiento y SLA.',
       tags: ['leads', 'sla', 'alertas'],
+    },
+    {
+      id: 'faq-cita-tipo-vs-canal',
+      question: 'En una visita, ¿qué diferencia hay entre "Tipo" y "Canal"?',
+      answer:
+        '"Tipo" es el PARA QUÉ: una visita a un inmueble o una llamada de seguimiento. "Canal" es el CÓMO: presencial, videollamada o teléfono. Son independientes — una visita a un inmueble puede hacerse por videollamada (un tour virtual) sin dejar de ser una visita.',
+      tags: ['visitas', 'citas', 'tipo', 'canal'],
+    },
+    {
+      id: 'faq-cita-confirmacion',
+      question: 'Una cita "agendada" y una cita "confirmada" por el cliente, ¿son lo mismo?',
+      answer:
+        'No. "Agendada" es el estado interno: hay un hueco reservado en la agenda del comercial. "Confirmada" es que el propio cliente, desde su enlace de gestión, ha pulsado "Confirmar asistencia". Una cita puede estar agendada sin que el cliente la haya confirmado todavía — el ✓ verde junto al estado, en Visitas, es lo que distingue una de otra. Reprogramarla borra esa confirmación: ya no es la hora que el cliente había confirmado.',
+      tags: ['visitas', 'citas', 'confirmacion'],
     },
     {
       id: 'faq-merge-contacto',

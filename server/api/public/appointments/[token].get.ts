@@ -23,6 +23,7 @@ export default defineEventHandler(async (event) => {
       status: schema.visits.status,
       channel: schema.visits.channel,
       videoLink: schema.visits.videoLink,
+      confirmationStatus: schema.visits.confirmationStatus,
     })
     .from(schema.visits)
     .leftJoin(schema.teamMembers, eq(schema.teamMembers.id, schema.visits.agentId))

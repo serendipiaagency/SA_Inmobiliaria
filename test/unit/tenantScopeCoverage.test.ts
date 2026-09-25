@@ -93,6 +93,7 @@ const EXEMPT: Record<string, Exemption> = {
   'public/appointments/[token].get.ts': { reason: 'URL-capacidad: el token de gestión de la cita es la credencial y determina el ámbito.', requires: /getRouterParam\(event, 'token'\)/ },
   'public/appointments/[token]/cancel.post.ts': { reason: 'Igual que la consulta de la cita: el token es la credencial.', requires: /getRouterParam\(event, 'token'\)/ },
   'public/appointments/[token]/reschedule.post.ts': { reason: 'Igual que la consulta de la cita: el token es la credencial.', requires: /getRouterParam\(event, 'token'\)/ },
+  'public/appointments/[token]/confirm.post.ts': { reason: 'Igual que la consulta de la cita: el token es la credencial.', requires: /getRouterParam\(event, 'token'\)/ },
   'public/contracts/[token].get.ts': { reason: 'URL-capacidad: el token de firma del contrato es la credencial y determina el ámbito.', requires: /getRouterParam\(event, 'token'\)/ },
   'public/contracts/[token]/accept.post.ts': { reason: 'Igual que la consulta del contrato: el token es la credencial.', requires: /getRouterParam\(event, 'token'\)/ },
 

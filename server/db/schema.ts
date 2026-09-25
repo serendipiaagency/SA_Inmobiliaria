@@ -1084,7 +1084,14 @@ export const visits = sqliteTable(
     durationMinutes: integer('duration_minutes').notNull().default(60),
     endsAt: text('ends_at'),
     status: text('status').notNull().default('scheduled'), // scheduled | completed | cancelled | no_show
-    channel: text('channel').notNull().default('in_person'), // in_person | video | phone
+    channel: text('channel').notNull().default('in_person'), // in_person | video | phone — CÓMO
+    /** FASE 17, migración 0072. PARA QUÉ es la cita — eje distinto de `channel` (CÓMO). */
+    type: text('type').notNull().default('property_viewing'), // property_viewing | call | other
+    /** FASE 17, migración 0072. Confirmación explícita del cliente — distinta de `status` (ciclo de vida interno). */
+    confirmationStatus: text('confirmation_status').notNull().default('pending'), // pending | confirmed
+    confirmedAt: text('confirmed_at'),
+    /** FASE 17, migración 0072. Antes no existía ninguna FK real entre visits y leads — el cruce era por nombre/email. */
+    leadId: integer('lead_id'),
     notes: text('notes'),
     clientEmail: text('client_email'),
     clientPhone: text('client_phone'),

@@ -7,12 +7,15 @@ import { logAdminAction } from '../../../../utils/audit'
 import { getRequestId } from '../../../../utils/requestId'
 
 const VALID_STATUSES = ['scheduled', 'completed', 'cancelled', 'no_show'] as const
+const VALID_TYPES = ['property_viewing', 'call', 'other'] as const
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
 
 interface PatchVisitBody {
   status?: string
   scheduledAt?: string
   agentId?: number | null
+  /** FASE 17, migración 0072: reclasificar una cita mal etiquetada. */
+  type?: string
 }
 
 /** Confirm/cancel/mark-completed/mark-no-show, reschedule, and/or reassign to a different agent — all with a real double-booking check. */
@@ -32,6 +35,11 @@ export default defineEventHandler(async (event) => {
   if (body?.status !== undefined) {
     if (!(VALID_STATUSES as readonly string[]).includes(body.status)) throw createError({ statusCode: 422, statusMessage: 'Estado inválido' })
     patch.status = body.status
+  }
+
+  if (body?.type !== undefined) {
+    if (!(VALID_TYPES as readonly string[]).includes(body.type)) throw createError({ statusCode: 422, statusMessage: 'Tipo inválido' })
+    patch.type = body.type
   }
 
   const nextAgentId = body?.agentId !== undefined ? body.agentId : visit.agentId
@@ -64,6 +72,12 @@ export default defineEventHandler(async (event) => {
       patch.endsAt = endsAt
     } else {
       patch.scheduledAt = nextScheduledAt
+    }
+    // Un cambio de hora o de comercial invalida la confirmación que el cliente
+    // ya hubiera dado — igual que se resetean los recordatorios al reprogramar.
+    if (visit.confirmationStatus === 'confirmed') {
+      patch.confirmationStatus = 'pending'
+      patch.confirmedAt = null
     }
   }
 

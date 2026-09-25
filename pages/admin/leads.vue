@@ -64,8 +64,17 @@
             </div>
             <p v-if="col.key === 'lost' && l.lostReason" class="mt-1 text-[11px] text-stone-400">{{ lostReasonLabel(l.lostReason) }}</p>
             <div class="mt-2 flex items-center gap-1.5 border-t border-line pt-2 text-[11px] text-stone-500">
-              <span class="flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 text-[9px] font-semibold text-stone-600">{{ dt.initials(l.agentName) }}</span>
-              <span class="min-w-0 flex-1 truncate">{{ l.agentName }}</span>
+              <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-stone-100 text-[9px] font-semibold text-stone-600">{{ dt.initials(l.agentName) }}</span>
+              <select
+                class="min-w-0 flex-1 truncate rounded border-0 bg-transparent py-0 pl-0 pr-4 text-[11px] text-stone-600 focus:ring-1 focus:ring-ink"
+                :value="l.agentId || ''"
+                :disabled="reassigningId === l.id"
+                @click.stop
+                @change="reassignLead(l, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="">Sin asignar</option>
+                <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
+              </select>
               <AdminCommsContactActions v-if="l.phone" :lead-id="l.id" :phone="l.phone" :name="l.name" compact />
             </div>
           </article>
@@ -102,7 +111,12 @@
               <td class="px-4 py-3"><AdminStatusPill :status="l.status" /></td>
               <td class="px-4 py-3 text-right"><span class="rounded px-1.5 py-0.5 text-xs font-semibold" :class="scoreCls(l.score)">{{ l.score }}</span></td>
               <td class="px-4 py-3 text-right tabular-nums">{{ dt.money(l.budget, { compact: true }) }}</td>
-              <td class="px-4 py-3 text-stone-600">{{ l.agentName }}</td>
+              <td class="px-4 py-3 text-stone-600">
+                <select class="rounded border border-line bg-white px-1.5 py-1 text-xs" :value="l.agentId || ''" :disabled="reassigningId === l.id" @change="reassignLead(l, ($event.target as HTMLSelectElement).value)">
+                  <option value="">Sin asignar</option>
+                  <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
+                </select>
+              </td>
               <td class="px-4 py-3 text-stone-500">{{ dt.relative(l.lastContactAt) }}</td>
               <td class="px-2 py-3"><AdminCommsContactActions v-if="l.phone" :lead-id="l.id" :phone="l.phone" :name="l.name" compact /></td>
             </tr>
@@ -131,6 +145,30 @@ const rows = computed<any[]>(() => data.value?.rows || [])
 const counts = ref<Record<string, number>>({})
 watch(data, (d) => { if (d?.counts) counts.value = { ...d.counts } }, { immediate: true })
 const total = computed(() => Object.values(counts.value).reduce((a, b) => a + b, 0))
+
+const { data: agentsData } = await useFetch<any>('/api/admin/saas/agents')
+const agents = computed<any[]>(() => agentsData.value?.rows || [])
+
+const reassigningId = ref<number | null>(null)
+async function reassignLead(lead: any, agentIdValue: string) {
+  const commercialId = agentIdValue ? Number(agentIdValue) : null
+  if (commercialId === (lead.agentId || null)) return
+  reassigningId.value = lead.id
+  const previousAgentId = lead.agentId
+  const previousAgentName = lead.agentName
+  try {
+    const updated = await $fetch<any>(`/api/admin/saas/leads/${lead.id}/reassign`, { method: 'POST', body: { commercialId } })
+    lead.agentId = updated.agentId
+    lead.agentName = updated.agentName
+    toast.success('Lead reasignado')
+  } catch (e: any) {
+    lead.agentId = previousAgentId
+    lead.agentName = previousAgentName
+    toast.error(e?.data?.statusMessage || 'No se pudo reasignar el lead')
+  } finally {
+    reassigningId.value = null
+  }
+}
 
 /**
  * Columnas del Kanban = stage (FASE 13), no status: `stage` es la posición

@@ -50,6 +50,7 @@
           <thead class="border-b border-line bg-stone-50 text-left text-[11px] uppercase tracking-wide text-stone-400">
             <tr>
               <th class="px-4 py-2.5 font-semibold">Cliente</th>
+              <th class="px-4 py-2.5 font-semibold">Tipo</th>
               <th class="px-4 py-2.5 font-semibold">Propiedad</th>
               <th class="px-4 py-2.5 font-semibold">Comercial</th>
               <th class="px-4 py-2.5 font-semibold">Canal</th>
@@ -61,6 +62,7 @@
           <tbody>
             <tr v-for="v in rows" :key="v.id" class="border-b border-line/60 last:border-0 hover:bg-stone-50">
               <td class="px-4 py-3 font-medium">{{ v.clientName }}</td>
+              <td class="px-4 py-3 text-stone-600">{{ typeLabel(v.type) }}</td>
               <td class="px-4 py-3 text-stone-600">{{ v.propertyName || '—' }}</td>
               <td class="px-4 py-3 text-stone-600">
                 <NuxtLink v-if="v.agentId" :to="`/admin/comerciales/${v.agentId}`" class="hover:underline">{{ v.agentName }}</NuxtLink>
@@ -73,7 +75,12 @@
                 </span>
               </td>
               <td class="px-4 py-3 text-stone-600">{{ dt.dateTime(v.scheduledAt) }}</td>
-              <td class="px-4 py-3"><AdminStatusPill :status="v.status" /></td>
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-1.5">
+                  <AdminStatusPill :status="v.status" />
+                  <span v-if="v.status === 'scheduled' && v.confirmationStatus === 'confirmed'" class="text-xs text-emerald-600" title="El cliente ha confirmado su asistencia">✓</span>
+                </div>
+              </td>
               <td class="px-4 py-3 text-right">
                 <div class="flex justify-end gap-1.5">
                   <button v-if="v.status === 'scheduled'" class="btn-quiet !px-2.5 !py-1 text-xs" @click="openReschedule(v)">Reprogramar</button>
@@ -83,7 +90,7 @@
                 </div>
               </td>
             </tr>
-            <tr v-if="!rows.length"><td colspan="7" class="px-4 py-10 text-center text-stone-400">Sin visitas</td></tr>
+            <tr v-if="!rows.length"><td colspan="8" class="px-4 py-10 text-center text-stone-400">Sin visitas</td></tr>
           </tbody>
         </table>
       </div>
@@ -157,6 +164,9 @@ function visitDotClass(status: string) {
 }
 function channelLabel(c: string) {
   return { in_person: 'Presencial', video: 'Videollamada', phone: 'Teléfono' }[c] || c
+}
+function typeLabel(t: string) {
+  return { property_viewing: 'Visita a inmueble', call: 'Llamada de seguimiento', other: 'Otro' }[t] || t
 }
 function channelIcon(c: string) {
   if (c === 'video') return 'M23 7l-7 5 7 5V7zM1 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H1V5z'
