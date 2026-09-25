@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import * as schema from '../../server/db/schema'
 import { createTestDb, seedTenant } from './helpers/tenantFixtures'
 
