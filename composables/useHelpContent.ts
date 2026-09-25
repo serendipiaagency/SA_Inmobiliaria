@@ -177,6 +177,7 @@ export function useHelpContent() {
         'Crea una visita manualmente o deja que se reserven solas desde la ficha pública del comercial.',
         'La columna "Tipo" distingue el PARA QUÉ de la cita (visita a un inmueble, llamada de seguimiento) del "Canal" (el CÓMO: presencial, videollamada, teléfono) — son dos cosas independientes, una videollamada puede ser perfectamente una visita a un inmueble.',
         'Cada visita genera un enlace de gestión propio para el cliente (confirmar asistencia, cancelar o reprogramar sin necesidad de llamar). Un ✓ verde junto al estado de la fila indica que el cliente ya ha confirmado su asistencia desde ese enlace; reprogramar la cita (desde aquí o desde el enlace del cliente) borra esa confirmación, porque ya no es la misma cita que había confirmado.',
+        'La pestaña "Tours" agrupa varias citas del mismo cliente en una sola salida guiada (ver dos, tres o más inmuebles seguidos). "+ Nuevo tour" pide los datos del cliente y una fila por parada (inmueble opcional, comercial y hora); cada parada se crea como una cita real, con su propio enlace de gestión, comercial y estado — no se puede reprogramar el tour entero de una vez, cada parada se mueve o cancela por separado, igual que en la vista Lista.',
         'El feed iCal de cada comercial (botón "Suscribirse al calendario") permite verlas en Google Calendar u Outlook.',
         'Las videollamadas usan Jitsi Meet automáticamente si el canal de la cita es "vídeo" — no requiere configuración.',
         'Cada cita avisa al cliente por email y, si tiene teléfono, por WhatsApp (confirmación, recordatorios 24 h y 1 h antes, cancelación y cambios). El WhatsApp sale de verdad cuando la plataforma tiene conectado Twilio — Sistema → Estado del sistema lo dice; si no, el aviso queda registrado como "no conectado" y no se envía. El teléfono necesita prefijo internacional (+34…). Ojo a una regla de WhatsApp, no nuestra: fuera de las 24 h siguientes al último mensaje del cliente sólo se puede enviar con una plantilla aprobada, que quien administre la plataforma configura una vez (docs/whatsapp.md).',
@@ -912,6 +913,13 @@ export function useHelpContent() {
       answer:
         'No. "Agendada" es el estado interno: hay un hueco reservado en la agenda del comercial. "Confirmada" es que el propio cliente, desde su enlace de gestión, ha pulsado "Confirmar asistencia". Una cita puede estar agendada sin que el cliente la haya confirmado todavía — el ✓ verde junto al estado, en Visitas, es lo que distingue una de otra. Reprogramarla borra esa confirmación: ya no es la hora que el cliente había confirmado.',
       tags: ['visitas', 'citas', 'confirmacion'],
+    },
+    {
+      id: 'faq-tour-paradas',
+      question: 'Si cancelo una parada de un tour, ¿se cancela el tour entero?',
+      answer:
+        'No. Cada parada es una cita independiente — cancelarla, reprogramarla o marcarla como completada sólo afecta a esa parada; el resto del tour sigue igual. Un tour no tiene su propio estado: es simplemente la suma de sus paradas, así que no hay una acción "cancelar todo el tour" — se hace parada a parada, en Visitas → Tours.',
+      tags: ['visitas', 'tours', 'citas'],
     },
     {
       id: 'faq-merge-contacto',

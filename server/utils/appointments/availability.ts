@@ -27,8 +27,8 @@ function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string): b
   return aStart < bEnd && aEnd > bStart
 }
 
-/** Shifts a 'YYYY-MM-DD HH:MM:SS' string by `minutes` (may be negative), for expanding a busy interval by a travel/prep buffer. */
-function shiftDateTime(dateTime: string, minutes: number): string {
+/** Shifts a 'YYYY-MM-DD HH:MM:SS' string by `minutes` (may be negative) — also the `endsAt = start + duration` computation every booking/reschedule path needs. */
+export function shiftDateTime(dateTime: string, minutes: number): string {
   return new Date(new Date(`${dateTime.replace(' ', 'T')}Z`).getTime() + minutes * 60_000)
     .toISOString()
     .replace('T', ' ')
