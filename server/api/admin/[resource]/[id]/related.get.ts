@@ -5,6 +5,7 @@ import { getResource } from '../../../../utils/adminResources'
 import { authorizeRecord } from '../../../../utils/tenantPolicy'
 import { listActivity } from '../../../../utils/activity/service'
 import { listTasks } from '../../../../utils/tasks/service'
+import { listOffers } from '../../../../utils/offers/service'
 
 /**
  * La vista 360º de un cliente: todo lo que la agencia tiene registrado sobre
@@ -128,6 +129,14 @@ export default defineEventHandler(async (event) => {
 
   // --- Tasks (FASE 22) — trabajo pendiente sobre esta persona. Mismo criterio que activities: sólo existe cuando hay Contact detrás.
   const tasks = client.contactId ? await listTasks(db, orgId, { contactId: client.contactId }) : []
+
+  // --- Offers (FASE 23) — como comprador o como vendedor de esta persona.
+  const offers = client.contactId
+    ? (await Promise.all([listOffers(db, orgId, { buyerContactId: client.contactId }), listOffers(db, orgId, { sellerContactId: client.contactId })]))
+        .flat()
+        .filter((o, i, arr) => arr.findIndex((x) => x.id === o.id) === i)
+        .sort((a, b) => b.id - a.id)
+    : []
 
   // --- Comunicaciones (WhatsApp y llamadas) ---------------------------------
   // Aquí SÍ hay vínculo guardado: comms_contacts.client_id lo escribe el
@@ -269,6 +278,7 @@ export default defineEventHandler(async (event) => {
     activity,
     activities,
     tasks,
+    offers,
     conversations,
     messages,
     calls,

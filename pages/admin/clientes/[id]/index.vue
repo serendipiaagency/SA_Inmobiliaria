@@ -196,6 +196,50 @@
       </AdminPanel>
     </div>
 
+    <!-- OFERTAS -->
+    <div v-show="tab === 'ofertas'" data-testid="client-tab-ofertas">
+      <AdminPanel title="Ofertas" sub="Propuestas económicas sobre un inmueble — como comprador o como vendedor.">
+        <template #action>
+          <button v-if="related?.contactId" type="button" class="btn-quiet !px-2.5 !py-1 text-xs" @click="openNewOffer">+ Nueva oferta</button>
+        </template>
+        <p v-if="!related?.contactId" class="py-6 text-center text-sm text-stone-400">
+          Esta ficha no tiene un Contact moderno vinculado todavía, así que no se le pueden crear ofertas.
+        </p>
+        <p v-else-if="!offers.length" class="py-8 text-center text-sm text-stone-400">Sin ofertas todavía.</p>
+        <ul v-else class="divide-y divide-line">
+          <li v-for="o in offers" :key="o.id" class="py-3">
+            <div class="flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <NuxtLink :to="`/admin/${o.propertyKind === 'developer' ? 'developer-properties' : 'properties'}/${o.propertyId}`" class="truncate text-[13px] font-medium text-ink hover:underline">
+                  Inmueble #{{ o.propertyId }} ({{ o.propertyKind === 'developer' ? 'obra nueva' : '2ª mano' }})
+                </NuxtLink>
+                <p class="text-[11px] text-stone-400">
+                  {{ money(o.currentAmount) }}
+                  <template v-if="o.expiration"> · vence {{ formatRelative(o.expiration) }}</template>
+                  <span v-if="isOfferExpired(o)" class="ml-1 font-medium text-red-600">vencida</span>
+                </p>
+              </div>
+              <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" :class="OFFER_STATUS_CLS[o.status] || 'bg-stone-100 text-stone-500'">{{ offerStatusLabel(o.status) }}</span>
+            </div>
+            <div class="mt-2 flex flex-wrap items-center gap-1.5">
+              <button v-if="o.status === 'draft'" type="button" class="btn-quiet !px-2 !py-1 text-[11px]" @click="offerAction(o, 'submit')">Enviar</button>
+              <template v-if="o.status === 'submitted' || o.status === 'countered'">
+                <button type="button" class="btn-quiet !px-2 !py-1 text-[11px]" @click="openCounter(o)">Contraoferta</button>
+                <button type="button" class="btn-quiet !px-2 !py-1 text-[11px] text-emerald-600" @click="offerAction(o, 'accept')">Aceptar</button>
+                <button type="button" class="btn-quiet !px-2 !py-1 text-[11px] text-red-600" @click="offerAction(o, 'reject')">Rechazar</button>
+              </template>
+              <button v-if="o.status === 'draft' || o.status === 'submitted' || o.status === 'countered'" type="button" class="btn-quiet !px-2 !py-1 text-[11px] text-stone-400" @click="offerAction(o, 'withdraw')">Retirar</button>
+            </div>
+            <div v-if="counterFor === o.id" class="mt-2 flex items-center gap-2">
+              <input v-model.number="counterAmount" type="number" min="1" step="1" class="input !py-1 !text-xs" placeholder="Nuevo importe (€)" >
+              <button type="button" class="btn-primary shrink-0 !px-2.5 !py-1 text-xs" :disabled="!(counterAmount! > 0)" @click="submitCounter(o)">Enviar</button>
+              <button type="button" class="btn-secondary shrink-0 !px-2.5 !py-1 text-xs" @click="counterFor = null">Cancelar</button>
+            </div>
+          </li>
+        </ul>
+      </AdminPanel>
+    </div>
+
     <!-- COMUNICACIONES -->
     <div v-show="tab === 'comunicaciones'" data-testid="client-tab-comunicaciones" class="grid gap-6 lg:grid-cols-2">
       <AdminPanel title="Conversaciones de WhatsApp" sub="Vinculadas a esta ficha por el teléfono del contacto.">
@@ -249,6 +293,33 @@
         </div>
       </div>
     </div>
+
+    <!-- Nueva oferta -->
+    <div v-if="newOffer" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="newOffer = false">
+      <div class="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
+        <h3 class="mb-4 text-sm font-semibold">Nueva oferta</h3>
+        <div class="space-y-3">
+          <div class="relative">
+            <input v-model="offerPropertyQuery" type="search" class="input" placeholder="Buscar inmueble por nombre/zona…" @input="searchOfferProperty">
+            <ul v-if="offerPropertyResults.length && !offerForm.propertyId" class="absolute z-10 mt-1 w-full rounded-lg border border-line bg-white shadow-lg">
+              <li v-for="p in offerPropertyResults" :key="`${p.kind}-${p.id}`">
+                <button type="button" class="block w-full px-3 py-2 text-left text-xs hover:bg-stone-50" @click="pickOfferProperty(p)">
+                  {{ p.name }} <span class="text-stone-400">({{ p.kind === 'developer' ? 'obra nueva' : '2ª mano' }})</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+          <p v-if="offerForm.propertyId" class="text-xs text-stone-500">Inmueble elegido: #{{ offerForm.propertyId }} ({{ offerForm.propertyKind === 'developer' ? 'obra nueva' : '2ª mano' }}) <button type="button" class="ml-1 text-ink underline" @click="offerForm.propertyId = null">cambiar</button></p>
+          <input v-model.number="offerForm.amount" type="number" min="1" step="1" class="input" placeholder="Importe (€)" >
+          <textarea v-model="offerForm.conditions" rows="2" class="input" placeholder="Condiciones (opcional)" />
+        </div>
+        <p v-if="offerError" class="mt-3 text-sm font-medium text-red-600">{{ offerError }}</p>
+        <div class="mt-4 flex justify-end gap-2">
+          <button class="btn-secondary" @click="newOffer = false">Cancelar</button>
+          <button class="btn-primary" :disabled="!offerForm.propertyId || !(offerForm.amount! > 0) || savingOffer" @click="submitNewOffer">{{ savingOffer ? 'Guardando…' : 'Crear oferta' }}</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div v-else class="card px-4 py-20 text-center text-sm text-stone-400">Cargando…</div>
@@ -277,7 +348,7 @@ const route = useRoute()
 const id = route.params.id as string
 const dt = useDash()
 
-const tab = ref<'resumen' | 'informacion' | 'propiedades' | 'actividad' | 'tareas' | 'comunicaciones'>('resumen')
+const tab = ref<'resumen' | 'informacion' | 'propiedades' | 'actividad' | 'tareas' | 'ofertas' | 'comunicaciones'>('resumen')
 const loadError = ref('')
 
 const { data: clientRes } = await useFetch<any>(`/api/admin/clients/${id}`, {
@@ -354,6 +425,108 @@ async function completeTask(t: any) {
   }
 }
 
+// --- Ofertas (FASE 23) -------------------------------------------------------
+const offers = computed<any[]>(() => related.value?.offers || [])
+const OFFER_STATUS_LABELS: Record<string, string> = { draft: 'Borrador', submitted: 'Enviada', countered: 'Contraoferta', accepted: 'Aceptada', rejected: 'Rechazada', withdrawn: 'Retirada', expired: 'Vencida' }
+const OFFER_STATUS_CLS: Record<string, string> = {
+  draft: 'bg-stone-100 text-stone-500',
+  submitted: 'bg-blue-50 text-blue-700',
+  countered: 'bg-amber-50 text-amber-700',
+  accepted: 'bg-emerald-50 text-emerald-700',
+  rejected: 'bg-red-50 text-red-700',
+  withdrawn: 'bg-stone-100 text-stone-500',
+  expired: 'bg-stone-100 text-stone-500',
+}
+function offerStatusLabel(s: string) { return OFFER_STATUS_LABELS[s] || s }
+function money(n: number) { return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n) }
+function isOfferExpired(o: any) { return (o.status === 'submitted' || o.status === 'countered') && o.expiration && o.expiration < new Date().toISOString().replace('T', ' ').slice(0, 19) }
+
+async function offerAction(o: any, action: 'submit' | 'accept' | 'reject' | 'withdraw') {
+  try {
+    const updated = await $fetch<any>(`/api/admin/saas/offers/${o.id}/${action}`, { method: 'POST', body: {} })
+    Object.assign(o, updated)
+    toast.success('Oferta actualizada')
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'No se pudo actualizar la oferta')
+  }
+}
+
+const counterFor = ref<number | null>(null)
+const counterAmount = ref<number | null>(null)
+function openCounter(o: any) {
+  counterFor.value = o.id
+  counterAmount.value = o.currentAmount
+}
+async function submitCounter(o: any) {
+  if (!(counterAmount.value! > 0)) return
+  try {
+    const updated = await $fetch<any>(`/api/admin/saas/offers/${o.id}/counter`, { method: 'POST', body: { amount: counterAmount.value } })
+    Object.assign(o, updated)
+    counterFor.value = null
+    toast.success('Contraoferta registrada')
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'No se pudo registrar la contraoferta')
+  }
+}
+
+const newOffer = ref(false)
+const offerForm = reactive<{ propertyId: number | null; propertyKind: 'agent' | 'developer' | null; amount: number | null; conditions: string }>({ propertyId: null, propertyKind: null, amount: null, conditions: '' })
+const offerPropertyQuery = ref('')
+const offerPropertyResults = ref<any[]>([])
+const offerError = ref('')
+const savingOffer = ref(false)
+let offerSearchTimer: ReturnType<typeof setTimeout> | null = null
+function searchOfferProperty() {
+  if (offerSearchTimer) clearTimeout(offerSearchTimer)
+  offerSearchTimer = setTimeout(async () => {
+    if (!offerPropertyQuery.value.trim()) {
+      offerPropertyResults.value = []
+      return
+    }
+    offerPropertyResults.value = (await $fetch<any>('/api/admin/saas/properties/search', { query: { q: offerPropertyQuery.value } })).rows || []
+  }, 250)
+}
+function pickOfferProperty(p: any) {
+  offerForm.propertyId = p.id
+  offerForm.propertyKind = p.kind
+  offerPropertyQuery.value = p.name
+  offerPropertyResults.value = []
+}
+function openNewOffer() {
+  newOffer.value = true
+  offerForm.propertyId = null
+  offerForm.propertyKind = null
+  offerForm.amount = null
+  offerForm.conditions = ''
+  offerPropertyQuery.value = ''
+  offerPropertyResults.value = []
+  offerError.value = ''
+}
+async function submitNewOffer() {
+  if (!offerForm.propertyId || !offerForm.propertyKind || !(offerForm.amount! > 0) || !related.value?.contactId) return
+  savingOffer.value = true
+  offerError.value = ''
+  try {
+    await $fetch('/api/admin/saas/offers', {
+      method: 'POST',
+      body: {
+        propertyId: offerForm.propertyId,
+        propertyKind: offerForm.propertyKind,
+        buyerContactId: related.value.contactId,
+        amount: offerForm.amount,
+        conditions: offerForm.conditions || null,
+      },
+    })
+    newOffer.value = false
+    await refreshRelated()
+    toast.success('Oferta creada en borrador')
+  } catch (e: any) {
+    offerError.value = e?.data?.statusMessage || 'No se pudo crear la oferta'
+  } finally {
+    savingOffer.value = false
+  }
+}
+
 useHead({ title: () => (client.value?.name ? `${client.value.name} — Clientes` : 'Cliente') })
 
 const totals = computed(
@@ -367,6 +540,7 @@ const tabs = computed(() => [
   { key: 'propiedades' as const, label: 'Propiedades', count: related.value?.properties?.length || 0 },
   { key: 'actividad' as const, label: 'Actividad', count: timeline.value.length },
   { key: 'tareas' as const, label: 'Tareas', count: tasks.value.length },
+  { key: 'ofertas' as const, label: 'Ofertas', count: offers.value.length },
   { key: 'comunicaciones' as const, label: 'Comunicaciones', count: (related.value?.conversations?.length || 0) + (related.value?.calls?.length || 0) },
 ])
 </script>

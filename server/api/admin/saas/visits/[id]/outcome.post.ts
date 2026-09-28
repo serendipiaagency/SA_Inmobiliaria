@@ -8,6 +8,8 @@ interface RecordOutcomeBody {
   notes?: string | null
   /** "Seguimiento": crea una Task real (FASE 22 §56) en vez de sólo anotar la intención. */
   followUp?: { dueAt: string; assigneeId?: number | null } | null
+  /** "Oferta": crea una Offer en borrador (FASE 23 §86). */
+  createOffer?: { amount: number; conditions?: string | null; financeCondition?: string | null; expiration?: string | null } | null
 }
 
 /** POST /api/admin/saas/visits/:id/outcome — anota (o corrige) el resultado de una visita ya completada. */
@@ -18,7 +20,7 @@ export default defineEventHandler(async (event) => {
 
   const body = (await readBody<RecordOutcomeBody>(event)) || {}
   const db = useDb(event)
-  const result = await recordVisitOutcome(db, orgId, visitId, { outcome: String(body.outcome || ''), notes: body.notes, followUp: body.followUp }, { actorId: user.id })
+  const result = await recordVisitOutcome(db, orgId, visitId, { outcome: String(body.outcome || ''), notes: body.notes, followUp: body.followUp, createOffer: body.createOffer }, { actorId: user.id })
 
   await logAdminAction(event, { user, orgId, action: 'update', resource: 'visit-outcome', resourceId: visitId, detail: result.outcome })
   return result

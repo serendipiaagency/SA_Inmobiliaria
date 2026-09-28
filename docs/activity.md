@@ -50,12 +50,13 @@ implementar eventos que todavía no ocurren realmente"):
 | `VIEWING_COMPLETED` / `VIEWING_NO_SHOW` | `PATCH /api/admin/saas/visits/:id`, sólo cuando `visits.type === 'property_viewing'` |
 | `VISIT_OUTCOME_RECORDED` | `server/utils/appointments/outcome.ts` → `recordVisitOutcome()` — el evento sólo dice qué resultado se anotó, nunca el texto de las notas |
 | `TASK_CREATED` / `TASK_COMPLETED` | `server/utils/tasks/service.ts` → `createTask()`/`updateTask()` (FASE 22, ver `docs/tasks.md`) |
+| `OFFER_CREATED` / `OFFER_SUBMITTED` / `OFFER_COUNTERED` / `OFFER_ACCEPTED` / `OFFER_REJECTED` / `OFFER_WITHDRAWN` / `OFFER_EXPIRED` | `server/utils/offers/service.ts` — una por cada transición real, incluida la automática del cron `offers:expire` (FASE 23, ver `docs/offers.md`) |
 
 Deliberadamente ausentes: `PROPERTY_SENT` (no hay envío rastreable
 todavía — llegará con el Centro de Comunicaciones), `LEAD_CONTACTED` (no
 tiene un disparador distinto de lo que ya cuentan `messages`/`calls` en la
-cronología de Cliente), y todo lo de Offer/Deal (FASE 23-24, no
-implementadas al escribir esto).
+cronología de Cliente), y todo lo de Deal (FASE 24, no implementada al
+escribir esto).
 
 ## Lectura
 
