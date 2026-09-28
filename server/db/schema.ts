@@ -1101,9 +1101,36 @@ export const visits = sqliteTable(
     reminder24hSentAt: text('reminder_24h_sent_at'),
     reminder1hSentAt: text('reminder_1h_sent_at'),
     videoLink: text('video_link'),
+    /** FASE 18, migración 0073. Cuando esta cita es una parada de un tour — nullable: la inmensa mayoría de citas no lo son. */
+    tourId: integer('tour_id'),
+    /** FASE 18, migración 0073. Posición de esta parada dentro de su tour (0-based). Sólo tiene sentido junto a tourId. */
+    tourStopOrder: integer('tour_stop_order'),
     createdAt: text('created_at').notNull().default(''),
   },
-  (t) => [index('visits_status').on(t.status), index('visits_agent_scheduled').on(t.agentId, t.scheduledAt)],
+  (t) => [index('visits_status').on(t.status), index('visits_agent_scheduled').on(t.agentId, t.scheduledAt), index('visits_tour').on(t.tourId, t.tourStopOrder)],
+)
+
+/**
+ * Cabecera de un Tour (FASE 18, migración 0073): un cliente viendo varios
+ * inmuebles en una misma salida, guiado por un comercial. Cada parada sigue
+ * siendo una fila real de `visits` (hora, comercial, estado y confirmación
+ * viven ahí — enlazadas por `visits.tourId`/`tourStopOrder`), así que nunca
+ * puede haber dos versiones del horario de una parada que se contradigan.
+ * Esta tabla sólo guarda de quién es el tour y sus notas.
+ */
+export const propertyTours = sqliteTable(
+  'property_tours',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    clientName: text('client_name').notNull(),
+    clientEmail: text('client_email'),
+    clientPhone: text('client_phone'),
+    leadId: integer('lead_id'),
+    notes: text('notes'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('property_tours_org').on(t.organizationId, t.createdAt)],
 )
 
 /** Weekly recurring working hours per agent — the real availability source for the appointment booker. */

@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { useDb, schema, cfEnv, isUniqueConstraintError } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
-import { hasOverlappingVisit } from '../../../../utils/appointments/availability'
+import { hasOverlappingVisit, shiftDateTime } from '../../../../utils/appointments/availability'
 import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { logAdminAction } from '../../../../utils/audit'
 import { getRequestId } from '../../../../utils/requestId'
@@ -61,10 +61,7 @@ export default defineEventHandler(async (event) => {
         patch.agentId = agentRows[0].id
         patch.agentName = agentRows[0].name
       }
-      const endsAt = new Date(new Date(`${nextScheduledAt.replace(' ', 'T')}Z`).getTime() + durationMinutes * 60_000)
-        .toISOString()
-        .replace('T', ' ')
-        .slice(0, 19)
+      const endsAt = shiftDateTime(nextScheduledAt, durationMinutes)
       const conflict = await hasOverlappingVisit(db, orgId, nextAgentId, nextScheduledAt, endsAt, visitId)
       if (conflict) throw createError({ statusCode: 409, statusMessage: 'Ese agente ya tiene otra cita en ese horario.' })
       patch.scheduledAt = nextScheduledAt

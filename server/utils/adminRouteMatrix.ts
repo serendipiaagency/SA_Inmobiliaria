@@ -98,6 +98,8 @@ const RULES: Rule[] = [
   { pattern: /^saas\/matching\/(?:requirement|property)\//, resolve: fixed('crm', 'read') },
   { pattern: /^saas\/matching(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/visits(?:\/|$)/, resolve: area('crm') },
+  // FASE 18: tours (visitas multi-inmueble) — pages/admin/visitas.vue, pestaña Tours.
+  { pattern: /^saas\/tours(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/reservations(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/appointments-analytics$/, resolve: area('crm') },
   { pattern: /^saas\/referrals(?:\/|$)/, resolve: area('crm') },

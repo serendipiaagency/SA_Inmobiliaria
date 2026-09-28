@@ -23,6 +23,22 @@
         </p>
       </div>
 
+      <div v-if="tourStops.length > 1" class="rounded-xl border border-line bg-paper p-3">
+        <p class="label mb-2">Tu recorrido — {{ tourStops.length }} paradas</p>
+        <ol class="space-y-1.5 text-sm">
+          <li
+            v-for="(s, i) in tourStops"
+            :key="i"
+            class="flex items-center justify-between gap-2"
+            :class="s.scheduledAt === visit.scheduledAt ? 'font-semibold text-ink' : 'text-stone-500'"
+          >
+            <span class="truncate">{{ i + 1 }}. {{ s.propertyName || 'Sin inmueble' }}</span>
+            <span class="shrink-0 tabular-nums">{{ s.scheduledAt.slice(11, 16) }}</span>
+          </li>
+        </ol>
+        <p class="mt-2 text-xs text-stone-400">Cada parada se gestiona por su propio enlace — recibirás uno para cada una.</p>
+      </div>
+
       <template v-if="visit.status === 'scheduled' && !rescheduling">
         <button v-if="visit.confirmationStatus !== 'confirmed'" class="btn-primary w-full" :disabled="acting" @click="confirmAttendance">Confirmar asistencia</button>
         <div class="flex gap-2.5">
@@ -71,6 +87,7 @@ const token = String(route.params.token)
 
 const { data, pending, refresh } = await useFetch<any>(`/api/public/appointments/${token}`)
 const visit = computed(() => data.value?.visit || null)
+const tourStops = computed<any[]>(() => data.value?.tourStops || [])
 
 const statusLabel = computed(() => {
   const map: Record<string, string> = { scheduled: 'Cita agendada', completed: 'Cita completada', cancelled: 'Cita cancelada', no_show: 'No asististe' }

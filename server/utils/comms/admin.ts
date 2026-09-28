@@ -2,7 +2,8 @@ import { and, eq, inArray, isNotNull } from 'drizzle-orm'
 import { createError, getRequestURL, type H3Event } from 'h3'
 import * as schema from '../../db/schema'
 import { isUniqueConstraintError, now } from '../db'
-import { hasOverlappingVisit } from '../appointments/availability'
+import { hasOverlappingVisit, shiftDateTime } from '../appointments/availability'
+import { generateManagementToken } from '../appointments/managementToken'
 import { listChannels } from './credentials'
 import { previewOf, serviceWindow } from './inbox'
 import { formatPhone, whatsappClickToChatUrl } from './phone'
@@ -282,13 +283,6 @@ export interface FollowUpInput {
   notes?: string | null
 }
 
-function managementToken(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(24))
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-}
-
 /** Una visita/llamada de seguimiento en la agenda del comercial, con la misma comprobación de solapes que la reserva pública. */
 export async function createFollowUpVisit(db: any, input: FollowUpInput): Promise<{ id: number; scheduledAt: string; agentName: string; propertyName: string | null }> {
   if (!DATETIME_RE.test(input.scheduledAt)) throw createError({ statusCode: 422, statusMessage: 'Fecha y hora no válidas (YYYY-MM-DD HH:MM:SS).' })
@@ -310,7 +304,7 @@ export async function createFollowUpVisit(db: any, input: FollowUpInput): Promis
     propertyName = props[0]?.name ?? null
   }
 
-  const endsAt = new Date(new Date(`${input.scheduledAt.replace(' ', 'T')}Z`).getTime() + agent.slotDurationMinutes * 60_000).toISOString().replace('T', ' ').slice(0, 19)
+  const endsAt = shiftDateTime(input.scheduledAt, agent.slotDurationMinutes)
   if (await hasOverlappingVisit(db, input.orgId, agent.id, input.scheduledAt, endsAt)) {
     throw createError({ statusCode: 409, statusMessage: 'Ese comercial ya tiene otra cita en ese horario.' })
   }
@@ -339,7 +333,7 @@ export async function createFollowUpVisit(db: any, input: FollowUpInput): Promis
         type,
         notes: [`Seguimiento creado desde Comunicaciones (WhatsApp ${formatPhone(input.contact.phoneE164)})`, input.notes?.trim() || null].filter(Boolean).join('\n'),
         clientPhone: input.contact.phoneE164,
-        managementToken: managementToken(),
+        managementToken: generateManagementToken(),
         createdAt: nowTs,
       })
       .returning({ id: schema.visits.id, scheduledAt: schema.visits.scheduledAt })

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { useDb, schema, cfEnv, isUniqueConstraintError } from '../../../../utils/db'
-import { isSlotAvailable } from '../../../../utils/appointments/availability'
+import { isSlotAvailable, shiftDateTime } from '../../../../utils/appointments/availability'
 import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { rateLimit } from '../../../../utils/rateLimit'
 import { getRequestId } from '../../../../utils/requestId'
@@ -39,10 +39,7 @@ export default defineEventHandler(async (event) => {
   })
   if (!available) throw createError({ statusCode: 409, statusMessage: 'Ese horario ya no está disponible, elige otro.' })
 
-  const endsAt = new Date(new Date(`${body.startAt.replace(' ', 'T')}Z`).getTime() + agent.slotDurationMinutes * 60_000)
-    .toISOString()
-    .replace('T', ' ')
-    .slice(0, 19)
+  const endsAt = shiftDateTime(body.startAt, agent.slotDurationMinutes)
 
   // isSlotAvailable() above is a read-then-write check, same race as the
   // original booking endpoint's — visits_agent_slot_unique (migration 0050)
