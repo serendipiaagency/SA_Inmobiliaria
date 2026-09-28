@@ -6,6 +6,7 @@ import { authorizeRecord } from '../../../../utils/tenantPolicy'
 import { listActivity } from '../../../../utils/activity/service'
 import { listTasks } from '../../../../utils/tasks/service'
 import { listOffers } from '../../../../utils/offers/service'
+import { listDeals } from '../../../../utils/deals/service'
 
 /**
  * La vista 360º de un cliente: todo lo que la agencia tiene registrado sobre
@@ -135,6 +136,17 @@ export default defineEventHandler(async (event) => {
     ? (await Promise.all([listOffers(db, orgId, { buyerContactId: client.contactId }), listOffers(db, orgId, { sellerContactId: client.contactId })]))
         .flat()
         .filter((o, i, arr) => arr.findIndex((x) => x.id === o.id) === i)
+        .sort((a, b) => b.id - a.id)
+    : []
+
+  // --- Deal Operations (FASE 24) — como comprador o como vendedor de esta
+  // persona. Distinto de `deals` (arriba): esa es la tabla legacy de
+  // cierres para comisiones; ésta es el pipeline nuevo con etapas — ver el
+  // comentario junto a `dealOperations` en schema.ts.
+  const dealOperations = client.contactId
+    ? (await Promise.all([listDeals(db, orgId, { buyerContactId: client.contactId }), listDeals(db, orgId, { sellerContactId: client.contactId })]))
+        .flat()
+        .filter((d, i, arr) => arr.findIndex((x) => x.id === d.id) === i)
         .sort((a, b) => b.id - a.id)
     : []
 
@@ -279,6 +291,7 @@ export default defineEventHandler(async (event) => {
     activities,
     tasks,
     offers,
+    dealOperations,
     conversations,
     messages,
     calls,
@@ -289,6 +302,7 @@ export default defineEventHandler(async (event) => {
       deals: deals.length,
       dealsVolume,
       commission,
+      dealOperations: dealOperations.length,
       reservations: reservations.length,
       contracts: contracts.length,
       invoices: invoices.length,

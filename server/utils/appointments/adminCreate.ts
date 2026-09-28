@@ -10,7 +10,8 @@ import { syncLeadNextAction } from '../leads/nextAction'
 
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
 const VALID_CHANNELS = ['in_person', 'video', 'phone'] as const
-const VALID_TYPES = ['property_viewing', 'call', 'other'] as const
+/** FASE 24: 'notary' cubre tanto la cita de notaría como la de firma (§109/§110) — en la práctica son el mismo evento. */
+const VALID_TYPES = ['property_viewing', 'call', 'notary', 'other'] as const
 
 export interface CreateAdminAppointmentInput {
   clientName: string
@@ -23,6 +24,8 @@ export interface CreateAdminAppointmentInput {
   channel?: string
   type?: string
   leadId?: number | null
+  /** FASE 24: cuando esta cita es de un Deal (notaría/firma) — aparece en Calendar automáticamente, sin mecanismo aparte. */
+  dealId?: number | null
 }
 
 /**
@@ -98,6 +101,7 @@ export async function createAdminAppointment(db: any, orgId: number, input: Crea
       channel,
       type,
       leadId: input.leadId || null,
+      dealId: input.dealId || null,
       managementToken: generateManagementToken(),
       createdAt: nowTs,
     })

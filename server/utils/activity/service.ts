@@ -14,8 +14,7 @@ import type { PropertyKind } from '../matching/service'
  * (sección 32: "no es necesario implementar eventos que todavía no ocurren
  * realmente"). Notablemente ausentes: PROPERTY_SENT (no hay envío
  * rastreable todavía), LEAD_CONTACTED (no hay una acción distinta de las que
- * ya cubre `messages`/`calls` en la cronología de Cliente), y todo lo de
- * Deal (FASE 24, no implementada aún).
+ * ya cubre `messages`/`calls` en la cronología de Cliente).
  */
 
 export const ACTIVITY_EVENT_TYPES = [
@@ -41,6 +40,10 @@ export const ACTIVITY_EVENT_TYPES = [
   'OFFER_REJECTED',
   'OFFER_WITHDRAWN',
   'OFFER_EXPIRED',
+  'DEAL_CREATED',
+  'DEAL_STAGE_CHANGED',
+  'DEAL_CLOSED',
+  'DEAL_CANCELLED',
 ] as const
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number]
 

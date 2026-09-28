@@ -229,12 +229,32 @@
                 <button type="button" class="btn-quiet !px-2 !py-1 text-[11px] text-red-600" @click="offerAction(o, 'reject')">Rechazar</button>
               </template>
               <button v-if="o.status === 'draft' || o.status === 'submitted' || o.status === 'countered'" type="button" class="btn-quiet !px-2 !py-1 text-[11px] text-stone-400" @click="offerAction(o, 'withdraw')">Retirar</button>
+              <button v-if="o.status === 'accepted' && !dealExistsForOffer(o.id)" type="button" class="btn-primary !px-2.5 !py-1 text-[11px]" @click="createDealFromOffer(o)">Crear operación</button>
+              <NuxtLink v-else-if="o.status === 'accepted'" :to="`/admin/deal-operations/${dealExistsForOffer(o.id)}`" class="btn-quiet !px-2 !py-1 text-[11px] text-emerald-600">Ver operación →</NuxtLink>
             </div>
             <div v-if="counterFor === o.id" class="mt-2 flex items-center gap-2">
               <input v-model.number="counterAmount" type="number" min="1" step="1" class="input !py-1 !text-xs" placeholder="Nuevo importe (€)" >
               <button type="button" class="btn-primary shrink-0 !px-2.5 !py-1 text-xs" :disabled="!(counterAmount! > 0)" @click="submitCounter(o)">Enviar</button>
               <button type="button" class="btn-secondary shrink-0 !px-2.5 !py-1 text-xs" @click="counterFor = null">Cancelar</button>
             </div>
+          </li>
+        </ul>
+      </AdminPanel>
+    </div>
+
+    <!-- OPERACIONES -->
+    <div v-show="tab === 'operaciones'" data-testid="client-tab-operaciones">
+      <AdminPanel title="Operaciones" sub="La operación en ejecución/cierre, una vez hay una oferta aceptada — como compradora o como vendedora.">
+        <p v-if="!dealOperations.length" class="py-8 text-center text-sm text-stone-400">Sin operaciones todavía.</p>
+        <ul v-else class="divide-y divide-line">
+          <li v-for="d in dealOperations" :key="d.id" class="py-3">
+            <NuxtLink :to="`/admin/deal-operations/${d.id}`" class="flex items-center justify-between gap-3 hover:underline">
+              <div class="min-w-0">
+                <p class="truncate text-[13px] font-medium text-ink">Inmueble #{{ d.propertyId }} ({{ d.propertyKind === 'developer' ? 'obra nueva' : '2ª mano' }})</p>
+                <p class="text-[11px] text-stone-400">{{ money(d.agreedAmount) }} · {{ dealStageLabel(d.stage) }}</p>
+              </div>
+              <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" :class="DEAL_STATUS_CLS[d.status] || 'bg-stone-100 text-stone-500'">{{ dealStatusLabel(d.status) }}</span>
+            </NuxtLink>
           </li>
         </ul>
       </AdminPanel>
@@ -348,7 +368,7 @@ const route = useRoute()
 const id = route.params.id as string
 const dt = useDash()
 
-const tab = ref<'resumen' | 'informacion' | 'propiedades' | 'actividad' | 'tareas' | 'ofertas' | 'comunicaciones'>('resumen')
+const tab = ref<'resumen' | 'informacion' | 'propiedades' | 'actividad' | 'tareas' | 'ofertas' | 'operaciones' | 'comunicaciones'>('resumen')
 const loadError = ref('')
 
 const { data: clientRes } = await useFetch<any>(`/api/admin/clients/${id}`, {
@@ -527,6 +547,35 @@ async function submitNewOffer() {
   }
 }
 
+// --- Operaciones (FASE 24) ---------------------------------------------------
+const dealOperations = computed<any[]>(() => related.value?.dealOperations || [])
+const DEAL_STAGE_LABELS: Record<string, string> = {
+  accepted_offer: 'Oferta aceptada',
+  reservation: 'Reserva',
+  deposit_contract: 'Arras',
+  financing: 'Financiación',
+  documentation: 'Documentación',
+  notary: 'Notaría',
+  signature: 'Firma',
+  closed: 'Cerrada',
+}
+const DEAL_STATUS_LABELS: Record<string, string> = { active: 'Activa', closed: 'Cerrada', cancelled: 'Cancelada' }
+const DEAL_STATUS_CLS: Record<string, string> = { active: 'bg-blue-50 text-blue-700', closed: 'bg-emerald-50 text-emerald-700', cancelled: 'bg-stone-100 text-stone-500' }
+function dealStageLabel(s: string) { return DEAL_STAGE_LABELS[s] || s }
+function dealStatusLabel(s: string) { return DEAL_STATUS_LABELS[s] || s }
+function dealExistsForOffer(offerId: number): number | null {
+  return dealOperations.value.find((d) => d.acceptedOfferId === offerId)?.id ?? null
+}
+async function createDealFromOffer(o: any) {
+  try {
+    const deal = await $fetch<any>('/api/admin/saas/deal-operations', { method: 'POST', body: { acceptedOfferId: o.id } })
+    toast.success('Operación creada')
+    await navigateTo(`/admin/deal-operations/${deal.id}`)
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'No se pudo crear la operación')
+  }
+}
+
 useHead({ title: () => (client.value?.name ? `${client.value.name} — Clientes` : 'Cliente') })
 
 const totals = computed(
@@ -541,6 +590,7 @@ const tabs = computed(() => [
   { key: 'actividad' as const, label: 'Actividad', count: timeline.value.length },
   { key: 'tareas' as const, label: 'Tareas', count: tasks.value.length },
   { key: 'ofertas' as const, label: 'Ofertas', count: offers.value.length },
+  { key: 'operaciones' as const, label: 'Operaciones', count: dealOperations.value.length },
   { key: 'comunicaciones' as const, label: 'Comunicaciones', count: (related.value?.conversations?.length || 0) + (related.value?.calls?.length || 0) },
 ])
 </script>

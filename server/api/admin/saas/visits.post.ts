@@ -14,6 +14,8 @@ interface CreateVisitBody {
   channel?: string
   type?: string
   leadId?: number | null
+  /** FASE 24: cita de notaría/firma de un Deal. */
+  dealId?: number | null
 }
 
 /** POST /api/admin/saas/visits — crear una cita suelta desde el panel (Calendar "crear desde hueco", FASE 20). No pasa por un Tour. */
@@ -35,6 +37,7 @@ export default defineEventHandler(async (event) => {
     channel: body.channel,
     type: body.type,
     leadId: body.leadId ? Number(body.leadId) : null,
+    dealId: body.dealId ? Number(body.dealId) : null,
   })
 
   await logAdminAction(event, { user, orgId, action: 'create', resource: 'visit', resourceId: visit.id })
