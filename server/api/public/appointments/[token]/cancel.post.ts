@@ -4,6 +4,7 @@ import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { rateLimit } from '../../../../utils/rateLimit'
 import { getRequestId } from '../../../../utils/requestId'
 import { recordActivity } from '../../../../utils/activity/service'
+import { syncLeadNextAction } from '../../../../utils/leads/nextAction'
 
 /** Client-initiated cancellation via their own management link — no admin session involved. */
 export default defineEventHandler(async (event) => {
@@ -49,6 +50,7 @@ export default defineEventHandler(async (event) => {
     propertyKind: visit.propertyKind as any,
     actorType: 'contact',
   })
+  if (visit.leadId) await syncLeadNextAction(db, visit.organizationId, visit.leadId)
 
   return { ok: true }
 })

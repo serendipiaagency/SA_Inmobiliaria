@@ -6,6 +6,7 @@ import { hasOverlappingVisit, shiftDateTime } from './availability'
 import { generateManagementToken } from './managementToken'
 import type { PropertyKind } from '../matching/service'
 import { recordActivity } from '../activity/service'
+import { syncLeadNextAction } from '../leads/nextAction'
 
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
 const VALID_CHANNELS = ['in_person', 'video', 'phone'] as const
@@ -119,6 +120,7 @@ export async function createAdminAppointment(db: any, orgId: number, input: Crea
     actorType: 'user',
     metadata: { channel, type },
   })
+  if (input.leadId) await syncLeadNextAction(db, orgId, input.leadId)
 
   return visit
 }

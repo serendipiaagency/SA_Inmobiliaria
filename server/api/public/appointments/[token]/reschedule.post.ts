@@ -5,6 +5,7 @@ import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { rateLimit } from '../../../../utils/rateLimit'
 import { getRequestId } from '../../../../utils/requestId'
 import { recordActivity } from '../../../../utils/activity/service'
+import { syncLeadNextAction } from '../../../../utils/leads/nextAction'
 
 const SLOT_START_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
 
@@ -88,6 +89,7 @@ export default defineEventHandler(async (event) => {
     actorType: 'contact',
     metadata: { from: visit.scheduledAt, to: body.startAt },
   })
+  if (visit.leadId) await syncLeadNextAction(db, visit.organizationId, visit.leadId)
 
   return { ok: true, scheduledAt: body.startAt, endsAt }
 })

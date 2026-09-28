@@ -167,6 +167,35 @@
       </AdminPanel>
     </div>
 
+    <!-- TAREAS -->
+    <div v-show="tab === 'tareas'" data-testid="client-tab-tareas">
+      <AdminPanel title="Tareas" sub="Trabajo pendiente sobre esta persona — distinto de las visitas y llamadas ya realizadas.">
+        <template #action>
+          <button v-if="related?.contactId" type="button" class="btn-quiet !px-2.5 !py-1 text-xs" @click="openNewTask">+ Nueva tarea</button>
+        </template>
+        <p v-if="!related?.contactId" class="py-6 text-center text-sm text-stone-400">
+          Esta ficha no tiene un Contact moderno vinculado todavía, así que no se le pueden asignar tareas.
+        </p>
+        <p v-else-if="!tasks.length" class="py-8 text-center text-sm text-stone-400">Sin tareas todavía.</p>
+        <ul v-else class="divide-y divide-line">
+          <li v-for="t in tasks" :key="t.id" class="flex items-center justify-between gap-3 py-3">
+            <div class="min-w-0">
+              <p class="truncate text-[13px] font-medium text-ink">{{ taskTypeLabel(t.type) }} — {{ t.title }}</p>
+              <p class="text-[11px] text-stone-400">
+                {{ t.assigneeName || 'Sin asignar' }}
+                <template v-if="t.dueAt"> · vence {{ formatRelative(t.dueAt) }}</template>
+                <span v-if="isOverdue(t)" class="ml-1 font-medium text-red-600">vencida</span>
+              </p>
+            </div>
+            <div class="flex shrink-0 items-center gap-1.5">
+              <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold" :class="TASK_STATUS_CLS[t.status] || 'bg-stone-100 text-stone-500'">{{ taskStatusLabel(t.status) }}</span>
+              <button v-if="t.status === 'open' || t.status === 'in_progress'" type="button" class="btn-quiet !px-2 !py-1 text-[11px]" @click="completeTask(t)">Completar</button>
+            </div>
+          </li>
+        </ul>
+      </AdminPanel>
+    </div>
+
     <!-- COMUNICACIONES -->
     <div v-show="tab === 'comunicaciones'" data-testid="client-tab-comunicaciones" class="grid gap-6 lg:grid-cols-2">
       <AdminPanel title="Conversaciones de WhatsApp" sub="Vinculadas a esta ficha por el teléfono del contacto.">
@@ -193,6 +222,32 @@
           </li>
         </ul>
       </AdminPanel>
+    </div>
+
+    <!-- Nueva tarea -->
+    <div v-if="newTask" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="newTask = false">
+      <div class="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
+        <h3 class="mb-4 text-sm font-semibold">Nueva tarea</h3>
+        <div class="space-y-3">
+          <select v-model="taskForm.type" class="input">
+            <option v-for="ty in TASK_TYPES" :key="ty" :value="ty">{{ taskTypeLabel(ty) }}</option>
+          </select>
+          <input v-model="taskForm.title" type="text" placeholder="Título — p.ej. «Llamar para feedback de visita»" class="input" >
+          <select v-model="taskForm.assigneeId" class="input">
+            <option value="">Sin asignar</option>
+            <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
+          </select>
+          <input v-model="taskForm.dueAt" type="datetime-local" class="input" >
+          <select v-model="taskForm.priority" class="input">
+            <option v-for="p in TASK_PRIORITIES" :key="p" :value="p">{{ taskPriorityLabel(p) }}</option>
+          </select>
+        </div>
+        <p v-if="taskError" class="mt-3 text-sm font-medium text-red-600">{{ taskError }}</p>
+        <div class="mt-4 flex justify-end gap-2">
+          <button class="btn-secondary" @click="newTask = false">Cancelar</button>
+          <button class="btn-primary" :disabled="!taskForm.title.trim() || savingTask" @click="submitNewTask">{{ savingTask ? 'Guardando…' : 'Crear tarea' }}</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -222,7 +277,7 @@ const route = useRoute()
 const id = route.params.id as string
 const dt = useDash()
 
-const tab = ref<'resumen' | 'informacion' | 'propiedades' | 'actividad' | 'comunicaciones'>('resumen')
+const tab = ref<'resumen' | 'informacion' | 'propiedades' | 'actividad' | 'tareas' | 'comunicaciones'>('resumen')
 const loadError = ref('')
 
 const { data: clientRes } = await useFetch<any>(`/api/admin/clients/${id}`, {
@@ -232,7 +287,72 @@ const { data: clientRes } = await useFetch<any>(`/api/admin/clients/${id}`, {
 })
 const client = computed(() => clientRes.value?.row || null)
 
-const { data: related } = await useFetch<any>(`/api/admin/clients/${id}/related`, { default: () => null })
+const { data: related, refresh: refreshRelated } = await useFetch<any>(`/api/admin/clients/${id}/related`, { default: () => null })
+const toast = useToast()
+
+// --- Tareas (FASE 22) -------------------------------------------------------
+const TASK_TYPES = ['call', 'whatsapp', 'email', 'follow_up', 'document', 'viewing', 'offer', 'signature', 'other'] as const
+const TASK_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const
+const TASK_TYPE_LABELS: Record<string, string> = { call: 'Llamada', whatsapp: 'WhatsApp', email: 'Email', follow_up: 'Seguimiento', document: 'Documento', viewing: 'Visita', offer: 'Oferta', signature: 'Firma', other: 'Otro' }
+const TASK_PRIORITY_LABELS: Record<string, string> = { low: 'Baja', medium: 'Media', high: 'Alta', urgent: 'Urgente' }
+const TASK_STATUS_LABELS: Record<string, string> = { open: 'Abierta', in_progress: 'En curso', completed: 'Completada', cancelled: 'Cancelada' }
+const TASK_STATUS_CLS: Record<string, string> = { open: 'bg-blue-50 text-blue-700', in_progress: 'bg-amber-50 text-amber-700', completed: 'bg-emerald-50 text-emerald-700', cancelled: 'bg-stone-100 text-stone-500' }
+function taskTypeLabel(t: string) { return TASK_TYPE_LABELS[t] || t }
+function taskPriorityLabel(p: string) { return TASK_PRIORITY_LABELS[p] || p }
+function taskStatusLabel(s: string) { return TASK_STATUS_LABELS[s] || s }
+function isOverdue(t: any) { return (t.status === 'open' || t.status === 'in_progress') && t.dueAt && t.dueAt < new Date().toISOString().replace('T', ' ').slice(0, 19) }
+
+const tasks = computed<any[]>(() => related.value?.tasks || [])
+const { data: agentsData } = await useFetch<any>('/api/admin/saas/agents')
+const agents = computed<any[]>(() => agentsData.value?.rows || [])
+
+const newTask = ref(false)
+const taskForm = reactive({ type: 'call' as string, title: '', assigneeId: '' as string | number, dueAt: '', priority: 'medium' as string })
+const taskError = ref('')
+const savingTask = ref(false)
+function openNewTask() {
+  taskForm.type = 'call'
+  taskForm.title = ''
+  taskForm.assigneeId = agents.value.find((a) => a.name === client.value?.agentName)?.id || ''
+  taskForm.dueAt = ''
+  taskForm.priority = 'medium'
+  taskError.value = ''
+  newTask.value = true
+}
+async function submitNewTask() {
+  if (!taskForm.title.trim() || !related.value?.contactId) return
+  savingTask.value = true
+  taskError.value = ''
+  try {
+    await $fetch('/api/admin/saas/tasks', {
+      method: 'POST',
+      body: {
+        type: taskForm.type,
+        title: taskForm.title.trim(),
+        assigneeId: taskForm.assigneeId || null,
+        dueAt: taskForm.dueAt ? taskForm.dueAt.replace('T', ' ') + ':00' : null,
+        priority: taskForm.priority,
+        contactId: related.value.contactId,
+      },
+    })
+    newTask.value = false
+    await refreshRelated()
+    toast.success('Tarea creada')
+  } catch (e: any) {
+    taskError.value = e?.data?.statusMessage || 'No se pudo crear la tarea'
+  } finally {
+    savingTask.value = false
+  }
+}
+async function completeTask(t: any) {
+  try {
+    await $fetch(`/api/admin/saas/tasks/${t.id}`, { method: 'PATCH', body: { status: 'completed' } })
+    t.status = 'completed'
+    toast.success('Tarea completada')
+  } catch {
+    toast.error('No se pudo completar la tarea')
+  }
+}
 
 useHead({ title: () => (client.value?.name ? `${client.value.name} — Clientes` : 'Cliente') })
 
@@ -246,6 +366,7 @@ const tabs = computed(() => [
   { key: 'informacion' as const, label: 'Información', count: 0 },
   { key: 'propiedades' as const, label: 'Propiedades', count: related.value?.properties?.length || 0 },
   { key: 'actividad' as const, label: 'Actividad', count: timeline.value.length },
+  { key: 'tareas' as const, label: 'Tareas', count: tasks.value.length },
   { key: 'comunicaciones' as const, label: 'Comunicaciones', count: (related.value?.conversations?.length || 0) + (related.value?.calls?.length || 0) },
 ])
 </script>

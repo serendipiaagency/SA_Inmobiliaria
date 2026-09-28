@@ -112,6 +112,7 @@ export function useHelpContent() {
         'Arrastrar a "Perdido" pide un motivo (sin respuesta, no le interesa, duplicado, otro) y mueve la tarjeta ahí. Por debajo, la fase en la que estaba se congela tal cual — si luego lo recuperas arrastrándolo fuera de "Perdido", vuelve exactamente a esa fase, no a "Nuevo": no se pierde en qué punto del proceso se cayó la operación.',
         'Cada tarjeta (y cada fila de la vista Tabla) tiene un desplegable con el comercial asignado — cámbialo ahí mismo para reasignar el lead a otra persona, o a "Sin asignar", sin salir del listado. Queda registrado quién lo tenía, a quién pasó y cuándo en su historial de asignaciones.',
         'Los leads se crean solos desde el formulario público, las reservas de visita y el programa de referidos — no hace falta darlos de alta a mano salvo excepción. Si el email o el teléfono coincide con un contacto que ya existe en tu agencia, el lead se enlaza automáticamente a esa ficha en vez de crear una persona duplicada. Si tienes reglas de enrutado configuradas (CRM → Enrutamiento y SLA), el comercial se asigna solo al crearse — salvo que ya llegue con uno explícito, como una reserva de cita con un comercial concreto.',
+        '"Próxima acción" (debajo de la tarjeta, cuando la hay) es la tarea abierta o la cita futura más próxima de ese lead — nunca algo que se escriba a mano, se recalcula solo. El botón "+ Tarea" de cada tarjeta crea una tarea suelta (llamada, WhatsApp, seguimiento…) ligada a ese lead, visible también en CRM → Tareas.',
       ],
     },
     {
@@ -140,6 +141,7 @@ export function useHelpContent() {
         'Pulsa el nombre de un cliente — o "Ver perfil" en el menú "···" — para abrir su ficha completa. No es una ventana emergente: es una página propia, con su URL, que puedes compartir con tu equipo.',
         'La ficha tiene cuatro pestañas. "Resumen" es su tablero: visitas, operaciones cerradas, volumen, propiedades relacionadas y actividad reciente. "Información" reúne todos los datos guardados. "Propiedades" muestra las viviendas vinculadas. "Actividad" es la cronología completa.',
         'La pestaña "Actividad" combina visitas, operaciones, reservas, contratos, leads y auditoría con los hitos del lead asociado al cliente: asignación o reasignación de comercial, cualificación, necesidad de compra/alquiler dada de alta y decisión sobre un match (seleccionado o descartado, con el motivo si lo hay). Cada hito aparece una sola vez, en el momento en que ocurrió de verdad.',
+        'La pestaña "Tareas" muestra el trabajo pendiente sobre esa persona — llamadas, seguimientos, lo que haga falta — y deja crear una nueva con "+ Nueva tarea". "Completar" la cierra; queda también en CRM → Tareas, la vista de todas las tareas de la agencia. Sólo existe si la ficha tiene un Contact moderno vinculado.',
         'Las propiedades relacionadas se leen del catálogo **en vivo**: si cambias el precio o la foto en Propiedades (web) o en Propiedades 2ª mano, la ficha del cliente lo refleja al instante, porque aquí no se guarda ninguna copia. Cada tarjeta indica por qué está relacionada (visita, operación, reserva o interés) y te lleva a la ficha original de la propiedad.',
         'El histórico de un cliente (sus visitas, operaciones, reservas y contratos) se cruza por su email, o por su nombre exacto si no tiene email. Rellenar el email hace ese cruce mucho más fiable: es lo que une a esa persona con todo lo demás.',
         '"Editar cliente" abre el mismo editor que usas para dar uno de alta, con validación y aviso de cambios sin guardar. "Nuevo cliente" está en el listado.',
@@ -181,10 +183,24 @@ export function useHelpContent() {
         'La columna "Tipo" distingue el PARA QUÉ de la cita (visita a un inmueble, llamada de seguimiento) del "Canal" (el CÓMO: presencial, videollamada, teléfono) — son dos cosas independientes, una videollamada puede ser perfectamente una visita a un inmueble.',
         'Cada visita genera un enlace de gestión propio para el cliente (confirmar asistencia, cancelar o reprogramar sin necesidad de llamar). Un ✓ verde junto al estado de la fila indica que el cliente ya ha confirmado su asistencia desde ese enlace; reprogramar la cita (desde aquí o desde el enlace del cliente) borra esa confirmación, porque ya no es la misma cita que había confirmado.',
         'Una vez una visita está "Completada" aparece el botón "Anotar resultado": cómo quedó (interesado, se lo piensa, no le convenció) y, si quieres, unas notas de qué dijo o qué observaste. Es tu impresión de esa visita concreta — no cambia la ficha del inmueble ni lo que el cliente dice buscar en sus Necesidades, y se puede corregir cuando quieras volviendo a abrir el mismo botón. Se ve también en la pestaña "Actividad" de la ficha del cliente.',
+        'Al anotar el resultado, "Crear tarea de seguimiento" da de alta una tarea real (CRM → Tareas) con la fecha que elijas, asignada por defecto al mismo comercial de la visita — no es una nota suelta, es trabajo pendiente de verdad.',
         'La pestaña "Tours" agrupa varias citas del mismo cliente en una sola salida guiada (ver dos, tres o más inmuebles seguidos). "+ Nuevo tour" pide los datos del cliente y una fila por parada (inmueble opcional, comercial y hora); cada parada se crea como una cita real, con su propio enlace de gestión, comercial y estado — no se puede reprogramar el tour entero de una vez, cada parada se mueve o cancela por separado, igual que en la vista Lista.',
         'El feed iCal de cada comercial (botón "Suscribirse al calendario") permite verlas en Google Calendar u Outlook.',
         'Las videollamadas usan Jitsi Meet automáticamente si el canal de la cita es "vídeo" — no requiere configuración.',
         'Cada cita avisa al cliente por email y, si tiene teléfono, por WhatsApp (confirmación, recordatorios 24 h y 1 h antes, cancelación y cambios). El WhatsApp sale de verdad cuando la plataforma tiene conectado Twilio — Sistema → Estado del sistema lo dice; si no, el aviso queda registrado como "no conectado" y no se envía. El teléfono necesita prefijo internacional (+34…). Ojo a una regla de WhatsApp, no nuestra: fuera de las 24 h siguientes al último mensaje del cliente sólo se puede enviar con una plantilla aprobada, que quien administre la plataforma configura una vez (docs/whatsapp.md).',
+      ],
+    },
+    {
+      key: 'tareas',
+      group: 'CRM',
+      title: 'Tareas',
+      route: '/admin/tareas',
+      summary: 'Trabajo pendiente de toda la agencia: llamadas, WhatsApp, seguimientos… — distinto de las citas (tiempo reservado) y de la Actividad (lo que ya ocurrió).',
+      steps: [
+        'El filtro superior organiza la vista — Abiertas, Vencidas, Vencen hoy, Completadas o Todas, por comercial, tipo y prioridad — pero no restringe qué ves: cualquiera con acceso a CRM ve las tareas de toda la agencia, igual que en Calendario.',
+        '"+ Nueva tarea" desde aquí crea una tarea suelta, sin relación con ningún contacto, lead o cita. Una tarea ligada a una persona o a una cita concreta se crea desde su origen: el botón "+ Tarea" de cada tarjeta en Leads, la pestaña "Tareas" de la ficha de Cliente, o "Crear tarea de seguimiento" al anotar el resultado de una visita.',
+        '"Completar" fija cuándo y queda registrado en la Actividad del contacto o lead relacionado, si lo hay. Una tarea vencida (abierta y con fecha ya pasada) se marca en rojo.',
+        'La "próxima acción" que ves en la tarjeta de un lead (Leads) es siempre la tarea abierta o la cita futura más próxima de ese lead concreto — se recalcula sola cada vez que creas, completas o cancelas una tarea o una cita, nunca se edita a mano.',
       ],
     },
     {
@@ -840,6 +856,13 @@ export function useHelpContent() {
       answer:
         'El contacto es la persona. El lead es una oportunidad concreta: la vez que esa persona preguntó por algo. El cliente es la relación comercial ya cerrada. María puede ser un contacto con tres leads (preguntó por tres pisos en meses distintos) y acabar siendo cliente: sigue siendo una sola persona.',
       tags: ['contactos', 'leads', 'clientes', 'crm'],
+    },
+    {
+      id: 'faq-proxima-accion',
+      question: '¿Puedo cambiar a mano la "próxima acción" de un lead?',
+      answer:
+        'No directamente — es un cálculo, no un campo editable. Es la tarea abierta o la cita futura más próxima de ese lead: para cambiarla, crea/completa/cancela una tarea (CRM → Tareas, o "+ Tarea" en su tarjeta) o mueve/cancela su cita en Calendario, y se recalcula sola. Se hizo así a propósito: si se pudiera escribir a mano, podría dejar de coincidir con lo que de verdad hay agendado.',
+      tags: ['tareas', 'leads', 'crm', 'next action'],
     },
     {
       id: 'faq-duplicados',

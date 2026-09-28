@@ -4,6 +4,7 @@ import { requireOrgScope } from '../../../../utils/auth'
 import { getResource } from '../../../../utils/adminResources'
 import { authorizeRecord } from '../../../../utils/tenantPolicy'
 import { listActivity } from '../../../../utils/activity/service'
+import { listTasks } from '../../../../utils/tasks/service'
 
 /**
  * La vista 360º de un cliente: todo lo que la agencia tiene registrado sobre
@@ -124,6 +125,9 @@ export default defineEventHandler(async (event) => {
   // moderno detrás de esta ficha se resolvió (client.contactId) — una ficha
   // sembrada antes de FASE 10 puede no tenerlo, y no se inventa ninguno.
   const activities = client.contactId ? (await listActivity(db, orgId, { contactId: client.contactId }, { limit: 50 })).rows : []
+
+  // --- Tasks (FASE 22) — trabajo pendiente sobre esta persona. Mismo criterio que activities: sólo existe cuando hay Contact detrás.
+  const tasks = client.contactId ? await listTasks(db, orgId, { contactId: client.contactId }) : []
 
   // --- Comunicaciones (WhatsApp y llamadas) ---------------------------------
   // Aquí SÍ hay vínculo guardado: comms_contacts.client_id lo escribe el
@@ -254,6 +258,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     matchedBy: { name, email },
+    contactId: client.contactId,
     leads,
     visits,
     deals,
@@ -263,6 +268,7 @@ export default defineEventHandler(async (event) => {
     properties,
     activity,
     activities,
+    tasks,
     conversations,
     messages,
     calls,

@@ -916,6 +916,8 @@ export const leads = sqliteTable(
     firstResponseAt: text('first_response_at'),
     /** Proyección/caché para cuando exista Task/Appointment reales — no es una segunda agenda manual. */
     nextActionAt: text('next_action_at'),
+    /** FASE 22, migración 0077. Acompaña a `nextActionAt`: tipo de la Task o 'appointment' que la origina. Mismo criterio de proyección sincronizada — ver server/utils/leads/nextAction.ts. */
+    nextActionType: text('next_action_type'),
     /** FASE 16, migración 0071. Primera vez que alcanza el stage 'qualified' — nunca se recalcula si el lead retrocede. */
     qualifiedAt: text('qualified_at'),
     /** FASE 16, migración 0071. Cuándo se consiguió la primera cita (creación de la visita, no su fecha futura). */
@@ -1866,6 +1868,46 @@ export const activities = sqliteTable(
     index('activities_property').on(t.propertyId, t.propertyKind, t.createdAt),
     index('activities_appointment').on(t.appointmentId, t.createdAt),
     index('activities_entity').on(t.entityType, t.entityId, t.createdAt),
+  ],
+)
+
+/**
+ * Task (FASE 22, migración 0077) — trabajo pendiente, deliberadamente
+ * distinta de Appointment (tiempo reservado) y de Activity (algo que ya
+ * ocurrió). No copia datos de sus relaciones (nombre de contacto, dirección
+ * de propiedad): sólo guarda los ids y los consume al mostrarla.
+ */
+export const tasks = sqliteTable(
+  'tasks',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    type: text('type').notNull(), // call | whatsapp | email | follow_up | document | viewing | offer | signature | other
+    title: text('title').notNull(),
+    assigneeId: integer('assignee_id'), // team_members.id
+    dueAt: text('due_at'),
+    priority: text('priority').notNull().default('medium'), // low | medium | high | urgent
+    status: text('status').notNull().default('open'), // open | in_progress | completed | cancelled
+    contactId: integer('contact_id'),
+    leadId: integer('lead_id'),
+    propertyId: integer('property_id'),
+    propertyKind: text('property_kind'), // agent | developer
+    appointmentId: integer('appointment_id'),
+    /** Sin FK real todavía — Deal no existe hasta FASE 24. Mismo precedente que visits.propertyId/propertyKind. */
+    dealId: integer('deal_id'),
+    createdBy: integer('created_by'), // users.id
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+    completedAt: text('completed_at'),
+  },
+  (t) => [
+    index('tasks_org_status_due').on(t.organizationId, t.status, t.dueAt),
+    index('tasks_assignee_status_due').on(t.assigneeId, t.status, t.dueAt),
+    index('tasks_contact').on(t.contactId),
+    index('tasks_lead').on(t.leadId),
+    index('tasks_property').on(t.propertyId, t.propertyKind),
+    index('tasks_appointment').on(t.appointmentId),
+    index('tasks_deal').on(t.dealId),
   ],
 )
 
