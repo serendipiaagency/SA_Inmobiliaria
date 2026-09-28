@@ -3,6 +3,7 @@ import { createError } from 'h3'
 import * as schema from '../../db/schema'
 import { now } from '../db'
 import { recordActivity } from '../activity/service'
+import { createTask } from '../tasks/service'
 
 /**
  * Resultado de visita (FASE 19, migración 0074).
@@ -31,11 +32,24 @@ export function isVisitOutcome(v: unknown): v is VisitOutcome {
  * completar la visita (igual que el resultado de una llamada en Comunicaciones,
  * se añade después, cuando hay algo que decir, nunca a la fuerza).
  */
-export async function recordVisitOutcome(db: any, orgId: number, visitId: number, input: { outcome: string; notes?: string | null }) {
+export interface RecordVisitOutcomeInput {
+  outcome: string
+  notes?: string | null
+  /**
+   * "Seguimiento" (FASE 22 §56): el único paso siguiente de la maqueta
+   * original de FASE 19 que de verdad crea algo — una Task real. Los demás
+   * ("Segunda visita" ya se resuelve reservando otra cita desde Calendar,
+   * "Oferta"/"Descartar" no tienen disparador propio todavía) no se
+   * inventan aquí.
+   */
+  followUp?: { dueAt: string; assigneeId?: number | null; notes?: string | null } | null
+}
+
+export async function recordVisitOutcome(db: any, orgId: number, visitId: number, input: RecordVisitOutcomeInput, opts: { actorId?: number | null } = {}) {
   if (!isVisitOutcome(input.outcome)) throw createError({ statusCode: 422, statusMessage: 'Resultado no reconocido' })
 
   const rows = await db
-    .select({ status: schema.visits.status, leadId: schema.visits.leadId, propertyId: schema.visits.propertyId, propertyKind: schema.visits.propertyKind })
+    .select({ status: schema.visits.status, leadId: schema.visits.leadId, propertyId: schema.visits.propertyId, propertyKind: schema.visits.propertyKind, clientName: schema.visits.clientName, agentId: schema.visits.agentId })
     .from(schema.visits)
     .where(and(eq(schema.visits.id, visitId), eq(schema.visits.organizationId, orgId)))
     .limit(1)
@@ -65,6 +79,25 @@ export async function recordVisitOutcome(db: any, orgId: number, visitId: number
     actorType: 'user',
     metadata: { outcome: input.outcome },
   })
+
+  if (input.followUp?.dueAt) {
+    await createTask(
+      db,
+      orgId,
+      {
+        type: 'follow_up',
+        title: `Seguimiento — ${visit.clientName}`,
+        assigneeId: input.followUp.assigneeId ?? visit.agentId ?? null,
+        dueAt: input.followUp.dueAt,
+        contactId,
+        leadId: visit.leadId,
+        propertyId: visit.propertyId,
+        propertyKind: visit.propertyKind as any,
+        appointmentId: visitId,
+      },
+      { createdBy: opts.actorId ?? null },
+    )
+  }
 
   return { outcome: input.outcome, outcomeNotes: input.notes?.trim() || null, outcomeRecordedAt: nowTs }
 }

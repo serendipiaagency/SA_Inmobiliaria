@@ -63,6 +63,9 @@
               <span>{{ dt.money(l.budget, { compact: true }) }}</span>
             </div>
             <p v-if="col.key === 'lost' && l.lostReason" class="mt-1 text-[11px] text-stone-400">{{ lostReasonLabel(l.lostReason) }}</p>
+            <p v-if="l.nextActionAt" class="mt-1.5 text-[11px]" :class="isNextActionOverdue(l) ? 'font-medium text-red-600' : 'text-stone-400'">
+              Próxima acción: {{ formatRelative(l.nextActionAt) }}
+            </p>
             <div class="mt-2 flex items-center gap-1.5 border-t border-line pt-2 text-[11px] text-stone-500">
               <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-stone-100 text-[9px] font-semibold text-stone-600">{{ dt.initials(l.agentName) }}</span>
               <select
@@ -75,6 +78,7 @@
                 <option value="">Sin asignar</option>
                 <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
               </select>
+              <button type="button" class="btn-quiet !px-1.5 !py-0.5 text-[10px]" title="Nueva tarea" @click.stop="openNewTask(l)">+ Tarea</button>
               <AdminCommsContactActions v-if="l.phone" :lead-id="l.id" :phone="l.phone" :name="l.name" compact />
             </div>
           </article>
@@ -124,10 +128,41 @@
         </table>
       </div>
     </AdminPanel>
+
+    <!-- Nueva tarea -->
+    <div v-if="newTaskLead" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="newTaskLead = null">
+      <div class="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
+        <h3 class="mb-1 text-sm font-semibold">Nueva tarea</h3>
+        <p class="mb-4 text-xs text-stone-500">{{ newTaskLead.name }}</p>
+        <div class="space-y-3">
+          <select v-model="taskForm.type" class="input">
+            <option value="call">Llamada</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="email">Email</option>
+            <option value="follow_up">Seguimiento</option>
+            <option value="viewing">Visita</option>
+            <option value="other">Otro</option>
+          </select>
+          <input v-model="taskForm.title" type="text" placeholder="Título" class="input" >
+          <select v-model="taskForm.assigneeId" class="input">
+            <option value="">Sin asignar</option>
+            <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
+          </select>
+          <input v-model="taskForm.dueAt" type="datetime-local" class="input" >
+        </div>
+        <p v-if="taskError" class="mt-3 text-sm font-medium text-red-600">{{ taskError }}</p>
+        <div class="mt-4 flex justify-end gap-2">
+          <button class="btn-secondary" @click="newTaskLead = null">Cancelar</button>
+          <button class="btn-primary" :disabled="!taskForm.title.trim() || savingTask" @click="submitNewTask">{{ savingTask ? 'Guardando…' : 'Crear tarea' }}</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { formatRelative } from '~/composables/useClientConfig'
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Leads — M&M Real Estate' })
 const dt = useDash()
@@ -204,6 +239,47 @@ function stageLabel(stage: string) {
 const LOST_REASON_LABELS: Record<string, string> = { no_response: 'Sin respuesta', not_interested: 'Sin interés', duplicate: 'Duplicado', other: 'Otro motivo' }
 function lostReasonLabel(reason: string) {
   return LOST_REASON_LABELS[reason] || reason
+}
+
+// --- Tareas (FASE 22) — próxima acción y creación rápida desde el tablero ---
+function isNextActionOverdue(l: any) {
+  return l.nextActionAt && l.nextActionAt < new Date().toISOString().replace('T', ' ').slice(0, 19)
+}
+const newTaskLead = ref<any>(null)
+const taskForm = reactive({ type: 'call' as string, title: '', assigneeId: '' as string | number, dueAt: '' })
+const taskError = ref('')
+const savingTask = ref(false)
+function openNewTask(l: any) {
+  newTaskLead.value = l
+  taskForm.type = 'call'
+  taskForm.title = ''
+  taskForm.assigneeId = l.agentId || ''
+  taskForm.dueAt = ''
+  taskError.value = ''
+}
+async function submitNewTask() {
+  if (!taskForm.title.trim() || !newTaskLead.value) return
+  savingTask.value = true
+  taskError.value = ''
+  try {
+    await $fetch('/api/admin/saas/tasks', {
+      method: 'POST',
+      body: {
+        type: taskForm.type,
+        title: taskForm.title.trim(),
+        assigneeId: taskForm.assigneeId || null,
+        dueAt: taskForm.dueAt ? taskForm.dueAt.replace('T', ' ') + ':00' : null,
+        leadId: newTaskLead.value.id,
+      },
+    })
+    newTaskLead.value = null
+    await refresh()
+    toast.success('Tarea creada')
+  } catch (e: any) {
+    taskError.value = e?.data?.statusMessage || 'No se pudo crear la tarea'
+  } finally {
+    savingTask.value = false
+  }
 }
 
 const dragId = ref<number | null>(null)

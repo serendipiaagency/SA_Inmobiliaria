@@ -290,7 +290,12 @@
         </select>
         <label class="label">Notas (opcional)</label>
         <textarea v-model="outcomeForm.notes" rows="3" class="input mb-4" placeholder="Qué dijo, qué observaste…" />
-        <p v-if="outcomeError" class="mb-3 text-sm font-medium text-red-600">{{ outcomeError }}</p>
+        <label class="flex items-center gap-2 text-sm text-stone-600">
+          <input v-model="outcomeForm.followUp" type="checkbox" >
+          Crear tarea de seguimiento
+        </label>
+        <input v-if="outcomeForm.followUp" v-model="outcomeForm.followUpDueAt" type="datetime-local" class="input mt-2" >
+        <p v-if="outcomeError" class="mb-3 mt-3 text-sm font-medium text-red-600">{{ outcomeError }}</p>
         <div class="flex justify-end gap-2">
           <button class="btn-secondary" @click="outcomeVisit = null">Cancelar</button>
           <button class="btn-primary" :disabled="!outcomeForm.outcome || savingOutcome" @click="submitOutcome">{{ savingOutcome ? 'Guardando…' : 'Guardar' }}</button>
@@ -804,21 +809,34 @@ async function submitNewTour() {
 }
 
 const outcomeVisit = ref<any>(null)
-const outcomeForm = reactive<{ outcome: string; notes: string }>({ outcome: '', notes: '' })
+const outcomeForm = reactive<{ outcome: string; notes: string; followUp: boolean; followUpDueAt: string }>({ outcome: '', notes: '', followUp: false, followUpDueAt: '' })
 const outcomeError = ref('')
 const savingOutcome = ref(false)
 function openOutcome(v: any) {
   outcomeVisit.value = v
   outcomeForm.outcome = v.outcome || ''
   outcomeForm.notes = v.outcomeNotes || ''
+  outcomeForm.followUp = false
+  outcomeForm.followUpDueAt = ''
   outcomeError.value = ''
 }
 async function submitOutcome() {
   if (!outcomeVisit.value || !outcomeForm.outcome) return
+  if (outcomeForm.followUp && !outcomeForm.followUpDueAt) {
+    outcomeError.value = 'Indica cuándo hacer el seguimiento'
+    return
+  }
   outcomeError.value = ''
   savingOutcome.value = true
   try {
-    await $fetch(`/api/admin/saas/visits/${outcomeVisit.value.id}/outcome`, { method: 'POST', body: { outcome: outcomeForm.outcome, notes: outcomeForm.notes || null } })
+    await $fetch(`/api/admin/saas/visits/${outcomeVisit.value.id}/outcome`, {
+      method: 'POST',
+      body: {
+        outcome: outcomeForm.outcome,
+        notes: outcomeForm.notes || null,
+        followUp: outcomeForm.followUp ? { dueAt: outcomeForm.followUpDueAt.replace('T', ' ') + ':00' } : null,
+      },
+    })
     outcomeVisit.value = null
     await Promise.all([refresh(), refreshTours()])
     toast.success('Resultado guardado')

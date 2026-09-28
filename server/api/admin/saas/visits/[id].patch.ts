@@ -6,6 +6,7 @@ import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { logAdminAction } from '../../../../utils/audit'
 import { getRequestId } from '../../../../utils/requestId'
 import { recordActivity } from '../../../../utils/activity/service'
+import { syncLeadNextAction } from '../../../../utils/leads/nextAction'
 
 const VALID_STATUSES = ['scheduled', 'completed', 'cancelled', 'no_show'] as const
 const VALID_TYPES = ['property_viewing', 'call', 'other'] as const
@@ -115,6 +116,8 @@ export default defineEventHandler(async (event) => {
   if (patch.scheduledAt && patch.scheduledAt !== visit.scheduledAt && patch.status !== 'cancelled') {
     await recordActivity(db, orgId, { ...activityBase, eventType: 'APPOINTMENT_RESCHEDULED', metadata: { from: visit.scheduledAt, to: patch.scheduledAt } })
   }
+  // Cancelar, completar o mover la cita puede cambiar cuál es la próxima acción del lead (FASE 22).
+  if (visit.leadId && (patch.status !== undefined || patch.scheduledAt !== undefined)) await syncLeadNextAction(db, orgId, visit.leadId)
 
   try {
     if (patch.status === 'cancelled') {

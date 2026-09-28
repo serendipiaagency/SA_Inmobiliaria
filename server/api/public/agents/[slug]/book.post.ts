@@ -12,6 +12,7 @@ import { rateLimit } from '../../../../utils/rateLimit'
 import { getRequestId } from '../../../../utils/requestId'
 import { isValidEmail, isValidPhone } from '../../../../utils/validate'
 import { recordActivity } from '../../../../utils/activity/service'
+import { syncLeadNextAction } from '../../../../utils/leads/nextAction'
 
 const VALID_CHANNELS = ['in_person', 'video', 'phone'] as const
 const SLOT_START_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
@@ -169,6 +170,7 @@ export default defineEventHandler(async (event) => {
     actorType: 'contact',
     metadata: { channel },
   })
+  if (bookedLeadId) await syncLeadNextAction(db, orgId, bookedLeadId)
 
   const manageUrl = `${getRequestURL(event).origin}/citas/${managementToken}`
   try {

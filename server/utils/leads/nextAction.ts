@@ -1,0 +1,52 @@
+import { and, asc, eq, gt, isNotNull, ne } from 'drizzle-orm'
+import * as schema from '../../db/schema'
+import { now } from '../db'
+
+/**
+ * Next Action (FASE 22) — `leads.nextActionType`/`nextActionAt` son una
+ * PROYECCIÓN sincronizada, nunca una segunda fuente de verdad: nada las
+ * escribe a mano, sólo `syncLeadNextAction()`, y sólo a partir de datos
+ * reales (Task abierta con `dueAt`, o Appointment futura) de ese lead.
+ *
+ * Sólo entran en el cálculo las Task con `dueAt` — una tarea "algún día" sin
+ * fecha no tiene con qué competir por "la próxima acción" ni se puede
+ * mostrar ordenada junto a una cita real; ver docs/tasks.md.
+ *
+ * Se llama tras cualquier escritura que pueda cambiar la próxima acción de
+ * un lead: crear/completar/cancelar una Task, o crear/reprogramar/cancelar
+ * una Appointment — siempre con el mismo criterio que `recordActivity()`:
+ * nunca lanza, para no deshacer la acción real que la disparó.
+ */
+export async function syncLeadNextAction(db: any, orgId: number, leadId: number): Promise<void> {
+  try {
+    const nowTs = now()
+
+    const [nextTask] = await db
+      .select({ type: schema.tasks.type, dueAt: schema.tasks.dueAt })
+      .from(schema.tasks)
+      .where(and(eq(schema.tasks.organizationId, orgId), eq(schema.tasks.leadId, leadId), ne(schema.tasks.status, 'completed'), ne(schema.tasks.status, 'cancelled'), isNotNull(schema.tasks.dueAt)))
+      .orderBy(asc(schema.tasks.dueAt))
+      .limit(1)
+
+    const [nextVisit] = await db
+      .select({ type: schema.visits.type, scheduledAt: schema.visits.scheduledAt })
+      .from(schema.visits)
+      .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.leadId, leadId), eq(schema.visits.status, 'scheduled'), gt(schema.visits.scheduledAt, nowTs)))
+      .orderBy(asc(schema.visits.scheduledAt))
+      .limit(1)
+
+    let nextActionType: string | null = null
+    let nextActionAt: string | null = null
+    if (nextTask && (!nextVisit || nextTask.dueAt <= nextVisit.scheduledAt)) {
+      nextActionType = `task:${nextTask.type}`
+      nextActionAt = nextTask.dueAt
+    } else if (nextVisit) {
+      nextActionType = `appointment:${nextVisit.type}`
+      nextActionAt = nextVisit.scheduledAt
+    }
+
+    await db.update(schema.leads).set({ nextActionType, nextActionAt, updatedAt: nowTs }).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId)))
+  } catch {
+    // Se recalculará en la próxima escritura real sobre este lead — nunca debe deshacer la acción que la disparó.
+  }
+}

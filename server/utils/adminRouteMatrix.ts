@@ -105,6 +105,8 @@ const RULES: Rule[] = [
   { pattern: /^saas\/properties\/search$/, resolve: fixed('crm', 'read') },
   // FASE 21: Activity Timeline — de solo lectura, la escritura sólo ocurre desde dentro de los servicios de dominio (leads, matching, appointments), nunca desde un endpoint propio.
   { pattern: /^saas\/activity$/, resolve: fixed('crm', 'read') },
+  // FASE 22: Tareas (pages/admin/tareas.vue, y la pestaña "Tareas" de la ficha de Cliente).
+  { pattern: /^saas\/tasks(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/reservations(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/appointments-analytics$/, resolve: area('crm') },
   { pattern: /^saas\/referrals(?:\/|$)/, resolve: area('crm') },

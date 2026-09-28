@@ -49,11 +49,12 @@ implementar eventos que todavía no ocurren realmente"):
 | `APPOINTMENT_RESCHEDULED` / `APPOINTMENT_CANCELLED` | `PATCH /api/admin/saas/visits/:id` y los endpoints públicos de gestión (`reschedule.post.ts`/`cancel.post.ts`) |
 | `VIEWING_COMPLETED` / `VIEWING_NO_SHOW` | `PATCH /api/admin/saas/visits/:id`, sólo cuando `visits.type === 'property_viewing'` |
 | `VISIT_OUTCOME_RECORDED` | `server/utils/appointments/outcome.ts` → `recordVisitOutcome()` — el evento sólo dice qué resultado se anotó, nunca el texto de las notas |
+| `TASK_CREATED` / `TASK_COMPLETED` | `server/utils/tasks/service.ts` → `createTask()`/`updateTask()` (FASE 22, ver `docs/tasks.md`) |
 
 Deliberadamente ausentes: `PROPERTY_SENT` (no hay envío rastreable
 todavía — llegará con el Centro de Comunicaciones), `LEAD_CONTACTED` (no
 tiene un disparador distinto de lo que ya cuentan `messages`/`calls` en la
-cronología de Cliente), y todo lo de Task/Offer/Deal (FASE 22-24, no
+cronología de Cliente), y todo lo de Offer/Deal (FASE 23-24, no
 implementadas al escribir esto).
 
 ## Lectura

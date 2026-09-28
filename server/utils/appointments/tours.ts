@@ -5,6 +5,7 @@ import { now } from '../db'
 import { hasOverlappingVisit, shiftDateTime } from './availability'
 import { generateManagementToken } from './managementToken'
 import { recordActivity } from '../activity/service'
+import { syncLeadNextAction } from '../leads/nextAction'
 
 /**
  * Tours (FASE 18, migración 0073): un cliente viendo varios inmuebles en una
@@ -164,6 +165,7 @@ export async function createTour(db: any, orgId: number, input: CreateTourInput)
         metadata: { tourId: tour.id, tourStopOrder: index },
       })
     }
+    if (input.leadId) await syncLeadNextAction(db, orgId, input.leadId)
 
     return { id: tour.id, stopIds }
   } catch (e: any) {
