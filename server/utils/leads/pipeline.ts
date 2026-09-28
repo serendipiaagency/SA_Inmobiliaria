@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, now } from '../db'
+import { recordActivity } from '../activity/service'
 
 /**
  * Pipeline de Leads (FASE 13, migración 0069).
@@ -79,6 +80,19 @@ export async function transitionLeadStage(
     reason: input.reason || null,
     createdAt: nowTs,
   })
+
+  // Sólo la primera vez que se alcanza 'qualified' — igual que qualifiedAt arriba, es un hito, no cada paso del pipeline.
+  if (toStage === 'qualified' && !existing.qualifiedAt) {
+    await recordActivity(db, orgId, {
+      eventType: 'LEAD_QUALIFIED',
+      entityType: 'lead',
+      entityId: leadId,
+      leadId,
+      contactId: existing.contactId,
+      actorType: opts.userId ? 'user' : 'system',
+      actorId: opts.userId ?? null,
+    })
+  }
 
   return (await db.select().from(schema.leads).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId))).limit(1))[0]
 }

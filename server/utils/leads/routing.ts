@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, notInArray, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, now, isUniqueConstraintError } from '../db'
+import { recordActivity } from '../activity/service'
 
 /**
  * Lead Routing (FASE 15, migración 0071).
@@ -226,7 +227,9 @@ export async function routeLead(event: H3Event, orgId: number, ctx: RoutingConte
 /** Aplica una decisión de enrutado: escribe leads.agentId/agentName y deja constancia en el historial. */
 export async function assignLead(event: H3Event, orgId: number, leadId: number, decision: RoutingDecision, opts: { assignedBy?: number | null } = {}) {
   const db = useDb(event)
-  const existing = (await db.select({ agentId: schema.leads.agentId }).from(schema.leads).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId))).limit(1))[0]
+  const existing = (
+    await db.select({ agentId: schema.leads.agentId, contactId: schema.leads.contactId }).from(schema.leads).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId))).limit(1)
+  )[0]
   if (!existing) throw new LeadRoutingError('Lead no encontrado')
 
   let agentName: string | null = null
@@ -249,6 +252,19 @@ export async function assignLead(event: H3Event, orgId: number, leadId: number, 
     assignedBy: opts.assignedBy ?? null,
     createdAt: nowTs,
   })
+
+  if (existing.agentId !== decision.commercialId) {
+    await recordActivity(db, orgId, {
+      eventType: existing.agentId ? 'LEAD_REASSIGNED' : 'LEAD_ASSIGNED',
+      entityType: 'lead',
+      entityId: leadId,
+      leadId,
+      contactId: existing.contactId,
+      actorType: opts.assignedBy ? 'user' : 'system',
+      actorId: opts.assignedBy ?? null,
+      metadata: { fromCommercialId: existing.agentId, toCommercialId: decision.commercialId, ruleId: decision.ruleId, reason: decision.explanation },
+    })
+  }
 }
 
 /** Reasignación manual — siempre dentro de una decisión con reason propia y assignedBy real, nunca silenciosa. */

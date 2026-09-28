@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { createError } from 'h3'
 import * as schema from '../../db/schema'
 import { now } from '../db'
+import { recordActivity } from '../activity/service'
 
 /**
  * Resultado de visita (FASE 19, migración 0074).
@@ -33,7 +34,11 @@ export function isVisitOutcome(v: unknown): v is VisitOutcome {
 export async function recordVisitOutcome(db: any, orgId: number, visitId: number, input: { outcome: string; notes?: string | null }) {
   if (!isVisitOutcome(input.outcome)) throw createError({ statusCode: 422, statusMessage: 'Resultado no reconocido' })
 
-  const rows = await db.select({ status: schema.visits.status }).from(schema.visits).where(and(eq(schema.visits.id, visitId), eq(schema.visits.organizationId, orgId))).limit(1)
+  const rows = await db
+    .select({ status: schema.visits.status, leadId: schema.visits.leadId, propertyId: schema.visits.propertyId, propertyKind: schema.visits.propertyKind })
+    .from(schema.visits)
+    .where(and(eq(schema.visits.id, visitId), eq(schema.visits.organizationId, orgId)))
+    .limit(1)
   const visit = rows[0]
   if (!visit) throw createError({ statusCode: 404, statusMessage: 'Visita no encontrada' })
   if (visit.status !== 'completed') throw createError({ statusCode: 422, statusMessage: 'Sólo se puede anotar el resultado de una visita completada' })
@@ -43,6 +48,23 @@ export async function recordVisitOutcome(db: any, orgId: number, visitId: number
     .update(schema.visits)
     .set({ outcome: input.outcome, outcomeNotes: input.notes?.trim() || null, outcomeRecordedAt: nowTs })
     .where(and(eq(schema.visits.id, visitId), eq(schema.visits.organizationId, orgId)))
+
+  // El evento de Activity sólo dice que se anotó un resultado — nunca el
+  // texto de las notas, que puede ser información sensible sobre el cliente
+  // y no aporta nada a "qué ocurrió" a nivel de negocio.
+  const contactId = visit.leadId ? ((await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(eq(schema.leads.id, visit.leadId)).limit(1))[0]?.contactId ?? null) : null
+  await recordActivity(db, orgId, {
+    eventType: 'VISIT_OUTCOME_RECORDED',
+    entityType: 'visit',
+    entityId: visitId,
+    appointmentId: visitId,
+    leadId: visit.leadId,
+    contactId,
+    propertyId: visit.propertyId,
+    propertyKind: visit.propertyKind as any,
+    actorType: 'user',
+    metadata: { outcome: input.outcome },
+  })
 
   return { outcome: input.outcome, outcomeNotes: input.notes?.trim() || null, outcomeRecordedAt: nowTs }
 }

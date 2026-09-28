@@ -3,6 +3,7 @@ import type { H3Event } from 'h3'
 import { useDb, schema, now } from '../db'
 import { evaluateMatch, RULES_VERSION, type MatchResult, type MatchableProperty, type MatchableRequirement } from './engine'
 import type { ZoneRef } from '../buyerRequirements/service'
+import { recordActivity } from '../activity/service'
 
 /**
  * Las dos direcciones del matching (FASE 11), sobre el mismo motor.
@@ -377,13 +378,30 @@ export async function setMatchStatus(
       },
     })
 
-  return (
+  const match = (
     await db
       .select()
       .from(M)
       .where(and(eq(M.organizationId, orgId), eq(M.buyerRequirementId, input.buyerRequirementId), eq(M.propertyId, input.propertyId)))
       .limit(1)
   )[0]
+
+  if (input.status === 'selected' || input.status === 'discarded') {
+    await recordActivity(db, orgId, {
+      eventType: input.status === 'selected' ? 'MATCH_SELECTED' : 'MATCH_DISCARDED',
+      entityType: 'property_match',
+      entityId: match.id,
+      contactId: requirement.contactId,
+      buyerRequirementId: input.buyerRequirementId,
+      propertyId: input.propertyId,
+      propertyKind: input.propertyKind,
+      actorType: opts.userId ? 'user' : 'system',
+      actorId: opts.userId ?? null,
+      metadata: input.status === 'discarded' ? { reason: input.discardedReason ?? null } : undefined,
+    })
+  }
+
+  return match
 }
 
 /** Deja constancia de que alguien repasó las características del inmueble, que es lo que convierte un 0 en un "no". */

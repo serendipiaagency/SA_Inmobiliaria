@@ -5,6 +5,7 @@ import { now } from '../db'
 import { hasOverlappingVisit, shiftDateTime } from './availability'
 import { generateManagementToken } from './managementToken'
 import type { PropertyKind } from '../matching/service'
+import { recordActivity } from '../activity/service'
 
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
 const VALID_CHANNELS = ['in_person', 'video', 'phone'] as const
@@ -100,5 +101,24 @@ export async function createAdminAppointment(db: any, orgId: number, input: Crea
       createdAt: nowTs,
     })
     .returning()
+
+  let contactId: number | null = null
+  if (input.leadId) {
+    const leadRows = await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(and(eq(schema.leads.id, input.leadId), eq(schema.leads.organizationId, orgId))).limit(1)
+    contactId = leadRows[0]?.contactId ?? null
+  }
+  await recordActivity(db, orgId, {
+    eventType: 'APPOINTMENT_CREATED',
+    entityType: 'visit',
+    entityId: visit.id,
+    appointmentId: visit.id,
+    leadId: input.leadId || null,
+    contactId,
+    propertyId: input.propertyId || null,
+    propertyKind,
+    actorType: 'user',
+    metadata: { channel, type },
+  })
+
   return visit
 }

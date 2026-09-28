@@ -4,6 +4,7 @@ import * as schema from '../../db/schema'
 import { now } from '../db'
 import { hasOverlappingVisit, shiftDateTime } from './availability'
 import { generateManagementToken } from './managementToken'
+import { recordActivity } from '../activity/service'
 
 /**
  * Tours (FASE 18, migración 0073): un cliente viendo varios inmuebles en una
@@ -145,7 +146,26 @@ export async function createTour(db: any, orgId: number, input: CreateTourInput)
           .returning({ id: schema.visits.id }),
       ),
     )
-    return { id: tour.id, stopIds: results.map((r: any) => r[0].id) }
+    const stopIds = results.map((r: any) => r[0].id)
+
+    const contactId = input.leadId ? ((await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(eq(schema.leads.id, input.leadId)).limit(1))[0]?.contactId ?? null) : null
+    for (const [index, stopId] of stopIds.entries()) {
+      const stop = resolved[index]
+      await recordActivity(db, orgId, {
+        eventType: 'APPOINTMENT_CREATED',
+        entityType: 'visit',
+        entityId: stopId,
+        appointmentId: stopId,
+        leadId: input.leadId || null,
+        contactId,
+        propertyId: stop.propertyId || null,
+        propertyKind: stop.propertyId ? 'developer' : null,
+        actorType: 'user',
+        metadata: { tourId: tour.id, tourStopOrder: index },
+      })
+    }
+
+    return { id: tour.id, stopIds }
   } catch (e: any) {
     // db.batch() es atómico: si una parada choca con otra reserva que ganó la
     // carrera justo ahora, no entra ninguna — pero la cabecera del tour ya se

@@ -19,12 +19,20 @@ const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8788'
  * suficientes para que, alguna vez, dos random-slots coincidieran de verdad
  * (409 real, no un flake) — la misma clase de colisión que el rate limit de
  * FASE 19, pero de agenda en vez de peticiones.
+ *
+ * Dentro de este mismo spec el comercial dedicado tampoco se libra: varias
+ * pruebas de este archivo le crean citas, y dos slots aleatorios de un mismo
+ * comercial pueden coincidir por pura probabilidad (se vio en la práctica).
+ * Por eso cada llamada devuelve un hueco de un contador que sólo avanza —
+ * nunca puede repetir día, así que nunca puede chocar consigo mismo.
  */
+let slotCounter = 0
 function randomFutureSlot(): string {
+  const offset = slotCounter++
   const d = new Date()
-  d.setUTCDate(d.getUTCDate() + 7 + Math.floor(Math.random() * 50))
+  d.setUTCDate(d.getUTCDate() + 7 + offset)
   const dateStr = d.toISOString().slice(0, 10)
-  const hour = 9 + Math.floor(Math.random() * 6)
+  const hour = 9 + (offset % 6)
   return `${dateStr} ${String(hour).padStart(2, '0')}:00:00`
 }
 

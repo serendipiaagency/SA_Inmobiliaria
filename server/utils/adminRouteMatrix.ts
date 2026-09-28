@@ -103,6 +103,8 @@ const RULES: Rule[] = [
   // FASE 20: Calendar (pages/admin/visitas.vue, pestaña Calendario) y la búsqueda de inmueble que usa su filtro de Propiedad.
   { pattern: /^saas\/calendar(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/properties\/search$/, resolve: fixed('crm', 'read') },
+  // FASE 21: Activity Timeline — de solo lectura, la escritura sólo ocurre desde dentro de los servicios de dominio (leads, matching, appointments), nunca desde un endpoint propio.
+  { pattern: /^saas\/activity$/, resolve: fixed('crm', 'read') },
   { pattern: /^saas\/reservations(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/appointments-analytics$/, resolve: area('crm') },
   { pattern: /^saas\/referrals(?:\/|$)/, resolve: area('crm') },

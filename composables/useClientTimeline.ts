@@ -14,15 +14,26 @@
  * panel, sí aparece.
  */
 
+import { renderActivity } from './useActivityRenderer'
+
 export interface TimelineEvent {
   id: string
   at: string
-  kind: 'visit' | 'deal' | 'reservation' | 'contract' | 'lead' | 'admin' | 'message' | 'call'
+  kind: 'visit' | 'deal' | 'reservation' | 'contract' | 'lead' | 'admin' | 'message' | 'call' | 'activity'
   title: string
   detail: string | null
   /** Enlace a la pantalla donde se ve el hecho completo (el hilo de WhatsApp, por ejemplo). */
   to?: string | null
 }
+
+/**
+ * Eventos de `related.activities` (FASE 21) que SÍ se muestran aquí — sólo
+ * los que no tiene ya representación por otro camino: `related.visits`
+ * abajo ya sintetiza un evento por cada cita (con su estado y su resultado
+ * dentro), y `related.leads` ya muestra "Lead recibido". Repetir esos desde
+ * Activity sería el mismo hecho contado dos veces.
+ */
+const ACTIVITY_KINDS_SHOWN = new Set(['LEAD_ASSIGNED', 'LEAD_REASSIGNED', 'LEAD_QUALIFIED', 'BUYER_REQUIREMENT_CREATED', 'MATCH_SELECTED', 'MATCH_DISCARDED'])
 
 const CALL_OUTCOME: Record<string, string> = {
   answered: 'contestó',
@@ -119,6 +130,12 @@ export function buildClientTimeline(related: any): TimelineEvent[] {
       title: 'Lead recibido',
       detail: [l.propertyName, l.source].filter(Boolean).join(' · ') || null,
     })
+  }
+
+  for (const a of related.activities || []) {
+    if (!ACTIVITY_KINDS_SHOWN.has(a.eventType)) continue
+    const rendered = renderActivity(a)
+    events.push({ id: `activity-${a.id}`, at: a.createdAt, kind: 'activity', title: rendered.title, detail: rendered.detail })
   }
 
   for (const a of related.activity || []) {
