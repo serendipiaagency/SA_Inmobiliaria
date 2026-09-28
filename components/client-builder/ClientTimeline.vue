@@ -33,5 +33,6 @@ const DOT: Record<TimelineEvent['kind'], string> = {
   admin: 'bg-stone-300',
   message: 'bg-green-500',
   call: 'bg-teal-500',
+  activity: 'bg-indigo-400',
 }
 </script>

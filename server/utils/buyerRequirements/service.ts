@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, now } from '../db'
+import { recordActivity } from '../activity/service'
 
 /**
  * BuyerRequirement — la necesidad inmobiliaria (FASE 10, migración 0066).
@@ -238,6 +239,17 @@ export async function createBuyerRequirement(
 
   const criteria = criteriaRowsFor(input, orgId, requirement.id)
   if (criteria.length) await db.insert(schema.buyerRequirementCriteria).values(criteria)
+
+  await recordActivity(db, orgId, {
+    eventType: 'BUYER_REQUIREMENT_CREATED',
+    entityType: 'buyer_requirement',
+    entityId: requirement.id,
+    contactId: input.contactId,
+    buyerRequirementId: requirement.id,
+    actorType: opts.createdBy ? 'user' : 'system',
+    actorId: opts.createdBy ?? null,
+    metadata: { title: requirement.title },
+  })
 
   return requirement
 }

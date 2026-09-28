@@ -4,6 +4,7 @@ import { isSlotAvailable, shiftDateTime } from '../../../../utils/appointments/a
 import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { rateLimit } from '../../../../utils/rateLimit'
 import { getRequestId } from '../../../../utils/requestId'
+import { recordActivity } from '../../../../utils/activity/service'
 
 const SLOT_START_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
 
@@ -73,6 +74,20 @@ export default defineEventHandler(async (event) => {
   } catch {
     // El cambio ya quedó guardado.
   }
+
+  const contactId = visit.leadId ? ((await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(eq(schema.leads.id, visit.leadId)).limit(1))[0]?.contactId ?? null) : null
+  await recordActivity(db, visit.organizationId, {
+    eventType: 'APPOINTMENT_RESCHEDULED',
+    entityType: 'visit',
+    entityId: visit.id,
+    appointmentId: visit.id,
+    leadId: visit.leadId,
+    contactId,
+    propertyId: visit.propertyId,
+    propertyKind: visit.propertyKind as any,
+    actorType: 'contact',
+    metadata: { from: visit.scheduledAt, to: body.startAt },
+  })
 
   return { ok: true, scheduledAt: body.startAt, endsAt }
 })

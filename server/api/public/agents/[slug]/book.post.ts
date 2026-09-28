@@ -11,6 +11,7 @@ import { readFirstTouch } from '../../../../utils/firstTouch'
 import { rateLimit } from '../../../../utils/rateLimit'
 import { getRequestId } from '../../../../utils/requestId'
 import { isValidEmail, isValidPhone } from '../../../../utils/validate'
+import { recordActivity } from '../../../../utils/activity/service'
 
 const VALID_CHANNELS = ['in_person', 'video', 'phone'] as const
 const SLOT_START_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
@@ -153,6 +154,21 @@ export default defineEventHandler(async (event) => {
   } catch {
     // La cita ya quedó guardada — el pipeline de leads nunca debe bloquearla.
   }
+
+  const bookedLeadId = (await db.select({ leadId: schema.visits.leadId }).from(schema.visits).where(eq(schema.visits.id, visit.id)).limit(1))[0]?.leadId ?? null
+  const bookedContact = bookedLeadId ? (await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(eq(schema.leads.id, bookedLeadId)).limit(1))[0]?.contactId ?? null : null
+  await recordActivity(db, orgId, {
+    eventType: 'APPOINTMENT_CREATED',
+    entityType: 'visit',
+    entityId: visit.id,
+    appointmentId: visit.id,
+    leadId: bookedLeadId,
+    contactId: bookedContact,
+    propertyId,
+    propertyKind: propertyId ? 'developer' : null,
+    actorType: 'contact',
+    metadata: { channel },
+  })
 
   const manageUrl = `${getRequestURL(event).origin}/citas/${managementToken}`
   try {

@@ -3,6 +3,7 @@ import { schema, useDb } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
 import { getResource } from '../../../../utils/adminResources'
 import { authorizeRecord } from '../../../../utils/tenantPolicy'
+import { listActivity } from '../../../../utils/activity/service'
 
 /**
  * La vista 360º de un cliente: todo lo que la agencia tiene registrado sobre
@@ -55,7 +56,7 @@ export default defineEventHandler(async (event) => {
   await authorizeRecord(db, { resourceKey: key, table: def.table, policy: def.tenantPolicy, id, orgId })
 
   const [client] = await db
-    .select({ name: schema.clients.name, email: schema.clients.email })
+    .select({ name: schema.clients.name, email: schema.clients.email, contactId: schema.clients.contactId })
     .from(schema.clients)
     .where(and(eq(schema.clients.id, id), eq(schema.clients.organizationId, orgId)))
     .limit(1)
@@ -117,6 +118,12 @@ export default defineEventHandler(async (event) => {
       .orderBy(desc(schema.adminAuditLog.createdAt))
       .limit(50),
   ])
+
+  // --- Activity (FASE 21) — el hecho comercial, no el cambio técnico que ya
+  // cubre `activity` (admin_audit_log) arriba. Sólo existe cuando el Contact
+  // moderno detrás de esta ficha se resolvió (client.contactId) — una ficha
+  // sembrada antes de FASE 10 puede no tenerlo, y no se inventa ninguno.
+  const activities = client.contactId ? (await listActivity(db, orgId, { contactId: client.contactId }, { limit: 50 })).rows : []
 
   // --- Comunicaciones (WhatsApp y llamadas) ---------------------------------
   // Aquí SÍ hay vínculo guardado: comms_contacts.client_id lo escribe el
@@ -255,6 +262,7 @@ export default defineEventHandler(async (event) => {
     invoices,
     properties,
     activity,
+    activities,
     conversations,
     messages,
     calls,

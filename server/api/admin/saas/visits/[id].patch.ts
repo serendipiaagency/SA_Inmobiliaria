@@ -5,6 +5,7 @@ import { hasOverlappingVisit, shiftDateTime } from '../../../../utils/appointmen
 import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { logAdminAction } from '../../../../utils/audit'
 import { getRequestId } from '../../../../utils/requestId'
+import { recordActivity } from '../../../../utils/activity/service'
 
 const VALID_STATUSES = ['scheduled', 'completed', 'cancelled', 'no_show'] as const
 const VALID_TYPES = ['property_viewing', 'call', 'other'] as const
@@ -101,6 +102,19 @@ export default defineEventHandler(async (event) => {
     throw e
   }
   await logAdminAction(event, { user, orgId, action: 'update', resource: 'visit', resourceId: visitId })
+
+  const activityContactId = visit.leadId ? ((await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(eq(schema.leads.id, visit.leadId)).limit(1))[0]?.contactId ?? null) : null
+  const activityBase = { entityType: 'visit' as const, entityId: visitId, appointmentId: visitId, leadId: visit.leadId, contactId: activityContactId, propertyId: visit.propertyId, propertyKind: visit.propertyKind as any, actorType: 'user' as const, actorId: user.id }
+  if (patch.status === 'cancelled') {
+    await recordActivity(db, orgId, { ...activityBase, eventType: 'APPOINTMENT_CANCELLED' })
+  } else if (patch.status === 'completed' && visit.type === 'property_viewing') {
+    await recordActivity(db, orgId, { ...activityBase, eventType: 'VIEWING_COMPLETED' })
+  } else if (patch.status === 'no_show' && visit.type === 'property_viewing') {
+    await recordActivity(db, orgId, { ...activityBase, eventType: 'VIEWING_NO_SHOW' })
+  }
+  if (patch.scheduledAt && patch.scheduledAt !== visit.scheduledAt && patch.status !== 'cancelled') {
+    await recordActivity(db, orgId, { ...activityBase, eventType: 'APPOINTMENT_RESCHEDULED', metadata: { from: visit.scheduledAt, to: patch.scheduledAt } })
+  }
 
   try {
     if (patch.status === 'cancelled') {

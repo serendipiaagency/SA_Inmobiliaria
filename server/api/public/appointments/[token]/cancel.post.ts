@@ -3,6 +3,7 @@ import { useDb, schema, cfEnv } from '../../../../utils/db'
 import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { rateLimit } from '../../../../utils/rateLimit'
 import { getRequestId } from '../../../../utils/requestId'
+import { recordActivity } from '../../../../utils/activity/service'
 
 /** Client-initiated cancellation via their own management link — no admin session involved. */
 export default defineEventHandler(async (event) => {
@@ -35,6 +36,19 @@ export default defineEventHandler(async (event) => {
   } catch {
     // La cancelación ya quedó guardada.
   }
+
+  const contactId = visit.leadId ? ((await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(eq(schema.leads.id, visit.leadId)).limit(1))[0]?.contactId ?? null) : null
+  await recordActivity(db, visit.organizationId, {
+    eventType: 'APPOINTMENT_CANCELLED',
+    entityType: 'visit',
+    entityId: visit.id,
+    appointmentId: visit.id,
+    leadId: visit.leadId,
+    contactId,
+    propertyId: visit.propertyId,
+    propertyKind: visit.propertyKind as any,
+    actorType: 'contact',
+  })
 
   return { ok: true }
 })

@@ -114,6 +114,37 @@ describe('la cronología sólo muestra hechos registrados', () => {
   })
 })
 
+describe('FASE 21 — Activity en la cronología, sin duplicar lo que ya cuentan otras filas', () => {
+  it('muestra los eventos de Activity que no tienen ya representación (asignación, cualificación, necesidad, match)', () => {
+    const events = buildClientTimeline({
+      activities: [
+        { id: 1, createdAt: '2026-09-20 10:00:00', eventType: 'LEAD_ASSIGNED', metadataJson: null },
+        { id: 2, createdAt: '2026-09-21 10:00:00', eventType: 'LEAD_QUALIFIED', metadataJson: null },
+        { id: 3, createdAt: '2026-09-22 10:00:00', eventType: 'BUYER_REQUIREMENT_CREATED', metadataJson: null },
+        { id: 4, createdAt: '2026-09-23 10:00:00', eventType: 'MATCH_SELECTED', metadataJson: null },
+        { id: 5, createdAt: '2026-09-24 10:00:00', eventType: 'MATCH_DISCARDED', metadataJson: JSON.stringify({ reason: 'Precio' }) },
+      ],
+    })
+    expect(events).toHaveLength(5)
+    expect(events.every((e) => e.kind === 'activity')).toBe(true)
+    expect(events.find((e) => e.id === 'activity-5')?.detail).toBe('Precio')
+  })
+
+  it('no repite un hecho que ya cuenta `visits` o `leads` — APPOINTMENT_CREATED y LEAD_CREATED se descartan aquí', () => {
+    const events = buildClientTimeline({
+      visits: [{ id: 1, scheduledAt: '2026-09-10 11:00:00', status: 'completed' }],
+      leads: [{ id: 2, createdAt: '2026-08-01 09:00:00' }],
+      activities: [
+        { id: 10, createdAt: '2026-09-10 11:00:00', eventType: 'APPOINTMENT_CREATED', metadataJson: null },
+        { id: 11, createdAt: '2026-08-01 09:00:00', eventType: 'LEAD_CREATED', metadataJson: null },
+      ],
+    })
+    // Un evento de visita (por la fila de `visits`) y uno de lead (por la fila de `leads`) — ninguno de Activity.
+    expect(events).toHaveLength(2)
+    expect(events.some((e) => e.kind === 'activity')).toBe(false)
+  })
+})
+
 describe('fechas', () => {
   it('«hace X» no se va un día por la zona horaria', () => {
     // Las marcas se guardan en UTC sin zona; leerlas como hora local

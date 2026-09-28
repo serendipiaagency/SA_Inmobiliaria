@@ -1831,6 +1831,44 @@ export const adminAuditLog = sqliteTable(
   ],
 )
 
+/**
+ * Activity (FASE 21, migración 0076): "qué ocurrió" en el negocio — deliberadamente
+ * distinta de `adminAuditLog` ("qué cambio técnico/administrativo se hizo").
+ * `admin_audit_log` dice "Laura cambió Lead.stage de QUALIFYING a QUALIFIED";
+ * esta tabla dice "Lead cualificado". No se duplica una dentro de la otra.
+ * Relaciones en columnas propias, no dentro de `metadataJson`, para poder
+ * listar "toda la actividad de este contacto/lead/inmueble/cita" con un
+ * índice. Append-only: ningún código hace UPDATE ni DELETE sobre esta tabla.
+ */
+export const activities = sqliteTable(
+  'activities',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    eventType: text('event_type').notNull(),
+    entityType: text('entity_type').notNull(),
+    entityId: integer('entity_id').notNull(),
+    contactId: integer('contact_id'),
+    leadId: integer('lead_id'),
+    propertyId: integer('property_id'),
+    propertyKind: text('property_kind'), // agent | developer
+    appointmentId: integer('appointment_id'),
+    buyerRequirementId: integer('buyer_requirement_id'),
+    actorType: text('actor_type').notNull(), // user | contact | system | ai
+    actorId: integer('actor_id'),
+    metadataJson: text('metadata_json'),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [
+    index('activities_org_created').on(t.organizationId, t.createdAt),
+    index('activities_contact').on(t.contactId, t.createdAt),
+    index('activities_lead').on(t.leadId, t.createdAt),
+    index('activities_property').on(t.propertyId, t.propertyKind, t.createdAt),
+    index('activities_appointment').on(t.appointmentId, t.createdAt),
+    index('activities_entity').on(t.entityType, t.entityId, t.createdAt),
+  ],
+)
+
 // ---------------------------------------------------------------------------
 // Asset Export Studio — see migrations/0029 for full column rationale
 // ---------------------------------------------------------------------------

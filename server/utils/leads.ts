@@ -6,6 +6,7 @@ import { sendInternalNotification } from './email/send'
 import { getRequestId } from './requestId'
 import { resolveContact, orgDefaultCountryPrefix } from './contacts/service'
 import { routeLead, assignLead, buildRoutingContextFromProperty } from './leads/routing'
+import { recordActivity } from './activity/service'
 
 interface UpsertLeadInput {
   /** Which tenant this lead belongs to — always the caller's resolved org, never client input. */
@@ -133,6 +134,15 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
     .returning()
 
   await dispatchWebhook(event, input.organizationId, 'lead.created', { id: row.id, name: row.name, email: row.email, source: row.source, propertyName: row.propertyName })
+  await recordActivity(db, input.organizationId, {
+    eventType: 'LEAD_CREATED',
+    entityType: 'lead',
+    entityId: row.id,
+    leadId: row.id,
+    contactId,
+    actorType: contactId ? 'contact' : 'system',
+    metadata: { source: row.source },
+  })
 
   try {
     await sendInternalNotification(db, cfEnv(event), input.organizationId, 'lead_created', { name: row.name, email: row.email, source: row.source, propertyName: row.propertyName }, getRequestId(event))
