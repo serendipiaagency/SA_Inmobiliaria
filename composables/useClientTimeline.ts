@@ -61,6 +61,13 @@ const VISIT_STATUS: Record<string, string> = {
   no_show: 'No asistió',
 }
 
+/** FASE 19: percepción del comercial sobre esa visita concreta — nunca un hecho sobre el inmueble o el comprador. */
+const VISIT_OUTCOME: Record<string, string> = {
+  interested: 'Interesado',
+  wants_to_think: 'Se lo piensa',
+  not_interested: 'No le convenció',
+}
+
 export function buildClientTimeline(related: any): TimelineEvent[] {
   const events: TimelineEvent[] = []
 
@@ -70,7 +77,7 @@ export function buildClientTimeline(related: any): TimelineEvent[] {
       at: v.scheduledAt,
       kind: 'visit',
       title: `Visita ${(VISIT_STATUS[v.status] || v.status).toLowerCase()}`,
-      detail: [v.propertyName, v.agentName].filter(Boolean).join(' · ') || null,
+      detail: [v.propertyName, v.agentName, v.outcome ? `Resultado: ${VISIT_OUTCOME[v.outcome] || v.outcome}` : null].filter(Boolean).join(' · ') || null,
     })
   }
 
