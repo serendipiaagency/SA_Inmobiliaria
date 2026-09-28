@@ -45,6 +45,8 @@ export interface TourStopView {
   confirmationStatus: string
   tourStopOrder: number
   managementToken: string
+  outcome: string | null
+  outcomeNotes: string | null
 }
 
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
@@ -179,6 +181,8 @@ export async function listTours(db: any, orgId: number): Promise<Array<{ id: num
       confirmationStatus: v.confirmationStatus,
       tourStopOrder: v.tourStopOrder ?? 0,
       managementToken: v.managementToken,
+      outcome: v.outcome,
+      outcomeNotes: v.outcomeNotes,
     })
     stopsByTour.set(v.tourId, list)
   }

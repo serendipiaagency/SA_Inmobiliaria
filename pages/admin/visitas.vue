@@ -73,6 +73,7 @@
               <AdminStatusPill :status="s.status" />
               <button v-if="s.status === 'scheduled'" class="btn-quiet !px-2 !py-1 text-xs" :disabled="busyId === s.id" @click="setStatus(s, 'completed')">Completada</button>
               <button v-if="s.status === 'scheduled'" class="btn-quiet !px-2 !py-1 text-xs text-red-600" :disabled="busyId === s.id" @click="setStatus(s, 'cancelled')">Cancelar</button>
+              <button v-if="s.status === 'completed'" class="btn-quiet !px-2 !py-1 text-xs" :class="s.outcome ? 'text-emerald-600' : ''" @click="openOutcome(s)">{{ s.outcome ? outcomeLabel(s.outcome) : 'Anotar resultado' }}</button>
             </div>
           </div>
         </div>
@@ -122,6 +123,7 @@
                   <button v-if="v.status === 'scheduled'" class="btn-quiet !px-2.5 !py-1 text-xs" :disabled="busyId === v.id" @click="setStatus(v, 'completed')">Completada</button>
                   <button v-if="v.status === 'scheduled'" class="btn-quiet !px-2.5 !py-1 text-xs" :disabled="busyId === v.id" @click="setStatus(v, 'no_show')">No asistió</button>
                   <button v-if="v.status === 'scheduled'" class="btn-quiet !px-2.5 !py-1 text-xs text-red-600" :disabled="busyId === v.id" @click="setStatus(v, 'cancelled')">Cancelar</button>
+                  <button v-if="v.status === 'completed'" class="btn-quiet !px-2.5 !py-1 text-xs" :class="v.outcome ? 'text-emerald-600' : ''" @click="openOutcome(v)">{{ v.outcome ? outcomeLabel(v.outcome) : 'Anotar resultado' }}</button>
                 </div>
               </td>
             </tr>
@@ -178,6 +180,26 @@
         </div>
       </div>
     </div>
+
+    <div v-if="outcomeVisit" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="outcomeVisit = null">
+      <div class="w-full max-w-sm rounded-xl bg-white p-6">
+        <h2 class="mb-1 text-lg font-semibold">Resultado de la visita</h2>
+        <p class="mb-4 text-sm text-stone-500">{{ outcomeVisit.clientName }}{{ outcomeVisit.propertyName ? ` — ${outcomeVisit.propertyName}` : '' }}</p>
+        <p class="mb-4 text-xs text-stone-400">Es tu impresión de esta visita concreta — no cambia las características del inmueble ni lo que el cliente dice buscar.</p>
+        <label class="label">¿Cómo quedó?</label>
+        <select v-model="outcomeForm.outcome" class="input mb-3">
+          <option value="" disabled>Elige una opción…</option>
+          <option v-for="o in OUTCOME_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
+        </select>
+        <label class="label">Notas (opcional)</label>
+        <textarea v-model="outcomeForm.notes" rows="3" class="input mb-4" placeholder="Qué dijo, qué observaste…" />
+        <p v-if="outcomeError" class="mb-3 text-sm font-medium text-red-600">{{ outcomeError }}</p>
+        <div class="flex justify-end gap-2">
+          <button class="btn-secondary" @click="outcomeVisit = null">Cancelar</button>
+          <button class="btn-primary" :disabled="!outcomeForm.outcome || savingOutcome" @click="submitOutcome">{{ savingOutcome ? 'Guardando…' : 'Guardar' }}</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -201,6 +223,7 @@ interface TourStop {
   scheduledAt: string
   status: string
   confirmationStatus: string
+  outcome: string | null
 }
 interface Tour {
   id: number
@@ -260,6 +283,14 @@ function channelLabel(c: string) {
 }
 function typeLabel(t: string) {
   return { property_viewing: 'Visita a inmueble', call: 'Llamada de seguimiento', other: 'Otro' }[t] || t
+}
+const OUTCOME_OPTIONS = [
+  { value: 'interested', label: 'Interesado — sigue adelante' },
+  { value: 'wants_to_think', label: 'Se lo piensa' },
+  { value: 'not_interested', label: 'No le convenció' },
+]
+function outcomeLabel(o: string) {
+  return OUTCOME_OPTIONS.find((x) => x.value === o)?.label || o
 }
 function channelIcon(c: string) {
   if (c === 'video') return 'M23 7l-7 5 7 5V7zM1 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H1V5z'
@@ -348,6 +379,32 @@ async function submitNewTour() {
     tourError.value = e?.data?.statusMessage || 'No se pudo crear el tour'
   } finally {
     creatingTour.value = false
+  }
+}
+
+const outcomeVisit = ref<any>(null)
+const outcomeForm = reactive<{ outcome: string; notes: string }>({ outcome: '', notes: '' })
+const outcomeError = ref('')
+const savingOutcome = ref(false)
+function openOutcome(v: any) {
+  outcomeVisit.value = v
+  outcomeForm.outcome = v.outcome || ''
+  outcomeForm.notes = v.outcomeNotes || ''
+  outcomeError.value = ''
+}
+async function submitOutcome() {
+  if (!outcomeVisit.value || !outcomeForm.outcome) return
+  outcomeError.value = ''
+  savingOutcome.value = true
+  try {
+    await $fetch(`/api/admin/saas/visits/${outcomeVisit.value.id}/outcome`, { method: 'POST', body: { outcome: outcomeForm.outcome, notes: outcomeForm.notes || null } })
+    outcomeVisit.value = null
+    await Promise.all([refresh(), refreshTours()])
+    toast.success('Resultado guardado')
+  } catch (e: any) {
+    outcomeError.value = e?.data?.statusMessage || 'No se pudo guardar el resultado'
+  } finally {
+    savingOutcome.value = false
   }
 }
 </script>

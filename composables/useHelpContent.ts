@@ -177,6 +177,7 @@ export function useHelpContent() {
         'Crea una visita manualmente o deja que se reserven solas desde la ficha pública del comercial.',
         'La columna "Tipo" distingue el PARA QUÉ de la cita (visita a un inmueble, llamada de seguimiento) del "Canal" (el CÓMO: presencial, videollamada, teléfono) — son dos cosas independientes, una videollamada puede ser perfectamente una visita a un inmueble.',
         'Cada visita genera un enlace de gestión propio para el cliente (confirmar asistencia, cancelar o reprogramar sin necesidad de llamar). Un ✓ verde junto al estado de la fila indica que el cliente ya ha confirmado su asistencia desde ese enlace; reprogramar la cita (desde aquí o desde el enlace del cliente) borra esa confirmación, porque ya no es la misma cita que había confirmado.',
+        'Una vez una visita está "Completada" aparece el botón "Anotar resultado": cómo quedó (interesado, se lo piensa, no le convenció) y, si quieres, unas notas de qué dijo o qué observaste. Es tu impresión de esa visita concreta — no cambia la ficha del inmueble ni lo que el cliente dice buscar en sus Necesidades, y se puede corregir cuando quieras volviendo a abrir el mismo botón. Se ve también en la pestaña "Actividad" de la ficha del cliente.',
         'La pestaña "Tours" agrupa varias citas del mismo cliente en una sola salida guiada (ver dos, tres o más inmuebles seguidos). "+ Nuevo tour" pide los datos del cliente y una fila por parada (inmueble opcional, comercial y hora); cada parada se crea como una cita real, con su propio enlace de gestión, comercial y estado — no se puede reprogramar el tour entero de una vez, cada parada se mueve o cancela por separado, igual que en la vista Lista.',
         'El feed iCal de cada comercial (botón "Suscribirse al calendario") permite verlas en Google Calendar u Outlook.',
         'Las videollamadas usan Jitsi Meet automáticamente si el canal de la cita es "vídeo" — no requiere configuración.',
@@ -920,6 +921,13 @@ export function useHelpContent() {
       answer:
         'No. Cada parada es una cita independiente — cancelarla, reprogramarla o marcarla como completada sólo afecta a esa parada; el resto del tour sigue igual. Un tour no tiene su propio estado: es simplemente la suma de sus paradas, así que no hay una acción "cancelar todo el tour" — se hace parada a parada, en Visitas → Tours.',
       tags: ['visitas', 'tours', 'citas'],
+    },
+    {
+      id: 'faq-resultado-visita',
+      question: 'Anotar el resultado de una visita, ¿cambia algo en la ficha del inmueble o en las Necesidades del cliente?',
+      answer:
+        'No, nunca. El resultado es tu impresión de esa visita concreta — que a alguien no le convenciera la cocina no hace que el inmueble cambie de verdad, y que reaccionara de una forma en una visita no cambia lo que dice buscar en sus Necesidades. Por eso vive sólo en la propia visita, y se puede corregir cuando quieras sin que eso reescriba nada del catálogo ni del comprador.',
+      tags: ['visitas', 'resultado', 'outcome'],
     },
     {
       id: 'faq-merge-contacto',

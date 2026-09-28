@@ -1105,6 +1105,16 @@ export const visits = sqliteTable(
     tourId: integer('tour_id'),
     /** FASE 18, migración 0073. Posición de esta parada dentro de su tour (0-based). Sólo tiene sentido junto a tourId. */
     tourStopOrder: integer('tour_stop_order'),
+    /**
+     * FASE 19, migración 0074. Percepción del comercial sobre esta visita —
+     * nunca un hecho sobre el inmueble ni sobre lo que busca el comprador.
+     * server/utils/appointments/outcome.ts es lo único que escribe estas tres
+     * columnas, y nunca toca agent_properties/developer_properties/
+     * buyer_requirements.
+     */
+    outcome: text('outcome'), // interested | wants_to_think | not_interested
+    outcomeNotes: text('outcome_notes'),
+    outcomeRecordedAt: text('outcome_recorded_at'),
     createdAt: text('created_at').notNull().default(''),
   },
   (t) => [index('visits_status').on(t.status), index('visits_agent_scheduled').on(t.agentId, t.scheduledAt), index('visits_tour').on(t.tourId, t.tourStopOrder)],
