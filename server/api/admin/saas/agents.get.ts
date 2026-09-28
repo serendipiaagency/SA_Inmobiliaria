@@ -14,6 +14,7 @@ export default defineEventHandler(async (event) => {
       position: schema.teamMembers.position,
       image: schema.teamMembers.image,
       slotDurationMinutes: schema.teamMembers.slotDurationMinutes,
+      officeName: schema.teamMembers.officeName,
     })
     .from(schema.teamMembers)
     .where(eq(schema.teamMembers.organizationId, orgId))

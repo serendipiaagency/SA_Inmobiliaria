@@ -172,8 +172,10 @@ export function useHelpContent() {
       group: 'CRM',
       title: 'Visitas',
       route: '/admin/visitas',
-      summary: 'Agenda de citas con clientes: vista de calendario mensual, buffer entre citas y tope diario por comercial.',
+      summary: 'Agenda de citas con clientes: Calendar (Día/Semana/Mes/Agenda), buffer entre citas y tope diario por comercial.',
       steps: [
+        'La pestaña "Calendario" tiene cuatro vistas — Día, Semana, Mes y Agenda (esta última pensada para el móvil) — y un filtro por Comercial, Office, Tipo, Estado, Propiedad (busca a la vez en Propiedades web y 2ª mano) y Contacto. "+ Nueva cita" o un clic en un hueco vacío abren el mismo formulario con la fecha y hora ya rellenadas.',
+        'Arrastrar una cita a otro día/hora la reprograma de verdad (mismo aviso al cliente y misma comprobación de que el comercial no tenga ya otra cita a esa hora que "Reprogramar"); "-15 min"/"+15 min" en el detalle de la cita cambian su duración con la misma comprobación.',
         'Crea una visita manualmente o deja que se reserven solas desde la ficha pública del comercial.',
         'La columna "Tipo" distingue el PARA QUÉ de la cita (visita a un inmueble, llamada de seguimiento) del "Canal" (el CÓMO: presencial, videollamada, teléfono) — son dos cosas independientes, una videollamada puede ser perfectamente una visita a un inmueble.',
         'Cada visita genera un enlace de gestión propio para el cliente (confirmar asistencia, cancelar o reprogramar sin necesidad de llamar). Un ✓ verde junto al estado de la fila indica que el cliente ya ha confirmado su asistencia desde ese enlace; reprogramar la cita (desde aquí o desde el enlace del cliente) borra esa confirmación, porque ya no es la misma cita que había confirmado.',
@@ -928,6 +930,13 @@ export function useHelpContent() {
       answer:
         'No, nunca. El resultado es tu impresión de esa visita concreta — que a alguien no le convenciera la cocina no hace que el inmueble cambie de verdad, y que reaccionara de una forma en una visita no cambia lo que dice buscar en sus Necesidades. Por eso vive sólo en la propia visita, y se puede corregir cuando quieras sin que eso reescriba nada del catálogo ni del comprador.',
       tags: ['visitas', 'resultado', 'outcome'],
+    },
+    {
+      id: 'faq-calendario-agenda-ajena',
+      question: 'En el Calendario, ¿un comercial puede ver la agenda de otro?',
+      answer:
+        'Hoy sí, si tiene acceso de lectura al área CRM — igual que ya podía verlas en la pestaña Lista o en Tours. El panel todavía no tiene permisos por fila (solo por área), así que el filtro de Comercial es para organizar la vista, no una restricción de visibilidad.',
+      tags: ['visitas', 'calendario', 'permisos', 'rbac'],
     },
     {
       id: 'faq-merge-contacto',
