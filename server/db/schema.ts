@@ -1115,6 +1115,19 @@ export const visits = sqliteTable(
     outcome: text('outcome'), // interested | wants_to_think | not_interested
     outcomeNotes: text('outcome_notes'),
     outcomeRecordedAt: text('outcome_recorded_at'),
+    /**
+     * FASE 20, migración 0075. `property_id` referenciaba sólo
+     * `developer_properties` hasta ahora (la reserva pública nunca ofreció
+     * 2ª mano); este discriminador dice a qué catálogo pertenece — igual que
+     * `matching/service.ts`'s `PropertyKind`, sin FK real (mismo criterio ya
+     * usado en el resto de columnas *_id de esta tabla).
+     */
+    propertyKind: text('property_kind'), // agent | developer
+    /** FASE 20: sólo almacenamiento preparado para una futura sincronización con Google/Outlook — nada los escribe todavía. */
+    calendarProvider: text('calendar_provider'),
+    externalCalendarId: text('external_calendar_id'),
+    externalEventId: text('external_event_id'),
+    calendarSyncStatus: text('calendar_sync_status'),
     createdAt: text('created_at').notNull().default(''),
   },
   (t) => [index('visits_status').on(t.status), index('visits_agent_scheduled').on(t.agentId, t.scheduledAt), index('visits_tour').on(t.tourId, t.tourStopOrder)],

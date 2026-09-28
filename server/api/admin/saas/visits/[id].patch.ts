@@ -16,6 +16,8 @@ interface PatchVisitBody {
   agentId?: number | null
   /** FASE 17, migración 0072: reclasificar una cita mal etiquetada. */
   type?: string
+  /** FASE 20: "resize" en Calendar — cambiar la duración sin mover la hora de inicio ni el comercial. */
+  durationMinutes?: number
 }
 
 /** Confirm/cancel/mark-completed/mark-no-show, reschedule, and/or reassign to a different agent — all with a real double-booking check. */
@@ -44,12 +46,17 @@ export default defineEventHandler(async (event) => {
 
   const nextAgentId = body?.agentId !== undefined ? body.agentId : visit.agentId
   const nextScheduledAt = body?.scheduledAt !== undefined ? body.scheduledAt : visit.scheduledAt
+  const durationChanged = body?.durationMinutes !== undefined && body.durationMinutes !== visit.durationMinutes
   const agentOrTimeChanged = (body?.agentId !== undefined && body.agentId !== visit.agentId) || (body?.scheduledAt !== undefined && body.scheduledAt !== visit.scheduledAt)
 
-  if (agentOrTimeChanged) {
+  if (durationChanged && (!Number.isInteger(body!.durationMinutes) || body!.durationMinutes! < 5 || body!.durationMinutes! > 480)) {
+    throw createError({ statusCode: 422, statusMessage: 'durationMinutes debe ser un entero entre 5 y 480' })
+  }
+
+  if (agentOrTimeChanged || durationChanged) {
     if (!nextScheduledAt || !DATETIME_RE.test(nextScheduledAt)) throw createError({ statusCode: 422, statusMessage: 'scheduledAt inválido' })
     if (nextAgentId) {
-      let durationMinutes = visit.durationMinutes
+      let durationMinutes = durationChanged ? body!.durationMinutes! : visit.durationMinutes
       if (body?.agentId !== undefined && body.agentId !== visit.agentId) {
         const agentRows = await db
           .select({ id: schema.teamMembers.id, name: schema.teamMembers.name, slotDurationMinutes: schema.teamMembers.slotDurationMinutes })
@@ -57,7 +64,8 @@ export default defineEventHandler(async (event) => {
           .where(and(eq(schema.teamMembers.id, nextAgentId), eq(schema.teamMembers.organizationId, orgId)))
           .limit(1)
         if (!agentRows[0]) throw createError({ statusCode: 404, statusMessage: 'Agente no encontrado' })
-        durationMinutes = agentRows[0].slotDurationMinutes
+        // Cambiar de comercial reasigna a su duración por defecto, salvo que este mismo PATCH también fije una duración explícita ("resize" combinado con reasignar).
+        durationMinutes = durationChanged ? body!.durationMinutes! : agentRows[0].slotDurationMinutes
         patch.agentId = agentRows[0].id
         patch.agentName = agentRows[0].name
       }
@@ -70,8 +78,8 @@ export default defineEventHandler(async (event) => {
     } else {
       patch.scheduledAt = nextScheduledAt
     }
-    // Un cambio de hora o de comercial invalida la confirmación que el cliente
-    // ya hubiera dado — igual que se resetean los recordatorios al reprogramar.
+    // Un cambio de hora, de duración o de comercial invalida la confirmación
+    // que el cliente ya hubiera dado — igual que se resetean los recordatorios al reprogramar.
     if (visit.confirmationStatus === 'confirmed') {
       patch.confirmationStatus = 'pending'
       patch.confirmedAt = null

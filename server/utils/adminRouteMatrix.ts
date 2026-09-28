@@ -100,6 +100,9 @@ const RULES: Rule[] = [
   { pattern: /^saas\/visits(?:\/|$)/, resolve: area('crm') },
   // FASE 18: tours (visitas multi-inmueble) — pages/admin/visitas.vue, pestaña Tours.
   { pattern: /^saas\/tours(?:\/|$)/, resolve: area('crm') },
+  // FASE 20: Calendar (pages/admin/visitas.vue, pestaña Calendario) y la búsqueda de inmueble que usa su filtro de Propiedad.
+  { pattern: /^saas\/calendar(?:\/|$)/, resolve: area('crm') },
+  { pattern: /^saas\/properties\/search$/, resolve: fixed('crm', 'read') },
   { pattern: /^saas\/reservations(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/appointments-analytics$/, resolve: area('crm') },
   { pattern: /^saas\/referrals(?:\/|$)/, resolve: area('crm') },
