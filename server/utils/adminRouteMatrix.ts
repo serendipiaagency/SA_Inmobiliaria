@@ -107,6 +107,8 @@ const RULES: Rule[] = [
   { pattern: /^saas\/activity$/, resolve: fixed('crm', 'read') },
   // FASE 22: Tareas (pages/admin/tareas.vue, y la pestaña "Tareas" de la ficha de Cliente).
   { pattern: /^saas\/tasks(?:\/|$)/, resolve: area('crm') },
+  // FASE 23: Ofertas (pestaña "Ofertas" de la ficha de Cliente, y la acción "Crear oferta" en Compatibilidades / resultado de visita).
+  { pattern: /^saas\/offers(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/reservations(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/appointments-analytics$/, resolve: area('crm') },
   { pattern: /^saas\/referrals(?:\/|$)/, resolve: area('crm') },

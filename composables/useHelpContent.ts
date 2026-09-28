@@ -98,6 +98,7 @@ export function useHelpContent() {
         'Un criterio imprescindible incumplido descarta el inmueble y se marca como tal; uno preferible sólo baja el porcentaje.',
         'Si un imprescindible no se puede comprobar, el inmueble no se descarta: sale como "revisar", porque esconderlo por una ficha incompleta haría perder operaciones.',
         '"Seleccionar" y "Descartar" guardan la decisión (el descarte, con motivo). Consultar compatibilidades no guarda nada.',
+        'Con un match "Seleccionado" aparece "Crear oferta": pide el importe y da de alta una oferta real en borrador (CRM → ficha del cliente → pestaña "Ofertas"), ya ligada a esa necesidad y a ese match. No se envía sola — se revisa y se envía desde ahí.',
         'En un inmueble sin características repasadas, lo que no está marcado cuenta como desconocido. Pulsa "He repasado las características" para que a partir de ahí un hueco signifique de verdad "no lo tiene".',
       ],
     },
@@ -142,6 +143,7 @@ export function useHelpContent() {
         'La ficha tiene cuatro pestañas. "Resumen" es su tablero: visitas, operaciones cerradas, volumen, propiedades relacionadas y actividad reciente. "Información" reúne todos los datos guardados. "Propiedades" muestra las viviendas vinculadas. "Actividad" es la cronología completa.',
         'La pestaña "Actividad" combina visitas, operaciones, reservas, contratos, leads y auditoría con los hitos del lead asociado al cliente: asignación o reasignación de comercial, cualificación, necesidad de compra/alquiler dada de alta y decisión sobre un match (seleccionado o descartado, con el motivo si lo hay). Cada hito aparece una sola vez, en el momento en que ocurrió de verdad.',
         'La pestaña "Tareas" muestra el trabajo pendiente sobre esa persona — llamadas, seguimientos, lo que haga falta — y deja crear una nueva con "+ Nueva tarea". "Completar" la cierra; queda también en CRM → Tareas, la vista de todas las tareas de la agencia. Sólo existe si la ficha tiene un Contact moderno vinculado.',
+        'La pestaña "Ofertas" muestra las propuestas económicas donde esta persona es compradora o vendedora, con el importe actual y su estado (Borrador, Enviada, Contraoferta, Aceptada, Rechazada, Retirada, Vencida). "+ Nueva oferta" busca el inmueble (de los dos catálogos) y la crea en borrador; desde ahí se Envía, se registra una Contraoferta con un importe nuevo, se Acepta o se Rechaza. Ningún importe anterior se pierde nunca — el histórico completo de la negociación queda guardado, no sólo el último número.',
         'Las propiedades relacionadas se leen del catálogo **en vivo**: si cambias el precio o la foto en Propiedades (web) o en Propiedades 2ª mano, la ficha del cliente lo refleja al instante, porque aquí no se guarda ninguna copia. Cada tarjeta indica por qué está relacionada (visita, operación, reserva o interés) y te lleva a la ficha original de la propiedad.',
         'El histórico de un cliente (sus visitas, operaciones, reservas y contratos) se cruza por su email, o por su nombre exacto si no tiene email. Rellenar el email hace ese cruce mucho más fiable: es lo que une a esa persona con todo lo demás.',
         '"Editar cliente" abre el mismo editor que usas para dar uno de alta, con validación y aviso de cambios sin guardar. "Nuevo cliente" está en el listado.',
@@ -183,7 +185,7 @@ export function useHelpContent() {
         'La columna "Tipo" distingue el PARA QUÉ de la cita (visita a un inmueble, llamada de seguimiento) del "Canal" (el CÓMO: presencial, videollamada, teléfono) — son dos cosas independientes, una videollamada puede ser perfectamente una visita a un inmueble.',
         'Cada visita genera un enlace de gestión propio para el cliente (confirmar asistencia, cancelar o reprogramar sin necesidad de llamar). Un ✓ verde junto al estado de la fila indica que el cliente ya ha confirmado su asistencia desde ese enlace; reprogramar la cita (desde aquí o desde el enlace del cliente) borra esa confirmación, porque ya no es la misma cita que había confirmado.',
         'Una vez una visita está "Completada" aparece el botón "Anotar resultado": cómo quedó (interesado, se lo piensa, no le convenció) y, si quieres, unas notas de qué dijo o qué observaste. Es tu impresión de esa visita concreta — no cambia la ficha del inmueble ni lo que el cliente dice buscar en sus Necesidades, y se puede corregir cuando quieras volviendo a abrir el mismo botón. Se ve también en la pestaña "Actividad" de la ficha del cliente.',
-        'Al anotar el resultado, "Crear tarea de seguimiento" da de alta una tarea real (CRM → Tareas) con la fecha que elijas, asignada por defecto al mismo comercial de la visita — no es una nota suelta, es trabajo pendiente de verdad.',
+        'Al anotar el resultado, "Crear tarea de seguimiento" da de alta una tarea real (CRM → Tareas) con la fecha que elijas, asignada por defecto al mismo comercial de la visita — no es una nota suelta, es trabajo pendiente de verdad. Si el cliente quiere ofertar, "Crear oferta" pide el importe y crea una oferta real en borrador (ficha del cliente → pestaña "Ofertas"), lista para revisar y enviar.',
         'La pestaña "Tours" agrupa varias citas del mismo cliente en una sola salida guiada (ver dos, tres o más inmuebles seguidos). "+ Nuevo tour" pide los datos del cliente y una fila por parada (inmueble opcional, comercial y hora); cada parada se crea como una cita real, con su propio enlace de gestión, comercial y estado — no se puede reprogramar el tour entero de una vez, cada parada se mueve o cancela por separado, igual que en la vista Lista.',
         'El feed iCal de cada comercial (botón "Suscribirse al calendario") permite verlas en Google Calendar u Outlook.',
         'Las videollamadas usan Jitsi Meet automáticamente si el canal de la cita es "vídeo" — no requiere configuración.',
@@ -863,6 +865,13 @@ export function useHelpContent() {
       answer:
         'No directamente — es un cálculo, no un campo editable. Es la tarea abierta o la cita futura más próxima de ese lead: para cambiarla, crea/completa/cancela una tarea (CRM → Tareas, o "+ Tarea" en su tarjeta) o mueve/cancela su cita en Calendario, y se recalcula sola. Se hizo así a propósito: si se pudiera escribir a mano, podría dejar de coincidir con lo que de verdad hay agendado.',
       tags: ['tareas', 'leads', 'crm', 'next action'],
+    },
+    {
+      id: 'faq-oferta-historial',
+      question: 'Al registrar una contraoferta, ¿se pierde el importe anterior?',
+      answer:
+        'No, nunca. Cada envío, contraoferta o decisión queda como una fila propia en el histórico de la oferta — no se sobrescribe nada. Lo que ves como "importe actual" es sólo la última; toda la negociación completa (quién ofreció qué y cuándo) sigue disponible.',
+      tags: ['ofertas', 'negociación', 'crm'],
     },
     {
       id: 'faq-duplicados',

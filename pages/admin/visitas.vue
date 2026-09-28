@@ -295,6 +295,11 @@
           Crear tarea de seguimiento
         </label>
         <input v-if="outcomeForm.followUp" v-model="outcomeForm.followUpDueAt" type="datetime-local" class="input mt-2" >
+        <label v-if="outcomeVisit?.propertyId" class="mt-3 flex items-center gap-2 text-sm text-stone-600">
+          <input v-model="outcomeForm.createOffer" type="checkbox" >
+          Crear oferta (en borrador)
+        </label>
+        <input v-if="outcomeForm.createOffer" v-model.number="outcomeForm.offerAmount" type="number" min="1" step="1" class="input mt-2" placeholder="Importe (€)" >
         <p v-if="outcomeError" class="mb-3 mt-3 text-sm font-medium text-red-600">{{ outcomeError }}</p>
         <div class="flex justify-end gap-2">
           <button class="btn-secondary" @click="outcomeVisit = null">Cancelar</button>
@@ -809,7 +814,14 @@ async function submitNewTour() {
 }
 
 const outcomeVisit = ref<any>(null)
-const outcomeForm = reactive<{ outcome: string; notes: string; followUp: boolean; followUpDueAt: string }>({ outcome: '', notes: '', followUp: false, followUpDueAt: '' })
+const outcomeForm = reactive<{ outcome: string; notes: string; followUp: boolean; followUpDueAt: string; createOffer: boolean; offerAmount: number | null }>({
+  outcome: '',
+  notes: '',
+  followUp: false,
+  followUpDueAt: '',
+  createOffer: false,
+  offerAmount: null,
+})
 const outcomeError = ref('')
 const savingOutcome = ref(false)
 function openOutcome(v: any) {
@@ -818,12 +830,18 @@ function openOutcome(v: any) {
   outcomeForm.notes = v.outcomeNotes || ''
   outcomeForm.followUp = false
   outcomeForm.followUpDueAt = ''
+  outcomeForm.createOffer = false
+  outcomeForm.offerAmount = null
   outcomeError.value = ''
 }
 async function submitOutcome() {
   if (!outcomeVisit.value || !outcomeForm.outcome) return
   if (outcomeForm.followUp && !outcomeForm.followUpDueAt) {
     outcomeError.value = 'Indica cuándo hacer el seguimiento'
+    return
+  }
+  if (outcomeForm.createOffer && !(outcomeForm.offerAmount! > 0)) {
+    outcomeError.value = 'Indica el importe de la oferta'
     return
   }
   outcomeError.value = ''
@@ -835,6 +853,7 @@ async function submitOutcome() {
         outcome: outcomeForm.outcome,
         notes: outcomeForm.notes || null,
         followUp: outcomeForm.followUp ? { dueAt: outcomeForm.followUpDueAt.replace('T', ' ') + ':00' } : null,
+        createOffer: outcomeForm.createOffer ? { amount: outcomeForm.offerAmount } : null,
       },
     })
     outcomeVisit.value = null

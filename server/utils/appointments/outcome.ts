@@ -4,6 +4,7 @@ import * as schema from '../../db/schema'
 import { now } from '../db'
 import { recordActivity } from '../activity/service'
 import { createTask } from '../tasks/service'
+import { createOffer } from '../offers/service'
 
 /**
  * Resultado de visita (FASE 19, migración 0074).
@@ -36,13 +37,15 @@ export interface RecordVisitOutcomeInput {
   outcome: string
   notes?: string | null
   /**
-   * "Seguimiento" (FASE 22 §56): el único paso siguiente de la maqueta
-   * original de FASE 19 que de verdad crea algo — una Task real. Los demás
-   * ("Segunda visita" ya se resuelve reservando otra cita desde Calendar,
-   * "Oferta"/"Descartar" no tienen disparador propio todavía) no se
-   * inventan aquí.
+   * "Seguimiento" (FASE 22 §56): crea una Task real. "Oferta" (FASE 23 §86):
+   * crea una Offer en borrador vía OfferService — el comercial la revisa y
+   * la envía desde la pestaña "Ofertas" de la ficha del cliente, no se
+   * envía sola. "Segunda visita" se resuelve reservando otra cita desde
+   * Calendar (no necesita un mecanismo propio); "Descartar" no tiene
+   * disparador propio todavía.
    */
   followUp?: { dueAt: string; assigneeId?: number | null; notes?: string | null } | null
+  createOffer?: { amount: number; conditions?: string | null; financeCondition?: string | null; expiration?: string | null } | null
 }
 
 export async function recordVisitOutcome(db: any, orgId: number, visitId: number, input: RecordVisitOutcomeInput, opts: { actorId?: number | null } = {}) {
@@ -99,5 +102,28 @@ export async function recordVisitOutcome(db: any, orgId: number, visitId: number
     )
   }
 
-  return { outcome: input.outcome, outcomeNotes: input.notes?.trim() || null, outcomeRecordedAt: nowTs }
+  let offerId: number | null = null
+  if (input.createOffer) {
+    if (!contactId) throw createError({ statusCode: 422, statusMessage: 'No se puede crear una oferta sin un comprador identificado (esta visita no tiene un contacto vinculado)' })
+    if (!visit.propertyId || !visit.propertyKind) throw createError({ statusCode: 422, statusMessage: 'No se puede crear una oferta sin inmueble' })
+    const offer = await createOffer(
+      db,
+      orgId,
+      {
+        propertyId: visit.propertyId,
+        propertyKind: visit.propertyKind,
+        buyerContactId: contactId,
+        leadId: visit.leadId,
+        commercialId: visit.agentId,
+        amount: input.createOffer.amount,
+        conditions: input.createOffer.conditions,
+        financeCondition: input.createOffer.financeCondition,
+        expiration: input.createOffer.expiration,
+      },
+      { createdBy: opts.actorId ?? null },
+    )
+    offerId = offer.id
+  }
+
+  return { outcome: input.outcome, outcomeNotes: input.notes?.trim() || null, outcomeRecordedAt: nowTs, offerId }
 }

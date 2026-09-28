@@ -93,9 +93,24 @@
               >
                 {{ m.persisted?.status === 'discarded' ? 'Descartado' : 'Descartar' }}
               </button>
+              <button
+                v-if="m.persisted?.status === 'selected' && m.contact"
+                type="button"
+                class="rounded-lg border border-line px-2 py-1 font-medium hover:bg-stone-50"
+                @click="openOfferForm(m)"
+              >
+                Crear oferta
+              </button>
             </div>
           </div>
           <AdminMatchBreakdown :result="m.result" class="mt-3 border-t border-line pt-3" />
+          <div v-if="offerFormFor === m" class="mt-3 flex items-center gap-2 border-t border-line pt-3">
+            <input v-model.number="offerAmount" type="number" min="1" step="1" class="cfg-input" placeholder="Importe de la oferta (€)" >
+            <button type="button" class="btn-primary shrink-0 !px-3 !py-1.5 text-xs" :disabled="!(offerAmount! > 0) || creatingOffer" @click="createOfferFromMatch(m)">
+              {{ creatingOffer ? 'Creando…' : 'Crear' }}
+            </button>
+            <button type="button" class="btn-secondary shrink-0 !px-3 !py-1.5 text-xs" @click="offerFormFor = null">Cancelar</button>
+          </div>
         </AdminPanel>
       </div>
     </template>
@@ -158,6 +173,38 @@ async function markReviewed() {
     toast.success('Características marcadas como revisadas')
   } catch {
     toast.error('No se pudo guardar')
+  }
+}
+
+// --- Crear oferta desde un match seleccionado (FASE 23 §87) ---
+const offerFormFor = ref<any>(null)
+const offerAmount = ref<number | null>(null)
+function openOfferForm(m: any) {
+  offerFormFor.value = m
+  offerAmount.value = current.value?.price ?? null
+}
+const creatingOffer = ref(false)
+async function createOfferFromMatch(m: any) {
+  if (!(offerAmount.value! > 0) || !propertyId.value || !propertyKind.value) return
+  creatingOffer.value = true
+  try {
+    await $fetch('/api/admin/saas/offers', {
+      method: 'POST',
+      body: {
+        propertyId: propertyId.value,
+        propertyKind: propertyKind.value,
+        buyerContactId: m.contact.id,
+        buyerRequirementId: m.requirement.id,
+        matchId: m.persisted.id,
+        amount: offerAmount.value,
+      },
+    })
+    offerFormFor.value = null
+    toast.success('Oferta creada en borrador — revísala y envíala desde la ficha del cliente')
+  } catch (err: any) {
+    toast.error(err?.data?.statusMessage || 'No se pudo crear la oferta')
+  } finally {
+    creatingOffer.value = false
   }
 }
 

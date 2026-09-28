@@ -1911,6 +1911,77 @@ export const tasks = sqliteTable(
   ],
 )
 
+/**
+ * Offer (FASE 23, migración 0078) — propuesta económica negociable.
+ * `currentAmount`/`current*` son una proyección del estado actual; el
+ * histórico real, inmutable, vive en `offerRevisions`. Referencia Contact
+ * real para comprador y vendedor(es) (`offerSellers`) — nunca una entidad
+ * Buyer/Seller paralela, y sin tabla PropertyContact (no existe en este
+ * proyecto): quién es vendedor lo decide quien crea la oferta.
+ */
+export const offers = sqliteTable(
+  'offers',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    propertyId: integer('property_id').notNull(),
+    propertyKind: text('property_kind').notNull(), // agent | developer
+    buyerContactId: integer('buyer_contact_id').notNull(),
+    leadId: integer('lead_id'),
+    buyerRequirementId: integer('buyer_requirement_id'),
+    matchId: integer('match_id'), // property_matches.id
+    commercialId: integer('commercial_id'), // team_members.id
+    currentAmount: real('current_amount').notNull(),
+    currency: text('currency').notNull().default('eur'),
+    currentConditions: text('current_conditions'),
+    currentFinanceCondition: text('current_finance_condition'),
+    expiration: text('expiration'),
+    status: text('status').notNull().default('draft'), // draft | submitted | countered | accepted | rejected | withdrawn | expired
+    currentRevisionId: integer('current_revision_id'),
+    createdBy: integer('created_by'), // users.id
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [
+    index('offers_org_status').on(t.organizationId, t.status),
+    index('offers_property').on(t.propertyId, t.propertyKind),
+    index('offers_buyer_contact').on(t.buyerContactId),
+    index('offers_lead').on(t.leadId),
+    index('offers_commercial').on(t.commercialId),
+  ],
+)
+
+export const offerSellers = sqliteTable(
+  'offer_sellers',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    offerId: integer('offer_id').notNull(),
+    contactId: integer('contact_id').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [uniqueIndex('offer_sellers_unique').on(t.offerId, t.contactId)],
+)
+
+/** Append-only — ningún código de este proyecto hace UPDATE ni DELETE aquí. */
+export const offerRevisions = sqliteTable(
+  'offer_revisions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    offerId: integer('offer_id').notNull(),
+    type: text('type').notNull(), // created | submitted | countered | accepted | rejected | withdrawn | expired
+    amount: real('amount').notNull(),
+    currency: text('currency').notNull(),
+    conditions: text('conditions'),
+    financeCondition: text('finance_condition'),
+    expiration: text('expiration'),
+    actorType: text('actor_type').notNull(), // buyer | seller | user | system
+    actorId: integer('actor_id'),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [index('offer_revisions_offer').on(t.offerId, t.createdAt)],
+)
+
 // ---------------------------------------------------------------------------
 // Asset Export Studio — see migrations/0029 for full column rationale
 // ---------------------------------------------------------------------------
