@@ -116,6 +116,17 @@ export function groupFields(fields: FieldSpec[]): { label: string | null; fields
 }
 
 const PROPERTY_TYPE_OPTIONS = ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio']
+/**
+ * PropertySchemaRegistry (FASE 26) sólo puede resolver un schema distinto de
+ * 'residential' (Land/Commercial/Industrial/Garage/Building) si el propio
+ * selector ofrece esos tipos — si no, el filtrado condicional por schema
+ * (FASE 25) nunca se activa en la práctica. Ampliado sólo en 2ª mano
+ * ('properties'): developer-properties son siempre unidades residenciales
+ * de una promoción, nunca un garaje o un solar sueltos, y su propertyType no
+ * participa del mapeo a schema de todas formas (ver AGENT_PROPERTY_TYPE_TO_SCHEMA
+ * en server/utils/propertySchema/registry.ts).
+ */
+const SECOND_HAND_PROPERTY_TYPE_OPTIONS = [...PROPERTY_TYPE_OPTIONS, 'Land', 'Office', 'Retail', 'Warehouse', 'Garage', 'Building']
 const ORIENTATION_OPTIONS = ['N', 'S', 'E', 'W', 'SE', 'SW', 'NE', 'NW']
 const ENERGY_OPTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 const CONDITION_OPTIONS = ['new', 'excellent', 'good', 'to_renovate', 'to_reform']
@@ -366,7 +377,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'agencyReference', label: 'Referencia de agencia', type: 'text', group: 'Identificación' },
         { key: 'externalSource', label: 'Origen externo', type: 'text', hint: 'De dónde procede si viene de un sistema externo.', group: 'Identificación' },
         { key: 'externalReference', label: 'Referencia externa', type: 'text', group: 'Identificación' },
-        { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, recommended: true, group: 'Clasificación' },
+        { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: SECOND_HAND_PROPERTY_TYPE_OPTIONS, recommended: true, group: 'Clasificación' },
         { key: 'transactionType', label: 'Operación', type: 'select', options: ['sale', 'rent'], optionLabels: { sale: 'Venta', rent: 'Alquiler' }, recommended: true, group: 'Clasificación' },
         { key: 'status', label: 'Estado', type: 'select', options: ['available', 'sold'], optionLabels: { available: 'Disponible', sold: 'Vendida' }, group: 'Clasificación' },
         { key: 'yearBuilt', label: 'Año de construcción', type: 'number', group: 'Clasificación' },

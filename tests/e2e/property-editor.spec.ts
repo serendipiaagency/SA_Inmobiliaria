@@ -8,8 +8,11 @@ import { STATE_A, STATE_B } from './global-setup'
  * puede comprobar en un navegador de verdad: que **los cuatro recorridos**
  * — alta y edición, obra nueva («Propiedades (web)») y segunda mano — son el
  * mismo editor, que lo que se escribe en él acaba en la base de datos tal
- * cual, que **no hay autoguardado** (y que el editor no finge que lo haya), y
- * que el armazón se comporta a ancho de móvil.
+ * cual, que en modo edición **autoguarda de verdad** (FASE 25, mismo patrón
+ * de debounce que el Constructor Web — nunca finge un "Guardado" que no ha
+ * llegado al servidor), que crear sigue exigiendo un submit explícito (no
+ * hay id al que autoguardar hasta que exista la fila), y que el armazón se
+ * comporta a ancho de móvil.
  *
  * La persistencia campo a campo (plan de pagos, orden de la galería, vídeo,
  * ubicación granular, aislamiento entre inmobiliarias) ya está cubierta a
@@ -231,37 +234,38 @@ test.describe('Property Editor — los cuatro recorridos', () => {
     expect(after.city).toBe(before.city)
   })
 
-  test('no hay autoguardado: escribir sin guardar no cambia nada y salir avisa', async ({ page }) => {
+  test('autoguardado real: escribir sin pulsar Guardar acaba persistido solo, tras el debounce', async ({ page }) => {
     const id = existing.properties
     const before = (await (await a.get(`/api/admin/properties/${id}`)).json()).row
+    const newPrice = (before.price || 0) + 1234
 
     await page.goto(`/admin/properties/${id}`)
-    await expect(visible(page, 'property-editor-hint')).toHaveText('Los cambios se guardan al pulsar Guardar.')
+    await expect(visible(page, 'property-editor-hint')).toHaveText('Los cambios se guardan automáticamente.')
 
     await step(page, 'price').click()
-    await page.locator('[data-field="price"] input').fill('1')
+    await page.locator('[data-field="price"] input').fill(String(newPrice))
 
-    // El editor lo dice en los dos sitios en los que se mira.
+    // Justo tras escribir, todavía dentro de la ventana de debounce (FASE 25,
+    // mismo patrón que el Constructor Web): el editor lo enseña en los dos
+    // sitios en los que se mira, y el servidor aún no ha recibido nada.
     await expect(page.getByTestId('property-editor-save-state')).toHaveText('Cambios sin guardar')
-    await expect(visible(page, 'property-editor-hint')).toContainText('sin guardar')
+    const stillOld = (await (await a.get(`/api/admin/properties/${id}`)).json()).row
+    expect(stillOld.price).toBe(before.price)
 
-    // Y, sobre todo, no ha mandado nada: el servidor sigue con el precio viejo.
-    const untouched = (await (await a.get(`/api/admin/properties/${id}`)).json()).row
-    expect(untouched.price).toBe(before.price)
+    // El debounce (1s) se cumple sin tocar ningún botón — nadie pulsa "Guardar".
+    await expect(page.getByTestId('property-editor-save-state')).toHaveText('Guardado', { timeout: 4000 })
+    const saved = (await (await a.get(`/api/admin/properties/${id}`)).json()).row
+    expect(saved.price).toBe(newPrice)
 
-    // Salir con cambios pendientes pide confirmación — si no la pidiera, ese
-    // «1» se perdería en silencio.
-    const messages: string[] = []
+    // Ya guardado de verdad: salir no pide confirmación (isDirty ya es falso).
+    let dialogFired = false
     page.on('dialog', (d) => {
-      messages.push(d.message())
+      dialogFired = true
       d.accept()
     })
     await page.getByRole('link', { name: 'Volver al listado' }).click()
     await expect(page).toHaveURL(/\/admin\/properties$/)
-    expect(messages.join(' ')).toContain('cambios sin guardar')
-
-    const stillUntouched = (await (await a.get(`/api/admin/properties/${id}`)).json()).row
-    expect(stillUntouched.price).toBe(before.price)
+    expect(dialogFired).toBe(false)
   })
 
   test('estancias personalizadas: añadir y editar persiste de inmediato, sin pasar por Guardar', async ({ page }) => {
