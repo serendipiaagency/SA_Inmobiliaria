@@ -71,7 +71,11 @@ test.describe('Propiedades (web) — listado admin', () => {
   })
 
   test('publicar/despublicar cambia publishedAt, y duplicar clona la propiedad con sus datos', async () => {
-    const id = await createProperty({ price: 250000 })
+    // FASE 26 (PropertySchemaRegistry): publicar ya no es un simple toggle —
+    // exige los campos requiredForPublish del schema (país, ciudad,
+    // superficie, portada, descripción), así que la propiedad de prueba
+    // los necesita todos para que este PUT no se rechace con 422.
+    const id = await createProperty({ price: 250000, country: 'España', city: 'Madrid', area: 90, coverImage: 'https://example.com/cover.jpg', description: 'Descripción de prueba E2E' })
     await a.put(`/api/admin/developer-properties/${id}`, { data: { publishedAt: new Date().toISOString() } })
     let row = (await (await a.get(`/api/admin/developer-properties/${id}`)).json()).row
     expect(row.publishedAt).toBeTruthy()
