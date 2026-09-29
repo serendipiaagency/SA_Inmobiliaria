@@ -1,0 +1,339 @@
+import { and, asc, desc, eq, gt, isNotNull, ne } from 'drizzle-orm'
+import { createError } from 'h3'
+import * as schema from '../../db/schema'
+import { now } from '../db'
+import { recordActivity } from '../activity/service'
+import type { PropertyKind } from '../matching/service'
+
+/**
+ * DealService (FASE 24) — el único sitio que crea o transiciona un Deal
+ * Operation (tabla `deal_operations`, distinta de la legacy `deals` — ver
+ * el comentario junto a `dealOperations` en server/db/schema.ts y
+ * docs/deals.md).
+ *
+ * Lead ≠ Offer ≠ Deal (§93): Lead es la oportunidad, Offer la negociación,
+ * Deal la operación ya en ejecución/cierre. Nunca se crea en automático de
+ * forma irreversible (§94): nace de "Crear operación" sobre una Offer ya
+ * `accepted`, nunca al aceptarla — una por oferta (índice único
+ * `deal_operations_accepted_offer`).
+ */
+
+export const DEAL_STAGES = ['accepted_offer', 'reservation', 'deposit_contract', 'financing', 'documentation', 'notary', 'signature', 'closed'] as const
+export type DealStage = (typeof DEAL_STAGES)[number]
+
+export const DEAL_STATUSES = ['active', 'closed', 'cancelled'] as const
+export type DealStatus = (typeof DEAL_STATUSES)[number]
+
+export interface DealRow {
+  id: number
+  organizationId: number
+  propertyId: number
+  propertyKind: string
+  buyerContactId: number
+  acceptedOfferId: number
+  leadId: number | null
+  buyerRequirementId: number | null
+  commercialId: number | null
+  stage: string
+  status: string
+  agreedAmount: number
+  currency: string
+  openedAt: string
+  closedAt: string | null
+  cancelledAt: string | null
+  cancelReason: string | null
+  legacyDealId: number | null
+  createdBy: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+interface ActorOpts {
+  actorType: 'user' | 'system'
+  actorId?: number | null
+}
+
+async function recordDealActivity(db: any, orgId: number, deal: DealRow, eventType: string, actor: ActorOpts, metadata?: Record<string, unknown>) {
+  await recordActivity(db, orgId, {
+    eventType: eventType as any,
+    entityType: 'deal',
+    entityId: deal.id,
+    contactId: deal.buyerContactId,
+    leadId: deal.leadId,
+    propertyId: deal.propertyId,
+    propertyKind: deal.propertyKind as PropertyKind,
+    actorType: actor.actorType,
+    actorId: actor.actorId ?? null,
+    metadata,
+  })
+}
+
+async function getDealOrThrow(db: any, orgId: number, dealId: number): Promise<DealRow> {
+  const rows = await db.select().from(schema.dealOperations).where(and(eq(schema.dealOperations.id, dealId), eq(schema.dealOperations.organizationId, orgId))).limit(1)
+  if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Operación no encontrada' })
+  return rows[0]
+}
+
+/**
+ * Crea el Deal Operation a partir de una Offer ya `accepted` — nunca al
+ * aceptarla. Copia importe/moneda y compradores/vendedores de la oferta
+ * (§103/§104: no sólo el importe, la oferta aceptada queda vinculada de
+ * verdad).
+ */
+export async function createDeal(db: any, orgId: number, input: { acceptedOfferId: number }, opts: { createdBy?: number | null } = {}): Promise<DealRow> {
+  const offerRows = await db.select().from(schema.offers).where(and(eq(schema.offers.id, input.acceptedOfferId), eq(schema.offers.organizationId, orgId))).limit(1)
+  const offer = offerRows[0]
+  if (!offer) throw createError({ statusCode: 404, statusMessage: 'Oferta no encontrada' })
+  if (offer.status !== 'accepted') throw createError({ statusCode: 422, statusMessage: 'Sólo se puede crear una operación a partir de una oferta aceptada' })
+
+  const existing = await db.select({ id: schema.dealOperations.id }).from(schema.dealOperations).where(eq(schema.dealOperations.acceptedOfferId, offer.id)).limit(1)
+  if (existing[0]) throw createError({ statusCode: 409, statusMessage: 'Ya existe una operación para esta oferta' })
+
+  const sellerRows = await db.select({ contactId: schema.offerSellers.contactId }).from(schema.offerSellers).where(eq(schema.offerSellers.offerId, offer.id))
+
+  const nowTs = now()
+  const [deal] = await db
+    .insert(schema.dealOperations)
+    .values({
+      organizationId: orgId,
+      propertyId: offer.propertyId,
+      propertyKind: offer.propertyKind,
+      buyerContactId: offer.buyerContactId,
+      acceptedOfferId: offer.id,
+      leadId: offer.leadId,
+      buyerRequirementId: offer.buyerRequirementId,
+      commercialId: offer.commercialId,
+      stage: 'accepted_offer',
+      status: 'active',
+      agreedAmount: offer.currentAmount,
+      currency: offer.currency,
+      openedAt: nowTs,
+      createdBy: opts.createdBy ?? null,
+      createdAt: nowTs,
+      updatedAt: nowTs,
+    })
+    .returning()
+
+  if (sellerRows.length) {
+    await db.insert(schema.dealOperationSellers).values(sellerRows.map((r: any) => ({ dealOperationId: deal.id, contactId: r.contactId, createdAt: nowTs })))
+  }
+
+  await db.insert(schema.dealOperationStageHistory).values({ organizationId: orgId, dealOperationId: deal.id, fromStage: null, toStage: 'accepted_offer', actorType: 'user', actorId: opts.createdBy ?? null, createdAt: nowTs })
+
+  await recordDealActivity(db, orgId, deal, 'DEAL_CREATED', { actorType: 'user', actorId: opts.createdBy ?? null })
+  return deal
+}
+
+/** Mueve de etapa (nunca a `closed` — eso es `closeDeal()`, que además cierra la operación y sincroniza el inmueble). Sólo sobre un Deal `active`. */
+export async function transitionDealStage(db: any, orgId: number, dealId: number, toStage: DealStage, opts: ActorOpts & { reason?: string | null }): Promise<DealRow> {
+  if (toStage === 'closed') throw createError({ statusCode: 422, statusMessage: 'Para cerrar la operación usa la acción "Cerrar", no un cambio de etapa' })
+  if (!(DEAL_STAGES as readonly string[]).includes(toStage)) throw createError({ statusCode: 422, statusMessage: 'Etapa no reconocida' })
+
+  const deal = await getDealOrThrow(db, orgId, dealId)
+  if (deal.status !== 'active') throw createError({ statusCode: 422, statusMessage: 'Esta operación ya no está activa' })
+
+  const nowTs = now()
+  await db.insert(schema.dealOperationStageHistory).values({ organizationId: orgId, dealOperationId: dealId, fromStage: deal.stage, toStage, actorType: opts.actorType, actorId: opts.actorId ?? null, reason: opts.reason ?? null, createdAt: nowTs })
+  await db.update(schema.dealOperations).set({ stage: toStage, updatedAt: nowTs }).where(eq(schema.dealOperations.id, dealId))
+
+  const updated: DealRow = { ...deal, stage: toStage, updatedAt: nowTs }
+  await recordDealActivity(db, orgId, updated, 'DEAL_STAGE_CHANGED', opts, { fromStage: deal.stage, toStage })
+  return updated
+}
+
+/**
+ * §112: sólo toca el estado del inmueble cuando el catálogo tiene de verdad
+ * un valor que lo represente — nunca se inventa uno. `agent_properties` sí
+ * tiene `status: available|sold` para `transactionType: 'sale'`; no existe
+ * un valor "rented" en ningún catálogo, ni ningún estado de venta en
+ * `developer_properties` (su `status` es sólo fase de construcción). En
+ * esos casos, deliberadamente, no se toca nada — ver docs/deals.md.
+ */
+async function syncPropertyStatusOnClose(db: any, orgId: number, propertyId: number, propertyKind: string) {
+  if (propertyKind !== 'agent') return
+  const rows = await db.select({ transactionType: schema.agentProperties.transactionType }).from(schema.agentProperties).where(and(eq(schema.agentProperties.id, propertyId), eq(schema.agentProperties.organizationId, orgId))).limit(1)
+  if (rows[0]?.transactionType === 'sale') {
+    await db.update(schema.agentProperties).set({ status: 'sold' }).where(eq(schema.agentProperties.id, propertyId))
+  }
+}
+
+/** Mismo criterio de catálogo que `adminCreate.ts` usa para citas: nombre visible + `transactionType` real, sin inventar uno cuando el inmueble no aparece. */
+async function resolvePropertyNameAndType(db: any, orgId: number, propertyId: number, propertyKind: string): Promise<{ name: string | null; transactionType: string | null }> {
+  if (propertyKind === 'agent') {
+    const rows = await db
+      .select({ reference: schema.agentProperties.reference, street: schema.agentProperties.street, streetNumber: schema.agentProperties.streetNumber, transactionType: schema.agentProperties.transactionType })
+      .from(schema.agentProperties)
+      .where(and(eq(schema.agentProperties.id, propertyId), eq(schema.agentProperties.organizationId, orgId)))
+      .limit(1)
+    const row = rows[0]
+    if (!row) return { name: null, transactionType: null }
+    return { name: row.reference || [row.street, row.streetNumber].filter(Boolean).join(' ') || null, transactionType: row.transactionType }
+  }
+  const rows = await db
+    .select({ name: schema.developerProperties.name, transactionType: schema.developerProperties.transactionType })
+    .from(schema.developerProperties)
+    .where(and(eq(schema.developerProperties.id, propertyId), eq(schema.developerProperties.organizationId, orgId)))
+    .limit(1)
+  const row = rows[0]
+  return { name: row?.name ?? null, transactionType: row?.transactionType ?? null }
+}
+
+/**
+ * Puente al cierre, una sola dirección (ver comentario junto a
+ * `dealOperations` en schema.ts y docs/deals.md): crea un apunte en la
+ * tabla legacy `deals` para que los informes de comisiones ya existentes
+ * (`deals-revenue.get.ts`, `pages/admin/operaciones.vue`) vean también lo
+ * cerrado por este pipeline nuevo, sin tocar su esquema ni sus
+ * consumidores. Este pipeline nunca lee de vuelta esa tabla.
+ * `commissionRate`/`commissionAmount` nacen en 0 — el admin los rellena
+ * luego con el PATCH legacy ya existente, igual que con un cierre manual.
+ */
+async function bridgeToLegacyDeal(db: any, orgId: number, deal: DealRow): Promise<number | null> {
+  const [buyerRows, agentRows, propertyInfo] = await Promise.all([
+    db.select({ name: schema.contacts.name }).from(schema.contacts).where(eq(schema.contacts.id, deal.buyerContactId)).limit(1),
+    deal.commercialId
+      ? db.select({ name: schema.teamMembers.name }).from(schema.teamMembers).where(eq(schema.teamMembers.id, deal.commercialId)).limit(1)
+      : Promise.resolve([] as { name: string }[]),
+    resolvePropertyNameAndType(db, orgId, deal.propertyId, deal.propertyKind),
+  ])
+
+  const clientName = buyerRows[0]?.name || 'Comprador'
+  const agentName = agentRows[0]?.name ?? null
+  const dealType = propertyInfo.transactionType === 'rent' ? 'rental' : 'sale'
+  const nowTs = now()
+
+  const [row] = await db
+    .insert(schema.deals)
+    .values({
+      organizationId: orgId,
+      leadId: deal.leadId,
+      clientName,
+      propertyId: deal.propertyId,
+      propertyName: propertyInfo.name,
+      agentId: deal.commercialId,
+      agentName,
+      dealType,
+      dealValue: deal.agreedAmount,
+      commissionRate: 0,
+      commissionAmount: 0,
+      closedAt: (deal.closedAt || nowTs).slice(0, 10),
+      createdBy: deal.createdBy,
+      createdAt: nowTs,
+    })
+    .returning()
+
+  return row?.id ?? null
+}
+
+/** Cierra la operación: `closedAt`, Activity, sincroniza el estado del inmueble cuando el catálogo lo soporta de verdad (§111/§112), y crea el puente al informe de comisiones legacy. */
+export async function closeDeal(db: any, orgId: number, dealId: number, opts: ActorOpts & { reason?: string | null }): Promise<DealRow> {
+  const deal = await getDealOrThrow(db, orgId, dealId)
+  if (deal.status !== 'active') throw createError({ statusCode: 422, statusMessage: 'Esta operación ya no está activa' })
+
+  const nowTs = now()
+  await db.insert(schema.dealOperationStageHistory).values({ organizationId: orgId, dealOperationId: dealId, fromStage: deal.stage, toStage: 'closed', actorType: opts.actorType, actorId: opts.actorId ?? null, reason: opts.reason ?? null, createdAt: nowTs })
+  await db.update(schema.dealOperations).set({ stage: 'closed', status: 'closed', closedAt: nowTs, updatedAt: nowTs }).where(eq(schema.dealOperations.id, dealId))
+  await syncPropertyStatusOnClose(db, orgId, deal.propertyId, deal.propertyKind)
+
+  let updated: DealRow = { ...deal, stage: 'closed', status: 'closed', closedAt: nowTs, updatedAt: nowTs }
+
+  const legacyDealId = await bridgeToLegacyDeal(db, orgId, updated)
+  if (legacyDealId != null) {
+    await db.update(schema.dealOperations).set({ legacyDealId }).where(eq(schema.dealOperations.id, dealId))
+    updated = { ...updated, legacyDealId }
+  }
+
+  await recordDealActivity(db, orgId, updated, 'DEAL_CLOSED', opts, legacyDealId != null ? { legacyDealId } : undefined)
+  return updated
+}
+
+/** Cancela sin borrar nada (§114): histórico, Offer, Appointments, Tasks y Activity quedan intactos. */
+export async function cancelDeal(db: any, orgId: number, dealId: number, opts: ActorOpts & { reason: string }): Promise<DealRow> {
+  const deal = await getDealOrThrow(db, orgId, dealId)
+  if (deal.status !== 'active') throw createError({ statusCode: 422, statusMessage: 'Esta operación ya no está activa' })
+
+  const nowTs = now()
+  await db.update(schema.dealOperations).set({ status: 'cancelled', cancelledAt: nowTs, cancelReason: opts.reason, updatedAt: nowTs }).where(eq(schema.dealOperations.id, dealId))
+
+  const updated: DealRow = { ...deal, status: 'cancelled', cancelledAt: nowTs, cancelReason: opts.reason, updatedAt: nowTs }
+  await recordDealActivity(db, orgId, updated, 'DEAL_CANCELLED', opts, { reason: opts.reason })
+  return updated
+}
+
+export interface ListDealsFilter {
+  propertyId?: number
+  propertyKind?: PropertyKind
+  buyerContactId?: number
+  sellerContactId?: number
+  leadId?: number
+  commercialId?: number
+  status?: DealStatus
+  stage?: DealStage
+}
+
+export async function listDeals(db: any, orgId: number, filter: ListDealsFilter = {}): Promise<DealRow[]> {
+  const conditions = [eq(schema.dealOperations.organizationId, orgId)]
+  if (filter.propertyId) {
+    conditions.push(eq(schema.dealOperations.propertyId, filter.propertyId))
+    if (filter.propertyKind) conditions.push(eq(schema.dealOperations.propertyKind, filter.propertyKind))
+  }
+  if (filter.buyerContactId) conditions.push(eq(schema.dealOperations.buyerContactId, filter.buyerContactId))
+  if (filter.leadId) conditions.push(eq(schema.dealOperations.leadId, filter.leadId))
+  if (filter.commercialId) conditions.push(eq(schema.dealOperations.commercialId, filter.commercialId))
+  if (filter.status) conditions.push(eq(schema.dealOperations.status, filter.status))
+  if (filter.stage) conditions.push(eq(schema.dealOperations.stage, filter.stage))
+
+  if (filter.sellerContactId) {
+    const sellerRows = await db.select({ dealOperationId: schema.dealOperationSellers.dealOperationId }).from(schema.dealOperationSellers).where(eq(schema.dealOperationSellers.contactId, filter.sellerContactId))
+    const dealIds = new Set(sellerRows.map((r: any) => r.dealOperationId))
+    if (!dealIds.size) return []
+    const rows = await db
+      .select()
+      .from(schema.dealOperations)
+      .where(and(...conditions))
+      .orderBy(desc(schema.dealOperations.id))
+    return (rows as DealRow[]).filter((r) => dealIds.has(r.id))
+  }
+
+  return db
+    .select()
+    .from(schema.dealOperations)
+    .where(and(...conditions))
+    .orderBy(desc(schema.dealOperations.id))
+}
+
+/**
+ * Ficha de la operación: histórico de etapa, vendedores, y su próxima
+ * acción derivada de sus Tasks/Appointments — sin ningún sistema de
+ * seguimiento nuevo (§122), la misma tabla `tasks`/`visits` que ya
+ * consume Lead (FASE 22), filtrada por `dealId`.
+ */
+export async function getDealDetail(db: any, orgId: number, dealId: number) {
+  const deal = await getDealOrThrow(db, orgId, dealId)
+
+  const [sellerRows, stageHistory, appointments, tasks] = await Promise.all([
+    db.select({ contactId: schema.dealOperationSellers.contactId }).from(schema.dealOperationSellers).where(eq(schema.dealOperationSellers.dealOperationId, dealId)),
+    db.select().from(schema.dealOperationStageHistory).where(eq(schema.dealOperationStageHistory.dealOperationId, dealId)).orderBy(schema.dealOperationStageHistory.createdAt),
+    db.select().from(schema.visits).where(eq(schema.visits.dealId, dealId)).orderBy(desc(schema.visits.scheduledAt)),
+    db.select().from(schema.tasks).where(eq(schema.tasks.dealId, dealId)).orderBy(desc(schema.tasks.id)),
+  ])
+
+  const nowTs = now()
+  const [nextTask] = await db
+    .select({ type: schema.tasks.type, dueAt: schema.tasks.dueAt })
+    .from(schema.tasks)
+    .where(and(eq(schema.tasks.dealId, dealId), ne(schema.tasks.status, 'completed'), ne(schema.tasks.status, 'cancelled'), isNotNull(schema.tasks.dueAt)))
+    .orderBy(asc(schema.tasks.dueAt))
+    .limit(1)
+  const [nextVisit] = await db
+    .select({ type: schema.visits.type, scheduledAt: schema.visits.scheduledAt })
+    .from(schema.visits)
+    .where(and(eq(schema.visits.dealId, dealId), eq(schema.visits.status, 'scheduled'), gt(schema.visits.scheduledAt, nowTs)))
+    .orderBy(asc(schema.visits.scheduledAt))
+    .limit(1)
+  let nextAction: { type: string; at: string } | null = null
+  if (nextTask && (!nextVisit || nextTask.dueAt <= nextVisit.scheduledAt)) nextAction = { type: `task:${nextTask.type}`, at: nextTask.dueAt }
+  else if (nextVisit) nextAction = { type: `appointment:${nextVisit.type}`, at: nextVisit.scheduledAt }
+
+  return { deal, sellerContactIds: sellerRows.map((r: any) => r.contactId), stageHistory, appointments, tasks, nextAction }
+}

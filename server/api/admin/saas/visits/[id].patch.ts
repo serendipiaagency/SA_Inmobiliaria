@@ -9,7 +9,7 @@ import { recordActivity } from '../../../../utils/activity/service'
 import { syncLeadNextAction } from '../../../../utils/leads/nextAction'
 
 const VALID_STATUSES = ['scheduled', 'completed', 'cancelled', 'no_show'] as const
-const VALID_TYPES = ['property_viewing', 'call', 'other'] as const
+const VALID_TYPES = ['property_viewing', 'call', 'notary', 'other'] as const
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
 
 interface PatchVisitBody {

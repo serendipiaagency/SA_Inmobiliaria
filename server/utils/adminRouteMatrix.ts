@@ -109,6 +109,12 @@ const RULES: Rule[] = [
   { pattern: /^saas\/tasks(?:\/|$)/, resolve: area('crm') },
   // FASE 23: Ofertas (pestaña "Ofertas" de la ficha de Cliente, y la acción "Crear oferta" en Compatibilidades / resultado de visita).
   { pattern: /^saas\/offers(?:\/|$)/, resolve: area('crm') },
+  // FASE 24: Deal Operations — pipeline de negociación (pestaña "Operaciones" de
+  // la ficha de Cliente, y "Crear operación" desde una oferta aceptada). Ruta
+  // deliberadamente distinta de `saas/deals` (ver más abajo, área finance):
+  // esa es la tabla legacy de operaciones YA CERRADAS para comisiones —
+  // `pages/admin/operaciones.vue` — una entidad distinta que ya existía.
+  { pattern: /^saas\/deal-operations(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/reservations(?:\/|$)/, resolve: area('crm') },
   { pattern: /^saas\/appointments-analytics$/, resolve: area('crm') },
   { pattern: /^saas\/referrals(?:\/|$)/, resolve: area('crm') },

@@ -140,10 +140,11 @@ export function useHelpContent() {
       steps: [
         'El listado busca por nombre, email, teléfono o ubicación a la vez, y filtra por tipo, estado y comercial responsable. Cada fila muestra el contacto, el estado, quién lo lleva y su actividad real (visitas, operaciones y cuándo fue lo último).',
         'Pulsa el nombre de un cliente — o "Ver perfil" en el menú "···" — para abrir su ficha completa. No es una ventana emergente: es una página propia, con su URL, que puedes compartir con tu equipo.',
-        'La ficha tiene cuatro pestañas. "Resumen" es su tablero: visitas, operaciones cerradas, volumen, propiedades relacionadas y actividad reciente. "Información" reúne todos los datos guardados. "Propiedades" muestra las viviendas vinculadas. "Actividad" es la cronología completa.',
+        'La ficha se organiza en pestañas. "Resumen" es su tablero: visitas, operaciones cerradas, volumen, propiedades relacionadas y actividad reciente. "Información" reúne todos los datos guardados. "Propiedades" muestra las viviendas vinculadas. "Actividad" es la cronología completa.',
         'La pestaña "Actividad" combina visitas, operaciones, reservas, contratos, leads y auditoría con los hitos del lead asociado al cliente: asignación o reasignación de comercial, cualificación, necesidad de compra/alquiler dada de alta y decisión sobre un match (seleccionado o descartado, con el motivo si lo hay). Cada hito aparece una sola vez, en el momento en que ocurrió de verdad.',
         'La pestaña "Tareas" muestra el trabajo pendiente sobre esa persona — llamadas, seguimientos, lo que haga falta — y deja crear una nueva con "+ Nueva tarea". "Completar" la cierra; queda también en CRM → Tareas, la vista de todas las tareas de la agencia. Sólo existe si la ficha tiene un Contact moderno vinculado.',
         'La pestaña "Ofertas" muestra las propuestas económicas donde esta persona es compradora o vendedora, con el importe actual y su estado (Borrador, Enviada, Contraoferta, Aceptada, Rechazada, Retirada, Vencida). "+ Nueva oferta" busca el inmueble (de los dos catálogos) y la crea en borrador; desde ahí se Envía, se registra una Contraoferta con un importe nuevo, se Acepta o se Rechaza. Ningún importe anterior se pierde nunca — el histórico completo de la negociación queda guardado, no sólo el último número.',
+        'Cuando una oferta llega a "Aceptada", aparece el botón "Crear operación" — nunca ocurre solo. Abre la ficha de la Operación (etapas desde "Oferta aceptada" hasta "Cerrada", pasando por reserva, arras, financiación, documentación, notaría y firma), con su propio timeline, tareas y citas — las de notaría/firma son citas reales, así que salen también en CRM → Visitas. La pestaña "Operaciones" de este cliente lista las suyas, como comprador o como vendedor. No confundir con "Operaciones" (Finanzas & Growth → Operaciones): esa es el registro plano de comisiones ya cerradas; ésta es el seguimiento de la operación mientras está en marcha. Al cerrarla aquí, se crea automáticamente su fila en "Operaciones" (con comisión en 0, a rellenar), así que también cuenta en Ingresos sin tener que darla de alta dos veces.',
         'Las propiedades relacionadas se leen del catálogo **en vivo**: si cambias el precio o la foto en Propiedades (web) o en Propiedades 2ª mano, la ficha del cliente lo refleja al instante, porque aquí no se guarda ninguna copia. Cada tarjeta indica por qué está relacionada (visita, operación, reserva o interés) y te lleva a la ficha original de la propiedad.',
         'El histórico de un cliente (sus visitas, operaciones, reservas y contratos) se cruza por su email, o por su nombre exacto si no tiene email. Rellenar el email hace ese cruce mucho más fiable: es lo que une a esa persona con todo lo demás.',
         '"Editar cliente" abre el mismo editor que usas para dar uno de alta, con validación y aviso de cambios sin guardar. "Nuevo cliente" está en el listado.',
@@ -428,6 +429,7 @@ export function useHelpContent() {
         'Pulsa "Registrar operación", indica cliente, tipo (venta/alquiler), valor y porcentaje de comisión.',
         'La comisión se calcula sola; márcala como "pagada" cuando la liquides con el comercial.',
         'Estos datos alimentan directamente el panel de Ingresos.',
+        'Cerrar una operación desde la ficha de un cliente (CRM → Clientes → pestaña "Operaciones") crea aquí su fila automáticamente, con la comisión en 0 — complétala tú con el % real. No hace falta registrarla dos veces.',
       ],
     },
     {
@@ -872,6 +874,13 @@ export function useHelpContent() {
       answer:
         'No, nunca. Cada envío, contraoferta o decisión queda como una fila propia en el histórico de la oferta — no se sobrescribe nada. Lo que ves como "importe actual" es sólo la última; toda la negociación completa (quién ofreció qué y cuándo) sigue disponible.',
       tags: ['ofertas', 'negociación', 'crm'],
+    },
+    {
+      id: 'faq-operacion-vs-operaciones-cerradas',
+      question: '¿Por qué hay dos sitios que hablan de "operaciones"?',
+      answer:
+        'Son dos cosas distintas. La pestaña "Operaciones" en la ficha del cliente es el seguimiento de una operación mientras está en marcha: etapas desde la oferta aceptada hasta el cierre, con sus tareas y citas propias. "Operaciones" en Finanzas & Growth es el registro plano de ventas/alquileres ya cerrados, para calcular comisiones — existía antes y sigue siendo la fuente de Ingresos. Al cerrar una operación desde la ficha del cliente, se crea sola su fila ahí (con comisión en 0, a completar), así que no hay que registrarla dos veces.',
+      tags: ['operaciones', 'deal', 'comisiones', 'crm'],
     },
     {
       id: 'faq-duplicados',

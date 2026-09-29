@@ -1130,9 +1130,16 @@ export const visits = sqliteTable(
     externalCalendarId: text('external_calendar_id'),
     externalEventId: text('external_event_id'),
     calendarSyncStatus: text('calendar_sync_status'),
+    /** FASE 24, migración 0079. Una cita de notaría/firma de un Deal — sigue siendo una Appointment real, aparece en Calendar sin ningún mecanismo aparte. */
+    dealId: integer('deal_id'),
     createdAt: text('created_at').notNull().default(''),
   },
-  (t) => [index('visits_status').on(t.status), index('visits_agent_scheduled').on(t.agentId, t.scheduledAt), index('visits_tour').on(t.tourId, t.tourStopOrder)],
+  (t) => [
+    index('visits_status').on(t.status),
+    index('visits_agent_scheduled').on(t.agentId, t.scheduledAt),
+    index('visits_tour').on(t.tourId, t.tourStopOrder),
+    index('visits_deal').on(t.dealId),
+  ],
 )
 
 /**
@@ -1980,6 +1987,90 @@ export const offerRevisions = sqliteTable(
     createdAt: text('created_at').notNull(),
   },
   (t) => [index('offer_revisions_offer').on(t.offerId, t.createdAt)],
+)
+
+/**
+ * Deal Operation (FASE 24, migración 0079) — la operación en
+ * ejecución/cierre. Distinta de Lead (oportunidad) y Offer (negociación).
+ * Nace de una acción real ("Crear operación") sobre una Offer ya
+ * `accepted` — nunca automática (§94 del encargo) — una por oferta (índice
+ * único). `agreedAmount`/`currency` se copian de la oferta aceptada al
+ * crear.
+ *
+ * Nombrada `dealOperations`/`deal_operations`, no `deals`: ya existe una
+ * tabla `deals` (más abajo, junto a `valuations`) — el registro plano de
+ * una venta/alquiler YA CERRADA para comisiones (`pages/admin/operaciones.vue`,
+ * `deals-revenue.get.ts`), sembrada y con consumidores reales desde antes de
+ * esta FASE. Son dos entidades distintas: aquélla es un apunte contable
+ * histórico sin pipeline; ésta es la operación completa, con etapas,
+ * comprador/vendedor reales y su propia oferta aceptada. `closeDeal()` en
+ * `server/utils/deals/service.ts` crea un apunte en la tabla legacy `deals`
+ * al cerrar — así los informes de comisiones ya existentes ven también lo
+ * cerrado por este pipeline, sin tocar su esquema ni sus consumidores. Ver
+ * docs/deals.md.
+ */
+export const dealOperations = sqliteTable(
+  'deal_operations',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    propertyId: integer('property_id').notNull(),
+    propertyKind: text('property_kind').notNull(), // agent | developer
+    buyerContactId: integer('buyer_contact_id').notNull(),
+    acceptedOfferId: integer('accepted_offer_id').notNull(),
+    leadId: integer('lead_id'),
+    buyerRequirementId: integer('buyer_requirement_id'),
+    commercialId: integer('commercial_id'), // team_members.id
+    stage: text('stage').notNull().default('accepted_offer'), // accepted_offer | reservation | deposit_contract | financing | documentation | notary | signature | closed
+    status: text('status').notNull().default('active'), // active | closed | cancelled
+    agreedAmount: real('agreed_amount').notNull(),
+    currency: text('currency').notNull(),
+    openedAt: text('opened_at').notNull(),
+    closedAt: text('closed_at'),
+    cancelledAt: text('cancelled_at'),
+    cancelReason: text('cancel_reason'),
+    /** El apunte que este cierre creó en la tabla legacy `deals`, si lo creó — trazabilidad del puente entre las dos. */
+    legacyDealId: integer('legacy_deal_id'),
+    createdBy: integer('created_by'), // users.id
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [
+    uniqueIndex('deal_operations_accepted_offer').on(t.acceptedOfferId),
+    index('deal_operations_org_status').on(t.organizationId, t.status),
+    index('deal_operations_property').on(t.propertyId, t.propertyKind),
+    index('deal_operations_buyer_contact').on(t.buyerContactId),
+    index('deal_operations_commercial').on(t.commercialId),
+    index('deal_operations_stage').on(t.stage),
+  ],
+)
+
+export const dealOperationSellers = sqliteTable(
+  'deal_operation_sellers',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    dealOperationId: integer('deal_operation_id').notNull(),
+    contactId: integer('contact_id').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [uniqueIndex('deal_operation_sellers_unique').on(t.dealOperationId, t.contactId)],
+)
+
+/** Append-only, mismo principio que leadStageHistory (FASE 13) — nunca se sobrescribe un movimiento de etapa anterior. */
+export const dealOperationStageHistory = sqliteTable(
+  'deal_operation_stage_history',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    dealOperationId: integer('deal_operation_id').notNull(),
+    fromStage: text('from_stage'), // NULL en la primera fila (creación)
+    toStage: text('to_stage').notNull(),
+    actorType: text('actor_type').notNull(), // user | system
+    actorId: integer('actor_id'),
+    reason: text('reason'),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [index('deal_operation_stage_history_deal').on(t.dealOperationId, t.createdAt)],
 )
 
 // ---------------------------------------------------------------------------

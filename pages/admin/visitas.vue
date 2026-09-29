@@ -713,7 +713,7 @@ function channelLabel(c: string) {
   return { in_person: 'Presencial', video: 'Videollamada', phone: 'Teléfono' }[c] || c
 }
 function typeLabel(t: string) {
-  return { property_viewing: 'Visita a inmueble', call: 'Llamada de seguimiento', other: 'Otro' }[t] || t
+  return { property_viewing: 'Visita a inmueble', call: 'Llamada de seguimiento', notary: 'Notaría/Firma', other: 'Otro' }[t] || t
 }
 const OUTCOME_OPTIONS = [
   { value: 'interested', label: 'Interesado — sigue adelante' },
