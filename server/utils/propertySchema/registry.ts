@@ -245,7 +245,13 @@ const NEW_DEVELOPMENT = sectionsFor([
       internalRule('externalReference'),
       internalRule('agencyReference'),
       rule('name', { requiredForSave: true, requiredForPublish: true, requiredForPortal: true }),
-      rule('transactionType', { requiredForSave: true, requiredForPublish: true, requiredForPortal: true }),
+      // NOT requiredForSave: developer_properties.transaction_type es NOT
+      // NULL DEFAULT 'sale' en la base de datos — un create que no lo envía
+      // (el caso normal, confirmado por e2e real) sigue quedando con un
+      // valor válido vía el default de la columna. Exigirlo aquí rompía
+      // exactamente esos creates legítimos sin aportar ninguna protección
+      // real (la columna nunca queda vacía de todas formas).
+      rule('transactionType', { requiredForPublish: true, requiredForPortal: true }),
       internalRule('developerId', { requiredForSave: true }),
     ],
   },
