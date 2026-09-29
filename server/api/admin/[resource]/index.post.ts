@@ -5,6 +5,7 @@ import { logAdminAction } from '../../../utils/audit'
 import { authorizeRecord } from '../../../utils/tenantPolicy'
 import { validatePermissionsInput } from '../../../utils/permissions'
 import { describeUserCreation } from '../../../utils/sensitiveAudit'
+import { getPropertySchemaFor, validateAgainstSchema } from '../../../utils/propertySchema/registry'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -44,6 +45,13 @@ export default defineEventHandler(async (event) => {
   }
   if (def.tenantPolicy.type === 'direct' && orgId != null) {
     data[def.tenantPolicy.organizationField ?? 'organizationId'] = orgId
+  }
+  // PropertySchemaRegistry (FASE 26) — modo 'save' únicamente: una Property
+  // incompleta debe poder crearse como borrador (§21); ver docs/property-schema-registry.md.
+  if (key === 'properties' || key === 'developer-properties') {
+    const propertySchema = getPropertySchemaFor(key === 'developer-properties' ? 'developer' : 'agent', data.propertyType ?? null)
+    const result = validateAgainstSchema(propertySchema, data, 'save')
+    if (!result.ok) throw createError({ statusCode: 422, statusMessage: `Faltan campos obligatorios para guardar: ${result.missingForSave.join(', ')}` })
   }
   const inserted = await db.insert(def.table).values(data).returning({ id: def.table.id })
   const id = inserted[0]?.id

@@ -7,6 +7,7 @@ import { fireAutomationRules } from '../../../utils/publication/automations'
 import { authorizeRecord, buildTenantWhere } from '../../../utils/tenantPolicy'
 import { validatePermissionsInput } from '../../../utils/permissions'
 import { describeOrganizationChanges, describeUserChanges } from '../../../utils/sensitiveAudit'
+import { getPropertySchemaFor, validateAgainstSchema } from '../../../utils/propertySchema/registry'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -94,6 +95,26 @@ export default defineEventHandler(async (event) => {
       await db.update(schema.cmsArticles).set({ commentCount: sql`${schema.cmsArticles.commentCount} + 1` }).where(articleWhere)
     } else if (wasApproved && !nowApproved) {
       await db.update(schema.cmsArticles).set({ commentCount: sql`max(${schema.cmsArticles.commentCount} - 1, 0)` }).where(articleWhere)
+    }
+  }
+
+  // PropertySchemaRegistry (FASE 26) — valida el estado RESULTANTE (existente
+  // + cambios), no sólo los campos tocados: antes de esto, `buildPayload()`
+  // sólo exigía `required` en creación (isCreate), así que un PUT que
+  // vaciara un campo obligatorio se guardaba sin más (auditoría FASE 26,
+  // ver docs/property-schema-registry.md). `publishedAt` pasando de vacío a
+  // un valor es el único "publicar" que existe hoy (developer-properties;
+  // agent-properties no tiene consumidor público, ver auditoría) — ese caso
+  // exige además los requiredForPublish; cualquier otro PUT sigue en modo
+  // 'save', igual de permisivo que siempre.
+  if (key === 'properties' || key === 'developer-properties') {
+    const merged = { ...(existing as Record<string, unknown>), ...data }
+    const propertySchema = getPropertySchemaFor(key === 'developer-properties' ? 'developer' : 'agent', (merged.propertyType as string | null) ?? null)
+    const isPublishing = key === 'developer-properties' && typeof data.publishedAt === 'string' && !(existing as any).publishedAt
+    const result = validateAgainstSchema(propertySchema, merged, isPublishing ? 'publish' : 'save')
+    if (!result.ok) {
+      const missing = [...result.missingForSave, ...result.missingForPublish]
+      throw createError({ statusCode: 422, statusMessage: `Faltan campos obligatorios para ${isPublishing ? 'publicar' : 'guardar'}: ${missing.join(', ')}` })
     }
   }
 
