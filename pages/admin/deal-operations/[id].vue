@@ -200,7 +200,8 @@ function appointmentTypeLabel(t: string) { return { property_viewing: 'Visita a 
 function money(n: number) { return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n) }
 
 const loadError = ref('')
-const { data: detail, refresh } = await useFetch<any>(`/api/admin/saas/deal-operations/${id}`, {
+const { data: detail, refresh } = await useFetch<any>('/api/admin/saas/deal-operations', {
+  query: { id },
   onResponseError({ response }) {
     loadError.value = response.status === 404 ? 'Esta operación no existe, o no pertenece a tu inmobiliaria.' : 'No se pudo cargar la operación.'
   },
@@ -231,7 +232,7 @@ const movingStage = ref(false)
 async function moveStage(stage: string) {
   movingStage.value = true
   try {
-    await $fetch(`/api/admin/saas/deal-operations/${id}/stage`, { method: 'POST', body: { toStage: stage } })
+    await $fetch('/api/admin/saas/deal-operations', { method: 'POST', body: { id: Number(id), action: 'stage', toStage: stage } })
     await refresh()
     toast.success('Etapa actualizada')
   } catch (e: any) {
@@ -242,7 +243,7 @@ async function moveStage(stage: string) {
 }
 async function closeDeal() {
   try {
-    await $fetch(`/api/admin/saas/deal-operations/${id}/close`, { method: 'POST', body: {} })
+    await $fetch('/api/admin/saas/deal-operations', { method: 'POST', body: { id: Number(id), action: 'close' } })
     await refresh()
     toast.success('Operación cerrada')
   } catch (e: any) {
@@ -253,7 +254,7 @@ async function promptCancel() {
   const reason = window.prompt('Motivo de la cancelación')
   if (!reason?.trim()) return
   try {
-    await $fetch(`/api/admin/saas/deal-operations/${id}/cancel`, { method: 'POST', body: { reason } })
+    await $fetch('/api/admin/saas/deal-operations', { method: 'POST', body: { id: Number(id), action: 'cancel', reason } })
     await refresh()
     toast.success('Operación cancelada')
   } catch (e: any) {

@@ -41,10 +41,36 @@ que colisionara con ella (como intentó esta FASE al principio, hasta que
 `deal_operation_sellers`/`deal_operation_stage_history` — nombres que no
 pisan nada existente.
 
-**Rutas también separadas a propósito**: `/api/admin/saas/deal-operations*`
-y `/admin/deal-operations/:id`, nunca `saas/deals*` — que sigue siendo,
-sin tocar, la ruta de la tabla legacy (`area('finance')` en
-`adminRouteMatrix.ts`). La nueva vive bajo `area('crm')`.
+**Rutas también separadas a propósito**: la API vive bajo
+`/api/admin/saas/deal-operations` (área `crm` en `adminRouteMatrix.ts`) y la
+ficha bajo `/admin/deal-operations/:id` — nunca `saas/deals*`, que sigue
+siendo, sin tocar, la ruta de la tabla legacy (área `finance`).
+
+**Una única clave de ruta, a propósito.** Toda la API — listar, ficha,
+crear, cambiar de etapa, cerrar, cancelar — vive en dos ficheros,
+`deal-operations.get.ts` (lista, o su ficha con `?id=`) y
+`deal-operations.post.ts` (crea sin `action`; transiciona con
+`action: 'stage'|'close'|'cancel'` + `id` en el body), en vez del `GET
+/deal-operations/:id` y `POST /deal-operations/:id/{stage,close,cancel}`
+más RESTful con los que se escribió esta FASE al principio. El motivo no es
+de diseño: `npm run typecheck` empezó a fallar en CI con TS2589 ("Type
+instantiation is excessively deep") en un componente sin relación
+(`AIAnalysis.vue`) en cuanto se añadía una segunda clave de ruta nueva.
+
+Medido en un worktree limpio de `main`, añadiendo rutas una a una: el
+margen que `nitro-fetch-warmup.ts` había ganado en su día (P1-14,
+`docs/production-hardening-audit.md`, +150 rutas) se había agotado por el
+crecimiento acumulado de las FASE 15-23 hasta quedar en **una sola ruta
+nueva** de margen en todo el proyecto — no algo específico de esta FASE.
+Tipar explícitamente la respuesta de la ficha, ensanchar la URL a `string`
+en la llamada que paga la factura, y añadir un segundo `$fetch` de
+calentamiento no lo arreglaron; sólo bajar el número de claves de ruta
+nuevas a una lo hizo. De ahí que todo el pipeline de Deal Operation quepa
+en una sola clave (`GET`/`POST /api/admin/saas/deal-operations`) — no
+porque el diseño REST con `/:id/acción` fuera incorrecto, sino porque el
+margen real del pipeline de CI no daba para las seis claves que ese diseño
+necesitaba. Ver P1-14 para el mecanismo completo y cómo volver a medir el
+techo cuando haga falta.
 
 ## El puente, una sola dirección
 

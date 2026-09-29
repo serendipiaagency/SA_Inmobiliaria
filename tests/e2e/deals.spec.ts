@@ -6,10 +6,14 @@ const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8788'
 /**
  * FASE 24 — Deal Operation, sobre HTTP real.
  *
- * Rutas bajo `/api/admin/saas/deal-operations*` — deliberadamente distintas
- * de `saas/deals*`, que es la tabla legacy de cierres para comisiones (ver
- * docs/deals.md). Comercial e inmuebles propios de este spec, mismo patrón
- * que offers.spec.ts/tasks.spec.ts.
+ * Todo bajo una única ruta, `/api/admin/saas/deal-operations` — GET con
+ * `?id=` para la ficha, POST con `action` en el body para transicionar
+ * (ver el comentario en `server/api/admin/saas/deal-operations.get.ts` y
+ * docs/deals.md sobre por qué: el margen de `npm run typecheck` frente al
+ * TS2589 de Nitro estaba agotado a una sola clave de ruta nueva). Ruta
+ * deliberadamente distinta de `saas/deals*`, que es la tabla legacy de
+ * cierres para comisiones. Comercial e inmuebles propios de este spec,
+ * mismo patrón que offers.spec.ts/tasks.spec.ts.
  */
 test.describe('Deal Operations (FASE 24)', () => {
   test.use({ storageState: STATE_A })
@@ -81,15 +85,15 @@ test.describe('Deal Operations (FASE 24)', () => {
     const accepted = await seedAcceptedOffer(a, developerPropertyId, 'developer', buyerContactId, 350000)
     const deal = await (await a.post('/api/admin/saas/deal-operations', { data: { acceptedOfferId: accepted.id } })).json()
 
-    const detail = await (await a.get(`/api/admin/saas/deal-operations/${deal.id}`)).json()
+    const detail = await (await a.get('/api/admin/saas/deal-operations', { params: { id: String(deal.id) } })).json()
     expect(detail.deal.id).toBe(deal.id)
     expect(detail.stageHistory).toHaveLength(1)
     expect(detail.nextAction).toBeNull()
 
-    const moved = await (await a.post(`/api/admin/saas/deal-operations/${deal.id}/stage`, { data: { toStage: 'reservation' } })).json()
+    const moved = await (await a.post('/api/admin/saas/deal-operations', { data: { id: deal.id, action: 'stage', toStage: 'reservation' } })).json()
     expect(moved.stage).toBe('reservation')
 
-    const blockedRes = await a.post(`/api/admin/saas/deal-operations/${deal.id}/stage`, { data: { toStage: 'closed' } })
+    const blockedRes = await a.post('/api/admin/saas/deal-operations', { data: { id: deal.id, action: 'stage', toStage: 'closed' } })
     expect(blockedRes.status()).toBe(422)
   })
 
@@ -98,7 +102,7 @@ test.describe('Deal Operations (FASE 24)', () => {
     const accepted = await seedAcceptedOffer(a, agentPropertyId, 'agent', buyerContactId, 280000)
     const deal = await (await a.post('/api/admin/saas/deal-operations', { data: { acceptedOfferId: accepted.id } })).json()
 
-    const closeRes = await a.post(`/api/admin/saas/deal-operations/${deal.id}/close`, { data: {} })
+    const closeRes = await a.post('/api/admin/saas/deal-operations', { data: { id: deal.id, action: 'close' } })
     expect(closeRes.ok(), await closeRes.text()).toBeTruthy()
     const closed = await closeRes.json()
     expect(closed.status).toBe('closed')
@@ -113,7 +117,7 @@ test.describe('Deal Operations (FASE 24)', () => {
     expect(legacyRows.some((r: any) => r.id === closed.legacyDealId)).toBe(true)
 
     // Cerrada, ya no admite otra transición de etapa.
-    const afterCloseRes = await a.post(`/api/admin/saas/deal-operations/${deal.id}/stage`, { data: { toStage: 'reservation' } })
+    const afterCloseRes = await a.post('/api/admin/saas/deal-operations', { data: { id: deal.id, action: 'stage', toStage: 'reservation' } })
     expect(afterCloseRes.status()).toBe(422)
   })
 
@@ -122,15 +126,15 @@ test.describe('Deal Operations (FASE 24)', () => {
     const accepted = await seedAcceptedOffer(a, developerPropertyId, 'developer', buyerContactId, 320000)
     const deal = await (await a.post('/api/admin/saas/deal-operations', { data: { acceptedOfferId: accepted.id } })).json()
 
-    const noReasonRes = await a.post(`/api/admin/saas/deal-operations/${deal.id}/cancel`, { data: {} })
+    const noReasonRes = await a.post('/api/admin/saas/deal-operations', { data: { id: deal.id, action: 'cancel' } })
     expect(noReasonRes.status()).toBe(422)
 
-    const cancelRes = await a.post(`/api/admin/saas/deal-operations/${deal.id}/cancel`, { data: { reason: 'El comprador se retiró' } })
+    const cancelRes = await a.post('/api/admin/saas/deal-operations', { data: { id: deal.id, action: 'cancel', reason: 'El comprador se retiró' } })
     expect(cancelRes.ok(), await cancelRes.text()).toBeTruthy()
     const cancelled = await cancelRes.json()
     expect(cancelled.status).toBe('cancelled')
 
-    const detail = await (await a.get(`/api/admin/saas/deal-operations/${deal.id}`)).json()
+    const detail = await (await a.get('/api/admin/saas/deal-operations', { params: { id: String(deal.id) } })).json()
     expect(detail.stageHistory.length).toBeGreaterThan(0)
   })
 
@@ -154,7 +158,7 @@ test.describe('Deal Operations (FASE 24)', () => {
     const accepted = await seedAcceptedOffer(a, developerPropertyId, 'developer', buyerContactId, 290000)
     const deal = await (await a.post('/api/admin/saas/deal-operations', { data: { acceptedOfferId: accepted.id } })).json()
 
-    expect((await b.get(`/api/admin/saas/deal-operations/${deal.id}`)).status()).toBe(404)
+    expect((await b.get('/api/admin/saas/deal-operations', { params: { id: String(deal.id) } })).status()).toBe(404)
     const { rows } = await (await b.get('/api/admin/saas/deal-operations')).json()
     expect(rows.some((r: any) => r.id === deal.id)).toBe(false)
   })
