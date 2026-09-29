@@ -75,7 +75,11 @@ test.describe('Propiedades (web) — listado admin', () => {
     // exige los campos requiredForPublish del schema (país, ciudad,
     // superficie, portada, descripción), así que la propiedad de prueba
     // los necesita todos para que este PUT no se rechace con 422.
-    const id = await createProperty({ price: 250000, country: 'España', city: 'Madrid', area: 90, coverImage: 'https://example.com/cover.jpg', description: 'Descripción de prueba E2E' })
+    // La portada debe ser de un dominio permitido por la Content-Security-Policy
+    // del sitio (img-src) — la propiedad de prueba queda en la misma D1 que
+    // usa el resto de la suite, y una URL fuera de esa lista dispara un error
+    // de consola real cuando otro test (el del listado admin) renderiza su tarjeta.
+    const id = await createProperty({ price: 250000, country: 'España', city: 'Madrid', area: 90, coverImage: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2', description: 'Descripción de prueba E2E' })
     await a.put(`/api/admin/developer-properties/${id}`, { data: { publishedAt: new Date().toISOString() } })
     let row = (await (await a.get(`/api/admin/developer-properties/${id}`)).json()).row
     expect(row.publishedAt).toBeTruthy()
