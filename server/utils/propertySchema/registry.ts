@@ -149,6 +149,14 @@ const RESIDENTIAL_SURFACE_FIELDS: PropertyFieldRule[] = [
   rule('terraceArea'),
   rule('balconyArea'),
   rule('storageArea'),
+  // Una villa/chalet puede tener parcela propia y/o plazas de garaje propias
+  // — ambos ya son campos reales del editor de 2ª mano hoy (sección
+  // Características), sin restringir a Land/Garage. Sin esto, el filtrado
+  // por schema (FASE 25) los ocultaría para Residential por no estar
+  // declarados aquí, aunque el editor los mostraba a todo el mundo antes de
+  // que existiera el registro.
+  rule('plotArea'),
+  rule('garageSpaces'),
 ]
 
 function sectionsFor(fieldGroups: { key: string; label: string; fields: PropertyFieldRule[] }[]): { sections: PropertySchemaSectionDef[]; fields: Record<string, PropertyFieldRule> } {

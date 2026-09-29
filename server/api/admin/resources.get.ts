@@ -1,6 +1,6 @@
 import { requireAdmin } from '../../utils/auth'
 import { adminResources } from '../../utils/adminResources'
-import { listPropertySchemas } from '../../utils/propertySchema/registry'
+import { AGENT_PROPERTY_TYPE_TO_SCHEMA, listPropertySchemas } from '../../utils/propertySchema/registry'
 
 /**
  * Returns resource metadata so the admin UI can render menus and forms.
@@ -33,6 +33,12 @@ export default defineEventHandler(async (event) => {
       hasTranslations: !!def.translations,
     }
   }
-  out.__propertySchemas = listPropertySchemas()
+  // agentTypeMap viaja junto a los schemas por el mismo motivo que el resto
+  // de este comentario: FASE 25 (editor) necesita resolver PropertyType →
+  // PropertySchema exactamente como server/api/admin/[resource]/*.ts (FASE
+  // 26) — duplicar ese mapeo a mano en el cliente sería reintroducir
+  // exactamente el patrón de tres listas de campos que este registro vino a
+  // evitar (ver docstring de propertySchema/registry.ts).
+  out.__propertySchemas = { schemas: listPropertySchemas(), agentTypeMap: AGENT_PROPERTY_TYPE_TO_SCHEMA }
   return out
 })

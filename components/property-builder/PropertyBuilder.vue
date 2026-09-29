@@ -204,7 +204,8 @@
 </template>
 
 <script setup lang="ts">
-import { PROPERTY_BUILDER_SECTIONS, groupFields, type BuilderSection, type FieldSpec, type FieldsSection } from '~/composables/usePropertyBuilderConfig'
+import { PROPERTY_BUILDER_SECTIONS, groupFields, type BuilderSection, type FieldSpec, type FieldsSection, type LocationSection as LocationSectionSpec } from '~/composables/usePropertyBuilderConfig'
+import { usePropertySchemaRegistry } from '~/composables/usePropertySchemaRegistry'
 import PropertyBuilderField from './PropertyBuilderField.vue'
 import PropertyEditorHeader from './PropertyEditorHeader.vue'
 import PropertyEditorSteps from './PropertyEditorSteps.vue'
@@ -252,9 +253,38 @@ const router = useRouter()
 const toast = useToast()
 const { format: formatCurrency } = useCurrency()
 
-const sections = PROPERTY_BUILDER_SECTIONS[props.resource] as BuilderSection[]
-const activeKey = ref(sections[0].key)
+const staticSections = PROPERTY_BUILDER_SECTIONS[props.resource] as BuilderSection[]
+const activeKey = ref(staticSections[0].key)
 const formCardEl = ref<HTMLElement | null>(null)
+
+// PropertySchemaRegistry (FASE 26): en 2ª mano ('properties'), un campo que
+// el schema resuelto (según form.propertyType) no declara se oculta — sin
+// esto no hay forma de que "Land" deje de mostrar habitaciones/baños (§27
+// del encargo). 'developer-properties' nunca se filtra: ese catálogo
+// siempre resuelve a 'newDevelopment' (ver registry.ts), que ya cubre
+// exactamente los mismos campos que la configuración estática declara —
+// filtrar ahí sería trabajo repetido sin efecto.
+const { getSchemaFor, isFieldApplicable } = usePropertySchemaRegistry()
+
+function filterFieldsForSchema(fields: FieldSpec[]): FieldSpec[] {
+  if (props.resource !== 'properties') return fields
+  const schema = getSchemaFor('agent', form.propertyType)
+  return fields.filter((f) => isFieldApplicable('agent', schema, f.key))
+}
+
+const sections = computed<BuilderSection[]>(() =>
+  staticSections
+    .map((s) => {
+      if (s.kind === 'fields') return { ...s, fields: filterFieldsForSchema(s.fields) } as FieldsSection
+      if (s.kind === 'location') return { ...s, fields: filterFieldsForSchema(s.fields) } as LocationSectionSpec
+      return s
+    })
+    // Salvaguarda: ninguna combinación real deja hoy una sección de campos
+    // vacía (todo schema declara al menos algo en cada grupo de FASE 26),
+    // pero si algún día lo hiciera, una sección sin ni un campo que mostrar
+    // no debe aparecer en el asistente.
+    .filter((s) => (s.kind === 'fields' || s.kind === 'location' ? (s as FieldsSection | LocationSectionSpec).fields.length > 0 : true)),
+)
 
 // The url's prop stays the route's original id; recordId is the component's
 // own source of truth so a freshly-created record can unlock its
@@ -270,7 +300,7 @@ const translations = ref([
   { locale: 'en', title: '', description: '' },
   { locale: 'ar', title: '', description: '' },
 ])
-const hasTranslationsSection = sections.some((s) => s.kind === 'translations')
+const hasTranslationsSection = staticSections.some((s) => s.kind === 'translations')
 
 // A ref, not a plain variable: isDirty must re-evaluate the instant a save
 // updates the baseline, not just when form/translations change again.
@@ -383,7 +413,7 @@ function trackedFields(s: BuilderSection): FieldSpec[] {
  */
 const sectionStates = computed<Record<string, 'complete' | 'error' | 'neutral'>>(() => {
   const out: Record<string, 'complete' | 'error' | 'neutral'> = {}
-  for (const s of sections) {
+  for (const s of sections.value) {
     if (s.kind !== 'fields' && s.kind !== 'location') {
       out[s.key] = 'neutral'
       continue
@@ -401,7 +431,7 @@ const sectionStates = computed<Record<string, 'complete' | 'error' | 'neutral'>>
 /** Cuántos campos obligatorios faltan en cada sección — lo que enseña el aviso del paso. */
 const sectionPending = computed<Record<string, number>>(() => {
   const out: Record<string, number> = {}
-  for (const s of sections) {
+  for (const s of sections.value) {
     if (s.kind !== 'fields' && s.kind !== 'location') {
       out[s.key] = 0
       continue
@@ -411,14 +441,14 @@ const sectionPending = computed<Record<string, number>>(() => {
   return out
 })
 
-const trackedSections = computed(() => sections.filter((s) => trackedFields(s).length > 0).length)
-const completedSections = computed(() => sections.filter((s) => sectionStates.value[s.key] === 'complete').length)
+const trackedSections = computed(() => sections.value.filter((s) => trackedFields(s).length > 0).length)
+const completedSections = computed(() => sections.value.filter((s) => sectionStates.value[s.key] === 'complete').length)
 
 /** Porcentaje sobre campos reales obligatorios/recomendados — nunca un recuento de secciones visitadas. */
 const progressPercent = computed(() => {
   let total = 0
   let filled = 0
-  for (const s of sections) {
+  for (const s of sections.value) {
     for (const f of trackedFields(s)) {
       total++
       if (isFilled(f)) filled++
