@@ -335,19 +335,26 @@ const saveStateLabel = computed(() => {
 })
 
 /**
- * Este editor **no autoguarda**. El pie lo dice tal cual en vez de copiar el
- * "se guarda automáticamente como borrador" de la referencia: sería la
- * frase más cómoda de poner y la que más caro sale cuando alguien cierra la
- * pestaña creyéndosela.
+ * Sólo en modo edición: crear exige un submit explícito (no hay id al que
+ * hacer PUT hasta que exista la fila), pero una vez creada, autoguarda igual
+ * que el Constructor Web (pages/admin/site-builder/index.vue —
+ * watch+debounce+PUT, mismo patrón, no uno inventado para este editor).
  */
 const footerHint = computed(() => {
   if (!props.canEdit) return 'Estás viendo la ficha en modo consulta.'
-  return isDirty.value ? 'Tienes cambios sin guardar — pulsa Guardar antes de salir.' : 'Los cambios se guardan al pulsar Guardar.'
+  if (isNew.value) return 'Pulsa "Crear propiedad" para empezar a guardar — a partir de ahí, los cambios se guardan solos.'
+  if (saveState.value === 'error') return 'No se ha podido guardar el último cambio — sigue intentándolo o pulsa Guardar.'
+  return 'Los cambios se guardan automáticamente.'
 })
 
 function snapshot() {
   savedSnapshot.value = JSON.stringify({ form, translations: hasTranslationsSection ? translations.value : undefined })
 }
+
+// Marca cuándo la carga inicial (onMounted) ya rellenó `form` — antes de eso,
+// el watch de autoguardado no debe dispararse contra datos a medio cargar.
+let loaded = false
+let autosaveTimer: ReturnType<typeof setTimeout> | null = null
 
 onMounted(async () => {
   if (!isNew.value) {
@@ -374,7 +381,45 @@ onMounted(async () => {
   }
   snapshot()
   loading.value = false
+  loaded = true
 })
+
+/**
+ * Igual criterio que el Constructor Web: cualquier cambio en el formulario
+ * reprograma el guardado (debounce de 1s, cada tecla nueva lo reinicia) —
+ * nunca antes de la carga inicial, nunca en modo 'new' (no hay id todavía;
+ * crear sigue siendo el submit manual de siempre) ni en modo consulta.
+ */
+watch(
+  [form, translations],
+  () => {
+    if (!loaded || isNew.value || !props.canEdit) return
+    scheduleAutosave()
+  },
+  { deep: true },
+)
+
+function scheduleAutosave() {
+  saving.value = false
+  error.value = ''
+  saved.value = false
+  if (autosaveTimer) clearTimeout(autosaveTimer)
+  autosaveTimer = setTimeout(async () => {
+    autosaveTimer = null
+    saving.value = true
+    try {
+      await putPropertyBody()
+      snapshot()
+      saved.value = true
+    } catch (e: any) {
+      // Nunca se pierde lo escrito: `form` sigue igual, y saveState pasa a
+      // 'error' (footerHint lo explica) en vez de mentir con "Guardado".
+      error.value = e?.data?.statusMessage || e?.statusMessage || 'No se pudo guardar'
+    } finally {
+      saving.value = false
+    }
+  }, 1000)
+}
 
 function pad2(n: number) {
   return String(n).padStart(2, '0')
@@ -511,19 +556,40 @@ const previewRows = computed(() => {
 // ---------------------------------------------------------------------------
 // Guardado
 // ---------------------------------------------------------------------------
+function requestBody(): Record<string, any> {
+  const body: Record<string, any> = { ...form }
+  if (hasTranslationsSection) body.translations = translations.value.filter((t) => t.title)
+  return body
+}
+
+/** El único sitio que hace el PUT real — tanto el autoguardado como el botón "Guardar cambios" pasan por aquí. */
+async function putPropertyBody() {
+  await $fetch(`/api/admin/${props.resource}/${recordId.value}`, { method: 'PUT', body: requestBody() })
+}
+
+/**
+ * Botón "Crear propiedad" / "Guardar cambios". En modo edición ya no es la
+ * única forma de guardar (el autoguardado lo hace solo) — sirve para
+ * confirmar de inmediato en vez de esperar el debounce, con el mismo aviso
+ * de éxito/error de siempre. Igual que `publish()` en el Constructor Web,
+ * primero descarta cualquier autoguardado pendiente: nunca deja una versión
+ * a medio escribir compitiendo con este guardado explícito.
+ */
 async function save() {
   if (!props.canEdit) return
+  if (autosaveTimer) {
+    clearTimeout(autosaveTimer)
+    autosaveTimer = null
+  }
   saving.value = true
   error.value = ''
   try {
-    const body: Record<string, any> = { ...form }
-    if (hasTranslationsSection) body.translations = translations.value.filter((t) => t.title)
     if (isNew.value) {
-      const res = await $fetch<{ id: number }>(`/api/admin/${props.resource}`, { method: 'POST', body })
+      const res = await $fetch<{ id: number }>(`/api/admin/${props.resource}`, { method: 'POST', body: requestBody() })
       recordId.value = res.id
       router.replace(`/admin/${props.resource}/${res.id}`)
     } else {
-      await $fetch(`/api/admin/${props.resource}/${recordId.value}`, { method: 'PUT', body })
+      await putPropertyBody()
     }
     snapshot()
     saved.value = true
@@ -537,13 +603,24 @@ async function save() {
 }
 
 /**
- * Salir con cambios sin guardar pide confirmación. No hay autoguardado, así
- * que perderlos es una pérdida real.
+ * Salir con un guardado todavía pendiente (dentro de la ventana de debounce,
+ * en curso, o en error) pide confirmación — con autoguardado real esto sólo
+ * ocurre en el segundo escaso tras la última tecla, o si el último intento
+ * falló de verdad.
  */
 onBeforeRouteLeave(() => {
   if (!isDirty.value || saving.value) return true
   return window.confirm('Tienes cambios sin guardar en esta propiedad. ¿Salir de todas formas?')
 })
+
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (autosaveTimer || saving.value || saveState.value === 'error') {
+    e.preventDefault()
+    e.returnValue = ''
+  }
+}
+onMounted(() => window.addEventListener('beforeunload', onBeforeUnload))
+onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload))
 
 // Same icon set as layouts/admin.vue's sidebar — kept local since that map
 // isn't exported, but the paths are copied verbatim for visual consistency.

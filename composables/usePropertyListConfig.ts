@@ -149,7 +149,13 @@ export const PROPERTY_LIST_CONFIG: Record<string, PropertyListConfig> = {
 }
 
 /** Los tipos de propiedad del selector rápido — idénticos en los dos catálogos, y los mismos que ofrece el editor. */
-export const PROPERTY_LIST_TYPES = ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio']
+// Mismos 11 valores que SECOND_HAND_PROPERTY_TYPE_OPTIONS en
+// usePropertyBuilderConfig.ts (duplicado literal, mismo patrón que ya tenía
+// este fichero antes de FASE 25/26 — sin import cruzado entre los dos
+// "gemelos" de configuración) — test/unit/propertyListConfig.test.ts exige
+// que este filtro y el selector del editor de 2ª mano ofrezcan exactamente
+// los mismos tipos.
+export const PROPERTY_LIST_TYPES = ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio', 'Land', 'Office', 'Retail', 'Warehouse', 'Garage', 'Building']
 
 export const LIST_CHIP_CLASSES: Record<ListChipTone, string> = {
   neutral: 'bg-stone-100 text-stone-600',
