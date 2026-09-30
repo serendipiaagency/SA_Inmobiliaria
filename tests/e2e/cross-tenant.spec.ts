@@ -395,17 +395,24 @@ test.describe('Aislamiento entre inmobiliarias (cross-tenant)', () => {
     const listed = await (await b.get(`/api/admin/saas/matching/requirement/${bRequirementId}`)).json()
     test.skip(!listed.results.length, 'el catálogo de la organización no tiene inmuebles compatibles')
     const propertyId = listed.results[0].property.id
+    // El catálogo (2ª mano u obra nueva) del primer resultado no está
+    // garantizado — depende de qué inmuebles anotan mejor score en cada
+    // corrida — así que hay que mandarlo igual que hace la UI real
+    // (pages/admin/compatibilidades.vue), nunca confiar en el valor por
+    // defecto del endpoint ('agent'), o esto falla en cuanto el primer
+    // resultado resulta ser de obra nueva.
+    const propertyKind = listed.results[0].propertyKind
 
     // "Enviado" lo pondrá el Centro de Comunicaciones cuando registre el envío
     // real: marcarlo aquí convertiría el historial en algo que no se puede creer.
     const sent = await b.post('/api/admin/saas/matching/matches', {
-      data: { buyerRequirementId: bRequirementId, propertyId, status: 'sent' },
+      data: { buyerRequirementId: bRequirementId, propertyId, propertyKind, status: 'sent' },
     })
     expect(sent.status(), 'se pudo marcar como enviado sin que existiera ningún envío').toBe(422)
 
     // Seleccionar y descartar sí son decisiones que toma una persona.
     const selected = await b.post('/api/admin/saas/matching/matches', {
-      data: { buyerRequirementId: bRequirementId, propertyId, status: 'selected' },
+      data: { buyerRequirementId: bRequirementId, propertyId, propertyKind, status: 'selected' },
     })
     expect(selected.ok(), `no se pudo seleccionar: ${selected.status()}`).toBeTruthy()
     const saved = await selected.json()

@@ -503,6 +503,28 @@ export const adminResources: Record<string, ResourceDef> = {
     tenantPolicy: { type: 'direct' },
   },
 
+  /**
+   * Bulk Actions sobre Propiedades (FASE 28, migración 0081) — el framework
+   * genérico de job+items (server/utils/bulkActions/service.ts), nunca un
+   * hack por acción. `fields` está vacío a propósito: crear un job y
+   * procesar su siguiente elemento son operaciones con forma propia, no un
+   * alta/edición de campos — los branches `key === 'property-bulk-jobs'` en
+   * `index.post.ts`/`[id].put.ts` interceptan antes de llegar a
+   * `buildPayload()`. GET/LIST sí usan el motor genérico tal cual (un job es
+   * una fila más, visible para toda la organización — no es privado como un
+   * filtro guardado).
+   */
+  'property-bulk-jobs': {
+    area: 'web',
+    table: schema.bulkActionJobs,
+    label: 'Acciones masivas (propiedades)',
+    fields: {},
+    listFields: ['id', 'entityType', 'action', 'status', 'totalCount', 'completedCount', 'failedCount', 'createdAt'],
+    searchFields: [],
+    hasTimestamps: true,
+    tenantPolicy: { type: 'direct' },
+  },
+
   'floor-plans': {
     area: 'web',
     table: schema.floorPlans,

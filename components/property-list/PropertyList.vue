@@ -211,58 +211,90 @@
     </div>
 
     <!-- List view -->
-    <div v-else class="card overflow-x-auto">
-      <table class="w-full text-left text-sm">
-        <thead class="bg-stone-50 text-xs uppercase text-stone-500">
-          <tr>
-            <th class="px-4 py-3">Propiedad</th>
-            <th v-if="isColumnVisible('location')" class="px-4 py-3">Ubicación</th>
-            <th v-if="isColumnVisible('price')" class="px-4 py-3">Precio</th>
-            <th v-if="isColumnVisible('details')" class="px-4 py-3">Detalles</th>
-            <th v-if="isColumnVisible('status')" class="px-4 py-3">Estado</th>
-            <th v-if="isColumnVisible('updatedAt')" class="px-4 py-3">Actualizado</th>
-            <th class="px-4 py-3 text-right">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="p in data.rows" :key="p.id" class="border-t border-line hover:bg-stone-50">
-            <td class="px-4 py-3">
-              <NuxtLink :to="`/admin/${config.resource}/${p.id}`" class="flex items-center gap-2.5">
-                <img v-if="config.rowImage(p)" :src="mediaUrl(config.rowImage(p)!)" class="h-9 w-9 shrink-0 rounded object-cover" >
-                <span v-else class="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-stone-100 text-sm">🏠</span>
-                <span class="min-w-0">
-                  <span class="block truncate font-medium text-ink">{{ config.rowTitle(p) }}</span>
-                  <span class="block text-[11px] text-stone-400">Ref. #{{ p.id }}</span>
+    <template v-else>
+      <!-- Bulk Actions (FASE 28) — sólo en vista de lista: la cuadrícula no tiene checkbox de fila. -->
+      <div v-if="selectionCount > 0" class="card mb-3 flex flex-wrap items-center gap-3 p-3">
+        <span class="text-sm font-medium">{{ selectionCount }} seleccionada{{ selectionCount === 1 ? '' : 's' }}</span>
+        <select v-model="bulkAction" class="input !w-52" @change="onBulkActionChange">
+          <option value="">Elige una acción…</option>
+          <option value="change_commercial">Cambiar comercial</option>
+          <option value="change_status">Cambiar estado</option>
+          <option value="add_tag">Añadir etiqueta</option>
+        </select>
+        <select v-if="bulkAction === 'change_commercial'" v-model="bulkCommercialId" class="input !w-48">
+          <option value="">Sin asignar</option>
+          <option v-for="a in bulkAgents" :key="a.id" :value="a.id">{{ a.name }}</option>
+        </select>
+        <select v-if="bulkAction === 'change_status'" v-model="bulkStatus" class="input !w-44">
+          <option value="">Elige un estado…</option>
+          <option v-for="s in config.statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
+        </select>
+        <input v-if="bulkAction === 'add_tag'" v-model="bulkTagName" class="input !w-48" placeholder="Nombre de la etiqueta" >
+        <button type="button" class="btn-primary !px-3 !py-1.5 text-xs" :disabled="!canRunBulkAction || bulkRunning" @click="runBulkAction">
+          {{ bulkRunning ? bulkProgressLabel : 'Aplicar' }}
+        </button>
+        <button type="button" class="text-[12px] text-stone-500 hover:text-ink" :disabled="bulkRunning" @click="clearSelection">Cancelar selección</button>
+      </div>
+      <div v-if="allOnPageSelected && !selectAllFilteredMode && data && data.total > data.rows.length" class="mb-3 text-center text-[12px] text-stone-500">
+        Has seleccionado las {{ data.rows.length }} propiedades de esta página.
+        <button type="button" class="font-medium text-ink hover:underline" @click="selectAllFiltered">Seleccionar las {{ data.total }} que cumplen el filtro</button>
+      </div>
+
+      <div class="card overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-stone-50 text-xs uppercase text-stone-500">
+            <tr>
+              <th class="px-4 py-3"><input type="checkbox" :checked="allOnPageSelected" @change="toggleSelectPage" ></th>
+              <th class="px-4 py-3">Propiedad</th>
+              <th v-if="isColumnVisible('location')" class="px-4 py-3">Ubicación</th>
+              <th v-if="isColumnVisible('price')" class="px-4 py-3">Precio</th>
+              <th v-if="isColumnVisible('details')" class="px-4 py-3">Detalles</th>
+              <th v-if="isColumnVisible('status')" class="px-4 py-3">Estado</th>
+              <th v-if="isColumnVisible('updatedAt')" class="px-4 py-3">Actualizado</th>
+              <th class="px-4 py-3 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="p in data.rows" :key="p.id" class="border-t border-line hover:bg-stone-50">
+              <td class="px-4 py-3"><input type="checkbox" :checked="isSelected(p.id)" @change="toggleSelect(p.id)" ></td>
+              <td class="px-4 py-3">
+                <NuxtLink :to="`/admin/${config.resource}/${p.id}`" class="flex items-center gap-2.5">
+                  <img v-if="config.rowImage(p)" :src="mediaUrl(config.rowImage(p)!)" class="h-9 w-9 shrink-0 rounded object-cover" >
+                  <span v-else class="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-stone-100 text-sm">🏠</span>
+                  <span class="min-w-0">
+                    <span class="block truncate font-medium text-ink">{{ config.rowTitle(p) }}</span>
+                    <span class="block text-[11px] text-stone-400">Ref. #{{ p.id }}</span>
+                  </span>
+                </NuxtLink>
+              </td>
+              <td v-if="isColumnVisible('location')" class="px-4 py-3 text-stone-500">{{ config.rowLocation(p) }}</td>
+              <td v-if="isColumnVisible('price')" class="px-4 py-3 text-stone-700">{{ formatPrice(p.price) }}</td>
+              <td v-if="isColumnVisible('details')" class="px-4 py-3 text-stone-500">
+                <span v-if="p.bedrooms != null">{{ p.bedrooms }} hab · </span><span v-if="p.bathrooms != null">{{ p.bathrooms }} baños · </span><span v-if="p.area != null">{{ p.area }} m²</span>
+              </td>
+              <td v-if="isColumnVisible('status')" class="px-4 py-3">
+                <span
+                  v-for="(chip, i) in config.rowChips(p)"
+                  :key="chip.label"
+                  class="rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                  :class="[LIST_CHIP_CLASSES[chip.tone], i > 0 ? 'ml-1' : '']"
+                >
+                  {{ chip.label }}
                 </span>
-              </NuxtLink>
-            </td>
-            <td v-if="isColumnVisible('location')" class="px-4 py-3 text-stone-500">{{ config.rowLocation(p) }}</td>
-            <td v-if="isColumnVisible('price')" class="px-4 py-3 text-stone-700">{{ formatPrice(p.price) }}</td>
-            <td v-if="isColumnVisible('details')" class="px-4 py-3 text-stone-500">
-              <span v-if="p.bedrooms != null">{{ p.bedrooms }} hab · </span><span v-if="p.bathrooms != null">{{ p.bathrooms }} baños · </span><span v-if="p.area != null">{{ p.area }} m²</span>
-            </td>
-            <td v-if="isColumnVisible('status')" class="px-4 py-3">
-              <span
-                v-for="(chip, i) in config.rowChips(p)"
-                :key="chip.label"
-                class="rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                :class="[LIST_CHIP_CLASSES[chip.tone], i > 0 ? 'ml-1' : '']"
-              >
-                {{ chip.label }}
-              </span>
-            </td>
-            <td v-if="isColumnVisible('updatedAt')" class="px-4 py-3 text-stone-450">{{ p.updatedAt ? new Date(p.updatedAt).toLocaleDateString('es-ES') : '—' }}</td>
-            <td class="whitespace-nowrap px-4 py-3 text-right text-xs">
-              <NuxtLink :to="`/admin/${config.resource}/${p.id}`" class="mr-2 font-medium text-stone-600 hover:underline">Editar</NuxtLink>
-              <a v-if="config.previewHref" :href="config.previewHref(p)" target="_blank" rel="noopener" class="mr-2 font-medium text-stone-600 hover:underline">Preview</a>
-              <button type="button" class="mr-2 font-medium text-stone-600 hover:underline" @click="applyToggle(p.id)">{{ config.toggle.label(p) }}</button>
-              <button type="button" class="mr-2 font-medium text-stone-600 hover:underline" @click="duplicate(p.id)">Duplicar</button>
-              <button type="button" class="font-medium text-red-600 hover:underline" @click="remove(p.id)">Eliminar</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+              </td>
+              <td v-if="isColumnVisible('updatedAt')" class="px-4 py-3 text-stone-450">{{ p.updatedAt ? new Date(p.updatedAt).toLocaleDateString('es-ES') : '—' }}</td>
+              <td class="whitespace-nowrap px-4 py-3 text-right text-xs">
+                <NuxtLink :to="`/admin/${config.resource}/${p.id}`" class="mr-2 font-medium text-stone-600 hover:underline">Editar</NuxtLink>
+                <a v-if="config.previewHref" :href="config.previewHref(p)" target="_blank" rel="noopener" class="mr-2 font-medium text-stone-600 hover:underline">Preview</a>
+                <button type="button" class="mr-2 font-medium text-stone-600 hover:underline" @click="applyToggle(p.id)">{{ config.toggle.label(p) }}</button>
+                <button type="button" class="mr-2 font-medium text-stone-600 hover:underline" @click="duplicate(p.id)">Duplicar</button>
+                <button type="button" class="font-medium text-red-600 hover:underline" @click="remove(p.id)">Eliminar</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
 
     <div v-if="totalPages > 1" class="mt-4 flex items-center justify-end gap-3 text-sm">
       <button class="btn-secondary !py-1.5" :disabled="page <= 1" @click="page--">← Anterior</button>
@@ -733,6 +765,122 @@ async function remove(id: number) {
     await refresh()
   } catch {
     toast.error('No se pudo eliminar la propiedad')
+  }
+}
+
+/**
+ * Bulk Actions (FASE 28) — modelo de selección manual/página/todos los
+ * filtrados (§84), confirmación con cantidad+acción (§85), y ejecución vía
+ * el framework de jobs (server/utils/bulkActions/service.ts) en vez de un
+ * `Promise.all` de N peticiones: eso es justo el "hack por acción" que el
+ * encargo pide evitar, y no reporta fallos individuales (§104).
+ */
+const selectedIds = ref<number[]>([])
+const selectAllFilteredMode = ref(false)
+const selectionCount = computed(() => selectedIds.value.length)
+
+function isSelected(id: number) {
+  return selectedIds.value.includes(id)
+}
+function toggleSelect(id: number) {
+  selectAllFilteredMode.value = false
+  selectedIds.value = isSelected(id) ? selectedIds.value.filter((i) => i !== id) : [...selectedIds.value, id]
+}
+const allOnPageSelected = computed(() => !!data.value?.rows?.length && data.value.rows.every((r: any) => isSelected(r.id)))
+function toggleSelectPage() {
+  selectAllFilteredMode.value = false
+  const pageIds: number[] = (data.value?.rows || []).map((r: any) => r.id)
+  if (allOnPageSelected.value) {
+    const remove = new Set(pageIds)
+    selectedIds.value = selectedIds.value.filter((id) => !remove.has(id))
+  } else {
+    selectedIds.value = [...new Set([...selectedIds.value, ...pageIds])]
+  }
+}
+function selectAllFiltered() {
+  selectAllFilteredMode.value = true
+  selectedIds.value = (data.value?.rows || []).map((r: any) => r.id) // sólo para el contador visible — el job real resuelve la selección del lado servidor
+}
+function clearSelection() {
+  selectedIds.value = []
+  selectAllFilteredMode.value = false
+}
+// Cambiar de filtro (no de página) invalida cualquier selección: mantenerla
+// entre criterios de búsqueda distintos sería fácil de confundir con "estos
+// son los resultados actuales".
+watch(FILTER_REFS, () => clearSelection())
+
+const bulkAction = ref<'' | 'change_commercial' | 'change_status' | 'add_tag'>('')
+const bulkCommercialId = ref<number | ''>('')
+const bulkStatus = ref('')
+const bulkTagName = ref('')
+const bulkAgents = ref<{ id: number; name: string }[]>([])
+const bulkRunning = ref(false)
+const bulkProgressLabel = ref('Aplicando…')
+
+async function onBulkActionChange() {
+  bulkCommercialId.value = ''
+  bulkStatus.value = ''
+  bulkTagName.value = ''
+  if (bulkAction.value === 'change_commercial' && !bulkAgents.value.length) {
+    const res = await $fetch<{ rows: { id: number; name: string }[] }>('/api/admin/team', { query: { perPage: 200 } })
+    bulkAgents.value = res.rows || []
+  }
+}
+
+const canRunBulkAction = computed(() => {
+  if (!bulkAction.value) return false
+  if (bulkAction.value === 'change_status') return !!bulkStatus.value
+  if (bulkAction.value === 'add_tag') return !!bulkTagName.value.trim()
+  return true // change_commercial: "Sin asignar" (vacío) es una elección válida
+})
+
+const BULK_ACTION_LABELS: Record<string, string> = { change_commercial: 'cambiar el comercial', change_status: 'cambiar el estado', add_tag: 'añadir la etiqueta' }
+
+async function runBulkAction() {
+  if (!bulkAction.value || !canRunBulkAction.value || !selectionCount.value) return
+  const ok = await confirm(
+    `Se va a ${BULK_ACTION_LABELS[bulkAction.value]} de ${selectionCount.value} propiedad${selectionCount.value === 1 ? '' : 'es'}. No se puede deshacer.`,
+    { title: '¿Aplicar acción masiva?', confirmLabel: 'Aplicar', danger: bulkAction.value === 'change_status' },
+  )
+  if (!ok) return
+
+  const params: Record<string, unknown> =
+    bulkAction.value === 'change_commercial'
+      ? { commercialId: bulkCommercialId.value || null }
+      : bulkAction.value === 'change_status'
+        ? { status: bulkStatus.value }
+        : { tagName: bulkTagName.value.trim() }
+
+  bulkRunning.value = true
+  bulkProgressLabel.value = 'Iniciando…'
+  try {
+    const entityType = props.resource === 'developer-properties' ? 'developer' : 'agent'
+    const body: Record<string, unknown> = { entityType, action: bulkAction.value, params }
+    if (selectAllFilteredMode.value) {
+      body.selectAllFiltered = true
+      body.filters = currentSavableQuery()
+    } else {
+      body.ids = selectedIds.value
+    }
+    const created = await $fetch<{ job: { id: number; totalCount: number } }>('/api/admin/property-bulk-jobs', { method: 'POST', body })
+    let job = created.job as any
+    while (true) {
+      bulkProgressLabel.value = `${job.completedCount + job.failedCount}/${job.totalCount}…`
+      const result = await $fetch<{ done: boolean; job?: any }>(`/api/admin/property-bulk-jobs/${created.job.id}`, { method: 'PUT', body: {} })
+      if (result.job) job = result.job
+      if (result.done) break
+    }
+    if (job.status === 'completed') toast.success(`Acción aplicada a ${job.completedCount} propiedad${job.completedCount === 1 ? '' : 'es'}`)
+    else if (job.status === 'partial') toast.error(`${job.completedCount} aplicada${job.completedCount === 1 ? '' : 's'}, ${job.failedCount} fallaron`)
+    else toast.error('La acción falló en todos los elementos seleccionados')
+    clearSelection()
+    bulkAction.value = ''
+    await refresh()
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'No se pudo ejecutar la acción masiva')
+  } finally {
+    bulkRunning.value = false
   }
 }
 </script>

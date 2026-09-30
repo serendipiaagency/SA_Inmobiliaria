@@ -9,6 +9,8 @@ import { validatePermissionsInput } from '../../../utils/permissions'
 import { describeOrganizationChanges, describeUserChanges } from '../../../utils/sensitiveAudit'
 import { getPropertySchemaFor, validateAgainstSchema } from '../../../utils/propertySchema/registry'
 import { assertOwnsSavedView } from '../../../utils/properties/savedViews'
+import { processNextBulkActionItem } from '../../../utils/bulkActions/service'
+import { propertyBulkHandlers } from '../../../utils/bulkActions/propertyActions'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -37,6 +39,17 @@ export default defineEventHandler(async (event) => {
   // Compartir un filtro/vista guardada amplía quién la LEE, nunca quién
   // puede tocarla — sólo su creador edita, aunque sea de toda la org.
   if (key === 'property-saved-views') assertOwnsSavedView(existing as any, user.id)
+
+  // Bulk Actions (FASE 28) — "procesar el siguiente elemento" es una
+  // transición de estado del job, no una edición de campos: se intercepta
+  // aquí, con el mismo PUT que ya autoriza el job por tenant arriba, en vez
+  // de una ruta nueva (coste cero de ruta, ver docs/property-schema-registry.md).
+  if (key === 'property-bulk-jobs') {
+    const jobRow = existing as any
+    const handlers = propertyBulkHandlers(jobRow.entityType)
+    const result = await processNextBulkActionItem(event, orgId!, id, handlers)
+    return { ok: true, ...result }
+  }
 
   const body = await readBody<Record<string, any>>(event)
   const data = await buildPayload(def, body || {}, false, event)

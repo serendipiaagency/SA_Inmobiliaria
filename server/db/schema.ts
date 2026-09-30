@@ -350,6 +350,93 @@ export const propertySavedViews = sqliteTable(
   (t) => [index('property_saved_views_org_resource').on(t.organizationId, t.resource), index('property_saved_views_user').on(t.userId)],
 )
 
+// Bulk Actions (FASE 28, migración 0081) — framework genérico, no un hack
+// por acción (§84-106). Una sola pareja de tablas job+items para Properties
+// y Leads: entityType reutiliza el mismo vocabulario 'agent'|'developer' que
+// ya usan tasks.propertyKind/activities.propertyKind, más 'lead'. Ver el
+// comentario de cabecera de la migración 0081 para el resto del porqué.
+export const bulkActionJobs = sqliteTable(
+  'bulk_action_jobs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    entityType: text('entity_type').notNull(), // agent | developer | lead
+    action: text('action').notNull(),
+    paramsJson: text('params_json').notNull(),
+    status: text('status').notNull().default('pending'), // pending | processing | completed | failed | partial
+    totalCount: integer('total_count').notNull().default(0),
+    completedCount: integer('completed_count').notNull().default(0),
+    failedCount: integer('failed_count').notNull().default(0),
+    requestedBy: integer('requested_by'),
+    createdAt: text('created_at').notNull(),
+    completedAt: text('completed_at'),
+  },
+  (t) => [index('bulk_action_jobs_org').on(t.organizationId, t.createdAt)],
+)
+
+export const bulkActionJobItems = sqliteTable(
+  'bulk_action_job_items',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    jobId: integer('job_id')
+      .notNull()
+      .references(() => bulkActionJobs.id, { onDelete: 'cascade' }),
+    targetId: integer('target_id').notNull(),
+    status: text('status').notNull().default('pending'), // pending | processing | done | failed
+    errorMessage: text('error_message'),
+    createdAt: text('created_at').notNull(),
+    completedAt: text('completed_at'),
+  },
+  (t) => [uniqueIndex('bulk_action_job_items_unique').on(t.jobId, t.targetId), index('bulk_action_job_items_job_status').on(t.jobId, t.status)],
+)
+
+// Tag transversal (§89, §99) — no existía ninguno fuera del Blog
+// (cmsTags/cmsArticleTags). tagLinks es polimórfica (sin FK real), mismo
+// criterio ya documentado para activities.propertyId/propertyKind.
+export const tags = sqliteTable(
+  'tags',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    slug: text('slug').notNull(),
+    color: text('color'),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [uniqueIndex('tags_org_slug').on(t.organizationId, t.slug), index('tags_org').on(t.organizationId)],
+)
+
+export const tagLinks = sqliteTable(
+  'tag_links',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    tagId: integer('tag_id')
+      .notNull()
+      .references(() => tags.id, { onDelete: 'cascade' }),
+    entityType: text('entity_type').notNull(), // agent | developer | lead
+    entityId: integer('entity_id').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [uniqueIndex('tag_links_unique').on(t.tagId, t.entityType, t.entityId), index('tag_links_entity').on(t.organizationId, t.entityType, t.entityId)],
+)
+
+// Paridad de price_history (más abajo en este archivo, developer_properties-
+// only) para 2ª mano — ver el comentario de cabecera de la migración 0081
+// para el porqué de una tabla propia en vez de generalizar la existente.
+export const agentPropertyPriceHistory = sqliteTable(
+  'agent_property_price_history',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    propertyId: integer('property_id')
+      .notNull()
+      .references(() => agentProperties.id, { onDelete: 'cascade' }),
+    price: real('price').notNull(),
+    recordedAt: text('recorded_at').notNull(),
+  },
+  (t) => [index('agent_property_price_history_property').on(t.propertyId)],
+)
+
 // ---------------------------------------------------------------------------
 // Developers & off-plan projects
 // ---------------------------------------------------------------------------
