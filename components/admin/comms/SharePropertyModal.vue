@@ -2,14 +2,14 @@
   <AdminCommsModal title="Compartir por WhatsApp" :sub="property.name" test-id="comms-share-property" @close="emit('close')">
     <template v-if="overview && !overview.configured">
       <p class="rounded-lg bg-amber-50 p-3 text-[12px] text-amber-800">
-        No hay ningún número de WhatsApp conectado en esta agencia, así que el panel no puede enviarla por ti. Puedes abrir WhatsApp con el mensaje preparado o copiar el enlace.
+        No hay ningún número de WhatsApp conectado en esta agencia, así que el panel no puede enviarla por ti. Puedes abrir WhatsApp con el mensaje preparado{{ publicUrl ? ' o copiar el enlace' : '' }}.
       </p>
       <div class="mt-3 rounded-lg bg-stone-50 p-3">
         <p class="whitespace-pre-line text-[13px] text-stone-700">{{ fallbackText }}</p>
       </div>
       <div class="mt-3 flex flex-wrap gap-2">
         <a :href="`https://wa.me/?text=${encodeURIComponent(fallbackText)}`" target="_blank" rel="noopener" class="btn-primary !px-5 !py-2">Abrir en WhatsApp</a>
-        <button type="button" class="btn-quiet !py-2" @click="copy">{{ copied ? 'Copiado' : 'Copiar enlace' }}</button>
+        <button v-if="publicUrl" type="button" class="btn-quiet !py-2" @click="copy">{{ copied ? 'Copiado' : 'Copiar enlace' }}</button>
       </div>
     </template>
     <template v-else>
@@ -46,7 +46,7 @@
  * enlace público. Sin número conectado, el enlace oficial wa.me con el
  * texto preparado — sin fingir que se envió nada.
  */
-const props = defineProps<{ property: { id: number; name: string; slug?: string | null } }>()
+const props = defineProps<{ property: { id: number; name: string; slug?: string | null; kind: 'agent' | 'developer' } }>()
 const emit = defineEmits<{ close: [] }>()
 const comms = useComms()
 const toast = useToast()
@@ -68,8 +68,9 @@ watch(q, (v) => {
   }, 250)
 })
 
-const publicUrl = computed(() => (import.meta.client ? `${window.location.origin}/propiedades/${props.property.slug || props.property.id}` : ''))
-const fallbackText = computed(() => `🏠 ${props.property.name}\n${publicUrl.value}`)
+// 2ª mano no se publica en la web (sin publishedAt, ver auditoría FASE 26/28): sin enlace público que ofrecer ni copiar.
+const publicUrl = computed(() => (props.property.kind === 'developer' && import.meta.client ? `${window.location.origin}/propiedades/${props.property.slug || props.property.id}` : ''))
+const fallbackText = computed(() => [`🏠 ${props.property.name}`, publicUrl.value || null].filter(Boolean).join('\n'))
 
 async function copy() {
   try {
@@ -86,7 +87,7 @@ async function pick(target: Record<string, any>) {
   sending.value = true
   try {
     const conv = await $fetch<{ id: number }>('/api/admin/comms/conversations', { method: 'POST', body: target })
-    await $fetch(`/api/admin/comms/conversations/${conv.id}/share-property`, { method: 'POST', body: { propertyId: props.property.id, note: note.value || undefined } })
+    await $fetch(`/api/admin/comms/conversations/${conv.id}/share-property`, { method: 'POST', body: { propertyId: props.property.id, propertyKind: props.property.kind, note: note.value || undefined } })
     toast.success('Propiedad enviada por WhatsApp')
     emit('close')
     await navigateTo(`/admin/comunicaciones?conversation=${conv.id}`)

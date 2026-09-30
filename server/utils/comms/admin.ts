@@ -4,6 +4,8 @@ import * as schema from '../../db/schema'
 import { isUniqueConstraintError, now } from '../db'
 import { hasOverlappingVisit, shiftDateTime } from '../appointments/availability'
 import { generateManagementToken } from '../appointments/managementToken'
+import { toPublicProperty } from '../propertyPrivacy'
+import type { PropertyKind } from '../matching/service'
 import { listChannels } from './credentials'
 import { previewOf, serviceWindow } from './inbox'
 import { formatPhone, whatsappClickToChatUrl } from './phone'
@@ -220,8 +222,10 @@ export async function publicSiteOrigin(db: any, orgId: number, event: H3Event): 
 
 export interface PropertyShare {
   id: number
+  kind: PropertyKind
   name: string
-  url: string
+  /** Sólo developer-properties tiene página pública (agent-properties/2ª mano no se publica en la web — ver auditoría FASE 26/28). */
+  url: string | null
   text: string
   imageLink: string | null
 }
@@ -231,33 +235,69 @@ function formatPriceEs(value: number | null | undefined): string | null {
   return `${new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(value)} €`
 }
 
-/** El texto (y la foto de portada) con los que se comparte una propiedad de la web por WhatsApp, con su enlace público. */
-export async function buildPropertyShare(db: any, orgId: number, propertyId: number, origin: string, note?: string | null): Promise<PropertyShare> {
+function toMediaLink(key: string, origin: string): string {
+  return key.startsWith('http') ? key : `${origin.replace(/\/$/, '')}${key.startsWith('/') ? key : `/api/media/${key}`}`
+}
+
+/**
+ * El texto (y la foto) con los que se comparte una propiedad por WhatsApp —
+ * de cualquiera de los dos catálogos (FASE 29 §124/§143: el picker de
+ * Comunicaciones no puede ser el único sitio del panel que sólo conoce
+ * developer-properties). Nunca datos internos: reutiliza
+ * `toPublicProperty()` (mismo filtro que ya protege la ficha pública), así
+ * que un `minimumAuthorizedPrice`/comisión/nota interna que se añada mañana
+ * queda fuera aquí también sin tocar este archivo.
+ */
+export async function buildPropertyShare(db: any, orgId: number, propertyId: number, kind: PropertyKind, origin: string, note?: string | null): Promise<PropertyShare> {
+  if (kind === 'developer') {
+    const rows = await db
+      .select({
+        id: schema.developerProperties.id,
+        name: schema.developerProperties.name,
+        slug: schema.developerProperties.slug,
+        price: schema.developerProperties.price,
+        community: schema.developerProperties.community,
+        coverImage: schema.developerProperties.coverImage,
+        bedrooms: schema.developerProperties.bedrooms,
+        area: schema.developerProperties.area,
+        locationPrivacy: schema.developerProperties.locationPrivacy,
+      })
+      .from(schema.developerProperties)
+      .where(and(eq(schema.developerProperties.id, propertyId), eq(schema.developerProperties.organizationId, orgId)))
+      .limit(1)
+    const raw = rows[0]
+    if (!raw) throw createError({ statusCode: 404, statusMessage: 'Propiedad no encontrada' })
+    const p = toPublicProperty(raw)
+    const url = `${origin.replace(/\/$/, '')}/propiedades/${p.slug || p.id}`
+    const facts = [formatPriceEs(p.price), p.bedrooms ? `${p.bedrooms} dorm.` : null, p.area ? `${Math.round(p.area)} m²` : null].filter(Boolean).join(' · ')
+    const lines = [`🏠 ${p.name}`, p.community || null, facts || null, note?.trim() || null, url].filter(Boolean)
+    return { id: p.id, kind, name: p.name, url, text: lines.join('\n'), imageLink: p.coverImage ? toMediaLink(String(p.coverImage), origin) : null }
+  }
+
+  // 2ª mano no tiene página pública (§124: "sólo datos publicables" no
+  // implica que exista un enlace — sin uno, el mensaje sólo lleva texto y
+  // foto, nunca un enlace inventado a una página que no existe).
   const rows = await db
     .select({
-      id: schema.developerProperties.id,
-      name: schema.developerProperties.name,
-      slug: schema.developerProperties.slug,
-      price: schema.developerProperties.price,
-      community: schema.developerProperties.community,
-      coverImage: schema.developerProperties.coverImage,
-      bedrooms: schema.developerProperties.bedrooms,
-      area: schema.developerProperties.area,
+      id: schema.agentProperties.id,
+      price: schema.agentProperties.price,
+      city: schema.agentProperties.city,
+      street: schema.agentProperties.street,
+      mainImage: schema.agentProperties.mainImage,
+      bedrooms: schema.agentProperties.bedrooms,
+      area: schema.agentProperties.area,
+      locationPrivacy: schema.agentProperties.locationPrivacy,
     })
-    .from(schema.developerProperties)
-    .where(and(eq(schema.developerProperties.id, propertyId), eq(schema.developerProperties.organizationId, orgId)))
+    .from(schema.agentProperties)
+    .where(and(eq(schema.agentProperties.id, propertyId), eq(schema.agentProperties.organizationId, orgId)))
     .limit(1)
-  const p = rows[0]
-  if (!p) throw createError({ statusCode: 404, statusMessage: 'Propiedad no encontrada' })
-  const url = `${origin.replace(/\/$/, '')}/propiedades/${p.slug || p.id}`
+  const raw = rows[0]
+  if (!raw) throw createError({ statusCode: 404, statusMessage: 'Propiedad no encontrada' })
+  const p = toPublicProperty(raw) as typeof raw
+  const name = p.street || p.city || `Inmueble #${p.id}`
   const facts = [formatPriceEs(p.price), p.bedrooms ? `${p.bedrooms} dorm.` : null, p.area ? `${Math.round(p.area)} m²` : null].filter(Boolean).join(' · ')
-  const lines = [`🏠 ${p.name}`, p.community || null, facts || null, note?.trim() || null, url].filter(Boolean)
-  let imageLink: string | null = null
-  if (p.coverImage) {
-    const key = String(p.coverImage)
-    imageLink = key.startsWith('http') ? key : `${origin.replace(/\/$/, '')}${key.startsWith('/') ? key : `/api/media/${key}`}`
-  }
-  return { id: p.id, name: p.name, url, text: lines.join('\n'), imageLink }
+  const lines = [`🏠 ${name}`, p.city || null, facts || null, note?.trim() || null].filter(Boolean)
+  return { id: p.id, kind, name, url: null, text: lines.join('\n'), imageLink: p.mainImage ? toMediaLink(String(p.mainImage), origin) : null }
 }
 
 /** Capacidades efectivas de la agencia: las del canal por defecto, o ninguna si no hay canal activo. */

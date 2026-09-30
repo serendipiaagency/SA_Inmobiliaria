@@ -2,6 +2,8 @@ import { and, eq, sql } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { isUniqueConstraintError, now } from '../db'
 import { sendInternalNotification } from '../email/send'
+import { recordActivity } from '../activity/service'
+import type { PropertyKind } from '../matching/service'
 import { formatPhone, normalizePhone } from './phone'
 import { matchCrmByPhone } from './matching'
 import { metaMarkRead, metaSendMessage } from './providers/metaCloud'
@@ -352,13 +354,18 @@ export async function applyMessageStatus(db: any, event: MessageStatusEvent): Pr
   const current = STATUS_RANK[row.status] ?? 0
   const next = STATUS_RANK[event.status] ?? 0
   if (event.status !== 'failed' && next <= current) return { updated: false }
+  const nowTs = now()
   await db
     .update(schema.commsMessages)
     .set({
       status: event.status,
       errorCode: event.status === 'failed' ? (event.errorCode ?? null) : row.errorCode,
       errorMessage: event.status === 'failed' ? (event.errorMessage ?? 'El proveedor no pudo entregar el mensaje.') : row.errorMessage,
-      updatedAt: now(),
+      // Cada timestamp se rellena sólo la primera vez que se alcanza ese estado (§109/§135) — si ya estaba puesto, se conserva.
+      sentAt: event.status === 'sent' ? (row.sentAt ?? nowTs) : row.sentAt,
+      deliveredAt: event.status === 'delivered' || event.status === 'read' ? (row.deliveredAt ?? nowTs) : row.deliveredAt,
+      readAt: event.status === 'read' ? (row.readAt ?? nowTs) : row.readAt,
+      updatedAt: nowTs,
     })
     .where(eq(schema.commsMessages.id, row.id))
   return { updated: true }
@@ -420,9 +427,34 @@ export interface SendOutboundInput {
   /** Tipo con el que se guarda: por defecto el del mensaje; `property_share` cuando lo que va es una propiedad. */
   storeAs?: string | null
   propertyId?: number | null
+  /** Sólo relevante junto a `propertyId` — qué catálogo, para el PROPERTY_SENT que se registra abajo. */
+  propertyKind?: PropertyKind | null
   userId: number
   statusCallbackUrl?: string | null
   fetchImpl?: typeof fetch
+}
+
+/**
+ * Resuelve el `contacts.id` (Property Core) y el `leadId` de un
+ * `comms_contacts.id`, para poder dejar constancia en Activity — que habla
+ * el vocabulario de Contact/Lead, no el de `comms_contacts` (que sólo
+ * conoce `leadId`/`clientId`, este último apuntando a la tabla `clients`
+ * heredada, no a `contacts`). Sin vínculo guardado (contacto de WhatsApp
+ * nunca cruzado con el CRM), los dos quedan `null` — nunca se inventa uno.
+ */
+export async function resolveActivityContact(db: any, commsContactId: number): Promise<{ contactId: number | null; leadId: number | null }> {
+  const rows = await db.select({ leadId: schema.commsContacts.leadId, clientId: schema.commsContacts.clientId }).from(schema.commsContacts).where(eq(schema.commsContacts.id, commsContactId)).limit(1)
+  const c = rows[0]
+  if (!c) return { contactId: null, leadId: null }
+  if (c.leadId) {
+    const leadRows = await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(eq(schema.leads.id, c.leadId)).limit(1)
+    return { contactId: leadRows[0]?.contactId ?? null, leadId: c.leadId }
+  }
+  if (c.clientId) {
+    const clientRows = await db.select({ contactId: schema.clients.contactId }).from(schema.clients).where(eq(schema.clients.id, c.clientId)).limit(1)
+    return { contactId: clientRows[0]?.contactId ?? null, leadId: null }
+  }
+  return { contactId: null, leadId: null }
 }
 
 export interface SendOutboundResult {
@@ -474,8 +506,10 @@ export async function sendOutbound(db: any, input: SendOutboundInput): Promise<S
     templateLanguage: message.kind === 'template' ? message.language : null,
     templateParamsJson: message.kind === 'template' ? JSON.stringify(message.params) : null,
     propertyId: input.propertyId ?? null,
+    propertyKind: input.propertyId ? (input.propertyKind ?? 'developer') : null,
     externalId: result.ok ? result.externalId : null,
     status: result.ok ? 'sent' : 'failed',
+    sentAt: result.ok ? nowTs : null,
     errorCode: result.ok ? null : result.errorCode,
     errorMessage: result.ok ? null : result.error,
     sentByUserId: input.userId,
@@ -489,6 +523,24 @@ export async function sendOutbound(db: any, input: SendOutboundInput): Promise<S
     lastMessagePreview: previewOf({ type, body, mediaFilename: values.mediaFilename, templateName: values.templateName }),
     status: conversation.status === 'closed' ? 'open' : conversation.status,
   })
+
+  // FASE 29 §128 — un envío real de propiedad deja constancia en Activity,
+  // nunca el cuerpo completo del mensaje (eso ya vive en comms_messages,
+  // la fuente de verdad) — sólo la referencia a la fila real.
+  if (result.ok && type === 'property_share' && input.propertyId) {
+    const { contactId, leadId } = await resolveActivityContact(db, contact.id)
+    await recordActivity(db, channel.organizationId, {
+      eventType: 'PROPERTY_SENT',
+      entityType: 'comms_message',
+      entityId: row.id,
+      contactId,
+      leadId,
+      propertyId: input.propertyId,
+      propertyKind: input.propertyKind ?? 'developer',
+      actorType: 'user',
+      actorId: input.userId,
+    })
+  }
 
   return result.ok ? { ok: true, code: null, error: null, message: row } : { ok: false, code: 'provider', error: result.error, message: row }
 }

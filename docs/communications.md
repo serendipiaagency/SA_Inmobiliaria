@@ -1,7 +1,8 @@
 # Centro de Comunicaciones (WhatsApp Business + llamadas)
 
 Bandeja de WhatsApp por agencia dentro del panel (`/admin/comunicaciones`):
-recibir y responder mensajes, compartir propiedades con su enlace público,
+recibir y responder mensajes, compartir propiedades de los dos catálogos
+(Propiedades web, con enlace público, y Propiedades 2ª mano, sin él),
 vincular cada conversación a un cliente o lead, anotar llamadas, programar
 seguimientos en la agenda y —con Meta y donde Meta lo permite— llamar por
 WhatsApp desde el navegador.
@@ -152,6 +153,44 @@ webhook: se guarda la referencia y se descargan con el token del canal la
 primera vez que alguien los abre (`/api/admin/comms/messages/:id/media`),
 guardándose en R2 bajo el inquilino como `media_assets` privados.
 
+Cada mensaje saliente guarda además `sent_at`/`delivered_at`/`read_at`
+(`comms_messages`, FASE 29 §109/§135): cada columna se rellena una sola vez,
+la primera vez que el estado llega a ese punto por webhook — nunca se
+inventa una fecha para un estado que el proveedor no ha confirmado
+(`applyMessageStatus()` en `server/utils/comms/inbox.ts`).
+
+### Compartir propiedad: dos catálogos
+
+`buildPropertyShare()` (`server/utils/comms/admin.ts`) construye el envío
+para **Propiedades (web)** o **Propiedades 2ª mano** — el mismo
+`property_id` no basta para saber de qué tabla viene, así que
+`comms_conversations`, `comms_messages` y `comms_calls` llevan también
+`property_kind` (`'agent' | 'developer'`, mismo vocabulario que
+`activities.propertyId/propertyKind`; NULL en filas anteriores a esta
+migración se lee como `'developer'`, que es lo único que existía). Los dos
+catálogos reutilizan `toPublicProperty()` (`server/utils/propertyPrivacy.ts`)
+— el mismo filtro que protege la ficha pública — así que ningún campo
+estrictamente interno (referencia, comisión, notas internas…) puede acabar
+en un mensaje de WhatsApp. **2ª mano no tiene página pública** (no hay
+`publishedAt` en `agent_properties`): `buildPropertyShare()` nunca inventa
+un enlace para ella, `share.url` es `null` y el mensaje va sólo con foto y
+ficha de texto; el picker de propiedades (`PropertyPickerModal.vue`) busca
+en los dos catálogos a la vez con `searchPropertiesCompact()`
+(`server/utils/properties/searchService.ts`, la misma búsqueda ligera que ya
+usaba el picker de Calendario).
+
+### Propiedad ↔ Compatibilidades
+
+Desde `/admin/compatibilidades`, un match "Seleccionado" con contacto y
+teléfono ofrece "Enviar propiedad": abre o reutiliza la conversación y llama
+a `POST /api/admin/comms/conversations/:id/share-property` con
+`buyerRequirementId`. Tras un envío realmente aceptado por el proveedor, la
+ruta llama a `markMatchSent()` (`server/utils/matching/service.ts`) para
+marcar ese match como `status: 'sent'` — un estado que **sólo** se alcanza
+así, nunca desde la API manual de decisión (`setMatchStatus()` sigue
+rechazando `'sent'` igual que antes). Un fallo al marcar el match no deshace
+el envío ya hecho: el mensaje de WhatsApp es lo que de verdad importa.
+
 ### Consentimiento
 
 - Un mensaje del cliente pone `consent_status = opted_in` (origen
@@ -174,6 +213,22 @@ del resto del histórico del cliente, que se cruza por email/nombre). La
 ficha del cliente (`/admin/clientes/:id`) muestra sus conversaciones y
 llamadas en la pestaña «Comunicaciones» y en la cronología («WhatsApp
 recibido/enviado», «Llamada realizada/recibida»), con enlace al hilo.
+
+Desde FASE 29 (§128), un envío de propiedad real y una llamada contestada
+de verdad generan además un evento de `activities` — `PROPERTY_SENT` y
+`CALL_COMPLETED` (`ACTIVITY_EVENT_TYPES`,
+`server/utils/activity/service.ts`) — con el mismo contacto/lead que la
+conversación, resuelto por `resolveActivityContact()`
+(`server/utils/comms/inbox.ts`: de `comms_contacts` a `leads.contactId` o
+`clients.contactId`, o `null` si no hay vínculo — nunca se inventa uno).
+Ninguno de los dos vuelca el texto del mensaje ni notas en el `metadata` del
+evento. `PROPERTY_SENT` se dispara sólo dentro de `sendOutbound()` — el
+único punto por el que pasa todo envío saliente — cuando el proveedor
+confirma de verdad el envío de una propiedad; `CALL_COMPLETED` sólo cuando
+hay evidencia real de que se contestó (`finalStatus === 'completed'` en el
+webhook de WhatsApp Calling, o resultado «contestada» al registrar una
+llamada a mano) — nunca por abrir el marcador `tel:` o iniciar una llamada
+que nadie contesta.
 
 ### Llamadas
 
@@ -251,6 +306,15 @@ Migración `0065_communications_center.sql` — aditiva, sólo tablas nuevas:
 `comms_messages`, `comms_calls`, `comms_templates`, `comms_webhook_events`.
 Ninguna fila existente cambia. Esquema en `server/db/schema.ts`.
 
+Migración `0082_comms_property_kind_and_message_timestamps.sql` (FASE 29,
+aditiva) — añade `property_kind` (`TEXT`, `'agent' | 'developer'`) a
+`comms_conversations`, `comms_messages` y `comms_calls`, y `sent_at`,
+`delivered_at`, `read_at` (`TEXT`) a `comms_messages`. Ninguna fila
+existente se reescribe: `property_kind` queda `NULL` en las filas antiguas
+y el código lo interpreta como `'developer'` (lo único que existía antes de
+esta migración), y los tres timestamps nuevos quedan `NULL` hasta el
+próximo cambio de estado de cada mensaje.
+
 ## Piezas
 
 | Pieza | Fichero |
@@ -263,6 +327,8 @@ Ninguna fila existente cambia. Esquema en `server/db/schema.ts`.
 | Idempotencia de webhooks | `server/utils/comms/ingest.ts` |
 | Llamadas | `server/utils/comms/calls.ts` |
 | Medios entrantes | `server/utils/comms/media.ts` |
+| Compartir propiedad (dos catálogos) | `server/utils/comms/admin.ts` (`buildPropertyShare`), `server/utils/propertyPrivacy.ts` (`toPublicProperty`), `server/utils/properties/searchService.ts` (`searchPropertiesCompact`) |
+| Propiedad ↔ Compatibilidades (envío marca el match) | `server/utils/matching/service.ts` (`markMatchSent`), `pages/admin/compatibilidades.vue` |
 | Webhooks | `server/api/comms/webhooks/{meta.get,meta.post}.ts`, `twilio/{inbound,status}.post.ts` |
 | API del panel | `server/api/admin/comms/**` |
 | Interfaz | `pages/admin/comunicaciones/{index,configuracion}.vue`, `components/admin/comms/*`, `composables/{useComms,useVoiceManager}.ts` |

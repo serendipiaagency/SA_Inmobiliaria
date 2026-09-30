@@ -252,3 +252,40 @@ describe('FASE 11 — el motor de matching cubre developer_properties y agent_pr
     expect(forB!.results).toHaveLength(0)
   })
 })
+
+describe('markMatchSent — FASE 29 §126-127: "sent" sólo lo marca un envío real ya confirmado', () => {
+  it('setMatchStatus sigue rechazando "sent" a mano — el guarda de MANUAL_STATUSES no cambia', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'MatchSentGuard')
+    const contact = await seedContact(db, fixture.orgId, 'Comprador')
+    const { createBuyerRequirement } = await import('../../server/utils/buyerRequirements/service')
+    const { setMatchStatus, MatchStatusError } = await import('../../server/utils/matching/service')
+    const req = await createBuyerRequirement(ev(db), fixture.orgId, { contactId: contact.id, operation: 'sale' })
+
+    await expect(
+      setMatchStatus(ev(db), fixture.orgId, { buyerRequirementId: req.id, propertyId: fixture.projectId, propertyKind: 'developer', status: 'sent' as any }, { userId: fixture.userId }),
+    ).rejects.toBeInstanceOf(MatchStatusError)
+  })
+
+  it('markMatchSent marca el match como sent — el único llamador legítimo es el envío real ya confirmado', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'MatchSentOk')
+    const contact = await seedContact(db, fixture.orgId, 'Comprador')
+    const { createBuyerRequirement } = await import('../../server/utils/buyerRequirements/service')
+    const { markMatchSent } = await import('../../server/utils/matching/service')
+    const req = await createBuyerRequirement(ev(db), fixture.orgId, { contactId: contact.id, operation: 'sale' })
+
+    const match = await markMatchSent(ev(db), fixture.orgId, { buyerRequirementId: req.id, propertyId: fixture.projectId, propertyKind: 'developer' }, { userId: fixture.userId })
+    expect(match.status).toBe('sent')
+
+    const [persisted] = await db.select().from(schema.developerPropertyMatches).where(eq(schema.developerPropertyMatches.id, match.id))
+    expect(persisted.status).toBe('sent')
+  })
+
+  it('markMatchSent sobre un par (necesidad, inmueble) inexistente falla sin crear nada', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'MatchSentMissing')
+    const { markMatchSent, MatchStatusError } = await import('../../server/utils/matching/service')
+    await expect(markMatchSent(ev(db), fixture.orgId, { buyerRequirementId: 999999, propertyId: fixture.projectId, propertyKind: 'developer' })).rejects.toBeInstanceOf(MatchStatusError)
+  })
+})
