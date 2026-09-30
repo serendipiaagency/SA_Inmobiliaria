@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, like, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, like, or, sql } from 'drizzle-orm'
 import { schema, useDb } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
@@ -57,6 +57,17 @@ export default defineEventHandler(async (event) => {
   const isProperties = key === 'properties'
   if (isDeveloperProperties || isProperties) {
     conds.push(...buildPropertyFilterConds(isDeveloperProperties ? 'developer' : 'agent', parsePropertyFilters(query)))
+    // Bulk Actions (FASE 28 incremento 2) — "exportar seleccionadas" reutiliza
+    // este mismo endpoint con un filtro por ids, no un mecanismo nuevo (ver
+    // docs/bulk-actions.md). Sólo se activa si `ids` llega — el resto de
+    // listados/exportaciones no lo usan y siguen exactamente igual.
+    if (typeof query.ids === 'string' && query.ids.trim()) {
+      const idList = query.ids
+        .split(',')
+        .map((s) => parseInt(s.trim(), 10))
+        .filter((n) => Number.isInteger(n) && n > 0)
+      if (idList.length) conds.push(inArray(def.table.id, idList))
+    }
   }
 
   // "Comerciales" admin listing — status/office/department/zone/

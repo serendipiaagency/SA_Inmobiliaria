@@ -106,33 +106,54 @@ siendo de la organización — una fila pudo borrarse entre seleccionarla y
 que le llegue el turno; ese caso se reporta como un fallo individual de
 esa fila, no interrumpe el resto del job.
 
+## Incremento 2 — publicar/retirar, precio, exportar, catálogo
+
+Añade las cuatro acciones de Properties que quedaban pendientes (§90-95)
+y "Exportar seleccionadas" (§92):
+
+- **`assertSchemaValid()`** (`server/utils/properties/publication.ts`) —
+  la validación de `PropertySchemaRegistry` que antes sólo vivía inline
+  en `[id].put.ts` (modo `'save'`/`'publish'`) se extrajo a una función
+  compartida, y `[id].put.ts` ahora la llama en vez de repetir la
+  comparación. El handler masivo `publish` llama exactamente a la misma
+  función — nunca una tercera interpretación de `requiredForPublish`.
+- **Publicar** (§90) — sólo existe en `developer-properties`:
+  `agent-properties` no tiene consumidor público (mismo hallazgo de la
+  auditoría FASE 26/28), así que el handler rechaza con 422 si se invoca
+  sobre 2ª mano. Idempotente: publicar una ya publicada es un éxito
+  silencioso.
+- **Retirar** (§91) — concepto nuevo: limpia `publishedAt` sin tocar el
+  resto de la fila, nunca `delete`. También sólo aplica a obra nueva, e
+  idempotente sobre una ya retirada.
+- **Actualizar precio** (§94-95) — genera SIEMPRE un
+  `PropertyPriceHistory` por fila: `price_history` en obra nueva (mismo
+  camino que ya usaba `[id].put.ts` en una edición manual, incluido
+  disparar `price_drop` en Automatizaciones si el precio baja) y
+  `agent_property_price_history` en 2ª mano — su primer escritor real
+  desde que la tabla existe (migración 0081).
+- **Exportar seleccionadas** (§92) — sin acción masiva nueva del lado
+  servidor: `[resource]/index.get.ts` gana un filtro `ids` (sólo para
+  `properties`/`developer-properties`, opt-in, nunca cambia el
+  comportamiento existente) y el botón nuevo llama al mismo
+  `?format=csv` que ya usa "Exportar CSV" — con `ids` en selección
+  manual/de página, o con el propio filtro activo en modo "todos los
+  filtrados" (ese modo ya exporta exactamente lo mismo que el botón de
+  arriba).
+- **Crear catálogo** (§93) — no es un `bulk_action_job`: es una única
+  llamada síncrona a `POST /api/admin/asset-export/catalogs` (igual que
+  "Exportar seleccionadas"), con la plantilla que se elige en el propio
+  desplegable de la barra de acciones. Limitado a `developer-properties`
+  y al tope ya existente de ese endpoint (`MAX_CATALOG_ASSETS = 30`);
+  "todos los filtrados" queda deshabilitado para esta acción porque
+  necesita los ids reales, no una resolución tardía del lado servidor.
+  Al terminar, lleva directamente a la ficha del catálogo creado.
+
 ## Qué queda para el siguiente incremento
 
-Del megaprompt original de FASE 28, este incremento cubre el framework
-completo (§84-85, §102-106) y tres acciones de Properties (§87-89).
-Quedan, mismo criterio de incrementos revisables que FASE 25/27:
+Del megaprompt original de FASE 28, quedan sólo las acciones de Leads
+(§96-101), mismo criterio de incrementos revisables que FASE 25/27:
 
-- **Publicar / Retirar** (§90-91) — publicar debe validar
-  `PropertySchemaRegistry.requiredForPublish` (ya existe la validación
-  en modo `'publish'`, hoy sólo se dispara inline en `[id].put.ts` para
-  `developer-properties`; se necesita extraerla a una función reutilizable
-  antes de que el handler masivo la llame, en vez de duplicarla una
-  tercera vez). Retirar no existe como concepto hoy (nada limpia
-  `publishedAt`) — se añade en ese incremento.
-- **Actualizar precio + `PropertyPriceHistory`** (§94-95) —
-  `price_history` (developer-properties) ya existe y tiene consumidor
-  público; `agent_property_price_history` (migración 0081) ya existe
-  como tabla pero todavía sin escritor — el handler de precio masivo es
-  quien la usará por primera vez, igual que hace `[id].put.ts` con
-  `price_history` en una edición manual.
-- **Exportar** (§92) — ya existe `format=csv` en el listado (FASE 27);
-  la acción masiva de exportar una selección concreta reutiliza ese
-  mismo endpoint con un filtro por ids, no un mecanismo nuevo.
-- **Crear catálogo** (§93) — reutiliza el módulo de Asset Export Studio
-  ya existente (`POST /api/admin/asset-export/catalogs`), hoy limitado a
-  `developer_properties` — la acción masiva será un envoltorio fino
-  sobre esa API ya construida, no una reimplementación.
-- **Bulk Leads** (§96-101) — asignar Comercial (reutiliza
+- **Bulk Leads** — asignar Comercial (reutiliza
   `leads/routing.ts#reassignLead`), cambiar etapa (reutiliza
   `leads/pipeline.ts#transitionLeadStage`, que ya es el único escritor
   legal de `leads.stage` y ya genera `lead_stage_history`), etiqueta
@@ -140,6 +161,6 @@ Quedan, mismo criterio de incrementos revisables que FASE 25/27:
   `tasks/service.ts#createTask`, una fila real por Lead — nunca una Task
   para 500 Leads), exportar.
 
-Todas las piezas que estas acciones necesitan reutilizar ya existen y ya
-están identificadas — este incremento las deja localizadas a propósito
-para que el siguiente no vuelva a auditar el repo desde cero.
+Requiere además construir selección múltiple en `pages/admin/leads.vue`
+(hoy sin paginación ni bulk-select — Kanban + Tabla, estructura distinta
+de `PropertyList.vue`).

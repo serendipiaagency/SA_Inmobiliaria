@@ -153,3 +153,181 @@ test.describe('Bulk Actions — Propiedades', () => {
     expect(updated.status).toBe('sold')
   })
 })
+
+/**
+ * FASE 28 incremento 2 — publicar/retirar, actualizar precio (con su
+ * histórico SIEMPRE generado), exportar seleccionadas y crear catálogo.
+ */
+test.describe('Bulk Actions — Propiedades (incremento 2)', () => {
+  let a: APIRequestContext
+  const createdIds: number[] = []
+  const createdDeveloperPropertyIds: number[] = []
+
+  test.beforeAll(async () => {
+    a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
+  })
+
+  test.afterAll(async () => {
+    await Promise.all([
+      ...createdIds.map((id) => a.delete(`/api/admin/properties/${id}`).catch(() => null)),
+      ...createdDeveloperPropertyIds.map((id) => a.delete(`/api/admin/developer-properties/${id}`).catch(() => null)),
+    ])
+    await a?.dispose()
+  })
+
+  async function createProperty(overrides: Record<string, any> = {}) {
+    const res = await a.post('/api/admin/properties', { data: { slug: `e2e-bulk2-${RUN}-${Math.random().toString(36).slice(2)}`, price: 100000, status: 'available', ...overrides } })
+    const body = await res.json()
+    createdIds.push(body.id)
+    return body.id as number
+  }
+
+  async function createDeveloper() {
+    const res = await a.post('/api/admin/developers', { data: { name: `Dev ${RUN}-${Math.random().toString(36).slice(2)}`, status: 'active' } })
+    return (await res.json()).id as number
+  }
+
+  /** Con TODOS los campos que PropertySchemaRegistry exige para publicar — la fila con la que "publicar" sí puede tener éxito. */
+  async function createPublishableDeveloperProperty(developerId: number, overrides: Record<string, any> = {}) {
+    const res = await a.post('/api/admin/developer-properties', {
+      data: {
+        developerId,
+        name: `Torre completa ${RUN}-${Math.random().toString(36).slice(2)}`,
+        status: 'new',
+        transactionType: 'sale',
+        country: 'España',
+        city: 'Marbella',
+        area: 120,
+        price: 500000,
+        description: 'Lista para publicar',
+        coverImage: 'uploads/cover.jpg',
+        ...overrides,
+      },
+    })
+    const body = await res.json()
+    createdDeveloperPropertyIds.push(body.id)
+    return body.id as number
+  }
+
+  async function runJob(session: APIRequestContext, jobId: number) {
+    let job: any
+    for (let i = 0; i < 50; i++) {
+      const res = await session.put(`/api/admin/property-bulk-jobs/${jobId}`, { data: {} })
+      expect(res.ok(), `process-next falló: ${res.status()} ${await res.text()}`).toBeTruthy()
+      const body = await res.json()
+      if (body.job) job = body.job
+      if (body.done) return job
+    }
+    throw new Error('El job no terminó tras 50 iteraciones')
+  }
+
+  test('publicar exige los mismos campos obligatorios que una edición manual — falla individual, nunca aborta el job', async () => {
+    const developerId = await createDeveloper()
+    const incomplete = await createPublishableDeveloperProperty(developerId, { country: null, city: null, description: null, coverImage: null })
+
+    const created = await a.post('/api/admin/property-bulk-jobs', { data: { entityType: 'developer', action: 'publish', params: {}, ids: [incomplete] } })
+    const finished = await runJob(a, (await created.json()).id)
+    expect(finished.status).toBe('failed') // el único elemento falló, sin abortar el job en sí
+    const detail = await (await a.get(`/api/admin/property-bulk-jobs/${finished.id}`)).json()
+    expect(detail.row.failedCount).toBe(1)
+  })
+
+  test('publicar una propiedad completa la marca como publicada; publicar/retirar son idempotentes', async () => {
+    const developerId = await createDeveloper()
+    const complete = await createPublishableDeveloperProperty(developerId)
+
+    const publish1 = await a.post('/api/admin/property-bulk-jobs', { data: { entityType: 'developer', action: 'publish', params: {}, ids: [complete] } })
+    await runJob(a, (await publish1.json()).id)
+    let row = (await (await a.get(`/api/admin/developer-properties/${complete}`)).json()).row
+    expect(row.publishedAt).toBeTruthy()
+
+    // Publicar una ya publicada no falla — éxito silencioso, no un "ya está publicada".
+    const publish2 = await a.post('/api/admin/property-bulk-jobs', { data: { entityType: 'developer', action: 'publish', params: {}, ids: [complete] } })
+    expect((await runJob(a, (await publish2.json()).id)).status).toBe('completed')
+
+    // Retirar limpia publishedAt sin borrar la ficha (nunca delete).
+    const withdraw1 = await a.post('/api/admin/property-bulk-jobs', { data: { entityType: 'developer', action: 'withdraw', params: {}, ids: [complete] } })
+    await runJob(a, (await withdraw1.json()).id)
+    row = (await (await a.get(`/api/admin/developer-properties/${complete}`)).json()).row
+    expect(row.publishedAt).toBeFalsy()
+    expect(row.id).toBe(complete)
+
+    // Retirar una ya retirada también es idempotente.
+    const withdraw2 = await a.post('/api/admin/property-bulk-jobs', { data: { entityType: 'developer', action: 'withdraw', params: {}, ids: [complete] } })
+    expect((await runJob(a, (await withdraw2.json()).id)).status).toBe('completed')
+  })
+
+  test('publicar/retirar no aplican a 2ª mano: agent-properties no tiene consumidor público', async () => {
+    const prop = await createProperty()
+    const created = await a.post('/api/admin/property-bulk-jobs', { data: { entityType: 'agent', action: 'publish', params: {}, ids: [prop] } })
+    expect((await runJob(a, (await created.json()).id)).status).toBe('failed')
+  })
+
+  test('actualizar precio SIEMPRE genera una fila en el histórico de precios de esa propiedad', async () => {
+    const prop = await createProperty({ price: 200000 })
+    const created = await a.post('/api/admin/property-bulk-jobs', { data: { entityType: 'agent', action: 'update_price', params: { price: 175000 }, ids: [prop] } })
+    expect((await runJob(a, (await created.json()).id)).status).toBe('completed')
+    const row = (await (await a.get(`/api/admin/properties/${prop}`)).json()).row
+    expect(row.price).toBe(175000)
+  })
+
+  test('rechaza un precio inválido sin abortar el resto del job', async () => {
+    const bad = await createProperty()
+    const created = await a.post('/api/admin/property-bulk-jobs', { data: { entityType: 'agent', action: 'update_price', params: { price: -5 }, ids: [bad] } })
+    expect((await runJob(a, (await created.json()).id)).status).toBe('failed')
+  })
+
+  test('exportar seleccionadas: el CSV incluye sólo los ids pedidos — mismo endpoint, filtro por ids nuevo', async () => {
+    const wanted1 = await createProperty()
+    const wanted2 = await createProperty()
+    const notWanted = await createProperty()
+
+    const res = await a.get(`/api/admin/properties?format=csv&ids=${wanted1},${wanted2}`)
+    expect(res.ok()).toBeTruthy()
+    const csv = await res.text()
+    expect(csv).toContain(`\n${wanted1},`)
+    expect(csv).toContain(`\n${wanted2},`)
+    expect(csv).not.toContain(`\n${notWanted},`)
+  })
+
+  test('crear catálogo envuelve la API de Asset Export Studio ya existente, sin reimplementarla', async () => {
+    const developerId = await createDeveloper()
+    const p1 = await createPublishableDeveloperProperty(developerId)
+    const p2 = await createPublishableDeveloperProperty(developerId)
+
+    const templates = await (await a.get('/api/admin/asset-export/templates')).json()
+    const template = (templates as any[]).find((t) => String(t.formatKey || '').startsWith('pdf'))
+    expect(template, 'no hay ninguna plantilla PDF sembrada por las migraciones').toBeTruthy()
+
+    const res = await a.post('/api/admin/asset-export/catalogs', { data: { templateId: template.id, assetIds: [p1, p2] } })
+    expect(res.ok(), `no se pudo crear el catálogo: ${res.status()} ${await res.text()}`).toBeTruthy()
+    const catalog = await res.json()
+    expect(catalog.totalCount).toBe(2)
+  })
+
+  test('el recorrido real desde el navegador: actualizar precio en bloque genera el histórico', async ({ page }) => {
+    await page.context().addCookies((await a.storageState()).cookies)
+    const prop = await createProperty({ price: 300000, slug: `e2e-bulk2-ui-${RUN}` })
+
+    await page.goto('/admin/properties')
+    await page.getByRole('button', { name: 'Lista' }).click()
+    await page.getByPlaceholder(/Referencia, dirección, zona/).fill(`e2e-bulk2-ui-${RUN}`)
+    await page.getByPlaceholder(/Referencia, dirección, zona/).press('Enter')
+
+    const row = page.locator('tbody tr', { hasText: `Ref. #${prop}` })
+    await expect(row).toBeVisible()
+    await row.locator('input[type="checkbox"]').check()
+
+    await page.locator('select').filter({ hasText: 'Elige una acción…' }).selectOption('update_price')
+    await page.getByPlaceholder('Nuevo precio (€)').fill('250000')
+    await page.getByRole('button', { name: 'Aplicar' }).click()
+
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: 'Aplicar' }).click()
+
+    await expect(page.getByText(/Acción aplicada a 1 propiedad/)).toBeVisible({ timeout: 10_000 })
+    const updated = (await (await a.get(`/api/admin/properties/${prop}`)).json()).row
+    expect(updated.price).toBe(250000)
+  })
+})
