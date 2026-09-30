@@ -11,6 +11,7 @@ import { assertSchemaValid } from '../../../utils/properties/publication'
 import { assertOwnsSavedView } from '../../../utils/properties/savedViews'
 import { processNextBulkActionItem } from '../../../utils/bulkActions/service'
 import { propertyBulkHandlers } from '../../../utils/bulkActions/propertyActions'
+import { leadBulkHandlers } from '../../../utils/bulkActions/leadActions'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -48,6 +49,10 @@ export default defineEventHandler(async (event) => {
     const jobRow = existing as any
     const handlers = propertyBulkHandlers(jobRow.entityType)
     const result = await processNextBulkActionItem(event, orgId!, id, handlers)
+    return { ok: true, ...result }
+  }
+  if (key === 'lead-bulk-jobs') {
+    const result = await processNextBulkActionItem(event, orgId!, id, leadBulkHandlers())
     return { ok: true, ...result }
   }
 

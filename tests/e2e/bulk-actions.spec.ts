@@ -331,3 +331,164 @@ test.describe('Bulk Actions — Propiedades (incremento 2)', () => {
     expect(updated.price).toBe(250000)
   })
 })
+
+/**
+ * FASE 28 incremento 3 (cierre) — Bulk Leads: cambiar comercial, cambiar
+ * fase, etiqueta, crear tarea, exportar. Mismo motor de jobs que Properties
+ * (`entityType: 'lead'`), reutilizando en cada caso el servicio de dominio
+ * que ya escribe esa tabla fuera de Bulk Actions — ver docs/bulk-actions.md.
+ */
+test.describe('Bulk Actions — Leads (FASE 28 incremento 3)', () => {
+  let a: APIRequestContext
+  let otherOrg: APIRequestContext
+  let apiKey: string
+  let commercialId: number
+
+  test.beforeAll(async () => {
+    a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
+    otherOrg = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_B })
+    // La API v1 de creación de leads exige una clave con scope "write" — mismo
+    // patrón ya establecido en cross-tenant.spec.ts.
+    const keyRes = await a.post('/api/admin/saas/apikeys', { data: { name: `e2e-lead-bulk-${RUN}`, scopes: 'write' } })
+    expect(keyRes.ok()).toBeTruthy()
+    apiKey = (await keyRes.json()).plainKey
+    const team = await (await a.get('/api/admin/team', { params: { perPage: 200 } })).json()
+    commercialId = team.rows[0].id
+  })
+
+  test.afterAll(async () => {
+    await Promise.all([a?.dispose(), otherOrg?.dispose()])
+  })
+
+  async function createLead(overrides: Record<string, any> = {}) {
+    const res = await a.fetch('/api/v1/leads', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      data: { name: `E2E Lead ${RUN}-${Math.random().toString(36).slice(2)}`, email: `lead-${RUN}-${Math.random().toString(36).slice(2)}@example.com`, ...overrides },
+    })
+    expect(res.ok(), `crear lead falló: ${res.status()} ${await res.text()}`).toBeTruthy()
+    const { data } = await res.json()
+    return data.id as number
+  }
+
+  async function runJob(session: APIRequestContext, jobId: number) {
+    let job: any
+    for (let i = 0; i < 50; i++) {
+      const res = await session.put(`/api/admin/lead-bulk-jobs/${jobId}`, { data: {} })
+      expect(res.ok(), `process-next falló: ${res.status()} ${await res.text()}`).toBeTruthy()
+      const body = await res.json()
+      if (body.job) job = body.job
+      if (body.done) return job
+    }
+    throw new Error('El job no terminó tras 50 iteraciones')
+  }
+
+  /** `ids` (incremento 3) filtra el mismo listado que usa la Tabla — no hace falta un GET de detalle nuevo. */
+  async function getLead(id: number) {
+    const res = await a.get('/api/admin/saas/leads', { params: { ids: String(id) } })
+    const { rows } = await res.json()
+    return rows.find((r: any) => r.id === id)
+  }
+
+  test('cambiar comercial reutiliza leads/routing.ts#reassignLead y queda en el historial de asignaciones', async () => {
+    const lead = await createLead()
+    const created = await a.post('/api/admin/lead-bulk-jobs', { data: { action: 'change_commercial', params: { commercialId }, ids: [lead] } })
+    expect(created.ok(), `crear el job falló: ${created.status()} ${await created.text()}`).toBeTruthy()
+    const finalJob = await runJob(a, (await created.json()).id)
+    expect(finalJob.status).toBe('completed')
+
+    const row = await getLead(lead)
+    expect(row.agentId).toBe(commercialId)
+
+    const history = await (await a.get(`/api/admin/saas/leads/${lead}/assignment-history`)).json()
+    expect(history.rows.length).toBeGreaterThan(0)
+    expect(history.rows[0].toCommercialId).toBe(commercialId)
+  })
+
+  test('cambiar fase reutiliza leads/pipeline.ts#transitionLeadStage — rechaza una fase inválida sin abortar el job', async () => {
+    const lead = await createLead()
+    const created = await a.post('/api/admin/lead-bulk-jobs', { data: { action: 'change_stage', params: { stage: 'qualified' }, ids: [lead] } })
+    const finalJob = await runJob(a, (await created.json()).id)
+    expect(finalJob.status).toBe('completed')
+    const row = await getLead(lead)
+    expect(row.stage).toBe('qualified')
+
+    const bad = await createLead()
+    const badJob = await a.post('/api/admin/lead-bulk-jobs', { data: { action: 'change_stage', params: { stage: 'not_a_real_stage' }, ids: [bad] } })
+    expect((await runJob(a, (await badJob.json()).id)).status).toBe('failed')
+  })
+
+  test('añadir etiqueta es idempotente: reintentar la misma acción sobre el mismo lead no falla ni la duplica', async () => {
+    const lead = await createLead()
+    const tagName = `Lead urgente ${RUN}`
+    for (let i = 0; i < 2; i++) {
+      const created = await a.post('/api/admin/lead-bulk-jobs', { data: { action: 'add_tag', params: { tagName }, ids: [lead] } })
+      const finalJob = await runJob(a, (await created.json()).id)
+      expect(finalJob.status).toBe('completed')
+    }
+  })
+
+  test('crear tarea genera una fila de Task real por lead seleccionado, nunca una sola compartida por el lote', async () => {
+    const lead1 = await createLead()
+    const lead2 = await createLead()
+    const created = await a.post('/api/admin/lead-bulk-jobs', {
+      data: { action: 'create_task', params: { type: 'call', title: `Llamar E2E ${RUN}`, assigneeId: commercialId }, ids: [lead1, lead2] },
+    })
+    const finalJob = await runJob(a, (await created.json()).id)
+    expect(finalJob.status).toBe('completed')
+    expect(finalJob.completedCount).toBe(2)
+
+    const tasks1 = await (await a.get('/api/admin/saas/tasks', { params: { leadId: String(lead1) } })).json()
+    const tasks2 = await (await a.get('/api/admin/saas/tasks', { params: { leadId: String(lead2) } })).json()
+    expect(tasks1.rows.some((t: any) => t.title === `Llamar E2E ${RUN}`)).toBeTruthy()
+    expect(tasks2.rows.some((t: any) => t.title === `Llamar E2E ${RUN}`)).toBeTruthy()
+  })
+
+  test('exportar seleccionados: el CSV incluye sólo los ids pedidos', async () => {
+    const wanted = await createLead()
+    const notWanted = await createLead()
+
+    const res = await a.get(`/api/admin/saas/leads?format=csv&ids=${wanted}`)
+    expect(res.ok()).toBeTruthy()
+    const csv = await res.text()
+    expect(csv).toContain(`\n${wanted},`)
+    expect(csv).not.toContain(`\n${notWanted},`)
+  })
+
+  test('aislamiento entre tenants: un job de leads de una organización no se puede leer ni procesar desde otra', async () => {
+    const lead = await createLead()
+    const created = await a.post('/api/admin/lead-bulk-jobs', { data: { action: 'add_tag', params: { tagName: 'x' }, ids: [lead] } })
+    const { id: jobId } = await created.json()
+
+    const crossRead = await otherOrg.get(`/api/admin/lead-bulk-jobs/${jobId}`)
+    expect(crossRead.status()).toBe(404)
+    const crossProcess = await otherOrg.put(`/api/admin/lead-bulk-jobs/${jobId}`, { data: {} })
+    expect(crossProcess.status()).toBe(404)
+  })
+
+  test('el recorrido real desde el navegador: seleccionar en la vista Tabla, cambiar fase, confirmar', async ({ page }) => {
+    await page.context().addCookies((await a.storageState()).cookies)
+    const lead = await createLead({ name: `E2E Lead UI ${RUN}` })
+
+    await page.goto('/admin/leads')
+    await page.getByRole('button', { name: 'Tabla' }).click()
+    await page.getByPlaceholder(/Buscar por nombre, email o propiedad/).fill(`E2E Lead UI ${RUN}`)
+
+    const row = page.locator('tbody tr', { hasText: `E2E Lead UI ${RUN}` })
+    await expect(row).toBeVisible()
+    await row.locator('input[type="checkbox"]').check()
+
+    await expect(page.getByText('1 seleccionado')).toBeVisible()
+    await page.locator('select').filter({ hasText: 'Elige una acción…' }).selectOption('change_stage')
+    await page.locator('select').filter({ hasText: 'Elige una fase…' }).selectOption('qualified')
+    await page.getByRole('button', { name: 'Aplicar' }).click()
+
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toBeVisible()
+    await dialog.getByRole('button', { name: 'Aplicar' }).click()
+
+    await expect(page.getByText(/Acción aplicada a 1 lead/)).toBeVisible({ timeout: 10_000 })
+    const updated = await getLead(lead)
+    expect(updated.stage).toBe('qualified')
+  })
+})

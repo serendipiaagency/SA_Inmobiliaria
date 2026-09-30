@@ -45,6 +45,21 @@ export default defineEventHandler(async (event) => {
     return { ok: true, id: job.id, job }
   }
 
+  // Bulk Actions sobre Leads (FASE 28 incremento 3) — sin "todos los
+  // filtrados": pages/admin/leads.vue no pagina (un único listado con tope
+  // de 200 filas, ver leads.get.ts), así que lo que ya está cargado en
+  // pantalla ES la selección filtrada completa — nunca hace falta
+  // resolverla otra vez del lado servidor como sí hace Properties.
+  if (key === 'lead-bulk-jobs') {
+    if (typeof body?.action !== 'string' || !body.action) {
+      throw createError({ statusCode: 422, statusMessage: 'Falta la acción' })
+    }
+    const ids = Array.isArray(body.ids) ? body.ids.map(Number) : []
+    const job = await createBulkActionJob(event, orgId!, user.id, { entityType: 'lead', action: body.action, params: body.params || {}, ids })
+    await logAdminAction(event, { user, orgId, action: 'create', resource: key, resourceId: job.id, detail: `${job.action} × ${job.totalCount}` })
+    return { ok: true, id: job.id, job }
+  }
+
   const data = await buildPayload(def, body || {}, true, event)
   // Tenant ownership is always server-resolved, never taken from client input —
   // for direct-policy resources it's the org column, for child resources it's

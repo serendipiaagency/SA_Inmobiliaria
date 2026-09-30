@@ -1,4 +1,5 @@
 import { requireOrgScope } from '../../../utils/auth'
+import { rowsToCsv } from '../../../utils/properties/searchService'
 
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireOrgScope(event)
@@ -13,7 +14,33 @@ export default defineEventHandler(async (event) => {
   if (status && status !== 'all') { where.push('status = ?'); binds.push(status) }
   if (source && source !== 'all') { where.push('source = ?'); binds.push(source) }
   if (search) { where.push('(name LIKE ? OR email LIKE ? OR property_name LIKE ?)'); binds.push(`%${search}%`, `%${search}%`, `%${search}%`) }
+  // "Exportar seleccionadas" (FASE 28 incremento 3) — mismo criterio de coste
+  // cero que `[resource]/index.get.ts` para properties (docs/bulk-actions.md):
+  // opt-in, sólo se activa si `ids` llega, el listado normal no lo usa nunca.
+  const idsParam = String(q.ids || '').trim()
+  if (idsParam) {
+    const idList = idsParam.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isInteger(n) && n > 0)
+    if (idList.length) { where.push(`id IN (${idList.map(() => '?').join(',')})`); binds.push(...idList) }
+  }
   const clause = `WHERE ${where.join(' AND ')}`
+
+  const wantsCsv = String(q.format || '') === 'csv'
+  if (wantsCsv) {
+    const csvRows = (
+      await raw
+        .prepare(
+          `SELECT id, name, email, phone, source, status, stage, lost_reason AS lostReason,
+                  priority, score, budget, property_name AS propertyName, agent_name AS agentName,
+                  last_contact_at AS lastContactAt, created_at AS createdAt
+           FROM leads ${clause} ORDER BY created_at DESC LIMIT 2000`,
+        )
+        .bind(...binds)
+        .all<any>()
+    ).results
+    setHeader(event, 'Content-Type', 'text/csv; charset=utf-8')
+    setHeader(event, 'Content-Disposition', 'attachment; filename="leads.csv"')
+    return rowsToCsv(csvRows)
+  }
 
   const rows = (
     await raw

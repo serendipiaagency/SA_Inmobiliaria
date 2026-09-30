@@ -525,6 +525,24 @@ export const adminResources: Record<string, ResourceDef> = {
     tenantPolicy: { type: 'direct' },
   },
 
+  /**
+   * Bulk Actions sobre Leads (FASE 28 incremento 3) — la misma tabla
+   * genérica `bulk_action_jobs` que ya usa `property-bulk-jobs`
+   * (`entityType: 'lead'` las distingue), nunca una segunda tabla de jobs.
+   * Área `crm`, igual que `lead-routing-rules`/`clients`: es donde vive el
+   * resto de RBAC de Leads, no `web`.
+   */
+  'lead-bulk-jobs': {
+    area: 'crm',
+    table: schema.bulkActionJobs,
+    label: 'Acciones masivas (leads)',
+    fields: {},
+    listFields: ['id', 'entityType', 'action', 'status', 'totalCount', 'completedCount', 'failedCount', 'createdAt'],
+    searchFields: [],
+    hasTimestamps: true,
+    tenantPolicy: { type: 'direct' },
+  },
+
   'floor-plans': {
     area: 'web',
     table: schema.floorPlans,
