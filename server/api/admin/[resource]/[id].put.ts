@@ -8,6 +8,7 @@ import { authorizeRecord, buildTenantWhere } from '../../../utils/tenantPolicy'
 import { validatePermissionsInput } from '../../../utils/permissions'
 import { describeOrganizationChanges, describeUserChanges } from '../../../utils/sensitiveAudit'
 import { getPropertySchemaFor, validateAgainstSchema } from '../../../utils/propertySchema/registry'
+import { assertOwnsSavedView } from '../../../utils/properties/savedViews'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -33,9 +34,14 @@ export default defineEventHandler(async (event) => {
     orgId,
   })
 
+  // Compartir un filtro/vista guardada amplía quién la LEE, nunca quién
+  // puede tocarla — sólo su creador edita, aunque sea de toda la org.
+  if (key === 'property-saved-views') assertOwnsSavedView(existing as any, user.id)
+
   const body = await readBody<Record<string, any>>(event)
   const data = await buildPayload(def, body || {}, false, event)
   delete data.organizationId // tenant ownership can't be reassigned via this endpoint
+  delete data.userId // authorship can't be reassigned via this endpoint either
   // Re-validate any FK the payload touches: an update must not be able to
   // re-parent this row onto another tenant's record.
   await assertPayloadReferences(db, def, data, orgId, { isCreate: false })

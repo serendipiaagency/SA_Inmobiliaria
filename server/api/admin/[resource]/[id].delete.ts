@@ -5,6 +5,7 @@ import { getResource } from '../../../utils/adminResources'
 import { logAdminAction } from '../../../utils/audit'
 import { authorizeRecord, buildTenantWhere } from '../../../utils/tenantPolicy'
 import { softDeleteMediaAssetByKey } from '../../../utils/mediaAssets'
+import { assertOwnsSavedView } from '../../../utils/properties/savedViews'
 
 // visitor_submissions rows reference R2 keys for identity/financial PDFs. The DB row being
 // gone must mean the documents are gone too — otherwise "deleting" someone's passport scan
@@ -37,6 +38,8 @@ export default defineEventHandler(async (event) => {
   // Ownership first: a delete against another tenant's id must 404 before it
   // touches R2 or any counter, not merely match zero rows on the way out.
   const { row } = await authorizeRecord(db, { resourceKey: key, table: def.table, policy: def.tenantPolicy, id, orgId })
+
+  if (key === 'property-saved-views') assertOwnsSavedView(row as any, user.id)
 
   const tenantWhere = buildTenantWhere(db, def.table, def.tenantPolicy, orgId)
   const idCond = eq(def.table.id, id)

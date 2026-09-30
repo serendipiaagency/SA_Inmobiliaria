@@ -69,7 +69,7 @@ Ninguno de los tres motores anteriores los tenía:
   que ahora se expone en las dos.
 
 Los rangos "hasta" (`capturedTo`/`updatedTo`) normalizan una fecha
-suelta (`"2026-03-10"`) al final de ese día (`"…T23:59:59"|antes de
+suelta (`"2026-03-10"`) al final de ese día (`"…T23:59:59"`) antes de
 compararla — si no, un `lte` contra una columna con hora dejaría fuera
 cualquier fila actualizada ese mismo día después de medianoche, que es
 el caso más común viniendo de un `<input type="date">`.
@@ -83,13 +83,76 @@ compartido, recargar la página o volver atrás reproducen exactamente
 el mismo listado filtrado — antes se perdía en cuanto se salía de la
 página.
 
-## Qué queda para el siguiente incremento
+## Incremento 1 — motor unificado, filtros, URL
 
-Del megaprompt original de FASE 27, esto cubre la unificación del
-motor de búsqueda (§51, §83), el filtro ampliado (§52) y el estado en
-la URL (§72). **Saved Filter (§73), Saved View (§74), Shared View
-(§75-76), columnas configurables (§77-78) y export (§79)** son
-entidades nuevas — requieren su propia tabla, RBAC y UI — y se dejan
-para un segundo incremento, mismo criterio que FASE 25 (incremento 1 /
-incremento 2): cada PR se queda en un tamaño revisable en vez de una
-sola entrega gigante.
+Cubre la unificación del motor de búsqueda (§51, §83), el filtro
+ampliado (§52) y el estado en la URL (§72), descritos arriba.
+
+## Incremento 2 — Saved Filter / Saved View / Shared View, columnas, export
+
+`property_saved_views` (migración 0080) es **una sola tabla para las
+tres entidades** del encargo, no tres paralelas — el mismo criterio
+"UNA SOLA BÚSQUEDA" del incremento 1, aplicado esta vez a cómo se
+guarda un filtro en vez de a cómo se ejecuta:
+
+- Un **Saved Filter** (§73) es una fila con `kind='filter'` —
+  `columnsJson`/`density` en NULL.
+- Una **Saved View** (§74) es `kind='view'` con esos dos rellenos —
+  filtros + columnas (el orden y la densidad se heredan del listado;
+  ver "qué se dejó fuera" más abajo).
+- Una **Shared View** (§75-76, §153) no es una entidad ni una tabla de
+  permisos aparte: es `visibility='shared'` sobre la misma fila. La
+  fila sólo guarda la CONFIGURACIÓN (`queryJson`/`columnsJson`), nunca
+  un resultado — aplicarla vuelve a pedir `/api/admin/<resource>` con
+  la sesión de quien la aplica, así que los permisos se evalúan en ese
+  momento, no se heredan de quien la creó. No hace falta ningún
+  mecanismo adicional para eso: es una consecuencia directa de qué se
+  guarda.
+
+`server/utils/properties/savedViews.ts` tiene las dos reglas de
+autorización, cada una probada contra una D1 real
+(`test/unit/propertySavedViews.test.ts`):
+
+- **`savedViewVisibilityCond(userId)`** — quién LEE: el propio creador,
+  o cualquiera de la organización si es compartida. Es una condición
+  SQL (no un post-filtro en memoria) para que la paginación del listado
+  genérico siga siendo correcta con este recurso igual que con
+  cualquier otro.
+- **`assertOwnsSavedView(row, userId)`** — quién EDITA o BORRA: sólo el
+  creador, sin excepción. Compartir amplía quién lee, nunca quién
+  posee.
+
+Como con cualquier otro recurso del motor CRUD genérico
+(`server/utils/adminResources.ts`), esto vive como branches
+(`isPropertySavedViews`) en las rutas ya existentes de
+`[resource]/index.get.ts`/`index.post.ts`/`[id].put.ts`/`[id].delete.ts`
+— coste cero de ruta nueva (ver `docs/property-schema-registry.md`
+para el porqué de ese patrón). `userId` no está en `fields` de
+`adminResources.ts`: nunca es client-editable, el servidor lo fija a
+partir de la sesión igual que `organizationId`.
+
+**Columnas configurables** (§77-78): una preferencia de presentación
+pura sobre la vista de lista (`PropertyList.vue`) — qué de las columnas
+ya devueltas por la consulta se pinta, nunca amplía qué campos
+devuelve. Por eso no hay validación de permisos sobre `columnsJson` en
+el servidor: no hay nada que una columna pueda "filtrar" que el usuario
+no viera ya paginando.
+
+**Export CSV** (§79): `format=csv` en el propio
+`GET /api/admin/[resource]` (coste cero de ruta), mismas condiciones y
+mismas columnas ya autorizadas que el listado JSON — nunca puede
+exponer un dato que el usuario no pudiera ya ver. Sin paginar, con tope
+`PROPERTY_EXPORT_MAX_ROWS` (2.000). Ninguna de las dos tablas tiene hoy
+precio mínimo, comisión ni dato de propietario — el encargo pide no
+filtrarlos en el export; como el campo no existe, no hay nada que
+excluir a propósito.
+
+## Qué se dejó fuera de este incremento
+
+- **Densidad** (`density`, parte de §74): la columna existe en la
+  tabla, pero no hay control en la UI para fijarla — se guarda siempre
+  `null`. Menor valor que columnas configurables y export, y ya es un
+  incremento grande; se retoma si se pide.
+- El **orden** (`sort`) sí se guarda como parte de `queryJson` (ya
+  vivía en el filtro del incremento 1), así que una vista guardada
+  recuerda cómo estaba ordenada — sólo la densidad de fila queda fuera.

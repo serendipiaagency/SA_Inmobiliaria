@@ -472,6 +472,37 @@ export const adminResources: Record<string, ResourceDef> = {
     referencePrefix: 'W',
   },
 
+  /**
+   * Saved Filter / Saved View / Shared View sobre Property Search (FASE 27
+   * incremento 2, migración 0080) — una sola tabla para las tres, ver el
+   * comentario de cabecera de esa migración. `userId` deliberadamente NO
+   * está en `fields`: nunca es client-editable, sólo lo fija el servidor a
+   * partir de la sesión (mismo patrón que `organizationId` en cualquier
+   * recurso `direct`) — ver los branches `isPropertySavedViews` en
+   * `[resource]/index.get.ts`/`index.post.ts`/`[id].put.ts`/`[id].delete.ts`
+   * para la visibilidad de lectura y el guardado de que sólo el creador
+   * pueda editar/borrar, aunque la fila sea compartida.
+   */
+  'property-saved-views': {
+    area: 'web',
+    table: schema.propertySavedViews,
+    label: 'Filtros y vistas guardadas',
+    fields: {
+      resource: { type: 'select', label: 'Catálogo', required: true, options: ['properties', 'developer-properties'] },
+      kind: { type: 'select', label: 'Tipo', required: true, options: ['filter', 'view'] },
+      name: { type: 'text', label: 'Nombre', required: true },
+      visibility: { type: 'select', label: 'Visibilidad', options: ['private', 'shared'] },
+      queryJson: { type: 'json', label: 'Filtro (JSON)', required: true },
+      columnsJson: { type: 'json', label: 'Columnas (JSON)' },
+      density: { type: 'select', label: 'Densidad', options: ['comfortable', 'compact'] },
+    },
+    listFields: ['id', 'resource', 'kind', 'name', 'visibility', 'updatedAt'],
+    searchFields: ['name'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+  },
+
   'floor-plans': {
     area: 'web',
     table: schema.floorPlans,
