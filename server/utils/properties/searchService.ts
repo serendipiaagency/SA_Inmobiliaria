@@ -152,6 +152,28 @@ export interface PropertySearchRow {
   price: number | null
 }
 
+/**
+ * Tope de filas de una exportación CSV (§79) — export lee la misma
+ * consulta que el listado (mismas condiciones, mismas columnas ya
+ * autorizadas), así que nunca puede filtrar un dato que el usuario no
+ * pudiera ya ver paginando; el límite es sólo para no dejar una petición
+ * sin paginar crecer sin tope sobre una organización con miles de filas.
+ */
+export const PROPERTY_EXPORT_MAX_ROWS = 2000
+
+/** Serializa filas ya autorizadas a CSV — sin librería, el escapado es el único caso a cubrir: comas, comillas y saltos de línea. */
+export function rowsToCsv(rows: Record<string, unknown>[]): string {
+  if (!rows.length) return ''
+  const headers = Object.keys(rows[0])
+  const escape = (v: unknown) => {
+    if (v === null || v === undefined) return ''
+    const s = String(v)
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  const lines = [headers.join(','), ...rows.map((r) => headers.map((h) => escape(r[h])).join(','))]
+  return lines.join('\n')
+}
+
 const agentDisplayName = sql<string>`coalesce(${schema.agentProperties.reference}, ${schema.agentProperties.street} || ' ' || coalesce(${schema.agentProperties.streetNumber}, ''), 'Sin nombre')`
 
 /**

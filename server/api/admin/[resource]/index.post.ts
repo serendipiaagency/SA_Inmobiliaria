@@ -46,6 +46,10 @@ export default defineEventHandler(async (event) => {
   if (def.tenantPolicy.type === 'direct' && orgId != null) {
     data[def.tenantPolicy.organizationField ?? 'organizationId'] = orgId
   }
+  // Quién creó un filtro/vista guardada (FASE 27 incremento 2) es siempre el
+  // usuario de la sesión, nunca algo que el cliente pueda mandar — mismo
+  // criterio que organizationId dos líneas arriba.
+  if (key === 'property-saved-views') data.userId = user.id
   // PropertySchemaRegistry (FASE 26) — modo 'save' únicamente: una Property
   // incompleta debe poder crearse como borrador (§21); ver docs/property-schema-registry.md.
   if (key === 'properties' || key === 'developer-properties') {

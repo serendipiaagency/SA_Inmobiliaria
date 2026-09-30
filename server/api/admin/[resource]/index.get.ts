@@ -1,9 +1,10 @@
 import { and, asc, desc, eq, isNull, like, or, sql } from 'drizzle-orm'
 import { schema, useDb } from '../../../utils/db'
-import { requireOrgScope, requireSuperAdmin } from '../../../utils/auth'
+import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
 import { buildTenantWhere } from '../../../utils/tenantPolicy'
-import { buildPropertyFilterConds, parsePropertyFilters, DEVELOPER_PROPERTY_SORTS, PROPERTIES_SORTS } from '../../../utils/properties/searchService'
+import { buildPropertyFilterConds, parsePropertyFilters, DEVELOPER_PROPERTY_SORTS, PROPERTIES_SORTS, PROPERTY_EXPORT_MAX_ROWS, rowsToCsv } from '../../../utils/properties/searchService'
+import { savedViewVisibilityCond } from '../../../utils/properties/savedViews'
 
 const TEAM_SORTS: Record<string, any> = {
   newest: desc(schema.teamMembers.createdAt),
@@ -15,10 +16,11 @@ const TEAM_SORTS: Record<string, any> = {
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
   let orgId: number | null = null
+  let user: SessionUser
   if (def.superAdminOnly) {
-    await requireSuperAdmin(event)
+    user = await requireSuperAdmin(event)
   } else {
-    orgId = (await requireOrgScope(event, def.area, 'read')).orgId
+    ;({ user, orgId } = await requireOrgScope(event, def.area, 'read'))
   }
   const db = useDb(event)
   const query = getQuery(event)
@@ -85,7 +87,88 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // Filtros/vistas guardadas de Property Search (FASE 27 incremento 2):
+  // cada quien ve las suyas más las que alguien compartió con toda la
+  // organización — nunca las privadas de otro. Misma razón que los branches
+  // de arriba para vivir aquí en vez de en una ruta propia.
+  const isPropertySavedViews = key === 'property-saved-views'
+  if (isPropertySavedViews) {
+    conds.push(savedViewVisibilityCond(user.id))
+    // Un filtro guardado para "Propiedades (web)" no tiene sentido ofrecerlo
+    // en el selector de "Propiedades 2ª mano" — sus columnas/valores son de
+    // otro catálogo. El cliente siempre manda `resource`; sin él (llamada
+    // directa) se listan los de los dos, que es el comportamiento anterior.
+    if (query.resource) conds.push(eq(schema.propertySavedViews.resource, String(query.resource)))
+  }
+
   const where = conds.length ? and(...conds) : undefined
+
+  // Export CSV (§79) — mismas condiciones y las mismas columnas ya
+  // autorizadas que el listado JSON de abajo, así que nunca puede exponer
+  // un dato que el usuario no pudiera ya ver paginando (no hay precio
+  // mínimo, comisión ni dato de propietario en ninguna de las dos tablas
+  // hoy — nada que excluir a propósito porque no existe el campo). Sin
+  // paginar, con tope (PROPERTY_EXPORT_MAX_ROWS) en vez de página a página.
+  const wantsCsv = String(query.format || '') === 'csv'
+  if (isDeveloperProperties && wantsCsv) {
+    const t = schema.developerProperties
+    const sort = DEVELOPER_PROPERTY_SORTS[String(query.sort || 'newest')] || DEVELOPER_PROPERTY_SORTS.newest
+    const rows = await db
+      .select({
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        status: t.status,
+        price: t.price,
+        propertyType: t.propertyType,
+        bedrooms: t.bedrooms,
+        bathrooms: t.bathrooms,
+        area: t.area,
+        community: t.community,
+        city: t.city,
+        country: t.country,
+        isExclusive: t.isExclusive,
+        publishedAt: t.publishedAt,
+        updatedAt: t.updatedAt,
+      })
+      .from(t)
+      .where(where as any)
+      .orderBy(sort)
+      .limit(PROPERTY_EXPORT_MAX_ROWS)
+    setHeader(event, 'Content-Type', 'text/csv; charset=utf-8')
+    setHeader(event, 'Content-Disposition', `attachment; filename="${key}.csv"`)
+    return rowsToCsv(rows)
+  }
+  if (isProperties && wantsCsv) {
+    const t = schema.agentProperties
+    const sort = PROPERTIES_SORTS[String(query.sort || 'newest')] || PROPERTIES_SORTS.newest
+    const rows = await db
+      .select({
+        id: t.id,
+        reference: t.reference,
+        slug: t.slug,
+        propertyType: t.propertyType,
+        transactionType: t.transactionType,
+        status: t.status,
+        price: t.price,
+        area: t.area,
+        bedrooms: t.bedrooms,
+        bathrooms: t.bathrooms,
+        city: t.city,
+        district: t.district,
+        country: t.country,
+        isExclusive: t.isExclusive,
+        publishedAt: t.publishedAt,
+        updatedAt: t.updatedAt,
+      })
+      .from(t)
+      .where(where as any)
+      .orderBy(sort)
+      .limit(PROPERTY_EXPORT_MAX_ROWS)
+    setHeader(event, 'Content-Type', 'text/csv; charset=utf-8')
+    setHeader(event, 'Content-Disposition', `attachment; filename="${key}.csv"`)
+    return rowsToCsv(rows)
+  }
 
   const countRows = await db
     .select({ count: sql<number>`count(*)` })

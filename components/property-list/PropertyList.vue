@@ -39,6 +39,66 @@
         Filtros <span v-if="advancedCount" class="ml-1 rounded-full bg-ink px-1.5 py-0.5 text-[10px] font-semibold text-white">{{ advancedCount }}</span>
       </button>
 
+      <div class="relative">
+        <button type="button" class="btn-quiet" :class="savedViewsOpen ? '!border-ink !text-ink' : ''" @click="savedViewsOpen = !savedViewsOpen; columnsOpen = false">
+          Vistas guardadas
+        </button>
+        <div v-if="savedViewsOpen" class="card absolute left-0 top-full z-10 mt-1 w-80 p-3">
+          <p v-if="savedViewsPending" class="py-2 text-center text-xs text-stone-400">Cargando…</p>
+          <template v-else>
+            <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-stone-400">Filtros guardados</p>
+            <p v-if="!savedFilters.length" class="mb-2 text-xs text-stone-400">Ninguno todavía.</p>
+            <div v-for="f in savedFilters" :key="f.id" class="mb-1 flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-stone-50">
+              <button type="button" class="flex-1 truncate text-left text-[13px] text-ink" @click="applySavedView(f)">{{ f.name }}</button>
+              <span class="shrink-0 rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500">{{ f.visibility === 'shared' ? 'Compartido' : 'Privado' }}</span>
+              <button v-if="f.userId === user?.id" type="button" class="shrink-0 text-stone-350 hover:text-red-600" title="Eliminar" @click="deleteSavedView(f.id)">×</button>
+            </div>
+            <button type="button" class="mb-3 text-[12px] font-medium text-stone-500 hover:text-ink hover:underline" @click="startSaving('filter')">+ Guardar filtro actual</button>
+
+            <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-stone-400">Vistas guardadas</p>
+            <p v-if="!savedViews.length" class="mb-2 text-xs text-stone-400">Ninguna todavía.</p>
+            <div v-for="v in savedViews" :key="v.id" class="mb-1 flex items-center gap-2 rounded-md px-1.5 py-1 hover:bg-stone-50">
+              <button type="button" class="flex-1 truncate text-left text-[13px] text-ink" @click="applySavedView(v)">{{ v.name }}</button>
+              <span class="shrink-0 rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] text-stone-500">{{ v.visibility === 'shared' ? 'Compartida' : 'Privada' }}</span>
+              <button v-if="v.userId === user?.id" type="button" class="shrink-0 text-stone-350 hover:text-red-600" title="Eliminar" @click="deleteSavedView(v.id)">×</button>
+            </div>
+            <button type="button" class="text-[12px] font-medium text-stone-500 hover:text-ink hover:underline" @click="startSaving('view')">+ Guardar vista actual</button>
+
+            <div v-if="savingKind" class="mt-3 border-t border-line pt-3">
+              <label class="block">
+                <span class="label">Nombre</span>
+                <input v-model="newViewName" class="input" placeholder="p. ej. Villas en Marbella" @keyup.enter="confirmSaving" >
+              </label>
+              <label class="mt-2 block">
+                <span class="label">Visibilidad</span>
+                <select v-model="newViewVisibility" class="input">
+                  <option value="private">Privada — sólo yo</option>
+                  <option value="shared">Compartida — toda la organización</option>
+                </select>
+              </label>
+              <div class="mt-2 flex items-center gap-3">
+                <button type="button" class="btn-primary !px-3 !py-1.5 text-xs" :disabled="!newViewName.trim()" @click="confirmSaving">Guardar</button>
+                <button type="button" class="text-[12px] text-stone-500 hover:text-ink" @click="cancelSaving">Cancelar</button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <a :href="exportHref" download class="btn-quiet">Exportar CSV</a>
+
+      <div class="relative">
+        <button v-if="view === 'list'" type="button" class="btn-quiet" :class="columnsOpen ? '!border-ink !text-ink' : ''" @click="columnsOpen = !columnsOpen; savedViewsOpen = false">
+          Columnas
+        </button>
+        <div v-if="columnsOpen" class="card absolute left-0 top-full z-10 mt-1 w-56 p-3">
+          <label v-for="c in LIST_COLUMNS" :key="c.key" class="flex items-center gap-2 py-1 text-[13px]">
+            <input type="checkbox" :checked="isColumnVisible(c.key)" @change="toggleColumn(c.key)" >
+            {{ c.label }}
+          </label>
+        </div>
+      </div>
+
       <div class="ml-auto flex rounded-lg border border-line bg-white p-0.5">
         <button type="button" class="rounded-md px-2.5 py-1 text-xs font-medium transition" :class="view === 'list' ? 'bg-ink text-white' : 'text-stone-500'" @click="setView('list')">Lista</button>
         <button type="button" class="rounded-md px-2.5 py-1 text-xs font-medium transition" :class="view === 'grid' ? 'bg-ink text-white' : 'text-stone-500'" @click="setView('grid')">Grid</button>
@@ -156,11 +216,11 @@
         <thead class="bg-stone-50 text-xs uppercase text-stone-500">
           <tr>
             <th class="px-4 py-3">Propiedad</th>
-            <th class="px-4 py-3">Ubicación</th>
-            <th class="px-4 py-3">Precio</th>
-            <th class="px-4 py-3">Detalles</th>
-            <th class="px-4 py-3">Estado</th>
-            <th class="px-4 py-3">Actualizado</th>
+            <th v-if="isColumnVisible('location')" class="px-4 py-3">Ubicación</th>
+            <th v-if="isColumnVisible('price')" class="px-4 py-3">Precio</th>
+            <th v-if="isColumnVisible('details')" class="px-4 py-3">Detalles</th>
+            <th v-if="isColumnVisible('status')" class="px-4 py-3">Estado</th>
+            <th v-if="isColumnVisible('updatedAt')" class="px-4 py-3">Actualizado</th>
             <th class="px-4 py-3 text-right">Acciones</th>
           </tr>
         </thead>
@@ -176,12 +236,12 @@
                 </span>
               </NuxtLink>
             </td>
-            <td class="px-4 py-3 text-stone-500">{{ config.rowLocation(p) }}</td>
-            <td class="px-4 py-3 text-stone-700">{{ formatPrice(p.price) }}</td>
-            <td class="px-4 py-3 text-stone-500">
+            <td v-if="isColumnVisible('location')" class="px-4 py-3 text-stone-500">{{ config.rowLocation(p) }}</td>
+            <td v-if="isColumnVisible('price')" class="px-4 py-3 text-stone-700">{{ formatPrice(p.price) }}</td>
+            <td v-if="isColumnVisible('details')" class="px-4 py-3 text-stone-500">
               <span v-if="p.bedrooms != null">{{ p.bedrooms }} hab · </span><span v-if="p.bathrooms != null">{{ p.bathrooms }} baños · </span><span v-if="p.area != null">{{ p.area }} m²</span>
             </td>
-            <td class="px-4 py-3">
+            <td v-if="isColumnVisible('status')" class="px-4 py-3">
               <span
                 v-for="(chip, i) in config.rowChips(p)"
                 :key="chip.label"
@@ -191,7 +251,7 @@
                 {{ chip.label }}
               </span>
             </td>
-            <td class="px-4 py-3 text-stone-450">{{ p.updatedAt ? new Date(p.updatedAt).toLocaleDateString('es-ES') : '—' }}</td>
+            <td v-if="isColumnVisible('updatedAt')" class="px-4 py-3 text-stone-450">{{ p.updatedAt ? new Date(p.updatedAt).toLocaleDateString('es-ES') : '—' }}</td>
             <td class="whitespace-nowrap px-4 py-3 text-right text-xs">
               <NuxtLink :to="`/admin/${config.resource}/${p.id}`" class="mr-2 font-medium text-stone-600 hover:underline">Editar</NuxtLink>
               <a v-if="config.previewHref" :href="config.previewHref(p)" target="_blank" rel="noopener" class="mr-2 font-medium text-stone-600 hover:underline">Preview</a>
@@ -214,6 +274,7 @@
 
 <script setup lang="ts">
 import { LIST_CHIP_CLASSES, PROPERTY_LIST_CONFIG, PROPERTY_LIST_TYPES } from '~/composables/usePropertyListConfig'
+import { usePropertySavedViews, type PropertySavedView } from '~/composables/usePropertySavedViews'
 import DeveloperPropertyCard from '~/components/admin/DeveloperPropertyCard.vue'
 import AgentPropertyCard from '~/components/admin/AgentPropertyCard.vue'
 
@@ -229,6 +290,7 @@ const config = computed(() => PROPERTY_LIST_CONFIG[props.resource])
 
 const { confirm } = useConfirm()
 const toast = useToast()
+const { user } = useAuth()
 
 /**
  * Estado en la URL (FASE 27 §72): un filtro aplicado sobrevive a recargar,
@@ -292,6 +354,103 @@ const filtersOpen = ref(
     updatedTo.value
   ),
 )
+
+/**
+ * Columnas configurables de la vista de lista (FASE 27 §77-78). "Propiedad"
+ * y "Acciones" no se apagan: son la identidad de la fila y la forma de
+ * actuar sobre ella, no un dato de más. No amplían qué campos devuelve la
+ * consulta —sólo deciden cuáles de los ya autorizados se pintan— así que no
+ * hay nada que una columna pueda "filtrar" que el usuario no viera ya.
+ */
+const LIST_COLUMNS = [
+  { key: 'location', label: 'Ubicación' },
+  { key: 'price', label: 'Precio' },
+  { key: 'details', label: 'Detalles' },
+  { key: 'status', label: 'Estado' },
+  { key: 'updatedAt', label: 'Actualizado' },
+] as const
+type ListColumnKey = (typeof LIST_COLUMNS)[number]['key']
+const visibleColumns = ref<ListColumnKey[]>(LIST_COLUMNS.map((c) => c.key))
+function isColumnVisible(key: ListColumnKey) {
+  return visibleColumns.value.includes(key)
+}
+function toggleColumn(key: ListColumnKey) {
+  visibleColumns.value = isColumnVisible(key) ? visibleColumns.value.filter((k) => k !== key) : [...visibleColumns.value, key]
+}
+const columnsOpen = ref(false)
+
+/**
+ * Filtros y vistas guardadas (FASE 27 incremento 2, §73-76). Guardan la
+ * MISMA forma que ya vive en la URL (`currentSavableQuery()` arriba) — un
+ * Filtro guarda sólo eso; una Vista añade además qué columnas se ven. Los
+ * permisos de lectura/escritura de una fila compartida los aplica el
+ * servidor (server/utils/properties/savedViews.ts); aquí sólo se enseña u
+ * oculta el botón "Eliminar" según si `userId` coincide con la sesión —
+ * quitarlo no sería seguridad real, es sólo no ofrecer un botón que el
+ * servidor rechazaría igualmente con 403.
+ */
+const { filters: savedFilters, savedViews, pending: savedViewsPending, save: saveView, remove: removeView } = usePropertySavedViews(props.resource)
+const savedViewsOpen = ref(false)
+const savingKind = ref<'filter' | 'view' | null>(null)
+const newViewName = ref('')
+const newViewVisibility = ref<'private' | 'shared'>('private')
+
+function startSaving(kind: 'filter' | 'view') {
+  savingKind.value = kind
+  newViewName.value = ''
+  newViewVisibility.value = 'private'
+}
+function cancelSaving() {
+  savingKind.value = null
+}
+async function confirmSaving() {
+  if (!newViewName.value.trim() || !savingKind.value) return
+  try {
+    await saveView({
+      kind: savingKind.value,
+      name: newViewName.value.trim(),
+      visibility: newViewVisibility.value,
+      query: currentSavableQuery(),
+      columns: savingKind.value === 'view' ? visibleColumns.value : null,
+    })
+    toast.success(savingKind.value === 'view' ? 'Vista guardada' : 'Filtro guardado')
+    savingKind.value = null
+  } catch {
+    toast.error('No se pudo guardar')
+  }
+}
+function applySavedView(item: PropertySavedView) {
+  try {
+    applySavableQuery(JSON.parse(item.queryJson))
+  } catch {
+    toast.error('Este filtro guardado está dañado y no se pudo aplicar')
+    return
+  }
+  if (item.kind === 'view' && item.columnsJson) {
+    try {
+      const cols = JSON.parse(item.columnsJson)
+      if (Array.isArray(cols)) visibleColumns.value = cols.filter((c): c is ListColumnKey => LIST_COLUMNS.some((lc) => lc.key === c))
+    } catch {
+      // Preferencia de columnas dañada: se aplica el filtro igual, sólo se ignoran las columnas.
+    }
+  }
+  savedViewsOpen.value = false
+}
+async function deleteSavedView(id: number) {
+  const ok = await confirm('Se eliminará para todo el mundo si era compartido.', { title: '¿Eliminar filtro/vista guardada?', confirmLabel: 'Eliminar', danger: true })
+  if (!ok) return
+  try {
+    await removeView(id)
+    toast.success('Eliminado')
+  } catch {
+    toast.error('No se pudo eliminar')
+  }
+}
+
+const exportHref = computed(() => {
+  const params = new URLSearchParams({ ...currentSavableQuery(), format: 'csv' })
+  return `/api/admin/${props.resource}?${params.toString()}`
+})
 
 const cardComponent = computed(() => (config.value.card === 'developer' ? DeveloperPropertyCard : AgentPropertyCard))
 /**
@@ -463,33 +622,72 @@ const FILTER_REFS = [
 ]
 watch(FILTER_REFS, () => (page.value = 1))
 
+/**
+ * La forma "limpia" del filtro actual — sólo lo que se apartó de los
+ * valores por defecto, sin `page`. La misma función alimenta la URL (abajo)
+ * y el Filtro/Vista que se guarda (FASE 27 incremento 2, más abajo): son el
+ * mismo estado, guardarlo dos veces distinto habría sido el motor paralelo
+ * que §51 pide evitar.
+ */
+function currentSavableQuery(): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (q.value) out.q = q.value
+  if (status.value) out.status = status.value
+  if (config.value.hasTransactionFilter && transactionType.value) out.transactionType = transactionType.value
+  if (propertyType.value) out.propertyType = propertyType.value
+  if (sort.value && sort.value !== 'newest') out.sort = sort.value
+  if (priceMin.value != null) out.priceMin = String(priceMin.value)
+  if (priceMax.value != null) out.priceMax = String(priceMax.value)
+  if (country.value) out.country = country.value
+  if (city.value) out.city = city.value
+  if (district.value) out.district = district.value
+  if (postalCode.value) out.postalCode = postalCode.value
+  if (bedroomsMin.value != null) out.bedroomsMin = String(bedroomsMin.value)
+  if (bathroomsMin.value != null) out.bathroomsMin = String(bathroomsMin.value)
+  if (areaMin.value != null) out.areaMin = String(areaMin.value)
+  if (areaMax.value != null) out.areaMax = String(areaMax.value)
+  if (isExclusive.value) out.isExclusive = isExclusive.value
+  if (published.value) out.published = published.value
+  if (capturedFrom.value) out.capturedFrom = capturedFrom.value
+  if (capturedTo.value) out.capturedTo = capturedTo.value
+  if (updatedFrom.value) out.updatedFrom = updatedFrom.value
+  if (updatedTo.value) out.updatedTo = updatedTo.value
+  return out
+}
+
+/** Aplica un filtro/vista guardada: primero limpia (para no arrastrar un valor de la sesión anterior que la vista no menciona), luego pone sólo lo que trae. */
+function applySavableQuery(parsed: Record<string, unknown>) {
+  clearAll()
+  if (parsed.q) q.value = String(parsed.q)
+  if (parsed.status) status.value = String(parsed.status)
+  if (parsed.transactionType) transactionType.value = String(parsed.transactionType)
+  if (parsed.propertyType) propertyType.value = String(parsed.propertyType)
+  if (parsed.sort) sort.value = String(parsed.sort)
+  if (parsed.priceMin != null) priceMin.value = Number(parsed.priceMin)
+  if (parsed.priceMax != null) priceMax.value = Number(parsed.priceMax)
+  if (parsed.country) country.value = String(parsed.country)
+  if (parsed.city) city.value = String(parsed.city)
+  if (parsed.district) district.value = String(parsed.district)
+  if (parsed.postalCode) postalCode.value = String(parsed.postalCode)
+  if (parsed.bedroomsMin != null) bedroomsMin.value = Number(parsed.bedroomsMin)
+  if (parsed.bathroomsMin != null) bathroomsMin.value = Number(parsed.bathroomsMin)
+  if (parsed.areaMin != null) areaMin.value = Number(parsed.areaMin)
+  if (parsed.areaMax != null) areaMax.value = Number(parsed.areaMax)
+  if (parsed.isExclusive) isExclusive.value = String(parsed.isExclusive)
+  if (parsed.published) published.value = String(parsed.published)
+  if (parsed.capturedFrom) capturedFrom.value = String(parsed.capturedFrom)
+  if (parsed.capturedTo) capturedTo.value = String(parsed.capturedTo)
+  if (parsed.updatedFrom) updatedFrom.value = String(parsed.updatedFrom)
+  if (parsed.updatedTo) updatedTo.value = String(parsed.updatedTo)
+  filtersOpen.value = advancedCount.value > 0
+}
+
 /** Refleja el estado en la URL (FASE 27 §72) — `replace`, no `push`: cambiar un filtro no debe llenar el historial de "atrás" con un paso por cada tecla. */
 watch(
   [q, page, ...FILTER_REFS],
   () => {
-    const query: Record<string, string> = {}
-    if (q.value) query.q = q.value
-    if (status.value) query.status = status.value
-    if (config.value.hasTransactionFilter && transactionType.value) query.transactionType = transactionType.value
-    if (propertyType.value) query.propertyType = propertyType.value
-    if (sort.value && sort.value !== 'newest') query.sort = sort.value
+    const query: Record<string, string> = { ...currentSavableQuery() }
     if (page.value > 1) query.page = String(page.value)
-    if (priceMin.value != null) query.priceMin = String(priceMin.value)
-    if (priceMax.value != null) query.priceMax = String(priceMax.value)
-    if (country.value) query.country = country.value
-    if (city.value) query.city = city.value
-    if (district.value) query.district = district.value
-    if (postalCode.value) query.postalCode = postalCode.value
-    if (bedroomsMin.value != null) query.bedroomsMin = String(bedroomsMin.value)
-    if (bathroomsMin.value != null) query.bathroomsMin = String(bathroomsMin.value)
-    if (areaMin.value != null) query.areaMin = String(areaMin.value)
-    if (areaMax.value != null) query.areaMax = String(areaMax.value)
-    if (isExclusive.value) query.isExclusive = isExclusive.value
-    if (published.value) query.published = published.value
-    if (capturedFrom.value) query.capturedFrom = capturedFrom.value
-    if (capturedTo.value) query.capturedTo = capturedTo.value
-    if (updatedFrom.value) query.updatedFrom = updatedFrom.value
-    if (updatedTo.value) query.updatedTo = updatedTo.value
     router.replace({ query })
   },
   { flush: 'post' },

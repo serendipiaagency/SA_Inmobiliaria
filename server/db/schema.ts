@@ -322,6 +322,34 @@ export const agentPropertyFloorPlans = sqliteTable('agent_property_floor_plans',
   createdAt: text('created_at').notNull().default(''),
 })
 
+// Property Search — Saved Filter / Saved View / Shared View (FASE 27
+// incremento 2, migración 0080). Una sola tabla para las tres: un "Saved
+// Filter" es kind='filter' con columnsJson/density en NULL; un "Saved View"
+// es kind='view' con esos dos rellenos; "Shared View" no es una entidad
+// aparte, es visibility='shared' sobre la misma fila (ver el comentario de
+// cabecera de la migración 0080 para el porqué). `userId` nunca es
+// client-editable (no está en `fields` en adminResources.ts) — sólo lo fija
+// el servidor a partir de la sesión, y sólo su creador puede editarla o
+// borrarla aunque sea compartida.
+export const propertySavedViews = sqliteTable(
+  'property_saved_views',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    userId: integer('user_id').notNull(),
+    resource: text('resource').notNull(), // properties | developer-properties
+    kind: text('kind').notNull().default('filter'), // filter | view
+    name: text('name').notNull(),
+    visibility: text('visibility').notNull().default('private'), // private | shared
+    queryJson: text('query_json').notNull(),
+    columnsJson: text('columns_json'),
+    density: text('density'), // comfortable | compact
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [index('property_saved_views_org_resource').on(t.organizationId, t.resource), index('property_saved_views_user').on(t.userId)],
+)
+
 // ---------------------------------------------------------------------------
 // Developers & off-plan projects
 // ---------------------------------------------------------------------------
