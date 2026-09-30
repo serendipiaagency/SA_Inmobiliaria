@@ -6,6 +6,8 @@ import { authorizeRecord } from '../../../utils/tenantPolicy'
 import { validatePermissionsInput } from '../../../utils/permissions'
 import { describeUserCreation } from '../../../utils/sensitiveAudit'
 import { getPropertySchemaFor, validateAgainstSchema } from '../../../utils/propertySchema/registry'
+import { createBulkActionJob } from '../../../utils/bulkActions/service'
+import { resolveFilteredPropertyIds } from '../../../utils/bulkActions/propertyActions'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -19,6 +21,30 @@ export default defineEventHandler(async (event) => {
   if (def.readonly) throw createError({ statusCode: 405, statusMessage: 'Resource is read-only' })
   const db = useDb(event)
   const body = await readBody<Record<string, any>>(event)
+
+  // Bulk Actions (FASE 28) — crear un job tiene forma propia (acción +
+  // parámetros + selección), no es un alta de fila con campos: se
+  // intercepta aquí, antes de que buildPayload() intente tratarlo como uno.
+  if (key === 'property-bulk-jobs') {
+    if (body?.entityType !== 'agent' && body?.entityType !== 'developer') {
+      throw createError({ statusCode: 422, statusMessage: 'entityType debe ser "agent" o "developer"' })
+    }
+    if (typeof body?.action !== 'string' || !body.action) {
+      throw createError({ statusCode: 422, statusMessage: 'Falta la acción' })
+    }
+    const ids = body.selectAllFiltered
+      ? await resolveFilteredPropertyIds(event, orgId!, body.entityType, body.filters || {})
+      : Array.isArray(body.ids)
+        ? body.ids.map(Number)
+        : []
+    if (body.selectAllFiltered && ids.length > 2000) {
+      throw createError({ statusCode: 422, statusMessage: `La selección filtrada tiene ${ids.length} elementos — el máximo por acción masiva es 2000. Añade más filtros para acotarla.` })
+    }
+    const job = await createBulkActionJob(event, orgId!, user.id, { entityType: body.entityType, action: body.action, params: body.params || {}, ids })
+    await logAdminAction(event, { user, orgId, action: 'create', resource: key, resourceId: job.id, detail: `${job.action} × ${job.totalCount}` })
+    return { ok: true, id: job.id, job }
+  }
+
   const data = await buildPayload(def, body || {}, true, event)
   // Tenant ownership is always server-resolved, never taken from client input —
   // for direct-policy resources it's the org column, for child resources it's

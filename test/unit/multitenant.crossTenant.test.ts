@@ -60,6 +60,7 @@ const RESOURCE_ROWS: Record<string, (f: TenantFixture, tag: string) => Record<st
   'contact-messages': (f, tag) => ({ organizationId: f.orgId, type: 'contact', name: `${tag} sender`, email: `${tag}-sender@example.com`, message: 'hola' }),
   'lead-routing-rules': (f, tag) => ({ organizationId: f.orgId, name: `${tag} rule`, scope: 'department', targetCommercialId: f.teamMemberId }),
   'property-saved-views': (f, tag) => ({ organizationId: f.orgId, userId: f.userId, resource: 'properties', kind: 'filter', name: `${tag} view`, queryJson: '{}' }),
+  'property-bulk-jobs': (f, tag) => ({ organizationId: f.orgId, entityType: 'agent', action: 'change_status', paramsJson: JSON.stringify({ status: `${tag}` }), totalCount: 1, requestedBy: f.userId }),
 }
 
 /** Resources deliberately outside the tenant matrix, each with a stated reason. */
