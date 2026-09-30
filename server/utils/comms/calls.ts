@@ -1,7 +1,8 @@
 import { and, eq } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { isUniqueConstraintError, now } from '../db'
-import { findOrCreateConversation, isoToDbTs, upsertContact } from './inbox'
+import { recordActivity } from '../activity/service'
+import { findOrCreateConversation, isoToDbTs, resolveActivityContact, upsertContact } from './inbox'
 import { metaCallAction } from './providers/metaCloud'
 import type { CallEvent, LoadedChannel } from './types'
 
@@ -160,6 +161,21 @@ export async function ingestCallEvent(db: any, channel: LoadedChannel, event: Ca
             ? 'Llamada fallida'
             : 'Llamada rechazada'
   if (existing.status !== 'rejected') await threadMessage(db, existing, label)
+  // FASE 29 §117/§128 — evidencia real de que se contestó (answeredAt), no
+  // "se abrió un tel:": el webhook de terminate es quien de verdad lo sabe.
+  if (finalStatus === 'completed') {
+    const { contactId, leadId } = await resolveActivityContact(db, existing.contactId)
+    await recordActivity(db, channel.organizationId, {
+      eventType: 'CALL_COMPLETED',
+      entityType: 'comms_call',
+      entityId: existing.id,
+      contactId,
+      leadId,
+      propertyId: existing.propertyId,
+      propertyKind: existing.propertyId ? 'developer' : null,
+      actorType: 'system',
+    })
+  }
   return { callId: existing.id, note: finalStatus }
 }
 
@@ -308,5 +324,21 @@ export async function logManualCall(
     .returning()
   const outcomeLabel = CALL_OUTCOMES.find((o) => o.key === input.outcome)?.label || input.outcome
   await threadMessage(db, row, `${input.direction === 'inbound' ? 'Llamada recibida' : 'Llamada realizada'} · ${outcomeLabel}${input.durationSeconds ? ` · ${durationLabel(input.durationSeconds)}` : ''}`)
+  // FASE 29 §117/§128 — anotar a mano con un resultado real (`answered`) es
+  // la evidencia que exige el spec; nunca se marca por abrir un tel: sin más.
+  if (answered) {
+    const { contactId, leadId } = await resolveActivityContact(db, input.contactId)
+    await recordActivity(db, input.orgId, {
+      eventType: 'CALL_COMPLETED',
+      entityType: 'comms_call',
+      entityId: row.id,
+      contactId,
+      leadId,
+      propertyId: input.propertyId ?? null,
+      propertyKind: input.propertyId ? 'developer' : null,
+      actorType: 'user',
+      actorId: input.userId,
+    })
+  }
   return row
 }

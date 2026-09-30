@@ -3056,7 +3056,9 @@ export const commsConversations = sqliteTable(
     contactId: integer('contact_id').notNull(),
     status: text('status').notNull().default('open'), // open | pending | closed
     assignedAgentId: integer('assigned_agent_id'), // team_members.id
-    propertyId: integer('property_id'), // developer_properties.id (contexto del hilo)
+    propertyId: integer('property_id'), // contexto del hilo — developer_properties.id o agent_properties.id, según propertyKind
+    /** 'agent' | 'developer'. NULL en filas de antes de la migración 0082 = 'developer' (único catálogo que existía). */
+    propertyKind: text('property_kind'),
     lastMessageAt: text('last_message_at'),
     lastMessagePreview: text('last_message_preview'),
     lastInboundAt: text('last_inbound_at'),
@@ -3093,6 +3095,7 @@ export const commsMessages = sqliteTable(
     templateLanguage: text('template_language'),
     templateParamsJson: text('template_params_json'),
     propertyId: integer('property_id'),
+    propertyKind: text('property_kind'), // agent | developer; NULL en filas de antes de la 0082 = 'developer'
     externalId: text('external_id'),
     status: text('status').notNull().default('queued'), // queued | sent | delivered | read | failed | received
     errorCode: text('error_code'),
@@ -3100,6 +3103,10 @@ export const commsMessages = sqliteTable(
     sentByUserId: integer('sent_by_user_id'),
     providerTimestamp: text('provider_timestamp'),
     payloadJson: text('payload_json'),
+    /** FASE 29 §109/§135 — cada una se rellena sólo la primera vez que `status` alcanza ese punto; nunca se inventa una fecha que el proveedor no confirmó. */
+    sentAt: text('sent_at'),
+    deliveredAt: text('delivered_at'),
+    readAt: text('read_at'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
@@ -3128,6 +3135,7 @@ export const commsCalls = sqliteTable(
     agentId: integer('agent_id'),
     userId: integer('user_id'),
     propertyId: integer('property_id'),
+    propertyKind: text('property_kind'), // agent | developer; NULL en filas de antes de la 0082 = 'developer'
     followUpVisitId: integer('follow_up_visit_id'),
     startedAt: text('started_at'),
     answeredAt: text('answered_at'),

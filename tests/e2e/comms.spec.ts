@@ -304,4 +304,42 @@ test.describe('Centro de Comunicaciones', () => {
     expect(thread.conversation.status).toBe('open')
     expect(thread.messages.some((m: any) => m.body === 'intruso')).toBe(false)
   })
+
+  test('el selector de propiedades busca en los dos catálogos, no sólo obra nueva (FASE 29 §124/§143)', async () => {
+    const tag = `E2Ecomms${Date.now()}`
+    const devOwnerRes = await a.post('/api/admin/developers', { data: { name: `Dev Picker ${tag}`, status: 'active' } })
+    const { id: developerId } = await devOwnerRes.json()
+    const devRes = await a.post('/api/admin/developer-properties', { data: { developerId, name: `Torre ${tag}`, status: 'new', price: 400000, transactionType: 'sale' } })
+    const devProperty = await devRes.json()
+    const agentRes = await a.post('/api/admin/properties', { data: { slug: `piso-${tag}`, street: `Calle ${tag}`, price: 210000, status: 'available' } })
+    const agentProperty = await agentRes.json()
+
+    try {
+      const res = await a.get('/api/admin/comms/properties', { params: { q: tag } })
+      expect(res.ok(), await res.text()).toBeTruthy()
+      const { rows } = await res.json()
+      const dev = rows.find((r: any) => r.kind === 'developer' && r.id === devProperty.id)
+      const agent = rows.find((r: any) => r.kind === 'agent' && r.id === agentProperty.id)
+      expect(dev, 'obra nueva ausente del picker').toBeTruthy()
+      expect(agent, '2ª mano ausente del picker — era el hueco real de FASE 29').toBeTruthy()
+      expect(dev.image === null || typeof dev.image === 'string').toBe(true)
+    } finally {
+      await a.delete(`/api/admin/developer-properties/${devProperty.id}`).catch(() => null)
+      await a.delete(`/api/admin/properties/${agentProperty.id}`).catch(() => null)
+    }
+  })
+
+  test('anotar una llamada contestada la marca completed; sin contestar, cancelled (evidencia real, FASE 29 §117 — CALL_COMPLETED en Activity está cubierto en test/unit/comms.inbox.test.ts)', async () => {
+    const convRes = await a.post('/api/admin/comms/conversations', { data: { phone: `+34${600000000 + Math.floor(Math.random() * 1000000)}` } })
+    expect(convRes.ok(), await convRes.text()).toBeTruthy()
+    const conv = await convRes.json()
+
+    const noAnswerRes = await a.post('/api/admin/comms/calls/log', { data: { conversationId: conv.id, direction: 'outbound', outcome: 'no_answer' } })
+    expect(noAnswerRes.ok(), await noAnswerRes.text()).toBeTruthy()
+    expect((await noAnswerRes.json()).call.status).toBe('cancelled')
+
+    const answeredRes = await a.post('/api/admin/comms/calls/log', { data: { conversationId: conv.id, direction: 'outbound', outcome: 'answered' } })
+    expect(answeredRes.ok(), await answeredRes.text()).toBeTruthy()
+    expect((await answeredRes.json()).call.status).toBe('completed')
+  })
 })

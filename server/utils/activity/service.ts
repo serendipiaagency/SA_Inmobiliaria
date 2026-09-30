@@ -12,9 +12,17 @@ import type { PropertyKind } from '../matching/service'
  * Sólo se registran eventos con un disparador real ya existente en este
  * repositorio — nunca se inventa uno para completar la lista del megaprompt
  * (sección 32: "no es necesario implementar eventos que todavía no ocurren
- * realmente"). Notablemente ausentes: PROPERTY_SENT (no hay envío
- * rastreable todavía), LEAD_CONTACTED (no hay una acción distinta de las que
- * ya cubre `messages`/`calls` en la cronología de Cliente).
+ * realmente"). Notablemente ausente: LEAD_CONTACTED (no hay una acción
+ * distinta de las que ya cubre `messages`/`calls` en la cronología de
+ * Cliente).
+ *
+ * PROPERTY_SENT y CALL_COMPLETED (FASE 29 §128) sí tienen ya un disparador
+ * real: `server/utils/comms/inbox.ts#sendOutbound` (cuando `storeAs ===
+ * 'property_share'` y el envío se aceptó) y
+ * `server/utils/comms/calls.ts#ingestCallEvent`/`logManualCall` (cuando la
+ * llamada termina con evidencia real de que se contestó). Ninguno de los
+ * dos vuelca el cuerpo del mensaje ni notas en `metadata` — sólo referencia
+ * a la fila real (`entityType`/`entityId`), que es la fuente de verdad.
  */
 
 export const ACTIVITY_EVENT_TYPES = [
@@ -44,6 +52,8 @@ export const ACTIVITY_EVENT_TYPES = [
   'DEAL_STAGE_CHANGED',
   'DEAL_CLOSED',
   'DEAL_CANCELLED',
+  'PROPERTY_SENT',
+  'CALL_COMPLETED',
 ] as const
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number]
 

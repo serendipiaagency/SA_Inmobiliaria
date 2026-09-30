@@ -307,13 +307,14 @@ function sortByScore(list: { result: MatchResult; property?: { id: number }; req
 export class MatchStatusError extends Error {}
 
 /**
- * Guarda la decisión comercial sobre un par (necesidad, inmueble).
- *
- * El score y el desglose se recalculan aquí con el motor y NO se aceptan del
- * cliente: si el navegador pudiera mandar el score, el histórico diría lo que
- * quisiera quien llamó a la API.
+ * El cuerpo real de guardar la decisión sobre un par (necesidad, inmueble) —
+ * compartido por `setMatchStatus()` (guardado, sólo estados manuales) y
+ * `markMatchSent()` (sin guarda, sólo lo llama el Centro de Comunicaciones
+ * tras un envío real). El score y el desglose se recalculan aquí con el
+ * motor y NO se aceptan del cliente: si el navegador pudiera mandar el
+ * score, el histórico diría lo que quisiera quien llamó a la API.
  */
-export async function setMatchStatus(
+async function upsertMatchStatus(
   event: H3Event,
   orgId: number,
   input: { buyerRequirementId: number; propertyId: number; propertyKind: PropertyKind; status: MatchStatus; discardedReason?: string | null },
@@ -321,15 +322,6 @@ export async function setMatchStatus(
 ) {
   const db = useDb(event)
   const { property: P, match: M } = tablesFor(input.propertyKind)
-
-  if (!MANUAL_STATUSES.includes(input.status)) {
-    // No se marca como enviado/visitado/ofertado algo que el sistema no ha
-    // registrado de verdad. Esos estados llegarán cuando exista el envío real
-    // (Comunicaciones), la visita (Appointment) y la oferta (Offer).
-    throw new MatchStatusError(
-      `El estado "${input.status}" no se puede fijar a mano: lo marcará el módulo que registre la acción real (envío, visita u oferta).`,
-    )
-  }
 
   const requirement = (
     await db
@@ -407,6 +399,41 @@ export async function setMatchStatus(
   }
 
   return match
+}
+
+/** Guarda una decisión comercial manual — sólo los estados que de verdad se pueden fijar a mano (§48 arriba). */
+export async function setMatchStatus(
+  event: H3Event,
+  orgId: number,
+  input: { buyerRequirementId: number; propertyId: number; propertyKind: PropertyKind; status: MatchStatus; discardedReason?: string | null },
+  opts: { userId?: number | null } = {},
+) {
+  if (!MANUAL_STATUSES.includes(input.status)) {
+    // No se marca como enviado/visitado/ofertado algo que el sistema no ha
+    // registrado de verdad. Esos estados llegarán cuando exista el envío real
+    // (Comunicaciones), la visita (Appointment) y la oferta (Offer).
+    throw new MatchStatusError(
+      `El estado "${input.status}" no se puede fijar a mano: lo marcará el módulo que registre la acción real (envío, visita u oferta).`,
+    )
+  }
+  return upsertMatchStatus(event, orgId, input, opts)
+}
+
+/**
+ * Marca un match como `sent` — FASE 29 §126-127: "PropertyMatch pasa a SENT
+ * sólo cuando el envío real se haya completado". El único llamador legítimo
+ * es `share-property.post.ts`, después de que `sendOutbound()` ya haya
+ * confirmado el envío — nunca se expone `status: 'sent'` a un endpoint que
+ * lo reciba directamente del cliente (por eso vive fuera de
+ * `setMatchStatus()`, sin su guarda de MANUAL_STATUSES).
+ */
+export async function markMatchSent(
+  event: H3Event,
+  orgId: number,
+  input: { buyerRequirementId: number; propertyId: number; propertyKind: PropertyKind },
+  opts: { userId?: number | null } = {},
+) {
+  return upsertMatchStatus(event, orgId, { ...input, status: 'sent' }, opts)
 }
 
 /** Deja constancia de que alguien repasó las características del inmueble, que es lo que convierte un 0 en un "no". */

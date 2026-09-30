@@ -3,6 +3,7 @@ import { requireOrgScope } from '../../../../utils/auth'
 import { now, schema, useDb } from '../../../../utils/db'
 import { logAdminAction } from '../../../../utils/audit'
 import { loadConversationForOrg } from '../../../../utils/comms/admin'
+import { PROPERTY_KINDS } from '../../../../utils/matching/service'
 
 /** PATCH /api/admin/comms/conversations/:id — estado (open|pending|closed), comercial asignado, propiedad de contexto. */
 export default defineEventHandler(async (event) => {
@@ -33,14 +34,18 @@ export default defineEventHandler(async (event) => {
   if ('propertyId' in body) {
     if (body.propertyId == null || body.propertyId === '') {
       patch.propertyId = null
+      patch.propertyKind = null
     } else {
+      const kind = PROPERTY_KINDS.includes(body.propertyKind) ? body.propertyKind : 'developer'
+      const table = kind === 'developer' ? schema.developerProperties : schema.agentProperties
       const rows = await db
-        .select({ id: schema.developerProperties.id })
-        .from(schema.developerProperties)
-        .where(and(eq(schema.developerProperties.id, Number(body.propertyId)), eq(schema.developerProperties.organizationId, orgId)))
+        .select({ id: table.id })
+        .from(table)
+        .where(and(eq(table.id, Number(body.propertyId)), eq(table.organizationId, orgId)))
         .limit(1)
       if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Propiedad no encontrada' })
       patch.propertyId = rows[0].id
+      patch.propertyKind = kind
     }
   }
   if (Object.keys(patch).length === 1) throw createError({ statusCode: 422, statusMessage: 'Nada que actualizar' })

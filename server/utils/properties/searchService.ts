@@ -150,6 +150,9 @@ export interface PropertySearchRow {
   name: string
   subtitle: string | null
   price: number | null
+  /** Portada (developer_properties) o foto principal (agent_properties) — mismo campo de imagen que ya usa cada ficha. */
+  image: string | null
+  bedrooms: number | null
 }
 
 /**
@@ -191,13 +194,27 @@ export async function searchPropertiesCompact(event: H3Event, orgId: number, q: 
 
   const [developerRows, agentRows] = await Promise.all([
     db
-      .select({ id: schema.developerProperties.id, name: schema.developerProperties.name, subtitle: schema.developerProperties.community, price: schema.developerProperties.price })
+      .select({
+        id: schema.developerProperties.id,
+        name: schema.developerProperties.name,
+        subtitle: schema.developerProperties.community,
+        price: schema.developerProperties.price,
+        image: schema.developerProperties.coverImage,
+        bedrooms: schema.developerProperties.bedrooms,
+      })
       .from(schema.developerProperties)
       .where(and(eq(schema.developerProperties.organizationId, orgId), or(like(schema.developerProperties.name, needle), like(schema.developerProperties.community, needle))))
       .orderBy(asc(schema.developerProperties.name))
       .limit(perKindLimit),
     db
-      .select({ id: schema.agentProperties.id, name: agentDisplayName, subtitle: schema.agentProperties.city, price: schema.agentProperties.price })
+      .select({
+        id: schema.agentProperties.id,
+        name: agentDisplayName,
+        subtitle: schema.agentProperties.city,
+        price: schema.agentProperties.price,
+        image: schema.agentProperties.mainImage,
+        bedrooms: schema.agentProperties.bedrooms,
+      })
       .from(schema.agentProperties)
       .where(
         and(

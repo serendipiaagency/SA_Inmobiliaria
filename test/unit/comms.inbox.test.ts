@@ -4,7 +4,7 @@ import { createTestDb, seedTenant, type TenantFixture } from './helpers/tenantFi
 import * as schema from '../../server/db/schema'
 import { ingestCallEvent, logManualCall, startOutboundCall } from '../../server/utils/comms/calls'
 import { ingestParsedWebhook } from '../../server/utils/comms/ingest'
-import { isOptOutText, previewOf, renderTemplateBody, sendOutbound, serviceWindow, templateParamCount, upsertContact } from '../../server/utils/comms/inbox'
+import { isOptOutText, previewOf, renderTemplateBody, resolveActivityContact, sendOutbound, serviceWindow, templateParamCount, upsertContact } from '../../server/utils/comms/inbox'
 import { NO_CAPABILITIES, PROVIDERS } from '../../server/utils/comms/providers/registry'
 import type { InboundMessageEvent, LoadedChannel, ParsedWebhook } from '../../server/utils/comms/types'
 
@@ -272,5 +272,94 @@ describe('llamadas', () => {
     expect(call).toMatchObject({ provider: 'manual', status: 'cancelled', outcome: 'no_answer' })
     const [conv] = await db.select().from(schema.commsConversations).where(eq(schema.commsConversations.id, conversation.id))
     expect(conv.lastMessagePreview).toContain('No contesta')
+  })
+})
+
+describe('Activity (FASE 29 §128) — envío de propiedad y llamada completada', () => {
+  it('resolveActivityContact resuelve leadId directo y contactId (Property Core) a través del lead vinculado', async () => {
+    const [contactRow] = await db.insert(schema.contacts).values({ organizationId: a.orgId, name: 'María Compradora', createdAt: '', updatedAt: '' }).returning()
+    await db.update(schema.leads).set({ contactId: contactRow.id }).where(eq(schema.leads.id, a.leadId))
+    const commsContact = await upsertContact(db, a.orgId, '+34600112233')
+    await db.update(schema.commsContacts).set({ leadId: a.leadId }).where(eq(schema.commsContacts.id, commsContact.id))
+
+    const resolved = await resolveActivityContact(db, commsContact.id)
+    expect(resolved).toEqual({ contactId: contactRow.id, leadId: a.leadId })
+  })
+
+  it('sin vínculo guardado, resolveActivityContact no inventa ninguno', async () => {
+    const commsContact = await upsertContact(db, a.orgId, '+34699999999')
+    expect(await resolveActivityContact(db, commsContact.id)).toEqual({ contactId: null, leadId: null })
+  })
+
+  it('enviar una propiedad por WhatsApp deja un PROPERTY_SENT en Activity, nunca el cuerpo completo en metadata', async () => {
+    const commsContact = await upsertContact(db, a.orgId, '+34600112233')
+    await db.update(schema.commsContacts).set({ leadId: a.leadId }).where(eq(schema.commsContacts.id, commsContact.id))
+    const recentInbound = new Date().toISOString().replace('T', ' ').slice(0, 19)
+    const [conversation] = await db
+      .insert(schema.commsConversations)
+      .values({ organizationId: a.orgId, channelId: channelA.id, contactId: commsContact.id, lastInboundAt: recentInbound, createdAt: '', updatedAt: '' })
+      .returning()
+
+    const fetchImpl = (async () => new Response(JSON.stringify({ messages: [{ id: 'wamid.share' }] }), { status: 200 })) as typeof fetch
+    const r = await sendOutbound(db, {
+      channel: channelA,
+      env,
+      conversation,
+      contact: commsContact,
+      message: { kind: 'text', body: '🏠 Torre Alpha\n500.000 €', previewUrl: true },
+      storeAs: 'property_share',
+      propertyId: a.projectId,
+      propertyKind: 'developer',
+      userId: a.userId,
+      fetchImpl,
+    })
+    expect(r.ok).toBe(true)
+
+    const rows = await db.select().from(schema.activities).where(eq(schema.activities.organizationId, a.orgId))
+    const sent = rows.find((row: any) => row.eventType === 'PROPERTY_SENT')
+    expect(sent).toMatchObject({ entityType: 'comms_message', entityId: r.message!.id, leadId: a.leadId, propertyId: a.projectId, propertyKind: 'developer', actorType: 'user', actorId: a.userId })
+    expect(sent.metadataJson).toBeNull()
+  })
+
+  it('un envío que NO es property_share no genera PROPERTY_SENT', async () => {
+    const commsContact = await upsertContact(db, a.orgId, '+34600112233')
+    const recentInbound = new Date().toISOString().replace('T', ' ').slice(0, 19)
+    const [conversation] = await db
+      .insert(schema.commsConversations)
+      .values({ organizationId: a.orgId, channelId: channelA.id, contactId: commsContact.id, lastInboundAt: recentInbound, createdAt: '', updatedAt: '' })
+      .returning()
+    const fetchImpl = (async () => new Response(JSON.stringify({ messages: [{ id: 'wamid.plain' }] }), { status: 200 })) as typeof fetch
+    const r = await sendOutbound(db, { channel: channelA, env, conversation, contact: commsContact, message: { kind: 'text', body: 'Hola' }, userId: a.userId, fetchImpl })
+    expect(r.ok).toBe(true)
+    const rows = await db.select().from(schema.activities).where(eq(schema.activities.organizationId, a.orgId))
+    expect(rows.find((row: any) => row.eventType === 'PROPERTY_SENT')).toBeUndefined()
+  })
+
+  it('una llamada anotada a mano con evidencia real (answered) genera CALL_COMPLETED; sin contestar, no', async () => {
+    const contact = await upsertContact(db, a.orgId, '+34600112233')
+    const [conversation] = await db.insert(schema.commsConversations).values({ organizationId: a.orgId, channelId: channelA.id, contactId: contact.id, createdAt: '', updatedAt: '' }).returning()
+
+    await logManualCall(db, { orgId: a.orgId, contactId: contact.id, conversationId: conversation.id, direction: 'outbound', outcome: 'no_answer', userId: a.userId })
+    let rows = await db.select().from(schema.activities).where(eq(schema.activities.organizationId, a.orgId))
+    expect(rows.find((row: any) => row.eventType === 'CALL_COMPLETED')).toBeUndefined()
+
+    const answeredCall = await logManualCall(db, { orgId: a.orgId, contactId: contact.id, conversationId: conversation.id, direction: 'outbound', outcome: 'answered', userId: a.userId })
+    rows = await db.select().from(schema.activities).where(eq(schema.activities.organizationId, a.orgId))
+    const completed = rows.find((row: any) => row.eventType === 'CALL_COMPLETED')
+    expect(completed).toMatchObject({ entityType: 'comms_call', entityId: answeredCall.id, actorType: 'user', actorId: a.userId })
+  })
+
+  it('una llamada de WhatsApp Calling que termina contestada (answeredAt real) genera CALL_COMPLETED; una perdida, no', async () => {
+    await ingestCallEvent(db, channelA, { kind: 'call', externalId: 'wacid.answered', event: 'connect', direction: 'inbound', from: '+34600112233', session: { sdpType: 'offer', sdp: 'v=0' }, timestamp: '2026-03-01T10:00:00.000Z', raw: {} })
+    await ingestCallEvent(db, channelA, { kind: 'call', externalId: 'wacid.answered', event: 'connect', session: { sdpType: 'answer', sdp: 'v=0 answer' }, timestamp: '2026-03-01T10:00:05.000Z', raw: {} })
+    await ingestCallEvent(db, channelA, { kind: 'call', externalId: 'wacid.answered', event: 'terminate', status: 'COMPLETED', durationSeconds: 30, timestamp: '2026-03-01T10:01:00.000Z', raw: {} })
+    const rows = await db.select().from(schema.activities).where(eq(schema.activities.organizationId, a.orgId))
+    expect(rows.find((row: any) => row.eventType === 'CALL_COMPLETED')).toBeTruthy()
+
+    // La del principio de este describe ("...queda perdida") nunca contestó: sin evidencia, sin CALL_COMPLETED.
+    await ingestCallEvent(db, channelA, { kind: 'call', externalId: 'wacid.missed', event: 'connect', direction: 'inbound', from: '+34600112299', session: { sdpType: 'offer', sdp: 'v=0' }, timestamp: '2026-03-01T10:00:00.000Z', raw: {} })
+    await ingestCallEvent(db, channelA, { kind: 'call', externalId: 'wacid.missed', event: 'terminate', status: 'COMPLETED', timestamp: '2026-03-01T10:01:00.000Z', raw: {} })
+    const rowsAfter = await db.select().from(schema.activities).where(eq(schema.activities.organizationId, a.orgId))
+    expect(rowsAfter.filter((row: any) => row.eventType === 'CALL_COMPLETED')).toHaveLength(1)
   })
 })

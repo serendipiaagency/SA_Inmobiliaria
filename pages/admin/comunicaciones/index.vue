@@ -190,11 +190,11 @@ async function onPropertyPicked(p: any) {
   if (!thread.value) return
   try {
     if (mode === 'share') {
-      const r = await $fetch<{ message: any }>(`/api/admin/comms/conversations/${thread.value.conversation.id}/share-property`, { method: 'POST', body: { propertyId: p.id } })
+      const r = await $fetch<{ message: any }>(`/api/admin/comms/conversations/${thread.value.conversation.id}/share-property`, { method: 'POST', body: { propertyId: p.id, propertyKind: p.kind } })
       onSent(r.message)
       toast.success('Propiedad enviada')
     } else {
-      await $fetch(`/api/admin/comms/conversations/${thread.value.conversation.id}`, { method: 'PATCH', body: { propertyId: p.id } })
+      await $fetch(`/api/admin/comms/conversations/${thread.value.conversation.id}`, { method: 'PATCH', body: { propertyId: p.id, propertyKind: p.kind } })
     }
     await reloadThread()
   } catch (e: any) {

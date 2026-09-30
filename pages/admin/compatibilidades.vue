@@ -101,6 +101,16 @@
               >
                 Crear oferta
               </button>
+              <button
+                v-if="(m.persisted?.status === 'selected' || m.sent) && m.contact?.phone"
+                type="button"
+                class="rounded-lg border border-line px-2 py-1 font-medium hover:bg-stone-50"
+                :class="m.sent ? 'border-emerald-300 text-emerald-700' : ''"
+                :disabled="sendingPropertyFor === m"
+                @click="sendPropertyToMatch(m)"
+              >
+                {{ sendingPropertyFor === m ? 'Enviando…' : m.sent ? 'Propiedad enviada' : 'Enviar propiedad' }}
+              </button>
             </div>
           </div>
           <AdminMatchBreakdown :result="m.result" class="mt-3 border-t border-line pt-3" />
@@ -205,6 +215,36 @@ async function createOfferFromMatch(m: any) {
     toast.error(err?.data?.statusMessage || 'No se pudo crear la oferta')
   } finally {
     creatingOffer.value = false
+  }
+}
+
+// --- Enviar propiedad desde un match seleccionado (FASE 29 §126-127) ---
+// "Enviar propiedad" en Matching ahora pasa por el Centro de Comunicaciones
+// — nunca un envío simulado: PropertyMatch sólo pasa a `sent` cuando
+// sendOutbound() confirma que el mensaje salió de verdad (ver
+// share-property.post.ts#markMatchSent).
+const sendingPropertyFor = ref<any>(null)
+async function sendPropertyToMatch(m: any) {
+  if (!propertyId.value || !propertyKind.value || !m.contact?.phone) return
+  sendingPropertyFor.value = m
+  try {
+    const conv = await $fetch<{ id: number }>('/api/admin/comms/conversations', { method: 'POST', body: { phone: m.contact.phone } })
+    await $fetch(`/api/admin/comms/conversations/${conv.id}/share-property`, {
+      method: 'POST',
+      body: { propertyId: propertyId.value, propertyKind: propertyKind.value, buyerRequirementId: m.requirement.id },
+    })
+    m.sent = true
+    toast.success('Propiedad enviada por WhatsApp')
+  } catch (err: any) {
+    const data = err?.data?.data
+    if (err?.statusCode === 409 && data?.clickToChatUrl) {
+      window.open(data.clickToChatUrl, '_blank', 'noopener')
+      toast.info('No hay ningún número de WhatsApp conectado: se abre la app de WhatsApp.', 7000)
+    } else {
+      toast.error(err?.data?.statusMessage || 'No se pudo enviar la propiedad')
+    }
+  } finally {
+    sendingPropertyFor.value = null
   }
 }
 
