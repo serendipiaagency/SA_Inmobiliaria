@@ -27,11 +27,13 @@ antes de esta FASE, ahora ampliada) y Agenda (pensada para móvil).
 - `PATCH /api/admin/saas/visits/:id` — ya existía (FASE 17-18); esta FASE le
   añade `durationMinutes` para el "resize" del calendario, con la misma
   comprobación de solapes que ya usaba para mover una cita.
-- `GET /api/admin/saas/properties/search` (`server/utils/properties/search.ts`)
-  — el filtro de Propiedad necesitaba buscar en los dos catálogos a la vez;
-  no existía nada así en el repo (`PropertyPickerModal.vue`/`/api/admin/comms/properties`
-  sólo cubre obra nueva). Se pensó para reutilizarse también en Offer/Deal
-  (FASE 23-24).
+- `GET /api/admin/saas/properties/search` (`searchPropertiesCompact()` en
+  `server/utils/properties/searchService.ts`, FASE 27 — antes vivía en
+  `properties/search.ts`) — el filtro de Propiedad necesitaba buscar en los
+  dos catálogos a la vez; no existía nada así en el repo
+  (`PropertyPickerModal.vue`/`/api/admin/comms/properties` sólo cubre obra
+  nueva, pendiente de migrar al mismo servicio en FASE 29). Se pensó para
+  reutilizarse también en Offer/Deal (FASE 23-24).
 
 ## Migración 0075 — qué añade y por qué
 

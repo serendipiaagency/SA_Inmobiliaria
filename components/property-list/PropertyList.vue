@@ -87,6 +87,38 @@
         <span class="label">Superficie máx. (m²)</span>
         <input v-model.number="areaMax" type="number" class="input" >
       </label>
+      <label class="block">
+        <span class="label">Exclusividad</span>
+        <select v-model="isExclusive" class="input">
+          <option value="">Todas</option>
+          <option value="1">Exclusivas</option>
+          <option value="0">No exclusivas</option>
+        </select>
+      </label>
+      <label class="block">
+        <span class="label">Publicación</span>
+        <select v-model="published" class="input">
+          <option value="">Todas</option>
+          <option value="published">Publicadas</option>
+          <option value="unpublished">Sin publicar</option>
+        </select>
+      </label>
+      <label class="block">
+        <span class="label">Captada desde</span>
+        <input v-model="capturedFrom" type="date" class="input" >
+      </label>
+      <label class="block">
+        <span class="label">Captada hasta</span>
+        <input v-model="capturedTo" type="date" class="input" >
+      </label>
+      <label class="block">
+        <span class="label">Actualizada desde</span>
+        <input v-model="updatedFrom" type="date" class="input" >
+      </label>
+      <label class="block">
+        <span class="label">Actualizada hasta</span>
+        <input v-model="updatedTo" type="date" class="input" >
+      </label>
       <div class="col-span-full flex items-center gap-3">
         <button type="button" class="btn-primary !px-4 !py-2" @click="applyAndReset">Aplicar filtros</button>
         <button type="button" class="text-[13px] font-medium text-stone-500 hover:text-ink" @click="clearAll">Limpiar filtros</button>
@@ -198,24 +230,68 @@ const config = computed(() => PROPERTY_LIST_CONFIG[props.resource])
 const { confirm } = useConfirm()
 const toast = useToast()
 
-const q = ref('')
-const status = ref('')
-const transactionType = ref('')
-const propertyType = ref('')
-const sort = ref('newest')
-const page = ref(1)
+/**
+ * Estado en la URL (FASE 27 §72): un filtro aplicado sobrevive a recargar,
+ * volver atrás o compartir el enlace — antes se perdía en cuanto se salía
+ * de la página. Se lee una vez al montar (los `ref` abajo) y se vuelve a
+ * escribir en cada cambio (el `watch` al final del setup).
+ */
+const route = useRoute()
+const router = useRouter()
+function qs(key: string): string {
+  const v = route.query[key]
+  return typeof v === 'string' ? v : ''
+}
+function qsNum(key: string): number | null {
+  const v = qs(key)
+  return v ? Number(v) : null
+}
 
-const priceMin = ref<number | null>(null)
-const priceMax = ref<number | null>(null)
-const country = ref('')
-const city = ref('')
-const district = ref('')
-const postalCode = ref('')
-const bedroomsMin = ref<number | null>(null)
-const bathroomsMin = ref<number | null>(null)
-const areaMin = ref<number | null>(null)
-const areaMax = ref<number | null>(null)
-const filtersOpen = ref(false)
+const q = ref(qs('q'))
+const status = ref(qs('status'))
+const transactionType = ref(qs('transactionType'))
+const propertyType = ref(qs('propertyType'))
+const sort = ref(qs('sort') || 'newest')
+const page = ref(qsNum('page') || 1)
+
+const priceMin = ref<number | null>(qsNum('priceMin'))
+const priceMax = ref<number | null>(qsNum('priceMax'))
+const country = ref(qs('country'))
+const city = ref(qs('city'))
+const district = ref(qs('district'))
+const postalCode = ref(qs('postalCode'))
+const bedroomsMin = ref<number | null>(qsNum('bedroomsMin'))
+const bathroomsMin = ref<number | null>(qsNum('bathroomsMin'))
+const areaMin = ref<number | null>(qsNum('areaMin'))
+const areaMax = ref<number | null>(qsNum('areaMax'))
+/** Exclusividad de mandato y estado de publicación — filtros nuevos en FASE 27, sin cobertura en ningún listado antes. */
+const isExclusive = ref(qs('isExclusive'))
+const published = ref(qs('published'))
+const capturedFrom = ref(qs('capturedFrom'))
+const capturedTo = ref(qs('capturedTo'))
+const updatedFrom = ref(qs('updatedFrom'))
+const updatedTo = ref(qs('updatedTo'))
+// Si se llega con filtros avanzados ya puestos (enlace compartido, recarga), el panel se abre solo — de lo contrario estarían activos pero invisibles.
+const filtersOpen = ref(
+  !!(
+    priceMin.value != null ||
+    priceMax.value != null ||
+    country.value ||
+    city.value ||
+    district.value ||
+    postalCode.value ||
+    bedroomsMin.value != null ||
+    bathroomsMin.value != null ||
+    areaMin.value != null ||
+    areaMax.value != null ||
+    isExclusive.value ||
+    published.value ||
+    capturedFrom.value ||
+    capturedTo.value ||
+    updatedFrom.value ||
+    updatedTo.value
+  ),
+)
 
 const cardComponent = computed(() => (config.value.card === 'developer' ? DeveloperPropertyCard : AgentPropertyCard))
 /**
@@ -248,9 +324,24 @@ function setView(v: 'list' | 'grid') {
 }
 
 const advancedCount = computed(() =>
-  [priceMin.value, priceMax.value, country.value, city.value, district.value, postalCode.value, bedroomsMin.value, bathroomsMin.value, areaMin.value, areaMax.value].filter(
-    (v) => v !== null && v !== '',
-  ).length,
+  [
+    priceMin.value,
+    priceMax.value,
+    country.value,
+    city.value,
+    district.value,
+    postalCode.value,
+    bedroomsMin.value,
+    bathroomsMin.value,
+    areaMin.value,
+    areaMax.value,
+    isExclusive.value,
+    published.value,
+    capturedFrom.value,
+    capturedTo.value,
+    updatedFrom.value,
+    updatedTo.value,
+  ].filter((v) => v !== null && v !== '').length,
 )
 const hasActiveFilters = computed(
   () => !!q.value || !!status.value || (config.value.hasTransactionFilter && !!transactionType.value) || !!propertyType.value || advancedCount.value > 0,
@@ -274,6 +365,12 @@ function clearAll() {
   bathroomsMin.value = null
   areaMin.value = null
   areaMax.value = null
+  isExclusive.value = ''
+  published.value = ''
+  capturedFrom.value = ''
+  capturedTo.value = ''
+  updatedFrom.value = ''
+  updatedTo.value = ''
   page.value = 1
 }
 
@@ -302,6 +399,14 @@ const chips = computed(() => {
     const label = `${areaMin.value ?? 0} – ${areaMax.value ?? '∞'} m²`
     list.push({ key: 'area', label, clear: () => ((areaMin.value = null), (areaMax.value = null)) })
   }
+  if (isExclusive.value) list.push({ key: 'isExclusive', label: isExclusive.value === '1' ? 'Exclusiva' : 'No exclusiva', clear: () => (isExclusive.value = '') })
+  if (published.value) list.push({ key: 'published', label: published.value === 'published' ? 'Publicada' : 'Sin publicar', clear: () => (published.value = '') })
+  if (capturedFrom.value || capturedTo.value) {
+    list.push({ key: 'captured', label: `Captada ${capturedFrom.value || '…'} – ${capturedTo.value || '…'}`, clear: () => ((capturedFrom.value = ''), (capturedTo.value = '')) })
+  }
+  if (updatedFrom.value || updatedTo.value) {
+    list.push({ key: 'updated', label: `Actualizada ${updatedFrom.value || '…'} – ${updatedTo.value || '…'}`, clear: () => ((updatedFrom.value = ''), (updatedTo.value = '')) })
+  }
   return list
 })
 
@@ -325,10 +430,70 @@ const { data, pending, refresh } = await useFetch<any>(() => `/api/admin/${props
     bathroomsMin: bathroomsMin.value ?? undefined,
     areaMin: areaMin.value ?? undefined,
     areaMax: areaMax.value ?? undefined,
+    isExclusive: isExclusive.value || undefined,
+    published: published.value || undefined,
+    capturedFrom: capturedFrom.value || undefined,
+    capturedTo: capturedTo.value || undefined,
+    updatedFrom: updatedFrom.value || undefined,
+    updatedTo: updatedTo.value || undefined,
   })),
 })
 const totalPages = computed(() => Math.ceil((data.value?.total || 0) / (data.value?.perPage || 20)))
-watch([status, transactionType, propertyType, sort, priceMin, priceMax, country, city, district, postalCode, bedroomsMin, bathroomsMin, areaMin, areaMax], () => (page.value = 1))
+const FILTER_REFS = [
+  status,
+  transactionType,
+  propertyType,
+  sort,
+  priceMin,
+  priceMax,
+  country,
+  city,
+  district,
+  postalCode,
+  bedroomsMin,
+  bathroomsMin,
+  areaMin,
+  areaMax,
+  isExclusive,
+  published,
+  capturedFrom,
+  capturedTo,
+  updatedFrom,
+  updatedTo,
+]
+watch(FILTER_REFS, () => (page.value = 1))
+
+/** Refleja el estado en la URL (FASE 27 §72) — `replace`, no `push`: cambiar un filtro no debe llenar el historial de "atrás" con un paso por cada tecla. */
+watch(
+  [q, page, ...FILTER_REFS],
+  () => {
+    const query: Record<string, string> = {}
+    if (q.value) query.q = q.value
+    if (status.value) query.status = status.value
+    if (config.value.hasTransactionFilter && transactionType.value) query.transactionType = transactionType.value
+    if (propertyType.value) query.propertyType = propertyType.value
+    if (sort.value && sort.value !== 'newest') query.sort = sort.value
+    if (page.value > 1) query.page = String(page.value)
+    if (priceMin.value != null) query.priceMin = String(priceMin.value)
+    if (priceMax.value != null) query.priceMax = String(priceMax.value)
+    if (country.value) query.country = country.value
+    if (city.value) query.city = city.value
+    if (district.value) query.district = district.value
+    if (postalCode.value) query.postalCode = postalCode.value
+    if (bedroomsMin.value != null) query.bedroomsMin = String(bedroomsMin.value)
+    if (bathroomsMin.value != null) query.bathroomsMin = String(bathroomsMin.value)
+    if (areaMin.value != null) query.areaMin = String(areaMin.value)
+    if (areaMax.value != null) query.areaMax = String(areaMax.value)
+    if (isExclusive.value) query.isExclusive = isExclusive.value
+    if (published.value) query.published = published.value
+    if (capturedFrom.value) query.capturedFrom = capturedFrom.value
+    if (capturedTo.value) query.capturedTo = capturedTo.value
+    if (updatedFrom.value) query.updatedFrom = updatedFrom.value
+    if (updatedTo.value) query.updatedTo = updatedTo.value
+    router.replace({ query })
+  },
+  { flush: 'post' },
+)
 
 function formatPrice(v: number | null | undefined) {
   return typeof v === 'number' ? new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(v) + ' €' : '—'
