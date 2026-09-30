@@ -86,9 +86,13 @@ test.describe('Bulk Actions — Propiedades', () => {
 
   test('"seleccionar todos los filtrados" resuelve del lado del servidor con el mismo filtro que el listado', async () => {
     const cityTag = `E2E-Bulk-${RUN}`
-    const match1 = await createProperty({ city: cityTag })
-    const match2 = await createProperty({ city: cityTag })
-    const noMatch = await createProperty({ city: 'Otra ciudad' })
+    // Dos coinciden con el filtro, una no — sólo se referencian por conteo
+    // (job.totalCount) porque hoy no hay endpoint de lectura de
+    // bulk_action_job_items ni de tags por propiedad; el conteo exacto (2,
+    // ni 1 ni 3) ya prueba que se aplicó el mismo filtro que el listado.
+    await createProperty({ city: cityTag })
+    await createProperty({ city: cityTag })
+    await createProperty({ city: 'Otra ciudad' })
 
     const created = await a.post('/api/admin/property-bulk-jobs', {
       data: { entityType: 'agent', action: 'add_tag', params: { tagName: `Lote ${RUN}` }, selectAllFiltered: true, filters: { city: cityTag } },
@@ -98,7 +102,6 @@ test.describe('Bulk Actions — Propiedades', () => {
     expect(job.totalCount).toBe(2)
     const finalJob = await runJob(a, job.id)
     expect(finalJob.completedCount).toBe(2)
-    void noMatch // documented as excluded by the filter, not asserted via API (no read endpoint for tags yet)
   })
 
   test('añadir etiqueta es idempotente: reintentar la misma acción sobre el mismo elemento no la duplica', async () => {
