@@ -220,6 +220,12 @@
           <option value="change_commercial">Cambiar comercial</option>
           <option value="change_status">Cambiar estado</option>
           <option value="add_tag">Añadir etiqueta</option>
+          <option value="update_price">Actualizar precio</option>
+          <template v-if="isDeveloperCatalog">
+            <option value="publish">Publicar</option>
+            <option value="withdraw">Retirar</option>
+            <option value="create_catalog">Crear catálogo</option>
+          </template>
         </select>
         <select v-if="bulkAction === 'change_commercial'" v-model="bulkCommercialId" class="input !w-48">
           <option value="">Sin asignar</option>
@@ -230,9 +236,19 @@
           <option v-for="s in config.statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
         </select>
         <input v-if="bulkAction === 'add_tag'" v-model="bulkTagName" class="input !w-48" placeholder="Nombre de la etiqueta" >
+        <input v-if="bulkAction === 'update_price'" v-model.number="bulkPrice" type="number" min="0" class="input !w-40" placeholder="Nuevo precio (€)" >
+        <template v-if="bulkAction === 'create_catalog'">
+          <select v-model="bulkTemplateId" class="input !w-52">
+            <option value="">Elige una plantilla…</option>
+            <option v-for="t in bulkTemplates" :key="t.id" :value="t.id">{{ t.name }}</option>
+          </select>
+          <span v-if="selectAllFilteredMode" class="text-[12px] text-amber-700">Selecciona manualmente para crear un catálogo (no vale "todos los filtrados").</span>
+          <span v-else-if="selectionCount > MAX_CATALOG_ASSETS" class="text-[12px] text-amber-700">Máximo {{ MAX_CATALOG_ASSETS }} propiedades por catálogo.</span>
+        </template>
         <button type="button" class="btn-primary !px-3 !py-1.5 text-xs" :disabled="!canRunBulkAction || bulkRunning" @click="runBulkAction">
           {{ bulkRunning ? bulkProgressLabel : 'Aplicar' }}
         </button>
+        <button type="button" class="btn-quiet !px-3 !py-1.5 text-xs" :disabled="bulkRunning" @click="exportSelection">Exportar seleccionadas</button>
         <button type="button" class="text-[12px] text-stone-500 hover:text-ink" :disabled="bulkRunning" @click="clearSelection">Cancelar selección</button>
       </div>
       <div v-if="allOnPageSelected && !selectAllFilteredMode && data && data.total > data.rows.length" class="mb-3 text-center text-[12px] text-stone-500">
@@ -810,21 +826,35 @@ function clearSelection() {
 // son los resultados actuales".
 watch(FILTER_REFS, () => clearSelection())
 
-const bulkAction = ref<'' | 'change_commercial' | 'change_status' | 'add_tag'>('')
+const isDeveloperCatalog = computed(() => props.resource === 'developer-properties')
+
+type BulkAction = '' | 'change_commercial' | 'change_status' | 'add_tag' | 'update_price' | 'publish' | 'withdraw' | 'create_catalog'
+const bulkAction = ref<BulkAction>('')
 const bulkCommercialId = ref<number | ''>('')
 const bulkStatus = ref('')
 const bulkTagName = ref('')
+const bulkPrice = ref<number | null>(null)
+const bulkTemplateId = ref<number | ''>('')
 const bulkAgents = ref<{ id: number; name: string }[]>([])
+const bulkTemplates = ref<{ id: number; name: string }[]>([])
 const bulkRunning = ref(false)
 const bulkProgressLabel = ref('Aplicando…')
+/** Mismo tope que `server/api/admin/asset-export/catalogs.post.ts` (MAX_CATALOG_ASSETS) — el servidor es quien manda, esto es sólo para no dejar que el botón invite a mandar una selección que el propio endpoint va a rechazar entera. */
+const MAX_CATALOG_ASSETS = 30
 
 async function onBulkActionChange() {
   bulkCommercialId.value = ''
   bulkStatus.value = ''
   bulkTagName.value = ''
+  bulkPrice.value = null
+  bulkTemplateId.value = ''
   if (bulkAction.value === 'change_commercial' && !bulkAgents.value.length) {
     const res = await $fetch<{ rows: { id: number; name: string }[] }>('/api/admin/team', { query: { perPage: 200 } })
     bulkAgents.value = res.rows || []
+  }
+  if (bulkAction.value === 'create_catalog' && !bulkTemplates.value.length) {
+    const res = await $fetch<{ id: number; name: string }[]>('/api/admin/asset-export/templates')
+    bulkTemplates.value = res || []
   }
 }
 
@@ -832,16 +862,57 @@ const canRunBulkAction = computed(() => {
   if (!bulkAction.value) return false
   if (bulkAction.value === 'change_status') return !!bulkStatus.value
   if (bulkAction.value === 'add_tag') return !!bulkTagName.value.trim()
-  return true // change_commercial: "Sin asignar" (vacío) es una elección válida
+  if (bulkAction.value === 'update_price') return typeof bulkPrice.value === 'number' && bulkPrice.value > 0
+  if (bulkAction.value === 'create_catalog') return !!bulkTemplateId.value && !selectAllFilteredMode.value && selectionCount.value <= MAX_CATALOG_ASSETS
+  return true // change_commercial ("Sin asignar" es válido), publish, withdraw: sin parámetro adicional
 })
 
-const BULK_ACTION_LABELS: Record<string, string> = { change_commercial: 'cambiar el comercial', change_status: 'cambiar el estado', add_tag: 'añadir la etiqueta' }
+const BULK_ACTION_LABELS: Record<string, string> = {
+  change_commercial: 'cambiar el comercial',
+  change_status: 'cambiar el estado',
+  add_tag: 'añadir la etiqueta',
+  update_price: 'actualizar el precio',
+  publish: 'publicar',
+  withdraw: 'retirar',
+}
+
+/** Exportar seleccionadas (§92) — mismo endpoint que el botón "Exportar CSV" de arriba, con un filtro por ids en vez de un mecanismo nuevo. En modo "todos los filtrados" ya no hace falta el filtro por ids: es exactamente lo que exporta ese botón. */
+function exportSelection() {
+  const params = new URLSearchParams({ format: 'csv' })
+  if (selectAllFilteredMode.value) {
+    Object.entries(currentSavableQuery()).forEach(([k, v]) => params.set(k, v))
+  } else {
+    params.set('ids', selectedIds.value.join(','))
+  }
+  window.open(`/api/admin/${props.resource}?${params.toString()}`, '_blank')
+}
 
 async function runBulkAction() {
   if (!bulkAction.value || !canRunBulkAction.value || !selectionCount.value) return
+
+  // Crear catálogo (§93) no es un job: envuelve la API de Asset Export
+  // Studio ya existente con una única llamada síncrona, igual que "Exportar
+  // seleccionadas" — nunca la reimplementa.
+  if (bulkAction.value === 'create_catalog') {
+    bulkRunning.value = true
+    bulkProgressLabel.value = 'Creando…'
+    try {
+      const res = await $fetch<{ id: number }>('/api/admin/asset-export/catalogs', { method: 'POST', body: { templateId: bulkTemplateId.value, assetIds: selectedIds.value } })
+      toast.success('Catálogo creado')
+      clearSelection()
+      bulkAction.value = ''
+      await navigateTo(`/admin/asset-export/catalogs/${res.id}`)
+    } catch (e: any) {
+      toast.error(e?.data?.statusMessage || 'No se pudo crear el catálogo')
+    } finally {
+      bulkRunning.value = false
+    }
+    return
+  }
+
   const ok = await confirm(
     `Se va a ${BULK_ACTION_LABELS[bulkAction.value]} de ${selectionCount.value} propiedad${selectionCount.value === 1 ? '' : 'es'}. No se puede deshacer.`,
-    { title: '¿Aplicar acción masiva?', confirmLabel: 'Aplicar', danger: bulkAction.value === 'change_status' },
+    { title: '¿Aplicar acción masiva?', confirmLabel: 'Aplicar', danger: ['change_status', 'update_price', 'withdraw'].includes(bulkAction.value) },
   )
   if (!ok) return
 
@@ -850,7 +921,11 @@ async function runBulkAction() {
       ? { commercialId: bulkCommercialId.value || null }
       : bulkAction.value === 'change_status'
         ? { status: bulkStatus.value }
-        : { tagName: bulkTagName.value.trim() }
+        : bulkAction.value === 'add_tag'
+          ? { tagName: bulkTagName.value.trim() }
+          : bulkAction.value === 'update_price'
+            ? { price: bulkPrice.value }
+            : {} // publish/withdraw: sin parámetros
 
   bulkRunning.value = true
   bulkProgressLabel.value = 'Iniciando…'

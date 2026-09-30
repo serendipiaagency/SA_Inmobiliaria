@@ -31,6 +31,31 @@ async function seedAgentProperty(db: any, orgId: number, overrides: Record<strin
   return row
 }
 
+/** Todos los campos que PropertySchemaRegistry exige para publicar obra nueva (name, transactionType, country, city, area, price, description, coverImage) — la fila con la que se prueba que "publicar" sí puede tener éxito. */
+async function seedPublishableProject(db: any, orgId: number, developerId: number, overrides: Record<string, any> = {}) {
+  const [row] = await db
+    .insert(schema.developerProperties)
+    .values({
+      organizationId: orgId,
+      developerId,
+      name: 'Torre Completa',
+      slug: `publish-${Math.random().toString(36).slice(2)}`,
+      status: 'new',
+      transactionType: 'sale',
+      country: 'España',
+      city: 'Marbella',
+      area: 120,
+      price: 500000,
+      description: 'Descripción completa para publicar',
+      coverImage: 'uploads/cover.jpg',
+      createdAt: ts,
+      updatedAt: ts,
+      ...overrides,
+    })
+    .returning()
+  return row
+}
+
 describe('createBulkActionJob + processNextBulkActionItem — el motor genérico', () => {
   it('procesa un elemento por llamada, con resultado individual (§104), hasta completed', async () => {
     const { db } = createTestDb()
@@ -203,6 +228,102 @@ describe('resolveFilteredPropertyIds — "seleccionar todos los resultados filtr
     expect(ids).toContain(cheap.id)
     expect(ids).not.toContain(expensive.id)
     expect(ids).not.toContain(otherCity.id)
+  })
+})
+
+describe('propertyBulkHandlers — publish/withdraw (FASE 28 incremento 2, §90-91)', () => {
+  it('publica sólo cuando el estado resultante cumple requiredForPublish — misma validación que una edición manual', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'BulkPublishOk')
+    const complete = await seedPublishableProject(db, fixture.orgId, fixture.developerId)
+    const handlers = propertyBulkHandlers('developer')
+
+    await handlers.publish(ev(db), fixture.orgId, complete.id, {})
+    const [row] = await db.select().from(schema.developerProperties).where(eq(schema.developerProperties.id, complete.id))
+    expect(row.publishedAt).toBeTruthy()
+
+    // Publicar una propiedad ya publicada no falla ni "vuelve a publicarla" — idempotente.
+    await handlers.publish(ev(db), fixture.orgId, complete.id, {})
+    const [again] = await db.select().from(schema.developerProperties).where(eq(schema.developerProperties.id, complete.id))
+    expect(again.publishedAt).toBe(row.publishedAt)
+  })
+
+  it('rechaza publicar cuando faltan campos requiredForPublish, con el detalle de qué falta', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'BulkPublishMissing')
+    // fixture.projectId (seedTenant) no trae country/city/transactionType/
+    // description/coverImage — exactamente el caso "guardado como borrador,
+    // nunca publicado" que §90 pide bloquear.
+    const handlers = propertyBulkHandlers('developer')
+    await expect(handlers.publish(ev(db), fixture.orgId, fixture.projectId, {})).rejects.toMatchObject({ statusCode: 422 })
+  })
+
+  it('publicar/retirar no aplican a 2ª mano (agent-properties no tiene consumidor público)', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'BulkPublishAgent')
+    const prop = await seedAgentProperty(db, fixture.orgId)
+    const handlers = propertyBulkHandlers('agent')
+    await expect(handlers.publish(ev(db), fixture.orgId, prop.id, {})).rejects.toMatchObject({ statusCode: 422 })
+    await expect(handlers.withdraw(ev(db), fixture.orgId, prop.id, {})).rejects.toMatchObject({ statusCode: 422 })
+  })
+
+  it('retirar limpia publishedAt sin borrar la fila, y es idempotente sobre una ya retirada', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'BulkWithdraw')
+    const complete = await seedPublishableProject(db, fixture.orgId, fixture.developerId, { publishedAt: ts })
+    const handlers = propertyBulkHandlers('developer')
+
+    await handlers.withdraw(ev(db), fixture.orgId, complete.id, {})
+    const [row] = await db.select().from(schema.developerProperties).where(eq(schema.developerProperties.id, complete.id))
+    expect(row.publishedAt).toBeNull()
+    expect(row.id).toBe(complete.id) // nunca delete
+
+    await handlers.withdraw(ev(db), fixture.orgId, complete.id, {}) // ya retirada
+    const [again] = await db.select().from(schema.developerProperties).where(eq(schema.developerProperties.id, complete.id))
+    expect(again.publishedAt).toBeNull()
+  })
+})
+
+describe('propertyBulkHandlers — update_price (FASE 28 incremento 2, §94-95)', () => {
+  it('actualizar precio en 2ª mano SIEMPRE genera su fila en agent_property_price_history, primer escritor de esa tabla', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'BulkPriceAgent')
+    const prop = await seedAgentProperty(db, fixture.orgId, { price: 200000 })
+    const handlers = propertyBulkHandlers('agent')
+
+    await handlers.update_price(ev(db), fixture.orgId, prop.id, { price: 180000 })
+
+    const [row] = await db.select().from(schema.agentProperties).where(eq(schema.agentProperties.id, prop.id))
+    expect(row.price).toBe(180000)
+    const history = await db.select().from(schema.agentPropertyPriceHistory).where(eq(schema.agentPropertyPriceHistory.propertyId, prop.id))
+    expect(history).toHaveLength(1)
+    expect(history[0].price).toBe(180000)
+  })
+
+  it('actualizar precio en obra nueva escribe en price_history, igual que una edición manual', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'BulkPriceDeveloper')
+    const handlers = propertyBulkHandlers('developer')
+
+    await handlers.update_price(ev(db), fixture.orgId, fixture.projectId, { price: 450000 })
+
+    const [row] = await db.select().from(schema.developerProperties).where(eq(schema.developerProperties.id, fixture.projectId))
+    expect(row.price).toBe(450000)
+    const history = await db.select().from(schema.priceHistory).where(eq(schema.priceHistory.developerPropertyId, fixture.projectId))
+    expect(history).toHaveLength(1)
+    expect(history[0].price).toBe(450000)
+  })
+
+  it('rechaza un precio inválido (cero, negativo o no numérico) sin tocar el histórico', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'BulkPriceInvalid')
+    const prop = await seedAgentProperty(db, fixture.orgId)
+    const handlers = propertyBulkHandlers('agent')
+
+    await expect(handlers.update_price(ev(db), fixture.orgId, prop.id, { price: 0 })).rejects.toMatchObject({ statusCode: 422 })
+    await expect(handlers.update_price(ev(db), fixture.orgId, prop.id, { price: -100 })).rejects.toMatchObject({ statusCode: 422 })
+    const history = await db.select().from(schema.agentPropertyPriceHistory).where(eq(schema.agentPropertyPriceHistory.propertyId, prop.id))
+    expect(history).toHaveLength(0)
   })
 })
 

@@ -7,7 +7,7 @@ import { fireAutomationRules } from '../../../utils/publication/automations'
 import { authorizeRecord, buildTenantWhere } from '../../../utils/tenantPolicy'
 import { validatePermissionsInput } from '../../../utils/permissions'
 import { describeOrganizationChanges, describeUserChanges } from '../../../utils/sensitiveAudit'
-import { getPropertySchemaFor, validateAgainstSchema } from '../../../utils/propertySchema/registry'
+import { assertSchemaValid } from '../../../utils/properties/publication'
 import { assertOwnsSavedView } from '../../../utils/properties/savedViews'
 import { processNextBulkActionItem } from '../../../utils/bulkActions/service'
 import { propertyBulkHandlers } from '../../../utils/bulkActions/propertyActions'
@@ -128,13 +128,8 @@ export default defineEventHandler(async (event) => {
   // 'save', igual de permisivo que siempre.
   if (key === 'properties' || key === 'developer-properties') {
     const merged = { ...(existing as Record<string, unknown>), ...data }
-    const propertySchema = getPropertySchemaFor(key === 'developer-properties' ? 'developer' : 'agent', (merged.propertyType as string | null) ?? null)
     const isPublishing = key === 'developer-properties' && typeof data.publishedAt === 'string' && !(existing as any).publishedAt
-    const result = validateAgainstSchema(propertySchema, merged, isPublishing ? 'publish' : 'save')
-    if (!result.ok) {
-      const missing = [...result.missingForSave, ...result.missingForPublish]
-      throw createError({ statusCode: 422, statusMessage: `Faltan campos obligatorios para ${isPublishing ? 'publicar' : 'guardar'}: ${missing.join(', ')}` })
-    }
+    assertSchemaValid(key === 'developer-properties' ? 'developer' : 'agent', (merged.propertyType as string | null) ?? null, merged, isPublishing ? 'publish' : 'save')
   }
 
   if (Object.keys(data).length) {

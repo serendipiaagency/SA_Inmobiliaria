@@ -3,6 +3,8 @@ import { createError, type H3Event } from 'h3'
 import { schema, useDb, now } from '../db'
 import { tablesFor, type PropertyKind } from '../matching/service'
 import { buildPropertyFilterConds, parsePropertyFilters } from '../properties/searchService'
+import { assertSchemaValid } from '../properties/publication'
+import { fireAutomationRules } from '../publication/automations'
 import { adminResources } from '../adminResources'
 import type { BulkActionItemHandler } from './service'
 import { MAX_BULK_ACTION_TARGETS } from './service'
@@ -84,11 +86,71 @@ async function addTag(event: H3Event, orgId: number, kind: PropertyKind, propert
   await linkTag(event, orgId, tag.id, kind, propertyId)
 }
 
+/**
+ * §90 — publicar sólo existe hoy en developer-properties: agent-properties
+ * no tiene consumidor público (ver auditoría FASE 26/28), así que no hay
+ * "publicar" que validar ahí. Reutiliza la MISMA validación de
+ * PropertySchemaRegistry que dispara una edición manual
+ * (server/utils/properties/publication.ts) — nunca una tercera
+ * interpretación de requiredForPublish. Idempotente: publicar una propiedad
+ * ya publicada es un éxito silencioso, no un error.
+ */
+async function publishProperty(event: H3Event, orgId: number, kind: PropertyKind, propertyId: number) {
+  if (kind !== 'developer') throw createError({ statusCode: 422, statusMessage: 'Publicar sólo aplica al catálogo de obra nueva' })
+  const row = await assertOwnedProperty(event, orgId, kind, propertyId)
+  if (row.publishedAt) return
+  assertSchemaValid('developer', row.propertyType, row, 'publish')
+  const db = useDb(event)
+  const t = propertyTable(kind)
+  await db.update(t).set({ publishedAt: now(), updatedAt: now() }).where(eq(t.id, propertyId))
+}
+
+/**
+ * §91 — "retirar" no existía como concepto antes de este incremento: limpia
+ * `publishedAt`, nunca borra la fila (megaprompt: "nunca delete"). Idempotente
+ * sobre una propiedad ya retirada.
+ */
+async function withdrawProperty(event: H3Event, orgId: number, kind: PropertyKind, propertyId: number) {
+  if (kind !== 'developer') throw createError({ statusCode: 422, statusMessage: 'Retirar sólo aplica al catálogo de obra nueva' })
+  const row = await assertOwnedProperty(event, orgId, kind, propertyId)
+  if (!row.publishedAt) return
+  const db = useDb(event)
+  const t = propertyTable(kind)
+  await db.update(t).set({ publishedAt: null, updatedAt: now() }).where(eq(t.id, propertyId))
+}
+
+/**
+ * §94-95 — genera SIEMPRE un PropertyPriceHistory por fila, nunca se salta
+ * (mismo criterio que ya aplica una edición manual en `[id].put.ts` para
+ * developer-properties). `agent_property_price_history` (migración 0081)
+ * escribe aquí por primera vez desde que la tabla existe.
+ */
+async function updatePrice(event: H3Event, orgId: number, kind: PropertyKind, propertyId: number, params: { price?: number }) {
+  const price = Number(params.price)
+  if (!Number.isFinite(price) || price <= 0) throw createError({ statusCode: 422, statusMessage: 'Precio inválido' })
+  const row = await assertOwnedProperty(event, orgId, kind, propertyId)
+  const db = useDb(event)
+  const t = propertyTable(kind)
+  const nowTs = now()
+  await db.update(t).set({ price, updatedAt: nowTs }).where(eq(t.id, propertyId))
+  if (kind === 'developer') {
+    await db.insert(schema.priceHistory).values({ developerPropertyId: propertyId, price, recordedAt: nowTs })
+    if (typeof row.price === 'number' && price < row.price) {
+      await fireAutomationRules(db, orgId, propertyId, 'price_drop', `precio ${row.price} → ${price}`)
+    }
+  } else {
+    await db.insert(schema.agentPropertyPriceHistory).values({ propertyId, price, recordedAt: nowTs })
+  }
+}
+
 /** Un mapa por catálogo — el mismo nombre de acción ('change_commercial', …) resuelve a la tabla correcta según qué job (agent/developer) lo está corriendo. */
 export function propertyBulkHandlers(kind: PropertyKind): Record<string, BulkActionItemHandler> {
   return {
     change_commercial: (event, orgId, id, params) => changeCommercial(event, orgId, kind, id, params),
     change_status: (event, orgId, id, params) => changeStatus(event, orgId, kind, id, params),
     add_tag: (event, orgId, id, params) => addTag(event, orgId, kind, id, params),
+    publish: (event, orgId, id) => publishProperty(event, orgId, kind, id),
+    withdraw: (event, orgId, id) => withdrawProperty(event, orgId, kind, id),
+    update_price: (event, orgId, id, params) => updatePrice(event, orgId, kind, id, params),
   }
 }
