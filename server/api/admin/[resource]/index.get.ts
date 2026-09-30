@@ -1,24 +1,9 @@
-import { and, asc, desc, eq, gte, isNull, like, lte, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, isNull, like, or, sql } from 'drizzle-orm'
 import { schema, useDb } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
 import { buildTenantWhere } from '../../../utils/tenantPolicy'
-
-const DEVELOPER_PROPERTY_SORTS: Record<string, any> = {
-  newest: desc(schema.developerProperties.createdAt),
-  oldest: asc(schema.developerProperties.createdAt),
-  price_desc: desc(schema.developerProperties.price),
-  price_asc: asc(schema.developerProperties.price),
-  name_asc: asc(schema.developerProperties.name),
-  name_desc: desc(schema.developerProperties.name),
-}
-
-const PROPERTIES_SORTS: Record<string, any> = {
-  newest: desc(schema.agentProperties.createdAt),
-  oldest: asc(schema.agentProperties.createdAt),
-  price_desc: desc(schema.agentProperties.price),
-  price_asc: asc(schema.agentProperties.price),
-}
+import { buildPropertyFilterConds, parsePropertyFilters, DEVELOPER_PROPERTY_SORTS, PROPERTIES_SORTS } from '../../../utils/properties/searchService'
 
 const TEAM_SORTS: Record<string, any> = {
   newest: desc(schema.teamMembers.createdAt),
@@ -53,49 +38,23 @@ export default defineEventHandler(async (event) => {
   if (tenantWhere) conds.push(tenantWhere)
   if (def.softDelete) conds.push(trashed ? sql`${def.table.deletedAt} is not null` : isNull(def.table.deletedAt))
 
-  // "Propiedades (web)" admin listing — price/location/type/status/beds/
-  // baths/area filters and real sorting the plain generic listing never
-  // needed for any other resource. Kept as a branch here (rather than a
-  // sibling literal route under server/api/admin/developer-properties/)
-  // because Nitro can't cleanly mix a literal path segment with the `[resource]`
-  // dynamic one at the same depth — a literal index.get.ts there broke this
-  // exact endpoint's POST/PUT/DELETE fallback for every other resource type.
+  // "Propiedades (web)" y "Propiedades 2ª mano" admin listing — price/
+  // location/type/status/beds/baths/area/exclusividad/publicación/fechas de
+  // captación y actualización, y sorting real que el listado genérico nunca
+  // necesitó para ningún otro recurso. Kept as branches here (rather than
+  // sibling literal routes under server/api/admin/developer-properties/ o
+  // server/api/admin/properties/) because Nitro can't cleanly mix a literal
+  // path segment with the `[resource]` dynamic one at the same depth — a
+  // literal index.get.ts there broke this exact endpoint's POST/PUT/DELETE
+  // fallback for every other resource type.
+  //
+  // El propio filtro (qué columna, qué operador) vive una sola vez en
+  // `properties/searchService.ts` (FASE 27 §51 "UNA SOLA BÚSQUEDA") —
+  // parametrizado por `kind`, no duplicado por catálogo como antes.
   const isDeveloperProperties = key === 'developer-properties'
-  if (isDeveloperProperties) {
-    const t = schema.developerProperties
-    if (query.priceMin) conds.push(gte(t.price, Number(query.priceMin)))
-    if (query.priceMax) conds.push(lte(t.price, Number(query.priceMax)))
-    if (query.country) conds.push(like(t.country, `%${query.country}%`))
-    if (query.city) conds.push(like(t.city, `%${query.city}%`))
-    if (query.district) conds.push(like(t.district, `%${query.district}%`))
-    if (query.postalCode) conds.push(like(t.postalCode, `%${query.postalCode}%`))
-    if (query.propertyType) conds.push(eq(t.propertyType, String(query.propertyType)))
-    if (query.status) conds.push(eq(t.status, String(query.status)))
-    if (query.bedroomsMin) conds.push(gte(t.bedrooms, Number(query.bedroomsMin)))
-    if (query.bathroomsMin) conds.push(gte(t.bathrooms, Number(query.bathroomsMin)))
-    if (query.areaMin) conds.push(gte(t.area, Number(query.areaMin)))
-    if (query.areaMax) conds.push(lte(t.area, Number(query.areaMax)))
-  }
-
-  // "Propiedades 2ª mano" admin listing — same filter set as
-  // developer-properties above, kept as its own branch (rather than merged
-  // into it) since it's a distinct table with a distinct column set.
   const isProperties = key === 'properties'
-  if (isProperties) {
-    const t = schema.agentProperties
-    if (query.priceMin) conds.push(gte(t.price, Number(query.priceMin)))
-    if (query.priceMax) conds.push(lte(t.price, Number(query.priceMax)))
-    if (query.country) conds.push(like(t.country, `%${query.country}%`))
-    if (query.city) conds.push(like(t.city, `%${query.city}%`))
-    if (query.district) conds.push(like(t.district, `%${query.district}%`))
-    if (query.postalCode) conds.push(like(t.postalCode, `%${query.postalCode}%`))
-    if (query.propertyType) conds.push(eq(t.propertyType, String(query.propertyType)))
-    if (query.transactionType) conds.push(eq(t.transactionType, String(query.transactionType)))
-    if (query.status) conds.push(eq(t.status, String(query.status)))
-    if (query.bedroomsMin) conds.push(gte(t.bedrooms, Number(query.bedroomsMin)))
-    if (query.bathroomsMin) conds.push(gte(t.bathrooms, Number(query.bathroomsMin)))
-    if (query.areaMin) conds.push(gte(t.area, Number(query.areaMin)))
-    if (query.areaMax) conds.push(lte(t.area, Number(query.areaMax)))
+  if (isDeveloperProperties || isProperties) {
+    conds.push(...buildPropertyFilterConds(isDeveloperProperties ? 'developer' : 'agent', parsePropertyFilters(query)))
   }
 
   // "Comerciales" admin listing — status/office/department/zone/
@@ -190,6 +149,8 @@ export default defineEventHandler(async (event) => {
         bathrooms: t.bathrooms,
         mainImage: t.mainImage,
         agentId: t.agentId,
+        isExclusive: t.isExclusive,
+        publishedAt: t.publishedAt,
         updatedAt: t.updatedAt,
       })
       .from(t)

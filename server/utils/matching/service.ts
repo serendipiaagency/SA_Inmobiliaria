@@ -57,8 +57,13 @@ export const MANUAL_STATUSES: MatchStatus[] = ['new', 'selected', 'discarded']
  * columna sin duplicar las dos direcciones enteras por catálogo. El motor
  * (evaluateMatch) sigue totalmente tipado; sólo la capa de acceso a datos
  * relaja el tipo.
+ *
+ * Exportada porque `properties/searchService.ts` (FASE 27) la reutiliza para
+ * el mismo mapeo kind→tabla en el filtro profesional del listado admin y en
+ * la búsqueda cross-catálogo — una sola forma de resolver "kind -> tabla" en
+ * todo el repo, no tres.
  */
-function tablesFor(kind: PropertyKind) {
+export function tablesFor(kind: PropertyKind) {
   return kind === 'developer'
     ? { property: schema.developerProperties as any, match: schema.developerPropertyMatches as any }
     : { property: schema.agentProperties as any, match: schema.propertyMatches as any }
