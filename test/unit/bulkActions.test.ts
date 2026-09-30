@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import * as schema from '../../server/db/schema'
 import { createBulkActionJob, getBulkActionJob, processNextBulkActionItem } from '../../server/utils/bulkActions/service'
 import { propertyBulkHandlers, resolveFilteredPropertyIds } from '../../server/utils/bulkActions/propertyActions'
+import { leadBulkHandlers } from '../../server/utils/bulkActions/leadActions'
 import { getOrCreateTag, linkTag, listTagsForEntity } from '../../server/utils/tags/service'
 import { createTestDb, seedTenant } from './helpers/tenantFixtures'
 
@@ -324,6 +325,80 @@ describe('propertyBulkHandlers — update_price (FASE 28 incremento 2, §94-95)'
     await expect(handlers.update_price(ev(db), fixture.orgId, prop.id, { price: -100 })).rejects.toMatchObject({ statusCode: 422 })
     const history = await db.select().from(schema.agentPropertyPriceHistory).where(eq(schema.agentPropertyPriceHistory.propertyId, prop.id))
     expect(history).toHaveLength(0)
+  })
+})
+
+describe('leadBulkHandlers — FASE 28 incremento 3 (§97-100)', () => {
+  it('change_commercial reutiliza leads/routing.ts#reassignLead y atribuye la reasignación a job.requestedBy en lead_assignment_history', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'BulkLeadCommercial')
+    const handlers = leadBulkHandlers()
+
+    await handlers.change_commercial(ev(db), fixture.orgId, fixture.leadId, { commercialId: fixture.teamMemberId }, fixture.userId)
+    const [row] = await db.select().from(schema.leads).where(eq(schema.leads.id, fixture.leadId))
+    expect(row.agentId).toBe(fixture.teamMemberId)
+
+    const history = await db.select().from(schema.leadAssignmentHistory).where(eq(schema.leadAssignmentHistory.leadId, fixture.leadId))
+    expect(history).toHaveLength(1)
+    expect(history[0].toCommercialId).toBe(fixture.teamMemberId)
+    expect(history[0].assignedBy).toBe(fixture.userId)
+
+    await expect(handlers.change_commercial(ev(db), fixture.orgId, fixture.leadId, { commercialId: 999999 }, fixture.userId)).rejects.toMatchObject({ statusCode: 422 })
+  })
+
+  it('change_stage reutiliza leads/pipeline.ts#transitionLeadStage — único escritor de leads.stage, genera lead_stage_history', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'BulkLeadStage')
+    const handlers = leadBulkHandlers()
+
+    await handlers.change_stage(ev(db), fixture.orgId, fixture.leadId, { stage: 'qualified' }, fixture.userId)
+    const [row] = await db.select().from(schema.leads).where(eq(schema.leads.id, fixture.leadId))
+    expect(row.stage).toBe('qualified')
+
+    const history = await db.select().from(schema.leadStageHistory).where(eq(schema.leadStageHistory.leadId, fixture.leadId))
+    expect(history).toHaveLength(1)
+    expect(history[0].toStage).toBe('qualified')
+
+    await expect(handlers.change_stage(ev(db), fixture.orgId, fixture.leadId, { stage: 'not_a_real_stage' }, fixture.userId)).rejects.toMatchObject({ statusCode: 422 })
+  })
+
+  it('add_tag usa el mismo Tag transversal que Properties, con "lead" como entityType — idempotente', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'BulkLeadTag')
+    const handlers = leadBulkHandlers()
+
+    await handlers.add_tag(ev(db), fixture.orgId, fixture.leadId, { tagName: 'Urgente' })
+    await handlers.add_tag(ev(db), fixture.orgId, fixture.leadId, { tagName: 'Urgente' }) // reintento
+
+    const tags = await listTagsForEntity(ev(db), fixture.orgId, 'lead', fixture.leadId)
+    expect(tags).toHaveLength(1)
+    expect(tags[0].name).toBe('Urgente')
+  })
+
+  it('create_task genera una fila de Task real por lead, nunca una sola Task compartida por el lote', async () => {
+    const { db } = createTestDb()
+    const fixtureA = await seedTenant(db, 'BulkLeadTaskA')
+    const fixtureB = await seedTenant(db, 'BulkLeadTaskB')
+    const handlers = leadBulkHandlers()
+
+    await handlers.create_task(ev(db), fixtureA.orgId, fixtureA.leadId, { type: 'call', title: 'Llamar para confirmar visita' }, fixtureA.userId)
+    await handlers.create_task(ev(db), fixtureB.orgId, fixtureB.leadId, { type: 'call', title: 'Llamar para confirmar visita' }, fixtureB.userId)
+
+    const tasksA = await db.select().from(schema.tasks).where(eq(schema.tasks.leadId, fixtureA.leadId))
+    const tasksB = await db.select().from(schema.tasks).where(eq(schema.tasks.leadId, fixtureB.leadId))
+    expect(tasksA).toHaveLength(1)
+    expect(tasksB).toHaveLength(1)
+    expect(tasksA[0].id).not.toBe(tasksB[0].id)
+    expect(tasksA[0].createdBy).toBe(fixtureA.userId)
+  })
+
+  it('aislamiento entre tenants: un lead de otra organización no se puede tocar (404, no un fallo silencioso)', async () => {
+    const { db } = createTestDb()
+    const a = await seedTenant(db, 'BulkLeadTenantA')
+    const b = await seedTenant(db, 'BulkLeadTenantB')
+    const handlers = leadBulkHandlers()
+
+    await expect(handlers.change_commercial(ev(db), b.orgId, a.leadId, { commercialId: null }, b.userId)).rejects.toMatchObject({ statusCode: 404 })
   })
 })
 

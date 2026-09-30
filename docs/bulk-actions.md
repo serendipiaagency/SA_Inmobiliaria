@@ -148,19 +148,56 @@ y "Exportar seleccionadas" (§92):
   necesita los ids reales, no una resolución tardía del lado servidor.
   Al terminar, lleva directamente a la ficha del catálogo creado.
 
-## Qué queda para el siguiente incremento
+## Incremento 3 — Bulk Leads (cierre de FASE 28)
 
-Del megaprompt original de FASE 28, quedan sólo las acciones de Leads
-(§96-101), mismo criterio de incrementos revisables que FASE 25/27:
+Añade las acciones de Leads (§96-101), reutilizando en cada caso el mismo
+servicio de dominio que ya escribe esa tabla desde fuera de Bulk Actions —
+nunca una segunda interpretación:
 
-- **Bulk Leads** — asignar Comercial (reutiliza
-  `leads/routing.ts#reassignLead`), cambiar etapa (reutiliza
-  `leads/pipeline.ts#transitionLeadStage`, que ya es el único escritor
-  legal de `leads.stage` y ya genera `lead_stage_history`), etiqueta
-  (mismo Tag transversal de este incremento), crear Task (reutiliza
-  `tasks/service.ts#createTask`, una fila real por Lead — nunca una Task
-  para 500 Leads), exportar.
+- **Cambiar comercial** (§97) — llama a `leads/routing.ts#reassignLead`,
+  el mismo servicio que ya usa el desplegable de comercial del Kanban/
+  Tabla. Queda constancia en `lead_assignment_history` igual que una
+  reasignación manual, atribuida al usuario que lanzó la acción masiva
+  (`job.requestedBy`, no un actor "system" genérico).
+- **Cambiar fase** (§98) — llama a `leads/pipeline.ts#transitionLeadStage`,
+  el único escritor legal de `leads.stage`; genera `lead_stage_history`
+  igual que arrastrar la tarjeta en el Kanban.
+- **Añadir etiqueta** (§99) — el mismo Tag transversal del incremento 1
+  (`tags/service.ts`), con `'lead'` como `entityType`. Idempotente.
+- **Crear tarea** (§100) — llama a `tasks/service.ts#createTask` una vez
+  por lead seleccionado: una fila de Task real por cada uno, nunca una
+  sola Task compartida por los N leads del lote.
+- **Exportar seleccionados** — `server/api/admin/saas/leads.get.ts` gana
+  un filtro `ids` y `format=csv` opt-in, mismo criterio que
+  `[resource]/index.get.ts` para Properties.
 
-Requiere además construir selección múltiple en `pages/admin/leads.vue`
-(hoy sin paginación ni bulk-select — Kanban + Tabla, estructura distinta
-de `PropertyList.vue`).
+`server/utils/bulkActions/service.ts#BulkActionItemHandler` gana un
+quinto parámetro, `requestedBy` (`job.requestedBy`, ya guardado desde
+`createBulkActionJob()`): lo necesita `changeCommercial` para atribuir la
+reasignación a quien de verdad lanzó la acción masiva, en vez de perder
+esa atribución. Los handlers de Properties lo ignoran sin cambios — una
+función declarada con menos parámetros de los que el tipo exige sigue
+siendo válida en TypeScript.
+
+### Sin "todos los filtrados"
+
+A diferencia de `PropertyList.vue`, `pages/admin/leads.vue` no pagina: la
+vista Tabla carga un único listado con tope de 200 filas (mismo límite de
+siempre en `leads.get.ts`). Eso colapsa dos de los tres niveles de
+selección del encargo (§84) en uno solo — lo que ya está cargado en
+pantalla **es** el filtro completo, así que no hace falta un
+`resolveFilteredLeadIds()` del lado servidor ni un modo "todos los
+filtrados" en el cliente: la selección manual/de "toda la tabla visible"
+ya cubre el caso.
+
+### Sin migración nueva
+
+`bulk_action_jobs`/`bulk_action_job_items` (migración 0081) ya admitían
+`entityType: 'lead'` desde el incremento 1, y `tags`/`tag_links` ya
+admitían `'lead'` como `entityType` — sólo les faltaba un consumidor real.
+`lead-bulk-jobs` es una fila más en `adminResources.ts` sobre la misma
+tabla `bulk_action_jobs` que ya usa `property-bulk-jobs` (área `crm`, no
+`web` — es donde vive el resto de RBAC de Leads), y los branches
+`key === 'lead-bulk-jobs'` en `index.post.ts`/`[id].put.ts` reutilizan las
+mismas rutas genéricas, mismo criterio de coste-cero-de-ruta que
+Properties.

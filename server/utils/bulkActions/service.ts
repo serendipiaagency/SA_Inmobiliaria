@@ -20,8 +20,15 @@ export type BulkEntityType = 'agent' | 'developer' | 'lead'
  * (frágil bajo el empaquetado de Nitro/Workers); el mapa siempre está donde
  * ya se sabía qué dominio es, porque cada recurso RBAC (`property-bulk-jobs`/
  * `lead-bulk-jobs`) es su propia rama en las rutas genéricas.
+ *
+ * `requestedBy` es `job.requestedBy` (quien creó el job, ya guardado en
+ * `createBulkActionJob()`) — se lo pasa `processNextBulkActionItem()` para
+ * que un handler que necesite atribuir la acción a un usuario real (p. ej.
+ * `leadActions.ts#changeCommercial`, que alimenta `lead_assignment_history`)
+ * no tenga que volver a resolver la sesión. Opcional porque la mayoría de
+ * handlers de Properties no lo necesitan y lo ignoran sin más.
  */
-export type BulkActionItemHandler = (event: H3Event, orgId: number, targetId: number, params: Record<string, any>) => Promise<void>
+export type BulkActionItemHandler = (event: H3Event, orgId: number, targetId: number, params: Record<string, any>, requestedBy?: number | null) => Promise<void>
 
 const TERMINAL_STATUSES = ['completed', 'failed', 'partial']
 
@@ -121,7 +128,7 @@ export async function processNextBulkActionItem(event: H3Event, orgId: number, j
   const params = JSON.parse(job.paramsJson) as Record<string, unknown>
   try {
     if (!handler) throw createError({ statusCode: 422, statusMessage: `Acción desconocida: ${job.action}` })
-    await handler(event, orgId, item.targetId, params)
+    await handler(event, orgId, item.targetId, params, job.requestedBy)
     await db.update(schema.bulkActionJobItems).set({ status: 'done', completedAt: now() }).where(eq(schema.bulkActionJobItems.id, item.id))
     await db
       .update(schema.bulkActionJobs)

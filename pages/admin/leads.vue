@@ -88,46 +88,94 @@
     </div>
 
     <!-- Table -->
-    <AdminPanel v-else :pad="false">
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="border-b border-line bg-stone-50 text-left text-[11px] uppercase tracking-wide text-stone-400">
-            <tr>
-              <th class="px-4 py-2.5 font-semibold">Lead</th>
-              <th class="px-4 py-2.5 font-semibold">Origen</th>
-              <th class="px-4 py-2.5 font-semibold">Fase</th>
-              <th class="px-4 py-2.5 font-semibold">Estado</th>
-              <th class="px-4 py-2.5 text-right font-semibold">Score</th>
-              <th class="px-4 py-2.5 text-right font-semibold">Presupuesto</th>
-              <th class="px-4 py-2.5 font-semibold">Comercial</th>
-              <th class="px-4 py-2.5 font-semibold">Últ. contacto</th>
-              <th class="px-2 py-2.5 font-semibold"><span class="sr-only">Contactar</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="l in rows" :key="l.id" class="border-b border-line/60 last:border-0 hover:bg-stone-50">
-              <td class="px-4 py-3">
-                <p class="font-medium">{{ l.name }}</p>
-                <p class="text-xs text-stone-400">{{ l.email }}</p>
-              </td>
-              <td class="px-4 py-3 capitalize text-stone-600">{{ l.source }}</td>
-              <td class="px-4 py-3 text-stone-600">{{ stageLabel(l.stage) }}</td>
-              <td class="px-4 py-3"><AdminStatusPill :status="l.status" /></td>
-              <td class="px-4 py-3 text-right"><span class="rounded px-1.5 py-0.5 text-xs font-semibold" :class="scoreCls(l.score)">{{ l.score }}</span></td>
-              <td class="px-4 py-3 text-right tabular-nums">{{ dt.money(l.budget, { compact: true }) }}</td>
-              <td class="px-4 py-3 text-stone-600">
-                <select class="rounded border border-line bg-white px-1.5 py-1 text-xs" :value="l.agentId || ''" :disabled="reassigningId === l.id" @change="reassignLead(l, ($event.target as HTMLSelectElement).value)">
-                  <option value="">Sin asignar</option>
-                  <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
-                </select>
-              </td>
-              <td class="px-4 py-3 text-stone-500">{{ dt.relative(l.lastContactAt) }}</td>
-              <td class="px-2 py-3"><AdminCommsContactActions v-if="l.phone" :lead-id="l.id" :phone="l.phone" :name="l.name" compact /></td>
-            </tr>
-          </tbody>
-        </table>
+    <template v-else>
+      <!-- Bulk Actions (FASE 28 incremento 3) — sólo en la vista de tabla, igual
+           que PropertyList.vue no las ofrece en su cuadrícula. Sin "todos los
+           filtrados": esta página no pagina, así que las filas cargadas YA son
+           el filtro completo (ver leads.get.ts). -->
+      <div v-if="selectionCount > 0" class="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-white p-3">
+        <span class="text-sm font-medium">{{ selectionCount }} seleccionado{{ selectionCount === 1 ? '' : 's' }}</span>
+        <select v-model="bulkAction" class="input !w-52" @change="onBulkActionChange">
+          <option value="">Elige una acción…</option>
+          <option value="change_commercial">Cambiar comercial</option>
+          <option value="change_stage">Cambiar fase</option>
+          <option value="add_tag">Añadir etiqueta</option>
+          <option value="create_task">Crear tarea</option>
+        </select>
+        <select v-if="bulkAction === 'change_commercial'" v-model="bulkCommercialId" class="input !w-48">
+          <option value="">Sin asignar</option>
+          <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
+        </select>
+        <select v-if="bulkAction === 'change_stage'" v-model="bulkStage" class="input !w-44">
+          <option value="">Elige una fase…</option>
+          <option v-for="c in pipelineColumns" :key="c.key" :value="c.key">{{ c.label }}</option>
+        </select>
+        <input v-if="bulkAction === 'add_tag'" v-model="bulkTagName" class="input !w-48" placeholder="Nombre de la etiqueta" >
+        <template v-if="bulkAction === 'create_task'">
+          <select v-model="bulkTaskType" class="input !w-36">
+            <option value="call">Llamada</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="email">Email</option>
+            <option value="follow_up">Seguimiento</option>
+            <option value="viewing">Visita</option>
+            <option value="other">Otro</option>
+          </select>
+          <input v-model="bulkTaskTitle" class="input !w-44" placeholder="Título de la tarea" >
+          <select v-model="bulkTaskAssigneeId" class="input !w-44">
+            <option value="">Sin asignar</option>
+            <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
+          </select>
+        </template>
+        <button type="button" class="btn-primary !px-3 !py-1.5 text-xs" :disabled="!canRunBulkAction || bulkRunning" @click="runBulkAction">
+          {{ bulkRunning ? bulkProgressLabel : 'Aplicar' }}
+        </button>
+        <button type="button" class="btn-quiet !px-3 !py-1.5 text-xs" :disabled="bulkRunning" @click="exportSelection">Exportar seleccionados</button>
+        <button type="button" class="text-[12px] text-stone-500 hover:text-ink" :disabled="bulkRunning" @click="clearSelection">Cancelar selección</button>
       </div>
-    </AdminPanel>
+
+      <AdminPanel :pad="false">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="border-b border-line bg-stone-50 text-left text-[11px] uppercase tracking-wide text-stone-400">
+              <tr>
+                <th class="px-4 py-2.5"><input type="checkbox" :checked="allVisibleSelected" @change="toggleSelectAllVisible" ></th>
+                <th class="px-4 py-2.5 font-semibold">Lead</th>
+                <th class="px-4 py-2.5 font-semibold">Origen</th>
+                <th class="px-4 py-2.5 font-semibold">Fase</th>
+                <th class="px-4 py-2.5 font-semibold">Estado</th>
+                <th class="px-4 py-2.5 text-right font-semibold">Score</th>
+                <th class="px-4 py-2.5 text-right font-semibold">Presupuesto</th>
+                <th class="px-4 py-2.5 font-semibold">Comercial</th>
+                <th class="px-4 py-2.5 font-semibold">Últ. contacto</th>
+                <th class="px-2 py-2.5 font-semibold"><span class="sr-only">Contactar</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="l in rows" :key="l.id" class="border-b border-line/60 last:border-0 hover:bg-stone-50">
+                <td class="px-4 py-3"><input type="checkbox" :checked="isSelected(l.id)" @change="toggleSelect(l.id)" ></td>
+                <td class="px-4 py-3">
+                  <p class="font-medium">{{ l.name }}</p>
+                  <p class="text-xs text-stone-400">{{ l.email }}</p>
+                </td>
+                <td class="px-4 py-3 capitalize text-stone-600">{{ l.source }}</td>
+                <td class="px-4 py-3 text-stone-600">{{ stageLabel(l.stage) }}</td>
+                <td class="px-4 py-3"><AdminStatusPill :status="l.status" /></td>
+                <td class="px-4 py-3 text-right"><span class="rounded px-1.5 py-0.5 text-xs font-semibold" :class="scoreCls(l.score)">{{ l.score }}</span></td>
+                <td class="px-4 py-3 text-right tabular-nums">{{ dt.money(l.budget, { compact: true }) }}</td>
+                <td class="px-4 py-3 text-stone-600">
+                  <select class="rounded border border-line bg-white px-1.5 py-1 text-xs" :value="l.agentId || ''" :disabled="reassigningId === l.id" @change="reassignLead(l, ($event.target as HTMLSelectElement).value)">
+                    <option value="">Sin asignar</option>
+                    <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
+                  </select>
+                </td>
+                <td class="px-4 py-3 text-stone-500">{{ dt.relative(l.lastContactAt) }}</td>
+                <td class="px-2 py-3"><AdminCommsContactActions v-if="l.phone" :lead-id="l.id" :phone="l.phone" :name="l.name" compact /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </AdminPanel>
+    </template>
 
     <!-- Nueva tarea -->
     <div v-if="newTaskLead" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="newTaskLead = null">
@@ -167,6 +215,7 @@ definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Leads — M&M Real Estate' })
 const dt = useDash()
 const toast = useToast()
+const { confirm } = useConfirm()
 
 const view = ref<'board' | 'table'>('board')
 const search = ref('')
@@ -279,6 +328,124 @@ async function submitNewTask() {
     taskError.value = e?.data?.statusMessage || 'No se pudo crear la tarea'
   } finally {
     savingTask.value = false
+  }
+}
+
+/**
+ * Bulk Actions (FASE 28 incremento 3) — mismo framework de jobs que
+ * Properties (server/utils/bulkActions/service.ts) y el mismo criterio de
+ * confirmación+progreso+fallo parcial (docs/bulk-actions.md). Sin "todos los
+ * filtrados": esta página no pagina, las filas visibles ya son la selección
+ * filtrada completa.
+ */
+const selectedIds = ref<number[]>([])
+const selectionCount = computed(() => selectedIds.value.length)
+function isSelected(id: number) {
+  return selectedIds.value.includes(id)
+}
+function toggleSelect(id: number) {
+  selectedIds.value = isSelected(id) ? selectedIds.value.filter((i) => i !== id) : [...selectedIds.value, id]
+}
+const allVisibleSelected = computed(() => !!rows.value.length && rows.value.every((l) => isSelected(l.id)))
+function toggleSelectAllVisible() {
+  if (allVisibleSelected.value) {
+    const visible = new Set(rows.value.map((l) => l.id))
+    selectedIds.value = selectedIds.value.filter((id) => !visible.has(id))
+  } else {
+    selectedIds.value = [...new Set([...selectedIds.value, ...rows.value.map((l) => l.id)])]
+  }
+}
+function clearSelection() {
+  selectedIds.value = []
+}
+// Cambiar de filtro invalida la selección — mismo criterio que PropertyList.vue.
+watch([search, source], () => clearSelection())
+
+const pipelineColumns = columns.filter((c) => c.key !== 'lost')
+
+type BulkAction = '' | 'change_commercial' | 'change_stage' | 'add_tag' | 'create_task'
+const bulkAction = ref<BulkAction>('')
+const bulkCommercialId = ref<number | ''>('')
+const bulkStage = ref('')
+const bulkTagName = ref('')
+const bulkTaskType = ref('call')
+const bulkTaskTitle = ref('')
+const bulkTaskAssigneeId = ref<number | ''>('')
+const bulkRunning = ref(false)
+const bulkProgressLabel = ref('Aplicando…')
+
+function onBulkActionChange() {
+  bulkCommercialId.value = ''
+  bulkStage.value = ''
+  bulkTagName.value = ''
+  bulkTaskType.value = 'call'
+  bulkTaskTitle.value = ''
+  bulkTaskAssigneeId.value = ''
+}
+
+const canRunBulkAction = computed(() => {
+  if (!bulkAction.value) return false
+  if (bulkAction.value === 'change_stage') return !!bulkStage.value
+  if (bulkAction.value === 'add_tag') return !!bulkTagName.value.trim()
+  if (bulkAction.value === 'create_task') return !!bulkTaskTitle.value.trim()
+  return true // change_commercial: "Sin asignar" es válido
+})
+
+const BULK_ACTION_LABELS: Record<string, string> = {
+  change_commercial: 'cambiar el comercial',
+  change_stage: 'cambiar la fase',
+  add_tag: 'añadir la etiqueta',
+  create_task: 'crear una tarea para',
+}
+
+/** Mismo endpoint que "Exportar CSV" en Properties, con un filtro por ids — server/api/admin/saas/leads.get.ts. */
+function exportSelection() {
+  const params = new URLSearchParams({ format: 'csv', ids: selectedIds.value.join(',') })
+  window.open(`/api/admin/saas/leads?${params.toString()}`, '_blank')
+}
+
+async function runBulkAction() {
+  if (!bulkAction.value || !canRunBulkAction.value || !selectionCount.value) return
+
+  const ok = await confirm(
+    `Se va a ${BULK_ACTION_LABELS[bulkAction.value]} ${selectionCount.value} lead${selectionCount.value === 1 ? '' : 's'}. No se puede deshacer.`,
+    { title: '¿Aplicar acción masiva?', confirmLabel: 'Aplicar' },
+  )
+  if (!ok) return
+
+  const params: Record<string, unknown> =
+    bulkAction.value === 'change_commercial'
+      ? { commercialId: bulkCommercialId.value || null }
+      : bulkAction.value === 'change_stage'
+        ? { stage: bulkStage.value }
+        : bulkAction.value === 'add_tag'
+          ? { tagName: bulkTagName.value.trim() }
+          : { type: bulkTaskType.value, title: bulkTaskTitle.value.trim(), assigneeId: bulkTaskAssigneeId.value || null }
+
+  bulkRunning.value = true
+  bulkProgressLabel.value = 'Iniciando…'
+  try {
+    const created = await $fetch<{ job: { id: number; totalCount: number } }>('/api/admin/lead-bulk-jobs', {
+      method: 'POST',
+      body: { action: bulkAction.value, params, ids: selectedIds.value },
+    })
+    let job = created.job as any
+    while (true) {
+      bulkProgressLabel.value = `${job.completedCount + job.failedCount}/${job.totalCount}…`
+      const result = await $fetch<{ done: boolean; job?: any }>(`/api/admin/lead-bulk-jobs/${created.job.id}`, { method: 'PUT', body: {} })
+      if (result.job) job = result.job
+      if (result.done) break
+    }
+    if (job.status === 'completed') toast.success(`Acción aplicada a ${job.completedCount} lead${job.completedCount === 1 ? '' : 's'}`)
+    else if (job.status === 'partial') toast.error(`${job.completedCount} aplicado${job.completedCount === 1 ? '' : 's'}, ${job.failedCount} fallaron`)
+    else toast.error('La acción falló en todos los leads seleccionados')
+    clearSelection()
+    bulkAction.value = ''
+    await refresh()
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'No se pudo ejecutar la acción masiva')
+  } finally {
+    bulkRunning.value = false
   }
 }
 
