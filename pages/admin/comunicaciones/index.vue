@@ -30,7 +30,7 @@
     <div v-else class="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[320px_1fr] xl:grid-cols-[320px_1fr_300px]">
       <!-- Lista -->
       <aside class="min-h-0 border-r border-line bg-white" :class="selectedId ? 'hidden lg:block' : ''">
-        <AdminCommsConversationList ref="list" :selected-id="selectedId" :team="team" :refresh-key="listKey" @select="select" />
+        <AdminCommsConversationList ref="list" :selected-id="selectedId" :team="team" :channels="overview?.channels || []" :refresh-key="listKey" @select="select" />
       </aside>
 
       <!-- Hilo -->
@@ -52,7 +52,7 @@
           </div>
           <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto px-4 py-3" data-testid="comms-thread">
             <p v-if="!thread.messages.length" class="py-10 text-center text-xs text-stone-500">Todavía no hay mensajes en este hilo.</p>
-            <AdminCommsMessageBubble v-for="m in thread.messages" :key="m.id" :m="m" />
+            <AdminCommsMessageBubble v-for="m in thread.messages" :key="m.id" :m="m" :retrying="retryingId === m.id" @retry="retryMessage" />
           </div>
           <AdminCommsComposer
             ref="composer"
@@ -79,6 +79,9 @@
           :team="thread.team"
           :property="thread.property"
           :capabilities="thread.capabilities"
+          :lead="thread.lead"
+          :buyer-requirements="thread.buyerRequirements"
+          :appointments="thread.appointments"
           @changed="reloadThread"
           @share-property="propertyOpen = 'share'"
           @pick-property="propertyOpen = 'context'"
@@ -183,6 +186,21 @@ function onTemplateSent(message: any) {
   templateOpen.value = false
   onSent(message)
   toast.success('Plantilla enviada')
+}
+const retryingId = ref<number | null>(null)
+async function retryMessage(messageId: number) {
+  if (!thread.value || retryingId.value) return
+  retryingId.value = messageId
+  try {
+    const r = await $fetch<{ message: any }>(`/api/admin/comms/conversations/${thread.value.conversation.id}/messages`, { method: 'POST', body: { type: 'retry', messageId } })
+    onSent(r.message)
+    toast.success('Mensaje reenviado')
+  } catch (e: any) {
+    if (e?.data?.message) onSent(e.data.message)
+    toast.error(e?.data?.statusMessage || e?.data?.error || 'El proveedor volvió a rechazarlo', 6000)
+  } finally {
+    retryingId.value = null
+  }
 }
 async function onPropertyPicked(p: any) {
   const mode = propertyOpen.value

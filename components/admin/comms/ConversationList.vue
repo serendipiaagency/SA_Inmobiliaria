@@ -7,12 +7,30 @@
           {{ s.label }}<span v-if="counts[s.key]" class="ml-1 text-stone-400">{{ counts[s.key] }}</span>
         </button>
       </div>
-      <select v-model="assigned" class="w-full rounded-lg border border-line bg-white px-2 py-1.5 text-[12px] text-stone-600 focus:border-ink">
-        <option value="all">Todos los comerciales</option>
-        <option value="unassigned">Sin asignar</option>
-        <option v-for="a in team" :key="a.id" :value="String(a.id)">{{ a.name }}</option>
-      </select>
+      <div class="flex gap-1.5">
+        <select v-model="assigned" class="min-w-0 flex-1 rounded-lg border border-line bg-white px-2 py-1.5 text-[12px] text-stone-600 focus:border-ink">
+          <option value="all">Todos los comerciales</option>
+          <option value="unassigned">Sin asignar</option>
+          <option v-for="a in team" :key="a.id" :value="String(a.id)">{{ a.name }}</option>
+        </select>
+        <select v-if="channels.length > 1" v-model="channel" class="min-w-0 flex-1 rounded-lg border border-line bg-white px-2 py-1.5 text-[12px] text-stone-600 focus:border-ink" data-testid="comms-filter-channel">
+          <option value="all">Todos los números</option>
+          <option v-for="c in channels" :key="c.id" :value="String(c.id)">{{ c.label }}</option>
+        </select>
+      </div>
+      <div class="flex items-center justify-between gap-2">
+        <label class="flex items-center gap-1.5 text-[12px] text-stone-600">
+          <input v-model="unreadOnly" type="checkbox" class="rounded border-line" data-testid="comms-filter-unread">
+          Sólo no leídas
+        </label>
+        <button v-if="!propertyFilter" type="button" class="text-[11px] text-stone-500 hover:text-ink" data-testid="comms-filter-property-open" @click="propertyPickerOpen = true">Filtrar por propiedad</button>
+        <span v-else class="flex min-w-0 items-center gap-1 rounded-full bg-stone-100 px-2 py-0.5 text-[11px] text-stone-600" data-testid="comms-filter-property-chip">
+          <span class="truncate">{{ propertyFilter.name }}</span>
+          <button type="button" class="text-stone-400 hover:text-ink" aria-label="Quitar filtro de propiedad" @click="propertyFilter = null">×</button>
+        </span>
+      </div>
     </div>
+    <AdminCommsPropertyPickerModal v-if="propertyPickerOpen" title="Filtrar por propiedad" @close="propertyPickerOpen = false" @pick="onPropertyFilterPicked" />
 
     <div class="min-h-0 flex-1 overflow-y-auto">
       <p v-if="pending && !rows.length" class="py-10 text-center text-xs text-stone-400">Cargando…</p>
@@ -53,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{ selectedId: number | null; team: { id: number; name: string }[]; refreshKey: number }>()
+const props = withDefaults(defineProps<{ selectedId: number | null; team: { id: number; name: string }[]; channels?: { id: number; label: string }[]; refreshKey: number }>(), { channels: () => [] })
 const emit = defineEmits<{ select: [id: number]; loaded: [rows: any[]] }>()
 const dt = useDash()
 
@@ -65,6 +83,14 @@ const STATUSES = [
 ]
 const status = ref('open')
 const assigned = ref('all')
+const channel = ref('all')
+const unreadOnly = ref(false)
+const propertyPickerOpen = ref(false)
+const propertyFilter = ref<{ id: number; kind: 'agent' | 'developer'; name: string } | null>(null)
+function onPropertyFilterPicked(p: any) {
+  propertyFilter.value = { id: p.id, kind: p.kind, name: p.name }
+  propertyPickerOpen.value = false
+}
 const search = ref('')
 const debounced = ref('')
 let timer: ReturnType<typeof setTimeout> | null = null
@@ -82,7 +108,16 @@ async function load(append = false) {
   pending.value = true
   try {
     const r = await $fetch<{ rows: any[]; counts: Record<string, number>; nextBefore: string | null }>('/api/admin/comms/conversations', {
-      query: { status: status.value, assigned: assigned.value, q: debounced.value || undefined, before: append ? nextBefore.value || undefined : undefined },
+      query: {
+        status: status.value,
+        assigned: assigned.value,
+        channel: channel.value !== 'all' ? channel.value : undefined,
+        unread: unreadOnly.value ? '1' : undefined,
+        propertyId: propertyFilter.value?.id,
+        propertyKind: propertyFilter.value?.kind,
+        q: debounced.value || undefined,
+        before: append ? nextBefore.value || undefined : undefined,
+      },
     })
     rows.value = append ? [...rows.value, ...r.rows] : r.rows
     counts.value = r.counts
@@ -97,7 +132,7 @@ async function load(append = false) {
 function loadMore() {
   load(true)
 }
-watch([status, assigned, debounced], () => load(), { immediate: true })
+watch([status, assigned, channel, unreadOnly, propertyFilter, debounced], () => load(), { immediate: true })
 watch(
   () => props.refreshKey,
   () => load(),
@@ -105,7 +140,12 @@ watch(
 
 /** Una conversación cambiada (por el sondeo o por el propio hilo) se actualiza en sitio, y sube arriba si tiene mensaje nuevo. */
 function upsert(conv: any) {
-  const matchesFilter = (status.value === 'all' || conv.status === status.value) && (assigned.value === 'all' || (assigned.value === 'unassigned' ? !conv.assignedAgentId : String(conv.assignedAgentId) === assigned.value))
+  const matchesFilter =
+    (status.value === 'all' || conv.status === status.value) &&
+    (assigned.value === 'all' || (assigned.value === 'unassigned' ? !conv.assignedAgentId : String(conv.assignedAgentId) === assigned.value)) &&
+    (channel.value === 'all' || String(conv.channel?.id) === channel.value) &&
+    (!unreadOnly.value || conv.unreadCount > 0) &&
+    (!propertyFilter.value || (conv.propertyId === propertyFilter.value.id && conv.propertyKind === propertyFilter.value.kind))
   const idx = rows.value.findIndex((r) => r.id === conv.id)
   if (!matchesFilter) {
     if (idx >= 0) rows.value.splice(idx, 1)

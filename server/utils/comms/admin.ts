@@ -4,13 +4,14 @@ import * as schema from '../../db/schema'
 import { isUniqueConstraintError, now } from '../db'
 import { hasOverlappingVisit, shiftDateTime } from '../appointments/availability'
 import { generateManagementToken } from '../appointments/managementToken'
+import { syncLeadNextAction } from '../leads/nextAction'
 import { toPublicProperty } from '../propertyPrivacy'
 import type { PropertyKind } from '../matching/service'
 import { listChannels } from './credentials'
-import { previewOf, serviceWindow } from './inbox'
+import { previewOf, sendOutbound, serviceWindow, type SendOutboundResult } from './inbox'
 import { formatPhone, whatsappClickToChatUrl } from './phone'
 import { NO_CAPABILITIES, PROVIDERS } from './providers/registry'
-import type { ChannelView, ProviderCapabilities } from './types'
+import type { ChannelView, LoadedChannel, OutboundMessage, ProviderCapabilities } from './types'
 
 /**
  * Lo que comparten los endpoints de /api/admin/comms: cargar una
@@ -125,6 +126,7 @@ export function serializeConversation(row: ConversationRow, contact: ContactRow,
     assignedAgentId: row.assignedAgentId,
     assignedAgentName: agentName ?? null,
     propertyId: row.propertyId,
+    propertyKind: row.propertyId ? (row.propertyKind ?? 'developer') : null,
     lastMessageAt: row.lastMessageAt,
     lastMessagePreview: row.lastMessagePreview,
     lastInboundAt: row.lastInboundAt,
@@ -300,6 +302,67 @@ export async function buildPropertyShare(db: any, orgId: number, propertyId: num
   return { id: p.id, kind, name, url: null, text: lines.join('\n'), imageLink: p.mainImage ? toMediaLink(String(p.mainImage), origin) : null }
 }
 
+/**
+ * FASE 29 §136 — reintenta un envío saliente que quedó `failed` (el
+ * proveedor ya lo rechazó de verdad: `sendOutbound()` sólo guarda fila una
+ * vez que llamó al proveedor, nunca antes). No reescribe la fila fallida:
+ * crea un mensaje nuevo, igual que un reenvío real — el fallido se queda en
+ * el hilo como lo que fue, para que el historial no mienta.
+ *
+ * `property_share` reconstruye la ficha **en vivo** con `buildPropertyShare`
+ * en vez de reusar el texto guardado — si el precio cambió entre el intento
+ * fallido y el reintento, sale el precio real, no uno viejo.
+ */
+export async function retryOutboundMessage(
+  db: any,
+  env: Record<string, any>,
+  input: { channel: LoadedChannel; conversation: ConversationRow; contact: ContactRow; failed: MessageRow; userId: number; origin: string; statusCallbackUrl?: string | null; fetchImpl?: typeof fetch },
+): Promise<SendOutboundResult> {
+  const { channel, conversation, contact, failed, userId, origin } = input
+  if (failed.direction !== 'out' || failed.status !== 'failed') throw createError({ statusCode: 409, statusMessage: 'Sólo se puede reintentar un envío que quedó fallido.' })
+
+  let message: OutboundMessage
+  let displayBody: string | null = failed.body
+  let storeAs: string | null = null
+  let propertyId: number | null = null
+  let propertyKind: PropertyKind | null = null
+
+  if (failed.type === 'property_share' && failed.propertyId) {
+    const kind: PropertyKind = failed.propertyKind === 'agent' ? 'agent' : 'developer'
+    const share = await buildPropertyShare(db, channel.organizationId, failed.propertyId, kind, origin)
+    const useImage = Boolean(share.imageLink) && PROVIDERS[channel.provider].capabilities.media && share.text.length <= 1024
+    message = useImage ? { kind: 'image', link: share.imageLink!, caption: share.text } : { kind: 'text', body: share.text, previewUrl: Boolean(share.url) }
+    displayBody = share.text
+    storeAs = 'property_share'
+    propertyId = share.id
+    propertyKind = kind
+  } else if (failed.type === 'template' && failed.templateName) {
+    const tpl = await db
+      .select()
+      .from(schema.commsTemplates)
+      .where(and(eq(schema.commsTemplates.channelId, channel.id), eq(schema.commsTemplates.organizationId, channel.organizationId), eq(schema.commsTemplates.name, failed.templateName), eq(schema.commsTemplates.language, failed.templateLanguage || '')))
+      .limit(1)
+    const template = tpl[0]
+    if (!template) throw createError({ statusCode: 409, statusMessage: 'Esta plantilla ya no existe en el canal: no se puede reintentar tal cual.' })
+    const params = failed.templateParamsJson ? JSON.parse(failed.templateParamsJson) : []
+    message = { kind: 'template', name: template.name, language: template.language, params, contentSid: channel.provider === 'twilio' ? template.externalId : null }
+  } else if (failed.type === 'image' || failed.type === 'document') {
+    if (!failed.mediaUrl) throw createError({ statusCode: 409, statusMessage: 'Este mensaje no tiene archivo guardado: no se puede reintentar.' })
+    message = failed.type === 'image' ? { kind: 'image', link: failed.mediaUrl, caption: failed.body } : { kind: 'document', link: failed.mediaUrl, caption: failed.body, filename: failed.mediaFilename }
+  } else if (failed.type === 'text') {
+    if (!failed.body) throw createError({ statusCode: 409, statusMessage: 'Este mensaje no tiene texto guardado: no se puede reintentar.' })
+    message = { kind: 'text', body: failed.body }
+  } else {
+    throw createError({ statusCode: 422, statusMessage: 'Este tipo de mensaje no se puede reintentar desde aquí.' })
+  }
+
+  const result = await sendOutbound(db, { channel, env, conversation, contact, message, displayBody, storeAs, propertyId, propertyKind, userId, statusCallbackUrl: input.statusCallbackUrl ?? null, fetchImpl: input.fetchImpl })
+  if (result.ok && propertyId && (conversation.propertyId !== propertyId || conversation.propertyKind !== propertyKind)) {
+    await db.update(schema.commsConversations).set({ propertyId, propertyKind, updatedAt: now() }).where(eq(schema.commsConversations.id, conversation.id))
+  }
+  return result
+}
+
 /** Capacidades efectivas de la agencia: las del canal por defecto, o ninguna si no hay canal activo. */
 export async function orgCapabilities(db: any, env: Record<string, any>, orgId: number): Promise<{ channels: ChannelView[]; defaultChannel: ChannelView | null; capabilities: ProviderCapabilities }> {
   const channels = await listChannels(db, env, orgId)
@@ -373,10 +436,13 @@ export async function createFollowUpVisit(db: any, input: FollowUpInput): Promis
         type,
         notes: [`Seguimiento creado desde Comunicaciones (WhatsApp ${formatPhone(input.contact.phoneE164)})`, input.notes?.trim() || null].filter(Boolean).join('\n'),
         clientPhone: input.contact.phoneE164,
+        // FK real desde FASE 17 (migración 0072) — mismo criterio que adminCreate.ts/tours.ts/book.post.ts.
+        leadId: input.contact.leadId ?? null,
         managementToken: generateManagementToken(),
         createdAt: nowTs,
       })
       .returning({ id: schema.visits.id, scheduledAt: schema.visits.scheduledAt })
+    if (input.contact.leadId) await syncLeadNextAction(db, input.orgId, input.contact.leadId)
     return { id: visit.id, scheduledAt: visit.scheduledAt, agentName: agent.name, propertyName }
   } catch (e: any) {
     if (isUniqueConstraintError(e)) throw createError({ statusCode: 409, statusMessage: 'Ese comercial ya tiene otra cita en ese horario.' })

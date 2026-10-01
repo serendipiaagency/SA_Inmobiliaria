@@ -71,7 +71,7 @@
         <span class="text-[11px] text-stone-500">Propiedad de contexto</span>
         <div v-if="property" class="mt-0.5 flex items-center gap-2 rounded-lg border border-line p-2">
           <img :src="mediaUrl(property.coverImage)" alt="" class="h-9 w-12 shrink-0 rounded object-cover bg-stone-100">
-          <NuxtLink :to="`/admin/developer-properties/${property.id}`" class="min-w-0 flex-1 truncate text-[12px] font-medium text-ink hover:underline">{{ property.name }}</NuxtLink>
+          <NuxtLink :to="`/admin/${property.kind === 'agent' ? 'properties' : 'developer-properties'}/${property.id}`" class="min-w-0 flex-1 truncate text-[12px] font-medium text-ink hover:underline">{{ property.name }}</NuxtLink>
           <button type="button" class="text-[11px] text-stone-400 hover:text-ink" title="Quitar" @click="patch({ propertyId: null })">✕</button>
         </div>
         <button v-else type="button" class="mt-0.5 text-[12px] text-stone-500 hover:text-ink hover:underline" @click="emit('pick-property')">Elegir propiedad…</button>
@@ -80,6 +80,28 @@
         Ventana de 24 h:
         <span :class="conversation.window.open ? 'font-medium text-emerald-700' : 'font-medium text-stone-600'" data-testid="conversation-window">{{ conversation.window.open ? `abierta hasta ${dt.dateTime(conversation.window.expiresAt)}` : 'cerrada (sólo plantillas)' }}</span>
       </p>
+    </div>
+
+    <!-- Contexto (FASE 29 §123): BuyerRequirement, próxima acción y citas -->
+    <div v-if="lead || buyerRequirements.length || appointments.length" class="border-b border-line p-4" data-testid="contact-panel-context">
+      <p class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-stone-400">Contexto</p>
+      <p v-if="lead?.nextActionAt" class="text-[12px]" :class="lead.nextActionAt < nowStr ? 'font-medium text-red-600' : 'text-stone-600'" data-testid="contact-panel-next-action">
+        Próxima acción: {{ nextActionTypeLabel(lead.nextActionType) }} · {{ dt.relative(lead.nextActionAt) }}
+      </p>
+      <div v-if="buyerRequirements.length" class="mt-2 space-y-1.5" data-testid="contact-panel-buyer-requirements">
+        <p class="text-[11px] font-medium text-stone-500">Necesidades activas</p>
+        <div v-for="b in buyerRequirements" :key="b.id" class="rounded-lg border border-line p-2 text-[12px]">
+          <p class="font-medium text-ink">{{ b.title || (b.operation === 'rent' ? 'Alquiler' : 'Compra') }}</p>
+          <p class="text-stone-500">{{ requirementBudget(b) }}</p>
+        </div>
+      </div>
+      <div v-if="appointments.length" class="mt-2 space-y-1.5" data-testid="contact-panel-appointments">
+        <p class="text-[11px] font-medium text-stone-500">Próximas citas</p>
+        <div v-for="a in appointments" :key="a.id" class="rounded-lg border border-line p-2 text-[12px]">
+          <p class="font-medium text-ink">{{ a.propertyName || appointmentTypeLabel(a.type) }}</p>
+          <p class="text-stone-500">{{ dt.dateTime(a.scheduledAt) }}</p>
+        </div>
+      </div>
     </div>
 
     <!-- Consentimiento -->
@@ -120,14 +142,20 @@
 import { mediaUrl } from '~/composables/useMedia'
 
 /** La columna de contexto del hilo: quién es, qué se puede hacer, cómo está la conversación, consentimiento y llamadas. */
-const props = defineProps<{
-  conversation: any
-  contact: any
-  calls: any[]
-  team: { id: number; name: string }[]
-  property: any | null
-  capabilities: { calling: boolean; callPermissions: boolean }
-}>()
+const props = withDefaults(
+  defineProps<{
+    conversation: any
+    contact: any
+    calls: any[]
+    team: { id: number; name: string }[]
+    property: any | null
+    capabilities: { calling: boolean; callPermissions: boolean }
+    lead?: any | null
+    buyerRequirements?: any[]
+    appointments?: any[]
+  }>(),
+  { lead: null, buyerRequirements: () => [], appointments: () => [] },
+)
 const emit = defineEmits<{ changed: []; 'share-property': []; 'pick-property': [] }>()
 const dt = useDash()
 const toast = useToast()
@@ -151,6 +179,25 @@ const consentHint = computed(() => {
   if (c.consentStatus === 'opted_in') return c.consentSource === 'inbound_message' ? 'Abrió la conversación escribiendo al número.' : 'Registrado a mano.'
   return 'Un mensaje suyo lo pone en «acepta»; STOP o BAJA lo dan de baja.'
 })
+
+const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19)
+const TASK_TYPE_LABELS: Record<string, string> = { call: 'Llamada', whatsapp: 'WhatsApp', email: 'Email', follow_up: 'Seguimiento', viewing: 'Visita', other: 'Tarea' }
+const APPOINTMENT_TYPE_LABELS: Record<string, string> = { property_viewing: 'Visita a inmueble', call: 'Llamada', other: 'Cita' }
+/** `leads.nextActionType` es `task:<tipo>` o `appointment:<tipo de cita>` — ver server/utils/leads/nextAction.ts. */
+function nextActionTypeLabel(t: string | null) {
+  const [kind, sub] = String(t || '').split(':')
+  if (kind === 'appointment') return APPOINTMENT_TYPE_LABELS[sub] || 'Cita'
+  return TASK_TYPE_LABELS[sub] || 'Tarea'
+}
+function appointmentTypeLabel(t: string) {
+  return APPOINTMENT_TYPE_LABELS[t] || t
+}
+function requirementBudget(b: any) {
+  const parts: string[] = []
+  if (b.priceMin || b.priceMax) parts.push(`${b.priceMin ? dt.money(b.priceMin, { compact: true }) : '—'} – ${b.priceMax ? dt.money(b.priceMax, { compact: true }) : '—'}`)
+  parts.push(b.operation === 'rent' ? 'alquiler' : 'compra')
+  return parts.join(' · ')
+}
 
 const OUTCOMES: Record<string, string> = { answered: 'Contestó', interested: 'Interesado', callback: 'Pide que le llamen', no_answer: 'No contesta', busy: 'Comunica', voicemail: 'Buzón', wrong_number: 'Número equivocado', not_interested: 'No interesado' }
 function outcomeLabel(o: string | null) {

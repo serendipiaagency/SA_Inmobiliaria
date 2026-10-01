@@ -1,9 +1,10 @@
 import { and, eq } from 'drizzle-orm'
+import type { H3Event } from 'h3'
 import { requireOrgScope } from '../../../../../utils/auth'
 import { cfEnv, schema, useDb } from '../../../../../utils/db'
-import { loadConversationForOrg, publicSiteOrigin, serializeMessage } from '../../../../../utils/comms/admin'
+import { loadConversationForOrg, publicSiteOrigin, retryOutboundMessage, serializeMessage } from '../../../../../utils/comms/admin'
 import { loadChannel } from '../../../../../utils/comms/credentials'
-import { renderTemplateBody, sendOutbound, templateParamCount } from '../../../../../utils/comms/inbox'
+import { renderTemplateBody, sendOutbound, templateParamCount, type SendOutboundResult } from '../../../../../utils/comms/inbox'
 import { findOwnedMediaAsset } from '../../../../../utils/mediaAssets'
 import type { OutboundMessage } from '../../../../../utils/comms/types'
 
@@ -14,6 +15,11 @@ import type { OutboundMessage } from '../../../../../utils/comms/types'
  *   { type: 'text', body }
  *   { type: 'template', templateId, params: string[] }
  *   { type: 'image' | 'document', mediaKey, caption?, filename? }   (un archivo subido por /api/admin/upload)
+ *   { type: 'retry', messageId }   (FASE 29 §136 — reenvía un saliente que quedó `failed`)
+ *
+ * `retry` vive aquí y no en `/messages/:id/retry` porque el margen de claves
+ * de ruta de Nitro frente al TS2589 está en cero (docs/property-schema-registry.md,
+ * P1-14): una ruta nueva rompe `npm run typecheck`.
  *
  * La ventana de 24 h y el consentimiento se comprueban en sendOutbound()
  * ANTES de llamar al proveedor; un rechazo llega como 422 con `code`.
@@ -30,6 +36,19 @@ export default defineEventHandler(async (event) => {
 
   const body = (await readBody(event)) || {}
   const type = String(body.type || 'text')
+  const statusCallbackUrl = channel.provider === 'twilio' ? `${getRequestURL(event).origin}/api/comms/webhooks/twilio/status` : null
+
+  if (type === 'retry') {
+    const rows = await db
+      .select()
+      .from(schema.commsMessages)
+      .where(and(eq(schema.commsMessages.id, Number(body.messageId)), eq(schema.commsMessages.conversationId, conversation.id), eq(schema.commsMessages.organizationId, orgId)))
+      .limit(1)
+    if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Mensaje no encontrado' })
+    const result = await retryOutboundMessage(db, env, { channel, conversation, contact, failed: rows[0], userId: user.id, origin: await publicSiteOrigin(db, orgId, event), statusCallbackUrl })
+    return respond(event, result)
+  }
+
   let message: OutboundMessage
   let displayBody: string | null = null
 
@@ -66,16 +85,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 422, statusMessage: 'Tipo de mensaje no admitido' })
   }
 
-  const result = await sendOutbound(db, {
-    channel,
-    env,
-    conversation,
-    contact,
-    message,
-    displayBody,
-    userId: user.id,
-    statusCallbackUrl: channel.provider === 'twilio' ? `${getRequestURL(event).origin}/api/comms/webhooks/twilio/status` : null,
-  })
+  const result = await sendOutbound(db, { channel, env, conversation, contact, message, displayBody, userId: user.id, statusCallbackUrl })
+  return respond(event, result)
+})
+
+function respond(event: H3Event, result: SendOutboundResult) {
   if (!result.ok) {
     if (result.code === 'provider') {
       setResponseStatus(event, 502)
@@ -84,4 +98,4 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 422, statusMessage: result.error || 'No se pudo enviar', data: { code: result.code } })
   }
   return { ok: true, message: serializeMessage(result.message!) }
-})
+}

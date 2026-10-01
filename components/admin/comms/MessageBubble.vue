@@ -36,13 +36,17 @@
         <span>{{ dt.dateTime(m.createdAt) }}</span>
         <span v-if="mine" :title="statusTitle" :class="m.status === 'read' ? 'text-blue-500' : m.status === 'failed' ? 'text-red-600' : ''" :data-testid="`message-status-${m.id}`">{{ statusIcon }}</span>
       </p>
-      <p v-if="m.status === 'failed' && m.errorMessage" class="mt-1 rounded-md bg-red-50 px-2 py-1 text-[11px] text-red-700">{{ m.errorMessage }}</p>
+      <div v-if="m.status === 'failed'" class="mt-1 flex items-center justify-between gap-2 rounded-md bg-red-50 px-2 py-1">
+        <p v-if="m.errorMessage" class="text-[11px] text-red-700">{{ m.errorMessage }}</p>
+        <button type="button" class="shrink-0 text-[11px] font-semibold text-red-700 hover:underline disabled:opacity-50" :data-testid="`message-retry-${m.id}`" :disabled="retrying" @click="emit('retry', m.id)">{{ retrying ? 'Reintentando…' : 'Reintentar' }}</button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{ m: any }>()
+const props = withDefaults(defineProps<{ m: any; retrying?: boolean }>(), { retrying: false })
+const emit = defineEmits<{ retry: [messageId: number] }>()
 const dt = useDash()
 const mine = computed(() => props.m.direction === 'out')
 const isImage = computed(() => props.m.type === 'image' || String(props.m.media?.mime || '').startsWith('image/'))
