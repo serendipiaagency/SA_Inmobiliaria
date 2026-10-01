@@ -7,6 +7,7 @@
   <label>, and checkbox already supplies its own explicit inline <label>. -->
   <AgentPickerField
     v-if="spec.type === 'agent'"
+    :data-field="spec.key"
     :label="spec.label"
     :model-value="modelValue"
     :span="spec.span"
@@ -14,6 +15,7 @@
   />
   <StepperField
     v-else-if="spec.type === 'stepper'"
+    :data-field="spec.key"
     :label="spec.label"
     :model-value="modelValue"
     :span="spec.span"
