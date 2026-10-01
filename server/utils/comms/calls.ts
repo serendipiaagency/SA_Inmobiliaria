@@ -5,6 +5,7 @@ import { recordActivity } from '../activity/service'
 import { findOrCreateConversation, isoToDbTs, resolveActivityContact, upsertContact, type IngestContext } from './inbox'
 import { metaCallAction } from './providers/metaCloud'
 import type { CallEvent, LoadedChannel } from './types'
+import type { PropertyKind } from '../matching/service'
 
 /**
  * Llamadas: las de WhatsApp Calling (Meta) que llegan y salen por WebRTC
@@ -172,7 +173,7 @@ export async function ingestCallEvent(db: any, channel: LoadedChannel, event: Ca
       contactId,
       leadId,
       propertyId: existing.propertyId,
-      propertyKind: existing.propertyId ? 'developer' : null,
+      propertyKind: existing.propertyId ? (existing.propertyKind === 'agent' ? 'agent' : 'developer') : null,
       actorType: 'system',
     })
   }
@@ -185,7 +186,7 @@ export type CallErrorCode = 'calling_unavailable' | 'permission_required' | 'pro
 export async function startOutboundCall(
   db: any,
   env: Record<string, any>,
-  input: { channel: LoadedChannel; contactId: number; conversationId: number | null; userId: number; sdpOffer: string; propertyId?: number | null; fetchImpl?: typeof fetch },
+  input: { channel: LoadedChannel; contactId: number; conversationId: number | null; userId: number; sdpOffer: string; propertyId?: number | null; propertyKind?: PropertyKind | null; fetchImpl?: typeof fetch },
 ): Promise<{ ok: boolean; code: CallErrorCode | null; error: string | null; call: CallRow | null }> {
   const { channel } = input
   if (channel.provider !== 'meta_cloud' || channel.callingStatus !== 'enabled') {
@@ -212,6 +213,7 @@ export async function startOutboundCall(
       status: 'initiated',
       userId: input.userId,
       propertyId: input.propertyId ?? null,
+      propertyKind: input.propertyId ? (input.propertyKind ?? 'developer') : null,
       startedAt: nowTs,
       sessionJson: JSON.stringify({ offer: { sdpType: 'offer', sdp: input.sdpOffer } }),
       createdAt: nowTs,
@@ -295,6 +297,7 @@ export async function logManualCall(
     userId: number
     agentId?: number | null
     propertyId?: number | null
+    propertyKind?: PropertyKind | null
     startedAt?: string | null
   },
 ): Promise<CallRow> {
@@ -315,6 +318,7 @@ export async function logManualCall(
       userId: input.userId,
       agentId: input.agentId ?? null,
       propertyId: input.propertyId ?? null,
+      propertyKind: input.propertyId ? (input.propertyKind ?? 'developer') : null,
       startedAt: input.startedAt ?? nowTs,
       endedAt: nowTs,
       durationSeconds: input.durationSeconds ?? null,
@@ -335,7 +339,7 @@ export async function logManualCall(
       contactId,
       leadId,
       propertyId: input.propertyId ?? null,
-      propertyKind: input.propertyId ? 'developer' : null,
+      propertyKind: input.propertyId ? (input.propertyKind ?? 'developer') : null,
       actorType: 'user',
       actorId: input.userId,
     })

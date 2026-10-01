@@ -203,6 +203,7 @@
           </aside>
         </div>
 
+        <PropertyPriceHistory v-if="!isNew && recordId" :rows="priceHistory" />
         <PropertyCommunications v-if="!isNew && recordId" :property-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" />
       </div>
     </template>
@@ -225,6 +226,7 @@ import ChildCardManager from './ChildCardManager.vue'
 import SocialLinksManager from './SocialLinksManager.vue'
 import PropertyRoomManager from './PropertyRoomManager.vue'
 import PropertyCommunications from './PropertyCommunications.vue'
+import PropertyPriceHistory from './PropertyPriceHistory.vue'
 
 /**
  * El Property Editor: **uno solo** para los cuatro recorridos — alta y
@@ -361,13 +363,19 @@ function snapshot() {
 // Marca cuándo la carga inicial (onMounted) ya rellenó `form` — antes de eso,
 // el watch de autoguardado no debe dispararse contra datos a medio cargar.
 let loaded = false
+// FASE 28 §94 — histórico de precios de la ficha (ver PropertyPriceHistory.vue).
+type PriceHistoryRow = { price: number; recordedAt: string }
+const priceHistory = ref<PriceHistoryRow[]>([])
+let persistedPrice: number | null = null
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null
 
 onMounted(async () => {
   if (!isNew.value) {
     try {
-      const res = await $fetch<{ row: Record<string, any>; translations: any[] }>(`/api/admin/${props.resource}/${props.id}`)
+      const res = await $fetch<{ row: Record<string, any>; translations: any[]; priceHistory?: PriceHistoryRow[] }>(`/api/admin/${props.resource}/${props.id}`)
       for (const key of Object.keys(res.row)) form[key] = res.row[key]
+      priceHistory.value = res.priceHistory || []
+      persistedPrice = typeof res.row.price === 'number' ? res.row.price : null
       if (hasTranslationsSection) {
         for (const tr of res.translations || []) {
           const slot = translations.value.find((t) => t.locale === tr.locale)
@@ -572,6 +580,13 @@ function requestBody(): Record<string, any> {
 /** El único sitio que hace el PUT real — tanto el autoguardado como el botón "Guardar cambios" pasan por aquí. */
 async function putPropertyBody() {
   await $fetch(`/api/admin/${props.resource}/${recordId.value}`, { method: 'PUT', body: requestBody() })
+  // Un cambio real de precio acaba de dejar su fila en el histórico del
+  // servidor: se relee de allí (nunca se fabrica en el cliente).
+  if (typeof form.price === 'number' && form.price !== persistedPrice) {
+    persistedPrice = form.price
+    const res = await $fetch<{ priceHistory?: PriceHistoryRow[] }>(`/api/admin/${props.resource}/${recordId.value}`).catch(() => null)
+    if (res?.priceHistory) priceHistory.value = res.priceHistory
+  }
 }
 
 /**

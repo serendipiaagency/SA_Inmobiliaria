@@ -1,5 +1,5 @@
-import { eq } from 'drizzle-orm'
-import { useDb } from '../../../utils/db'
+import { desc, eq } from 'drizzle-orm'
+import { schema, useDb } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
 import { authorizeRecord } from '../../../utils/tenantPolicy'
@@ -25,6 +25,29 @@ export default defineEventHandler(async (event) => {
   if (def.translations) {
     const { table, foreignKey } = def.translations
     translations = await db.select().from(table).where(eq(table[foreignKey], id))
+  }
+
+  // FASE 28 §94 — el histórico de precios (PropertyPriceHistory) de cada
+  // catálogo, que la edición manual y la acción en bloque ya escriben pero
+  // ningún endpoint del panel leía. Va aquí, en la ficha que el editor ya
+  // pide, y no en una ruta nueva (margen de claves de ruta = 0, ver
+  // docs/property-schema-registry.md). La fila ya está autorizada arriba.
+  if (key === 'developer-properties' || key === 'properties') {
+    const priceHistory =
+      key === 'developer-properties'
+        ? await db
+            .select({ price: schema.priceHistory.price, recordedAt: schema.priceHistory.recordedAt })
+            .from(schema.priceHistory)
+            .where(eq(schema.priceHistory.developerPropertyId, id))
+            .orderBy(desc(schema.priceHistory.recordedAt), desc(schema.priceHistory.id))
+            .limit(50)
+        : await db
+            .select({ price: schema.agentPropertyPriceHistory.price, recordedAt: schema.agentPropertyPriceHistory.recordedAt })
+            .from(schema.agentPropertyPriceHistory)
+            .where(eq(schema.agentPropertyPriceHistory.propertyId, id))
+            .orderBy(desc(schema.agentPropertyPriceHistory.recordedAt), desc(schema.agentPropertyPriceHistory.id))
+            .limit(50)
+    return { row, translations, priceHistory }
   }
   return { row, translations }
 })

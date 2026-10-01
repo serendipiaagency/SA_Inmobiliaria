@@ -185,7 +185,7 @@ export function useVoiceManager() {
     }
   }
 
-  async function startCall(target: { conversationId?: number | null; contactId?: number | null; contactName: string; contactPhone?: string | null; propertyId?: number | null }) {
+  async function startCall(target: { conversationId?: number | null; contactId?: number | null; contactName: string; contactPhone?: string | null; propertyId?: number | null; propertyKind?: 'agent' | 'developer' | null }) {
     if (active.value) {
       toast.info('Ya hay una llamada en curso.')
       return
@@ -206,7 +206,7 @@ export function useVoiceManager() {
       if (!sdp) throw new Error('No se pudo generar la oferta de audio.')
       const r = await $fetch<{ call: any }>('/api/admin/comms/calls', {
         method: 'POST',
-        body: { conversationId: target.conversationId ?? undefined, contactId: target.contactId ?? undefined, sdpOffer: sdp, propertyId: target.propertyId ?? undefined },
+        body: { conversationId: target.conversationId ?? undefined, contactId: target.contactId ?? undefined, sdpOffer: sdp, propertyId: target.propertyId ?? undefined, propertyKind: target.propertyId ? (target.propertyKind ?? undefined) : undefined },
       })
       state.value.call = { ...state.value.call!, id: r.call.id, conversationId: r.call.conversationId ?? state.value.call!.conversationId }
       watchCall(r.call.id)

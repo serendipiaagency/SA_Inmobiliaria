@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
 import {
   computeMetaSignature,
+  graphBase,
   metaCallAction,
   metaGetCallPermission,
   metaListTemplates,
@@ -94,6 +95,21 @@ describe('metaSendMessage', () => {
     const { fetchImpl, calls } = fakeFetch([{ json: { messages: [{ id: 'wamid.x' }] } }])
     await metaSendMessage(channel, { WHATSAPP_GRAPH_VERSION: 'v22.0' }, '+34600112233', { kind: 'text', body: 'Hola' }, fetchImpl)
     expect(calls[0].url).toContain('/v22.0/')
+  })
+})
+
+describe('graphBase — simulador local de la suite e2e', () => {
+  it('sin override, siempre la Graph API real', () => {
+    expect(graphBase({})).toBe('https://graph.facebook.com/v23.0')
+  })
+  it('WHATSAPP_GRAPH_BASE_URL sólo se respeta si apunta a loopback por http', () => {
+    expect(graphBase({ WHATSAPP_GRAPH_BASE_URL: 'http://127.0.0.1:8799' })).toBe('http://127.0.0.1:8799/v23.0')
+    expect(graphBase({ WHATSAPP_GRAPH_BASE_URL: 'http://localhost:8799/' })).toBe('http://localhost:8799/v23.0')
+  })
+  it('un host ajeno (o https a un tercero, o basura) se ignora: el token nunca puede salir hacia otro sitio', () => {
+    for (const raw of ['https://evil.example.com', 'http://evil.example.com', 'http://127.0.0.1.evil.example.com', 'https://localhost:8799', 'no es una url']) {
+      expect(graphBase({ WHATSAPP_GRAPH_BASE_URL: raw })).toBe('https://graph.facebook.com/v23.0')
+    }
   })
 })
 

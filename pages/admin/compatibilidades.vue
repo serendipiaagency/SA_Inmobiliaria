@@ -64,7 +64,7 @@
         Ninguna necesidad registrada encaja con este inmueble.
       </p>
       <div v-else class="space-y-3">
-        <AdminPanel v-for="m in data.results" :key="m.requirement.id">
+        <AdminPanel v-for="m in data.results" :key="m.requirement.id" :data-testid="`match-requirement-${m.requirement.id}`">
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
               <NuxtLink v-if="m.contact" :to="`/admin/contactos/${m.contact.id}`" class="text-sm font-medium hover:underline">
@@ -81,6 +81,7 @@
                 type="button"
                 class="rounded-lg border border-line px-2 py-1 font-medium hover:bg-stone-50"
                 :class="m.persisted?.status === 'selected' ? 'border-emerald-300 text-emerald-700' : ''"
+                data-testid="match-select"
                 @click="decide(m, 'selected')"
               >
                 {{ m.persisted?.status === 'selected' ? 'Seleccionado' : 'Seleccionar' }}
@@ -107,6 +108,7 @@
                 class="rounded-lg border border-line px-2 py-1 font-medium hover:bg-stone-50"
                 :class="m.sent ? 'border-emerald-300 text-emerald-700' : ''"
                 :disabled="sendingPropertyFor === m"
+                data-testid="match-send-property"
                 @click="sendPropertyToMatch(m)"
               >
                 {{ sendingPropertyFor === m ? 'Enviando…' : m.sent ? 'Propiedad enviada' : 'Enviar propiedad' }}

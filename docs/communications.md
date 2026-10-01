@@ -345,6 +345,21 @@ programa un seguimiento: una fila real de `visits` (canal `phone`, `video` o
 `in_person`) con la misma comprobación de solapes que la reserva pública,
 que aparece en CRM → Visitas y dispara los recordatorios.
 
+**Catálogo de la propiedad (arreglo, FASE 29 cierre).** Desde el
+incremento 1 la propiedad de contexto de un hilo puede ser de 2ª mano, pero
+las llamadas y los seguimientos seguían suponiendo obra nueva: la llamada
+nunca escribía `comms_calls.property_kind` (la columna existía desde la
+migración 0082), `CALL_COMPLETED` se registraba siempre con
+`propertyKind: 'developer'`, y «Programar seguimiento» buscaba la propiedad
+sólo en `developer_properties` sin comprobar que existiera — un seguimiento
+sobre un piso de 2ª mano quedaba apuntando a la promoción con el mismo id (o
+a ninguna). Ahora el catálogo viaja de punta a punta: la interfaz lo manda
+(`propertyKind` junto a `propertyId`), y cuando no llega se toma el del hilo
+o el de la llamada; `createFollowUpVisit` resuelve la propiedad en su
+catálogo y dentro de la organización (404 si no es suya) y escribe
+`visits.property_kind`, igual que `appointments/adminCreate.ts`. Mensajes y
+llamadas serializados exponen ya `propertyKind`.
+
 **Estado real de las llamadas:** el código sigue la documentación oficial
 al pie de la letra y está cubierto por pruebas unitarias con respuestas de
 Meta simuladas, pero **no ha podido probarse contra Meta en producción**:
@@ -404,6 +419,27 @@ y el código lo interpreta como `'developer'` (lo único que existía antes de
 esta migración), y los tres timestamps nuevos quedan `NULL` hasta el
 próximo cambio de estado de cada mensaje.
 
+### Simulador del proveedor en la suite e2e
+
+`scripts/e2e.sh` arranca `scripts/e2e-provider-mock.mjs`, un servidor HTTP
+local que imita `POST /<versión>/<PHONE_NUMBER_ID>/messages` de la Graph API
+(devuelve un `wamid.e2e.*`) y expone `GET /__requests` con todo lo
+recibido. El Worker de `wrangler dev` lo usa porque recibe
+`WHATSAPP_GRAPH_BASE_URL=http://127.0.0.1:8799`, y `graphBase()` **sólo
+respeta esa variable si apunta a loopback por http** (`127.0.0.1`,
+`localhost`, `[::1]`): cualquier otro valor se ignora y se sigue usando
+`https://graph.facebook.com`, así que una variable mal puesta en producción
+nunca puede desviar mensajes ni el token de acceso a otro host (probado en
+`test/unit/comms.metaCloud.test.ts`).
+
+Con él, el E2E principal de FASES 25-29
+(`tests/e2e/principal-flow-fase25-29.spec.ts`) recorre un envío real de
+punta a punta — «Enviar propiedad» desde Compatibilidades, mensaje
+`property_share` aceptado, PropertyMatch en `sent`, `PROPERTY_SENT` en
+Activity y la conversación en la ficha del Contacto — y comprueba el cuerpo
+exacto que habría recibido Meta: ningún campo interno (referencias de
+agencia/externas) sale en el mensaje (§125).
+
 ## Piezas
 
 | Pieza | Fichero |
@@ -423,7 +459,7 @@ próximo cambio de estado de cada mensaje.
 | Webhooks | `server/api/comms/webhooks/{meta.get,meta.post}.ts`, `twilio/{inbound,status}.post.ts` |
 | API del panel | `server/api/admin/comms/**` |
 | Interfaz | `pages/admin/comunicaciones/{index,configuracion}.vue`, `components/admin/comms/*`, `composables/{useComms,useVoiceManager}.ts` |
-| Pruebas | `test/unit/comms.*.test.ts`, `tests/e2e/comms.spec.ts` |
+| Pruebas | `test/unit/comms.*.test.ts`, `tests/e2e/comms.spec.ts`, `tests/e2e/principal-flow-fase25-29.spec.ts` (+ simulador `scripts/e2e-provider-mock.mjs`) |
 | Ayuda in-app | `/admin/ayuda` → CRM → Comunicaciones |
 
 ## Qué falta para tenerlo del todo en producción

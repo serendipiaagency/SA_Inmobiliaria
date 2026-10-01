@@ -134,7 +134,7 @@
     <AdminCommsLinkContactModal v-if="linkOpen" :contact-id="contact.id" :phone="contact.phoneDisplay" :suggested-name="contact.displayName" @close="linkOpen = false" @linked="onLinked" />
     <AdminCommsCallLogModal v-if="logOpen" :contact-id="contact.id" :conversation-id="conversation.id" :contact-name="contact.name" :team="team" @close="logOpen = false" @saved="onCallSaved" />
     <AdminCommsCallLogModal v-if="logExisting" :call-id="logExisting.id" :conversation-id="conversation.id" :contact-name="contact.name" :team="team" @close="logExisting = null" @saved="onCallSaved" />
-    <AdminCommsFollowUpModal v-if="followUpOpen" :conversation-id="conversation.id" :contact-name="contact.name" :team="team" :property-id="conversation.propertyId" @close="followUpOpen = false" @saved="onFollowUp" />
+    <AdminCommsFollowUpModal v-if="followUpOpen" :conversation-id="conversation.id" :contact-name="contact.name" :team="team" :property-id="conversation.propertyId" :property-kind="conversation.propertyKind" @close="followUpOpen = false" @saved="onFollowUp" />
   </div>
 </template>
 
@@ -237,7 +237,7 @@ async function permission(action: 'request' | 'check') {
   }
 }
 async function callWhatsApp() {
-  await voice.startCall({ conversationId: props.conversation.id, contactId: props.contact.id, contactName: props.contact.name, contactPhone: props.contact.phone, propertyId: props.conversation.propertyId })
+  await voice.startCall({ conversationId: props.conversation.id, contactId: props.contact.id, contactName: props.contact.name, contactPhone: props.contact.phone, propertyId: props.conversation.propertyId, propertyKind: props.conversation.propertyKind })
 }
 function onLinked() {
   linkOpen.value = false
