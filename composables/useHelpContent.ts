@@ -105,6 +105,21 @@ export function useHelpContent() {
       ],
     },
     {
+      key: 'rendimiento',
+      group: 'CRM',
+      title: 'Rendimiento comercial',
+      route: '/admin/rendimiento',
+      summary: 'Dashboard comercial con datos reales: leads nuevos y sin atender, primera respuesta, cualificados, visitas, ofertas, operaciones, conversión y el embudo de la cohorte, con filtros combinables.',
+      steps: [
+        'Elige el periodo arriba (hoy, 7 días, 30 días, mes o trimestre actual, o fechas a medida). Todas las fechas son UTC. "Comparar con el periodo anterior" añade, en las tarjetas que lo permiten, el valor del periodo inmediatamente anterior de la misma duración — nunca se enseña un "+12 %" sin decir contra qué.',
+        'Cada tarjeta dice debajo exactamente qué cuenta y de dónde sale (por ejemplo, "Leads sin atender" son las alertas de SLA abiertas ahora mismo, no los leads en estado "nuevo"). Las de la primera fila — sin atender, visitas próximas, ofertas pendientes y tareas vencidas — son "ahora mismo" y no dependen del periodo.',
+        'Haz clic en una tarjeta para abrir el detalle: "Leads nuevos", "Leads cualificados" y "Leads sin atender" abren CRM → Leads ya filtrado con el mismo periodo y filtros (un botón "Filtrado desde el dashboard · quitar" lo deshace); las demás llevan a Visitas, Tareas, Compatibilidades u Operaciones.',
+        'Los filtros se combinan: comercial, oficina (la oficina de la ficha del comercial), origen, portal, campaña e inmueble. Todas las tarjetas, el embudo y la tabla usan exactamente el mismo filtro. Sólo aparecen opciones que existen de verdad en tu agencia.',
+        'El embudo parte de los leads creados en el periodo y cuenta cuántos de ESOS leads llegaron a cada etapa (respuesta humana real, cualificado, visita no cancelada, oferta, operación). "Conversión" es la misma cohorte: los que ya tienen una operación cerrada entre los creados en el periodo.',
+        'No se muestran importes: el dashboard cuenta, no suma dinero. Quien puede leer el CRM ve las cifras de toda la agencia, igual que ya ve todos los leads; para ver sólo las de un comercial, filtra por él.',
+      ],
+    },
+    {
       key: 'leads',
       group: 'CRM',
       title: 'Leads',

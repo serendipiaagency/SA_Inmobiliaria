@@ -28,6 +28,27 @@ export default defineEventHandler(async (event) => {
   if (status && status !== 'all') { where.push('status = ?'); binds.push(status) }
   if (source && source !== 'all') { where.push('source = ?'); binds.push(source) }
   if (search) { where.push('(name LIKE ? OR email LIKE ? OR property_name LIKE ?)'); binds.push(`%${search}%`, `%${search}%`, `%${search}%`) }
+  // FASE 33 §101 — el detalle de cada KPI del dashboard comercial abre este
+  // listado con el mismo scope: periodo de alta o de cualificación, comercial,
+  // oficina, portal, campaña, inmueble y «sin atender» (alerta SLA abierta).
+  const day = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null)
+  const createdFrom = day(q.createdFrom)
+  const createdTo = day(q.createdTo)
+  if (createdFrom) { where.push('created_at >= ?'); binds.push(`${createdFrom} 00:00:00`) }
+  if (createdTo) { where.push('created_at <= ?'); binds.push(`${createdTo} 23:59:59`) }
+  const qualifiedFrom = day(q.qualifiedFrom)
+  const qualifiedTo = day(q.qualifiedTo)
+  if (qualifiedFrom) { where.push('qualified_at >= ?'); binds.push(`${qualifiedFrom} 00:00:00`) }
+  if (qualifiedTo) { where.push('qualified_at <= ?'); binds.push(`${qualifiedTo} 23:59:59`) }
+  const agentIdFilter = parseInt(String(q.agentId || ''), 10)
+  if (agentIdFilter > 0) { where.push('agent_id = ?'); binds.push(agentIdFilter) }
+  if (q.office) { where.push('agent_id IN (SELECT id FROM team_members WHERE organization_id = ? AND office_name = ?)'); binds.push(orgId, String(q.office)) }
+  if (q.portal) { where.push('portal = ?'); binds.push(String(q.portal)) }
+  if (q.campaign) { where.push('(campaign = ? OR utm_campaign = ?)'); binds.push(String(q.campaign), String(q.campaign)) }
+  const propertyIdFilter = parseInt(String(q.propertyId || ''), 10)
+  if (propertyIdFilter > 0) { where.push('property_id = ?'); binds.push(propertyIdFilter) }
+  if (q.unattended === '1') { where.push("id IN (SELECT lead_id FROM lead_sla_alerts WHERE organization_id = ? AND type = 'unattended' AND status = 'open')"); binds.push(orgId) }
+
   // FASE 32 §74 — filtrar y ordenar por Lead Score.
   const scoreMin = q.scoreMin !== undefined && q.scoreMin !== '' ? Number(q.scoreMin) : null
   if (scoreMin !== null && Number.isFinite(scoreMin)) { where.push('score >= ?'); binds.push(scoreMin) }

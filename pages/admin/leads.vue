@@ -23,6 +23,9 @@
         <option value="all">Todos los orígenes</option>
         <option v-for="s in sources" :key="s" :value="s">{{ s }}</option>
       </select>
+      <button v-if="Object.keys(drill).length" type="button" class="rounded-full bg-ink px-3 py-1 text-xs font-medium text-white" data-testid="leads-drill-chip" @click="clearDrill">
+        Filtrado desde el dashboard · quitar ✕
+      </button>
       <!-- FASE 32 §74 — ordenar y filtrar por Lead Score -->
       <select v-model="scoreMin" class="rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink" data-testid="leads-score-min">
         <option value="">Cualquier puntuación</option>
@@ -239,8 +242,25 @@ const sources = ['web', 'portal', 'referral', 'ads', 'social', 'call']
 const scoreMin = ref('')
 const sort = ref('')
 
+// FASE 33 — el detalle de un KPI del dashboard comercial llega aquí con su
+// scope en la URL; se respeta tal cual y se puede quitar.
+const route = useRoute()
+const router = useRouter()
+const DRILL_KEYS = ['createdFrom', 'createdTo', 'qualifiedFrom', 'qualifiedTo', 'agentId', 'office', 'portal', 'campaign', 'propertyId', 'unattended'] as const
+const drill = computed<Record<string, string>>(() => {
+  const out: Record<string, string> = {}
+  for (const k of DRILL_KEYS) if (typeof route.query[k] === 'string' && route.query[k]) out[k] = route.query[k] as string
+  return out
+})
+if (typeof route.query.source === 'string' && route.query.source) source.value = route.query.source
+if (route.query.view === 'table') view.value = 'table'
+function clearDrill() {
+  const q = Object.fromEntries(Object.entries(route.query).filter(([k]) => !(DRILL_KEYS as readonly string[]).includes(k)))
+  router.replace({ query: q })
+}
+
 const { data, refresh } = await useFetch<any>('/api/admin/saas/leads', {
-  query: { search, source, scoreMin, sort },
+  query: computed(() => ({ search: search.value, source: source.value, scoreMin: scoreMin.value, sort: sort.value, ...drill.value })),
 })
 const rows = computed<any[]>(() => data.value?.rows || [])
 const counts = ref<Record<string, number>>({})
@@ -371,7 +391,7 @@ function clearSelection() {
   selectedIds.value = []
 }
 // Cambiar de filtro invalida la selección — mismo criterio que PropertyList.vue.
-watch([search, source, scoreMin], () => clearSelection())
+watch([search, source, scoreMin, drill], () => clearSelection())
 
 const pipelineColumns = columns.filter((c) => c.key !== 'lost')
 

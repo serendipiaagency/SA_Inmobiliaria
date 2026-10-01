@@ -1,4 +1,6 @@
 import { requireOrgScope } from '../../../utils/auth'
+import { useDb } from '../../../utils/db'
+import { dashboardFilterOptions, getCommercialDashboard, parseDashboardScope } from '../../../utils/dashboard/commercial'
 
 /**
  * Dashboard overview: KPI cards with month-over-month deltas, a revenue/visitor
@@ -9,6 +11,17 @@ import { requireOrgScope } from '../../../utils/auth'
  * dashboard).
  */
 export default defineEventHandler(async (event) => {
+  // FASE 33 — Dashboard comercial sobre datos reales (server/utils/dashboard/commercial.ts),
+  // como rama de esta ruta y no como una nueva (margen de claves de ruta = 0).
+  // Son datos de CRM: además del área de esta ruta, exige lectura de CRM.
+  const view = getQuery(event).view
+  if (view === 'commercial' || view === 'commercial-options') {
+    const { orgId } = await requireOrgScope(event, 'crm', 'read')
+    const db = useDb(event)
+    if (view === 'commercial-options') return dashboardFilterOptions(db, orgId)
+    return getCommercialDashboard(db, orgId, parseDashboardScope(getQuery(event)))
+  }
+
   const { orgId } = await requireOrgScope(event)
   const raw = (event.context as any).cloudflare.env.DB as D1Database
 
