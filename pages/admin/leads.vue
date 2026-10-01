@@ -23,6 +23,20 @@
         <option value="all">Todos los orígenes</option>
         <option v-for="s in sources" :key="s" :value="s">{{ s }}</option>
       </select>
+      <button v-if="Object.keys(drill).length" type="button" class="rounded-full bg-ink px-3 py-1 text-xs font-medium text-white" data-testid="leads-drill-chip" @click="clearDrill">
+        Filtrado desde el dashboard · quitar ✕
+      </button>
+      <!-- FASE 32 §74 — ordenar y filtrar por Lead Score -->
+      <select v-model="scoreMin" class="rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink" data-testid="leads-score-min">
+        <option value="">Cualquier puntuación</option>
+        <option value="25">Puntuación ≥ 25</option>
+        <option value="50">Puntuación ≥ 50</option>
+        <option value="75">Puntuación ≥ 75</option>
+      </select>
+      <select v-model="sort" class="rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink" data-testid="leads-sort">
+        <option value="">Más recientes primero</option>
+        <option value="score">Mayor puntuación primero</option>
+      </select>
     </div>
 
     <!-- Board -->
@@ -57,7 +71,7 @@
                 <p v-else class="truncate text-sm font-semibold">{{ l.name }}</p>
                 <p class="truncate text-xs text-stone-500">{{ l.propertyName }}</p>
               </div>
-              <span class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="scoreCls(l.score)">{{ l.score }}</span>
+              <AdminLeadScoreBadge class="shrink-0" :lead="l" compact @updated="(u) => Object.assign(l, u)" />
             </div>
             <div class="mt-2 flex items-center justify-between text-xs text-stone-400">
               <span class="capitalize">{{ l.source }}</span>
@@ -102,6 +116,7 @@
           <option value="change_stage">Cambiar fase</option>
           <option value="add_tag">Añadir etiqueta</option>
           <option value="create_task">Crear tarea</option>
+          <option value="recalculate_score">Recalcular puntuación</option>
         </select>
         <select v-if="bulkAction === 'change_commercial'" v-model="bulkCommercialId" class="input !w-48">
           <option value="">Sin asignar</option>
@@ -162,7 +177,7 @@
                 <td class="px-4 py-3 capitalize text-stone-600">{{ l.source }}</td>
                 <td class="px-4 py-3 text-stone-600">{{ stageLabel(l.stage) }}</td>
                 <td class="px-4 py-3"><AdminStatusPill :status="l.status" /></td>
-                <td class="px-4 py-3 text-right"><span class="rounded px-1.5 py-0.5 text-xs font-semibold" :class="scoreCls(l.score)">{{ l.score }}</span></td>
+                <td class="px-4 py-3 text-right"><AdminLeadScoreBadge :lead="l" @updated="(u) => Object.assign(l, u)" /></td>
                 <td class="px-4 py-3 text-right tabular-nums">{{ dt.money(l.budget, { compact: true }) }}</td>
                 <td class="px-4 py-3 text-stone-600">
                   <select class="rounded border border-line bg-white px-1.5 py-1 text-xs" :value="l.agentId || ''" :disabled="reassigningId === l.id" @change="reassignLead(l, ($event.target as HTMLSelectElement).value)">
@@ -224,8 +239,28 @@ const search = ref('')
 const source = ref('all')
 const sources = ['web', 'portal', 'referral', 'ads', 'social', 'call']
 
+const scoreMin = ref('')
+const sort = ref('')
+
+// FASE 33 — el detalle de un KPI del dashboard comercial llega aquí con su
+// scope en la URL; se respeta tal cual y se puede quitar.
+const route = useRoute()
+const router = useRouter()
+const DRILL_KEYS = ['createdFrom', 'createdTo', 'qualifiedFrom', 'qualifiedTo', 'agentId', 'office', 'portal', 'campaign', 'propertyId', 'unattended'] as const
+const drill = computed<Record<string, string>>(() => {
+  const out: Record<string, string> = {}
+  for (const k of DRILL_KEYS) if (typeof route.query[k] === 'string' && route.query[k]) out[k] = route.query[k] as string
+  return out
+})
+if (typeof route.query.source === 'string' && route.query.source) source.value = route.query.source
+if (route.query.view === 'table') view.value = 'table'
+function clearDrill() {
+  const q = Object.fromEntries(Object.entries(route.query).filter(([k]) => !(DRILL_KEYS as readonly string[]).includes(k)))
+  router.replace({ query: q })
+}
+
 const { data, refresh } = await useFetch<any>('/api/admin/saas/leads', {
-  query: { search, source },
+  query: computed(() => ({ search: search.value, source: source.value, scoreMin: scoreMin.value, sort: sort.value, ...drill.value })),
 })
 const rows = computed<any[]>(() => data.value?.rows || [])
 const counts = ref<Record<string, number>>({})
@@ -278,11 +313,6 @@ const columns = [
 function byColumn(key: string) {
   if (key === 'lost') return rows.value.filter((l) => l.status === 'lost')
   return rows.value.filter((l) => l.stage === key && l.status !== 'lost')
-}
-function scoreCls(s: number) {
-  if (s >= 75) return 'bg-emerald-50 text-emerald-700'
-  if (s >= 45) return 'bg-amber-50 text-amber-700'
-  return 'bg-stone-100 text-stone-500'
 }
 function stageLabel(stage: string) {
   return columns.find((c) => c.key === stage)?.label || stage
@@ -361,11 +391,11 @@ function clearSelection() {
   selectedIds.value = []
 }
 // Cambiar de filtro invalida la selección — mismo criterio que PropertyList.vue.
-watch([search, source], () => clearSelection())
+watch([search, source, scoreMin, drill], () => clearSelection())
 
 const pipelineColumns = columns.filter((c) => c.key !== 'lost')
 
-type BulkAction = '' | 'change_commercial' | 'change_stage' | 'add_tag' | 'create_task'
+type BulkAction = '' | 'change_commercial' | 'change_stage' | 'add_tag' | 'create_task' | 'recalculate_score'
 const bulkAction = ref<BulkAction>('')
 const bulkCommercialId = ref<number | ''>('')
 const bulkStage = ref('')
@@ -398,6 +428,7 @@ const BULK_ACTION_LABELS: Record<string, string> = {
   change_stage: 'cambiar la fase',
   add_tag: 'añadir la etiqueta',
   create_task: 'crear una tarea para',
+  recalculate_score: 'recalcular la puntuación de',
 }
 
 /** Mismo endpoint que "Exportar CSV" en Properties, con un filtro por ids — server/api/admin/saas/leads.get.ts. */
@@ -422,7 +453,9 @@ async function runBulkAction() {
         ? { stage: bulkStage.value }
         : bulkAction.value === 'add_tag'
           ? { tagName: bulkTagName.value.trim() }
-          : { type: bulkTaskType.value, title: bulkTaskTitle.value.trim(), assigneeId: bulkTaskAssigneeId.value || null }
+          : bulkAction.value === 'recalculate_score'
+            ? {}
+            : { type: bulkTaskType.value, title: bulkTaskTitle.value.trim(), assigneeId: bulkTaskAssigneeId.value || null }
 
   bulkRunning.value = true
   bulkProgressLabel.value = 'Iniciando…'

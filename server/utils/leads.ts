@@ -7,6 +7,7 @@ import { getRequestId } from './requestId'
 import { resolveContact, orgDefaultCountryPrefix } from './contacts/service'
 import { routeLead, assignLead, buildRoutingContextFromProperty } from './leads/routing'
 import { recordActivity } from './activity/service'
+import { recomputeLeadScore } from './leads/score'
 
 interface UpsertLeadInput {
   /** Which tenant this lead belongs to — always the caller's resolved org, never client input. */
@@ -33,7 +34,6 @@ interface UpsertLeadInput {
   agentName?: string | null
   budget?: number | null
   notes?: string | null
-  scoreBump?: number
 }
 
 /**
@@ -55,7 +55,6 @@ interface UpsertLeadInput {
 export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
   const db = useDb(event)
   const nowTs = now()
-  const bump = input.scoreBump ?? 10
 
   let contactId: number | null = null
   if (input.email || input.phone || input.whatsapp) {
@@ -86,7 +85,6 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
         .set({
           lastContactAt: nowTs,
           updatedAt: nowTs,
-          score: Math.min(100, existing[0].score + bump),
           ...(input.propertyId ? { propertyId: input.propertyId, propertyName: input.propertyName || null } : {}),
           ...(input.agentId ? { agentId: input.agentId, agentName: input.agentName || null } : {}),
           ...(input.phone ? { phone: input.phone } : {}),
@@ -94,6 +92,7 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
           ...(contactId && { contactId }),
         })
         .where(eq(schema.leads.id, existing[0].id))
+      await refreshScore(db, input.organizationId, existing[0].id, 'signal')
       return { id: existing[0].id, created: false }
     }
   }
@@ -119,7 +118,9 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
       originalMessage: input.originalMessage || null,
       status: 'new',
       stage: 'new',
-      score: bump,
+      // FASE 32: ya no hay "bump" — la puntuación la calcula
+      // leads/score.ts a partir de señales reales, justo abajo.
+      score: 0,
       budget: input.budget || null,
       propertyId: input.propertyId || null,
       propertyName: input.propertyName || null,
@@ -163,5 +164,19 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
     }
   }
 
+  await refreshScore(db, input.organizationId, row.id, 'created')
   return { id: row.id, created: true }
+}
+
+/**
+ * FASE 32 — el Lead Score explicable sustituye al "bump" fijo que se sumaba
+ * en cada entrada (10, 25, 30…): se recalcula con las señales reales del
+ * lead. Igual que el routing, un fallo aquí nunca deshace la captación.
+ */
+async function refreshScore(db: any, orgId: number, leadId: number, reason: 'created' | 'signal') {
+  try {
+    await recomputeLeadScore(db, orgId, leadId, reason)
+  } catch {
+    // El lead ya está guardado; su puntuación se recalculará con la próxima señal o desde la ficha.
+  }
 }

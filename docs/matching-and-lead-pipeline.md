@@ -194,3 +194,7 @@ completo, VisitOutcome, timeline de actividad completo, sistema de tareas,
 Offer, Deal, Lead Score (fase posterior dedicada) y las herramientas INMO
 finales. No se ha construido ninguna versión provisional de ellas para no
 tener que deshacerla después.
+
+> Actualización: el Lead Score ya existe (FASE 32) — reglas por agencia
+> sobre señales reales, con desglose e historial. Ver `docs/lead-score.md`.
+> Sigue siendo independiente del Match Score de este documento.

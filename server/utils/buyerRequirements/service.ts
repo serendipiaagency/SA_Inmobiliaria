@@ -2,6 +2,7 @@ import { and, desc, eq, isNull } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, now } from '../db'
 import { recordActivity } from '../activity/service'
+import { recomputeLeadScoresForContact } from '../leads/score'
 
 /**
  * BuyerRequirement — la necesidad inmobiliaria (FASE 10, migración 0066).
@@ -250,8 +251,22 @@ export async function createBuyerRequirement(
     actorId: opts.createdBy ?? null,
     metadata: { title: requirement.title },
   })
+  await refreshContactLeadScores(db, orgId, input.contactId)
 
   return requirement
+}
+
+/**
+ * FASE 32 — presupuesto validado, fecha deseada, urgencia y financiación
+ * son señales del Lead Score de los leads de esta persona. Nunca deshace la
+ * escritura de la necesidad si el recálculo falla.
+ */
+async function refreshContactLeadScores(db: any, orgId: number, contactId: number) {
+  try {
+    await recomputeLeadScoresForContact(db, orgId, contactId, 'signal')
+  } catch {
+    // Se recalculará con la próxima señal o desde la ficha del lead.
+  }
 }
 
 export async function updateBuyerRequirement(
@@ -297,6 +312,7 @@ export async function updateBuyerRequirement(
     const rows = criteriaRowsFor({ ...merged, ...input } as BuyerRequirementInput, orgId, requirementId)
     if (rows.length) await db.insert(schema.buyerRequirementCriteria).values(rows)
   }
+  await refreshContactLeadScores(db, orgId, existing.contactId)
 
   return (
     await db
@@ -322,13 +338,15 @@ export async function validateBudget(event: H3Event, orgId: number, requirementI
   // La lectura va acotada por organización igual que la escritura. Con el id
   // suelto, pedir el id de otra agencia devolvía su necesidad entera con un
   // 200 aunque el UPDATE no hubiera tocado nada.
-  return (
+  const row = (
     await db
       .select()
       .from(schema.buyerRequirements)
       .where(and(eq(schema.buyerRequirements.id, requirementId), eq(schema.buyerRequirements.organizationId, orgId)))
       .limit(1)
   )[0]
+  if (row) await refreshContactLeadScores(db, orgId, row.contactId)
+  return row
 }
 
 export async function listBuyerRequirements(event: H3Event, orgId: number, opts: { contactId?: number } = {}) {

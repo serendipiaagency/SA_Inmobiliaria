@@ -1,4 +1,5 @@
-import { useDb } from '../../../utils/db'
+import { eq } from 'drizzle-orm'
+import { schema, useDb } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource, buildPayload, syncTranslations, assertPayloadReferences } from '../../../utils/adminResources'
 import { logAdminAction } from '../../../utils/audit'
@@ -54,7 +55,15 @@ export default defineEventHandler(async (event) => {
     if (typeof body?.action !== 'string' || !body.action) {
       throw createError({ statusCode: 422, statusMessage: 'Falta la acción' })
     }
-    const ids = Array.isArray(body.ids) ? body.ids.map(Number) : []
+    // Única excepción (FASE 32): «Recalcular Lead Score» para TODOS los leads
+    // de la agencia tras cambiar sus reglas — no es una selección de pantalla
+    // sino la organización entera, resuelta aquí y con el mismo tope de 2000.
+    let ids: number[] = Array.isArray(body.ids) ? body.ids.map(Number) : []
+    if (body.selectAllFiltered && body.action === 'recalculate_score') {
+      const rows = await db.select({ id: schema.leads.id }).from(schema.leads).where(eq(schema.leads.organizationId, orgId!)).limit(2001)
+      if (rows.length > 2000) throw createError({ statusCode: 422, statusMessage: 'La agencia tiene más de 2000 leads — recalcula por partes desde el listado.' })
+      ids = rows.map((r: { id: number }) => r.id)
+    }
     const job = await createBulkActionJob(event, orgId!, user.id, { entityType: 'lead', action: body.action, params: body.params || {}, ids })
     await logAdminAction(event, { user, orgId, action: 'create', resource: key, resourceId: job.id, detail: `${job.action} × ${job.totalCount}` })
     return { ok: true, id: job.id, job }

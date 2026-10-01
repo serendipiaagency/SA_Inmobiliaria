@@ -1,6 +1,7 @@
 import { and, asc, eq, gt, isNotNull, ne } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { now } from '../db'
+import { recomputeLeadScore } from './score'
 
 /**
  * Next Action (FASE 22) — `leads.nextActionType`/`nextActionAt` son una
@@ -46,6 +47,13 @@ export async function syncLeadNextAction(db: any, orgId: number, leadId: number)
     }
 
     await db.update(schema.leads).set({ nextActionType, nextActionAt, updatedAt: nowTs }).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId)))
+
+    // FASE 32 — una cita creada, reprogramada o cancelada cambia la señal
+    // «visita solicitada» del Lead Score; éste es el único punto por el que
+    // pasan todos esos caminos (panel, reserva pública, enlace del cliente,
+    // seguimiento desde Comunicaciones). Con una Task no cambia nada del
+    // score y no se escribe historial (sólo se guarda si cambia).
+    await recomputeLeadScore(db, orgId, leadId, 'signal')
   } catch {
     // Se recalculará en la próxima escritura real sobre este lead — nunca debe deshacer la acción que la disparó.
   }

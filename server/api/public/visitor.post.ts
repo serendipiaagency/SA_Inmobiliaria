@@ -101,7 +101,6 @@ export default defineEventHandler(async (event) => {
       phone: text.phone_number,
       source: 'web',
       notes: [text.property_type, text.preferred_location, text.budget_range].filter(Boolean).join(' · ') || null,
-      scoreBump: 30,
       ...readFirstTouch(event),
     })
   } catch {

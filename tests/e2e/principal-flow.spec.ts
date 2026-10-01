@@ -94,7 +94,9 @@ test.describe('Flujo principal FASES 20-24', () => {
     const afterDedup = (await (await a.get('/api/admin/saas/leads')).json()).rows.filter((l: any) => l.email === email)
     expect(afterDedup, 'el reenvío con el mismo email no debe crear un segundo lead').toHaveLength(1)
     expect(afterDedup[0].id).toBe(leadId)
-    expect(afterDedup[0].score, 'el reenvío debe reforzar el interés, no reiniciarlo').toBeGreaterThan(scoreBefore)
+    // FASE 32: reenviar el formulario no es por sí solo una señal del Lead
+    // Score (antes sumaba un "bump" fijo cada vez) — ni lo infla ni lo reinicia.
+    expect(afterDedup[0].score, 'el reenvío no debe inflar ni reiniciar la puntuación').toBe(scoreBefore)
 
     // Routing: se asigna explícitamente al comercial dedicado de esta prueba (el automático, ya disparado por upsertLead() arriba, depende de reglas globales de la organización que este spec no controla).
     const reassignRes = await a.post(`/api/admin/saas/leads/${leadId}/reassign`, { data: { commercialId: commercialDevId, reason: 'Asignación E2E' } })
