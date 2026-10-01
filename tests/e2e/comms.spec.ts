@@ -342,4 +342,50 @@ test.describe('Centro de Comunicaciones', () => {
     expect(answeredRes.ok(), await answeredRes.text()).toBeTruthy()
     expect((await answeredRes.json()).call.status).toBe('completed')
   })
+
+  test('bandeja: filtros por número, no leídas y propiedad; la ficha muestra lead, próxima acción y citas (FASE 29 §121/§123)', async ({ page }) => {
+    // El test del flujo del hilo ya vinculó esta conversación a un lead, la marcó leída y le programó un seguimiento sin inmueble.
+    const thread = await (await a.get(`/api/admin/comms/conversations/${inboundConversationId}`)).json()
+    expect(thread.lead).toMatchObject({ name: 'Ana Lead E2E' })
+    expect(thread.lead.nextActionType, 'el seguimiento creado desde Comunicaciones tiene que proyectarse como próxima acción del lead').toBe('appointment:call')
+    expect(thread.appointments.length).toBeGreaterThanOrEqual(1)
+    expect(Array.isArray(thread.buyerRequirements)).toBe(true)
+
+    const base = { q: INBOUND_FROM, status: 'all' }
+    const ids = async (params: Record<string, string>) => (await (await a.get('/api/admin/comms/conversations', { params: { ...base, ...params } })).json()).rows.map((r: any) => r.id)
+    expect(await ids({ channel: String(metaChannelId) })).toContain(inboundConversationId)
+    expect(await ids({ channel: String(twilioChannelId) })).not.toContain(inboundConversationId)
+    expect(await ids({ unread: '1' })).not.toContain(inboundConversationId)
+
+    const tag = `E2Ectx${Date.now()}`
+    const agentProperty = await (await a.post('/api/admin/properties', { data: { slug: `ctx-${tag}`, street: `Calle Ctx ${tag}`, price: 199000, status: 'available' } })).json()
+    try {
+      const patched = await a.patch(`/api/admin/comms/conversations/${inboundConversationId}`, { data: { propertyId: agentProperty.id, propertyKind: 'agent' } })
+      expect(patched.ok(), await patched.text()).toBeTruthy()
+      const withCtx = await (await a.get(`/api/admin/comms/conversations/${inboundConversationId}`)).json()
+      expect(withCtx.property, 'una propiedad de contexto de 2ª mano tiene que resolverse, no quedarse en null').toMatchObject({ id: agentProperty.id, kind: 'agent', name: `Calle Ctx ${tag}` })
+      expect(await ids({ propertyId: String(agentProperty.id), propertyKind: 'agent' })).toContain(inboundConversationId)
+      expect(await ids({ propertyId: String(agentProperty.id), propertyKind: 'developer' })).not.toContain(inboundConversationId)
+
+      await page.goto(`/admin/comunicaciones?conversation=${inboundConversationId}`)
+      await expect(page.getByTestId('contact-panel-context')).toBeVisible()
+      await expect(page.getByTestId('contact-panel-next-action')).toContainText('Llamada')
+      await expect(page.getByTestId('contact-panel-appointments')).toBeVisible()
+      await expect(page.getByTestId(`comms-conversation-${inboundConversationId}`)).toBeVisible()
+      await page.getByTestId('comms-filter-unread').check()
+      await expect(page.getByTestId(`comms-conversation-${inboundConversationId}`)).toHaveCount(0)
+    } finally {
+      await a.patch(`/api/admin/comms/conversations/${inboundConversationId}`, { data: { propertyId: null } }).catch(() => null)
+      await a.delete(`/api/admin/properties/${agentProperty.id}`).catch(() => null)
+    }
+  })
+
+  test('reintentar sólo vale para un saliente fallido de la propia agencia (FASE 29 §136 — el reenvío real está en test/unit/comms.retry.test.ts)', async () => {
+    const thread = await (await a.get(`/api/admin/comms/conversations/${inboundConversationId}`)).json()
+    const inbound = thread.messages.find((m: any) => m.direction === 'in')
+    const notFailed = await a.post(`/api/admin/comms/conversations/${inboundConversationId}/messages`, { data: { type: 'retry', messageId: inbound.id } })
+    expect(notFailed.status()).toBe(409)
+    expect((await a.post(`/api/admin/comms/conversations/${inboundConversationId}/messages`, { data: { type: 'retry', messageId: 999999999 } })).status()).toBe(404)
+    expect((await b.post(`/api/admin/comms/conversations/${inboundConversationId}/messages`, { data: { type: 'retry', messageId: inbound.id } })).status()).toBe(404)
+  })
 })

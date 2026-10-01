@@ -191,6 +191,59 @@ así, nunca desde la API manual de decisión (`setMatchStatus()` sigue
 rechazando `'sent'` igual que antes). Un fallo al marcar el match no deshace
 el envío ya hecho: el mensaje de WhatsApp es lo que de verdad importa.
 
+### Reintentos (FASE 29 §136)
+
+Un saliente `failed` se reintenta con `POST
+/api/admin/comms/conversations/:id/messages` y `{ type: 'retry', messageId }`
+— una rama más del endpoint de envío, **no una ruta nueva**: el margen de
+claves de ruta de Nitro frente al TS2589 está en cero
+(`docs/property-schema-registry.md`, P1-14 en
+`docs/production-hardening-audit.md`), y una ruta `/messages/:id/retry`
+rompía `npm run typecheck` en un componente sin relación. La lógica vive en
+`retryOutboundMessage()` (`server/utils/comms/admin.ts`):
+
+- Sólo un `direction = 'out'` con `status = 'failed'` (409 si no). Como
+  `sendOutbound()` sólo guarda fila después de llamar al proveedor, un
+  `failed` siempre es un rechazo real del proveedor, nunca una regla nuestra.
+- **Nunca reescribe la fila fallida**: el reintento es un mensaje nuevo,
+  igual que un reenvío real. El fallido se queda en el hilo.
+- `property_share` se reconstruye en vivo con `buildPropertyShare()` — si
+  el precio cambió entre el intento y el reintento, sale el actual.
+- Una plantilla se vuelve a buscar en el canal por nombre e idioma (409 si
+  ya no existe); texto y archivos reusan `body`/`media_url` guardados.
+- Pasa otra vez por `sendOutbound()`: ventana de 24 h y consentimiento se
+  vuelven a comprobar — un texto fuera de la ventana ya no se reintenta.
+
+No hay reintento automático en segundo plano: WhatsApp no garantiza que un
+reenvío ciego sea idempotente (un mensaje rechazado por número inválido o
+token caducado volvería a fallar igual), así que reintentar es una decisión
+de quien lleva el hilo.
+
+### Bandeja: filtros y contexto (FASE 29 §121/§123)
+
+`GET /api/admin/comms/conversations` acepta, además de `status`/`assigned`/`q`:
+`channel=<id>`, `unread=1` y `propertyId`+`propertyKind` (una conversación
+con `property_kind` NULL de antes de la 0082 cuenta como `developer`). Contacto
+y lead se buscan con `q`, que ya cruzaba nombres de clientes y leads.
+
+`GET /api/admin/comms/conversations/:id` devuelve también, **resuelto en
+vivo y nunca copiado a la conversación**:
+
+- `lead` — `stage`, `status` y la proyección `nextActionAt`/`nextActionType`
+  (`task:<tipo>` o `appointment:<tipo>`, `server/utils/leads/nextAction.ts`).
+- `buyerRequirements` — las activas del Contact detrás del contacto de
+  WhatsApp (vía `resolveActivityContact()`; sin vínculo, lista vacía).
+- `appointments` — las citas futuras programadas de ese lead (`visits.lead_id`).
+- `property` resuelve ahora los dos catálogos según `property_kind` — antes
+  sólo miraba `developer_properties`, así que una propiedad de contexto de 2ª
+  mano se quedaba en `null`.
+
+`createFollowUpVisit()` («Programar seguimiento») escribe ahora
+`visits.lead_id` desde `comms_contacts.lead_id` y llama a
+`syncLeadNextAction()`, igual que el resto de caminos que crean citas
+(`appointments/adminCreate.ts`, `tours.ts`, la reserva pública). Antes un
+seguimiento creado desde aquí no contaba como próxima acción del lead.
+
 ### Consentimiento
 
 - Un mensaje del cliente pone `consent_status = opted_in` (origen

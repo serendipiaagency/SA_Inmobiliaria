@@ -1,10 +1,10 @@
-import { and, desc, eq, inArray, isNotNull, isNull, like, lt, or } from 'drizzle-orm'
+import { and, desc, eq, gt, inArray, isNotNull, isNull, like, lt, or } from 'drizzle-orm'
 import { requireOrgScope } from '../../../../utils/auth'
 import { schema, useDb } from '../../../../utils/db'
 import { agentNames, crmNamesFor, serializeConversation } from '../../../../utils/comms/admin'
 
 /**
- * GET /api/admin/comms/conversations?status=open|pending|closed|all&assigned=<agentId>|unassigned|all&q=&before=<lastMessageAt>
+ * GET /api/admin/comms/conversations?status=open|pending|closed|all&assigned=<agentId>|unassigned|all&channel=<channelId>&unread=1&propertyId=&propertyKind=&q=&before=<lastMessageAt>
  * La lista de la bandeja, más reciente primero. `q` busca por teléfono,
  * nombre de perfil y último mensaje; los nombres del CRM salen aparte.
  */
@@ -16,12 +16,23 @@ export default defineEventHandler(async (event) => {
   const assigned = String(q.assigned || 'all')
   const search = String(q.q || '').trim()
   const before = typeof q.before === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(q.before) ? q.before : null
+  const channelId = /^\d+$/.test(String(q.channel || '')) ? Number(q.channel) : null
+  const unreadOnly = String(q.unread || '') === '1'
+  const propertyId = /^\d+$/.test(String(q.propertyId || '')) ? Number(q.propertyId) : null
+  const propertyKind = q.propertyKind === 'agent' || q.propertyKind === 'developer' ? q.propertyKind : null
 
   const conds = [eq(schema.commsConversations.organizationId, orgId), isNotNull(schema.commsConversations.lastMessageAt)]
   if (status !== 'all') conds.push(eq(schema.commsConversations.status, status))
   if (assigned === 'unassigned') conds.push(isNull(schema.commsConversations.assignedAgentId))
   else if (/^\d+$/.test(assigned)) conds.push(eq(schema.commsConversations.assignedAgentId, Number(assigned)))
   if (before) conds.push(lt(schema.commsConversations.lastMessageAt, before))
+  if (channelId) conds.push(eq(schema.commsConversations.channelId, channelId))
+  if (unreadOnly) conds.push(gt(schema.commsConversations.unreadCount, 0))
+  if (propertyId) {
+    conds.push(eq(schema.commsConversations.propertyId, propertyId))
+    // NULL en property_kind de filas anteriores a la migración 0082 significa 'developer' — el único catálogo que existía entonces.
+    conds.push(propertyKind === 'agent' ? eq(schema.commsConversations.propertyKind, 'agent') : or(eq(schema.commsConversations.propertyKind, 'developer'), isNull(schema.commsConversations.propertyKind))!)
+  }
 
   if (search) {
     const pattern = `%${search.replace(/[%_]/g, '')}%`

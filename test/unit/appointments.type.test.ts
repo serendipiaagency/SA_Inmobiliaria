@@ -64,6 +64,30 @@ describe('FASE 17 — createFollowUpVisit deriva `type` del contexto', () => {
     const [row] = await db.select({ type: schema.visits.type }).from(schema.visits).where(eq(schema.visits.id, visit.id))
     expect(row.type).toBe('call')
   })
+
+  it('con el contacto de WhatsApp vinculado a un lead, la cita lleva su leadId y actualiza su próxima acción (FASE 29 §123)', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'FollowUpLead')
+    const [contact] = await db
+      .insert(schema.commsContacts)
+      .values({ organizationId: fixture.orgId, phoneE164: '+34600111444', leadId: fixture.leadId, createdAt: ts, updatedAt: ts })
+      .returning()
+    const { createFollowUpVisit } = await import('../../server/utils/comms/admin')
+
+    const visit = await createFollowUpVisit(db, {
+      orgId: fixture.orgId,
+      contact,
+      contactName: 'Lead Seguimiento',
+      agentId: fixture.teamMemberId,
+      scheduledAt: '2099-03-01 10:00:00',
+      channel: 'phone',
+    })
+
+    const [row] = await db.select({ leadId: schema.visits.leadId }).from(schema.visits).where(eq(schema.visits.id, visit.id))
+    expect(row.leadId).toBe(fixture.leadId)
+    const [lead] = await db.select({ nextActionAt: schema.leads.nextActionAt, nextActionType: schema.leads.nextActionType }).from(schema.leads).where(eq(schema.leads.id, fixture.leadId))
+    expect(lead).toEqual({ nextActionAt: '2099-03-01 10:00:00', nextActionType: 'appointment:call' })
+  })
 })
 
 describe('FASE 17 — confirmationStatus por defecto y su reseteo al reprogramar', () => {
