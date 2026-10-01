@@ -101,6 +101,7 @@ export function useHelpContent() {
         '"Seleccionar" y "Descartar" guardan la decisión (el descarte, con motivo). Consultar compatibilidades no guarda nada.',
         'Con un match "Seleccionado" aparece "Crear oferta": pide el importe y da de alta una oferta real en borrador (CRM → ficha del cliente → pestaña "Ofertas"), ya ligada a esa necesidad y a ese match. No se envía sola — se revisa y se envía desde ahí.',
         'Si el contacto tiene teléfono, junto a "Crear oferta" aparece "Enviar propiedad": abre (o reutiliza) su conversación de WhatsApp en Comunicaciones y le manda el inmueble con foto y ficha — con enlace público si es de Propiedades (web), sólo con foto y texto si es de 2ª mano. El botón sólo se pone en verde ("Enviado") cuando el envío se ha confirmado de verdad, nunca sólo por pulsarlo — si no hay ningún número de WhatsApp conectado, abre en su lugar la app de WhatsApp con el enlace wa.me.',
+        'El estado del match avanza solo cuando las cosas pasan de verdad: "Enviado" cuando el WhatsApp sale, "Visita" cuando anotas el resultado de una visita a ese inmueble (si el cliente dice que no le interesa, queda descartado con ese motivo) y "Ofertado" cuando se crea una oferta. Nunca retrocede y nunca recupera un descarte: eso lo decides tú.',
         'En un inmueble sin características repasadas, lo que no está marcado cuenta como desconocido. Pulsa "He repasado las características" para que a partir de ahí un hueco signifique de verdad "no lo tiene".',
       ],
     },

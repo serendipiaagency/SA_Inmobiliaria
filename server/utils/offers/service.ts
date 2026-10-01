@@ -3,7 +3,7 @@ import { createError } from 'h3'
 import * as schema from '../../db/schema'
 import { now } from '../db'
 import { recordActivity } from '../activity/service'
-import type { PropertyKind } from '../matching/service'
+import { advancePropertyMatches, type PropertyKind } from '../matching/service'
 
 /**
  * OfferService (FASE 23) — el único sitio que crea o transiciona una Offer.
@@ -185,6 +185,8 @@ export async function createOffer(db: any, orgId: number, input: CreateOfferInpu
 
   const final: OfferRow = { ...offer, currentRevisionId: revision.id }
   await recordOfferActivity(db, orgId, final, 'OFFER_CREATED', { actorType: 'user', actorId: opts.createdBy ?? null })
+  // El PropertyMatch del comprador con este inmueble pasa a «ofertado».
+  await advancePropertyMatches(db, orgId, { contactId: input.buyerContactId, buyerRequirementId: input.buyerRequirementId ?? null, propertyId: input.propertyId, propertyKind: input.propertyKind, to: 'offered' })
   return final
 }
 

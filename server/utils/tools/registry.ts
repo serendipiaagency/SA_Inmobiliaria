@@ -716,10 +716,12 @@ const createOfferTool: DomainTool = {
   }),
   async run(ctx, input) {
     await loadOwnedProperty(ctx.db, ctx.orgId, input.propertyKind, input.propertyId)
+    // El comercial de la oferta es el del lead, igual que al crearla desde el resultado de una visita.
+    const commercialId = input.leadId ? (await loadOwnedLead(ctx.db, ctx.orgId, input.leadId)).agentId : null
     const offer = await createOffer(
       ctx.db,
       ctx.orgId,
-      { propertyId: input.propertyId, propertyKind: input.propertyKind, buyerContactId: input.buyerContactId, amount: input.amount, leadId: input.leadId ?? null, buyerRequirementId: input.buyerRequirementId ?? null, conditions: input.conditions ?? null, expiration: input.expiration ?? null },
+      { propertyId: input.propertyId, propertyKind: input.propertyKind, buyerContactId: input.buyerContactId, amount: input.amount, leadId: input.leadId ?? null, buyerRequirementId: input.buyerRequirementId ?? null, commercialId, conditions: input.conditions ?? null, expiration: input.expiration ?? null },
       { createdBy: ctx.user.id },
     )
     return { output: { offerId: offer.id, status: offer.status, amount: offer.currentAmount, propertyId: offer.propertyId, propertyKind: offer.propertyKind }, target: { type: 'offer', id: offer.id } }

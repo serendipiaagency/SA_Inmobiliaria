@@ -427,6 +427,42 @@ export async function setMatchStatus(
  * lo reciba directamente del cliente (por eso vive fuera de
  * `setMatchStatus()`, sin su guarda de MANUAL_STATUSES).
  */
+/** Orden comercial de un PropertyMatch vivo; `discarded` queda fuera a propósito. */
+const MATCH_PROGRESS: Record<string, number> = { new: 0, selected: 1, sent: 2, viewing: 3, offered: 4 }
+
+/**
+ * Refleja en el PropertyMatch lo que ya ocurrió de verdad en otro dominio
+ * (FASE 34, §158 paso 27): una visita con resultado lo lleva a `viewing`
+ * (o a `discarded` si el comprador dijo que no le interesa) y una oferta a
+ * `offered`. Reglas:
+ *  - sólo hacia delante — nunca devuelve un `offered` a `viewing`;
+ *  - un descarte es una decisión de una persona: no se resucita;
+ *  - nunca crea un match que nadie hizo: si no existe, no hay nada que reflejar.
+ * Con `buyerRequirementId` se toca sólo ese par; si no, los de esa persona y esa propiedad.
+ */
+export async function advancePropertyMatches(
+  db: any,
+  orgId: number,
+  input: { contactId?: number | null; buyerRequirementId?: number | null; propertyId: number; propertyKind: PropertyKind; to: 'viewing' | 'offered' | 'discarded'; reason?: string | null },
+): Promise<number> {
+  if (!input.contactId && !input.buyerRequirementId) return 0
+  const { match: M } = tablesFor(input.propertyKind)
+  const conds = [eq(M.organizationId, orgId), eq(M.propertyId, input.propertyId)]
+  conds.push(input.buyerRequirementId ? eq(M.buyerRequirementId, input.buyerRequirementId) : eq(M.contactId, input.contactId))
+  const rows = await db.select({ id: M.id, status: M.status }).from(M).where(and(...conds))
+  let changed = 0
+  for (const r of rows) {
+    if (r.status === 'discarded') continue
+    if (input.to !== 'discarded' && (MATCH_PROGRESS[r.status] ?? 0) >= MATCH_PROGRESS[input.to]) continue
+    await db
+      .update(M)
+      .set({ status: input.to, discardedReason: input.to === 'discarded' ? input.reason || null : null, updatedAt: now() })
+      .where(and(eq(M.id, r.id), eq(M.organizationId, orgId)))
+    changed++
+  }
+  return changed
+}
+
 export async function markMatchSent(
   event: H3Event,
   orgId: number,

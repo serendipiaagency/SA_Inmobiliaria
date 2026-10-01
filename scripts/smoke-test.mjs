@@ -15,6 +15,12 @@
  * acaba de publicar. Sin eso, un despliegue puede "pasar" habiendo dejado
  * vivo el anterior — que es exactamente lo que puede ocurrir mientras
  * Workers Builds siga publicando por su cuenta.
+ *
+ * El build recién publicado tarda unos segundos en servirse en todo el
+ * borde de Cloudflare: si la primera lectura todavía devuelve el anterior,
+ * se reintenta hasta SMOKE_VERSION_WAIT_MS (90 s por defecto) antes de
+ * darlo por fallido. Un deploy que de verdad dejó vivo el build anterior
+ * sigue fallando; uno que sólo está propagándose, no.
  */
 const BASE_URL = (process.argv[2] || process.env.SMOKE_BASE_URL || '').replace(/\/$/, '')
 if (!BASE_URL) {
@@ -23,7 +29,30 @@ if (!BASE_URL) {
 }
 
 const TIMEOUT_MS = 15_000
+const VERSION_WAIT_MS = Number(process.env.SMOKE_VERSION_WAIT_MS || 90_000)
+const VERSION_POLL_MS = 5_000
 let failures = 0
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/** Espera a que /api/health/ready sirva el commit esperado (propagación del borde). Devuelve sin lanzar: la comprobación de abajo decide. */
+async function waitForExpectedBuild(want) {
+  const deadline = Date.now() + VERSION_WAIT_MS
+  let last = null
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetchWithTimeout('/api/health/ready')
+      if (res.ok) {
+        last = (await res.json())?.version?.commit ?? null
+        if (last === want) return
+      }
+    } catch {
+      // red o timeout puntual: se vuelve a intentar hasta el plazo
+    }
+    console.log(`  … el borde todavía sirve ${last ?? '¿?'}; esperando a ${want}`)
+    await sleep(VERSION_POLL_MS)
+  }
+}
 
 async function fetchWithTimeout(path) {
   const controller = new AbortController()
@@ -54,6 +83,8 @@ async function main() {
   console.log(`Smoke tests contra ${BASE_URL}\n`)
 
   await check('Health: liveness', '/api/health/live', (res) => expectStatus(res, 200))
+  const expectedCommit = process.env.SMOKE_EXPECT_COMMIT || process.env.GITHUB_SHA
+  if (expectedCommit) await waitForExpectedBuild(String(expectedCommit).trim().toLowerCase().slice(0, 7))
   let liveVersion = null
   await check('Health: readiness (D1 + R2 alcanzables)', '/api/health/ready', async (res) => {
     expectStatus(res, 200)
@@ -63,9 +94,8 @@ async function main() {
 
     // Sin esto, un despliegue puede "pasar" habiendo dejado vivo el build
     // anterior: todas las demás comprobaciones seguirían en verde.
-    const expected = process.env.SMOKE_EXPECT_COMMIT || process.env.GITHUB_SHA
-    if (expected) {
-      const want = String(expected).trim().toLowerCase().slice(0, 7)
+    if (expectedCommit) {
+      const want = String(expectedCommit).trim().toLowerCase().slice(0, 7)
       if (liveVersion.commit !== want) {
         throw new Error(
           `está sirviendo ${liveVersion.commit} (${liveVersion.source}, rama ${liveVersion.branch}, compilado ${liveVersion.builtAt}) pero se esperaba ${want}`,

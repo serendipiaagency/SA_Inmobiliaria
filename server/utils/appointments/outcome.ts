@@ -5,6 +5,7 @@ import { now } from '../db'
 import { recordActivity } from '../activity/service'
 import { createTask } from '../tasks/service'
 import { createOffer } from '../offers/service'
+import { advancePropertyMatches } from '../matching/service'
 
 /**
  * Resultado de visita (FASE 19, migración 0074).
@@ -82,6 +83,17 @@ export async function recordVisitOutcome(db: any, orgId: number, visitId: number
     actorType: 'user',
     metadata: { outcome: input.outcome },
   })
+
+  // El PropertyMatch de esta persona con este inmueble refleja la visita.
+  if (visit.propertyId && visit.propertyKind && contactId) {
+    await advancePropertyMatches(db, orgId, {
+      contactId,
+      propertyId: visit.propertyId,
+      propertyKind: visit.propertyKind as any,
+      to: input.outcome === 'not_interested' ? 'discarded' : 'viewing',
+      reason: input.outcome === 'not_interested' ? 'Tras la visita: no le interesa' : null,
+    })
+  }
 
   if (input.followUp?.dueAt) {
     await createTask(
