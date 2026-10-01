@@ -170,7 +170,7 @@ export function useHelpContent() {
         'Regla de WhatsApp, no nuestra: sólo se puede escribir texto libre durante las 24 h siguientes al último mensaje del cliente. Pasado ese tiempo (o si el cliente nunca os escribió), el redactor lo dice y sólo permite enviar una plantilla aprobada — el icono de plantilla abre la lista, pide los valores ({{1}}, {{2}}…) y muestra la vista previa. Las plantillas se registran en Configuración → Comunicaciones (a mano, o "Sincronizar desde Meta").',
         'Los mensajes enviados llevan su estado real: ✓ aceptado por el proveedor, ✓✓ entregado, ✓✓ azul leído, ⚠ no entregado con el motivo que devolvió el proveedor. Nada se marca como enviado si el proveedor lo rechazó.',
         'Un mensaje ⚠ no entregado tiene «Reintentar»: se vuelve a enviar como un mensaje nuevo y el fallido se queda en el hilo tal cual, para que el historial no mienta. Si era una propiedad, se manda con su precio y su foto de ahora, no con los del primer intento. Las reglas de WhatsApp siguen aplicando: pasadas 24 h desde el último mensaje del cliente, un texto ya no se puede reintentar (sólo una plantilla).',
-        'Un número que no está en ningún cliente ni lead aparece como "Contacto desconocido". Desde la ficha del contacto se vincula a uno existente (buscador) o se crea un lead nuevo con origen "whatsapp". En Ajustes puedes hacer que los desconocidos se conviertan en lead automáticamente.',
+        'Un número que no está en ningún cliente ni lead aparece como "Contacto desconocido". Desde la ficha del contacto se vincula a uno existente (buscador) o se crea un lead nuevo con origen "whatsapp". En Ajustes puedes hacer que los desconocidos se conviertan en lead automáticamente. En los dos casos el lead entra igual que uno del formulario de la web: con su Contacto (si ese teléfono o email ya es de alguien, se enlaza a esa persona en vez de duplicarla), reparto automático según tus reglas, entrada en la Actividad y aviso al equipo. Al abrir una conversación desde la ficha de un cliente o de un lead no se crea ningún lead nuevo: esa ficha ya es la persona.',
         'La ficha del contacto también fija el estado de la conversación (abierta, pendiente, cerrada), el comercial asignado, la propiedad de contexto y el consentimiento: un mensaje del cliente lo pone en "acepta mensajes"; si escribe STOP o BAJA queda dado de baja y no se le envía nada (ni plantillas) hasta que vuelva a escribir o alguien lo cambie a mano.',
         '"Programar seguimiento" crea una cita real en la agenda del comercial (llamada, videollamada o visita), la misma que ves en CRM → Visitas, con la comprobación de huecos ocupados. Si el contacto está vinculado a un lead, la cita queda ligada a ese lead y pasa a ser su "próxima acción" en el tablero de Leads.',
         'Con la conversación vinculada a un lead o cliente, la ficha muestra un bloque «Contexto»: la próxima acción del lead (en rojo si ya venció), sus necesidades de compra/alquiler activas y sus próximas citas. No se copia nada a la conversación: se lee en vivo cada vez que abres el hilo.',
@@ -537,7 +537,10 @@ export function useHelpContent() {
       title: 'API',
       route: '/admin/api',
       summary: 'Claves de API para integrar tu catálogo y tus leads con herramientas externas (API v1 pública).',
-      steps: ['Genera una clave con permiso de lectura o escritura según lo que necesite la integración externa.'],
+      steps: [
+        'Genera una clave con permiso de lectura o escritura según lo que necesite la integración externa.',
+        'Un lead enviado por la API (POST /api/v1/leads) entra igual que uno del formulario de la web: se enlaza a su Contacto (o se crea), se reparte con tus reglas de enrutado, queda en su Actividad y avisa al equipo. Si ese email ya tiene un lead en tu agencia, se actualiza ese lead en vez de crear otro, y la respuesta lo indica con "created": false.',
+      ],
     },
     // --- Blog & CMS --------------------------------------------------------
     {

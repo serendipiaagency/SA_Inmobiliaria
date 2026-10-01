@@ -262,6 +262,20 @@ Un número que no cruza con ningún cliente ni lead se muestra como
 cliente o lead existente, o crear un lead (origen `whatsapp`). En Ajustes,
 «Contacto desconocido → Crear un lead automáticamente» lo hace solo.
 
+**Las dos vías crean el lead con `upsertLead()`** (`server/utils/leads.ts`,
+FASE 29 §118-120), el mismo circuito que el formulario web, la reserva y
+`POST /api/v1/leads`: resuelve o crea el Contact (dedup por teléfono/email,
+nunca fusiona), registra `LEAD_CREATED` en Activity, enruta según las reglas
+de la agencia y avisa al equipo. Antes cada una hacía su propio `INSERT` en
+`leads` y el lead nacía sin Contact, sin reparto y sin actividad.
+
+Como el webhook no tiene sesión y `server/utils/comms/*` no depende de H3, la
+ruta inyecta el circuito: `IngestContext.createLead = (l) => upsertLead(event, l)`
+(webhooks de Meta y Twilio) y `upsertContact(…, { createLead })` (panel). **Sin
+`createLead` no se crea ningún lead**, nunca por otra vía. Al abrir una
+conversación o un contacto desde la ficha de un cliente o lead no se inyecta:
+esa ficha ya es la persona.
+
 ### Actividad 360º
 
 `comms_contacts.client_id` es un vínculo guardado de verdad (a diferencia

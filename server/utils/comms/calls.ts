@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { isUniqueConstraintError, now } from '../db'
 import { recordActivity } from '../activity/service'
-import { findOrCreateConversation, isoToDbTs, resolveActivityContact, upsertContact } from './inbox'
+import { findOrCreateConversation, isoToDbTs, resolveActivityContact, upsertContact, type IngestContext } from './inbox'
 import { metaCallAction } from './providers/metaCloud'
 import type { CallEvent, LoadedChannel } from './types'
 
@@ -70,7 +70,7 @@ function durationLabel(seconds: number | null | undefined): string {
 }
 
 /** Un evento del webhook `calls` de Meta, ya verificado y ya reclamado como no duplicado. */
-export async function ingestCallEvent(db: any, channel: LoadedChannel, event: CallEvent): Promise<{ callId: number | null; note: string }> {
+export async function ingestCallEvent(db: any, channel: LoadedChannel, event: CallEvent, ctx: IngestContext = {}): Promise<{ callId: number | null; note: string }> {
   const rows: CallRow[] = await db.select().from(schema.commsCalls).where(eq(schema.commsCalls.externalId, event.externalId)).limit(1)
   const existing = rows[0] ?? null
   const ts = isoToDbTs(event.timestamp)
@@ -79,7 +79,7 @@ export async function ingestCallEvent(db: any, channel: LoadedChannel, event: Ca
     if (!existing) {
       // Llamada entrante (USER_INITIATED): trae la oferta SDP del usuario.
       if (!event.from) return { callId: null, note: 'connect sin remitente' }
-      const contact = await upsertContact(db, channel.organizationId, event.from, {})
+      const contact = await upsertContact(db, channel.organizationId, event.from, { createLead: ctx.createLead })
       const conversation = await findOrCreateConversation(db, channel.organizationId, channel.id, contact.id)
       try {
         const [row] = await db

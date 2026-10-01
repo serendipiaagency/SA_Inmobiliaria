@@ -126,17 +126,28 @@ type ContactRow = typeof schema.commsContacts.$inferSelect
 type ConversationRow = typeof schema.commsConversations.$inferSelect
 type MessageRow = typeof schema.commsMessages.$inferSelect
 
+/**
+ * El pipeline central de leads (`upsertLead`, server/utils/leads.ts: Contact
+ * y dedup, Activity, routing, avisos) visto desde aquí. Lo inyecta la ruta,
+ * que es quien tiene el evento H3 — así estos utils no dependen de H3.
+ */
+export type CreateLeadFn = (input: { organizationId: number; name: string; phone: string; whatsapp: string; source: 'whatsapp'; notes: string }) => Promise<{ id: number }>
+
 export interface UpsertContactInput {
   waId?: string | null
   displayName?: string | null
   /** 'YYYY-MM-DD HH:MM:SS' del mensaje entrante que provoca el alta/actualización. */
   inboundAt?: string | null
+  createLead?: CreateLeadFn
 }
 
 /**
  * El contacto de un teléfono en esta organización, creándolo si no existe.
  * Al crearlo se cruza con el CRM; si no hay nadie y la política es `lead`,
- * se abre un lead con origen "whatsapp" para que no se pierda.
+ * se abre un lead con origen "whatsapp" para que no se pierda — siempre por
+ * `input.createLead` (el pipeline central, FASE 29 §118-120). Sin él no se
+ * crea ninguno: nunca un INSERT paralelo que se salte Contact, routing y
+ * Activity. El contacto queda «Desconocido» y se vincula a mano.
  */
 export async function upsertContact(db: any, orgId: number, phoneE164: string, input: UpsertContactInput = {}): Promise<ContactRow & { created: boolean }> {
   const nowTs = now()
@@ -158,22 +169,15 @@ export async function upsertContact(db: any, orgId: number, phoneE164: string, i
   const settings = await getCommsSettings(db, orgId)
   const match = await matchCrmByPhone(db, orgId, phoneE164, settings.defaultCountryPrefix)
   let leadId = match.leadId
-  if (!match.clientId && !leadId && settings.unknownContactPolicy === 'lead') {
-    const [lead] = await db
-      .insert(schema.leads)
-      .values({
-        organizationId: orgId,
-        name: input.displayName || formatPhone(phoneE164),
-        phone: phoneE164,
-        source: 'whatsapp',
-        status: 'new',
-        score: 10,
-        notes: 'Creado automáticamente desde un mensaje de WhatsApp (Centro de Comunicaciones).',
-        lastContactAt: nowTs,
-        createdAt: nowTs,
-        updatedAt: nowTs,
-      })
-      .returning({ id: schema.leads.id })
+  if (!match.clientId && !leadId && settings.unknownContactPolicy === 'lead' && input.createLead) {
+    const lead = await input.createLead({
+      organizationId: orgId,
+      name: input.displayName || formatPhone(phoneE164),
+      phone: phoneE164,
+      whatsapp: phoneE164,
+      source: 'whatsapp',
+      notes: 'Creado automáticamente desde un mensaje de WhatsApp (Centro de Comunicaciones).',
+    })
     leadId = lead.id
   }
 
@@ -243,6 +247,8 @@ export interface IngestContext {
   /** Origen público (https://…) para construir enlaces en el aviso interno. */
   publicOrigin?: string | null
   requestId?: string | null
+  /** Ver `upsertContact` — sin él, un desconocido nunca se convierte en lead. */
+  createLead?: CreateLeadFn
 }
 
 export interface IngestMessageResult {
@@ -260,7 +266,7 @@ export async function ingestInboundMessage(db: any, env: Record<string, any>, ch
   // Los parsers ya normalizan; esto atrapa un payload corrupto antes de que
   // un "teléfono" que no lo es acabe como contacto.
   if (normalizePhone(event.from) !== event.from) throw new Error(`Remitente no válido: ${event.from}`)
-  const contact = await upsertContact(db, orgId, event.from, { waId: event.raw && (event.raw as any).from ? String((event.raw as any).from) : null, displayName: event.profileName ?? null, inboundAt: ts })
+  const contact = await upsertContact(db, orgId, event.from, { waId: event.raw && (event.raw as any).from ? String((event.raw as any).from) : null, displayName: event.profileName ?? null, inboundAt: ts, createLead: ctx.createLead })
   const conversation = await findOrCreateConversation(db, orgId, channel.id, contact.id)
 
   const type = event.type

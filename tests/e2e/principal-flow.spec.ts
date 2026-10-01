@@ -225,15 +225,17 @@ test.describe('Flujo principal FASES 20-24', () => {
       data: { name: 'Comprador 2ª Mano E2E', email, source: 'api' },
     })
     expect(leadRes.ok(), await leadRes.text()).toBeTruthy()
-    const leadId = (await leadRes.json()).data.id
+    const { data: lead } = await leadRes.json()
+    const leadId = lead.id
+    // FASE 29 §118: la API v1 pasa por upsertLead(), como los formularios — el lead
+    // ya trae su Contact resuelto por email; antes nacía sin él y había que crearlo aparte.
+    const contactId = lead.contactId as number
+    expect(contactId, 'el lead de la API v1 debe resolver su Contact, como cualquier otra entrada').toBeTruthy()
 
     const reassignRes = await a.post(`/api/admin/saas/leads/${leadId}/reassign`, { data: { commercialId: commercialAgentId, reason: 'Asignación E2E' } })
     expect(reassignRes.ok(), await reassignRes.text()).toBeTruthy()
 
     await a.patch(`/api/admin/saas/leads/${leadId}`, { data: { stage: 'qualified' } })
-
-    const contactRes = await a.post('/api/admin/saas/contacts', { data: { name: 'Comprador 2ª Mano E2E', email } })
-    const contactId = (await contactRes.json()).id
 
     // --- Necesidad + matching sobre el catálogo de 2ª mano ----------------
     const reqRes = await a.post('/api/admin/saas/buyer-requirements', {
@@ -253,11 +255,9 @@ test.describe('Flujo principal FASES 20-24', () => {
     ).json()
 
     // --- Resultado de visita (§19) ------------------------------------------
-    // Sin `createOffer` aquí: esa vía resuelve el comprador por
-    // `visit.leadId → leads.contactId`, y el lead de este recorrido nace por
-    // `/api/v1/leads` (alta directa, sin resolver Contact — a diferencia de
-    // `upsertLead()`, ya probado en el recorrido de obra nueva). La oferta se
-    // crea aparte, con el comprador explícito.
+    // Sin `createOffer` aquí (esa vía ya se prueba en el recorrido de obra
+    // nueva): la oferta se crea aparte, con el comprador explícito — el mismo
+    // Contact que resolvió el lead.
     await a.patch(`/api/admin/saas/visits/${visit.id}`, { data: { status: 'completed' } })
     const outcomeRes = await a.post(`/api/admin/saas/visits/${visit.id}/outcome`, { data: { outcome: 'interested' } })
     expect(outcomeRes.ok(), await outcomeRes.text()).toBeTruthy()

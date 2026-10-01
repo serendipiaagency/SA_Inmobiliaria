@@ -3,6 +3,7 @@ import { isCommsEncryptionAvailable, loadChannelByExternalPhone } from '../../..
 import { ingestParsedWebhook } from '../../../../utils/comms/ingest'
 import { parseTwilioInbound } from '../../../../utils/comms/providers/twilio'
 import { verifyTwilioSignature } from '../../../../utils/whatsapp'
+import { upsertLead } from '../../../../utils/leads'
 import { getRequestId } from '../../../../utils/requestId'
 
 /**
@@ -37,7 +38,7 @@ export default defineEventHandler(async (event) => {
 
   const parsed = parseTwilioInbound(params)
   if (parsed && channel.status === 'active') {
-    await ingestParsedWebhook(db, env, channel, parsed, { publicOrigin: getRequestURL(event).origin, requestId: getRequestId(event) })
+    await ingestParsedWebhook(db, env, channel, parsed, { publicOrigin: getRequestURL(event).origin, requestId: getRequestId(event), createLead: (lead) => upsertLead(event, lead) })
   }
   return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
 })

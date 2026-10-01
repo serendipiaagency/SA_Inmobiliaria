@@ -84,7 +84,7 @@ export async function ingestParsedWebhook(db: any, env: Record<string, any>, cha
           break
         }
         case 'call': {
-          const r = await ingestCallEvent(db, channel, event)
+          const r = await ingestCallEvent(db, channel, event, ctx)
           if (r.callId) summary.processed++
           else summary.ignored++
           note = r.note
