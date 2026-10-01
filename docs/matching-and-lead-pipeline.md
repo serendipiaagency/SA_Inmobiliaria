@@ -95,6 +95,22 @@ pueden fijar a mano (`MANUAL_STATUSES`); `sent`/`viewing`/`offered` están
 reservados para cuando exista el envío real (Comunicaciones), la visita
 (Appointment) o la oferta (Offer) — no se simulan con un estado suelto.
 
+Desde FASE 34 esos tres estados **se escriben solos** cuando el hecho ocurre:
+- `sent`: `markMatchSent()`, sólo si el proveedor aceptó el envío (FASE 29).
+- `viewing` / `discarded`: `recordVisitOutcome()` vía
+  `advancePropertyMatches()`. Una visita con resultado lleva el match de esa
+  persona con ese inmueble a `viewing`. Si el resultado es «no le interesa»,
+  lo descarta con el motivo «Tras la visita: no le interesa».
+- `offered`: `createOffer()` vía `advancePropertyMatches()`. Si llega
+  `buyerRequirementId`, sólo toca ese par.
+
+Reglas de `advancePropertyMatches()`:
+- sólo avanza (`new → selected → sent → viewing → offered`);
+- nunca resucita un `discarded`, que es una decisión de una persona;
+- nunca crea un match que nadie hizo.
+
+Pruebas en `test/unit/matchAdvance.test.ts`.
+
 ## Lead: entidad real, resuelta contra Contact
 
 `upsertLead()` (`server/utils/leads.ts`) sigue matcheando por email dentro
