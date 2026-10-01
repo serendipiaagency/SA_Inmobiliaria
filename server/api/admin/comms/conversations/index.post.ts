@@ -4,6 +4,7 @@ import { cfEnv, now, schema, useDb } from '../../../../utils/db'
 import { defaultChannel, loadChannel } from '../../../../utils/comms/credentials'
 import { findOrCreateConversation, getCommsSettings, upsertContact } from '../../../../utils/comms/inbox'
 import { normalizePhone, whatsappClickToChatUrl } from '../../../../utils/comms/phone'
+import { upsertLead } from '../../../../utils/leads'
 
 /**
  * POST /api/admin/comms/conversations — abre (o encuentra) la conversación
@@ -64,7 +65,8 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const contact = await upsertContact(db, orgId, phone, { displayName: null })
+  // Abierta desde una ficha, esa ficha ya es la persona: nunca un lead de más.
+  const contact = await upsertContact(db, orgId, phone, { displayName: null, createLead: clientId || leadId ? undefined : (lead) => upsertLead(event, lead) })
   // Si la ficha desde la que se abre no estaba vinculada al contacto, se vincula ahora: es la persona.
   const link: Record<string, any> = {}
   if (clientId && !contact.clientId) link.clientId = clientId

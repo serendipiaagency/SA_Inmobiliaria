@@ -4,6 +4,7 @@ import { now, schema, useDb } from '../../../../../utils/db'
 import { logAdminAction } from '../../../../../utils/audit'
 import { crmNamesFor, loadContactForOrg, serializeContact } from '../../../../../utils/comms/admin'
 import { formatPhone } from '../../../../../utils/comms/phone'
+import { upsertLead } from '../../../../../utils/leads'
 
 /**
  * POST /api/admin/comms/contacts/:id/link — el flujo del contacto
@@ -46,24 +47,19 @@ export default defineEventHandler(async (event) => {
   } else if (body.createLead) {
     const name = String(body.createLead.name || contact.displayName || formatPhone(contact.phoneE164)).trim().slice(0, 200)
     if (!name) throw createError({ statusCode: 422, statusMessage: 'El lead necesita un nombre.' })
-    const [lead] = await db
-      .insert(schema.leads)
-      .values({
-        organizationId: orgId,
-        name,
-        email: body.createLead.email ? String(body.createLead.email).slice(0, 200) : null,
-        phone: contact.phoneE164,
-        source: 'whatsapp',
-        status: 'new',
-        score: 10,
-        notes: body.createLead.notes ? String(body.createLead.notes).slice(0, 2000) : 'Creado desde una conversación de WhatsApp (Centro de Comunicaciones).',
-        lastContactAt: nowTs,
-        createdAt: nowTs,
-        updatedAt: nowTs,
-      })
-      .returning({ id: schema.leads.id })
+    // El pipeline central (FASE 29 §118-120): Contact + dedup, Activity, routing y aviso — y con
+    // un email que ya tiene lead en la agencia, se vincula a ese en vez de duplicarlo.
+    const lead = await upsertLead(event, {
+      organizationId: orgId,
+      name,
+      email: body.createLead.email ? String(body.createLead.email).trim().slice(0, 200) : null,
+      phone: contact.phoneE164,
+      whatsapp: contact.phoneE164,
+      source: 'whatsapp',
+      notes: body.createLead.notes ? String(body.createLead.notes).slice(0, 2000) : 'Creado desde una conversación de WhatsApp (Centro de Comunicaciones).',
+    })
     patch.leadId = lead.id
-    detail = `lead-created:${lead.id}`
+    detail = `${lead.created ? 'lead-created' : 'lead-matched'}:${lead.id}`
   } else {
     throw createError({ statusCode: 422, statusMessage: 'Indica clientId, leadId, createLead o unlink.' })
   }

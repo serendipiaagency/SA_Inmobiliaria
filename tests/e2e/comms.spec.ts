@@ -201,6 +201,13 @@ test.describe('Centro de Comunicaciones', () => {
     expect(contact.name).toBe('Ana Lead E2E')
     expect((await b.post(`/api/admin/comms/contacts/${inboundContactId}/link`, { data: { unlink: true } })).status()).toBe(404)
 
+    // FASE 29 §118-120 — «crear lead» pasa por upsertLead(): el lead resuelve su Contact (por el teléfono),
+    // y la ficha de ese Contact ya ve esta conversación.
+    const createdLead = (await (await a.get('/api/admin/saas/leads', { params: { search: 'Ana Lead E2E' } })).json()).rows.find((l: any) => l.id === contact.lead.id)
+    expect(createdLead.contactId, 'un lead creado desde WhatsApp tiene que tener su Contact, como cualquier otra entrada').toBeTruthy()
+    const person = await (await a.get(`/api/admin/saas/contacts/${createdLead.contactId}`)).json()
+    expect(person.communications.conversations.map((c: any) => c.id)).toContain(inboundConversationId)
+
     const call = await a.post('/api/admin/comms/calls/log', { data: { conversationId: inboundConversationId, direction: 'outbound', outcome: 'interested', notes: 'Quiere visitar el sábado', durationSeconds: 240 } })
     expect(call.ok(), await call.text()).toBeTruthy()
     const callId = (await call.json()).call.id

@@ -4,6 +4,7 @@ import { now, schema, useDb } from '../../../../utils/db'
 import { crmNamesFor, serializeContact } from '../../../../utils/comms/admin'
 import { getCommsSettings, upsertContact } from '../../../../utils/comms/inbox'
 import { normalizePhone } from '../../../../utils/comms/phone'
+import { upsertLead } from '../../../../utils/leads'
 
 /**
  * POST /api/admin/comms/contacts — el contacto de comunicaciones de un
@@ -48,7 +49,8 @@ export default defineEventHandler(async (event) => {
   const phone = normalizePhone(phoneRaw, settings.defaultCountryPrefix)
   if (!phone) throw createError({ statusCode: 422, statusMessage: `El teléfono "${phoneRaw}" no tiene prefijo internacional (+34…). Corrígelo en la ficha o configura el prefijo por defecto en Configuración → Comunicaciones.` })
 
-  const contact = await upsertContact(db, orgId, phone, { displayName: contact_display(displayName) })
+  // Desde una ficha, esa ficha ya es la persona: nunca un lead de más.
+  const contact = await upsertContact(db, orgId, phone, { displayName: contact_display(displayName), createLead: clientId || leadId ? undefined : (lead) => upsertLead(event, lead) })
   const link: Record<string, any> = {}
   if (clientId && !contact.clientId) link.clientId = clientId
   if (leadId && !contact.leadId) link.leadId = leadId

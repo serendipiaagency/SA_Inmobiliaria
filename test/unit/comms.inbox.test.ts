@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { and, eq } from 'drizzle-orm'
 import { createTestDb, seedTenant, type TenantFixture } from './helpers/tenantFixtures'
 import * as schema from '../../server/db/schema'
@@ -14,6 +14,12 @@ import type { InboundMessageEvent, LoadedChannel, ParsedWebhook } from '../../se
  * consentimiento, llamadas — y el aislamiento entre agencias, que es lo
  * único que de verdad no puede fallar.
  */
+// upsertLead() (el pipeline central de leads) lee la base por useDb(event): aquí, la SQLite de la prueba.
+vi.mock('../../server/utils/db', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../server/utils/db')>()
+  return { ...actual, useDb: (event: any) => event.context.db }
+})
+
 let db: any
 let a: TenantFixture
 let b: TenantFixture
@@ -124,13 +130,27 @@ describe('mensajes entrantes', () => {
     expect(convsB[0].lastMessagePreview).toBe('Hola Beta')
   })
 
-  it('con la política "lead", un desconocido crea un lead con origen whatsapp', async () => {
+  it('con la política "lead", un desconocido crea un lead con origen whatsapp por el pipeline central (Contact + Activity)', async () => {
     await db.insert(schema.commsSettings).values({ organizationId: a.orgId, unknownContactPolicy: 'lead', notifyInternal: 0, createdAt: '', updatedAt: '' })
-    await ingestParsedWebhook(db, env, channelA, parsed(channelA, [textEvent('+34611223344', 'wamid.lead', 'Hola')]))
+    const { upsertLead } = await import('../../server/utils/leads')
+    const event = { context: { db } } as any
+    await ingestParsedWebhook(db, env, channelA, parsed(channelA, [textEvent('+34611223344', 'wamid.lead', 'Hola')]), { createLead: (lead) => upsertLead(event, lead) })
     const [contact] = await db.select().from(schema.commsContacts).where(eq(schema.commsContacts.organizationId, a.orgId))
     expect(contact.leadId).not.toBeNull()
     const [lead] = await db.select().from(schema.leads).where(eq(schema.leads.id, contact.leadId))
-    expect(lead).toMatchObject({ organizationId: a.orgId, source: 'whatsapp', phone: '+34611223344', name: 'Perfil WA' })
+    expect(lead).toMatchObject({ organizationId: a.orgId, source: 'whatsapp', phone: '+34611223344', whatsapp: '+34611223344', name: 'Perfil WA', stage: 'new' })
+    // FASE 29 §118-120 — antes era un INSERT suelto: sin Contact y sin Activity.
+    expect(lead.contactId, 'el lead resuelve su Contact como cualquier otra entrada').not.toBeNull()
+    const activity = await db.select().from(schema.activities).where(and(eq(schema.activities.leadId, lead.id), eq(schema.activities.eventType, 'LEAD_CREATED')))
+    expect(activity).toHaveLength(1)
+  })
+
+  it('sin el pipeline central inyectado, un desconocido nunca se convierte en lead por otra vía', async () => {
+    await db.insert(schema.commsSettings).values({ organizationId: a.orgId, unknownContactPolicy: 'lead', notifyInternal: 0, createdAt: '', updatedAt: '' })
+    await ingestParsedWebhook(db, env, channelA, parsed(channelA, [textEvent('+34611223355', 'wamid.nolead', 'Hola')]))
+    const [contact] = await db.select().from(schema.commsContacts).where(eq(schema.commsContacts.organizationId, a.orgId))
+    expect(contact.leadId).toBeNull()
+    expect(await db.select().from(schema.leads).where(eq(schema.leads.source, 'whatsapp'))).toHaveLength(0)
   })
 
   it('"BAJA" marca el opt-out y luego nada sale, ni plantillas', async () => {

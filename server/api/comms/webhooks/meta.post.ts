@@ -2,7 +2,9 @@ import { cfEnv, useDb } from '../../../utils/db'
 import { isCommsEncryptionAvailable, loadChannelByExternalPhone } from '../../../utils/comms/credentials'
 import { ingestParsedWebhook, type IngestSummary } from '../../../utils/comms/ingest'
 import { metaPhoneNumberIdsIn, parseMetaWebhook, verifyMetaSignature } from '../../../utils/comms/providers/metaCloud'
+import type { IngestContext } from '../../../utils/comms/inbox'
 import type { LoadedChannel } from '../../../utils/comms/types'
+import { upsertLead } from '../../../utils/leads'
 import { getRequestId } from '../../../utils/requestId'
 
 /**
@@ -65,7 +67,7 @@ export default defineEventHandler(async (event) => {
   const parsed = parseMetaWebhook(payload)
   const totals: IngestSummary = { processed: 0, duplicates: 0, failed: 0, ignored: 0, notes: [] }
   let unknown = 0
-  const ctx = { publicOrigin: getRequestURL(event).origin, requestId: getRequestId(event) }
+  const ctx: IngestContext = { publicOrigin: getRequestURL(event).origin, requestId: getRequestId(event), createLead: (lead) => upsertLead(event, lead) }
   for (const group of parsed) {
     const channel = channels.get(group.externalPhoneId)
     if (!channel) {

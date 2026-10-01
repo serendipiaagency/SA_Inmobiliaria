@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
-import { useDb, schema, now } from '../../utils/db'
+import { useDb, schema } from '../../utils/db'
 import { requireApiKey } from '../../utils/apiAuth'
+import { upsertLead } from '../../utils/leads'
 import { rateLimit } from '../../utils/rateLimit'
 import { isValidEmail, isValidPhone } from '../../utils/validate'
 
@@ -16,9 +17,14 @@ interface CreateLeadBody {
 
 /**
  * POST /api/v1/leads — documented since before this existed (same gap as
- * /communities and /agents). Requires the "write" scope. Writes straight
- * into the same `leads` table the admin CRM reads, org-scoped to the
+ * /communities and /agents). Requires the "write" scope. Org-scoped to the
  * caller's API key — no fabricated confirmation, the returned id is real.
+ *
+ * FASE 29 §118: goes through `upsertLead()`, the same pipeline as the public
+ * forms (Contact resolution + dedup, LEAD_CREATED activity, routing,
+ * internal notification) instead of its own INSERT. Like every other
+ * intake, an email that already has a lead in this org refreshes that lead
+ * instead of duplicating it — `created: false` says so.
  */
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireApiKey(event, 'write')
@@ -43,26 +49,18 @@ export default defineEventHandler(async (event) => {
     propertyName = rows[0].name
   }
 
-  const nowTs = now()
-  const [lead] = await db
-    .insert(schema.leads)
-    .values({
-      organizationId: orgId,
-      name: name.slice(0, 200),
-      email: body.email?.trim() || null,
-      phone: body.phone?.trim() || null,
-      source: 'api',
-      status: 'new',
-      score: 10,
-      budget: body.budget || null,
-      propertyId: body.propertyId || null,
-      propertyName,
-      notes: body.notes?.slice(0, 2000) || null,
-      lastContactAt: nowTs,
-      createdAt: nowTs,
-      updatedAt: nowTs,
-    })
-    .returning()
+  const result = await upsertLead(event, {
+    organizationId: orgId,
+    name: name.slice(0, 200),
+    email: body.email?.trim() || null,
+    phone: body.phone?.trim() || null,
+    source: 'api',
+    budget: body.budget || null,
+    propertyId: body.propertyId || null,
+    propertyName,
+    notes: body.notes?.slice(0, 2000) || null,
+  })
+  const [lead] = await db.select().from(schema.leads).where(and(eq(schema.leads.id, result.id), eq(schema.leads.organizationId, orgId))).limit(1)
 
-  return { data: lead }
+  return { data: lead, created: result.created }
 })
