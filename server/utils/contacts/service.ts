@@ -1,4 +1,4 @@
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, desc, eq, isNull, like, or, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, now } from '../db'
 import { normalizePhone } from '../comms/phone'
@@ -152,6 +152,49 @@ export async function findDuplicateContacts(
   }
 
   return [...found.values()]
+}
+
+/**
+ * Busca contactos del tenant por nombre, email o teléfono — la búsqueda de la
+ * lista de Contactos, compartida con la Domain Tool find_contacts (FASE 31).
+ */
+export async function searchContacts(db: any, orgId: number, search: string, limit = 100) {
+  const conditions = [eq(schema.contacts.organizationId, orgId), isNull(schema.contacts.deletedAt)]
+  const term = search.trim()
+  if (term) {
+    const pattern = `%${term.toLowerCase()}%`
+    conditions.push(
+      or(
+        // lower() de SQLite sólo baja ASCII: «Único» sigue con la Ú mayúscula y
+        // nunca coincidiría con el patrón en minúsculas. LIKE ya ignora
+        // mayúsculas en ASCII, así que el término tal cual cubre los acentos
+        // escritos igual que en la ficha.
+        like(schema.contacts.name, `%${term}%`),
+        like(sql`lower(${schema.contacts.name})`, pattern),
+        like(sql`lower(coalesce(${schema.contacts.email}, ''))`, pattern),
+        like(sql`coalesce(${schema.contacts.phone}, '')`, `%${term}%`),
+      )!,
+    )
+  }
+  return db
+    .select({
+      id: schema.contacts.id,
+      name: schema.contacts.name,
+      kind: schema.contacts.kind,
+      email: schema.contacts.email,
+      phone: schema.contacts.phone,
+      whatsapp: schema.contacts.whatsapp,
+      language: schema.contacts.language,
+      assignedCommercialId: schema.contacts.assignedCommercialId,
+      status: schema.contacts.status,
+      createdAt: schema.contacts.createdAt,
+    })
+    .from(schema.contacts)
+    .where(and(...conditions))
+    .orderBy(desc(schema.contacts.id))
+    .limit(limit) as Promise<
+    { id: number; name: string; kind: string; email: string | null; phone: string | null; whatsapp: string | null; language: string | null; assignedCommercialId: number | null; status: string; createdAt: string }[]
+  >
 }
 
 /**

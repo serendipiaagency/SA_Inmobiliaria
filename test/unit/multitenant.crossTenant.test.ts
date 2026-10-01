@@ -61,6 +61,7 @@ const RESOURCE_ROWS: Record<string, (f: TenantFixture, tag: string) => Record<st
   'lead-routing-rules': (f, tag) => ({ organizationId: f.orgId, name: `${tag} rule`, scope: 'department', targetCommercialId: f.teamMemberId }),
   'property-saved-views': (f, tag) => ({ organizationId: f.orgId, userId: f.userId, resource: 'properties', kind: 'filter', name: `${tag} view`, queryJson: '{}' }),
   'property-bulk-jobs': (f, tag) => ({ organizationId: f.orgId, entityType: 'agent', action: 'change_status', paramsJson: JSON.stringify({ status: `${tag}` }), totalCount: 1, requestedBy: f.userId }),
+  'domain-tools': (f, tag) => ({ organizationId: f.orgId, userId: f.userId, tool: `${tag}_tool`, kind: 'read', source: 'api', status: 'ok', createdAt: '2026-01-01 00:00:00' }),
   'lead-bulk-jobs': (f, tag) => ({ organizationId: f.orgId, entityType: 'lead', action: 'add_tag', paramsJson: JSON.stringify({ tagName: `${tag}` }), totalCount: 1, requestedBy: f.userId }),
 }
 

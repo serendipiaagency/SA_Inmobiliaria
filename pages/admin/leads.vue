@@ -24,7 +24,7 @@
         <option v-for="s in sources" :key="s" :value="s">{{ s }}</option>
       </select>
       <button v-if="Object.keys(drill).length" type="button" class="rounded-full bg-ink px-3 py-1 text-xs font-medium text-white" data-testid="leads-drill-chip" @click="clearDrill">
-        Filtrado desde el dashboard · quitar ✕
+        {{ drill.ids ? 'Lead abierto desde INMO' : 'Filtrado desde el dashboard' }} · quitar ✕
       </button>
       <!-- FASE 32 §74 — ordenar y filtrar por Lead Score -->
       <select v-model="scoreMin" class="rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink" data-testid="leads-score-min">
@@ -243,10 +243,11 @@ const scoreMin = ref('')
 const sort = ref('')
 
 // FASE 33 — el detalle de un KPI del dashboard comercial llega aquí con su
-// scope en la URL; se respeta tal cual y se puede quitar.
+// scope en la URL; se respeta tal cual y se puede quitar. `ids` lo usa INMO
+// (FASE 30) para abrir el lead concreto del que se está hablando.
 const route = useRoute()
 const router = useRouter()
-const DRILL_KEYS = ['createdFrom', 'createdTo', 'qualifiedFrom', 'qualifiedTo', 'agentId', 'office', 'portal', 'campaign', 'propertyId', 'unattended'] as const
+const DRILL_KEYS = ['ids', 'createdFrom', 'createdTo', 'qualifiedFrom', 'qualifiedTo', 'agentId', 'office', 'portal', 'campaign', 'propertyId', 'unattended'] as const
 const drill = computed<Record<string, string>>(() => {
   const out: Record<string, string> = {}
   for (const k of DRILL_KEYS) if (typeof route.query[k] === 'string' && route.query[k]) out[k] = route.query[k] as string

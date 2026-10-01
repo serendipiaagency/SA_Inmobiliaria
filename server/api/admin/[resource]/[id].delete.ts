@@ -28,6 +28,8 @@ export default defineEventHandler(async (event) => {
   } else {
     ;({ user, orgId } = await requireOrgScope(event, def.area, 'write'))
   }
+  // La traza de Domain Tools es auditoría: nadie la borra desde el panel.
+  if (key === 'domain-tools') throw createError({ statusCode: 405, statusMessage: 'La traza de Domain Tools no se puede borrar' })
   const id = parseInt(getRouterParam(event, 'id') || '', 10)
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   if (key === 'users' && id === user.id) {

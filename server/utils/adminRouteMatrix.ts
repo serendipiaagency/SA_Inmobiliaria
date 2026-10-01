@@ -45,6 +45,13 @@ export type RouteAccess =
   | { kind: 'super-admin' }
   /** Panel metadata every admin needs to render anything at all. */
   | { kind: 'admin-metadata' }
+  /**
+   * Domain Tools API (FASE 31): el área depende de la herramienta que va en
+   * el cuerpo, que la ruta no puede ver. executeTool() comprueba el área y
+   * la acción de ESA herramienta antes de validar o ejecutar nada, y el
+   * catálogo se filtra con la misma regla; aquí sólo se exige sesión admin.
+   */
+  | { kind: 'per-tool' }
 
 type Rule = {
   /** Matched against the path with the `/api/admin/` prefix already stripped. */
@@ -187,6 +194,13 @@ const RULES: Rule[] = [
   // read-only account from pushing objects into the org's R2 bucket, while
   // staying honest about what the endpoint can actually distinguish.
   { pattern: /^upload(?:\/|$)/, resolve: constant({ kind: 'any-write' }) },
+
+  // --- Domain Tools API (FASE 31) ------------------------------------------
+  // Sólo la colección: POST ejecuta una herramienta y GET ?view=catalog la
+  // lista; el área la decide cada herramienta (server/utils/tools/execute.ts).
+  // El listado genérico de la traza exige `system` en el propio handler, y
+  // `domain-tools/:id` cae en la regla del motor de recursos (área system).
+  { pattern: /^domain-tools$/, resolve: constant({ kind: 'per-tool' }) },
 ]
 
 /** Default action for a method: only GET/HEAD are reads. */

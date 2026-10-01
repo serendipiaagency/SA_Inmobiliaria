@@ -86,7 +86,9 @@ npx wrangler d1 migrations apply sa_inmobiliaria --local
 # Simulador local de la Graph API de WhatsApp (scripts/e2e-provider-mock.mjs):
 # el Worker lo usa sólo porque WHATSAPP_GRAPH_BASE_URL apunta a loopback
 # (graphBase() ignora cualquier otro host). Permite probar un envío saliente
-# real de punta a punta sin tocar Meta.
+# real de punta a punta sin tocar Meta. El mismo simulador hace de Messages
+# API guionizada para INMO (AI_BASE_URL, también sólo loopback): ninguna
+# llamada de IA sale de la máquina durante el e2e.
 echo "==> Arrancando el simulador del proveedor en ${MOCK_URL}"
 E2E_PROVIDER_MOCK_PORT="${MOCK_PORT}" node scripts/e2e-provider-mock.mjs >"${MOCK_LOG}" 2>&1 &
 MOCK_PID=$!
@@ -113,6 +115,8 @@ npx wrangler dev --local --port "${PORT}" \
   --var TOTP_ENCRYPTION_KEY:e2e_totp_key_placeholder \
   --var COMMS_CREDENTIALS_ENCRYPTION_KEY:e2e_comms_key_placeholder \
   --var "WHATSAPP_GRAPH_BASE_URL:${MOCK_URL}" \
+  --var "AI_BASE_URL:${MOCK_URL}" \
+  --var AI_API_KEY:e2e_ai_key_placeholder \
   >"${LOG_FILE}" 2>&1 &
 PID=$!
 

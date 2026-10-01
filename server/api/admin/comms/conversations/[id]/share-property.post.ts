@@ -1,11 +1,6 @@
-import { eq } from 'drizzle-orm'
 import { requireOrgScope } from '../../../../../utils/auth'
-import { cfEnv, now, schema, useDb } from '../../../../../utils/db'
-import { buildPropertyShare, loadConversationForOrg, publicSiteOrigin, serializeMessage } from '../../../../../utils/comms/admin'
-import { loadChannel } from '../../../../../utils/comms/credentials'
-import { sendOutbound } from '../../../../../utils/comms/inbox'
-import { PROVIDERS } from '../../../../../utils/comms/providers/registry'
-import { markMatchSent, PROPERTY_KINDS, type PropertyKind } from '../../../../../utils/matching/service'
+import { cfEnv, useDb } from '../../../../../utils/db'
+import { serializeMessage, sharePropertyInConversation } from '../../../../../utils/comms/admin'
 
 /**
  * POST /api/admin/comms/conversations/:id/share-property — manda la ficha de
@@ -20,36 +15,20 @@ import { markMatchSent, PROPERTY_KINDS, type PropertyKind } from '../../../../..
  * seleccionado — el envío que confirma `sendOutbound()` es lo único que
  * puede marcar ese PropertyMatch como `sent` (nunca el cliente a mano).
  *
+ * La lógica vive en `sharePropertyInConversation` (server/utils/comms/admin.ts),
+ * compartida con la Domain Tool send_property (FASE 31).
+ *
  * Body: { propertyId: number; propertyKind?: 'agent'|'developer'; note?: string; buyerRequirementId?: number }
  */
 export default defineEventHandler(async (event) => {
   const { user, orgId } = await requireOrgScope(event, 'crm', 'write')
-  const db = useDb(event)
-  const env = cfEnv(event) as Record<string, any>
-  const id = Number(getRouterParam(event, 'id'))
-  const { conversation, contact, channelRow } = await loadConversationForOrg(db, orgId, id)
-  const channel = await loadChannel(db, env, { id: channelRow.id, orgId })
-  if (!channel || channel.status !== 'active') throw createError({ statusCode: 409, statusMessage: 'El número de este hilo no está disponible.' })
-
   const body = (await readBody(event)) || {}
-  const propertyId = Number(body.propertyId)
-  if (!Number.isInteger(propertyId) || propertyId <= 0) throw createError({ statusCode: 422, statusMessage: 'Elige una propiedad.' })
-  const propertyKind: PropertyKind = PROPERTY_KINDS.includes(body.propertyKind) ? body.propertyKind : 'developer'
-  const share = await buildPropertyShare(db, orgId, propertyId, propertyKind, await publicSiteOrigin(db, orgId, event), body.note ? String(body.note).slice(0, 500) : null)
-
-  const useImage = Boolean(share.imageLink) && PROVIDERS[channel.provider].capabilities.media && share.text.length <= 1024
-  const result = await sendOutbound(db, {
-    channel,
-    env,
-    conversation,
-    contact,
-    message: useImage ? { kind: 'image', link: share.imageLink!, caption: share.text } : { kind: 'text', body: share.text, previewUrl: Boolean(share.url) },
-    displayBody: share.text,
-    storeAs: 'property_share',
-    propertyId: share.id,
-    propertyKind,
-    userId: user.id,
-    statusCallbackUrl: channel.provider === 'twilio' ? `${getRequestURL(event).origin}/api/comms/webhooks/twilio/status` : null,
+  const { result, share } = await sharePropertyInConversation(event, useDb(event), cfEnv(event) as Record<string, any>, orgId, user.id, Number(getRouterParam(event, 'id')), {
+    propertyId: Number(body.propertyId),
+    propertyKind: body.propertyKind,
+    note: body.note ? String(body.note) : null,
+    buyerRequirementId: body.buyerRequirementId ? Number(body.buyerRequirementId) : null,
+    statusCallbackUrl: `${getRequestURL(event).origin}/api/comms/webhooks/twilio/status`,
   })
   if (!result.ok) {
     if (result.code === 'provider') {
@@ -57,17 +36,6 @@ export default defineEventHandler(async (event) => {
       return { ok: false, code: result.code, error: result.error, message: result.message ? serializeMessage(result.message) : null }
     }
     throw createError({ statusCode: 422, statusMessage: result.error || 'No se pudo enviar', data: { code: result.code } })
-  }
-  if (conversation.propertyId !== share.id || conversation.propertyKind !== propertyKind) {
-    await db.update(schema.commsConversations).set({ propertyId: share.id, propertyKind, updatedAt: now() }).where(eq(schema.commsConversations.id, conversation.id))
-  }
-  const buyerRequirementId = Number(body.buyerRequirementId)
-  if (Number.isInteger(buyerRequirementId) && buyerRequirementId > 0) {
-    await markMatchSent(event, orgId, { buyerRequirementId, propertyId: share.id, propertyKind }, { userId: user.id }).catch(() => {
-      // El envío ya ocurrió de verdad (sendOutbound ya lo confirmó arriba) —
-      // que el match no se pudiera marcar (p.ej. no existía ese par) no
-      // deshace el mensaje ya mandado, mismo criterio que recordActivity.
-    })
   }
   return { ok: true, message: serializeMessage(result.message!), property: { id: share.id, kind: share.kind, name: share.name, url: share.url } }
 })

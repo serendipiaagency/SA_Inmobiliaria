@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3'
 import type { MarketStats } from './market'
+import { loopbackOrigin } from './loopback'
 
 /**
  * AI content engine.
@@ -163,12 +164,16 @@ export function fallbackAnswer(question: string, p: any): string {
 
 // --- LLM (optional) ---------------------------------------------------------
 
+/** Modelo cuando el Worker no define AI_MODEL. Lo comparten este motor y el asistente INMO (server/utils/inmo). */
+export const AI_MODEL_DEFAULT = 'claude-3-5-haiku-latest'
+
 async function callClaude(event: H3Event, system: string, user: string, maxTokens = 700): Promise<string | null> {
   const env = (event.context as any).cloudflare?.env || {}
   const key = env.AI_API_KEY
   if (!key) return null
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    // AI_BASE_URL sólo se respeta si es loopback (simulador e2e, ver server/utils/loopback.ts).
+    const res = await fetch(`${loopbackOrigin(env.AI_BASE_URL) ?? 'https://api.anthropic.com'}/v1/messages`, {
       method: 'POST',
       headers: {
         'x-api-key': key,
@@ -176,7 +181,7 @@ async function callClaude(event: H3Event, system: string, user: string, maxToken
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: env.AI_MODEL || 'claude-3-5-haiku-latest',
+        model: env.AI_MODEL || AI_MODEL_DEFAULT,
         max_tokens: maxTokens,
         system,
         messages: [{ role: 'user', content: user }],

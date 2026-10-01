@@ -32,6 +32,11 @@ export interface PropertySearchFilters {
   bathroomsMin?: number
   areaMin?: number
   areaMax?: number
+  /** Superficie de parcela (plot_area) — la de Suelo según el PropertySchemaRegistry, que no tiene `area` (FASE 31 §9). */
+  plotAreaMin?: number
+  plotAreaMax?: number
+  /** Texto libre sobre los campos que identifican una propiedad: nombre y referencia en obra nueva; referencia, calle y ubicación en 2ª mano (FASE 31 — «Villa Mediterránea»). */
+  text?: string
   /** Exclusividad de mandato — sin filtro en ningún listado antes de FASE 27. */
   isExclusive?: boolean
   /** Estado de publicación — sin filtro en ningún listado antes de FASE 27. */
@@ -42,7 +47,26 @@ export interface PropertySearchFilters {
   /** Fecha de última actualización (rango) — sin filtro en ningún listado antes de FASE 27. */
   updatedFrom?: string
   updatedTo?: string
+  /**
+   * FASE 31 (search_properties de la Domain Tools API): varias zonas a la
+   * vez (ciudad o distrito, «Chamberí o Salamanca»), varios tipos, y
+   * características que DEBEN tener (sólo las que existen como columna en
+   * los dos catálogos). Lo que no se pide no se filtra: «sin garaje» nunca
+   * se deduce de no mencionarlo (§8).
+   */
+  zones?: string[]
+  propertyTypes?: string[]
+  features?: PropertyFeature[]
 }
+
+export const PROPERTY_FEATURE_COLUMNS = {
+  terrace: 'hasTerrace',
+  pool: 'hasPool',
+  garage: 'hasGarage',
+  elevator: 'hasElevator',
+  garden: 'hasGarden',
+} as const
+export type PropertyFeature = keyof typeof PROPERTY_FEATURE_COLUMNS
 
 /** La tabla Drizzle de cada catálogo — mismo mapeo que `matching/service.ts` (tablesFor), reexportado en vez de redeclarado para no tener una tercera forma de resolver "kind -> tabla". */
 export function propertyTableFor(kind: PropertyKind) {
@@ -75,6 +99,12 @@ export function buildPropertyFilterConds(kind: PropertyKind, filters: PropertySe
   if (filters.bathroomsMin != null) conds.push(gte(t.bathrooms, filters.bathroomsMin))
   if (filters.areaMin != null) conds.push(gte(t.area, filters.areaMin))
   if (filters.areaMax != null) conds.push(lte(t.area, filters.areaMax))
+  if (filters.plotAreaMin != null) conds.push(gte(t.plotArea, filters.plotAreaMin))
+  if (filters.plotAreaMax != null) conds.push(lte(t.plotArea, filters.plotAreaMax))
+  if (filters.text) {
+    const cols = kind === 'developer' ? [t.name, t.reference] : [t.reference, t.street, t.location]
+    conds.push(or(...cols.map((c: any) => like(c, `%${filters.text}%`)))!)
+  }
   if (filters.isExclusive != null) conds.push(eq(t.isExclusive, filters.isExclusive ? 1 : 0))
   if (filters.published === 'published') conds.push(sql`${t.publishedAt} is not null`)
   if (filters.published === 'unpublished') conds.push(isNull(t.publishedAt))
@@ -82,6 +112,11 @@ export function buildPropertyFilterConds(kind: PropertyKind, filters: PropertySe
   if (filters.capturedTo) conds.push(lte(t.captureDate, endOfDay(filters.capturedTo)))
   if (filters.updatedFrom) conds.push(gte(t.updatedAt, filters.updatedFrom))
   if (filters.updatedTo) conds.push(lte(t.updatedAt, endOfDay(filters.updatedTo)))
+  if (filters.zones?.length) {
+    conds.push(or(...filters.zones.flatMap((z) => [like(t.city, `%${z}%`), like(t.district, `%${z}%`)]))!)
+  }
+  if (filters.propertyTypes?.length) conds.push(or(...filters.propertyTypes.map((pt) => eq(t.propertyType, pt)))!)
+  for (const f of filters.features || []) conds.push(eq(t[PROPERTY_FEATURE_COLUMNS[f]], 1))
   return conds
 }
 

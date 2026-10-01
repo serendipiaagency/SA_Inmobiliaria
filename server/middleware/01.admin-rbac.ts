@@ -66,6 +66,8 @@ export default defineEventHandler(async (event) => {
 
   if (access.kind === 'super-admin') throw deny() // handler enforces it too
   if (access.kind === 'admin-metadata') return
+  // Domain Tools: el handler comprueba el área de la herramienta concreta (executeTool).
+  if (access.kind === 'per-tool') return
   if (access.kind === 'any-write') {
     if (!hasAnyWriteAccess(user)) throw deny()
     return
