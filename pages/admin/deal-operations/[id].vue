@@ -116,6 +116,13 @@
       </div>
     </div>
 
+    <!-- FASE 29 §142 — la relación Deal↔Conversation se deriva del comprador
+         (sus leads/clientes), no se guarda en la operación. -->
+    <section v-if="buyerCommunications" class="mt-6" data-testid="deal-communications">
+      <h2 class="mb-3 text-sm font-semibold text-ink">Comunicaciones con el comprador</h2>
+      <AdminCommsRelatedCommunications :conversations="buyerCommunications.conversations" :calls="buyerCommunications.calls" :emails="buyerCommunications.emails" />
+    </section>
+
     <!-- Nueva tarea -->
     <div v-if="newTask" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="newTask = false">
       <div class="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
@@ -215,16 +222,19 @@ function agentName(agentId: number | null) {
   return agents.value.find((a) => a.id === agentId)?.name || ''
 }
 
+// GET /api/admin/saas/contacts/:id devuelve { contact, leads, clients, communications, ... }.
 const buyerName = ref('')
+const buyerCommunications = ref<any>(null)
 const sellerNames = ref<Record<number, string>>({})
 watchEffect(async () => {
   if (!detail.value) return
   const buyer = await $fetch<any>(`/api/admin/saas/contacts/${detail.value.deal.buyerContactId}`).catch(() => null)
-  buyerName.value = buyer?.name || buyer?.row?.name || ''
+  buyerName.value = buyer?.contact?.name || ''
+  buyerCommunications.value = buyer?.communications ?? null
   for (const sid of detail.value.sellerContactIds) {
     if (sellerNames.value[sid]) continue
     const seller = await $fetch<any>(`/api/admin/saas/contacts/${sid}`).catch(() => null)
-    if (seller) sellerNames.value[sid] = seller.name || seller.row?.name || ''
+    if (seller?.contact?.name) sellerNames.value[sid] = seller.contact.name
   }
 })
 

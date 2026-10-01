@@ -7,6 +7,8 @@ import { agentNames, crmNamesFor, serializeConversation } from '../../../../util
  * GET /api/admin/comms/conversations?status=open|pending|closed|all&assigned=<agentId>|unassigned|all&channel=<channelId>&unread=1&propertyId=&propertyKind=&q=&before=<lastMessageAt>
  * La lista de la bandeja, más reciente primero. `q` busca por teléfono,
  * nombre de perfil y último mensaje; los nombres del CRM salen aparte.
+ * Con `propertyId` es también la lista de "comunicaciones relacionadas" de
+ * la ficha de una propiedad (PropertyCommunications.vue, FASE 29 §141).
  */
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireOrgScope(event, 'crm', 'read')
@@ -29,9 +31,14 @@ export default defineEventHandler(async (event) => {
   if (channelId) conds.push(eq(schema.commsConversations.channelId, channelId))
   if (unreadOnly) conds.push(gt(schema.commsConversations.unreadCount, 0))
   if (propertyId) {
-    conds.push(eq(schema.commsConversations.propertyId, propertyId))
+    // Relacionada con la propiedad = es su contexto ahora, o se envió en ese hilo alguna vez (comms_messages.property_id).
     // NULL en property_kind de filas anteriores a la migración 0082 significa 'developer' — el único catálogo que existía entonces.
-    conds.push(propertyKind === 'agent' ? eq(schema.commsConversations.propertyKind, 'agent') : or(eq(schema.commsConversations.propertyKind, 'developer'), isNull(schema.commsConversations.propertyKind))!)
+    const kindIs = (col: typeof schema.commsConversations.propertyKind | typeof schema.commsMessages.propertyKind) => (propertyKind === 'agent' ? eq(col, 'agent') : or(eq(col, 'developer'), isNull(col))!)
+    const sharedIn = db
+      .select({ id: schema.commsMessages.conversationId })
+      .from(schema.commsMessages)
+      .where(and(eq(schema.commsMessages.organizationId, orgId), eq(schema.commsMessages.propertyId, propertyId), kindIs(schema.commsMessages.propertyKind)))
+    conds.push(or(and(eq(schema.commsConversations.propertyId, propertyId), kindIs(schema.commsConversations.propertyKind)), inArray(schema.commsConversations.id, sharedIn))!)
   }
 
   if (search) {

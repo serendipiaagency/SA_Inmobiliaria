@@ -80,6 +80,18 @@ test.describe('Deal Operations (FASE 24)', () => {
     expect(dupRes.status()).toBe(409)
   })
 
+  test('la ficha de la operación muestra el nombre del comprador y sus comunicaciones (FASE 29 §142)', async ({ page }) => {
+    const buyerContactId = await seedContact(a, 'ficha')
+    const accepted = await seedAcceptedOffer(a, developerPropertyId, 'developer', buyerContactId, 330000)
+    const deal = await (await a.post('/api/admin/saas/deal-operations', { data: { acceptedOfferId: accepted.id } })).json()
+
+    await page.goto(`/admin/deal-operations/${deal.id}`)
+    // Antes la página leía `buyer.name` de una respuesta que es { contact, ... }: el nombre nunca salía.
+    await expect(page.getByRole('link', { name: 'E2E Deal ficha' }).first()).toBeVisible()
+    await expect(page.getByTestId('deal-communications')).toBeVisible()
+    await expect(page.getByTestId('deal-communications')).toContainText('Sólo salientes')
+  })
+
   test('GET la ficha devuelve histórico, próxima acción y permite mover de etapa, pero nunca a "closed"', async () => {
     const buyerContactId = await seedContact(a, 'stage')
     const accepted = await seedAcceptedOffer(a, developerPropertyId, 'developer', buyerContactId, 350000)

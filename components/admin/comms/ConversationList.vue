@@ -140,13 +140,16 @@ watch(
 
 /** Una conversación cambiada (por el sondeo o por el propio hilo) se actualiza en sitio, y sube arriba si tiene mensaje nuevo. */
 function upsert(conv: any) {
+  const idx = rows.value.findIndex((r) => r.id === conv.id)
+  // El servidor también cuenta como "de esta propiedad" un hilo donde se envió alguna vez
+  // (comms_messages.property_id), que aquí no se ve: una fila que ya listó se respeta.
+  const matchesProperty = !propertyFilter.value || idx >= 0 || (conv.propertyId === propertyFilter.value.id && conv.propertyKind === propertyFilter.value.kind)
   const matchesFilter =
     (status.value === 'all' || conv.status === status.value) &&
     (assigned.value === 'all' || (assigned.value === 'unassigned' ? !conv.assignedAgentId : String(conv.assignedAgentId) === assigned.value)) &&
     (channel.value === 'all' || String(conv.channel?.id) === channel.value) &&
     (!unreadOnly.value || conv.unreadCount > 0) &&
-    (!propertyFilter.value || (conv.propertyId === propertyFilter.value.id && conv.propertyKind === propertyFilter.value.kind))
-  const idx = rows.value.findIndex((r) => r.id === conv.id)
+    matchesProperty
   if (!matchesFilter) {
     if (idx >= 0) rows.value.splice(idx, 1)
     return

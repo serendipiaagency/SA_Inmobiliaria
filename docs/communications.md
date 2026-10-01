@@ -222,9 +222,12 @@ de quien lleva el hilo.
 ### Bandeja: filtros y contexto (FASE 29 §121/§123)
 
 `GET /api/admin/comms/conversations` acepta, además de `status`/`assigned`/`q`:
-`channel=<id>`, `unread=1` y `propertyId`+`propertyKind` (una conversación
-con `property_kind` NULL de antes de la 0082 cuenta como `developer`). Contacto
-y lead se buscan con `q`, que ya cruzaba nombres de clientes y leads.
+`channel=<id>`, `unread=1` y `propertyId`+`propertyKind`. Con propiedad, una
+conversación cuenta si esa propiedad es su contexto **o si se envió alguna vez
+en ese hilo** (`comms_messages.property_id`) — el contexto sólo guarda la
+última. Una fila con `property_kind` NULL de antes de la 0082 cuenta como
+`developer`. Contacto y lead se buscan con `q`, que ya cruzaba nombres de
+clientes y leads.
 
 `GET /api/admin/comms/conversations/:id` devuelve también, **resuelto en
 vivo y nunca copiado a la conversación**:
@@ -266,6 +269,25 @@ del resto del histórico del cliente, que se cruza por email/nombre). La
 ficha del cliente (`/admin/clientes/:id`) muestra sus conversaciones y
 llamadas en la pestaña «Comunicaciones» y en la cronología («WhatsApp
 recibido/enviado», «Llamada realizada/recibida»), con enlace al hilo.
+
+Desde FASE 29 (§139-142) las mismas comunicaciones aparecen fuera de la
+ficha del cliente, siempre por vínculo guardado y sin ruta nueva (margen de
+TS2589 en cero, ver «Reintentos»):
+
+| Dónde | Qué | De dónde sale |
+| --- | --- | --- |
+| Ficha del contacto (`/admin/contactos/:id`, pestaña Comunicaciones; los leads enlazan aquí) | WhatsApp, llamadas y emails enviados de todos sus leads y clientes | `GET /api/admin/saas/contacts/:id` → `communications` |
+| Ficha de la operación (`/admin/deal-operations/:id`) | Las del comprador — la relación Deal↔Conversation se deriva, no se guarda | La misma respuesta del contacto, que la página ya pedía para el nombre |
+| Ficha del cliente | Lo de antes + emails enviados | `GET /api/admin/clients/:id/related` → `emails` |
+| Ficha de una propiedad (los dos catálogos; sólo con lectura de CRM) | Conversaciones donde es el contexto o donde se envió | `GET /api/admin/comms/conversations?propertyId=&propertyKind=` |
+
+`listPersonCommunications()` (`server/utils/comms/related.ts`) es la única
+consulta para las tres primeras. **El email es sólo saliente**: Resend no
+recibe correo en este proyecto (su webhook sólo trae el estado de entrega de
+lo que enviamos), así que no hay bandeja de entrada de email y no se inventa
+una (§115). Se cruza por la dirección exacta a la que se envió —`email_log`
+guarda una fila por destinatario— y nunca se devuelve el HTML del correo,
+sólo asunto, plantilla, estado y fechas.
 
 Desde FASE 29 (§128), un envío de propiedad real y una llamada contestada
 de verdad generan además un evento de `activities` — `PROPERTY_SENT` y
@@ -381,6 +403,8 @@ próximo cambio de estado de cada mensaje.
 | Llamadas | `server/utils/comms/calls.ts` |
 | Medios entrantes | `server/utils/comms/media.ts` |
 | Compartir propiedad (dos catálogos) | `server/utils/comms/admin.ts` (`buildPropertyShare`), `server/utils/propertyPrivacy.ts` (`toPublicProperty`), `server/utils/properties/searchService.ts` (`searchPropertiesCompact`) |
+| Comunicaciones de una persona (contacto, cliente, operación) | `server/utils/comms/related.ts`, `components/admin/comms/RelatedCommunications.vue` |
+| Comunicaciones de una propiedad | `components/property-builder/PropertyCommunications.vue` |
 | Propiedad ↔ Compatibilidades (envío marca el match) | `server/utils/matching/service.ts` (`markMatchSent`), `pages/admin/compatibilidades.vue` |
 | Webhooks | `server/api/comms/webhooks/{meta.get,meta.post}.ts`, `twilio/{inbound,status}.post.ts` |
 | API del panel | `server/api/admin/comms/**` |

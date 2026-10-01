@@ -256,6 +256,7 @@ test.describe('Centro de Comunicaciones', () => {
     await expect(page.getByTestId('contact-call-button')).toBeVisible()
     await page.getByRole('button', { name: /^Comunicaciones/ }).click()
     await expect(page.getByTestId('client-tab-comunicaciones')).toBeVisible()
+    await expect(page.getByTestId(`related-conversation-${conversationId}`)).toBeVisible()
     await page.getByTestId('contact-whatsapp-button').click()
     await expect(page).toHaveURL(new RegExp(`/admin/comunicaciones\\?conversation=${conversationId}`))
     await expect(page.getByTestId('composer-blocked')).toContainText('plantilla')
@@ -374,10 +375,29 @@ test.describe('Centro de Comunicaciones', () => {
       await expect(page.getByTestId(`comms-conversation-${inboundConversationId}`)).toBeVisible()
       await page.getByTestId('comms-filter-unread').check()
       await expect(page.getByTestId(`comms-conversation-${inboundConversationId}`)).toHaveCount(0)
+
+      // FASE 29 §141 — la ficha de la propiedad lista las conversaciones que hablan de ella.
+      await page.goto(`/admin/properties/${agentProperty.id}`)
+      await expect(page.getByTestId('property-communications')).toBeVisible()
+      await expect(page.getByTestId(`property-conversation-${inboundConversationId}`)).toBeVisible()
     } finally {
       await a.patch(`/api/admin/comms/conversations/${inboundConversationId}`, { data: { propertyId: null } }).catch(() => null)
       await a.delete(`/api/admin/properties/${agentProperty.id}`).catch(() => null)
     }
+  })
+
+  test('la ficha del contacto tiene la pestaña Comunicaciones, con el email sólo saliente (FASE 29 §115/§140)', async ({ page }) => {
+    const created = await a.post('/api/admin/saas/contacts', { data: { name: `Contacto Comms E2E ${Date.now()}`, email: `contacto-comms-${Date.now()}@example.com` } })
+    expect(created.ok(), await created.text()).toBeTruthy()
+    const contactId = (await created.json()).id
+
+    const detail = await (await a.get(`/api/admin/saas/contacts/${contactId}`)).json()
+    expect(detail.communications).toEqual({ conversations: [], calls: [], emails: [] })
+    expect((await b.get(`/api/admin/saas/contacts/${contactId}`)).status()).toBe(404)
+
+    await page.goto(`/admin/contactos/${contactId}?tab=comunicaciones`)
+    await expect(page.getByTestId('contact-comunicaciones')).toBeVisible()
+    await expect(page.getByTestId('contact-comunicaciones')).toContainText('Sólo salientes')
   })
 
   test('reintentar sólo vale para un saliente fallido de la propia agencia (FASE 29 §136 — el reenvío real está en test/unit/comms.retry.test.ts)', async () => {

@@ -53,7 +53,8 @@
           >
             <div class="flex items-start justify-between gap-2">
               <div class="min-w-0">
-                <p class="truncate text-sm font-semibold">{{ l.name }}</p>
+                <NuxtLink v-if="l.contactId" :to="`/admin/contactos/${l.contactId}?tab=comunicaciones`" class="block truncate text-sm font-semibold hover:underline" :data-testid="`lead-contact-link-${l.id}`" title="Ver ficha y comunicaciones">{{ l.name }}</NuxtLink>
+                <p v-else class="truncate text-sm font-semibold">{{ l.name }}</p>
                 <p class="truncate text-xs text-stone-500">{{ l.propertyName }}</p>
               </div>
               <span class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold" :class="scoreCls(l.score)">{{ l.score }}</span>
@@ -154,7 +155,8 @@
               <tr v-for="l in rows" :key="l.id" class="border-b border-line/60 last:border-0 hover:bg-stone-50">
                 <td class="px-4 py-3"><input type="checkbox" :checked="isSelected(l.id)" @change="toggleSelect(l.id)" ></td>
                 <td class="px-4 py-3">
-                  <p class="font-medium">{{ l.name }}</p>
+                  <NuxtLink v-if="l.contactId" :to="`/admin/contactos/${l.contactId}?tab=comunicaciones`" class="font-medium hover:underline">{{ l.name }}</NuxtLink>
+                  <p v-else class="font-medium">{{ l.name }}</p>
                   <p class="text-xs text-stone-400">{{ l.email }}</p>
                 </td>
                 <td class="px-4 py-3 capitalize text-stone-600">{{ l.source }}</td>
