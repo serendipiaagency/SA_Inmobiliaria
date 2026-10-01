@@ -1045,10 +1045,71 @@ export const leads = sqliteTable(
      * conservan aunque el Contact evolucione después.
      */
     contactId: integer('contact_id'),
+    /**
+     * FASE 32, migración 0083 — proyección del Lead Score explicable
+     * (server/utils/leads/score.ts): el desglose vigente de `score`, cuándo
+     * se calculó (NULL = puntuación heredada del "bump" antiguo, sin
+     * desglose) y cuándo caduca su primera señal temporal (el cron horario
+     * recalcula sólo esos). El historial vive en lead_score_snapshots.
+     */
+    scoreBreakdownJson: text('score_breakdown_json'),
+    scoreComputedAt: text('score_computed_at'),
+    scoreExpiresAt: text('score_expires_at'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
-  (t) => [index('leads_status').on(t.status), index('leads_stage').on(t.stage), index('leads_source').on(t.source), index('leads_contact').on(t.contactId)],
+  (t) => [
+    index('leads_status').on(t.status),
+    index('leads_stage').on(t.stage),
+    index('leads_source').on(t.source),
+    index('leads_contact').on(t.contactId),
+    index('leads_score_expires').on(t.scoreExpiresAt),
+  ],
+)
+
+/**
+ * FASE 32, migración 0083 — reglas del Lead Score por agencia. Sin filas =
+ * reglas por defecto del código (server/utils/leads/score.ts); una fila por
+ * criterio sólo cuando la agencia lo cambia. `criterion` pertenece a un
+ * catálogo cerrado en código, nunca una expresión libre.
+ */
+export const leadScoreRules = sqliteTable(
+  'lead_score_rules',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    criterion: text('criterion').notNull(),
+    points: integer('points').notNull(),
+    enabled: integer('enabled').notNull().default(1),
+    priority: integer('priority').notNull().default(0),
+    configJson: text('config_json'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [uniqueIndex('lead_score_rules_org_criterion').on(t.organizationId, t.criterion)],
+)
+
+/**
+ * FASE 32, migración 0083 — historial del Lead Score: una fila sólo cuando
+ * cambia la puntuación o su desglose, con las reglas efectivas usadas
+ * (reproducibilidad, §69). Sólo INSERT.
+ */
+export const leadScoreSnapshots = sqliteTable(
+  'lead_score_snapshots',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    leadId: integer('lead_id')
+      .notNull()
+      .references(() => leads.id, { onDelete: 'cascade' }),
+    score: integer('score').notNull(),
+    breakdownJson: text('breakdown_json').notNull(),
+    rulesJson: text('rules_json').notNull(),
+    engineVersion: integer('engine_version').notNull(),
+    reason: text('reason').notNull(), // created | signal | rules | manual | expiry | legacy
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [index('lead_score_snapshots_lead').on(t.organizationId, t.leadId, t.createdAt)],
 )
 
 /**

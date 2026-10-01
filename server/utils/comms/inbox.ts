@@ -3,6 +3,7 @@ import * as schema from '../../db/schema'
 import { isUniqueConstraintError, now } from '../db'
 import { sendInternalNotification } from '../email/send'
 import { recordActivity } from '../activity/service'
+import { recomputeLeadScoreForCommsContact } from '../leads/score'
 import type { PropertyKind } from '../matching/service'
 import { formatPhone, normalizePhone } from './phone'
 import { matchCrmByPhone } from './matching'
@@ -347,6 +348,9 @@ export async function ingestInboundMessage(db: any, env: Record<string, any>, ch
     }
   }
 
+  // FASE 32 — un mensaje entrante real es la señal «respondió» del Lead Score.
+  await recomputeLeadScoreForCommsContact(db, channel.organizationId, contact.id)
+
   return { duplicate: false, messageId, conversationId: conversation.id, contactId: contact.id, newConversation: conversation.created }
 }
 
@@ -374,6 +378,12 @@ export async function applyMessageStatus(db: any, event: MessageStatusEvent): Pr
       updatedAt: nowTs,
     })
     .where(eq(schema.commsMessages.id, row.id))
+  // FASE 32 — la primera lectura confirmada de una ficha enviada es la señal
+  // «abrió fichas» del Lead Score (la única forma real de saberlo, §64).
+  if (event.status === 'read' && !row.readAt && row.type === 'property_share') {
+    const [conv] = await db.select({ contactId: schema.commsConversations.contactId }).from(schema.commsConversations).where(eq(schema.commsConversations.id, row.conversationId)).limit(1)
+    if (conv) await recomputeLeadScoreForCommsContact(db, row.organizationId, conv.contactId)
+  }
   return { updated: true }
 }
 
@@ -547,6 +557,10 @@ export async function sendOutbound(db: any, input: SendOutboundInput): Promise<S
       actorId: input.userId,
     })
   }
+
+  // FASE 32 — nuestro último saliente es la referencia de la penalización
+  // «sin respuesta» (si la agencia la activa).
+  if (result.ok) await recomputeLeadScoreForCommsContact(db, channel.organizationId, contact.id)
 
   return result.ok ? { ok: true, code: null, error: null, message: row } : { ok: false, code: 'provider', error: result.error, message: row }
 }

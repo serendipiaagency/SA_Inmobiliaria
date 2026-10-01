@@ -118,6 +118,8 @@ export function useHelpContent() {
         'Los leads se crean solos desde el formulario público, las reservas de visita y el programa de referidos — no hace falta darlos de alta a mano salvo excepción. Si el email o el teléfono coincide con un contacto que ya existe en tu agencia, el lead se enlaza automáticamente a esa ficha en vez de crear una persona duplicada. Si tienes reglas de enrutado configuradas (CRM → Enrutamiento y SLA), el comercial se asigna solo al crearse — salvo que ya llegue con uno explícito, como una reserva de cita con un comercial concreto.',
         '"Próxima acción" (debajo de la tarjeta, cuando la hay) es la tarea abierta o la cita futura más próxima de ese lead — nunca algo que se escriba a mano, se recalcula solo. El botón "+ Tarea" de cada tarjeta crea una tarea suelta (llamada, WhatsApp, seguimiento…) ligada a ese lead, visible también en CRM → Tareas.',
         'En la vista Tabla, marca la casilla de una o varias filas (o la de la cabecera, para marcarlas todas) para actuar sobre varios leads a la vez: cambiar el comercial, cambiar la fase, añadir una etiqueta, o crear una tarea idéntica para cada uno. Aparece un botón "Aplicar" que pide confirmación con el número exacto de leads afectados y muestra el progreso mientras corre; si algo falla en una fila concreta (por ejemplo, una fase inválida), el resto de la selección sigue procesándose igual. "Exportar seleccionados" descarga un CSV sólo con esos leads.',
+        'El número de cada lead es su Lead Score (0-100): una puntuación por reglas fijas de tu agencia sobre señales reales — presupuesto validado, compra prevista pronto, si ha respondido en las últimas horas, si tiene una visita pedida, si su financiación está validada y cuántas fichas enviadas por WhatsApp ha abierto. Haz clic en el número para ver "¿Por qué?": qué criterios suman, cuáles no y con qué dato, más su historial. Los filtros "Puntuación ≥" y "Mayor puntuación primero" ordenan y filtran por él.',
+        'Un número con asterisco (*) es una puntuación del sistema anterior, que sumaba puntos fijos cada vez que alguien volvía a escribir y no se puede explicar. Pulsa "Recalcular con las señales actuales" en su detalle, o selecciónalos en la vista Tabla y usa la acción "Recalcular puntuación". El Lead Score no es la compatibilidad con un inmueble (eso es Compatibilidades/Matching), no reparte leads y no sustituye al SLA.',
       ],
     },
     {
@@ -133,6 +135,8 @@ export function useHelpContent() {
         'Desde la ficha de un lead (CRM → Leads) puedes reasignarlo manualmente a otro comercial en cualquier momento; queda constancia de quién lo tenía, a quién pasó y por qué en su historial de asignaciones.',
         'En esta página fijas los tres umbrales de SLA de tu agencia (nunca una regla universal): minutos hasta que un lead nuevo se considera "sin atender", horas sin próxima acción prevista tras cualificarlo, y días sin contacto antes de darlo por inactivo. Se recalculan cada hora.',
         '"Alertas abiertas" lista los leads que están incumpliendo alguno de esos tres umbrales ahora mismo. Se resuelven solas en cuanto el lead deja de cumplir la condición (te responden, avanza de fase, hay una próxima acción), o puedes marcarlas resueltas a mano si ya la has revisado y no hace falta actuar.',
+        '"Lead Score" fija las reglas de puntuación de tu agencia: activa o desactiva cada criterio, cambia sus puntos y su ventana (días para "compra prevista", horas para "respondió", mínimo de fichas abiertas, estados de hipoteca que cuentan como financiación validada). Hay una penalización opcional, desactivada por defecto, para leads que no responden en N días. Cada criterio dice de dónde sale su dato — nunca se deduce de una conversación ni se inventan aperturas.',
+        'Guardar las reglas no cambia ninguna puntuación por sí solo: pulsa "Recalcular todos los leads" para aplicarlas (se hace por partes, con progreso). A partir de ahí cada lead se recalcula solo cuando cambia una de sus señales, y las que caducan (como "respondió en las últimas 24 h") se revisan cada hora.',
       ],
     },
     {
@@ -788,6 +792,13 @@ export function useHelpContent() {
   ]
 
   const faqs: HelpFaq[] = [
+    {
+      id: 'faq-lead-score',
+      question: '¿Por qué un lead tiene esta puntuación? ¿Puedo cambiarla a mano?',
+      answer:
+        'Haz clic en el número del lead (CRM → Leads): verás cada criterio que suma o no, con el dato real que lo justifica, y su historial. La puntuación no se edita a mano — sale de reglas fijas sobre señales reales (presupuesto validado, fecha deseada, respuesta reciente, visita pedida, financiación, fichas abiertas). Si quieres que algo pese más o menos, cambia las reglas de tu agencia en CRM → Enrutamiento y SLA → Lead Score y pulsa "Recalcular todos los leads".',
+      tags: ['lead score', 'puntuación', 'score', 'por qué', 'leads'],
+    },
     {
       id: 'faq-comms-window',
       question: 'En Comunicaciones no me deja escribir a un cliente: dice que sólo puedo enviar una plantilla, ¿por qué?',

@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { isUniqueConstraintError, now } from '../db'
 import { recordActivity } from '../activity/service'
+import { recomputeLeadScoreForCommsContact } from '../leads/score'
 import { findOrCreateConversation, isoToDbTs, resolveActivityContact, upsertContact, type IngestContext } from './inbox'
 import { metaCallAction } from './providers/metaCloud'
 import type { CallEvent, LoadedChannel } from './types'
@@ -176,6 +177,8 @@ export async function ingestCallEvent(db: any, channel: LoadedChannel, event: Ca
       propertyKind: existing.propertyId ? (existing.propertyKind === 'agent' ? 'agent' : 'developer') : null,
       actorType: 'system',
     })
+    // FASE 32 — una llamada entrante contestada es la señal «respondió».
+    if (existing.direction === 'inbound') await recomputeLeadScoreForCommsContact(db, channel.organizationId, existing.contactId)
   }
   return { callId: existing.id, note: finalStatus }
 }
@@ -343,6 +346,7 @@ export async function logManualCall(
       actorType: 'user',
       actorId: input.userId,
     })
+    if (input.direction === 'inbound') await recomputeLeadScoreForCommsContact(db, input.orgId, input.contactId)
   }
   return row
 }

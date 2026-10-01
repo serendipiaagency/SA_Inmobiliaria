@@ -142,7 +142,6 @@ export default defineEventHandler(async (event) => {
       agentName: agent.name,
       budget: clientBudget,
       notes: [`Cita agendada con ${agent.name} (${channel})`, clientInterest && `Interés: ${clientInterest}`].filter(Boolean).join(' — '),
-      scoreBump: 25,
       ...readFirstTouch(event),
     })
     if (lead?.id) {

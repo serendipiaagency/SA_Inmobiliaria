@@ -62,7 +62,12 @@ describe('FASE 12 — Lead como entidad real, resuelta contra Contact (migració
     const leads = await db.select().from(schema.leads).where(and(eq(schema.leads.organizationId, fixture.orgId), eq(schema.leads.email, 'bruno@example.com')))
     expect(leads).toHaveLength(1)
     expect(leads[0].contactId).not.toBeNull()
-    expect(leads[0].score).toBeGreaterThan(10) // el segundo envío sumó score al existente en vez de duplicar
+    // FASE 32: el reenvío ya no suma un "bump" mágico — la puntuación sale de
+    // señales reales (leads/score.ts) y aquí no hay ninguna todavía, así que
+    // es 0 con su desglose guardado, por muchas veces que se reenvíe.
+    expect(leads[0].score).toBe(0)
+    expect(leads[0].scoreComputedAt).not.toBeNull()
+    expect(JSON.parse(leads[0].scoreBreakdownJson!).every((b: any) => b.applied === false)).toBe(true)
   })
 
   it('conserva los UTM/first-touch y el mensaje original tal cual, sin reescribirlos', async () => {

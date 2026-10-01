@@ -43,7 +43,6 @@ export default defineEventHandler(async (event) => {
     source: 'referral',
     sourceDetail: link.referrerName,
     notes: `Referido por ${link.referrerName}`,
-    scoreBump: 15,
     ...readFirstTouch(event),
   })
 

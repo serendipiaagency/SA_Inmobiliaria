@@ -5,6 +5,7 @@ import { reassignLead, LeadRoutingError } from '../leads/routing'
 import { transitionLeadStage, LeadPipelineError, STAGES } from '../leads/pipeline'
 import { getOrCreateTag, linkTag } from '../tags/service'
 import { createTask } from '../tasks/service'
+import { recomputeLeadScore } from '../leads/score'
 import type { BulkActionItemHandler } from './service'
 
 /** Cada handler primero confirma que el lead sigue existiendo y sigue siendo de esta organización — pudo borrarse entre seleccionarlo y que le llegue el turno. */
@@ -71,8 +72,20 @@ async function createTaskForLead(event: H3Event, orgId: number, leadId: number, 
 }
 
 /** Un mapa único — a diferencia de Properties, Leads es un solo catálogo, sin distinción agent/developer. */
+/**
+ * FASE 32 — «Recalcular Lead Score» en bloque: tras cambiar las reglas de la
+ * agencia, o para dar desglose a las puntuaciones heredadas del sistema
+ * anterior. Mismo framework (progreso, resultado por lead) en vez de
+ * recalcular el tenant entero en una sola petición (§70).
+ */
+async function recalculateScore(event: H3Event, orgId: number, leadId: number) {
+  await assertOwnedLead(event, orgId, leadId)
+  await recomputeLeadScore(useDb(event), orgId, leadId, 'rules')
+}
+
 export function leadBulkHandlers(): Record<string, BulkActionItemHandler> {
   return {
+    recalculate_score: (event, orgId, id) => recalculateScore(event, orgId, id),
     change_commercial: (event, orgId, id, params, requestedBy) => changeCommercial(event, orgId, id, params, requestedBy),
     change_stage: (event, orgId, id, params, requestedBy) => changeStage(event, orgId, id, params, requestedBy),
     add_tag: (event, orgId, id, params) => addTag(event, orgId, id, params),

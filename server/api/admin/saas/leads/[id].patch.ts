@@ -1,6 +1,8 @@
 import { requireOrgScope } from '../../../../utils/auth'
 import { logAdminAction } from '../../../../utils/audit'
 import { transitionLeadStage, setLeadOutcome, LeadPipelineError, STAGES } from '../../../../utils/leads/pipeline'
+import { useDb } from '../../../../utils/db'
+import { getLeadScoreDetail, recomputeLeadScore } from '../../../../utils/leads/score'
 
 /**
  * Mueve un lead en el pipeline (drag&drop/dropdown del Kanban) o fija su
@@ -10,6 +12,9 @@ import { transitionLeadStage, setLeadOutcome, LeadPipelineError, STAGES } from '
  * queda en lead_stage_history; mandar `lost` fija el resultado sin tocar en
  * qué stage se quedó. `status` sigue aceptándose por compatibilidad con
  * peticiones antiguas — se traduce al stage equivalente más cercano.
+ *
+ * `{ score: 'recalculate' }` (FASE 32): recálculo manual del Lead Score con
+ * las señales reales; devuelve el desglose y el historial.
  */
 const LEGACY_STATUS_TO_STAGE: Record<string, string> = { new: 'new', contacted: 'contacted', qualified: 'qualified', proposal: 'offer', won: 'won' }
 
@@ -17,7 +22,21 @@ export default defineEventHandler(async (event) => {
   const { user, orgId } = await requireOrgScope(event)
   const id = parseInt(String(getRouterParam(event, 'id')), 10)
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
-  const body = await readBody<{ stage?: string; status?: string; reason?: string; lost?: boolean; lostReason?: string }>(event)
+  const body = await readBody<{ stage?: string; status?: string; reason?: string; lost?: boolean; lostReason?: string; score?: 'recalculate' }>(event)
+
+  // FASE 32 — «Recalcular» del Lead Score explicable, como rama de esta ruta
+  // y no como una nueva (margen de claves de ruta = 0, ver
+  // docs/property-schema-registry.md). Vuelve a leer las señales reales del
+  // lead; el desglose sólo-lectura se pide por GET (leads.get.ts?scoreFor=).
+  if (body?.score === 'recalculate') {
+    const db = useDb(event)
+    const r = await recomputeLeadScore(db, orgId, id, 'manual')
+    if (!r) throw createError({ statusCode: 404, statusMessage: 'Lead no encontrado' })
+    await logAdminAction(event, { user, orgId, action: 'update', resource: 'lead', resourceId: id, detail: `score recalculado: ${r.score}` })
+    const detail = await getLeadScoreDetail(db, orgId, id)
+    if (!detail) throw createError({ statusCode: 404, statusMessage: 'Lead no encontrado' })
+    return detail
+  }
 
   try {
     if (body?.lost !== undefined) {
