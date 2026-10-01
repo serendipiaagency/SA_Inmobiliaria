@@ -202,6 +202,8 @@
             />
           </aside>
         </div>
+
+        <PropertyCommunications v-if="!isNew && recordId" :property-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" />
       </div>
     </template>
   </div>
@@ -222,6 +224,7 @@ import GalleryManager from './GalleryManager.vue'
 import ChildCardManager from './ChildCardManager.vue'
 import SocialLinksManager from './SocialLinksManager.vue'
 import PropertyRoomManager from './PropertyRoomManager.vue'
+import PropertyCommunications from './PropertyCommunications.vue'
 
 /**
  * El Property Editor: **uno solo** para los cuatro recorridos — alta y

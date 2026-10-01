@@ -237,6 +237,11 @@
         </AdminPanel>
       </section>
 
+      <!-- COMUNICACIONES (FASE 29 §140) — de todos sus leads y clientes -->
+      <section v-show="tab === 'comunicaciones'" data-testid="contact-comunicaciones">
+        <AdminCommsRelatedCommunications :conversations="data.communications?.conversations" :calls="data.communications?.calls" :emails="data.communications?.emails" />
+      </section>
+
       <!-- FICHA -->
       <section v-show="tab === 'ficha'">
         <AdminPanel title="Datos del contacto">
@@ -316,12 +321,17 @@ const FEATURES = [
 const { data, refresh } = await useFetch<any>(`/api/admin/saas/contacts/${route.params.id}`)
 useHead({ title: () => `${data.value?.contact?.name || 'Contacto'} — M&M Real Estate` })
 
-const tab = ref<'necesidades' | 'leads' | 'ficha'>('necesidades')
-const tabs = computed(() => [
-  { key: 'necesidades' as const, label: 'Necesidades', count: data.value?.requirements?.length || 0 },
-  { key: 'leads' as const, label: 'Leads', count: data.value?.leads?.length || 0 },
-  { key: 'ficha' as const, label: 'Ficha', count: 0 },
-])
+type ContactTab = 'necesidades' | 'leads' | 'comunicaciones' | 'ficha'
+const tab = ref<ContactTab>(route.query.tab === 'comunicaciones' ? 'comunicaciones' : 'necesidades')
+const tabs = computed(() => {
+  const comms = data.value?.communications
+  return [
+    { key: 'necesidades' as const, label: 'Necesidades', count: data.value?.requirements?.length || 0 },
+    { key: 'leads' as const, label: 'Leads', count: data.value?.leads?.length || 0 },
+    { key: 'comunicaciones' as const, label: 'Comunicaciones', count: (comms?.conversations?.length || 0) + (comms?.calls?.length || 0) + (comms?.emails?.length || 0) },
+    { key: 'ficha' as const, label: 'Ficha', count: 0 },
+  ]
+})
 
 const showNew = ref(false)
 const saving = ref(false)

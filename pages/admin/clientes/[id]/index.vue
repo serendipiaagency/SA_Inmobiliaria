@@ -261,31 +261,8 @@
     </div>
 
     <!-- COMUNICACIONES -->
-    <div v-show="tab === 'comunicaciones'" data-testid="client-tab-comunicaciones" class="grid gap-6 lg:grid-cols-2">
-      <AdminPanel title="Conversaciones de WhatsApp" sub="Vinculadas a esta ficha por el teléfono del contacto.">
-        <p v-if="!related?.conversations?.length" class="py-6 text-center text-sm text-stone-400">
-          Ninguna todavía. Usa el botón «WhatsApp» de arriba para abrir una.
-        </p>
-        <ul v-else class="divide-y divide-line">
-          <li v-for="c in related.conversations" :key="c.id" class="py-2.5">
-            <NuxtLink :to="`/admin/comunicaciones?conversation=${c.id}`" class="block hover:underline">
-              <span class="text-[13px] font-medium text-ink">{{ c.lastMessagePreview || 'Conversación' }}</span>
-              <span class="ml-2 text-[11px] text-stone-400">{{ formatRelative(c.lastMessageAt) }} · {{ c.status === 'open' ? 'abierta' : c.status === 'pending' ? 'pendiente' : 'cerrada' }}<span v-if="c.unreadCount"> · {{ c.unreadCount }} sin leer</span></span>
-            </NuxtLink>
-          </li>
-        </ul>
-      </AdminPanel>
-      <AdminPanel title="Llamadas" sub="Por WhatsApp desde el panel o registradas a mano.">
-        <p v-if="!related?.calls?.length" class="py-6 text-center text-sm text-stone-400">Ninguna registrada. El botón «Llamar» de arriba anota el resultado al terminar.</p>
-        <ul v-else class="divide-y divide-line">
-          <li v-for="c in related.calls" :key="c.id" class="py-2.5 text-[13px]">
-            <span class="font-medium text-ink">{{ c.direction === 'inbound' ? 'Recibida' : 'Realizada' }}</span>
-            <span class="text-stone-500"> · {{ c.status }}<template v-if="c.outcome"> · {{ c.outcome }}</template><template v-if="c.durationSeconds"> · {{ Math.round(c.durationSeconds / 60) }} min</template></span>
-            <span class="ml-2 text-[11px] text-stone-400">{{ formatDateTime(c.startedAt || c.createdAt) }}</span>
-            <p v-if="c.notes" class="text-[12px] text-stone-500">{{ c.notes }}</p>
-          </li>
-        </ul>
-      </AdminPanel>
+    <div v-show="tab === 'comunicaciones'" data-testid="client-tab-comunicaciones">
+      <AdminCommsRelatedCommunications :conversations="related?.conversations" :calls="related?.calls" :emails="related?.emails" />
     </div>
 
     <!-- Nueva tarea -->
@@ -591,6 +568,6 @@ const tabs = computed(() => [
   { key: 'tareas' as const, label: 'Tareas', count: tasks.value.length },
   { key: 'ofertas' as const, label: 'Ofertas', count: offers.value.length },
   { key: 'operaciones' as const, label: 'Operaciones', count: dealOperations.value.length },
-  { key: 'comunicaciones' as const, label: 'Comunicaciones', count: (related.value?.conversations?.length || 0) + (related.value?.calls?.length || 0) },
+  { key: 'comunicaciones' as const, label: 'Comunicaciones', count: (related.value?.conversations?.length || 0) + (related.value?.calls?.length || 0) + (related.value?.emails?.length || 0) },
 ])
 </script>

@@ -7,6 +7,7 @@ import { listActivity } from '../../../../utils/activity/service'
 import { listTasks } from '../../../../utils/tasks/service'
 import { listOffers } from '../../../../utils/offers/service'
 import { listDeals } from '../../../../utils/deals/service'
+import { listPersonCommunications } from '../../../../utils/comms/related'
 
 /**
  * La vista 360º de un cliente: todo lo que la agencia tiene registrado sobre
@@ -188,6 +189,10 @@ export default defineEventHandler(async (event) => {
       ])
     : [[], [], []]
 
+  // --- Emails enviados (FASE 29 §115/§139) — sólo salientes: no existe
+  // recepción de correo en este proyecto, ver server/utils/comms/related.ts.
+  const { emails } = await listPersonCommunications(db, orgId, { emails: [client.email] })
+
   // --- Propiedades relacionadas, resueltas en vivo -------------------------
   const RELATION_LABELS = { visit: 'Visita', deal: 'Operación', reservation: 'Reserva', lead: 'Interés' } as const
   type RelationKey = keyof typeof RELATION_LABELS
@@ -295,6 +300,7 @@ export default defineEventHandler(async (event) => {
     conversations,
     messages,
     calls,
+    emails,
     totals: {
       leads: leads.length,
       visits: visits.length,
