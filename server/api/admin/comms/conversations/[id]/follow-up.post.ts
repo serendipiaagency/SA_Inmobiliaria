@@ -3,13 +3,14 @@ import { useDb } from '../../../../../utils/db'
 import { createFollowUpVisit, crmNamesFor, loadConversationForOrg, serializeContact } from '../../../../../utils/comms/admin'
 import { addInternalNote } from '../../../../../utils/comms/inbox'
 import { logAdminAction } from '../../../../../utils/audit'
+import { PROPERTY_KINDS } from '../../../../../utils/matching/service'
 
 /**
  * POST /api/admin/comms/conversations/:id/follow-up — programa un seguimiento
  * (llamada, videollamada o visita) en la agenda del comercial: una fila real
  * de `visits`, la misma que ve Visitas y la que dispara los recordatorios.
  *
- * Body: { agentId: number; scheduledAt: 'YYYY-MM-DD HH:MM:SS'; channel?: 'phone'|'video'|'in_person'; propertyId?: number; notes?: string }
+ * Body: { agentId: number; scheduledAt: 'YYYY-MM-DD HH:MM:SS'; channel?: 'phone'|'video'|'in_person'; propertyId?: number; propertyKind?: 'agent'|'developer'; notes?: string }
  */
 export default defineEventHandler(async (event) => {
   const { user, orgId } = await requireOrgScope(event, 'crm', 'write')
@@ -28,7 +29,11 @@ export default defineEventHandler(async (event) => {
     agentId: Number(body.agentId),
     scheduledAt: String(body.scheduledAt || ''),
     channel,
+    // Sin propertyId explícito, la propiedad de contexto del hilo — con su catálogo.
     propertyId: body.propertyId ? Number(body.propertyId) : (conversation.propertyId ?? null),
+    propertyKind: body.propertyId
+      ? PROPERTY_KINDS.includes(body.propertyKind) ? body.propertyKind : 'developer'
+      : conversation.propertyKind === 'agent' ? 'agent' : 'developer',
     notes: body.notes ? String(body.notes) : null,
   })
   await addInternalNote(db, {

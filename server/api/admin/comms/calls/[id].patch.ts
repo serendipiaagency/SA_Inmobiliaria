@@ -5,12 +5,13 @@ import { logAdminAction } from '../../../../utils/audit'
 import { createFollowUpVisit, crmNamesFor, loadCallForOrg, loadContactForOrg, serializeCall, serializeContact } from '../../../../utils/comms/admin'
 import { isCallOutcome } from '../../../../utils/comms/calls'
 import { addInternalNote } from '../../../../utils/comms/inbox'
+import { PROPERTY_KINDS } from '../../../../utils/matching/service'
 
 /**
  * PATCH /api/admin/comms/calls/:id — resultado y notas de una llamada ya
  * hecha, y opcionalmente el seguimiento en la agenda.
  *
- * Body: { outcome?: CallOutcome; notes?: string; followUp?: { agentId: number; scheduledAt: string; channel?: 'phone'|'video'|'in_person'; propertyId?: number; notes?: string } }
+ * Body: { outcome?: CallOutcome; notes?: string; followUp?: { agentId: number; scheduledAt: string; channel?: 'phone'|'video'|'in_person'; propertyId?: number; propertyKind?: 'agent'|'developer'; notes?: string } }
  */
 export default defineEventHandler(async (event) => {
   const { user, orgId } = await requireOrgScope(event, 'crm', 'write')
@@ -36,6 +37,9 @@ export default defineEventHandler(async (event) => {
       scheduledAt: String(body.followUp.scheduledAt || ''),
       channel: ['phone', 'video', 'in_person'].includes(String(body.followUp.channel)) ? body.followUp.channel : 'phone',
       propertyId: body.followUp.propertyId ? Number(body.followUp.propertyId) : (call.propertyId ?? null),
+      propertyKind: body.followUp.propertyId
+        ? PROPERTY_KINDS.includes(body.followUp.propertyKind) ? body.followUp.propertyKind : 'developer'
+        : call.propertyKind === 'agent' ? 'agent' : 'developer',
       notes: body.followUp.notes ? String(body.followUp.notes) : null,
     })
     patch.followUpVisitId = visit.id

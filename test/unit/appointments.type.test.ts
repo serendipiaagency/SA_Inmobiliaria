@@ -88,6 +88,54 @@ describe('FASE 17 — createFollowUpVisit deriva `type` del contexto', () => {
     const [lead] = await db.select({ nextActionAt: schema.leads.nextActionAt, nextActionType: schema.leads.nextActionType }).from(schema.leads).where(eq(schema.leads.id, fixture.leadId))
     expect(lead).toEqual({ nextActionAt: '2099-03-01 10:00:00', nextActionType: 'appointment:call' })
   })
+
+  it('un seguimiento sobre una propiedad de 2ª mano la resuelve en SU catálogo, no en obra nueva (FASE 29)', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'FollowUpAgentKind')
+    const contact = await seedContact(db, fixture.orgId, '+34600111555')
+    const [agentProperty] = await db
+      .insert(schema.agentProperties)
+      .values({ organizationId: fixture.orgId, slug: `fu-agent-${Date.now()}`, price: 210000, street: 'Calle Seguimiento', streetNumber: '7', status: 'available', createdAt: ts, updatedAt: ts })
+      .returning()
+    const { createFollowUpVisit } = await import('../../server/utils/comms/admin')
+
+    const visit = await createFollowUpVisit(db, {
+      orgId: fixture.orgId,
+      contact,
+      contactName: 'Cliente 2ª mano',
+      agentId: fixture.teamMemberId,
+      scheduledAt: '2026-03-02 10:00:00',
+      channel: 'in_person',
+      propertyId: agentProperty.id,
+      propertyKind: 'agent',
+    })
+
+    const [row] = await db.select({ propertyId: schema.visits.propertyId, propertyKind: schema.visits.propertyKind, propertyName: schema.visits.propertyName }).from(schema.visits).where(eq(schema.visits.id, visit.id))
+    expect(row).toEqual({ propertyId: agentProperty.id, propertyKind: 'agent', propertyName: 'Calle Seguimiento 7' })
+  })
+
+  it('una propiedad que no es de la organización no se adjunta: 404 y ninguna cita creada', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'FollowUpOwn')
+    const other = await seedTenant(db, 'FollowUpOther')
+    const contact = await seedContact(db, fixture.orgId, '+34600111666')
+    const { createFollowUpVisit } = await import('../../server/utils/comms/admin')
+
+    await expect(
+      createFollowUpVisit(db, {
+        orgId: fixture.orgId,
+        contact,
+        contactName: 'Cliente',
+        agentId: fixture.teamMemberId,
+        scheduledAt: '2026-03-03 10:00:00',
+        channel: 'in_person',
+        propertyId: other.projectId,
+        propertyKind: 'developer',
+      }),
+    ).rejects.toMatchObject({ statusCode: 404 })
+    const rows = await db.select({ id: schema.visits.id }).from(schema.visits).where(and(eq(schema.visits.organizationId, fixture.orgId), eq(schema.visits.scheduledAt, '2026-03-03 10:00:00')))
+    expect(rows).toEqual([])
+  })
 })
 
 describe('FASE 17 — confirmationStatus por defecto y su reseteo al reprogramar', () => {

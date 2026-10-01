@@ -369,6 +369,15 @@ describe('Activity (FASE 29 §128) — envío de propiedad y llamada completada'
     expect(completed).toMatchObject({ entityType: 'comms_call', entityId: answeredCall.id, actorType: 'user', actorId: a.userId })
   })
 
+  it('una llamada sobre una propiedad de 2ª mano guarda y registra SU catálogo, no «obra nueva» (FASE 29)', async () => {
+    const contact = await upsertContact(db, a.orgId, '+34600112244')
+    const call = await logManualCall(db, { orgId: a.orgId, contactId: contact.id, conversationId: null, direction: 'outbound', outcome: 'answered', userId: a.userId, propertyId: a.propertyId, propertyKind: 'agent' })
+    const [row] = await db.select({ propertyId: schema.commsCalls.propertyId, propertyKind: schema.commsCalls.propertyKind }).from(schema.commsCalls).where(eq(schema.commsCalls.id, call.id))
+    expect(row).toEqual({ propertyId: a.propertyId, propertyKind: 'agent' })
+    const rows = await db.select().from(schema.activities).where(eq(schema.activities.organizationId, a.orgId))
+    expect(rows.find((r: any) => r.eventType === 'CALL_COMPLETED' && r.entityId === call.id)).toMatchObject({ propertyId: a.propertyId, propertyKind: 'agent' })
+  })
+
   it('una llamada de WhatsApp Calling que termina contestada (answeredAt real) genera CALL_COMPLETED; una perdida, no', async () => {
     await ingestCallEvent(db, channelA, { kind: 'call', externalId: 'wacid.answered', event: 'connect', direction: 'inbound', from: '+34600112233', session: { sdpType: 'offer', sdp: 'v=0' }, timestamp: '2026-03-01T10:00:00.000Z', raw: {} })
     await ingestCallEvent(db, channelA, { kind: 'call', externalId: 'wacid.answered', event: 'connect', session: { sdpType: 'answer', sdp: 'v=0 answer' }, timestamp: '2026-03-01T10:00:05.000Z', raw: {} })

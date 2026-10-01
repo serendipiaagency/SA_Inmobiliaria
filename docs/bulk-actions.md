@@ -131,6 +131,24 @@ y "Exportar seleccionadas" (§92):
   disparar `price_drop` en Automatizaciones si el precio baja) y
   `agent_property_price_history` en 2ª mano — su primer escritor real
   desde que la tabla existe (migración 0081).
+
+  **Cierre de FASES 25-29** (auditado con el E2E principal):
+  - La edición manual de una ficha de 2ª mano no escribía
+    `agent_property_price_history` — sólo la acción en bloque. Ahora
+    `[resource]/[id].put.ts` lo hace también, con cambio real de precio.
+  - En `[id].put.ts` el histórico y las automatizaciones (`price_drop`,
+    `status_change`) se ejecutaban **antes** de validar el esquema: un PUT
+    que acababa en 422 (p. ej. publicar sin campos obligatorios llevando un
+    precio nuevo) dejaba una fila con un precio que nunca se guardó, y podía
+    disparar una republicación. La validación va ahora primero.
+  - Las dos vías escriben `recorded_at` con `now()` (`YYYY-MM-DD HH:MM:SS`);
+    la manual usaba ISO con «T», y dos filas del mismo día se ordenaban mal
+    al comparar el texto.
+  - Nadie leía el histórico desde el panel. `GET /api/admin/{properties,
+    developer-properties}/:id` devuelve ya `priceHistory` (las 50 más
+    recientes; la fila ya está autorizada por organización) y el editor lo
+    enseña en el panel «Histórico de precios» — sin ruta nueva (margen de
+    claves de ruta = 0).
 - **Exportar seleccionadas** (§92) — sin acción masiva nueva del lado
   servidor: `[resource]/index.get.ts` gana un filtro `ids` (sólo para
   `properties`/`developer-properties`, opt-in, nunca cambia el

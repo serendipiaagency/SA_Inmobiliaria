@@ -1,5 +1,5 @@
 import { and, eq, sql } from 'drizzle-orm'
-import { useDb, schema } from '../../../utils/db'
+import { now, useDb, schema } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource, buildPayload, syncTranslations, assertPayloadReferences } from '../../../utils/adminResources'
 import { logAdminAction } from '../../../utils/audit'
@@ -87,6 +87,25 @@ export default defineEventHandler(async (event) => {
   const idCond = eq(def.table.id, id)
   const where = tenantWhere ? and(idCond, tenantWhere) : idCond
 
+  // PropertySchemaRegistry (FASE 26) — valida el estado RESULTANTE (existente
+  // + cambios), no sólo los campos tocados: antes de esto, `buildPayload()`
+  // sólo exigía `required` en creación (isCreate), así que un PUT que
+  // vaciara un campo obligatorio se guardaba sin más (auditoría FASE 26,
+  // ver docs/property-schema-registry.md). `publishedAt` pasando de vacío a
+  // un valor es el único "publicar" que existe hoy (developer-properties;
+  // agent-properties no tiene consumidor público, ver auditoría) — ese caso
+  // exige además los requiredForPublish; cualquier otro PUT sigue en modo
+  // 'save', igual de permisivo que siempre.
+  //
+  // Va ANTES del histórico de precios y de las automatizaciones: un PUT que
+  // acaba en 422 no puede haber dejado ya una fila de histórico con un
+  // precio que nunca se guardó, ni haber disparado una republicación.
+  if (key === 'properties' || key === 'developer-properties') {
+    const merged = { ...(existing as Record<string, unknown>), ...data }
+    const isPublishing = key === 'developer-properties' && typeof data.publishedAt === 'string' && !(existing as any).publishedAt
+    assertSchemaValid(key === 'developer-properties' ? 'developer' : 'agent', (merged.propertyType as string | null) ?? null, merged, isPublishing ? 'publish' : 'save')
+  }
+
   // Off-plan project prices are chartable on the public property page — every
   // real edit here becomes a real data point, never a fabricated one.
   // Also the two hooks for the Publication Scheduler's automation rules
@@ -96,7 +115,7 @@ export default defineEventHandler(async (event) => {
   let automationsFired = 0
   if (key === 'developer-properties') {
     if (typeof data.price === 'number' && existing.price !== data.price) {
-      await db.insert(schema.priceHistory).values({ developerPropertyId: id, price: data.price, recordedAt: new Date().toISOString() })
+      await db.insert(schema.priceHistory).values({ developerPropertyId: id, price: data.price, recordedAt: now() })
       if (data.price < existing.price) {
         automationsFired += await fireAutomationRules(db, orgId!, id, 'price_drop', `precio ${existing.price} → ${data.price}`)
       }
@@ -104,6 +123,16 @@ export default defineEventHandler(async (event) => {
     if (typeof data.status === 'string' && existing.status !== data.status) {
       automationsFired += await fireAutomationRules(db, orgId!, id, 'status_change', `estado ${existing.status} → ${data.status}`)
     }
+  }
+  // FASE 28 §94 — 2ª mano también: un cambio real de precio a mano deja su
+  // fila en agent_property_price_history, igual que la acción en bloque
+  // (bulkActions/propertyActions.ts#updatePrice). Antes sólo escribía ahí
+  // la acción en bloque, así que el histórico de 2ª mano no recogía las
+  // ediciones de la ficha. Las dos tablas usan `now()` (el mismo formato que
+  // la acción en bloque): con ISO aquí y `YYYY-MM-DD HH:MM:SS` allí, dos
+  // filas del mismo día se ordenaban mal al comparar el texto.
+  if (key === 'properties' && typeof data.price === 'number' && existing.price !== data.price) {
+    await db.insert(schema.agentPropertyPriceHistory).values({ propertyId: id, price: data.price, recordedAt: now() })
   }
 
   // The public article's comment_count only reflects visible (approved) comments —
@@ -120,21 +149,6 @@ export default defineEventHandler(async (event) => {
     } else if (wasApproved && !nowApproved) {
       await db.update(schema.cmsArticles).set({ commentCount: sql`max(${schema.cmsArticles.commentCount} - 1, 0)` }).where(articleWhere)
     }
-  }
-
-  // PropertySchemaRegistry (FASE 26) — valida el estado RESULTANTE (existente
-  // + cambios), no sólo los campos tocados: antes de esto, `buildPayload()`
-  // sólo exigía `required` en creación (isCreate), así que un PUT que
-  // vaciara un campo obligatorio se guardaba sin más (auditoría FASE 26,
-  // ver docs/property-schema-registry.md). `publishedAt` pasando de vacío a
-  // un valor es el único "publicar" que existe hoy (developer-properties;
-  // agent-properties no tiene consumidor público, ver auditoría) — ese caso
-  // exige además los requiredForPublish; cualquier otro PUT sigue en modo
-  // 'save', igual de permisivo que siempre.
-  if (key === 'properties' || key === 'developer-properties') {
-    const merged = { ...(existing as Record<string, unknown>), ...data }
-    const isPublishing = key === 'developer-properties' && typeof data.publishedAt === 'string' && !(existing as any).publishedAt
-    assertSchemaValid(key === 'developer-properties' ? 'developer' : 'agent', (merged.propertyType as string | null) ?? null, merged, isPublishing ? 'publish' : 'save')
   }
 
   if (Object.keys(data).length) {

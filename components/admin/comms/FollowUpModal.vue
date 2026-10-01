@@ -34,7 +34,7 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{ conversationId: number; contactName: string; team: { id: number; name: string }[]; propertyId?: number | null }>()
+const props = defineProps<{ conversationId: number; contactName: string; team: { id: number; name: string }[]; propertyId?: number | null; propertyKind?: 'agent' | 'developer' | null }>()
 const emit = defineEmits<{ close: []; saved: [visit: any] }>()
 const form = reactive({ agentId: props.team[0]?.id || 0, when: '', channel: 'phone', notes: '' })
 const saving = ref(false)
@@ -50,7 +50,7 @@ async function save() {
   try {
     const r = await $fetch<{ visit: any }>(`/api/admin/comms/conversations/${props.conversationId}/follow-up`, {
       method: 'POST',
-      body: { agentId: form.agentId, scheduledAt: `${form.when.replace('T', ' ')}:00`.slice(0, 19), channel: form.channel, propertyId: props.propertyId || undefined, notes: form.notes || undefined },
+      body: { agentId: form.agentId, scheduledAt: `${form.when.replace('T', ' ')}:00`.slice(0, 19), channel: form.channel, propertyId: props.propertyId || undefined, propertyKind: props.propertyId ? props.propertyKind || undefined : undefined, notes: form.notes || undefined },
     })
     emit('saved', r.visit)
   } catch (e: any) {

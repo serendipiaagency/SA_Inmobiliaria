@@ -164,6 +164,7 @@ export function serializeMessage(row: MessageRow) {
     callId: payload?.callId ?? null,
     template: row.templateName ? { name: row.templateName, language: row.templateLanguage, params: safeJson(row.templateParamsJson) } : null,
     propertyId: row.propertyId,
+    propertyKind: row.propertyId ? (row.propertyKind === 'agent' ? 'agent' : 'developer') : null,
     status: row.status,
     errorCode: row.errorCode,
     errorMessage: row.errorMessage,
@@ -203,6 +204,7 @@ export function serializeCall(row: CallRow, opts: { includeSession?: boolean } =
     agentId: row.agentId,
     userId: row.userId,
     propertyId: row.propertyId,
+    propertyKind: row.propertyId ? (row.propertyKind === 'agent' ? 'agent' : 'developer') : null,
     followUpVisitId: row.followUpVisitId,
     startedAt: row.startedAt,
     answeredAt: row.answeredAt,
@@ -383,6 +385,8 @@ export interface FollowUpInput {
   scheduledAt: string
   channel?: 'in_person' | 'video' | 'phone'
   propertyId?: number | null
+  /** De qué catálogo es `propertyId` — la propiedad de contexto de un hilo puede ser de 2ª mano desde el incremento 1 de FASE 29. */
+  propertyKind?: PropertyKind | null
   notes?: string | null
 }
 
@@ -397,14 +401,31 @@ export async function createFollowUpVisit(db: any, input: FollowUpInput): Promis
   const agent = agents[0]
   if (!agent) throw createError({ statusCode: 404, statusMessage: 'Comercial no encontrado' })
 
+  // Mismo criterio que appointments/adminCreate.ts: la propiedad se resuelve
+  // en SU catálogo y dentro de la organización. Antes sólo se buscaba en
+  // obra nueva y sin comprobar que existiera, así que un seguimiento sobre
+  // una propiedad de 2ª mano quedaba apuntando a la de obra nueva con el
+  // mismo id (o a ninguna).
   let propertyName: string | null = null
+  const propertyKind: PropertyKind | null = input.propertyId ? input.propertyKind || 'developer' : null
   if (input.propertyId) {
-    const props = await db
-      .select({ name: schema.developerProperties.name })
-      .from(schema.developerProperties)
-      .where(and(eq(schema.developerProperties.id, input.propertyId), eq(schema.developerProperties.organizationId, input.orgId)))
-      .limit(1)
-    propertyName = props[0]?.name ?? null
+    if (propertyKind === 'agent') {
+      const rows = await db
+        .select({ reference: schema.agentProperties.reference, street: schema.agentProperties.street, streetNumber: schema.agentProperties.streetNumber })
+        .from(schema.agentProperties)
+        .where(and(eq(schema.agentProperties.id, input.propertyId), eq(schema.agentProperties.organizationId, input.orgId)))
+        .limit(1)
+      if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Inmueble no encontrado' })
+      propertyName = rows[0].reference || [rows[0].street, rows[0].streetNumber].filter(Boolean).join(' ') || null
+    } else {
+      const rows = await db
+        .select({ name: schema.developerProperties.name })
+        .from(schema.developerProperties)
+        .where(and(eq(schema.developerProperties.id, input.propertyId), eq(schema.developerProperties.organizationId, input.orgId)))
+        .limit(1)
+      if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Inmueble no encontrado' })
+      propertyName = rows[0].name
+    }
   }
 
   const endsAt = shiftDateTime(input.scheduledAt, agent.slotDurationMinutes)
@@ -425,6 +446,7 @@ export async function createFollowUpVisit(db: any, input: FollowUpInput): Promis
         organizationId: input.orgId,
         clientName: input.contactName,
         propertyId: input.propertyId ?? null,
+        propertyKind,
         propertyName,
         agentId: agent.id,
         agentName: agent.name,

@@ -3,6 +3,7 @@ import { useDb } from '../../../../utils/db'
 import { loadContactForOrg, loadConversationForOrg, serializeCall } from '../../../../utils/comms/admin'
 import { isCallOutcome, logManualCall } from '../../../../utils/comms/calls'
 import { logAdminAction } from '../../../../utils/audit'
+import { PROPERTY_KINDS, type PropertyKind } from '../../../../utils/matching/service'
 
 /**
  * POST /api/admin/comms/calls/log — registra a mano una llamada telefónica
@@ -10,7 +11,7 @@ import { logAdminAction } from '../../../../utils/audit'
  * notas y duración. Es lo que hay cuando el proveedor no permite llamar
  * desde el navegador, y sigue siendo actividad real en la ficha.
  *
- * Body: { conversationId?: number; contactId?: number; direction: 'inbound'|'outbound'; outcome: CallOutcome; notes?: string; durationSeconds?: number; agentId?: number; propertyId?: number }
+ * Body: { conversationId?: number; contactId?: number; direction: 'inbound'|'outbound'; outcome: CallOutcome; notes?: string; durationSeconds?: number; agentId?: number; propertyId?: number; propertyKind?: 'agent'|'developer' }
  */
 export default defineEventHandler(async (event) => {
   const { user, orgId } = await requireOrgScope(event, 'crm', 'write')
@@ -22,11 +23,16 @@ export default defineEventHandler(async (event) => {
   let contactId: number
   let conversationId: number | null = null
   let propertyId: number | null = body.propertyId ? Number(body.propertyId) : null
+  let propertyKind: PropertyKind | null = propertyId ? (PROPERTY_KINDS.includes(body.propertyKind) ? body.propertyKind : 'developer') : null
   if (body.conversationId) {
     const { conversation, contact } = await loadConversationForOrg(db, orgId, Number(body.conversationId))
     contactId = contact.id
     conversationId = conversation.id
-    propertyId = propertyId ?? conversation.propertyId
+    if (!propertyId && conversation.propertyId) {
+      // La propiedad de contexto del hilo, con SU catálogo (puede ser de 2ª mano).
+      propertyId = conversation.propertyId
+      propertyKind = conversation.propertyKind === 'agent' ? 'agent' : 'developer'
+    }
   } else if (body.contactId) {
     contactId = (await loadContactForOrg(db, orgId, Number(body.contactId))).id
   } else {
@@ -44,6 +50,7 @@ export default defineEventHandler(async (event) => {
     userId: user.id,
     agentId: body.agentId ? Number(body.agentId) : null,
     propertyId,
+    propertyKind,
   })
   await logAdminAction(event, { user, orgId, action: 'create', resource: 'comms-call', resourceId: call.id, detail: `manual:${direction}:${body.outcome}` })
   return { ok: true, call: serializeCall(call) }
