@@ -1,3 +1,4 @@
+import { loopbackOrigin } from '../../loopback'
 import { normalizePhone, phoneToWaId, waIdToPhone } from '../phone'
 import type { CallEvent, CallPermissionEvent, InboundEvent, InboundMessageEvent, InboundMessageType, LoadedChannel, MessageStatusEvent, OutboundMessage, ParsedWebhook, SendResult } from '../types'
 
@@ -28,22 +29,11 @@ import type { CallEvent, CallPermissionEvent, InboundEvent, InboundMessageEvent,
 export const META_GRAPH_VERSION_DEFAULT = 'v23.0'
 
 /**
- * Simulador local de la Graph API para la suite e2e
- * (`scripts/e2e-provider-mock.mjs`, lo arranca `scripts/e2e.sh`).
- * `WHATSAPP_GRAPH_BASE_URL` sólo se respeta si apunta a loopback: una
- * variable mal puesta en producción nunca puede desviar mensajes ni el
- * token de acceso a un host ajeno — como mucho los manda a ninguna parte.
+ * Simulador local de la Graph API para la suite e2e: `WHATSAPP_GRAPH_BASE_URL`
+ * sólo se respeta si apunta a loopback (ver `loopbackOrigin`).
  */
 function loopbackGraphBase(env?: Record<string, any> | null): string | null {
-  const raw = env?.WHATSAPP_GRAPH_BASE_URL
-  if (!raw) return null
-  try {
-    const url = new URL(String(raw))
-    if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) return null
-    return url.origin
-  } catch {
-    return null
-  }
+  return loopbackOrigin(env?.WHATSAPP_GRAPH_BASE_URL)
 }
 
 export function graphBase(env?: Record<string, any> | null): string {

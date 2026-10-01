@@ -5,6 +5,7 @@ import { getResource } from '../../../utils/adminResources'
 import { buildTenantWhere } from '../../../utils/tenantPolicy'
 import { buildPropertyFilterConds, parsePropertyFilters, DEVELOPER_PROPERTY_SORTS, PROPERTIES_SORTS, PROPERTY_EXPORT_MAX_ROWS, rowsToCsv } from '../../../utils/properties/searchService'
 import { savedViewVisibilityCond } from '../../../utils/properties/savedViews'
+import { toolCatalogFor } from '../../../utils/tools/execute'
 
 const TEAM_SORTS: Record<string, any> = {
   newest: desc(schema.teamMembers.createdAt),
@@ -15,6 +16,13 @@ const TEAM_SORTS: Record<string, any> = {
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
+  // Catálogo de Domain Tools (FASE 31): sólo las herramientas que el RBAC de
+  // este usuario permite, con su esquema de entrada. El resto de GET de
+  // `domain-tools` es la traza y sigue el camino genérico (área system).
+  if (key === 'domain-tools' && getQuery(event).view === 'catalog') {
+    const { user } = await requireOrgScope(event)
+    return { tools: toolCatalogFor(user) }
+  }
   let orgId: number | null = null
   let user: SessionUser
   if (def.superAdminOnly) {

@@ -66,9 +66,38 @@ function validate(input: CreateTaskInput) {
   if (input.priority && !(TASK_PRIORITIES as readonly string[]).includes(input.priority)) throw createError({ statusCode: 422, statusMessage: 'Prioridad inválida' })
 }
 
+async function belongsToOrg(db: any, table: any, id: number, orgId: number): Promise<boolean> {
+  const rows = await db.select({ id: table.id }).from(table).where(and(eq(table.id, id), eq(table.organizationId, orgId))).limit(1)
+  return rows.length > 0
+}
+
+/**
+ * Cada id que referencia una Task tiene que ser de ESTA organización. Antes
+ * sólo se guardaba el número: una tarea podía apuntar al lead, contacto o
+ * comercial de otra agencia (y la vista Tareas resuelve nombres por id). Sin
+ * catálogo explícito, la propiedad vale si existe en cualquiera de los dos
+ * catálogos de la organización — el mismo criterio que ya seguían las filas
+ * guardadas sin `propertyKind`.
+ */
+export async function assertTaskReferences(db: any, orgId: number, refs: Pick<CreateTaskInput, 'assigneeId' | 'contactId' | 'leadId' | 'propertyId' | 'propertyKind' | 'appointmentId' | 'dealId'>) {
+  const missing = (what: string) => createError({ statusCode: 404, statusMessage: `${what} no encontrado en esta organización` })
+  if (refs.assigneeId && !(await belongsToOrg(db, schema.teamMembers, refs.assigneeId, orgId))) throw missing('Responsable')
+  if (refs.contactId && !(await belongsToOrg(db, schema.contacts, refs.contactId, orgId))) throw missing('Contacto')
+  if (refs.leadId && !(await belongsToOrg(db, schema.leads, refs.leadId, orgId))) throw missing('Lead')
+  if (refs.appointmentId && !(await belongsToOrg(db, schema.visits, refs.appointmentId, orgId))) throw missing('Cita')
+  if (refs.dealId && !(await belongsToOrg(db, schema.dealOperations, refs.dealId, orgId))) throw missing('Operación')
+  if (refs.propertyId) {
+    const tables = refs.propertyKind === 'agent' ? [schema.agentProperties] : refs.propertyKind === 'developer' ? [schema.developerProperties] : [schema.developerProperties, schema.agentProperties]
+    let found = false
+    for (const t of tables) if (!found && (await belongsToOrg(db, t, refs.propertyId, orgId))) found = true
+    if (!found) throw missing('Inmueble')
+  }
+}
+
 /** Crea una Task y registra TASK_CREATED. Si queda ligada a un lead, recalcula su próxima acción. */
 export async function createTask(db: any, orgId: number, input: CreateTaskInput, opts: { createdBy?: number | null } = {}): Promise<TaskRow> {
   validate(input)
+  await assertTaskReferences(db, orgId, input)
   const nowTs = now()
   const [row] = await db
     .insert(schema.tasks)
@@ -128,6 +157,7 @@ export async function updateTask(db: any, orgId: number, taskId: number, input: 
   if (input.priority !== undefined && !(TASK_PRIORITIES as readonly string[]).includes(input.priority)) throw createError({ statusCode: 422, statusMessage: 'Prioridad inválida' })
   if (input.status !== undefined && !(TASK_STATUSES as readonly string[]).includes(input.status)) throw createError({ statusCode: 422, statusMessage: 'Estado inválido' })
   if (input.title !== undefined && !input.title.trim()) throw createError({ statusCode: 422, statusMessage: 'El título es obligatorio' })
+  if (input.assigneeId) await assertTaskReferences(db, orgId, { assigneeId: input.assigneeId })
 
   const nowTs = now()
   const patch: Record<string, any> = { updatedAt: nowTs }

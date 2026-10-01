@@ -120,6 +120,23 @@ export function useHelpContent() {
       ],
     },
     {
+      key: 'inmo',
+      group: 'CRM',
+      title: 'INMO (asistente)',
+      route: '/admin/inmo',
+      summary: 'Asistente que responde con los datos reales de tu agencia: busca propiedades con criterios estructurados, encuentra contactos y leads, calcula compatibilidades con el motor de Matching y prepara visitas, tareas, envíos y ofertas — siempre con tu usuario y tus permisos.',
+      steps: [
+        'Escribe como hablarías con un compañero: "Busca pisos en Chamberí con terraza por menos de 650.000 €". INMO lo convierte en criterios (zona, terraza, precio máximo) y busca en tus dos catálogos con el mismo buscador que el panel. Lo que no dices no se filtra: si no mencionas el garaje, no descarta los que no lo tienen.',
+        'Puedes afinar sobre la marcha ("solo con terraza", "y con 3 habitaciones"): INMO recuerda la búsqueda anterior y la amplía.',
+        'Debajo de cada respuesta aparece de dónde sale (por ejemplo "Buscar propiedades · 4 resultados"). INMO no puede mencionar una propiedad, un precio o un porcentaje que no le haya devuelto el sistema; la compatibilidad entre una necesidad y una propiedad la calcula siempre el motor de Matching.',
+        'Para actuar sobre una persona, INMO la busca primero. Si hay varias con el mismo nombre te pregunta cuál es: nunca elige por ti. Lo ya resuelto (contactos, leads, propiedades, citas) se queda en la columna "En contexto", con enlace a su ficha.',
+        'Enviar una propiedad por WhatsApp, agendar, mover o cancelar una visita y crear una oferta NUNCA se hacen solas: INMO te enseña exactamente qué va a hacer y espera a que pulses "Confirmar". "Cancelar" no ejecuta nada. Un doble clic no duplica la acción.',
+        'Buscar no guarda nada. Sólo se crea una necesidad de compra, un lead, una tarea o una selección de propiedades si se lo pides expresamente.',
+        'INMO usa tus permisos: si tu usuario no puede ver o editar algo en el panel, INMO tampoco. Todas sus consultas quedan registradas (herramienta, resultado, entidad) en la traza de la Domain Tools API, sin guardar lo que escribiste.',
+        'Todavía no hay una base documental conectada (manuales, procedimientos internos): si preguntas por eso, INMO te lo dirá en vez de inventar. Necesita la clave del servicio de IA (AI_API_KEY) configurada; si falta, la página lo avisa.',
+      ],
+    },
+    {
       key: 'leads',
       group: 'CRM',
       title: 'Leads',
@@ -813,6 +830,13 @@ export function useHelpContent() {
       answer:
         'Haz clic en el número del lead (CRM → Leads): verás cada criterio que suma o no, con el dato real que lo justifica, y su historial. La puntuación no se edita a mano — sale de reglas fijas sobre señales reales (presupuesto validado, fecha deseada, respuesta reciente, visita pedida, financiación, fichas abiertas). Si quieres que algo pese más o menos, cambia las reglas de tu agencia en CRM → Enrutamiento y SLA → Lead Score y pulsa "Recalcular todos los leads".',
       tags: ['lead score', 'puntuación', 'score', 'por qué', 'leads'],
+    },
+    {
+      id: 'faq-inmo-datos',
+      question: '¿De dónde saca INMO las propiedades y los datos? ¿Se puede inventar algo?',
+      answer:
+        'INMO no tiene acceso propio a la base de datos: llama a las mismas herramientas que usa el panel (buscador de propiedades, contactos, motor de Matching, citas, tareas…) con tu usuario y tus permisos, y sólo puede hablar de lo que esas herramientas le devuelven. Debajo de cada respuesta ves qué herramienta se usó y cuántos resultados dio. Las acciones que salen del panel (enviar por WhatsApp, agendar o cancelar visitas, ofertas) esperan siempre a que pulses "Confirmar".',
+      tags: ['inmo', 'asistente', 'ia', 'inteligencia artificial', 'datos', 'confirmar'],
     },
     {
       id: 'faq-comms-window',

@@ -6,8 +6,8 @@ import { hasOverlappingVisit, shiftDateTime } from '../appointments/availability
 import { generateManagementToken } from '../appointments/managementToken'
 import { syncLeadNextAction } from '../leads/nextAction'
 import { toPublicProperty } from '../propertyPrivacy'
-import type { PropertyKind } from '../matching/service'
-import { listChannels } from './credentials'
+import { markMatchSent, PROPERTY_KINDS, type PropertyKind } from '../matching/service'
+import { listChannels, loadChannel } from './credentials'
 import { previewOf, sendOutbound, serviceWindow, type SendOutboundResult } from './inbox'
 import { formatPhone, whatsappClickToChatUrl } from './phone'
 import { NO_CAPABILITIES, PROVIDERS } from './providers/registry'
@@ -491,4 +491,61 @@ export async function agentNames(db: any, orgId: number, ids: (number | null)[])
     .where(and(eq(schema.teamMembers.organizationId, orgId), inArray(schema.teamMembers.id, clean)))
   for (const r of rows) map.set(r.id, r.name)
   return map
+}
+
+/**
+ * Envía la ficha de una propiedad (cualquiera de los dos catálogos) en una
+ * conversación: con foto si la hay y el canal admite medios, o sólo texto;
+ * queda en el hilo como `property_share`, la propiedad pasa a ser el
+ * contexto, y — sólo si el envío lo aceptó el proveedor — el PropertyMatch
+ * del `buyerRequirementId` pasa a `sent`. Extraído de
+ * `share-property.post.ts` (FASE 31) para que la Domain Tool `send_property`
+ * use exactamente este camino (nunca datos internos: `buildPropertyShare`
+ * sólo lee campos publicables, §125/§42).
+ */
+export async function sharePropertyInConversation(
+  event: H3Event,
+  db: any,
+  env: Record<string, any>,
+  orgId: number,
+  userId: number,
+  conversationId: number,
+  input: { propertyId: number; propertyKind?: string; note?: string | null; buyerRequirementId?: number | null; statusCallbackUrl?: string | null },
+) {
+  const { conversation, contact, channelRow } = await loadConversationForOrg(db, orgId, conversationId)
+  const channel = await loadChannel(db, env, { id: channelRow.id, orgId })
+  if (!channel || channel.status !== 'active') throw createError({ statusCode: 409, statusMessage: 'El número de este hilo no está disponible.' })
+
+  const propertyId = Number(input.propertyId)
+  if (!Number.isInteger(propertyId) || propertyId <= 0) throw createError({ statusCode: 422, statusMessage: 'Elige una propiedad.' })
+  const propertyKind: PropertyKind = (PROPERTY_KINDS as readonly string[]).includes(String(input.propertyKind)) ? (input.propertyKind as PropertyKind) : 'developer'
+  const share = await buildPropertyShare(db, orgId, propertyId, propertyKind, await publicSiteOrigin(db, orgId, event), input.note ? String(input.note).slice(0, 500) : null)
+
+  const useImage = Boolean(share.imageLink) && PROVIDERS[channel.provider].capabilities.media && share.text.length <= 1024
+  const result = await sendOutbound(db, {
+    channel,
+    env,
+    conversation,
+    contact,
+    message: useImage ? { kind: 'image', link: share.imageLink!, caption: share.text } : { kind: 'text', body: share.text, previewUrl: Boolean(share.url) },
+    displayBody: share.text,
+    storeAs: 'property_share',
+    propertyId: share.id,
+    propertyKind,
+    userId,
+    statusCallbackUrl: channel.provider === 'twilio' ? (input.statusCallbackUrl ?? null) : null,
+  })
+  if (result.ok) {
+    if (conversation.propertyId !== share.id || conversation.propertyKind !== propertyKind) {
+      await db.update(schema.commsConversations).set({ propertyId: share.id, propertyKind, updatedAt: now() }).where(eq(schema.commsConversations.id, conversation.id))
+    }
+    const buyerRequirementId = Number(input.buyerRequirementId)
+    if (Number.isInteger(buyerRequirementId) && buyerRequirementId > 0) {
+      await markMatchSent(event, orgId, { buyerRequirementId, propertyId: share.id, propertyKind }, { userId }).catch(() => {
+        // El envío ya ocurrió de verdad — que el match no se pudiera marcar
+        // (p.ej. no existía ese par) no deshace el mensaje ya mandado.
+      })
+    }
+  }
+  return { result, share, propertyKind }
 }

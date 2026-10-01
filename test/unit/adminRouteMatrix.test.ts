@@ -164,6 +164,13 @@ describe('resolveAdminRouteAccess', () => {
     expect(resolveAdminRouteAccess('/api/admin/upload/multipart/init', 'POST')).toEqual({ kind: 'any-write' })
   })
 
+  it('Domain Tools: la colección es per-tool (el área la decide executeTool); un registro de la traza es del área system', () => {
+    expect(resolveAdminRouteAccess('/api/admin/domain-tools', 'POST')).toEqual({ kind: 'per-tool' })
+    expect(resolveAdminRouteAccess('/api/admin/domain-tools?view=catalog', 'GET')).toEqual({ kind: 'per-tool' })
+    expect(resolveAdminRouteAccess('/api/admin/domain-tools/7', 'GET')).toEqual({ kind: 'area', area: 'system', action: 'read' })
+    expect(resolveAdminRouteAccess('/api/admin/domain-tools/7', 'DELETE')).toEqual({ kind: 'area', area: 'system', action: 'write' })
+  })
+
   it('keeps notification acknowledgement at read level, and the rest of the scheduler at write', () => {
     expect(resolveAdminRouteAccess('/api/admin/scheduler/notifications', 'GET')).toEqual({ kind: 'area', area: 'web', action: 'read' })
     expect(resolveAdminRouteAccess('/api/admin/scheduler/notifications/read', 'POST')).toEqual({ kind: 'area', area: 'web', action: 'read' })

@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { schema, useDb } from '../../../utils/db'
+import { cfEnv, schema, useDb } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource, buildPayload, syncTranslations, assertPayloadReferences } from '../../../utils/adminResources'
 import { logAdminAction } from '../../../utils/audit'
@@ -9,9 +9,38 @@ import { describeUserCreation } from '../../../utils/sensitiveAudit'
 import { getPropertySchemaFor, validateAgainstSchema } from '../../../utils/propertySchema/registry'
 import { createBulkActionJob } from '../../../utils/bulkActions/service'
 import { resolveFilteredPropertyIds } from '../../../utils/bulkActions/propertyActions'
+import { executeTool } from '../../../utils/tools/execute'
+import { InmoError, runInmoTurn } from '../../../utils/inmo/orchestrator'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
+
+  // Domain Tools API (FASE 31): ejecutar una herramienta no es dar de alta
+  // una fila. Va ANTES del requireOrgScope(def.area, 'write') genérico: una
+  // herramienta de lectura (search_properties) no exige escribir en ningún
+  // sitio, y el área de cada una la comprueba executeTool() — nunca el cliente.
+  if (key === 'domain-tools') {
+    const { user, orgId } = await requireOrgScope(event)
+    const body = (await readBody<Record<string, any>>(event)) || {}
+    const toolCtx = { event, db: useDb(event), env: cfEnv(event) as Record<string, any>, orgId, user, source: 'api' as const }
+    // INMO (FASE 30) es un cliente más de esta misma API: mismo usuario, mismo RBAC, misma organización.
+    if (body.mode === 'inmo') {
+      const [org] = await toolCtx.db.select({ name: schema.organizations.name }).from(schema.organizations).where(eq(schema.organizations.id, orgId)).limit(1)
+      try {
+        return await runInmoTurn(toolCtx, { messages: body.messages, userMessage: body.message, resolve: body.resolve, entities: body.entities }, { fetch: (input, init) => fetch(input, init), orgName: org?.name ?? null })
+      } catch (e) {
+        if (!(e instanceof InmoError)) throw e
+        setResponseStatus(event, e.code === 'AI_NOT_CONFIGURED' ? 503 : e.code === 'PROVIDER_ERROR' ? 502 : 422)
+        return { ok: false, error: { code: e.code, message: e.message } }
+      }
+    }
+    const result = await executeTool(toolCtx, String(body.tool || ''), body.input ?? {}, {
+      idempotencyKey: body.idempotencyKey ? String(body.idempotencyKey) : null,
+      confirmed: body.confirmed === true,
+    })
+    if (!result.ok) setResponseStatus(event, TOOL_ERROR_STATUS[result.error.code] ?? 400)
+    return result
+  }
   let orgId: number | null = null
   let user: SessionUser
   if (def.superAdminOnly) {
@@ -122,3 +151,18 @@ export default defineEventHandler(async (event) => {
   if (def.afterCreate) await def.afterCreate(event, id, data)
   return { ok: true, id }
 })
+
+/** Código HTTP de cada error tipado de las Domain Tools; el cuerpo lleva siempre el código. */
+const TOOL_ERROR_STATUS: Record<string, number> = {
+  NOT_FOUND: 404,
+  UNKNOWN_TOOL: 404,
+  AMBIGUOUS_ENTITY: 409,
+  CONFLICT: 409,
+  DUPLICATE: 409,
+  CONFIRMATION_REQUIRED: 409,
+  VALIDATION_ERROR: 422,
+  PROPERTY_NOT_PUBLISHABLE: 422,
+  PERMISSION_DENIED: 403,
+  PROVIDER_ERROR: 502,
+  INTERNAL_ERROR: 500,
+}

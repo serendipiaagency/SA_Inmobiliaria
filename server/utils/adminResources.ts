@@ -543,6 +543,25 @@ export const adminResources: Record<string, ResourceDef> = {
     tenantPolicy: { type: 'direct' },
   },
 
+  /**
+   * Domain Tools API (FASE 31). `POST /api/admin/domain-tools` ejecuta una
+   * herramienta y `GET ?view=catalog` lista las que el RBAC del usuario
+   * permite: ambos interceptados en [resource]/index.{post,get}.ts, con el
+   * área de cada herramienta comprobada en executeTool(). El listado
+   * genérico de este recurso es la TRAZA (domain_tool_calls) — observabilidad
+   * del área Sistema, de sólo lectura e imborrable.
+   */
+  'domain-tools': {
+    area: 'system',
+    table: schema.domainToolCalls,
+    label: 'Domain Tools (traza)',
+    fields: {},
+    listFields: ['id', 'tool', 'kind', 'source', 'status', 'errorCode', 'targetType', 'targetId', 'latencyMs', 'userId', 'createdAt'],
+    searchFields: ['tool', 'errorCode'],
+    tenantPolicy: { type: 'direct' },
+    readonly: true,
+  },
+
   'floor-plans': {
     area: 'web',
     table: schema.floorPlans,
