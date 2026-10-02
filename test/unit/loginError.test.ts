@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { loginErrorMessage, rateLimitRetryMinutes } from '../../utils/loginError'
+import { loginErrorMessage, organizationAccessMessage, rateLimitRetryMinutes } from '../../utils/loginError'
 
 /**
  * El login limita a 10 intentos por IP cada 10 minutos, y al intento 11
@@ -70,5 +70,19 @@ describe('loginErrorMessage', () => {
     const msg = loginErrorMessage({ statusCode: 429 })
     expect(msg).toContain('Demasiados intentos')
     expect(msg).not.toContain('NaN')
+  })
+})
+
+describe('organizationAccessMessage — política de acceso de la empresa', () => {
+  const suspended = { statusCode: 403, data: { statusMessage: 'El acceso de tu empresa a INMO está suspendido.', data: { reason: 'suspended' } } }
+
+  it('un 403 con motivo de la política se cuenta tal cual (sólo llega tras validar la contraseña)', () => {
+    expect(organizationAccessMessage(suspended)).toBe('El acceso de tu empresa a INMO está suspendido.')
+    expect(loginErrorMessage(suspended)).toBe('El acceso de tu empresa a INMO está suspendido.')
+  })
+
+  it('un 403 sin motivo de política no se convierte en ese mensaje', () => {
+    expect(organizationAccessMessage({ statusCode: 403, data: { statusMessage: 'Forbidden' } })).toBeNull()
+    expect(loginErrorMessage({ statusCode: 403 })).toBe('Credenciales inválidas')
   })
 })

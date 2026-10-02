@@ -3,14 +3,27 @@ import { useDb, schema, cfEnv } from '../../utils/db'
 import { verifyPassword, dummyVerify, createSession } from '../../utils/auth'
 import { rateLimit } from '../../utils/rateLimit'
 import { createLoginChallenge } from '../../utils/twoFactor'
+import { decideOrganizationAccess } from '../../utils/organizations/access'
+import { registerCompanySelfService } from '../../utils/organizations/lifecycle'
 
 export default defineEventHandler(async (event) => {
+  const body = await readBody<{ email?: string; password?: string; action?: string } & Record<string, unknown>>(event)
+
+  // Registro público de empresas (Landing → Registro Empresa). Vive aquí y no
+  // en una ruta propia por el presupuesto de rutas de Nitro (margen 0, ver
+  // docs/property-schema-registry.md). Su propio límite por IP, más estricto
+  // que el del login: 5 altas por hora. No inicia sesión: tras el alta se
+  // entra por el login normal.
+  if (body?.action === 'register-company') {
+    await rateLimit(event, 'company-register', { limit: 5, windowSeconds: 3600 })
+    return registerCompanySelfService(event, body)
+  }
+
   // Brute-force guard: 10 attempts / 10 min per IP. Keyed on IP only (not email) so an
   // attacker can't dodge the limit by rotating target accounts against a fixed IP either.
   await rateLimit(event, 'login', { limit: 10, windowSeconds: 600 })
 
-  const body = await readBody<{ email?: string; password?: string }>(event)
-  if (!body?.email || !body?.password) {
+  if (!body?.email || !body?.password || typeof body.email !== 'string' || typeof body.password !== 'string') {
     throw createError({ statusCode: 422, statusMessage: 'Email and password are required' })
   }
   const db = useDb(event)
@@ -26,6 +39,22 @@ export default defineEventHandler(async (event) => {
   }
   if (!(await verifyPassword(body.password, user.password))) {
     throw createError({ statusCode: 401, statusMessage: 'Invalid credentials' })
+  }
+
+  // Credenciales válidas no bastan: la empresa tiene que tener el acceso
+  // permitido (server/utils/organizations/access.ts). Sólo se dice el motivo
+  // después de comprobar la contraseña, así que no ayuda a enumerar cuentas.
+  // El super_admin es de la plataforma, no de una empresa: nunca se le aplica.
+  if (user.organizationId != null && user.role !== 'super_admin') {
+    const [org] = await db
+      .select({ status: schema.organizations.status, approvalStatus: schema.organizations.approvalStatus, billingStatus: schema.organizations.billingStatus })
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, user.organizationId))
+      .limit(1)
+    const decision = decideOrganizationAccess(org ?? { status: 'unknown', approvalStatus: null, billingStatus: null })
+    if (!decision.allowed) {
+      throw createError({ statusCode: 403, statusMessage: decision.message, data: { reason: decision.reason } })
+    }
   }
 
   // Segundo factor activo: la contraseña sola no crea sesión. Se devuelve un

@@ -12,6 +12,8 @@ import { assertOwnsSavedView } from '../../../utils/properties/savedViews'
 import { processNextBulkActionItem } from '../../../utils/bulkActions/service'
 import { propertyBulkHandlers } from '../../../utils/bulkActions/propertyActions'
 import { leadBulkHandlers } from '../../../utils/bulkActions/leadActions'
+import { checkDomainAvailability } from '../../../utils/organizations/provisioning'
+import { notifyOrganizationStatusChange } from '../../../utils/organizations/lifecycle'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -81,6 +83,26 @@ export default defineEventHandler(async (event) => {
   if (key === 'users' && 'permissions' in data) {
     const problem = validatePermissionsInput(data.permissions)
     if (problem) throw createError({ statusCode: 422, statusMessage: problem })
+  }
+
+  // Sistemas > Empresas > ficha: las mismas reglas que el alta (provisioning.ts)
+  // — dominio libre con un 409 claro en vez del 500 del índice único, color
+  // #RRGGBB y almacenamiento en GB enteros. El origen del alta y las
+  // dimensiones de aprobación/pago no están en `fields`: no se editan aquí.
+  if (key === 'organizations') {
+    if (typeof data.domain === 'string' && data.domain) {
+      const check = await checkDomainAvailability(db, data.domain, { excludeOrganizationId: id })
+      if (!check.available) throw createError({ statusCode: 409, statusMessage: check.message || 'Ese dominio no está disponible.' })
+    }
+    if (typeof data.brandColor === 'string' && data.brandColor) {
+      if (!/^#[0-9a-fA-F]{6}$/.test(data.brandColor)) throw createError({ statusCode: 422, statusMessage: 'El color debe tener el formato #RRGGBB (por ejemplo, #1F6F5C).' })
+      data.brandColor = data.brandColor.toUpperCase()
+    }
+    if (body?.storageLimitGb != null && body.storageLimitGb !== '') {
+      const gb = Number(body.storageLimitGb)
+      if (!Number.isInteger(gb) || gb < 1 || gb > 1000) throw createError({ statusCode: 422, statusMessage: 'El almacenamiento debe ser un número entero de GB entre 1 y 1000.' })
+      data.storageBytesLimit = gb * 1024 ** 3
+    }
   }
 
   const tenantWhere = buildTenantWhere(db, def.table, def.tenantPolicy, orgId)
@@ -165,5 +187,11 @@ export default defineEventHandler(async (event) => {
         ? describeOrganizationChanges(existing as any, data)
         : undefined
   await logAdminAction(event, { user, orgId, action: 'update', resource: key, resourceId: id, detail })
+  // Activar/suspender una empresa avisa a sus administradores y al super
+  // admin (email de plataforma). Nunca bloquea ni deshace el cambio.
+  if (key === 'organizations' && typeof data.status === 'string' && data.status !== (existing as any).status) {
+    const org = existing as any
+    await notifyOrganizationStatusChange(event, { id, name: data.name ?? org.name, companyName: data.companyName ?? org.companyName, emailLocale: data.emailLocale ?? org.emailLocale }, org.status, data.status)
+  }
   return { ok: true, id, automationsFired: automationsFired || undefined }
 })

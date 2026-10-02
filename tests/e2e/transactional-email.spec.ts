@@ -2,13 +2,14 @@ import { test, expect, request as pwRequest, type APIRequestContext } from '@pla
 import { STATE_A, STATE_B, TENANT_A } from './global-setup'
 
 /**
- * Real triggers over real HTTP — no RESEND_API_KEY is configured for this
- * suite, so every send is the honest "not connected" path (email_log still
- * gets a real 'queued' row; see docs/resend-email.md), which is exactly
- * what "Confirma que el formulario se guarda aunque falle el email" and
- * "no marques como entregada" both require: the triggering action (a
- * contact message, a new user) always succeeds and is saved regardless of
- * whether the email could actually be sent.
+ * Real triggers over real HTTP. Resend is the local simulator
+ * (scripts/e2e-provider-mock.mjs via RESEND_BASE_URL, loopback only), so
+ * sends reach a fake provider and never leave the machine; either way
+ * every send leaves a real email_log row (see docs/resend-email.md), and
+ * the triggering action (a contact message, a new user) always succeeds
+ * and is saved regardless of whether the email could actually be sent.
+ * The "not connected" (no RESEND_API_KEY) path is covered by
+ * test/unit/email.send.test.ts.
  */
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8788'

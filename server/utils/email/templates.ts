@@ -19,6 +19,16 @@ export type TemplateKey =
   | 'domain_check_failed'
   | 'domain_check_recovered'
   | 'whatsapp_message_received'
+  // Email de plataforma (server/utils/email/platform.ts): salen siempre con el
+  // remitente corporativo central, nunca con la identidad de una empresa.
+  | 'company_registration_welcome'
+  | 'admin_company_registered'
+  | 'company_status_changed'
+  | 'company_deactivated'
+  | 'admin_company_status_changed'
+  | 'company_approved'
+  | 'company_pending'
+  | 'company_admin_invite'
 
 export interface TemplateDef {
   kind: 'transactional' | 'commercial'
@@ -275,5 +285,126 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
       ]) +
       emailParagraph(d.preview || '') +
       (d.inboxUrl ? emailButton(l === 'en' ? 'Open in Communications' : 'Abrir en Comunicaciones', d.inboxUrl) : ''),
+  },
+
+  // --- Email de plataforma (alta y estado de empresas) ----------------------
+
+  company_registration_welcome: {
+    kind: 'transactional',
+    audience: 'user',
+    subject: (_d, l) => (l === 'en' ? 'Welcome to INMO — your company is registered' : 'Bienvenido a INMO — Tu empresa ya está registrada'),
+    body: (d, l) =>
+      emailHeading(l === 'en' ? `Hello, ${d.companyName}` : `Hola, ${d.companyName}`) +
+      emailParagraph(
+        l === 'en'
+          ? 'Your INMO registration is complete. Your company is ready to use the platform.'
+          : 'Tu registro en INMO se ha completado correctamente. Tu empresa ya está preparada para acceder a la plataforma.',
+      ) +
+      emailInfoTable([[l === 'en' ? 'Company' : 'Empresa', d.companyName || '—']]) +
+      emailParagraph(
+        l === 'en'
+          ? `Sign in with ${d.email} and the password you chose during registration.`
+          : `Puedes iniciar sesión con ${d.email} y la contraseña que elegiste durante el registro.`,
+      ) +
+      (d.loginUrl ? emailButton(l === 'en' ? 'Go to INMO' : 'Acceder a INMO', d.loginUrl) : '') +
+      emailParagraph(l === 'en' ? 'If you did not make this registration, please contact our team.' : 'Si no has realizado este registro, contacta con nuestro equipo.'),
+  },
+
+  admin_company_registered: {
+    kind: 'transactional',
+    audience: 'internal',
+    subject: (d, l) => (l === 'en' ? `New company registered in INMO: ${d.companyName}` : 'Nueva empresa registrada en INMO'),
+    body: (d, l) =>
+      emailHeading(l === 'en' ? 'New company registered' : 'Se ha registrado una nueva empresa en INMO') +
+      emailInfoTable([
+        [l === 'en' ? 'Company' : 'Empresa', d.companyName || '—'],
+        ['Email', d.email || '—'],
+        [l === 'en' ? 'Date' : 'Fecha', d.registeredAt || '—'],
+        [l === 'en' ? 'Source' : 'Origen', d.source || '—'],
+        [l === 'en' ? 'Current status' : 'Estado actual', d.accessStatus || '—'],
+      ]) +
+      (d.adminUrl ? emailButton(l === 'en' ? 'View company' : 'Ver empresa', d.adminUrl) : ''),
+  },
+
+  company_status_changed: {
+    kind: 'transactional',
+    audience: 'user',
+    subject: (d, l) => (l === 'en' ? `${d.companyName} is active again in INMO` : `${d.companyName} vuelve a estar activa en INMO`),
+    body: (d, l) =>
+      emailHeading(l === 'en' ? 'Your company is active again' : 'Tu empresa vuelve a estar activa') +
+      emailParagraph(
+        l === 'en'
+          ? `Access to INMO for ${d.companyName} has been restored. Your team can sign in again with their usual credentials.`
+          : `Se ha restablecido el acceso de ${d.companyName} a INMO. Tu equipo puede volver a entrar con sus credenciales de siempre.`,
+      ) +
+      (d.loginUrl ? emailButton(l === 'en' ? 'Go to INMO' : 'Acceder a INMO', d.loginUrl) : ''),
+  },
+
+  company_deactivated: {
+    kind: 'transactional',
+    audience: 'user',
+    subject: (d, l) => (l === 'en' ? `Access to INMO suspended for ${d.companyName}` : `Acceso a INMO suspendido para ${d.companyName}`),
+    body: (d, l) =>
+      emailHeading(l === 'en' ? 'Access suspended' : 'Acceso suspendido') +
+      emailParagraph(
+        l === 'en'
+          ? `Access to INMO for ${d.companyName} has been suspended. Your data and accounts are kept; nothing has been deleted.`
+          : `Se ha suspendido el acceso de ${d.companyName} a INMO. Tus datos y las cuentas de tu equipo se conservan: no se ha borrado nada.`,
+      ) +
+      emailParagraph(l === 'en' ? 'If you think this is a mistake, please contact our team.' : 'Si crees que es un error, contacta con nuestro equipo.'),
+  },
+
+  admin_company_status_changed: {
+    kind: 'transactional',
+    audience: 'internal',
+    subject: (d, l) => (l === 'en' ? `Company status updated: ${d.companyName}` : `Estado de empresa actualizado: ${d.companyName}`),
+    body: (d, l) =>
+      emailHeading(l === 'en' ? 'Company status updated' : 'Estado de empresa actualizado') +
+      emailInfoTable([
+        [l === 'en' ? 'Company' : 'Empresa', d.companyName || '—'],
+        [l === 'en' ? 'Previous status' : 'Estado anterior', d.previousStatus || '—'],
+        [l === 'en' ? 'New status' : 'Nuevo estado', d.newStatus || '—'],
+        [l === 'en' ? 'Date' : 'Fecha', d.changedAt || '—'],
+      ]) +
+      (d.adminUrl ? emailButton(l === 'en' ? 'View company' : 'Ver empresa', d.adminUrl) : ''),
+  },
+
+  // Preparadas para la aprobación previa (SELF_REGISTRATION_POLICY): hoy
+  // ningún flujo las envía porque todas las empresas quedan aprobadas.
+  company_approved: {
+    kind: 'transactional',
+    audience: 'user',
+    subject: (d, l) => (l === 'en' ? `${d.companyName} has been approved` : `Tu empresa ${d.companyName} ha sido aprobada`),
+    body: (d, l) =>
+      emailHeading(l === 'en' ? 'Your company has been approved' : 'Tu empresa ha sido aprobada') +
+      emailParagraph(l === 'en' ? 'You can now sign in to INMO.' : 'Ya puedes acceder a INMO.') +
+      (d.loginUrl ? emailButton(l === 'en' ? 'Go to INMO' : 'Acceder a INMO', d.loginUrl) : ''),
+  },
+
+  company_pending: {
+    kind: 'transactional',
+    audience: 'user',
+    subject: (d, l) => (l === 'en' ? `We have received ${d.companyName}'s registration` : `Hemos recibido el registro de ${d.companyName}`),
+    body: (d, l) =>
+      emailHeading(l === 'en' ? 'Registration received' : 'Registro recibido') +
+      emailParagraph(
+        l === 'en'
+          ? 'Your registration is pending review. We will email you as soon as your company can access INMO.'
+          : 'Tu registro está pendiente de revisión. Te escribiremos en cuanto tu empresa pueda acceder a INMO.',
+      ),
+  },
+
+  company_admin_invite: {
+    kind: 'transactional',
+    audience: 'user',
+    subject: (d, l) => (l === 'en' ? `Your access to ${d.companyName} in INMO` : `Tu acceso a ${d.companyName} en INMO`),
+    body: (d, l) =>
+      emailHeading(l === 'en' ? `Welcome, ${d.name}` : `Bienvenido/a, ${d.name}`) +
+      emailParagraph(
+        l === 'en'
+          ? `You are the administrator of ${d.companyName} in INMO (${d.email}). Set your password to get started — the link expires in 1 hour; after that, use "Forgot password" on the sign-in page.`
+          : `Eres administrador/a de ${d.companyName} en INMO (${d.email}). Define tu contraseña para empezar — el enlace caduca en 1 hora; después, usa «¿Olvidaste tu contraseña?» en la pantalla de acceso.`,
+      ) +
+      (d.setPasswordUrl ? emailButton(l === 'en' ? 'Set password' : 'Definir contraseña', d.setPasswordUrl) : ''),
   },
 }

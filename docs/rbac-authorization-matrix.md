@@ -105,7 +105,17 @@ Puntos de diseño:
 | `/api/admin/active-org` | Solo `super_admin` | Selector de organización; el handler ya lo exige. |
 | `/api/admin/upload`, `/api/admin/upload/**` | Escritura en **alguna** área | Un mismo endpoint sirve al constructor de propiedades, al CMS, al constructor web, al exportador y a los formularios genéricos, y la petición no dice cuál. Exigir escritura en alguna área impide que una cuenta de solo lectura suba objetos al bucket, sin fingir una precisión que el endpoint no tiene. |
 | `/api/admin/domain-tools` (la colección) | `per-tool`: el middleware sólo exige sesión admin | Domain Tools API e INMO (FASES 30-31). La herramienta va en el cuerpo y la ruta no la ve: `executeTool()` (`server/utils/tools/execute.ts`) comprueba el área y la acción de **esa** herramienta antes de validar o ejecutar nada, y el catálogo (`?view=catalog`) se filtra con la misma regla. El listado de la traza exige `system` en el propio handler; `domain-tools/:id` cae en la regla del motor de recursos (área `system`). Ver `docs/domain-tools.md`. |
+| `/api/admin/upload` con `organizationId` | Además, **sólo `super_admin`** y la empresa tiene que existir | Sistemas > Empresas sube el logo de OTRA empresa (alta guiada y ficha): el fichero queda a nombre de esa empresa (su cuota, su `media_assets`). Cualquier otra cuenta que mande el campo recibe 403. Ver `docs/empresas.md`. |
+| `POST /api/auth/login { action: 'register-company' }` | Público, con límite propio (5 / hora / IP) | Registro público de empresas. Nunca acepta rol, permisos ni tenant del cliente (400 si llegan); el usuario creado es `admin` de SU empresa nueva. Ver `docs/empresas.md`. |
 | `/api/media/**` | Fuera de la matriz | Es la frontera de servicio de R2, compartida por todas las áreas, y ya comprueba la propiedad de cada objeto por organización y registra los accesos confidenciales. Acotarla por área exigiría un área por objeto almacenado. |
+
+### Antes del RBAC: la política de acceso de la empresa
+
+Antes de cualquier área, `loadSessionUser()` (`server/utils/auth.ts`) y el
+login aplican `decideOrganizationAccess()` (`server/utils/organizations/access.ts`):
+si la empresa del usuario está suspendida, o pendiente de aprobación o de pago,
+no hay sesión válida, aunque los permisos digan otra cosa. El `super_admin`
+queda fuera: es de la plataforma, no de una empresa. Ver `docs/empresas.md`.
 
 ---
 

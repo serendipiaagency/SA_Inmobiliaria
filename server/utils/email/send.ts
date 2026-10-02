@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import * as schema from '../../db/schema'
-import { renderEmailLayout, type EmailLocale } from './layout'
+import { htmlToText, renderEmailLayout, type EmailLocale } from './layout'
 import { TEMPLATES, type TemplateKey } from './templates'
 import { callResendApi } from './resendClient'
 
@@ -152,7 +152,7 @@ export async function attemptSend(db: any, env: Record<string, any>, logId: numb
   if (!row) return { status: 'failed', ok: false, connected: false, message: 'email_log row not found' }
   const attempts = (row.attempts ?? 0) + 1
 
-  const result = await callResendApi(env, { from: row.fromHeader, replyTo: row.replyTo, to: row.recipient, subject: row.subject, html: row.html })
+  const result = await callResendApi(env, { from: row.fromHeader, replyTo: row.replyTo, to: row.recipient, subject: row.subject, html: row.html, text: htmlToText(row.html) })
 
   if (result.ok) {
     await db

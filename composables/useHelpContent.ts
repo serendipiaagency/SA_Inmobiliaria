@@ -812,19 +812,38 @@ export function useHelpContent() {
       group: 'Sistema',
       title: 'Empresas',
       route: '/admin/organizations',
-      summary: 'Solo super_admin. El registro de todas las inmobiliarias (tenants) de la plataforma: nombre, dominio propio, marca, email y estado.',
+      summary: 'Solo super_admin. Todas las inmobiliarias (tenants) de la plataforma: alta guiada, ficha por secciones (identidad, configuración, email, datos legales, usuarios y estado) y origen del alta.',
       steps: [
-        'El campo "Dominio" es el que decide qué inmobiliaria se sirve en cada web pública — ver docs/multi-domain.md para los pasos completos en Cloudflare (Custom Domains) antes de guardarlo aquí.',
-        'Guarda el dominio exactamente como lo usará el visitante (con o sin "www." da igual, se trata como el mismo dominio).',
-        'No se puede usar un *.workers.dev ni "localhost" como dominio de una empresa — esos hosts ya están reservados para la organización por defecto.',
-        'Sin un dominio propio asignado aquí, la organización solo es accesible por su propio admin — no aparece en ninguna web pública.',
-        'Los campos "Email — …" configuran desde qué dirección envía esta organización sus emails y quién recibe las notificaciones internas (nuevo lead, mensaje de contacto…) — ver docs/resend-email.md para los pasos de verificación de dominio en Resend. "Dominio verificado" es de solo lectura: se recalcula solo, nunca se marca a mano.',
-        'Los campos "Legal — …" (razón social, CIF/NIF, dirección, email y teléfono) son el responsable del tratamiento real de esta organización y aparecen en sus páginas públicas de Privacidad y Términos (/privacidad, /terminos) — mientras estén vacíos, esas páginas muestran "Por confirmar" en su lugar.',
+        '"+ Nuevo" abre el alta guiada en 5 pasos: Empresa (nombre, nombre comercial, dominio y estado inicial), Identidad (logo y color de marca, con vista previa), Configuración (idioma de los emails y almacenamiento), Acceso (administrador inicial) y Revisión. Nada se guarda hasta pulsar "Crear empresa"; desde la revisión, "Editar" te lleva al paso de cada bloque.',
+        'El dominio se comprueba mientras escribes: si ya es de otra empresa, no es válido o pertenece a la plataforma (*.workers.dev, localhost), no te deja continuar. Escríbelo sin "https://" ni rutas; con o sin "www." se trata como el mismo dominio. Puedes dejarlo vacío y asignarlo después — ver docs/multi-domain.md para los pasos en Cloudflare (Custom Domains).',
+        'El logo se arrastra o se selecciona (PNG, JPG o WebP, máximo 2 MB) y se puede reemplazar o quitar antes de crear. Se sube al crear la empresa y queda a nombre de ESA empresa; si la subida fallara, la empresa se crea igual y el aviso te dice que lo subas desde la ficha.',
+        'Administrador inicial: "Invitar ahora" crea su cuenta como Administrador de esa empresa (nunca super admin) y le envía desde INMO <info@serendipiaagency.com> un enlace para definir su contraseña. Nadie elige la contraseña por él y nunca se envía una contraseña por email. El enlace caduca en 1 hora: después, "Reenviar invitación" en la ficha → Usuarios, o "¿Olvidaste tu contraseña?" en el login.',
+        'Al terminar verás si la invitación salió de verdad ("enviada", "en cola" si el proveedor no respondió, o "no enviada" si el envío de emails no está configurado). Desde ahí: "Ver empresa", "Crear otra empresa" o volver al listado. Si sales a mitad del alta con datos escritos, el panel te pide confirmación.',
+        'La ficha de una empresa se organiza en secciones: Resumen (usuarios, propiedades, equipo y leads reales), Identidad, Configuración, Email, Datos legales, Usuarios y Estado. "Guardar cambios" guarda sólo lo que has tocado.',
+        'Email: los campos de remitente configuran cómo firma ESTA empresa los emails a SUS clientes y quién recibe sus avisos internos (uno por línea). "Dominio verificado" se recalcula solo contra Resend, nunca se marca a mano — ver docs/resend-email.md. Los emails de INMO a la empresa (bienvenida, invitación, cambios de estado) salen siempre del remitente de la plataforma.',
+        'Datos legales (razón social, CIF/NIF, dirección, email y teléfono) son el responsable del tratamiento de esa empresa y aparecen en sus páginas de Privacidad y Términos; mientras estén vacíos, muestran "Por confirmar".',
+        'Estado: "Suspendida" bloquea el acceso de todo su equipo al momento, incluidas las sesiones abiertas, sin borrar datos ni cuentas; "Activa" lo devuelve tal cual. Ambos cambios piden confirmación, constan en la auditoría y avisan por email a los administradores de la empresa y al super admin.',
+        'La columna "Origen" del listado dice cómo se dio de alta cada empresa: desde este panel o desde el registro web público (Landing → "Registro empresa"). Las del registro web entran con acceso inmediato y su administrador es quien se registró.',
+        'Usuarios: la ficha lista las cuentas de la empresa. Para añadir o editar usuarios, "Gestionar usuarios" cambia la organización activa a esa empresa y abre Usuarios.',
       ],
     },
   ]
 
   const faqs: HelpFaq[] = [
+    {
+      id: 'faq-empresa-suspendida',
+      question: 'Un cliente dice que no puede entrar y su contraseña es correcta: «el acceso de tu empresa está suspendido». ¿Qué pasa?',
+      answer:
+        'Su empresa está en estado "Suspendida" (Sistema → Empresas → ficha → Estado). Mientras lo esté, nadie de esa empresa puede entrar, aunque la contraseña sea correcta, y las sesiones abiertas dejan de valer; no se ha borrado nada. Para devolverle el acceso, cambia el estado a "Activa" y guarda: su equipo vuelve a entrar con sus credenciales de siempre y recibe un email avisándole.',
+      tags: ['empresa', 'suspendida', 'acceso', 'login', 'no puedo entrar', 'estado'],
+    },
+    {
+      id: 'faq-empresa-invitacion',
+      question: 'Creé una empresa con administrador, pero no le ha llegado la invitación. ¿Qué hago?',
+      answer:
+        'Al crearla, la pantalla de éxito dice si la invitación salió, quedó en cola o no se pudo enviar. Abre la ficha de la empresa → Usuarios y pulsa "Reenviar invitación": se genera un enlace nuevo (el anterior caduca en 1 hora). Si dice que el envío de emails no está configurado, falta RESEND_API_KEY o el dominio serendipiaagency.com no está verificado en Resend — ver docs/empresas.md. El administrador también puede usar "¿Olvidaste tu contraseña?" en el login.',
+      tags: ['empresa', 'invitación', 'email', 'administrador', 'no llega'],
+    },
     {
       id: 'faq-lead-score',
       question: '¿Por qué un lead tiene esta puntuación? ¿Puedo cambiarla a mano?',

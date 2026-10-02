@@ -109,6 +109,10 @@ echo "==> Starting wrangler dev on port ${PORT}"
 # placeholders for tests/e2e/stripe-webhook.spec.ts and
 # tests/e2e/resend-webhook.spec.ts to sign their own synthetic events
 # against — never real values, never used for a real webhook endpoint.
+# RESEND_BASE_URL apunta al simulador local (sólo se respeta si es loopback,
+# server/utils/email/resendClient.ts) y RESEND_API_KEY es un marcador: los
+# emails «se envían» al simulador y tests/e2e/empresas.spec.ts lee el cuerpo
+# exacto que habría recibido Resend. Ninguno sale de la máquina.
 npx wrangler dev --local --port "${PORT}" \
   --var STRIPE_WEBHOOK_SECRET:whsec_e2e_test_placeholder \
   --var RESEND_WEBHOOK_SECRET:whsec_ZTJlX3Rlc3RfcGxhY2Vob2xkZXJfMzJieXRlcw== \
@@ -117,6 +121,8 @@ npx wrangler dev --local --port "${PORT}" \
   --var "WHATSAPP_GRAPH_BASE_URL:${MOCK_URL}" \
   --var "AI_BASE_URL:${MOCK_URL}" \
   --var AI_API_KEY:e2e_ai_key_placeholder \
+  --var "RESEND_BASE_URL:${MOCK_URL}" \
+  --var RESEND_API_KEY:e2e_resend_key_placeholder \
   >"${LOG_FILE}" 2>&1 &
 PID=$!
 

@@ -5,6 +5,13 @@ enviado, depósito recibido…) genera un email real, registrado y separado por
 organización. Este documento cubre cómo funciona, la configuración manual en
 Resend/Cloudflare, y los 14 disparadores implementados.
 
+> **Email de plataforma.** Lo que INMO envía a las propias empresas y al
+> super admin (bienvenida del registro, invitación al administrador, avisos de
+> alta y de cambio de estado) usa el mismo `email_log`, cola y proveedor, pero
+> sale SIEMPRE del remitente central `INMO <info@serendipiaagency.com>`, no de
+> la identidad de cada empresa. Configuración y verificación del dominio en
+> Resend: [docs/empresas.md](empresas.md#email-de-plataforma).
+
 ## Arquitectura
 
 `server/utils/email/` es el sistema completo:

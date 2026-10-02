@@ -1,6 +1,7 @@
 import { asc, eq, or } from 'drizzle-orm'
 import { createError, deleteCookie, getCookie, setCookie, type H3Event } from 'h3'
 import { useDb, cfEnv, now, schema } from './db'
+import { decideOrganizationAccess } from './organizations/access'
 import { hasAreaAccess } from './permissions'
 import type { AdminArea } from '../../utils/adminAreas'
 
@@ -210,9 +211,13 @@ async function loadSessionUser(event: H3Event): Promise<SessionUser | null> {
       organizationId: schema.users.organizationId,
       permissions: schema.users.permissions,
       expiresAt: schema.sessions.expiresAt,
+      orgStatus: schema.organizations.status,
+      orgApprovalStatus: schema.organizations.approvalStatus,
+      orgBillingStatus: schema.organizations.billingStatus,
     })
     .from(schema.sessions)
     .innerJoin(schema.users, eq(schema.sessions.userId, schema.users.id))
+    .leftJoin(schema.organizations, eq(schema.organizations.id, schema.users.organizationId))
     // `eq(sessions.id, token)` is the legacy path — sessions created before
     // hashing shipped stored the raw token as `id` — kept only so those
     // existing sessions aren't silently logged out; see the rotation below.
@@ -222,6 +227,15 @@ async function loadSessionUser(event: H3Event): Promise<SessionUser | null> {
   if (!row) return null
   if (new Date(row.expiresAt).getTime() < Date.now()) {
     await db.delete(schema.sessions).where(eq(schema.sessions.id, row.sessionId))
+    return null
+  }
+  // Política de acceso de la empresa (server/utils/organizations/access.ts):
+  // una sesión abierta deja de valer en cuanto su empresa se suspende o queda
+  // pendiente. No se borra la sesión ni la cuenta — si la empresa se
+  // reactiva, el acceso vuelve tal cual. El super_admin es de la plataforma,
+  // no de una empresa: suspender la organización a la que esté asociado no
+  // puede dejar a la plataforma sin administrador.
+  if (row.role !== 'super_admin' && row.organizationId != null && !decideOrganizationAccess({ status: row.orgStatus, approvalStatus: row.orgApprovalStatus, billingStatus: row.orgBillingStatus }).allowed) {
     return null
   }
   if (row.sessionTokenHash == null) {

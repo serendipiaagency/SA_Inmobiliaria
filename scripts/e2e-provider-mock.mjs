@@ -15,6 +15,11 @@
  *
  *   POST /<versión>/<PHONE_NUMBER_ID>/messages  → acepta y devuelve un wamid
  *   POST /v1/messages                            → Messages API guionizada (INMO, FASE 30)
+ *   POST /emails                                 → Resend: acepta y devuelve un id
+ *                                                   (falla con 422 si el destinatario
+ *                                                   lleva «+fail@»: así se prueba que un
+ *                                                   email caído no deshace el alta)
+ *   GET  /domains                                → Resend: serendipiaagency.com verificado
  *   GET  /__requests                             → todo lo recibido, en orden
  *   cualquier otra cosa                          → error con la forma de Meta
  *
@@ -120,6 +125,19 @@ const server = createServer((req, res) => {
     if (req.method === 'POST' && url.pathname === '/v1/messages') {
       if (!entry.hasApiKey) return send(res, 401, { type: 'error', error: { type: 'authentication_error', message: 'x-api-key header is required' } })
       return send(res, 200, scriptedModel(body))
+    }
+
+    // Resend (RESEND_BASE_URL, sólo loopback — server/utils/email/resendClient.ts).
+    if (req.method === 'POST' && url.pathname === '/emails') {
+      if (!entry.hasBearer) return send(res, 401, { name: 'missing_api_key', message: 'Missing API key' })
+      const to = Array.isArray(body?.to) ? body.to.join(',') : String(body?.to ?? '')
+      if (/\+fail@/i.test(to)) return send(res, 422, { name: 'validation_error', message: 'Simulated provider failure (e2e)' })
+      seq += 1
+      return send(res, 200, { id: `e2e-email-${Date.now()}-${seq}` })
+    }
+    if (req.method === 'GET' && url.pathname === '/domains') {
+      if (!entry.hasBearer) return send(res, 401, { name: 'missing_api_key', message: 'Missing API key' })
+      return send(res, 200, { data: [{ id: 'e2e-domain-1', name: 'serendipiaagency.com', status: 'verified' }] })
     }
 
     const messages = url.pathname.match(/^\/v[\d.]+\/([^/]+)\/messages$/)

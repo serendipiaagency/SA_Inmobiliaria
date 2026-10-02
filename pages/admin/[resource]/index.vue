@@ -20,8 +20,8 @@
         </thead>
         <tbody>
           <tr v-for="row in data?.rows || []" :key="row.id" class="border-t border-slate-100 hover:bg-slate-50">
-            <td v-for="f in meta.listFields" :key="f" class="max-w-xs truncate px-4 py-3">
-              {{ row[f] }}
+            <td v-for="f in meta.listFields" :key="f" class="max-w-xs truncate px-4 py-3" :data-field="f">
+              {{ cell(f, row[f]) }}
             </td>
             <td class="whitespace-nowrap px-4 py-3 text-right">
               <NuxtLink :to="`/admin/${resource}/${row.id}`" class="mr-3 font-medium text-emerald-700 hover:underline">
@@ -49,6 +49,8 @@
 </template>
 
 <script setup lang="ts">
+import { organizationCellLabel } from '~/utils/organizationLabels'
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const route = useRoute()
@@ -79,6 +81,13 @@ watch(resource, () => {
   page.value = 1
   q.value = ''
 })
+
+// Empresas: estado y origen del alta en palabras («Activa», «Registro web»),
+// no el valor guardado. El resto de recursos muestran el dato tal cual.
+function cell(field: string, value: unknown) {
+  if (resource.value === 'organizations') return organizationCellLabel(field, value) ?? value
+  return value
+}
 
 const { confirm } = useConfirm()
 const toast = useToast()

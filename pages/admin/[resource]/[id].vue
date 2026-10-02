@@ -5,6 +5,12 @@
        untouched. See components/property-builder/. -->
   <PropertyBuilder v-if="meta && isPropertyBuilderResource" :id="id" :resource="propertyBuilderResource" :can-edit="canEdit" />
 
+  <!-- Sistemas > Empresas: alta guiada por pasos y ficha por secciones, en
+       vez del formulario plano. Mismas rutas (/admin/organizations/new y
+       /admin/organizations/:id). Ver components/admin/organizations/. -->
+  <OrganizationCreateWizard v-else-if="meta && isOrganization && isNew" />
+  <OrganizationEditor v-else-if="meta && isOrganization" :id="id" :can-edit="canEdit" />
+
   <div v-else-if="meta">
     <div class="mb-6 flex items-center justify-between">
       <h1 class="text-2xl font-bold">{{ isNew ? `Nuevo — ${meta.label}` : `Editar — ${meta.label} #${id}` }}</h1>
@@ -101,6 +107,8 @@
 
 <script setup lang="ts">
 import PropertyBuilder from '~/components/property-builder/PropertyBuilder.vue'
+import OrganizationCreateWizard from '~/components/admin/organizations/OrganizationCreateWizard.vue'
+import OrganizationEditor from '~/components/admin/organizations/OrganizationEditor.vue'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -114,6 +122,7 @@ const id = computed(() => String(route.params.id))
 const isNew = computed(() => id.value === 'new')
 const isPropertyBuilderResource = computed(() => resource.value === 'developer-properties' || resource.value === 'properties')
 const propertyBuilderResource = computed(() => resource.value as 'developer-properties' | 'properties')
+const isOrganization = computed(() => resource.value === 'organizations')
 
 const { data: resources } = await useFetch<Record<string, any>>('/api/admin/resources')
 const meta = computed(() => resources.value?.[resource.value])
@@ -132,9 +141,9 @@ const translations = reactive([
   { locale: 'ar', title: '', description: '' },
 ])
 
-// PropertyBuilder does its own data loading for these two resources — skip
-// the generic form's fetch entirely rather than duplicating the request.
-if (!isNew.value && !isPropertyBuilderResource.value) {
+// PropertyBuilder (and the organizations editor) do their own data loading —
+// skip the generic form's fetch entirely rather than duplicating the request.
+if (!isNew.value && !isPropertyBuilderResource.value && !isOrganization.value) {
   // `useRequestFetch()` y no `$fetch` a secas: en SSR, un `$fetch` suelto
   // arranca una petición nueva que no hereda nada del evento en curso — ni la
   // cookie de sesión ni los bindings de Cloudflare (D1, R2)—, así que esta
