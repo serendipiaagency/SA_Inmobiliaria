@@ -125,8 +125,8 @@ del remitente (ver siguiente sección) — nunca es un interruptor manual.
    guarda su dirección en Sistema → Emails, la plataforma crea el dominio en
    Resend, le enseña los registros DNS y comprueba la verificación (ver
    [docs/empresas.md](empresas.md#remitente-propio-de-cada-empresa)). Hasta que
-   esté verificado, sus emails salen «Empresa vía INMO» desde el remitente de
-   la plataforma, con Responder-a la empresa.
+   esté verificado —y si no lo configura nunca—, sus emails salen con su
+   nombre desde la dirección de la plataforma, con Responder-a la empresa.
 5. **Resend Dashboard → Webhooks → Add Endpoint** — URL:
    `https://<dominio-de-producción>/api/resend/webhook`. Eventos a
    suscribir: `email.sent`, `email.delivered`, `email.bounced`,

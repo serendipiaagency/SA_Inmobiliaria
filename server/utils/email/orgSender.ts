@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { EMAIL_RE, platformEmailConfig } from './platformConfig'
 import { createResendDomain, findResendDomain, getResendDomain, verifyResendDomain, type ResendDnsRecord, type ResendDomain } from './resendClient'
@@ -10,10 +10,13 @@ import { createResendDomain, findResendDomain, getResendDomain, verifyResendDoma
  * (platform.ts), que siempre sale de INMO.
  *
  *  - Con dominio propio VERIFICADO en Resend:  «Costa Azul <hola@costaazul.es>»
- *  - Sin él (o mientras se verifica):          «Costa Azul vía INMO <info@serendipiaagency.com>»
- *    con Responder-a la dirección de la empresa, para que las respuestas le
- *    lleguen a ella. Nunca se usa una dirección de la empresa sin verificar:
- *    Resend la rechazaría y, peor, sería suplantar un dominio no probado.
+ *  - Sin él (o mientras se verifica):          «Costa Azul <info@serendipiaagency.com>»
+ *    — su nombre, la dirección verificada de la plataforma — con Responder-a
+ *    el correo de la empresa, para que las respuestas le lleguen a ella. Es
+ *    lo que ve una empresa que no configura nada: el correo con el que se
+ *    registró es su Responder-a desde el primer día. Nunca se usa una
+ *    dirección de la empresa sin verificar: Resend la rechazaría y, peor,
+ *    sería suplantar un dominio no probado.
  *
  * Verificación autoservicio: al guardar una dirección de un dominio propio,
  * INMO da de alta ese dominio en la cuenta de Resend de la plataforma y
@@ -57,7 +60,7 @@ export class OrgSenderError extends Error {
 }
 
 export interface EffectiveOrgSender {
-  /** 'own' = su dirección (dominio verificado); 'platform' = vía INMO. */
+  /** 'own' = su dirección (dominio verificado); 'platform' = su nombre con la dirección de la plataforma. */
   mode: 'own' | 'platform'
   fromHeader: string
   replyTo: string | null
@@ -107,8 +110,12 @@ function firstEmail(...values: unknown[]): string | null {
   return null
 }
 
-/** Con qué remitente sale HOY un email de esta empresa. */
-export function effectiveOrgSender(org: Record<string, any> | null | undefined, env: Record<string, any> = {}): EffectiveOrgSender {
+/**
+ * Con qué remitente sale HOY un email de esta empresa. `fallbackReplyTo` es
+ * el último recurso para Responder-a (el correo de su administrador, ver
+ * orgFallbackReplyTo) cuando la empresa no ha escrito ninguno.
+ */
+export function effectiveOrgSender(org: Record<string, any> | null | undefined, env: Record<string, any> = {}, opts: { fallbackReplyTo?: string | null } = {}): EffectiveOrgSender {
   const platform = platformEmailConfig(env)
   if (!org) return { mode: 'platform', fromHeader: platform.fromHeader, replyTo: null }
   const companyName = String(org.companyName || org.name || '').trim() || platform.fromName
@@ -119,10 +126,33 @@ export function effectiveOrgSender(org: Record<string, any> | null | undefined, 
   }
   return {
     mode: 'platform',
-    fromHeader: formatFromHeader(`${senderName} vía ${platform.fromName}`, platform.fromAddress),
+    fromHeader: formatFromHeader(senderName, platform.fromAddress),
     // Que las respuestas de los clientes lleguen a la empresa, no a INMO.
-    replyTo: firstEmail(org.emailReplyTo, org.emailSenderAddress, org.legalEmail),
+    replyTo: firstEmail(org.emailReplyTo, org.emailSenderAddress, org.legalEmail, opts.fallbackReplyTo),
   }
+}
+
+/**
+ * Responder-a de reserva para una empresa que no ha configurado ninguno: el
+ * correo de su primer administrador (con el que se registró, o el invitado al
+ * crearla). Así las respuestas de sus clientes nunca acaban en el buzón de la
+ * plataforma.
+ */
+export async function orgFallbackReplyTo(db: any, orgId: number): Promise<string | null> {
+  const [admin] = await db
+    .select({ email: schema.users.email })
+    .from(schema.users)
+    .where(and(eq(schema.users.organizationId, orgId), eq(schema.users.role, 'admin')))
+    .orderBy(asc(schema.users.id))
+    .limit(1)
+  return admin?.email ? String(admin.email).toLowerCase() : null
+}
+
+/** El remitente efectivo, consultando el Responder-a de reserva sólo si hace falta. */
+export async function resolveEffectiveOrgSender(db: any, env: Record<string, any>, org: Record<string, any> | null | undefined): Promise<EffectiveOrgSender> {
+  const sender = effectiveOrgSender(org, env)
+  if (sender.mode === 'own' || sender.replyTo || !org?.id) return sender
+  return effectiveOrgSender(org, env, { fallbackReplyTo: await orgFallbackReplyTo(db, org.id) })
 }
 
 /** Por qué este dominio no puede ser el remitente propio de una empresa, o null si puede. */
@@ -217,14 +247,14 @@ function providerMessage(r: { status: number | null; message: string }): string 
   return `El proveedor de email respondió: ${r.message}`
 }
 
-function view(org: any, env: Record<string, any>, domain: OrgSenderView['domain']): OrgSenderView {
+async function view(db: any, org: any, env: Record<string, any>, domain: OrgSenderView['domain']): Promise<OrgSenderView> {
   return {
     organizationId: org.id,
     senderName: org.emailSenderName || '',
     senderAddress: org.emailSenderAddress || '',
     replyTo: org.emailReplyTo || '',
     internalRecipients: parseRecipients(org.emailInternalRecipientsJson),
-    effective: effectiveOrgSender(org, env),
+    effective: await resolveEffectiveOrgSender(db, env, org),
     platformFrom: platformEmailConfig(env).fromHeader,
     providerConnected: Boolean(env.RESEND_API_KEY),
     domain,
@@ -234,7 +264,7 @@ function view(org: any, env: Record<string, any>, domain: OrgSenderView['domain'
 /** Vista del remitente de una empresa (Sistema → Emails / Empresas → ficha → Email). */
 export async function orgSenderView(db: any, env: Record<string, any>, orgId: number): Promise<OrgSenderView> {
   const org = await loadOrg(db, orgId)
-  return view(org, env, await resolveDomainState(db, env, org, { register: false, verify: false }))
+  return view(db, org, env, await resolveDomainState(db, env, org, { register: false, verify: false }))
 }
 
 export interface SaveOrgSenderInput {
@@ -305,7 +335,7 @@ export async function saveOrgSender(
   const parts: string[] = []
   if (previousAddress !== (senderAddress || '')) parts.push(`remitente de email: ${previousAddress || '(plataforma)'} → ${senderAddress || '(plataforma)'}`)
   if (domain) parts.push(`dominio ${domain.name}: ${domain.status}`)
-  return { view: view(org, env, domain), detail: parts.join('; ') || 'remitente de email actualizado' }
+  return { view: await view(db, org, env, domain), detail: parts.join('; ') || 'remitente de email actualizado' }
 }
 
 /** «Comprobar ahora»: pide a Resend que mire el DNS y devuelve el estado real. */
@@ -315,5 +345,5 @@ export async function verifyOrgSender(db: any, env: Record<string, any>, orgId: 
   if (!domainName) throw new OrgSenderError('senderAddress', 'Guarda primero una dirección de tu dominio.')
   if ((await emailDomainOwner(db, domainName)) !== orgId) throw new OrgSenderError('senderAddress', 'Ese dominio no está asignado a esta empresa. Guarda de nuevo la dirección.', 409)
   const domain = await resolveDomainState(db, env, org, { register: true, verify: true })
-  return { view: view(org, env, domain), detail: `verificación del dominio ${domainName}: ${domain?.status ?? '—'}` }
+  return { view: await view(db, org, env, domain), detail: `verificación del dominio ${domainName}: ${domain?.status ?? '—'}` }
 }

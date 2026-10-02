@@ -107,10 +107,18 @@ test.describe('Tours — visitas multi-inmueble', () => {
   })
 
   test('aislamiento entre tenants: los tours de una agencia nunca aparecen en otra', async () => {
-    const res = await a.post('/api/admin/saas/tours', {
+    // La hora es aleatoria y otras specs reservan citas para el mismo agente:
+    // si ya está ocupada el servidor responde 409 (correcto), así que se
+    // prueba otra en vez de dar por fallido el aislamiento, que es lo que se mide.
+    let res = await a.post('/api/admin/saas/tours', {
       data: { clientName: `Tour Aislado ${Date.now()}`, clientEmail: `tour-aislado-${Date.now()}@example.com`, stops: [{ agentId, scheduledAt: randomFutureSlot() }] },
     })
-    expect(res.ok()).toBeTruthy()
+    for (let i = 0; i < 5 && res.status() === 409; i++) {
+      res = await a.post('/api/admin/saas/tours', {
+        data: { clientName: `Tour Aislado ${Date.now()}`, clientEmail: `tour-aislado-${Date.now()}@example.com`, stops: [{ agentId, scheduledAt: randomFutureSlot() }] },
+      })
+    }
+    expect(res.ok(), `${res.status()} ${await res.text()}`).toBeTruthy()
     const { id } = await res.json()
 
     const listB = await b.get('/api/admin/saas/tours')

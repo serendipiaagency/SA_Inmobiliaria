@@ -745,10 +745,10 @@ export function useHelpContent() {
       route: '/admin/emails',
       summary: 'Desde qué dirección envía tu empresa sus emails a clientes y equipo (con la verificación de tu dominio), y el historial real de envíos vía Resend.',
       steps: [
-        'Arriba ves con qué remitente salen HOY tus emails. Sin dominio propio verificado salen como «Tu empresa vía INMO <info@serendipiaagency.com>» y las respuestas te llegan a tu dirección («Responder a» o, si no la pones, la del remitente).',
-        'Para enviar desde tu dirección (p. ej. hola@tuinmobiliaria.es): escríbela en «Dirección del remitente» y pulsa «Guardar remitente». Tiene que ser de un dominio tuyo: Gmail, Outlook, Yahoo… no sirven como remitente (sí como «Responder a»).',
+        'Arriba ves con qué remitente salen HOY tus emails. Sin configurar nada ya salen con el nombre de tu empresa («Tu empresa <info@serendipiaagency.com>») y las respuestas te llegan al correo con el que te registraste; puedes cambiarlo en «Responder a».',
+        'Opcional — para que también la dirección sea la tuya (p. ej. hola@tuinmobiliaria.es): escríbela en «Dirección del remitente» y pulsa «Guardar remitente». Tiene que ser de un dominio tuyo: Gmail, Outlook, Yahoo… no sirven como remitente (sí como «Responder a»).',
         'Al guardar aparecen 3 registros DNS. Añádelos tal cual en el panel donde gestionas el DNS de tu dominio (tu registrador, Cloudflare, tu hosting…). Pulsa un nombre o un valor para copiarlo. No tocan tu correo actual: van en subdominios propios.',
-        'Después pulsa «Comprobar ahora». El DNS puede tardar desde minutos hasta 48 horas; mientras tanto tus emails siguen saliendo vía INMO, no se pierde ninguno. Cuando el estado pasa a «Verificado», salen de tu dirección.',
+        'Después pulsa «Comprobar ahora». El DNS puede tardar desde minutos hasta 48 horas; mientras tanto tus emails siguen saliendo con tu nombre desde la dirección de INMO, no se pierde ninguno. Cuando el estado pasa a «Verificado», salen de tu dirección.',
         'Las altas de usuario, la bienvenida y la recuperación de contraseña salen siempre de INMO <info@serendipiaagency.com>, aunque tengas tu dominio verificado: son emails de la cuenta, no de tu empresa.',
         '«Avisos internos para tu equipo» son las direcciones que reciben los avisos de nuevos leads, mensajes de contacto y reclamaciones (una por línea, hasta 10).',
         'Un dominio sólo puede usarlo una empresa en INMO. Si al guardar te dice que ya lo usa otra, o que está dado de alta en la plataforma, contacta con soporte de INMO.',
@@ -839,10 +839,10 @@ export function useHelpContent() {
   const faqs: HelpFaq[] = [
     {
       id: 'faq-email-propio',
-      question: '¿Cómo hago que los emails a mis clientes salgan desde mi dirección y no «vía INMO»?',
+      question: '¿Cómo hago que los emails a mis clientes salgan desde mi propia dirección?',
       answer:
-        'En Sistema → Emails escribe una dirección de tu dominio (por ejemplo hola@tuinmobiliaria.es) en «Dirección del remitente» y guarda. Te aparecerán 3 registros DNS: añádelos en el panel de tu dominio y pulsa «Comprobar ahora». En cuanto el dominio figure como «Verificado», tus emails a clientes y a tu equipo salen de tu dirección. Hasta entonces salen «vía INMO» con las respuestas dirigidas a ti, así que no se pierde nada. Las direcciones de Gmail, Outlook o similares no pueden ser remitente porque nadie puede verificar su dominio; sí puedes ponerlas en «Responder a».',
-      tags: ['email', 'remitente', 'dominio', 'dns', 'verificar', 'vía inmo', 'correo propio'],
+        'En Sistema → Emails escribe una dirección de tu dominio (por ejemplo hola@tuinmobiliaria.es) en «Dirección del remitente» y guarda. Te aparecerán 3 registros DNS: añádelos en el panel de tu dominio y pulsa «Comprobar ahora». En cuanto el dominio figure como «Verificado», tus emails a clientes y a tu equipo salen de tu dirección. Hasta entonces —y si no haces nada— salen con el nombre de tu empresa desde la dirección de INMO y las respuestas te llegan a ti, así que no se pierde nada. Las direcciones de Gmail, Outlook o similares no pueden ser remitente porque nadie puede verificar su dominio; sí puedes ponerlas en «Responder a».',
+      tags: ['email', 'remitente', 'dominio', 'dns', 'verificar', 'responder a', 'correo propio'],
     },
     {
       id: 'faq-empresa-suspendida',

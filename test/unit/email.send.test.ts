@@ -99,7 +99,7 @@ describe('sendTransactionalEmail — simulated successful provider', () => {
     expect(row.deliveredAt).toBeFalsy()
   })
 
-  it('uses the org\'s own sender only once its domain is verified; until then «Empresa vía INMO» with reply-to the org', async () => {
+  it('uses the org\'s own sender only once its domain is verified; until then its name with the platform address and reply-to the org', async () => {
     stubSuccessfulResend()
     const { db } = createTestDb()
     const a = await seedTenant(db, 'EmailCustomSender')
@@ -111,7 +111,7 @@ describe('sendTransactionalEmail — simulated successful provider', () => {
     }
     // Sin verificar: nunca su dirección (Resend la rechazaría; sería suplantar un dominio no probado).
     const before = await send()
-    expect(before.fromHeader).toBe('Custom Agency vía INMO <info@serendipiaagency.com>')
+    expect(before.fromHeader).toBe('Custom Agency <info@serendipiaagency.com>')
     expect(before.replyTo).toBe('support@customagency.example')
 
     await db.update(schema.organizations).set({ emailSenderDomainVerified: 1 }).where(eq(schema.organizations.id, a.orgId))
@@ -132,15 +132,17 @@ describe('sendTransactionalEmail — simulated successful provider', () => {
     }
   })
 
-  it('with no sender configured, company emails go out «Empresa vía INMO» from the platform sender (never the old non-existent domain)', async () => {
+  it('with nothing configured, company emails go out with its name from the platform address, replies to its admin (never the old non-existent domain)', async () => {
     stubSuccessfulResend()
     const { db } = createTestDb()
     const a = await seedTenant(db, 'EmailDefaultSender')
 
     const [result] = await sendTransactionalEmail(db, { RESEND_API_KEY: 'k' }, { organizationId: a.orgId, template: 'contract_sent', to: 'client@example.com', data: { title: 'Contrato', url: 'https://x/y' } })
     const [row] = await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, result.logId))
-    expect(row.fromHeader).toBe('EmailDefaultSender vía INMO <info@serendipiaagency.com>')
+    expect(row.fromHeader).toBe('EmailDefaultSender <info@serendipiaagency.com>')
     expect(row.fromHeader).not.toContain('sa-inmobiliaria.com')
+    const [admin] = await db.select().from(schema.users).where(eq(schema.users.id, a.userId))
+    expect(row.replyTo).toBe(admin.email.toLowerCase())
   })
 })
 

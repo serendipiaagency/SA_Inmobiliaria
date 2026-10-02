@@ -192,6 +192,10 @@ export async function provisionOrganization(db: any, input: ProvisionOrganizatio
           brandColor,
           status,
           emailLocale,
+          // El correo con el que se registra (o el del administrador invitado)
+          // es desde el primer día el «Responder a» de sus emails: sin
+          // configurar nada, las respuestas de sus clientes le llegan a ella.
+          emailReplyTo: admin?.email ?? null,
           ...(storageBytesLimit ? { storageBytesLimit } : {}),
           registrationSource: input.source,
           approvalStatus: access.approvalStatus,

@@ -114,6 +114,9 @@ describe('provisionOrganization — alta desde Sistemas > Empresas (source admin
     expect(user.permissions).toBeNull()
     expect(user.password).toMatch(/^pbkdf2\$/)
     expect(await verifyPassword('', user.password)).toBe(false)
+    // Su correo es desde ya el «Responder a» de los emails de la empresa.
+    const [org] = await db.select().from(schema.organizations).where(eq(schema.organizations.id, res.organization.id))
+    expect(org.emailReplyTo).toBe('lucia@sierra.es')
   })
 
   it('dominio ocupado → 409 en el paso Empresa, sin crear nada', async () => {
@@ -160,6 +163,8 @@ describe('provisionOrganization — registro público (source self_service)', ()
     expect(user.organizationId).toBe(res.organization.id)
     expect(user.password).not.toContain('MuySegura123') // nunca en claro
     expect(await verifyPassword('MuySegura123', user.password)).toBe(true)
+    const [org] = await db.select().from(schema.organizations).where(eq(schema.organizations.id, res.organization.id))
+    expect(org.emailReplyTo).toBe('hola@solhomes.es')
     const supers = await db.select({ email: schema.users.email }).from(schema.users).where(eq(schema.users.role, 'super_admin'))
     expect(supers.map((u: { email: string }) => u.email)).not.toContain('hola@solhomes.es')
   })
