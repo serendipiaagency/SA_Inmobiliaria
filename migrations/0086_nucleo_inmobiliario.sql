@@ -410,7 +410,13 @@ ALTER TABLE leads ADD COLUMN team_id INTEGER;
 ALTER TABLE leads ADD COLUMN created_by INTEGER;
 ALTER TABLE leads ADD COLUMN deleted_at TEXT;
 ALTER TABLE leads ADD COLUMN first_contact_at TEXT;
-ALTER TABLE leads ADD COLUMN converted_contact_id INTEGER;
+-- converted_contact_id NO se añade aquí: la tabla leads de producción ya la
+-- tiene (resto del incidente de 0069: su esquema se creó por otro camino,
+-- ver migrations/0070_*.sql y .github/workflows/d1-add-leads-whatsapp-column.yml),
+-- y repetirla hizo fallar la primera aplicación de esta migración en
+-- producción ("duplicate column name: converted_contact_id"; D1 la revirtió
+-- entera). El contacto al que se convierte un lead es leads.contact_id: el
+-- código no usa converted_contact_id en ningún sitio.
 ALTER TABLE leads ADD COLUMN converted_at TEXT;
 ALTER TABLE leads ADD COLUMN language TEXT;
 ALTER TABLE leads ADD COLUMN external_id TEXT;
