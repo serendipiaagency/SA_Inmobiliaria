@@ -89,6 +89,9 @@
     <VideoField v-else-if="spec.type === 'video'" :model-value="modelValue" :upload-folder="uploadFolder" @update:model-value="emitUpdate" />
 
     <input v-else-if="spec.type === 'number'" :value="modelValue ?? ''" type="number" step="any" :aria-label="spec.label" :class="inputCls" @input="emitUpdate(numOrNull(($event.target as HTMLInputElement).value))" >
+    <input v-else-if="spec.type === 'date'" :value="modelValue ? String(modelValue).slice(0, 10) : ''" type="date" :aria-label="spec.label" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value || null)" >
+    <!-- Valor calculado (precio por m²…): se enseña, nunca se edita ni se guarda. -->
+    <p v-else-if="spec.type === 'computed'" class="pe-input bg-stone-50 text-stone-600" :aria-label="spec.label" data-computed="true">{{ modelValue }}</p>
     <input v-else-if="spec.type === 'url'" :value="modelValue ?? ''" type="url" placeholder="https://…" :aria-label="spec.label" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value)" >
     <input v-else :value="modelValue ?? ''" :aria-label="spec.label" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value)" >
 

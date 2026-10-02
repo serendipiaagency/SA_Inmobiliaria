@@ -48,6 +48,29 @@
       />
 
       <div class="mx-auto max-w-[1400px] px-4 py-6 sm:px-6">
+        <!-- Búsqueda de campos (FASE 25): con decenas de campos repartidos en
+             pasos, escribir «IBI» o «catastral» lleva directo al campo. -->
+        <div class="relative mb-4 max-w-md" data-testid="property-field-search">
+          <input
+            v-model="fieldQuery"
+            type="search"
+            class="pe-input w-full"
+            placeholder="Buscar un campo (p. ej. IBI, fianza, calefacción)…"
+            aria-label="Buscar un campo de la ficha"
+            @keydown.enter.prevent="fieldMatches[0] && jumpToField(fieldMatches[0])"
+            @keydown.esc="fieldQuery = ''"
+          >
+          <ul v-if="fieldQuery.trim() && fieldMatches.length" class="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-line bg-white py-1 shadow-lg">
+            <li v-for="m in fieldMatches" :key="m.section + m.field.key">
+              <button type="button" class="flex w-full items-baseline justify-between gap-3 px-3 py-2 text-left text-[13px] hover:bg-stone-50" @click="jumpToField(m)">
+                <span class="font-medium text-ink">{{ m.field.label }}</span>
+                <span class="shrink-0 text-[11px] text-stone-400">{{ m.sectionLabel }}</span>
+              </button>
+            </li>
+          </ul>
+          <p v-else-if="fieldQuery.trim()" class="absolute z-30 mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-[12px] text-stone-400 shadow-lg">Ningún campo coincide con «{{ fieldQuery }}».</p>
+        </div>
+
         <!-- Móvil y tablet: los pasos pasan a una tira horizontal. La columna
              de progreso y la vista previa no caben a esos anchos sin
              estrangular el formulario, que es lo que se viene a usar. -->
@@ -119,8 +142,20 @@
                       <!-- Un grupo de un solo campo que se llama igual que él
                            («Plan de pagos») escribía el mismo texto dos veces
                            seguidas. El rótulo del campo se queda, porque es su
-                           nombre accesible; el del grupo sobra. -->
-                      <p v-if="g.label && !groupLabelIsRedundant(g)" class="mb-4 text-[15px] font-medium text-ink">{{ g.label }}</p>
+                           nombre accesible; el del grupo sobra. Cada grupo con
+                           rótulo se puede plegar (FASE 25: colapsables). -->
+                      <button
+                        v-if="g.label && !groupLabelIsRedundant(g)"
+                        type="button"
+                        class="mb-4 flex w-full items-center justify-between gap-2 text-left text-[15px] font-medium text-ink"
+                        :aria-expanded="!isCollapsed(s.key, g.label)"
+                        :data-testid="`property-group-toggle-${s.key}`"
+                        @click="toggleGroup(s.key, g.label)"
+                      >
+                        <span>{{ g.label }}</span>
+                        <svg class="h-4 w-4 shrink-0 text-stone-400 transition" :class="isCollapsed(s.key, g.label) ? '-rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" /></svg>
+                      </button>
+                      <template v-if="!g.label || groupLabelIsRedundant(g) || !isCollapsed(s.key, g.label)">
 
                       <!-- Un grupo que es todo casillas se dibuja como
                            interruptores en píldora: leer ocho casillas en
@@ -145,11 +180,13 @@
                           v-for="f in g.fields"
                           :key="f.key"
                           :spec="f"
-                          :model-value="form[f.key]"
+                          :model-value="f.type === 'computed' && f.compute ? f.compute(form) : form[f.key]"
                           :upload-folder="resource"
+                          :class="highlightKey === f.key ? 'rounded-xl ring-2 ring-amber-300 ring-offset-4' : ''"
                           @update:model-value="(v) => (form[f.key] = v)"
                         />
                       </div>
+                      </template>
                     </div>
                   </div>
 
@@ -213,6 +250,7 @@
 <script setup lang="ts">
 import { PROPERTY_BUILDER_SECTIONS, groupFields, type BuilderSection, type FieldSpec, type FieldsSection, type LocationSection as LocationSectionSpec } from '~/composables/usePropertyBuilderConfig'
 import { usePropertySchemaRegistry } from '~/composables/usePropertySchemaRegistry'
+import { PROPERTY_SUBTYPES, propertyTypeLabel } from '~/utils/propertySheet'
 import PropertyBuilderField from './PropertyBuilderField.vue'
 import PropertyEditorHeader from './PropertyEditorHeader.vue'
 import PropertyEditorSteps from './PropertyEditorSteps.vue'
@@ -276,9 +314,27 @@ const formCardEl = ref<HTMLElement | null>(null)
 const { getSchemaFor, isFieldApplicable } = usePropertySchemaRegistry()
 
 function filterFieldsForSchema(fields: FieldSpec[]): FieldSpec[] {
-  if (props.resource !== 'properties') return fields
+  const visible = fields.filter(isShownByCondition).map(withDynamicOptions)
+  if (props.resource !== 'properties') return visible
   const schema = getSchemaFor('agent', form.propertyType)
-  return fields.filter((f) => isFieldApplicable('agent', schema, f.key))
+  return visible.filter((f) => f.virtual || isFieldApplicable('agent', schema, f.key))
+}
+
+/** Campos condicionales (FASE 25): p. ej. fianza y depósito sólo en alquiler. */
+function isShownByCondition(f: FieldSpec): boolean {
+  if (!f.showWhen) return true
+  const raw = form[f.showWhen.key]
+  const value = raw === null || raw === undefined || raw === '' ? (f.showWhen.emptyAs ?? '') : String(raw)
+  if (f.showWhen.in && !f.showWhen.in.includes(value)) return false
+  if (f.showWhen.notIn && f.showWhen.notIn.includes(value)) return false
+  return true
+}
+
+/** El subtipo ofrece sólo los subtipos del tipo elegido (utils/propertySheet.ts). */
+function withDynamicOptions(f: FieldSpec): FieldSpec {
+  if (f.key !== 'subtype') return f
+  const labels = PROPERTY_SUBTYPES[form.propertyType] || {}
+  return { ...f, options: Object.keys(labels), optionLabels: labels, hint: form.propertyType ? f.hint : 'Elige primero el tipo de propiedad.' }
 }
 
 const sections = computed<BuilderSection[]>(() =>
@@ -364,7 +420,7 @@ function snapshot() {
 // el watch de autoguardado no debe dispararse contra datos a medio cargar.
 let loaded = false
 // FASE 28 §94 — histórico de precios de la ficha (ver PropertyPriceHistory.vue).
-type PriceHistoryRow = { price: number; recordedAt: string }
+type PriceHistoryRow = { price: number; previousPrice?: number | null; reason?: string | null; changedByName?: string | null; recordedAt: string }
 const priceHistory = ref<PriceHistoryRow[]>([])
 let persistedPrice: number | null = null
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null
@@ -434,6 +490,58 @@ function scheduleAutosave() {
       saving.value = false
     }
   }, 1000)
+}
+
+// ---------------------------------------------------------------------------
+// Búsqueda de campos y grupos plegables (FASE 25)
+// ---------------------------------------------------------------------------
+const fieldQuery = ref('')
+const highlightKey = ref<string | null>(null)
+type FieldMatch = { section: string; sectionLabel: string; field: FieldSpec }
+
+function normalize(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+/** Busca por rótulo, grupo y pista en los campos que se ven ahora (los que el tipo de inmueble no admite no aparecen). */
+const fieldMatches = computed<FieldMatch[]>(() => {
+  const q = normalize(fieldQuery.value.trim())
+  if (!q) return []
+  const out: FieldMatch[] = []
+  for (const s of sections.value) {
+    if (s.kind !== 'fields' && s.kind !== 'location') continue
+    for (const f of (s as FieldsSection).fields) {
+      if (normalize(`${f.label} ${f.group || ''} ${f.hint || ''}`).includes(q)) out.push({ section: s.key, sectionLabel: s.label, field: f })
+    }
+  }
+  return out.slice(0, 12)
+})
+
+function jumpToField(m: FieldMatch) {
+  fieldQuery.value = ''
+  if (m.field.group) collapsed[`${m.section}:${m.field.group}`] = false
+  activeKey.value = m.section
+  highlightKey.value = m.field.key
+  nextTick(() => {
+    const el = formCardEl.value?.querySelector<HTMLElement>(`[data-field="${m.field.key}"]`)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el?.querySelector<HTMLElement>('input, select, textarea, button')?.focus({ preventScroll: true })
+  })
+  setTimeout(() => {
+    if (highlightKey.value === m.field.key) highlightKey.value = null
+  }, 2500)
+}
+
+const collapsed = reactive<Record<string, boolean>>({})
+function isCollapsed(section: string, group: string): boolean {
+  return !!collapsed[`${section}:${group}`]
+}
+function toggleGroup(section: string, group: string) {
+  const k = `${section}:${group}`
+  collapsed[k] = !collapsed[k]
 }
 
 function pad2(n: number) {
@@ -534,7 +642,7 @@ const isSecondHand = computed(() => props.resource === 'properties')
 /** Una vivienda de 2ª mano no tiene nombre propio: se identifica por tipo y referencia. */
 const headerTitle = computed(() => {
   if (isNew.value) return isSecondHand.value ? 'Nueva propiedad de 2ª mano' : 'Nueva propiedad'
-  return form.name || translations.value.find((t) => t.title)?.title || form.propertyType || form.slug || `Propiedad #${recordId.value}`
+  return form.name || translations.value.find((t) => t.title)?.title || (form.propertyType ? propertyTypeLabel(form.propertyType) : '') || form.slug || `Propiedad #${recordId.value}`
 })
 const previewTitle = computed(() => (headerTitle.value === 'Nueva propiedad' || headerTitle.value === 'Nueva propiedad de 2ª mano' ? 'Sin título todavía' : headerTitle.value))
 const previewReference = computed(() => (recordId.value ? `Ref. #${recordId.value}` : 'Sin referencia hasta guardar'))
@@ -584,6 +692,8 @@ async function putPropertyBody() {
   // servidor: se relee de allí (nunca se fabrica en el cliente).
   if (typeof form.price === 'number' && form.price !== persistedPrice) {
     persistedPrice = form.price
+    // El motivo ya está en el histórico: no debe acompañar al siguiente cambio de precio.
+    form.priceChangeReason = ''
     const res = await $fetch<{ priceHistory?: PriceHistoryRow[] }>(`/api/admin/${props.resource}/${recordId.value}`).catch(() => null)
     if (res?.priceHistory) priceHistory.value = res.priceHistory
   }

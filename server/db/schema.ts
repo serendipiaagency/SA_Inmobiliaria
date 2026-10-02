@@ -254,6 +254,9 @@ export const agentProperties = sqliteTable(
     garageSpaces: integer('garage_spaces'),
     condition: text('condition'), // new | excellent | good | to_renovate | to_reform — estado físico, distinto de `status` (comercial)
     furnished: text('furnished'), // yes | no | partially — NULL = no especificado
+    // Migración 0086 — autor del alta y borrado lógico (Papelera).
+    createdBy: integer('created_by'),
+    deletedAt: text('deleted_at'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
@@ -309,6 +312,14 @@ export const propertyGalleryImages = sqliteTable('property_gallery_images', {
     .references(() => agentProperties.id, { onDelete: 'cascade' }),
   image: text('image').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
+  // Migración 0086 — metadatos por recurso (FASE 7).
+  title: text('title'),
+  alt: text('alt'),
+  caption: text('caption'),
+  language: text('language'),
+  isPublishable: integer('is_publishable').notNull().default(1),
+  isPrivate: integer('is_private').notNull().default(0),
+  isHidden: integer('is_hidden').notNull().default(0),
   createdAt: text('created_at').notNull().default(''),
 })
 
@@ -440,6 +451,10 @@ export const agentPropertyPriceHistory = sqliteTable(
       .references(() => agentProperties.id, { onDelete: 'cascade' }),
     price: real('price').notNull(),
     recordedAt: text('recorded_at').notNull(),
+    // Migración 0086 — precio anterior, quién lo cambió (users.id) y por qué.
+    previousPrice: real('previous_price'),
+    changedBy: integer('changed_by'),
+    reason: text('reason'),
   },
   (t) => [index('agent_property_price_history_property').on(t.propertyId)],
 )
@@ -590,6 +605,9 @@ export const developerProperties = sqliteTable(
     furnished: text('furnished'), // yes | no | partially — NULL = no especificado
     featuresReviewedAt: text('features_reviewed_at'),
     featuresReviewedBy: integer('features_reviewed_by'),
+    // Migración 0086 — autor del alta y borrado lógico (Papelera).
+    createdBy: integer('created_by'),
+    deletedAt: text('deleted_at'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
@@ -628,6 +646,10 @@ export const priceHistory = sqliteTable('price_history', {
     .references(() => developerProperties.id, { onDelete: 'cascade' }),
   price: real('price').notNull(),
   recordedAt: text('recorded_at').notNull(),
+  // Migración 0086 — precio anterior, quién lo cambió (users.id) y por qué.
+  previousPrice: real('previous_price'),
+  changedBy: integer('changed_by'),
+  reason: text('reason'),
 })
 
 // Per-view timestamp log (added 0018) — enables real time-windowed counts
@@ -713,6 +735,14 @@ export const images = sqliteTable('images', {
     .references(() => developerProperties.id, { onDelete: 'cascade' }),
   image: text('image').notNull(),
   sortOrder: integer('sort_order').notNull().default(0),
+  // Migración 0086 — metadatos por recurso (FASE 7).
+  title: text('title'),
+  alt: text('alt'),
+  caption: text('caption'),
+  language: text('language'),
+  isPublishable: integer('is_publishable').notNull().default(1),
+  isPrivate: integer('is_private').notNull().default(0),
+  isHidden: integer('is_hidden').notNull().default(0),
   createdAt: text('created_at').notNull().default(''),
 })
 
@@ -902,6 +932,11 @@ export const teamMembers = sqliteTable(
     // anyone by accident.
     showOnWeb: integer('show_on_web').notNull().default(1),
     sortOrder: integer('sort_order').notNull().default(0),
+    // Migración 0086 — oficina y equipo como entidades (offices/teams), y el
+    // usuario del panel que ES este comercial (users.id, único).
+    officeId: integer('office_id'),
+    teamId: integer('team_id'),
+    userId: integer('user_id'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
@@ -1062,6 +1097,18 @@ export const leads = sqliteTable(
     scoreBreakdownJson: text('score_breakdown_json'),
     scoreComputedAt: text('score_computed_at'),
     scoreExpiresAt: text('score_expires_at'),
+    // Migración 0086 — oficina/equipo, autor, borrado lógico, primer contacto
+    // (cualquier canal, humano o no), conversión, idioma e ID externo. El
+    // contacto al que se convierte es contactId; converted_contact_id existe
+    // sólo en producción y staging (deriva de 0069) y no se usa.
+    officeId: integer('office_id'),
+    teamId: integer('team_id'),
+    createdBy: integer('created_by'),
+    deletedAt: text('deleted_at'),
+    firstContactAt: text('first_contact_at'),
+    convertedAt: text('converted_at'),
+    language: text('language'),
+    externalId: text('external_id'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
@@ -1228,6 +1275,10 @@ export const leadRoutingRules = sqliteTable(
     targetDepartment: text('target_department'),
     strategy: text('strategy').notNull().default('round_robin'), // round_robin | workload — sólo si targetCommercialId es null
     enabled: integer('enabled').notNull().default(1),
+    // Migración 0086 — reparto dentro de una oficina y franja horaria en la que
+    // aplica la regla ({ days: [1..7], from: 'HH:MM', to: 'HH:MM', timezone }).
+    targetOfficeId: integer('target_office_id'),
+    scheduleJson: text('schedule_json'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
@@ -1380,6 +1431,30 @@ export const visits = sqliteTable(
     calendarSyncStatus: text('calendar_sync_status'),
     /** FASE 24, migración 0079. Una cita de notaría/firma de un Deal — sigue siendo una Appointment real, aparece en Calendar sin ningún mecanismo aparte. */
     dealId: integer('deal_id'),
+    // Migración 0086 — FASES 17 y 19: contacto, oficina, zona horaria, punto
+    // de encuentro, notas internas, cancelación, recordatorio, autoría,
+    // borrado lógico y el resultado estructurado de la visita.
+    contactId: integer('contact_id'),
+    officeId: integer('office_id'),
+    timezone: text('timezone'),
+    meetingPoint: text('meeting_point'),
+    internalNotes: text('internal_notes'),
+    cancellationReason: text('cancellation_reason'),
+    cancelledAt: text('cancelled_at'),
+    reminderStatus: text('reminder_status'), // pending | sent | failed | not_applicable
+    createdBy: integer('created_by'),
+    updatedAt: text('updated_at'),
+    deletedAt: text('deleted_at'),
+    interestLevel: integer('interest_level'), // 1-5
+    outcomeLiked: text('outcome_liked'),
+    outcomeDisliked: text('outcome_disliked'),
+    pricePerception: text('price_perception'), // cheap | fair | expensive
+    locationRating: integer('location_rating'), // 1-5
+    conditionRating: integer('condition_rating'), // 1-5
+    layoutRating: integer('layout_rating'), // 1-5
+    wantsSecondVisit: integer('wants_second_visit'),
+    wantsToOffer: integer('wants_to_offer'),
+    discarded: integer('discarded'),
     createdAt: text('created_at').notNull().default(''),
   },
   (t) => [
@@ -1482,6 +1557,8 @@ export const reservations = sqliteTable(
     deposit: real('deposit').notNull().default(0),
     status: text('status').notNull().default('pending'), // pending | confirmed | cancelled | completed
     reservedAt: text('reserved_at').notNull(),
+    /** Migración 0086 — la operación (deal_operations) a la que pertenece esta reserva. */
+    dealOperationId: integer('deal_operation_id'),
     createdAt: text('created_at').notNull().default(''),
   },
   (t) => [index('reservations_status').on(t.status)],
@@ -2154,6 +2231,8 @@ export const tasks = sqliteTable(
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
     completedAt: text('completed_at'),
+    /** Migración 0086 — borrado lógico. */
+    deletedAt: text('deleted_at'),
   },
   (t) => [
     index('tasks_org_status_due').on(t.organizationId, t.status, t.dueAt),
@@ -2280,6 +2359,9 @@ export const dealOperations = sqliteTable(
     /** El apunte que este cierre creó en la tabla legacy `deals`, si lo creó — trazabilidad del puente entre las dos. */
     legacyDealId: integer('legacy_deal_id'),
     createdBy: integer('created_by'), // users.id
+    // Migración 0086 — oficina y borrado lógico.
+    officeId: integer('office_id'),
+    deletedAt: text('deleted_at'),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
@@ -2650,6 +2732,8 @@ export const contracts = sqliteTable(
     acceptedAt: text('accepted_at'),
     r2Key: text('r2_key'),
     createdBy: integer('created_by'),
+    /** Migración 0086 — la operación (deal_operations) a la que pertenece este contrato. */
+    dealOperationId: integer('deal_operation_id'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
@@ -2769,6 +2853,8 @@ export const depositPayments = sqliteTable(
     // off the PaymentIntent, not the Checkout Session.
     stripePaymentIntentId: text('stripe_payment_intent_id'),
     errorMessage: text('error_message'),
+    /** Migración 0086 — la operación (deal_operations) a la que pertenecen estas arras. */
+    dealOperationId: integer('deal_operation_id'),
     createdAt: text('created_at').notNull().default(''),
     paidAt: text('paid_at'),
     refundedAt: text('refunded_at'),
@@ -3364,6 +3450,13 @@ export const contacts = sqliteTable(
     notes: text('notes'),
     status: text('status').notNull().default('active'), // active | archived
     createdBy: integer('created_by'),
+    // Migración 0086 — cabecera CRM 360 (FASE 9).
+    country: text('country'),
+    source: text('source'),
+    officeId: integer('office_id'),
+    lastContactAt: text('last_contact_at'),
+    nextActionType: text('next_action_type'),
+    nextActionAt: text('next_action_at'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
     deletedAt: text('deleted_at'),
@@ -3557,5 +3650,380 @@ export const developerPropertyMatches = sqliteTable(
     index('developer_property_matches_org_status').on(t.organizationId, t.status),
     index('developer_property_matches_org_property').on(t.organizationId, t.propertyId),
     index('developer_property_matches_org_contact').on(t.organizationId, t.contactId),
+  ],
+)
+
+// ---------------------------------------------------------------------------
+// Núcleo inmobiliario (migración 0086) — ver docs/auditoria-nucleo-megaprompt.md
+// ---------------------------------------------------------------------------
+
+/**
+ * Oficinas de una agencia (FASE 0). Hasta 0086 la oficina era el texto libre
+ * `team_members.office_name`; ese texto se conserva, pero lo que filtra,
+ * enruta y segmenta es `office_id`. El nombre es único entre las oficinas
+ * vivas de la organización (índice parcial WHERE deleted_at IS NULL).
+ */
+export const offices = sqliteTable(
+  'offices',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    code: text('code'),
+    email: text('email'),
+    phone: text('phone'),
+    address: text('address'),
+    city: text('city'),
+    province: text('province'),
+    postalCode: text('postal_code'),
+    country: text('country'),
+    timezone: text('timezone'),
+    status: text('status').notNull().default('active'), // active | inactive
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [index('offices_org').on(t.organizationId)],
+)
+
+/** Equipos comerciales (FASE 0), opcionalmente dentro de una oficina. */
+export const teams = sqliteTable(
+  'teams',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    officeId: integer('office_id'),
+    name: text('name').notNull(),
+    description: text('description'),
+    /** team_members.id del responsable del equipo. */
+    leadMemberId: integer('lead_member_id'),
+    status: text('status').notNull().default('active'), // active | inactive
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [index('teams_org').on(t.organizationId)],
+)
+
+/**
+ * Ficha ampliada de una propiedad (FASES 1-4 y tour virtual), 1:1 con la
+ * propiedad de cualquiera de los dos catálogos — `property_kind` 'agent'
+ * (agent_properties, 2ª mano) o 'developer' (developer_properties). Tabla
+ * aparte porque D1 no admite más de 100 columnas por tabla. Columnas tipadas
+ * (no JSON) para poder filtrar, buscar y alimentar el matching y la IA.
+ */
+export const propertyDetails = sqliteTable(
+  'property_details',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    propertyKind: text('property_kind').notNull(), // agent | developer
+    propertyId: integer('property_id').notNull(),
+    commercialCode: text('commercial_code'),
+    subtype: text('subtype'),
+    officeId: integer('office_id'),
+    teamId: integer('team_id'),
+    commercialStatus: text('commercial_status'), // available | reserved | sold | rented | withdrawn | draft
+    region: text('region'),
+    province: text('province'),
+    municipality: text('municipality'),
+    neighborhood: text('neighborhood'),
+    streetType: text('street_type'),
+    staircase: text('staircase'),
+    officeArea: real('office_area'),
+    commercialArea: real('commercial_area'),
+    totalArea: real('total_area'),
+    computableArea: real('computable_area'),
+    roomsTotal: integer('rooms_total'),
+    terracesCount: integer('terraces_count'),
+    balconiesCount: integer('balconies_count'),
+    storeroomsCount: integer('storerooms_count'),
+    dressingRoomsCount: integer('dressing_rooms_count'),
+    studiesCount: integer('studies_count'),
+    floorsCount: integer('floors_count'),
+    renovationYear: integer('renovation_year'),
+    buildingFloors: integer('building_floors'),
+    buildingUnits: integer('building_units'),
+    hasConcierge: integer('has_concierge'),
+    hasDoorman: integer('has_doorman'),
+    facade: text('facade'),
+    structure: text('structure'),
+    exteriorInterior: text('exterior_interior'), // exterior | interior
+    kitchenType: text('kitchen_type'),
+    hasBuiltInWardrobes: integer('has_built_in_wardrobes'),
+    flooring: text('flooring'),
+    carpentry: text('carpentry'),
+    glazing: text('glazing'),
+    ceilingHeight: real('ceiling_height'),
+    isRenovated: integer('is_renovated'),
+    heating: text('heating'),
+    hotWater: text('hot_water'),
+    hasAirConditioning: integer('has_air_conditioning'),
+    hasUnderfloorHeating: integer('has_underfloor_heating'),
+    hasFireplace: integer('has_fireplace'),
+    hasHomeAutomation: integer('has_home_automation'),
+    hasAlarm: integer('has_alarm'),
+    hasFiber: integer('has_fiber'),
+    hasSolarPanels: integer('has_solar_panels'),
+    hasAerothermal: integer('has_aerothermal'),
+    hasCommunityPool: integer('has_community_pool'),
+    hasCommunityGarden: integer('has_community_garden'),
+    hasGym: integer('has_gym'),
+    hasPaddle: integer('has_paddle'),
+    hasTennis: integer('has_tennis'),
+    hasPlayground: integer('has_playground'),
+    hasCoworking: integer('has_coworking'),
+    hasSocialRoom: integer('has_social_room'),
+    hasSecurity: integer('has_security'),
+    views: text('views'),
+    isBeachfront: integer('is_beachfront'),
+    hasPrivateGarden: integer('has_private_garden'),
+    hasPrivatePool: integer('has_private_pool'),
+    hasPorch: integer('has_porch'),
+    hasPatio: integer('has_patio'),
+    hasBalcony: integer('has_balcony'),
+    virtualTourUrl: text('virtual_tour_url'),
+    createdBy: integer('created_by'),
+    updatedBy: integer('updated_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [
+    uniqueIndex('property_details_property').on(t.propertyKind, t.propertyId),
+    index('property_details_org').on(t.organizationId),
+    index('property_details_office').on(t.organizationId, t.officeId),
+  ],
+)
+
+/** Datos económicos, comisiones y legales de una propiedad (FASES 5-6), 1:1 como propertyDetails. */
+export const propertyLegalEconomics = sqliteTable(
+  'property_legal_economics',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    propertyKind: text('property_kind').notNull(),
+    propertyId: integer('property_id').notNull(),
+    priceMinAuthorized: real('price_min_authorized'),
+    priceRecommended: real('price_recommended'),
+    rentDeposit: real('rent_deposit'),
+    rentGuarantee: real('rent_guarantee'),
+    rentExpensesIncluded: integer('rent_expenses_included'),
+    communityFeeMonthly: real('community_fee_monthly'),
+    ibiAnnual: real('ibi_annual'),
+    garbageTaxAnnual: real('garbage_tax_annual'),
+    commissionType: text('commission_type'), // percentage | fixed
+    commissionValue: real('commission_value'),
+    commissionVatPct: real('commission_vat_pct'),
+    buyerFee: real('buyer_fee'),
+    ownerFee: real('owner_fee'),
+    cadastralReference: text('cadastral_reference'),
+    registryStatus: text('registry_status'),
+    registryPropertyNumber: text('registry_property_number'),
+    landRegistry: text('land_registry'),
+    encumbrances: text('encumbrances'),
+    mortgageStatus: text('mortgage_status'),
+    occupancyStatus: text('occupancy_status'),
+    licenses: text('licenses'),
+    habitabilityCertificate: text('habitability_certificate'),
+    iteStatus: text('ite_status'),
+    energyCertificateNumber: text('energy_certificate_number'),
+    energyCertificateExpiry: text('energy_certificate_expiry'),
+    energyConsumption: real('energy_consumption'),
+    emissionsRating: text('emissions_rating'),
+    emissionsValue: real('emissions_value'),
+    createdBy: integer('created_by'),
+    updatedBy: integer('updated_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [
+    uniqueIndex('property_legal_economics_property').on(t.propertyKind, t.propertyId),
+    index('property_legal_economics_org').on(t.organizationId),
+  ],
+)
+
+/**
+ * Documentos de una propiedad (FASE 6) con su permiso: internal (sólo el
+ * equipo), owner (también los propietarios vinculados en property_contacts),
+ * authorized_buyer (además, los contactos concedidos en
+ * property_document_access) o public. El fichero vive en R2 (privado).
+ */
+export const propertyDocuments = sqliteTable(
+  'property_documents',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    propertyKind: text('property_kind').notNull(),
+    propertyId: integer('property_id').notNull(),
+    docType: text('doc_type').notNull(),
+    title: text('title').notNull(),
+    r2Key: text('r2_key'),
+    mediaAssetId: integer('media_asset_id'),
+    fileName: text('file_name'),
+    mimeType: text('mime_type'),
+    sizeBytes: integer('size_bytes'),
+    visibility: text('visibility').notNull().default('internal'), // internal | owner | authorized_buyer | public
+    issuedAt: text('issued_at'),
+    expiresAt: text('expires_at'),
+    notes: text('notes'),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [index('property_documents_property').on(t.organizationId, t.propertyKind, t.propertyId)],
+)
+
+/** Contactos autorizados a ver un documento con visibilidad authorized_buyer. */
+export const propertyDocumentAccess = sqliteTable(
+  'property_document_access',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    documentId: integer('document_id').notNull(),
+    contactId: integer('contact_id').notNull(),
+    grantedBy: integer('granted_by'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('property_document_access_unique').on(t.documentId, t.contactId)],
+)
+
+/** Vídeos, tours virtuales, renders, PDF, drone y 360 de una propiedad (FASE 7). Fotos y planos siguen en sus tablas. */
+export const propertyMedia = sqliteTable(
+  'property_media',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    propertyKind: text('property_kind').notNull(),
+    propertyId: integer('property_id').notNull(),
+    mediaType: text('media_type').notNull(), // video | virtual_tour | render | pdf | drone | pano360 | other
+    url: text('url'),
+    r2Key: text('r2_key'),
+    title: text('title'),
+    alt: text('alt'),
+    caption: text('caption'),
+    language: text('language'),
+    isMain: integer('is_main').notNull().default(0),
+    isPublishable: integer('is_publishable').notNull().default(1),
+    isPrivate: integer('is_private').notNull().default(0),
+    isHidden: integer('is_hidden').notNull().default(0),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [index('property_media_property').on(t.organizationId, t.propertyKind, t.propertyId)],
+)
+
+/** Roles de un contacto (FASE 8) — varios por persona: un comprador puede ser también propietario. */
+export const contactRoles = sqliteTable(
+  'contact_roles',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    contactId: integer('contact_id').notNull(),
+    role: text('role').notNull(), // buyer | seller | owner | landlord | tenant | investor | collaborator | supplier | other
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('contact_roles_unique').on(t.contactId, t.role), index('contact_roles_org').on(t.organizationId, t.role)],
+)
+
+/** Contactos de una propiedad (FASE 8): propietario, copropietario, apoderado, inquilino o contacto, con % de propiedad. */
+export const propertyContacts = sqliteTable(
+  'property_contacts',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    propertyKind: text('property_kind').notNull(),
+    propertyId: integer('property_id').notNull(),
+    contactId: integer('contact_id').notNull(),
+    role: text('role').notNull(), // owner | co_owner | attorney | tenant | contact
+    ownershipPct: real('ownership_pct'),
+    isPrimary: integer('is_primary').notNull().default(0),
+    notes: text('notes'),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [
+    index('property_contacts_property').on(t.organizationId, t.propertyKind, t.propertyId),
+    index('property_contacts_contact').on(t.organizationId, t.contactId),
+  ],
+)
+
+/** Nota como entidad (FASE 0): sobre un contacto, lead, propiedad, cita u operación. */
+export const notes = sqliteTable(
+  'notes',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    entityType: text('entity_type').notNull(), // contact | lead | property | appointment | deal
+    entityId: integer('entity_id').notNull(),
+    propertyKind: text('property_kind'),
+    contactId: integer('contact_id'),
+    leadId: integer('lead_id'),
+    propertyId: integer('property_id'),
+    appointmentId: integer('appointment_id'),
+    dealOperationId: integer('deal_operation_id'),
+    body: text('body').notNull(),
+    isPinned: integer('is_pinned').notNull().default(0),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [index('notes_entity').on(t.organizationId, t.entityType, t.entityId), index('notes_contact').on(t.organizationId, t.contactId)],
+)
+
+/** Campos personalizados por organización (FASE 0): la definición… */
+export const customFieldDefinitions = sqliteTable(
+  'custom_field_definitions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    entityType: text('entity_type').notNull(), // property | contact | lead | appointment | deal
+    key: text('key').notNull(),
+    label: text('label').notNull(),
+    fieldType: text('field_type').notNull(), // text | textarea | number | boolean | date | select | multiselect
+    optionsJson: text('options_json'),
+    isRequired: integer('is_required').notNull().default(0),
+    section: text('section'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    helpText: text('help_text'),
+    isPublic: integer('is_public').notNull().default(0),
+    status: text('status').notNull().default('active'), // active | archived
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [uniqueIndex('custom_field_definitions_key').on(t.organizationId, t.entityType, t.key)],
+)
+
+/** …y su valor para una entidad concreta (entity_kind distingue los dos catálogos de propiedades). */
+export const customFieldValues = sqliteTable(
+  'custom_field_values',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    definitionId: integer('definition_id').notNull(),
+    entityType: text('entity_type').notNull(),
+    entityKind: text('entity_kind'),
+    entityId: integer('entity_id').notNull(),
+    valueText: text('value_text'),
+    valueNumber: real('value_number'),
+    valueJson: text('value_json'),
+    updatedBy: integer('updated_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [
+    uniqueIndex('custom_field_values_unique').on(t.definitionId, t.entityKind, t.entityId),
+    index('custom_field_values_entity').on(t.organizationId, t.entityType, t.entityId),
   ],
 )

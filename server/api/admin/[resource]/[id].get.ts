@@ -1,9 +1,10 @@
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq, or } from 'drizzle-orm'
 import { schema, useDb } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
 import { authorizeRecord } from '../../../utils/tenantPolicy'
 import { organizationOverview } from '../../../utils/organizations/lifecycle'
+import { loadPropertySheet, propertyKindForResource } from '../../../utils/properties/extendedSheet'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -34,21 +35,24 @@ export default defineEventHandler(async (event) => {
   // pide, y no en una ruta nueva (margen de claves de ruta = 0, ver
   // docs/property-schema-registry.md). La fila ya está autorizada arriba.
   if (key === 'developer-properties' || key === 'properties') {
-    const priceHistory =
-      key === 'developer-properties'
-        ? await db
-            .select({ price: schema.priceHistory.price, recordedAt: schema.priceHistory.recordedAt })
-            .from(schema.priceHistory)
-            .where(eq(schema.priceHistory.developerPropertyId, id))
-            .orderBy(desc(schema.priceHistory.recordedAt), desc(schema.priceHistory.id))
-            .limit(50)
-        : await db
-            .select({ price: schema.agentPropertyPriceHistory.price, recordedAt: schema.agentPropertyPriceHistory.recordedAt })
-            .from(schema.agentPropertyPriceHistory)
-            .where(eq(schema.agentPropertyPriceHistory.propertyId, id))
-            .orderBy(desc(schema.agentPropertyPriceHistory.recordedAt), desc(schema.agentPropertyPriceHistory.id))
-            .limit(50)
-    return { row, translations, priceHistory }
+    // Precio anterior, quién lo cambió y por qué (migración 0086). `changedBy`
+    // sólo lo escribe el servidor con el usuario de la sesión que editó esta
+    // ficha: un miembro de esta organización o un super_admin trabajando en
+    // ella. El nombre se resuelve sólo para esos dos casos — nunca el de un
+    // usuario de otra agencia.
+    const ph = key === 'developer-properties' ? schema.priceHistory : schema.agentPropertyPriceHistory
+    const parentCol = key === 'developer-properties' ? schema.priceHistory.developerPropertyId : schema.agentPropertyPriceHistory.propertyId
+    const priceHistory = await db
+      .select({ price: ph.price, previousPrice: ph.previousPrice, reason: ph.reason, recordedAt: ph.recordedAt, changedByName: schema.users.name })
+      .from(ph)
+      .leftJoin(schema.users, and(eq(schema.users.id, ph.changedBy), or(eq(schema.users.organizationId, orgId!), eq(schema.users.role, 'super_admin'))))
+      .where(eq(parentCol, id))
+      .orderBy(desc(ph.recordedAt), desc(ph.id))
+      .limit(50)
+    // Ficha ampliada (property_details / property_legal_economics): campos
+    // planos más de la fila, así el editor los trata igual que el resto.
+    const sheet = await loadPropertySheet(db, orgId!, propertyKindForResource(key)!, id)
+    return { row: { ...row, ...sheet }, translations, priceHistory }
   }
   // Ficha de empresa (Sistemas > Empresas): resumen y usuarios reales de esa
   // organización, para las secciones Resumen y Usuarios del editor.

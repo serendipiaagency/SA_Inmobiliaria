@@ -29,7 +29,7 @@
       </select>
       <select v-model="propertyType" class="input !w-40" @change="applyAndReset">
         <option value="">Todos los tipos</option>
-        <option v-for="t in PROPERTY_LIST_TYPES" :key="t" :value="t">{{ t }}</option>
+        <option v-for="t in PROPERTY_LIST_TYPES" :key="t" :value="t">{{ PROPERTY_TYPE_LABELS[t] || t }}</option>
       </select>
       <select v-model="sort" class="input !w-44">
         <option v-for="s in config.sortOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
@@ -221,11 +221,9 @@
           <option value="change_status">Cambiar estado</option>
           <option value="add_tag">Añadir etiqueta</option>
           <option value="update_price">Actualizar precio</option>
-          <template v-if="isDeveloperCatalog">
-            <option value="publish">Publicar</option>
-            <option value="withdraw">Retirar</option>
-            <option value="create_catalog">Crear catálogo</option>
-          </template>
+          <option value="publish">Publicar</option>
+          <option value="withdraw">Retirar</option>
+          <option v-if="isDeveloperCatalog" value="create_catalog">Crear catálogo</option>
         </select>
         <select v-if="bulkAction === 'change_commercial'" v-model="bulkCommercialId" class="input !w-48">
           <option value="">Sin asignar</option>
@@ -236,7 +234,16 @@
           <option v-for="s in config.statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
         </select>
         <input v-if="bulkAction === 'add_tag'" v-model="bulkTagName" class="input !w-48" placeholder="Nombre de la etiqueta" >
-        <input v-if="bulkAction === 'update_price'" v-model.number="bulkPrice" type="number" min="0" class="input !w-40" placeholder="Nuevo precio (€)" >
+        <template v-if="bulkAction === 'update_price'">
+          <!-- Precio fijo para toda la selección, o un % sobre el precio de cada una. -->
+          <select v-model="bulkPriceMode" class="input !w-40" data-testid="bulk-price-mode">
+            <option value="fixed">Precio fijo</option>
+            <option value="percent">Porcentaje (%)</option>
+          </select>
+          <input v-if="bulkPriceMode === 'fixed'" v-model.number="bulkPrice" type="number" min="0" class="input !w-40" placeholder="Nuevo precio" >
+          <input v-else v-model.number="bulkPercent" type="number" step="0.5" class="input !w-36" placeholder="p. ej. -5 o 3" data-testid="bulk-price-percent" >
+          <input v-model="bulkPriceReason" class="input !w-56" placeholder="Motivo (queda en el histórico)" >
+        </template>
         <template v-if="bulkAction === 'create_catalog'">
           <select v-model="bulkTemplateId" class="input !w-52">
             <option value="">Elige una plantilla…</option>
@@ -321,7 +328,7 @@
 </template>
 
 <script setup lang="ts">
-import { LIST_CHIP_CLASSES, PROPERTY_LIST_CONFIG, PROPERTY_LIST_TYPES } from '~/composables/usePropertyListConfig'
+import { LIST_CHIP_CLASSES, PROPERTY_LIST_CONFIG, PROPERTY_LIST_TYPES, PROPERTY_TYPE_LABELS } from '~/composables/usePropertyListConfig'
 import { usePropertySavedViews, type PropertySavedView } from '~/composables/usePropertySavedViews'
 import DeveloperPropertyCard from '~/components/admin/DeveloperPropertyCard.vue'
 import AgentPropertyCard from '~/components/admin/AgentPropertyCard.vue'
@@ -834,6 +841,9 @@ const bulkCommercialId = ref<number | ''>('')
 const bulkStatus = ref('')
 const bulkTagName = ref('')
 const bulkPrice = ref<number | null>(null)
+const bulkPriceMode = ref<'fixed' | 'percent'>('fixed')
+const bulkPercent = ref<number | null>(null)
+const bulkPriceReason = ref('')
 const bulkTemplateId = ref<number | ''>('')
 const bulkAgents = ref<{ id: number; name: string }[]>([])
 const bulkTemplates = ref<{ id: number; name: string }[]>([])
@@ -847,6 +857,8 @@ async function onBulkActionChange() {
   bulkStatus.value = ''
   bulkTagName.value = ''
   bulkPrice.value = null
+  bulkPercent.value = null
+  bulkPriceReason.value = ''
   bulkTemplateId.value = ''
   if (bulkAction.value === 'change_commercial' && !bulkAgents.value.length) {
     const res = await $fetch<{ rows: { id: number; name: string }[] }>('/api/admin/team', { query: { perPage: 200 } })
@@ -862,7 +874,10 @@ const canRunBulkAction = computed(() => {
   if (!bulkAction.value) return false
   if (bulkAction.value === 'change_status') return !!bulkStatus.value
   if (bulkAction.value === 'add_tag') return !!bulkTagName.value.trim()
-  if (bulkAction.value === 'update_price') return typeof bulkPrice.value === 'number' && bulkPrice.value > 0
+  if (bulkAction.value === 'update_price') {
+    if (bulkPriceMode.value === 'percent') return typeof bulkPercent.value === 'number' && bulkPercent.value !== 0 && bulkPercent.value >= -90 && bulkPercent.value <= 500
+    return typeof bulkPrice.value === 'number' && bulkPrice.value > 0
+  }
   if (bulkAction.value === 'create_catalog') return !!bulkTemplateId.value && !selectAllFilteredMode.value && selectionCount.value <= MAX_CATALOG_ASSETS
   return true // change_commercial ("Sin asignar" es válido), publish, withdraw: sin parámetro adicional
 })
@@ -924,7 +939,9 @@ async function runBulkAction() {
         : bulkAction.value === 'add_tag'
           ? { tagName: bulkTagName.value.trim() }
           : bulkAction.value === 'update_price'
-            ? { price: bulkPrice.value }
+            ? bulkPriceMode.value === 'percent'
+              ? { percent: bulkPercent.value, reason: bulkPriceReason.value.trim() || undefined }
+              : { price: bulkPrice.value, reason: bulkPriceReason.value.trim() || undefined }
             : {} // publish/withdraw: sin parámetros
 
   bulkRunning.value = true

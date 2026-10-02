@@ -31,6 +31,8 @@ export default defineEventHandler(async (event) => {
       listFields: def.listFields,
       readonly: !!def.readonly,
       hasTranslations: !!def.translations,
+      // Con Papelera: borrar la manda allí y el listado ofrece restaurarla.
+      softDelete: !!def.softDelete,
     }
   }
   // agentTypeMap viaja junto a los schemas por el mismo motivo que el resto

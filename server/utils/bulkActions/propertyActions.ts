@@ -87,19 +87,18 @@ async function addTag(event: H3Event, orgId: number, kind: PropertyKind, propert
 }
 
 /**
- * §90 — publicar sólo existe hoy en developer-properties: agent-properties
- * no tiene consumidor público (ver auditoría FASE 26/28), así que no hay
- * "publicar" que validar ahí. Reutiliza la MISMA validación de
- * PropertySchemaRegistry que dispara una edición manual
- * (server/utils/properties/publication.ts) — nunca una tercera
- * interpretación de requiredForPublish. Idempotente: publicar una propiedad
- * ya publicada es un éxito silencioso, no un error.
+ * §90 — publicar en los dos catálogos: marca `publishedAt` (lo que filtra
+ * «Publicadas» en el listado y lo que leen la publicación multicanal y los
+ * portales). Reutiliza la MISMA validación de PropertySchemaRegistry que
+ * dispara una edición manual (server/utils/properties/publication.ts) —
+ * nunca una tercera interpretación de requiredForPublish — con el schema que
+ * corresponde al catálogo y al tipo. Idempotente: publicar una propiedad ya
+ * publicada es un éxito silencioso, no un error.
  */
 async function publishProperty(event: H3Event, orgId: number, kind: PropertyKind, propertyId: number) {
-  if (kind !== 'developer') throw createError({ statusCode: 422, statusMessage: 'Publicar sólo aplica al catálogo de obra nueva' })
   const row = await assertOwnedProperty(event, orgId, kind, propertyId)
   if (row.publishedAt) return
-  assertSchemaValid('developer', row.propertyType, row, 'publish')
+  assertSchemaValid(kind, row.propertyType, row, 'publish')
   const db = useDb(event)
   const t = propertyTable(kind)
   await db.update(t).set({ publishedAt: now(), updatedAt: now() }).where(eq(t.id, propertyId))
@@ -111,7 +110,6 @@ async function publishProperty(event: H3Event, orgId: number, kind: PropertyKind
  * sobre una propiedad ya retirada.
  */
 async function withdrawProperty(event: H3Event, orgId: number, kind: PropertyKind, propertyId: number) {
-  if (kind !== 'developer') throw createError({ statusCode: 422, statusMessage: 'Retirar sólo aplica al catálogo de obra nueva' })
   const row = await assertOwnedProperty(event, orgId, kind, propertyId)
   if (!row.publishedAt) return
   const db = useDb(event)
@@ -125,21 +123,41 @@ async function withdrawProperty(event: H3Event, orgId: number, kind: PropertyKin
  * developer-properties). `agent_property_price_history` (migración 0081)
  * escribe aquí por primera vez desde que la tabla existe.
  */
-async function updatePrice(event: H3Event, orgId: number, kind: PropertyKind, propertyId: number, params: { price?: number }) {
-  const price = Number(params.price)
-  if (!Number.isFinite(price) || price <= 0) throw createError({ statusCode: 422, statusMessage: 'Precio inválido' })
+async function updatePrice(
+  event: H3Event,
+  orgId: number,
+  kind: PropertyKind,
+  propertyId: number,
+  params: { price?: number; percent?: number; reason?: string },
+  requestedBy?: number | null,
+) {
   const row = await assertOwnedProperty(event, orgId, kind, propertyId)
+  // Dos modos: un precio fijo para toda la selección, o un porcentaje sobre
+  // el precio actual de cada una (+3 sube un 3 %, -5 baja un 5 %).
+  let price: number
+  if (params.percent !== undefined && params.percent !== null && String(params.percent) !== '') {
+    const pct = Number(params.percent)
+    if (!Number.isFinite(pct) || pct === 0 || pct < -90 || pct > 500) throw createError({ statusCode: 422, statusMessage: 'Porcentaje inválido (entre -90 y 500, distinto de 0)' })
+    if (typeof row.price !== 'number' || row.price <= 0) throw createError({ statusCode: 422, statusMessage: 'La propiedad no tiene precio sobre el que aplicar el porcentaje' })
+    price = Math.round(row.price * (1 + pct / 100))
+  } else {
+    price = Number(params.price)
+    if (!Number.isFinite(price) || price <= 0) throw createError({ statusCode: 422, statusMessage: 'Precio inválido' })
+  }
+  if (row.price === price) return
+  const reason = (typeof params.reason === 'string' && params.reason.trim().slice(0, 500)) || (params.percent ? `Acción masiva: ${Number(params.percent) > 0 ? '+' : ''}${params.percent} %` : 'Acción masiva')
   const db = useDb(event)
   const t = propertyTable(kind)
   const nowTs = now()
   await db.update(t).set({ price, updatedAt: nowTs }).where(eq(t.id, propertyId))
+  const history = { price, previousPrice: row.price ?? null, changedBy: requestedBy ?? null, reason, recordedAt: nowTs }
   if (kind === 'developer') {
-    await db.insert(schema.priceHistory).values({ developerPropertyId: propertyId, price, recordedAt: nowTs })
+    await db.insert(schema.priceHistory).values({ developerPropertyId: propertyId, ...history })
     if (typeof row.price === 'number' && price < row.price) {
       await fireAutomationRules(db, orgId, propertyId, 'price_drop', `precio ${row.price} → ${price}`)
     }
   } else {
-    await db.insert(schema.agentPropertyPriceHistory).values({ propertyId, price, recordedAt: nowTs })
+    await db.insert(schema.agentPropertyPriceHistory).values({ propertyId, ...history })
   }
 }
 
@@ -151,6 +169,6 @@ export function propertyBulkHandlers(kind: PropertyKind): Record<string, BulkAct
     add_tag: (event, orgId, id, params) => addTag(event, orgId, kind, id, params),
     publish: (event, orgId, id) => publishProperty(event, orgId, kind, id),
     withdraw: (event, orgId, id) => withdrawProperty(event, orgId, kind, id),
-    update_price: (event, orgId, id, params) => updatePrice(event, orgId, kind, id, params),
+    update_price: (event, orgId, id, params, requestedBy) => updatePrice(event, orgId, kind, id, params, requestedBy),
   }
 }

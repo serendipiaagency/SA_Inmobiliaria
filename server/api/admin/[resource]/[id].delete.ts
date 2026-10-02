@@ -6,6 +6,7 @@ import { logAdminAction } from '../../../utils/audit'
 import { authorizeRecord, buildTenantWhere } from '../../../utils/tenantPolicy'
 import { softDeleteMediaAssetByKey } from '../../../utils/mediaAssets'
 import { assertOwnsSavedView } from '../../../utils/properties/savedViews'
+import { deletePropertySheet, propertyKindForResource } from '../../../utils/properties/extendedSheet'
 
 // visitor_submissions rows reference R2 keys for identity/financial PDFs. The DB row being
 // gone must mean the documents are gone too — otherwise "deleting" someone's passport scan
@@ -78,6 +79,9 @@ export default defineEventHandler(async (event) => {
       await db.update(def.table).set({ deletedAt: now() }).where(where as any)
     } else {
       await db.delete(def.table).where(where as any)
+      // La ficha ampliada (tablas 1:1 sin FK real, migración 0086) se va con la propiedad.
+      const propertyKind = propertyKindForResource(key)
+      if (propertyKind) await deletePropertySheet(db, orgId!, propertyKind, id)
     }
   } catch (err: any) {
     // A hard delete can hit a real FK reference (e.g. a category still used by an

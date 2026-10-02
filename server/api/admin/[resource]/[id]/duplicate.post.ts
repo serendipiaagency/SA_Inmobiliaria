@@ -4,6 +4,8 @@ import { requireOrgScope } from '../../../../utils/auth'
 import { getResource, generateReferenceCode } from '../../../../utils/adminResources'
 import { authorizeRecord } from '../../../../utils/tenantPolicy'
 import { logAdminAction } from '../../../../utils/audit'
+import { loadPropertySheet, savePropertySheet } from '../../../../utils/properties/extendedSheet'
+import { PROPERTY_SHEET_FIELDS } from '../../../../../utils/propertySheet'
 
 /**
  * Clones an off-plan project — the main row plus its gallery and social
@@ -42,6 +44,8 @@ export default defineEventHandler(async (event) => {
   clone.favoriteCount = 0
   clone.createdAt = now()
   clone.updatedAt = now()
+  clone.createdBy = user.id
+  clone.deletedAt = null
 
   const inserted = await db
     .insert(schema.developerProperties)
@@ -55,8 +59,29 @@ export default defineEventHandler(async (event) => {
   ])
 
   if (galleryRows.length) {
-    await db.insert(schema.images).values(galleryRows.map((r) => ({ developerPropertyId: newId, image: r.image, sortOrder: r.sortOrder, createdAt: now() })))
+    await db.insert(schema.images).values(
+      galleryRows.map((r) => ({
+        developerPropertyId: newId,
+        image: r.image,
+        sortOrder: r.sortOrder,
+        title: r.title,
+        alt: r.alt,
+        caption: r.caption,
+        language: r.language,
+        isPublishable: r.isPublishable,
+        isPrivate: r.isPrivate,
+        isHidden: r.isHidden,
+        createdAt: now(),
+      })),
+    )
   }
+  // La ficha ampliada (migración 0086) también se copia; el código comercial
+  // no, igual que la referencia: identifica un anuncio concreto.
+  const sheet = await loadPropertySheet(db, orgId, 'developer', id)
+  sheet.commercialCode = null
+  const payload = { details: {} as Record<string, unknown>, legal: {} as Record<string, unknown> }
+  for (const f of PROPERTY_SHEET_FIELDS) if (sheet[f.key] != null) (f.store === 'details' ? payload.details : payload.legal)[f.key] = sheet[f.key]
+  await savePropertySheet(db, orgId, 'developer', newId, payload, user.id)
   if (socialRows.length) {
     await db.insert(schema.propertySocialMedia).values(
       socialRows.map((r) => ({

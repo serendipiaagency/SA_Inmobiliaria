@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { cfEnv, schema, useDb } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
-import { getResource, buildPayload, syncTranslations, assertPayloadReferences } from '../../../utils/adminResources'
+import { getResource, buildPayload, syncTranslations, assertPayloadReferences, rethrowUniqueViolation } from '../../../utils/adminResources'
 import { logAdminAction } from '../../../utils/audit'
 import { authorizeRecord } from '../../../utils/tenantPolicy'
 import { validatePermissionsInput } from '../../../utils/permissions'
@@ -12,6 +12,16 @@ import { resolveFilteredPropertyIds } from '../../../utils/bulkActions/propertyA
 import { executeTool } from '../../../utils/tools/execute'
 import { InmoError, runInmoTurn } from '../../../utils/inmo/orchestrator'
 import { createOrganizationFromAdmin, resendAdminInvite } from '../../../utils/organizations/lifecycle'
+import {
+  assertSheetReferences,
+  assertSubtypeMatchesType,
+  assertValidPropertyType,
+  extractSheetPayload,
+  hasSheetChanges,
+  propertyKindForResource,
+  savePropertySheet,
+  type SheetPayload,
+} from '../../../utils/properties/extendedSheet'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -142,13 +152,23 @@ export default defineEventHandler(async (event) => {
   if (key === 'property-saved-views') data.userId = user.id
   // PropertySchemaRegistry (FASE 26) — modo 'save' únicamente: una Property
   // incompleta debe poder crearse como borrador (§21); ver docs/property-schema-registry.md.
-  if (key === 'properties' || key === 'developer-properties') {
+  const propertyKind = propertyKindForResource(key)
+  let sheet: SheetPayload | null = null
+  if (propertyKind) {
     const propertySchema = getPropertySchemaFor(key === 'developer-properties' ? 'developer' : 'agent', data.propertyType ?? null)
     const result = validateAgainstSchema(propertySchema, data, 'save')
     if (!result.ok) throw createError({ statusCode: 422, statusMessage: `Faltan campos obligatorios para guardar: ${result.missingForSave.join(', ')}` })
+    assertValidPropertyType(data.propertyType)
+    // Ficha ampliada (migración 0086) — se valida ANTES de insertar nada.
+    sheet = extractSheetPayload(body || {})
+    assertSubtypeMatchesType(sheet.details.subtype, data.propertyType)
+    await assertSheetReferences(db, sheet, orgId!)
+    // Quién dio de alta la propiedad: siempre la sesión, nunca el cliente.
+    data.createdBy = user.id
   }
-  const inserted = await db.insert(def.table).values(data).returning({ id: def.table.id })
+  const inserted = await db.insert(def.table).values(data).returning({ id: def.table.id }).catch(rethrowUniqueViolation)
   const id = inserted[0]?.id
+  if (propertyKind && sheet && hasSheetChanges(sheet)) await savePropertySheet(db, orgId!, propertyKind, id, sheet, user.id)
 
   if (def.translations && Array.isArray(body?.translations)) {
     const { authorized } = await authorizeRecord(db, { resourceKey: key, table: def.table, policy: def.tenantPolicy, id, orgId })

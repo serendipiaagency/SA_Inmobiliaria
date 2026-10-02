@@ -25,6 +25,21 @@ export interface HelpFaq {
   tags: string[]
 }
 
+/** Ficha ampliada de la propiedad (migración 0086): igual en los dos catálogos, así que se documenta una vez. */
+const PROPERTY_SHEET_HELP_STEPS: string[] = [
+  'Encima de los pasos hay un buscador "Buscar un campo": escribe "IBI", "fianza", "catastral" o "calefacción" y pulsa el resultado — te lleva al paso correcto, despliega su grupo y resalta el campo. Cada grupo de campos con título se puede plegar y desplegar pulsando su título.',
+  'El "Tipo de propiedad" es la misma lista en los dos catálogos: piso, casa, chalet, adosado, ático, dúplex, estudio, finca, terreno, local, oficina, nave, garaje, edificio y promoción. Al lado, "Subtipo" ofrece sólo los subtipos de ese tipo (ático dúplex, bajo con jardín, casa de pueblo, nave logística…); si cambias el tipo, un subtipo que ya no le corresponde se vacía solo. También en "Información básica": "Estado comercial" (disponible, reservada, vendida, alquilada, retirada, borrador) y "Código comercial", el código con el que anuncias el inmueble.',
+  'En "Ubicación" están además comunidad/región, provincia, municipio, barrio, tipo de vía y escalera.',
+  'En "Características" hay superficies adicionales (oficina, comercial, total y computable) y un grupo "Distribución" con el total de estancias y el número de terrazas, balcones, trasteros, vestidores, despachos y plantas.',
+  'El paso "Edificio y vivienda" recoge año de reforma, plantas del edificio, nº de vecinos, conserje, portero, fachada y estructura; y de la vivienda, exterior/interior, tipo de cocina, suelos, carpintería, cristales, altura de techos, si está reformada y si tiene armarios empotrados.',
+  'El paso "Instalaciones y exteriores" recoge calefacción, agua caliente, aire acondicionado, suelo radiante, chimenea, domótica, alarma, fibra, placas solares y aerotermia; las zonas comunes (piscina y jardín comunitarios, gimnasio, pádel, tenis, zona infantil, coworking, salón social, seguridad); y el exterior (vistas, primera línea, jardín y piscina privados, porche, patio, balcón).',
+  'En "Precio": el precio por m² se calcula solo (precio ÷ superficie construida) y nunca se guarda; "Motivo del cambio de precio" es opcional y, si cambias el precio, queda en el histórico junto al precio anterior y a quién lo cambió. Con operación "Venta" aparecen el precio mínimo autorizado y el recomendado (internos); con "Alquiler", la fianza, el depósito o garantía adicional y si los gastos están incluidos. Siempre: comunidad mensual, IBI y tasa de basuras, y las comisiones (tipo, importe o %, IVA, honorarios de comprador y de propietario). Los importes no llevan moneda fija: se muestran con la moneda de tu agencia.',
+  'El paso "Legal y certificados" recoge referencia catastral, situación registral, finca registral, registro de la propiedad, cargas, hipoteca, ocupación, licencias, cédula de habitabilidad, ITE/IEE y el certificado energético completo (nº de registro, caducidad, consumo, letra y valor de emisiones). Todo es interno salvo la parte energética.',
+  'En "Comercial / Inversión" la propiedad se asigna, además de a un comercial, a una oficina y a un equipo (CRM → Oficinas y CRM → Equipos). En "Multimedia", "Enlace del tour virtual" guarda la URL de Matterport, Kuula u otro visor 360.',
+  'El "Histórico de precios" muestra en cada fila la fecha, el precio anterior, el precio nuevo (con su variación en %), quién lo cambió y el motivo. "Actualizar precio" en bloque admite un precio fijo o un porcentaje sobre el precio de cada propiedad (p. ej. -5 o +3) y su propio motivo.',
+  'Según el tipo de inmueble, el editor sólo enseña lo que aplica: un terreno no pide calefacción ni cocina, un garaje no pide distribución de vivienda. Salvo un subtipo que ya no corresponde, ningún dato se borra al cambiar de tipo: sólo deja de mostrarse.',
+]
+
 export function useHelpContent() {
   const sections: HelpSection[] = [
     // --- General ---------------------------------------------------------
@@ -103,6 +118,32 @@ export function useHelpContent() {
         'Si el contacto tiene teléfono, junto a "Crear oferta" aparece "Enviar propiedad": abre (o reutiliza) su conversación de WhatsApp en Comunicaciones y le manda el inmueble con foto y ficha — con enlace público si es de Propiedades (web), sólo con foto y texto si es de 2ª mano. El botón sólo se pone en verde ("Enviado") cuando el envío se ha confirmado de verdad, nunca sólo por pulsarlo — si no hay ningún número de WhatsApp conectado, abre en su lugar la app de WhatsApp con el enlace wa.me.',
         'El estado del match avanza solo cuando las cosas pasan de verdad: "Enviado" cuando el WhatsApp sale, "Visita" cuando anotas el resultado de una visita a ese inmueble (si el cliente dice que no le interesa, queda descartado con ese motivo) y "Ofertado" cuando se crea una oferta. Nunca retrocede y nunca recupera un descarte: eso lo decides tú.',
         'En un inmueble sin características repasadas, lo que no está marcado cuenta como desconocido. Pulsa "He repasado las características" para que a partir de ahí un hueco signifique de verdad "no lo tiene".',
+      ],
+    },
+    {
+      key: 'oficinas',
+      group: 'CRM',
+      title: 'Oficinas',
+      route: '/admin/offices',
+      summary: 'Las oficinas de tu agencia como fichas propias (nombre, código, dirección, teléfono, email y zona horaria). Lo que filtra y reparte por oficina — comerciales, propiedades, leads y citas — apunta a estas fichas, no a un texto libre.',
+      steps: [
+        'Pulsa "+ Nuevo" para dar de alta una oficina. El nombre es obligatorio y no se puede repetir entre las oficinas activas de tu agencia; la zona horaria se escribe en formato internacional (Europe/Madrid, Atlantic/Canary) y se comprueba al guardar.',
+        'Asigna cada comercial a su oficina desde su ficha (Comerciales → campo "Oficina") y cada propiedad desde el editor (paso "Comercial / Inversión" → "Oficina").',
+        '"Eliminar" manda la oficina a la Papelera (botón "Papelera" del listado), desde donde puedes restaurarla o borrarla definitivamente. Lo que la referenciaba conserva su vínculo mientras tanto.',
+        'El antiguo campo de texto "Oficina" de los comerciales se conserva como "Oficina (texto anterior)" para no perder lo que ya había escrito.',
+      ],
+    },
+    {
+      key: 'equipos',
+      group: 'CRM',
+      title: 'Equipos',
+      route: '/admin/teams',
+      summary: 'Equipos comerciales (p. ej. "Lujo", "Alquiler", "Captación"), opcionalmente dentro de una oficina y con un responsable.',
+      steps: [
+        'Crea el equipo con "+ Nuevo", elige su oficina (si la tiene) y su responsable entre tus comerciales.',
+        'Cada comercial pertenece a un equipo desde su ficha (Comerciales → "Equipo"), y cada propiedad puede asignarse a un equipo en el editor (paso "Comercial / Inversión").',
+        'En la ficha del comercial, "Usuario del panel" vincula a esa persona con su cuenta de acceso: es lo que permite saber qué leads, visitas y tareas son "suyos".',
+        'Igual que las oficinas, eliminar un equipo lo manda a la Papelera, desde donde se puede restaurar.',
       ],
     },
     {
@@ -320,6 +361,7 @@ export function useHelpContent() {
         'En "Ubicación", el desplegable "Privacidad de la ubicación" controla qué ve el público: "Exacta" publica coordenadas y dirección tal cual; "Aproximada" redondea el mapa a la zona y oculta número/portal/bloque/planta/letra; "Ocultar número" muestra el mapa exacto pero sin esos datos de portal. El "Radio de privacidad" es solo una referencia visual del área aproximada y no se publica.',
         'En "Características", además de habitaciones y baños hay aseos, salones, cocinas y plazas de garaje (con el mismo control +/−), y un grupo "Superficies" con útil, parcela, terraza, jardín, balcón y trastero — todas opcionales, en m². El grupo "Estado" recoge el estado físico (a estrenar, excelente, buen estado, a renovar, a reformar) y si está amueblada. La casilla "Características repasadas" (al final de Equipamiento) marca que alguien ha revisado de verdad el equipamiento de la ficha — sin marcarla, un "No" en ascensor/piscina/etc. se interpreta como "todavía sin repasar", no como una respuesta negativa confirmada; esto lo usa el motor de compatibilidad de leads.',
         'El paso "Estancias personalizadas" (junto a Características) permite añadir dormitorios, despachos u otras estancias con su propio tipo, nombre, superficie, planta, orientación y notas — pulsa "+ Añadir estancia" y rellena sus campos; cada uno se guarda solo al salir del campo, sin esperar a "Guardar cambios". Arrastra una estancia para reordenarla, o pulsa "Eliminar" para quitarla (pide confirmación).',
+        ...PROPERTY_SHEET_HELP_STEPS,
       ],
     },
     {
@@ -372,7 +414,7 @@ export function useHelpContent() {
       steps: [
         'El listado busca por referencia, dirección, ciudad, distrito o código postal a la vez, con filtros de precio, venta/alquiler, tipo, ubicación, dormitorios/baños, superficie, exclusividad, publicación y rango de fecha de captación/actualización — igual que en "Propiedades (web)" (mismo filtro compartido, sólo cambia la tabla que consulta). Cada filtro activo aparece como una "chip" que puedes quitar, y el botón de vista alterna entre cuadrícula y lista (se recuerda en este navegador). Como en "Propiedades (web)", todo el filtro queda en la URL: se puede recargar, volver atrás o compartir el enlace sin perderlo.',
         '"Vistas guardadas", "Columnas" y "Exportar CSV" funcionan exactamente igual que en "Propiedades (web)" — mismo componente, filtros y vistas guardadas propios de este catálogo (una vista guardada aquí no aparece en Propiedades (web), ni al revés).',
-        'Las acciones masivas (selección de fila en la vista de lista, "Cambiar comercial"/"Cambiar estado"/"Añadir etiqueta"/"Actualizar precio"/"Exportar seleccionadas") funcionan igual que en "Propiedades (web)" — "Cambiar estado" ofrece "Disponible"/"Vendida" en vez de "Obra nueva"/"En construcción"/"Lista". "Publicar", "Retirar" y "Crear catálogo" no aparecen aquí: este catálogo no tiene ficha pública propia (no hay nada que "publicar"), y "Crear catálogo" es sólo para obra nueva.',
+        'Las acciones masivas (selección de fila en la vista de lista, "Cambiar comercial"/"Cambiar estado"/"Añadir etiqueta"/"Actualizar precio"/"Publicar"/"Retirar"/"Exportar seleccionadas") funcionan igual que en "Propiedades (web)" — "Cambiar estado" ofrece "Disponible"/"Vendida" en vez de "Obra nueva"/"En construcción"/"Lista". "Publicar" marca la propiedad como publicada (lo que filtra "Publicadas" en el listado y lo que usan la publicación multicanal y los portales) y exige los campos obligatorios para publicar de su tipo — ciudad, país, operación, precio y superficie en vivienda; "Retirar" lo deshace sin borrar nada. "Crear catálogo" sigue siendo sólo de obra nueva.',
         'El panel "Histórico de precios" de la ficha funciona igual que en Propiedades (web): cada cambio real de precio — editado a mano en la ficha o con "Actualizar precio" en bloque — queda con su fecha. (Antes sólo se registraban los cambios en bloque.)',
         'Usa exactamente el mismo Property Editor — el mismo componente, no una copia — por pasos que "Propiedades (web)": Información básica, Ubicación, Precio, Características, Descripción, Multimedia, Galería, Planos, Redes sociales y Comercial/Inversión. Crear y editar abren el mismo editor; las tres columnas (progreso, formulario, vista previa), el estado de cada paso, el porcentaje, el guardado automático al editar y el comportamiento en móvil son idénticos — son el mismo código. Lo único que cambia entre los dos catálogos son los pasos y los campos que cada uno declara.',
         'El desplegable "Tipo de propiedad" incluye, además de los residenciales (piso, chalet, adosado, ático, estudio), suelo/terreno, oficina, local comercial, nave industrial, garaje y edificio completo. Según el tipo elegido, la ficha muestra sólo los campos que tienen sentido para él — un terreno no pide habitaciones ni baños, un garaje no pide cocinas — sin ocultar nunca los campos de gestión (referencia, comercial asignado, estado…), que se ven siempre.',
@@ -384,6 +426,7 @@ export function useHelpContent() {
         '"Redes sociales" funciona igual que en Propiedades (web): "+ Añadir red social", elige la plataforma (Instagram, Facebook, LinkedIn, TikTok, YouTube, X/Twitter, Pinterest, WhatsApp, Telegram…), arrastra para reordenar o elimínala.',
         'La sección "Comercial / Inversión" tiene el mismo selector "Comercial asignado" (foto/iniciales, nombre, cargo) que Propiedades (web), más las marcas de exclusiva/reservada/tour virtual y los datos de inversión (rentabilidad estimada, gastos de comunidad).',
         'La descripción se edita en inglés y árabe desde la sección "Descripción" (son las traducciones que ve el público, no hay un texto en un idioma único) — es la única diferencia real de contenido frente a Propiedades (web). Cada idioma tiene el mismo editor de texto enriquecido (negrita, cursiva, listas, enlaces) que el resto de descripciones largas del constructor.',
+        ...PROPERTY_SHEET_HELP_STEPS,
       ],
     },
     {
@@ -837,6 +880,13 @@ export function useHelpContent() {
   ]
 
   const faqs: HelpFaq[] = [
+    {
+      id: 'faq-ficha-ampliada',
+      question: '¿Dónde están la calefacción, el IBI, la referencia catastral o el certificado energético de una propiedad?',
+      answer:
+        'En el editor de la propiedad. Usa el buscador "Buscar un campo" que hay encima de los pasos: escribe "IBI", "catastral" o "calefacción" y te lleva directamente al campo. Edificio y vivienda, Instalaciones y exteriores, y Legal y certificados son pasos propios; la fianza y el depósito sólo aparecen cuando la operación es "Alquiler". Lo legal, el precio mínimo autorizado y las comisiones son internos: nunca se publican.',
+      tags: ['propiedad', 'ficha', 'legal', 'IBI', 'catastral', 'calefacción', 'alquiler'],
+    },
     {
       id: 'faq-email-propio',
       question: '¿Cómo hago que los emails a mis clientes salgan desde mi propia dirección?',

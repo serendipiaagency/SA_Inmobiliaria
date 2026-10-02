@@ -98,7 +98,11 @@ describe('la acción principal de cada catálogo', () => {
 describe('cómo se pinta cada fila', () => {
   it('obra nueva muestra el nombre del proyecto; 2ª mano, el tipo de vivienda', () => {
     expect(PROPERTY_LIST_CONFIG['developer-properties'].rowTitle({ name: 'Torre Marina' })).toBe('Torre Marina')
-    expect(PROPERTY_LIST_CONFIG.properties.rowTitle({ propertyType: 'Villa' })).toBe('Villa')
+    // El tipo se lee en español (utils/propertySheet.ts); la clave guardada no cambia.
+    expect(PROPERTY_LIST_CONFIG.properties.rowTitle({ propertyType: 'Villa' })).toBe('Chalet')
+    expect(PROPERTY_LIST_CONFIG.properties.rowTitle({ propertyType: 'Duplex' })).toBe('Dúplex')
+    // Un valor antiguo fuera de la lista se enseña tal cual, nunca se pierde.
+    expect(PROPERTY_LIST_CONFIG.properties.rowTitle({ propertyType: 'Casa cueva' })).toBe('Casa cueva')
     // Una vivienda sin tipo sigue necesitando algo que mostrar.
     expect(PROPERTY_LIST_CONFIG.properties.rowTitle({})).toBe('Vivienda')
   })

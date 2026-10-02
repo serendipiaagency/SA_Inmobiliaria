@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { useDb } from '../../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../../utils/auth'
-import { getResource } from '../../../../utils/adminResources'
+import { getResource, rethrowUniqueViolation } from '../../../../utils/adminResources'
 import { logAdminAction } from '../../../../utils/audit'
 import { authorizeRecord, buildTenantWhere } from '../../../../utils/tenantPolicy'
 
@@ -26,7 +26,8 @@ export default defineEventHandler(async (event) => {
   const idCond = eq(def.table.id, id)
   const where = tenantWhere ? and(idCond, tenantWhere) : idCond
 
-  await db.update(def.table).set({ deletedAt: null }).where(where as any)
+  // Restaurar puede chocar con un registro vivo del mismo nombre (índice único parcial): 409 legible.
+  await db.update(def.table).set({ deletedAt: null }).where(where as any).catch(rethrowUniqueViolation)
   await logAdminAction(event, { user, orgId, action: 'restore', resource: key, resourceId: id })
   return { ok: true }
 })
