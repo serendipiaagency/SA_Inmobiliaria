@@ -179,11 +179,87 @@ con su propia identidad (`resolveOrgEmailIdentity`, ver `docs/resend-email.md`).
   ni se finge un envío.
 - Todos los emails llevan también versión de **texto plano**.
 
+### Qué sale de dónde
+
+| Email | Remitente |
+|---|---|
+| Alta y estado de empresas (`company_*`, `admin_company_*`), bienvenida e invitación | **INMO <info@serendipiaagency.com>** (`platform.ts`) |
+| Cuenta: bienvenida de usuario (`user_welcome`), recuperar contraseña (`password_reset`), avisos técnicos del dominio web (`domain_check_*`) | **INMO <info@serendipiaagency.com>** siempre (`SYSTEM_SENDER_TEMPLATES` en `orgSender.ts`), con la marca de la empresa en el cuerpo |
+| Todo lo que la empresa envía a SUS clientes y a SU equipo (leads, citas, contratos, depósitos, avisos internos…) | **El remitente de la empresa** (abajo) |
+
+## Remitente propio de cada empresa
+
+Cada empresa puede enviar a sus clientes y a su equipo desde **su propia
+dirección**. El código está en `server/utils/email/orgSender.ts` y la pantalla
+en `components/admin/email/OrgEmailSenderPanel.vue`. La configura su
+administrador en **Sistema → Emails**; el super admin, desde Empresas → ficha →
+Email.
+
+| Situación | Cabecera From | Responder a |
+|---|---|---|
+| Dominio propio **verificado** en Resend | `Costa Azul <hola@costaazul.es>` | su «Responder a» (si lo hay) |
+| Sin dominio, o aún sin verificar | `Costa Azul vía INMO <info@serendipiaagency.com>` | «Responder a» → dirección del remitente → email legal |
+
+Nunca se envía desde una dirección de empresa sin verificar. Resend la
+rechazaría, y además sería suplantar un dominio no probado. Antes de este
+cambio el remitente por defecto era `notificaciones@sa-inmobiliaria.com`, un
+dominio que **no existe**; con `RESEND_API_KEY` puesta, Resend habría
+rechazado todos esos envíos.
+
+### Verificación autoservicio
+
+1. La empresa guarda `hola@su-dominio.es`. INMO reclama el dominio para ella y
+   lo da de alta en la cuenta de Resend de la plataforma (`POST /domains`,
+   región `eu-west-1`).
+2. El panel muestra los registros DNS que Resend pide:
+   - `MX` y `TXT` (SPF) en `send.<dominio>`;
+   - `TXT` (DKIM) en `resend._domainkey.<dominio>`.
+
+   Ninguno toca el correo que la empresa ya tiene.
+3. «Comprobar ahora» llama a `POST /domains/:id/verify` y lee el estado. Al
+   abrir la pantalla, el estado se sincroniza con lo que Resend diga en ese
+   momento.
+4. Con `verified`, `organizations.email_sender_domain_verified = 1`: desde ahí
+   los emails salen de su dirección.
+
+**Reglas de seguridad:**
+
+- **Un dominio es de una sola empresa.** Su dueño se guarda en `settings`
+  (`org:platform:email-domain:<dominio>`), sin migración. Otra empresa no
+  puede usarlo, aunque ya esté verificado en la cuenta, porque enviaría como
+  la primera.
+- **Dominios ya presentes en Resend.** Un dominio que ya estaba en la cuenta
+  sin dueño en INMO (dado de alta a mano) sólo lo puede asignar un
+  `super_admin`.
+- **Dominios rechazados como remitente:** el dominio de la plataforma
+  (`serendipiaagency.com` y sus subdominios), `resend.dev` y los buzones
+  gratuitos (Gmail, Outlook, Yahoo, iCloud…), porque nadie puede verificar su
+  DNS. Sí valen como «Responder a».
+- **La dirección sólo cambia por este flujo.** `emailSenderAddress` ya no es
+  editable por el `PUT` genérico de `organizations`.
+- **Cambiar de dominio** vuelve a «sin verificar». El dominio anterior sigue
+  siendo de esa empresa, así que si vuelve a él no tiene que repetir el DNS.
+- **Rutas:**
+  - `GET /api/admin/saas/email-health?view=sender` (área `system`, lectura);
+  - `POST /api/admin/saas/settings { section: 'email-sender', action?: 'verify' }` (área `system`, escritura).
+
+  `organizationId` sólo lo acepta de un `super_admin`.
+
+### Requisitos en Resend (bloqueo externo)
+
+- **La clave `RESEND_API_KEY` tiene que ser «Full access».** Una clave
+  «Sending access» puede enviar, pero no crear ni verificar dominios; el panel
+  lo explica si es el caso. Tampoco puede restringirse a un solo dominio: la
+  plataforma envía desde los dominios de todas las empresas.
+- **El plan de Resend limita cuántos dominios caben en la cuenta.** Cuando no
+  quedan, el alta del dominio falla con el mensaje de Resend y la empresa
+  sigue enviando vía INMO.
+
 ### Configuración
 
 | Variable | Tipo | Por defecto | Para qué |
 |---|---|---|---|
-| `RESEND_API_KEY` | **secreto** | — | Sin ella no sale ningún email (quedan en `email_log`, la pantalla dice «no enviado») |
+| `RESEND_API_KEY` | **secreto** | — | Sin ella no sale ningún email (quedan en `email_log`, la pantalla dice «no enviado»). **Full access**, para poder dar de alta los dominios de las empresas |
 | `PLATFORM_EMAIL_FROM_NAME` | var | `INMO` | Nombre del remitente de plataforma |
 | `PLATFORM_EMAIL_FROM_ADDRESS` | var | `info@serendipiaagency.com` | Dirección del remitente de plataforma |
 | `PLATFORM_EMAIL_REPLY_TO` | var | la misma dirección | Responder-a |

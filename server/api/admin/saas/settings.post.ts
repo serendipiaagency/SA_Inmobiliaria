@@ -1,5 +1,6 @@
 import { requireOrgScope } from '../../../utils/auth'
 import { now } from '../../../utils/db'
+import { handleOrgSenderWrite } from '../../../utils/email/orgSenderHttp'
 
 const ALLOWED = ['company_name', 'currency', 'locale', 'timezone', 'brand_color', 'notify_email', 'weekly_report']
 
@@ -10,9 +11,12 @@ const ALLOWED = ['company_name', 'currency', 'locale', 'timezone', 'brand_color'
  * key prefix (`org:<id>:<key>`) instead — same isolation, no schema migration.
  */
 export default defineEventHandler(async (event) => {
+  const body = await readBody(event)
+  // Remitente de los emails de la empresa (Sistema → Emails): no es un ajuste
+  // clave/valor, va a sus columnas de `organizations` y a Resend.
+  if (body?.section === 'email-sender') return handleOrgSenderWrite(event, body)
   const { orgId } = await requireOrgScope(event)
   const raw = (event.context as any).cloudflare.env.DB as D1Database
-  const body = await readBody(event)
   const ts = now()
   const stmts: D1PreparedStatement[] = []
   for (const key of ALLOWED) {

@@ -4,7 +4,6 @@ import { schema, now, slugify, useDb, cfEnv } from './db'
 import { hashPassword, createPasswordResetToken } from './auth'
 import { normalizeHost, isReservedHost, isValidHostname } from './domain'
 import { sendTransactionalEmail } from './email/send'
-import { checkResendDomainVerified } from './email/resendClient'
 import {
   assertOwnedReference,
   assertPayloadParentOwnership,
@@ -125,7 +124,6 @@ export const adminResources: Record<string, ResourceDef> = {
       brandColor: { type: 'text', label: 'Color de marca' },
       status: { type: 'select', label: 'Estado', options: ['active', 'suspended'] },
       emailSenderName: { type: 'text', label: 'Email — nombre del remitente' },
-      emailSenderAddress: { type: 'text', label: 'Email — dirección del remitente' },
       emailReplyTo: { type: 'text', label: 'Email — responder a' },
       // A JSON array of staff addresses, e.g. ["ops@empresa.com","ventas@empresa.com"] — notified on new leads/contact messages/complaints.
       emailInternalRecipientsJson: { type: 'json', label: 'Email — destinatarios internos (JSON)' },
@@ -136,6 +134,9 @@ export const adminResources: Record<string, ResourceDef> = {
       legalEmail: { type: 'text', label: 'Legal — email de contacto' },
       legalPhone: { type: 'text', label: 'Legal — teléfono' },
     },
+    // emailSenderAddress is deliberately NOT in `fields`: a sender address only
+    // changes through the verified flow (server/utils/email/orgSender.ts —
+    // domain ownership per company + Resend verification), never a raw PUT.
     // emailSenderDomainVerified/emailSenderDomainCheckedAt are deliberately
     // NOT in `fields` above — they're never client-editable, only ever set
     // by the real Resend check in `prepare` below, visible here read-only.
@@ -155,7 +156,7 @@ export const adminResources: Record<string, ResourceDef> = {
     // localhost) — saving one of those as a *custom* domain would let this
     // org silently hijack every dev/preview deploy's traffic away from the
     // real default tenant.
-    async prepare(data, _isCreate, event) {
+    async prepare(data) {
       if (typeof data.domain === 'string') {
         const normalized = normalizeHost(data.domain)
         if (!normalized) {
@@ -165,18 +166,6 @@ export const adminResources: Record<string, ResourceDef> = {
           if (isReservedHost(normalized)) throw createError({ statusCode: 422, statusMessage: 'Ese dominio está reservado por la plataforma y no puede asignarse a una organización' })
           data.domain = normalized
         }
-      }
-      // "email remitente validado" — a real check against Resend's Domains
-      // API (Dashboard → Domains), never a manual toggle: whenever the
-      // sender address changes, re-derive its domain and ask Resend whether
-      // that domain is verified. Runs on every save (not just when it looks
-      // "new") so fixing DNS/SPF/DKIM after the fact and re-saving the same
-      // address picks up the now-verified status too.
-      if (typeof data.emailSenderAddress === 'string' && data.emailSenderAddress.includes('@') && event) {
-        const domain = data.emailSenderAddress.split('@')[1]?.toLowerCase()
-        const verified = domain ? await checkResendDomainVerified(cfEnv(event), domain) : null
-        data.emailSenderDomainVerified = verified === true ? 1 : 0
-        data.emailSenderDomainCheckedAt = verified === null ? null : now()
       }
       return data
     },

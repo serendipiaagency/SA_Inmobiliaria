@@ -3,6 +3,9 @@ import * as schema from '../../db/schema'
 import { renderEmailLayout, type EmailLocale } from './layout'
 import { TEMPLATES, type TemplateKey } from './templates'
 import { attemptSend } from './send'
+import { EMAIL_RE, clean, platformEmailConfig } from './platformConfig'
+
+export { PLATFORM_EMAIL_DEFAULTS, platformEmailConfig, type PlatformEmailConfig } from './platformConfig'
 
 /**
  * Email de PLATAFORMA: lo que INMO (la plataforma) envía a las empresas y al
@@ -25,11 +28,6 @@ import { attemptSend } from './send'
  * el remitente por otro ni se finge el envío.
  */
 
-export const PLATFORM_EMAIL_DEFAULTS = {
-  fromName: 'INMO',
-  fromAddress: 'info@serendipiaagency.com',
-} as const
-
 /** Templates que SÓLO salen con la identidad de plataforma. */
 export const PLATFORM_TEMPLATES = [
   'company_registration_welcome',
@@ -42,28 +40,6 @@ export const PLATFORM_TEMPLATES = [
   'company_admin_invite',
 ] as const satisfies readonly TemplateKey[]
 export type PlatformTemplateKey = (typeof PLATFORM_TEMPLATES)[number]
-
-export interface PlatformEmailConfig {
-  fromName: string
-  fromAddress: string
-  fromHeader: string
-  replyTo: string
-}
-
-const EMAIL_RE = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/
-
-function clean(v: unknown): string {
-  return typeof v === 'string' ? v.trim() : ''
-}
-
-export function platformEmailConfig(env: Record<string, any> = {}): PlatformEmailConfig {
-  const fromName = clean(env.PLATFORM_EMAIL_FROM_NAME).replace(/[<>"]/g, '') || PLATFORM_EMAIL_DEFAULTS.fromName
-  const configuredFrom = clean(env.PLATFORM_EMAIL_FROM_ADDRESS)
-  const fromAddress = EMAIL_RE.test(configuredFrom) ? configuredFrom : PLATFORM_EMAIL_DEFAULTS.fromAddress
-  const configuredReply = clean(env.PLATFORM_EMAIL_REPLY_TO)
-  const replyTo = EMAIL_RE.test(configuredReply) ? configuredReply : fromAddress
-  return { fromName, fromAddress, fromHeader: `${fromName} <${fromAddress}>`, replyTo }
-}
 
 /**
  * A quién avisar como super admin. Configuración explícita primero; si no

@@ -1,8 +1,8 @@
 <template>
   <div class="max-w-5xl">
     <div class="mb-6">
-      <h1 class="text-2xl font-semibold tracking-tight">Emails transaccionales</h1>
-      <p class="mt-1 text-sm text-stone-500">Historial real de envíos vía Resend — el estado solo pasa a "Entregado"/"Rebotado"/"Reclamación" cuando Resend lo confirma por webhook.</p>
+      <h1 class="text-2xl font-semibold tracking-tight">Emails</h1>
+      <p class="mt-1 text-sm text-stone-500">Desde qué dirección envía tu empresa y el historial real de envíos vía Resend — el estado solo pasa a "Entregado"/"Rebotado"/"Reclamación" cuando Resend lo confirma por webhook.</p>
     </div>
 
     <!-- Estado del canal. Sólo aparece cuando hay algo que decir: si todo
@@ -16,6 +16,11 @@
       </p>
     </div>
 
+    <!-- Remitente de la empresa: desde qué dirección salen sus emails a
+         clientes y equipo, y la verificación de su dominio. -->
+    <AdminEmailOrgEmailSenderPanel :can-edit="canEdit" class="mb-8" />
+
+    <h2 class="mb-3 text-lg font-semibold tracking-tight">Historial de envíos</h2>
     <div v-if="!rows.length" class="rounded-xl border border-dashed border-line px-6 py-10 text-center text-sm text-stone-500">Sin envíos todavía.</div>
 
     <AdminPanel v-else :pad="false">
@@ -56,6 +61,8 @@
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Emails — M&M Real Estate' })
 const dt = useDash()
+const { canWrite } = useAdminPermissions()
+const canEdit = computed(() => canWrite('system'))
 
 const { data } = await useFetch<any[]>('/api/admin/saas/email-log')
 const rows = computed(() => data.value || [])

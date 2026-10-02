@@ -43,26 +43,96 @@ export async function callResendApi(
   }
 }
 
-/**
- * Checks whether `domain` is a verified sending domain in this Resend
- * account (Dashboard → Domains). Used when an org saves its sender email —
- * "email remitente validado" is a real check against Resend, never a manual
- * toggle. Returns null (unknown) rather than false when it can't check
- * (no API key, network error) — an org's sender should never be silently
- * marked unverified just because we failed to ask.
- */
-export async function checkResendDomainVerified(env: Record<string, any>, domain: string): Promise<boolean | null> {
-  const apiKey = env.RESEND_API_KEY
-  if (!apiKey || !domain) return null
+// ---------------------------------------------------------------------------
+// API de dominios de Resend — verificación autoservicio del dominio con el que
+// cada empresa envía a SUS clientes (server/utils/email/orgSender.ts).
+// Requiere que RESEND_API_KEY tenga acceso completo («Full access»): una clave
+// «Sending access» puede enviar pero no crear ni verificar dominios, y Resend
+// lo dice con un 401/403 que aquí se devuelve tal cual.
+// ---------------------------------------------------------------------------
 
-  try {
-    const res = await fetch(`${resendBase(env)}/domains`, { headers: { Authorization: `Bearer ${apiKey}` } })
-    if (!res.ok) return null
-    const json: any = await res.json().catch(() => null)
-    const match = (json?.data || []).find((d: any) => String(d?.name || '').toLowerCase() === domain.toLowerCase())
-    if (!match) return false
-    return match.status === 'verified'
-  } catch {
-    return null
+export interface ResendDnsRecord {
+  /** 'SPF' | 'DKIM' | 'DMARC' … — para qué sirve el registro. */
+  record: string
+  /** Nombre relativo al dominio (p. ej. `send`, `resend._domainkey`). */
+  name: string
+  type: string
+  value: string
+  ttl?: string
+  priority?: number | null
+  status: string
+}
+
+export interface ResendDomain {
+  id: string
+  name: string
+  /** not_started | pending | verified | failed | temporary_failure */
+  status: string
+  region: string | null
+  records: ResendDnsRecord[]
+}
+
+export type ResendDomainResult = { ok: true; domain: ResendDomain } | { ok: false; connected: boolean; status: number | null; message: string }
+
+function toDomain(json: any): ResendDomain {
+  return {
+    id: String(json?.id ?? ''),
+    name: String(json?.name ?? '').toLowerCase(),
+    status: String(json?.status ?? 'not_started'),
+    region: json?.region ? String(json.region) : null,
+    records: Array.isArray(json?.records)
+      ? json.records.map((r: any) => ({
+          record: String(r?.record ?? ''),
+          name: String(r?.name ?? ''),
+          type: String(r?.type ?? ''),
+          value: String(r?.value ?? ''),
+          ttl: r?.ttl != null ? String(r.ttl) : undefined,
+          priority: typeof r?.priority === 'number' ? r.priority : null,
+          status: String(r?.status ?? 'not_started'),
+        }))
+      : [],
   }
+}
+
+async function resendJson(env: Record<string, any>, method: string, path: string, body?: unknown): Promise<{ ok: true; json: any } | { ok: false; connected: boolean; status: number | null; message: string }> {
+  const apiKey = env.RESEND_API_KEY
+  if (!apiKey) return { ok: false, connected: false, status: null, message: 'Email no conectado: falta configurar el secreto RESEND_API_KEY en el Worker.' }
+  try {
+    const res = await fetch(`${resendBase(env)}${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${apiKey}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    })
+    const json: any = await res.json().catch(() => null)
+    if (!res.ok) return { ok: false, connected: true, status: res.status, message: json?.message || `Resend devolvió ${res.status}` }
+    return { ok: true, json }
+  } catch (e: any) {
+    return { ok: false, connected: true, status: null, message: e?.message || 'Error de red al hablar con Resend' }
+  }
+}
+
+/** Busca un dominio por nombre en la cuenta de Resend de la plataforma (sin registros: el listado no los trae). */
+export async function findResendDomain(env: Record<string, any>, name: string): Promise<{ ok: true; domain: ResendDomain | null } | { ok: false; connected: boolean; status: number | null; message: string }> {
+  const res = await resendJson(env, 'GET', '/domains')
+  if (!res.ok) return res
+  const match = (res.json?.data || []).find((d: any) => String(d?.name || '').toLowerCase() === name.toLowerCase())
+  return { ok: true, domain: match ? toDomain(match) : null }
+}
+
+/** Da de alta un dominio en Resend; la respuesta trae los registros DNS que hay que publicar. */
+export async function createResendDomain(env: Record<string, any>, name: string, region = 'eu-west-1'): Promise<ResendDomainResult> {
+  const res = await resendJson(env, 'POST', '/domains', { name, region })
+  return res.ok ? { ok: true, domain: toDomain(res.json) } : res
+}
+
+/** Estado actual y registros DNS (con el estado de cada uno) de un dominio. */
+export async function getResendDomain(env: Record<string, any>, id: string): Promise<ResendDomainResult> {
+  const res = await resendJson(env, 'GET', `/domains/${encodeURIComponent(id)}`)
+  return res.ok ? { ok: true, domain: toDomain(res.json) } : res
+}
+
+/** Pide a Resend que vuelva a comprobar el DNS ahora (la verificación es asíncrona: luego se lee con getResendDomain). */
+export async function verifyResendDomain(env: Record<string, any>, id: string): Promise<{ ok: true } | { ok: false; connected: boolean; status: number | null; message: string }> {
+  const res = await resendJson(env, 'POST', `/domains/${encodeURIComponent(id)}/verify`)
+  return res.ok ? { ok: true } : res
 }

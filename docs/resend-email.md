@@ -104,7 +104,9 @@ del remitente (ver siguiente sección) — nunca es un interruptor manual.
 
 ## Configuración manual en Resend + Cloudflare
 
-1. **Resend Dashboard → API Keys** — crear una clave y guardarla como
+1. **Resend Dashboard → API Keys** — crear una clave con permiso **Full
+   access** (sin restringir a un dominio: la plataforma da de alta y verifica
+   los dominios de las empresas y envía desde todos ellos) y guardarla como
    secreto del Worker:
    ```
    wrangler secret put RESEND_API_KEY
@@ -119,9 +121,12 @@ del remitente (ver siguiente sección) — nunca es un interruptor manual.
    (minutos, hasta 72h si la propagación DNS tarda). Sin esto, Resend
    rechaza enviar desde ese dominio aunque `RESEND_API_KEY` esté bien
    configurado.
-4. Guardar la dirección del remitente en `/admin/organizations` (paso
-   anterior) — al guardar, la plataforma consulta la API de Resend y marca
-   "dominio verificado" según el estado real, no antes.
+4. Los dominios de cada EMPRESA no se dan de alta a mano: su administrador
+   guarda su dirección en Sistema → Emails, la plataforma crea el dominio en
+   Resend, le enseña los registros DNS y comprueba la verificación (ver
+   [docs/empresas.md](empresas.md#remitente-propio-de-cada-empresa)). Hasta que
+   esté verificado, sus emails salen «Empresa vía INMO» desde el remitente de
+   la plataforma, con Responder-a la empresa.
 5. **Resend Dashboard → Webhooks → Add Endpoint** — URL:
    `https://<dominio-de-producción>/api/resend/webhook`. Eventos a
    suscribir: `email.sent`, `email.delivered`, `email.bounced`,

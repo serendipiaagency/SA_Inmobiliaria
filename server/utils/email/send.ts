@@ -3,9 +3,8 @@ import * as schema from '../../db/schema'
 import { htmlToText, renderEmailLayout, type EmailLocale } from './layout'
 import { TEMPLATES, type TemplateKey } from './templates'
 import { callResendApi } from './resendClient'
-
-const PLATFORM_DEFAULT_FROM_NAME = 'SA Inmobiliaria'
-const PLATFORM_DEFAULT_FROM_ADDRESS = 'notificaciones@sa-inmobiliaria.com'
+import { SYSTEM_SENDER_TEMPLATES, effectiveOrgSender } from './orgSender'
+import { platformEmailConfig } from './platformConfig'
 
 /** Retry backoff schedule in minutes — 5 attempts total, then permanently 'failed' ("reintentos limitados"). */
 export const MAX_EMAIL_ATTEMPTS = 5
@@ -27,11 +26,19 @@ interface OrgEmailIdentity {
   internalRecipients: string[]
 }
 
-async function resolveOrgEmailIdentity(db: any, organizationId: number): Promise<OrgEmailIdentity> {
+/**
+ * Remitente y marca con los que sale un email de esta empresa. El remitente
+ * lo decide effectiveOrgSender() (server/utils/email/orgSender.ts): su propia
+ * dirección sólo cuando su dominio está verificado en Resend; si no,
+ * «Empresa vía INMO <remitente de la plataforma>» con Responder-a la empresa.
+ * Antes caía en `notificaciones@sa-inmobiliaria.com`, un dominio que no existe,
+ * y usaba la dirección de la empresa aunque nadie la hubiera verificado:
+ * Resend habría rechazado todos esos envíos.
+ */
+async function resolveOrgEmailIdentity(db: any, env: Record<string, any>, organizationId: number): Promise<OrgEmailIdentity> {
   const [org] = await db.select().from(schema.organizations).where(eq(schema.organizations.id, organizationId)).limit(1)
-  const companyName = org?.companyName || org?.name || PLATFORM_DEFAULT_FROM_NAME
-  const senderName = org?.emailSenderName || companyName
-  const senderAddress = org?.emailSenderAddress || PLATFORM_DEFAULT_FROM_ADDRESS
+  const companyName = org?.companyName || org?.name || platformEmailConfig(env).fromName
+  const sender = effectiveOrgSender(org, env)
   let internalRecipients: string[]
   try {
     internalRecipients = JSON.parse(org?.emailInternalRecipientsJson || '[]')
@@ -39,8 +46,8 @@ async function resolveOrgEmailIdentity(db: any, organizationId: number): Promise
     internalRecipients = []
   }
   return {
-    fromHeader: `${senderName} <${senderAddress}>`,
-    replyTo: org?.emailReplyTo || null,
+    fromHeader: sender.fromHeader,
+    replyTo: sender.replyTo,
     locale: (org?.emailLocale as EmailLocale) || 'es',
     branding: { companyName, logo: org?.logo || null, brandColor: org?.brandColor || null },
     internalRecipients: internalRecipients.filter((r) => typeof r === 'string' && r.includes('@')),
@@ -80,7 +87,14 @@ export interface SendTransactionalEmailResult {
  * 'delivered'/'bounced'/'complained'.
  */
 export async function sendTransactionalEmail(db: any, env: Record<string, any>, opts: SendTransactionalEmailOpts): Promise<SendTransactionalEmailResult[]> {
-  const identity = await resolveOrgEmailIdentity(db, opts.organizationId)
+  const identity = await resolveOrgEmailIdentity(db, env, opts.organizationId)
+  // Cuenta y avisos del sistema (bienvenida, recuperar contraseña…): siempre
+  // desde el remitente de la plataforma, con la marca de la empresa en el cuerpo.
+  if (SYSTEM_SENDER_TEMPLATES.has(opts.template)) {
+    const platform = platformEmailConfig(env)
+    identity.fromHeader = platform.fromHeader
+    identity.replyTo = platform.replyTo
+  }
   const template = TEMPLATES[opts.template]
   const locale = opts.locale || identity.locale
   const recipients = (Array.isArray(opts.to) ? opts.to : [opts.to]).filter(Boolean)
@@ -134,7 +148,7 @@ export async function sendInternalNotification(
   data: Record<string, any>,
   requestId?: string | null,
 ): Promise<SendTransactionalEmailResult[]> {
-  const identity = await resolveOrgEmailIdentity(db, organizationId)
+  const identity = await resolveOrgEmailIdentity(db, env, organizationId)
   if (!identity.internalRecipients.length) return []
   return sendTransactionalEmail(db, env, { organizationId, template, to: identity.internalRecipients, data, requestId })
 }
