@@ -44,8 +44,23 @@ export function rateLimitRetryMinutes(err: any): number | null {
   return Math.max(1, Math.ceil(seconds / 60))
 }
 
+/**
+ * Motivo de la política de acceso de la empresa (server/utils/organizations/access.ts)
+ * cuando las credenciales eran correctas pero la empresa no puede entrar
+ * (suspendida, pendiente de aprobación o de pago). Sólo llega tras validar la
+ * contraseña, así que enseñarlo no ayuda a enumerar cuentas.
+ */
+export function organizationAccessMessage(err: any): string | null {
+  const status = err?.statusCode ?? err?.status ?? err?.response?.status
+  const reason = err?.data?.data?.reason ?? err?.response?._data?.data?.reason
+  if (status !== 403 || !reason) return null
+  return err?.data?.statusMessage || err?.statusMessage || err?.response?._data?.statusMessage || null
+}
+
 /** El mensaje a enseñar, con «Credenciales inválidas» como caso por defecto. */
 export function loginErrorMessage(err: any, fallback = 'Credenciales inválidas'): string {
+  const accessMessage = organizationAccessMessage(err)
+  if (accessMessage) return accessMessage
   const minutes = rateLimitRetryMinutes(err)
   if (minutes === null) return fallback
   const espera = minutes > 0 ? `Vuelve a intentarlo en ${minutes} ${minutes === 1 ? 'minuto' : 'minutos'}.` : 'Vuelve a intentarlo en unos minutos.'

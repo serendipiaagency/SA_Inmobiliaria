@@ -46,6 +46,13 @@ export const organizations = sqliteTable('organizations', {
   legalAddress: text('legal_address'),
   legalEmail: text('legal_email'),
   legalPhone: text('legal_phone'),
+  // Added by 0085 — dimensiones separadas que combina la política de acceso
+  // (server/utils/organizations/access.ts): `status` es el estado operativo
+  // que decide el super admin; éstas dicen cómo se dio de alta y si falta
+  // aprobación o pago. Defaults = comportamiento previo (acceso normal).
+  registrationSource: text('registration_source').notNull().default('admin'), // admin | self_service
+  approvalStatus: text('approval_status').notNull().default('approved'), // approved | pending | rejected
+  billingStatus: text('billing_status').notNull().default('not_required'), // not_required | pending | active | past_due
 })
 
 // ---------------------------------------------------------------------------

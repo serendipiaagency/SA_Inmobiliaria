@@ -6,6 +6,7 @@ import { buildTenantWhere } from '../../../utils/tenantPolicy'
 import { buildPropertyFilterConds, parsePropertyFilters, DEVELOPER_PROPERTY_SORTS, PROPERTIES_SORTS, PROPERTY_EXPORT_MAX_ROWS, rowsToCsv } from '../../../utils/properties/searchService'
 import { savedViewVisibilityCond } from '../../../utils/properties/savedViews'
 import { toolCatalogFor } from '../../../utils/tools/execute'
+import { checkDomainAvailability } from '../../../utils/organizations/provisioning'
 
 const TEAM_SORTS: Record<string, any> = {
   newest: desc(schema.teamMembers.createdAt),
@@ -32,6 +33,13 @@ export default defineEventHandler(async (event) => {
   }
   const db = useDb(event)
   const query = getQuery(event)
+  // Sistemas > Empresas: comprobación inmediata de un dominio en el asistente
+  // de alta y en la ficha (?domainAvailable=…&excludeId=…). La autoridad
+  // final sigue siendo el índice único al guardar.
+  if (key === 'organizations' && typeof query.domainAvailable === 'string') {
+    const excludeId = Number(query.excludeId)
+    return checkDomainAvailability(db, query.domainAvailable, Number.isInteger(excludeId) && excludeId > 0 ? { excludeOrganizationId: excludeId } : {})
+  }
   const page = Math.max(1, parseInt(String(query.page || '1'), 10) || 1)
   const perPage = Math.min(100, Math.max(1, parseInt(String(query.perPage || '20'), 10) || 20))
   const q = String(query.q || '').trim()

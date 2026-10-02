@@ -1,3 +1,4 @@
+import { loopbackOrigin } from '../loopback'
 interface ResendSendResult {
   ok: boolean
   connected: boolean
@@ -12,9 +13,14 @@ interface ResendSendResult {
  * `id` is Resend's own email id — the only handle the webhook
  * (server/api/resend/webhook.post.ts) has to later confirm real delivery.
  */
+/** Simulador e2e: RESEND_BASE_URL sólo se respeta si apunta a loopback (server/utils/loopback.ts). */
+function resendBase(env: Record<string, any>): string {
+  return loopbackOrigin(env.RESEND_BASE_URL) ?? 'https://api.resend.com'
+}
+
 export async function callResendApi(
   env: Record<string, any>,
-  input: { from: string; to: string; replyTo?: string | null; subject: string; html: string },
+  input: { from: string; to: string; replyTo?: string | null; subject: string; html: string; text?: string | null },
 ): Promise<ResendSendResult> {
   const apiKey = env.RESEND_API_KEY
   if (!apiKey) {
@@ -22,10 +28,10 @@ export async function callResendApi(
   }
 
   try {
-    const res = await fetch('https://api.resend.com/emails', {
+    const res = await fetch(`${resendBase(env)}/emails`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: input.from, to: input.to, reply_to: input.replyTo || undefined, subject: input.subject, html: input.html }),
+      body: JSON.stringify({ from: input.from, to: input.to, reply_to: input.replyTo || undefined, subject: input.subject, html: input.html, text: input.text || undefined }),
     })
     const json: any = await res.json().catch(() => null)
     if (!res.ok) {
@@ -50,7 +56,7 @@ export async function checkResendDomainVerified(env: Record<string, any>, domain
   if (!apiKey || !domain) return null
 
   try {
-    const res = await fetch('https://api.resend.com/domains', { headers: { Authorization: `Bearer ${apiKey}` } })
+    const res = await fetch(`${resendBase(env)}/domains`, { headers: { Authorization: `Bearer ${apiKey}` } })
     if (!res.ok) return null
     const json: any = await res.json().catch(() => null)
     const match = (json?.data || []).find((d: any) => String(d?.name || '').toLowerCase() === domain.toLowerCase())

@@ -139,7 +139,7 @@ export const adminResources: Record<string, ResourceDef> = {
     // emailSenderDomainVerified/emailSenderDomainCheckedAt are deliberately
     // NOT in `fields` above — they're never client-editable, only ever set
     // by the real Resend check in `prepare` below, visible here read-only.
-    listFields: ['id', 'name', 'domain', 'status', 'emailSenderAddress', 'emailSenderDomainVerified', 'createdAt'],
+    listFields: ['id', 'name', 'domain', 'status', 'registrationSource', 'emailSenderAddress', 'emailSenderDomainVerified', 'createdAt'],
     searchFields: ['name', 'slug', 'domain'],
     hasTimestamps: true,
     hasUpdatedAt: true,

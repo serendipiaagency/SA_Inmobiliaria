@@ -11,6 +11,9 @@
       </div>
 
       <form v-else class="card space-y-5 p-8" @submit.prevent="submit">
+        <p v-if="justRegistered" class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900" data-testid="login-registered-notice">
+          Tu empresa se ha registrado. Inicia sesión con tu correo y la contraseña que has elegido.
+        </p>
         <div>
           <label class="label" for="admin-login-email">Email</label>
           <input id="admin-login-email" v-model="email" type="email" class="input" required autocomplete="email" autofocus >
@@ -27,6 +30,9 @@
           <NuxtLink to="/forgot-password" class="text-stone-500 hover:underline">¿Olvidaste tu contraseña?</NuxtLink>
         </p>
       </form>
+      <p v-if="!challenge" class="mt-6 text-center text-sm text-stone-500">
+        ¿Tu empresa aún no usa INMO? <NuxtLink to="/registro-empresa" class="font-medium text-ink hover:underline" data-testid="login-register-link">Registro empresa</NuxtLink>
+      </p>
     </div>
   </div>
 </template>
@@ -41,7 +47,10 @@ useHead({ title: 'Acceder — Panel de administración' })
 
 const { login, logout, user } = useAuth()
 const router = useRouter()
-const email = ref('')
+const route = useRoute()
+// Viene de /registro-empresa: se rellena el correo y se dice por qué está aquí.
+const justRegistered = route.query.registered === '1'
+const email = ref(typeof route.query.email === 'string' ? route.query.email : '')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')

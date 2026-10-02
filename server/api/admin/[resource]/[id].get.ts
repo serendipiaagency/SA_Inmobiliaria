@@ -3,6 +3,7 @@ import { schema, useDb } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
 import { authorizeRecord } from '../../../utils/tenantPolicy'
+import { organizationOverview } from '../../../utils/organizations/lifecycle'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -48,6 +49,11 @@ export default defineEventHandler(async (event) => {
             .orderBy(desc(schema.agentPropertyPriceHistory.recordedAt), desc(schema.agentPropertyPriceHistory.id))
             .limit(50)
     return { row, translations, priceHistory }
+  }
+  // Ficha de empresa (Sistemas > Empresas): resumen y usuarios reales de esa
+  // organización, para las secciones Resumen y Usuarios del editor.
+  if (key === 'organizations') {
+    return { row, translations, overview: await organizationOverview(db, id) }
   }
   return { row, translations }
 })

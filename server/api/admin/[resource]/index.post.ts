@@ -11,6 +11,7 @@ import { createBulkActionJob } from '../../../utils/bulkActions/service'
 import { resolveFilteredPropertyIds } from '../../../utils/bulkActions/propertyActions'
 import { executeTool } from '../../../utils/tools/execute'
 import { InmoError, runInmoTurn } from '../../../utils/inmo/orchestrator'
+import { createOrganizationFromAdmin, resendAdminInvite } from '../../../utils/organizations/lifecycle'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -51,6 +52,16 @@ export default defineEventHandler(async (event) => {
   if (def.readonly) throw createError({ statusCode: 405, statusMessage: 'Resource is read-only' })
   const db = useDb(event)
   const body = await readBody<Record<string, any>>(event)
+
+  // Sistemas > Empresas > + Nuevo: el alta de una empresa no es una fila
+  // suelta — pasa por el mismo provisioning que el registro público
+  // (server/utils/organizations/), con administrador inicial invitado por
+  // email, auditoría y validación por paso del asistente. superAdminOnly ya
+  // se comprobó arriba (requireSuperAdmin).
+  if (key === 'organizations') {
+    if (body?.action === 'resend-invite') return resendAdminInvite(event, user, body)
+    return createOrganizationFromAdmin(event, user, body || {})
+  }
 
   // Bulk Actions (FASE 28) — crear un job tiene forma propia (acción +
   // parámetros + selección), no es un alta de fila con campos: se

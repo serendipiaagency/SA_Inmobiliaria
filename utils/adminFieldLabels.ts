@@ -35,6 +35,7 @@ const KNOWN_FIELD_LABELS: Record<string, string> = {
   title: 'Título',
   description: 'Descripción',
   status: 'Estado',
+  registrationSource: 'Origen',
   statusCode: 'Código',
   type: 'Tipo',
   role: 'Rol',

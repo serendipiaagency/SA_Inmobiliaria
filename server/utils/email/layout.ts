@@ -97,3 +97,27 @@ export function escapeHtml(s: string): string {
 function escapeAttr(s: string): string {
   return escapeHtml(s).replace(/"/g, '&quot;')
 }
+
+/**
+ * Versión text/plain de un email ya renderizado: la alternativa que leen los
+ * clientes sin HTML y que mejora la entregabilidad. Se deriva del HTML guardado
+ * en email_log, así que un reintento genera exactamente el mismo texto.
+ */
+export function htmlToText(html: string): string {
+  return html
+    .replace(/<(style|script|title)[^>]*>[\s\S]*?<\/\1>/gi, '')
+    .replace(/<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, href, label) => `${label.replace(/<[^>]+>/g, '').trim()} (${href})`)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|h1|h2|h3|tr|table|div)>/gi, '\n')
+    .replace(/<\/td>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, '&') // la última: así «&amp;lt;» queda como «&lt;», no como «<»
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
