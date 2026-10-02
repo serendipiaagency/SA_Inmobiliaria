@@ -1,0 +1,356 @@
+# Núcleo inmobiliario: auditoría de cumplimiento y plan de cierre
+
+**Fecha:** 2026-10-02.
+
+**Qué es:** revisión punto por punto del megaprompt «Núcleo inmobiliario, CRM, leads, visitas e inteligencia aplicada» (FASES 0-34). Se contrasta con las marcas V/X del propietario y con el código real: esquema, API, permisos, interfaz y pruebas.
+
+**Cómo se ha hecho:** cinco auditorías de solo lectura, cada una con su evidencia (`fichero:línea`). Las notas de trabajo completas están fuera del repositorio. Este documento es el resumen que guía el cierre.
+
+**Leyenda:**
+- **OK**: el dato existe en la base de datos, la API lo expone y se ve y se usa en la interfaz.
+- **PARCIAL**: falta alguna de esas capas.
+- **FALTA**: no existe.
+
+La marca del propietario refleja lo que se ve desde el panel. Por eso varios puntos marcados X sí existen en el backend: el fallo es que no se ven. Y algunos marcados V están incompletos.
+
+## Restricción técnica que condiciona el diseño
+
+D1 admite como máximo **100 columnas por tabla**. `developer_properties` ya tiene 93 y `agent_properties` 78.
+
+Los más de 60 campos de ficha que faltan (identificación ampliada, ubicación, superficies, distribución, edificio, vivienda, instalaciones, zonas comunes, exterior, economía, comisiones y legal) van en tablas 1:1 por propiedad:
+- `property_details`;
+- `property_legal_economics`.
+
+Ambas tienen columnas **tipadas**, no JSON, para que se puedan filtrar y buscar, y las pueda usar el matching y la IA. Las comparten los dos catálogos mediante `(property_kind, property_id)`.
+
+## Estado por fase
+
+### FASE 0: dominio
+
+- **OK:** Property, Contact, Lead, Appointment (tabla `visits`), PropertyMatch, Deal (`deal_operations`), Activity y Task.
+- **FALTA:**
+  - Note como entidad (hoy solo hay columnas `notes`).
+  - CustomFieldDefinition y CustomFieldValue.
+  - Entidades Oficina y Equipo (hoy son texto libre en `team_members`).
+  - `officeId` en todas las entidades.
+  - `createdBy` en propiedades, leads y citas.
+  - `deletedAt` en propiedades, leads, citas, tareas y operaciones: **las propiedades se borran físicamente**.
+  - Vínculo entre usuario y comercial (`users` ↔ `team_members`).
+- **PARCIAL:** Tag. Solo se escribe con la acción masiva: no se ve, no se filtra y los contactos no se pueden etiquetar.
+
+### FASE 1: identificación de la propiedad
+
+- **OK:** referencias interna, externa y de agencia; operación; tipo; agente; fecha de captación; origen; mandato; exclusividad e inicio.
+- **FALTA:** código comercial, subtipo, oficina, equipo.
+- **FALTA (tipos):** dúplex, finca y casa genérica.
+- **PARCIAL:**
+  - Estado: vocabularios distintos en cada catálogo y sin reservada, retirada ni alquilada.
+  - Vencimiento de exclusividad: nada lo lee.
+  - Terreno, local, oficina, nave, garaje y edificio solo existen en 2ª mano.
+  - Etiquetas de tipo en inglés.
+  - Fechas como texto.
+
+### FASE 2: ubicación
+
+- **OK:** país, localidad, distrito, urbanización, CP, calle, número, portal, bloque, planta, puerta y latitud/longitud (el propietario las marcó X, pero existen con mapa en el editor).
+- **OK (privacidad):** exacta, aproximada y ocultar número.
+- **FALTA:** comunidad/región, provincia, tipo de vía, escalera.
+- **PARCIAL:** municipio (comparte columna con localidad) y barrio (comparte columna con urbanización).
+- **PARCIAL:** radio de privacidad (se guarda pero no tiene efecto).
+- **FALTA (búsqueda):** por radio, por bounding box y por coordenadas.
+- **PARCIAL (búsqueda):**
+  - Mapa: solo en la web, solo obra nueva, máximo 48 resultados y sin buscar por la zona visible.
+  - Barrio: sin filtro.
+  - Municipio en la web pública.
+
+### FASE 3: superficies y distribución
+
+- **OK:**
+  - Superficies: construida, útil, parcela, terraza, jardín y balcones.
+  - Distribución: baños, aseos, salones, cocinas, garaje y estancias personalizadas.
+- **FALTA:** superficie de oficina, comercial, total y computable; número de plantas.
+- **PARCIAL:**
+  - Habitaciones y dormitorios son la misma columna.
+  - Sin contador de terrazas, balcones, trasteros, vestidores ni despachos.
+  - La superficie de 2ª mano está rotulada «sqft» en lugar de m².
+
+### FASE 4: características
+
+- **OK:** año de construcción, ascensor, accesibilidad, orientación, estado, amueblado, terraza, piscina y jardín.
+- **FALTA:**
+  - Edificio: año de reforma, plantas, vecinos, conserje, portero, fachada, estructura.
+  - Vivienda: exterior/interior, tipo de cocina, armarios, suelos, carpintería, cristales, altura de techos.
+  - Instalaciones: las 10.
+  - Zonas comunes: gimnasio, pádel, tenis, zona infantil, coworking, salón social, seguridad.
+  - Exterior: vistas, primera línea, porche, patio.
+- **PARCIAL:**
+  - Reformado.
+  - Piscina y jardín: no distinguen comunitario de privado.
+  - Balcón: solo como superficie.
+
+### FASE 5: económica
+
+- **OK:** precio, precio anterior, comunidad (anual) e historial de precios (precio y fecha).
+- **FALTA:**
+  - Precio mínimo autorizado y precio recomendado.
+  - Alquiler: fianza, depósito, gastos incluidos, IBI y tasa de basura.
+  - Comisiones: tipo, IVA, honorarios comprador y honorarios propietario.
+  - Historial: precio anterior, usuario y motivo.
+- **PARCIAL:**
+  - Precio por m²: solo se calcula en la web.
+  - Renta mensual: es el mismo campo precio.
+  - Etiqueta «AED» fija.
+
+### FASE 6: legal y documental
+
+- **FALTA:** todo salvo la letra energética. No hay gestor de documentos por propiedad ni permisos por rol (interno, propietario, comprador autorizado, público).
+
+### FASE 7: multimedia
+
+- **OK:** fotos, planos, orden, portada, reordenar y eliminar.
+  - Fallo al eliminar: deja huérfanos el objeto en R2 y su registro.
+- **FALTA:** renders, PDF y 360.
+  - Por recurso: tipo, título, alt, pie, publicable, privado e idioma.
+  - Acciones: selección múltiple, ocultar y descargar.
+- **PARCIAL:**
+  - Vídeo: uno solo.
+  - Tour virtual: solo una marca. El 360 público simula el tour con la primera foto.
+  - Drone: un hueco.
+
+### FASE 8: contactos y propietarios
+
+- **OK:** Contact como entidad general.
+- **FALTA:** los 9 roles por contacto (varios a la vez), PropertyContact (propietario, copropietario, apoderado, inquilino, contacto) y porcentaje de propiedad.
+
+### FASE 9: CRM 360
+
+La ficha es `contactos/[id]` y hoy tiene Necesidades, Leads y Comunicaciones. **No se puede editar un contacto: no hay endpoint.**
+
+- **Cabecera FALTA:** país, origen, score, próxima acción.
+- **Cabecera sin mostrar:** WhatsApp, idioma, agente, estado.
+- **Pestañas FALTA:** Resumen, Propiedades, Visitas, Ofertas, Tareas, Documentos, Notas y Actividad.
+  - Existen en la ficha antigua `clientes/[id]`, que trabaja sobre otra tabla.
+
+### FASE 10: perfil del comprador
+
+- **OK:** la entidad completa en base de datos y API.
+- **PARCIAL:**
+  - Sin interfaz para m² máximos, baños mínimos, zonas excluidas, radio, estado, obra nueva / 2ª mano / reformado, fecha deseada y financiación.
+  - La importancia (imprescindible / preferible / indiferente) solo se puede fijar en 5 características.
+  - Una necesidad ya creada no se puede editar.
+  - El motor de matching no evalúa el estado del inmueble.
+
+### FASE 11: matching
+
+- **OK:** en los dos sentidos, con puntuación explicable (✓/△/✕) y descartar.
+- **PARCIAL:**
+  - Enviar propiedad: solo desde Compatibilidades.
+  - Crear selección y crear visita: solo desde INMO.
+- **FALTA:** matching en la ficha de propiedad.
+
+### FASE 12: leads
+
+- **OK:** la tabla propia con casi todos los campos.
+- **FALTA:** ficha de lead, alta manual, oficina y `convertedContactId` propio.
+- **Sin interfaz:** teléfono, WhatsApp, sourceDetail, campaña, UTM, portal (nunca se rellena), landing, referrer, mensaje original, prioridad y firstResponseAt.
+
+### FASE 13: pipeline de leads
+
+- **OK:** las 8 etapas en Kanban y la tabla de historial.
+- **FALTA:** historial visible; los cambios Perdido y Reactivar no quedan en el historial.
+- **PARCIAL:**
+  - La interfaz nunca envía el motivo.
+  - No responde, No interesado y Duplicado son motivos escritos a mano en un `prompt`.
+
+### FASE 14: deduplicación
+
+- **OK:** por email y teléfono, crear igualmente, unificar.
+- **PARCIAL:**
+  - WhatsApp y external ID sin interfaz.
+  - El lead solo se deduplica por email.
+
+### FASE 15: lead routing
+
+- **OK:** por propiedad, zona, tipo, obra nueva, equipo, round robin y carga.
+- **FALTA:** por oficina y por horario.
+- **PARCIAL:**
+  - Por idioma: el idioma del lead nunca se rellena, así que la regla no se aplica nunca.
+  - El historial de asignación no tiene interfaz.
+
+### FASE 16: SLA
+
+- **OK:** alertas de lead sin atender y de cualificado sin próxima acción.
+- **FALTA:** `firstContactAt`.
+- **PARCIAL:**
+  - `firstHumanResponseAt`: solo lo fija un cambio de etapa.
+  - `appointmentAt`: solo lo fija la reserva pública.
+  - Alerta «sin contacto»: no tiene en cuenta los contactos salientes.
+  - `qualifiedAt`: sin interfaz.
+
+### FASE 17: citas
+
+- **OK:** entidad, estado, inicio y resultado.
+- **FALTA:**
+  - Tipos: reunión, tasación, captación, firma (solo existe desde la operación) y open house.
+  - Campos: contactId, officeId, timezone, meetingPoint, internalNotes, cancellationReason.
+- **PARCIAL:**
+  - Propiedad, lead y agente no se pueden editar.
+  - endAt solo con ±15 min.
+  - Confirmación solo la del cliente.
+  - Recordatorios sin interfaz.
+  - Notas solo desde la reserva pública.
+
+### FASE 18: visitas multi-inmueble
+
+- **OK:** tour con paradas.
+- **PARCIAL:**
+  - Duración fija por parada: el ejemplo 10:00 / 10:45 falla.
+  - Solo obra nueva.
+  - Lead y notas sin interfaz.
+- **FALTA:** interfaz para optimizar la ruta.
+- **Fallo:** las paradas se guardan sin el tipo de propiedad. Por eso no se puede ofertar ni filtrar.
+
+### FASE 19: resultado de visita
+
+- **OK:** realizada y seguimiento.
+- **FALTA:** interés 1-5; percepción de precio, ubicación, estado y distribución; segunda visita; descartar explícito.
+- **PARCIAL:**
+  - Qué le gustó / qué no: texto libre.
+  - Oferta: solo importe, oculta en la vista Lista y rota en tours.
+
+### FASE 20: calendario
+
+- **OK:** las cuatro vistas y los filtros de agente, estado y propiedad.
+- **PARCIAL:**
+  - Oficina: filtra por texto.
+  - Tipo: sin firma.
+  - Cliente: solo a través del lead.
+  - Google/Outlook: interfaz sin implementar.
+- **Fallo:** el iCal marca la hora local como UTC.
+
+### FASE 21: activity
+
+- **OK:** entidad y eventos.
+- **PARCIAL:**
+  - Timeline solo en la ficha antigua de Cliente, filtrada a 6 tipos de evento.
+  - Sin timeline de lead, propiedad ni operación.
+- **FALTA:** eventos «match encontrado» automático y «cliente abrió ficha».
+
+### FASE 22: tareas
+
+- **OK:** tipo, título, responsable, fecha, prioridad, enlaces a contacto, lead y deal, y próxima acción del lead.
+- **PARCIAL:**
+  - Sin edición.
+  - «En curso» no se puede seleccionar.
+  - Propiedad y cita solo se rellenan automáticamente.
+  - El tipo de próxima acción no aparece en el tablero.
+
+### FASE 23: ofertas
+
+- **OK:** base de datos y API completas, historial inmutable incluido.
+- **PARCIAL:**
+  - Vendedor, financiación y vencimiento sin interfaz.
+  - La contraoferta solo lleva importe.
+  - El historial no se ve.
+  - No hay listado global ni vista por propiedad.
+
+### FASE 24: operación
+
+- **OK:** entidad, las 8 etapas, historial y ficha.
+- **PARCIAL:**
+  - Sin listado ni Kanban.
+  - El menú «Operaciones» lleva a la pantalla antigua.
+- **FALTA:** vínculo con reservas, arras y contratos.
+
+### FASE 25: UX de la ficha de propiedad
+
+- **OK:** Ubicación, Características, Precio, Media, autoguardado (al editar) y estado fijo en cabecera.
+- **FALTA:** secciones Propietario, Documentos, Portales y Actividad; búsqueda de campos; secciones colapsables.
+- **PARCIAL:** Resumen, defaults inteligentes, campos condicionales (solo 2ª mano), edición inline y validación inmediata por campo.
+
+### FASE 26: PropertySchemaRegistry
+
+- **OK:** los 7 esquemas.
+- **PARCIAL:**
+  - `publicFields` y `portalFields` no se usan.
+  - La interfaz solo usa el registro en 2ª mano.
+
+### FASE 27: búsqueda
+
+- **OK:** la mayoría de filtros; guardar, compartir, columnas, exportar y acciones masivas.
+- **FALTA:** subtipo, agente, oficina, propietario y portales.
+- **PARCIAL:**
+  - Operación: solo en 2ª mano.
+  - Características: solo desde las tools.
+
+### FASE 28: acciones masivas
+
+- **OK:** casi todas.
+- **PARCIAL:**
+  - Publicar, retirar y catálogo: solo en obra nueva.
+  - Precio: fija un valor, no aplica porcentaje.
+  - Exportar leads: tope de 200 filas.
+
+### FASE 29: comunicaciones
+
+- **OK:** WhatsApp, vínculo con lead y con propiedad.
+- **PARCIAL:**
+  - Email: solo salida.
+  - Llamadas: sin validar con una llamada real.
+  - El contacto se deduce en vez de guardarse.
+- **FALTA:** formularios como conversación y widget de chat.
+
+### FASE 30: INMO sobre datos estructurados
+
+- **OK.**
+- **PARCIAL:** el matching de una búsqueda exploratoria solo funciona si se guarda una necesidad.
+
+### FASE 31: tools
+
+- **OK:** las 14.
+- **Fallo:** el filtro por comercial excluye obra nueva.
+
+### FASE 32: lead score
+
+- **OK.**
+- **PARCIAL:** «abrió fichas» solo cuenta WhatsApp.
+
+### FASE 33: dashboard
+
+- **OK:** KPIs, segmentos y embudo.
+- **PARCIAL:**
+  - Oficina: por texto.
+  - Portal: nunca se rellena.
+- **FALTA:** que cada comercial vea solo lo suyo.
+
+### FASE 34: módulos posteriores
+
+- No se desarrollan en paralelo.
+- **Ficticio:** `/admin/automatizaciones`, con datos de demo que nada ejecuta.
+- **Desactualizado:** el marketplace.
+
+### Arquitectura INMO INTELLIGENCE
+
+- **OK:** Tools.
+- **PARCIAL:** Memoria (solo la conversación en curso).
+- **FALTA:** Brains, RAG y Workflows.
+
+## Plan de cierre
+
+Va en el orden de sprints del megaprompt, con prioridad para las 8 áreas del núcleo. Cada bloque cumple el criterio de cierre: modelo, migración, API, aislamiento multi-tenant, permisos, validación, interfaz responsive, tests unitarios, de integración y E2E, documentación, build y typecheck en verde.
+
+Las columnas nuevas se despliegan en dos pasos (lección del 2026-09-15):
+1. Primero la migración **sola**.
+2. Después el código que la usa.
+
+| Bloque | Contenido |
+|---|---|
+| N0 | Migración 0086 aditiva con todo el modelo nuevo; este documento. |
+| N1 | Oficinas y equipos, vínculo usuario ↔ comercial, `createdBy` y borrado lógico, ficha de propiedad ampliada (FASES 1-5) con las tablas de detalle, tipos y subtipos, historial de precios completo. |
+| N2 | Contactos CRM 360: edición, roles, propietarios (PropertyContact), cabecera y todas las pestañas, notas y etiquetas. |
+| N3 | Leads: ficha y alta manual, todos los campos, historial de etapas con motivo, estados alternativos, deduplicación completa, routing por oficina, idioma y horario, SLA completo. |
+| N4 | Compradores y matching: editor completo de necesidades, importancia por criterio, estado en el motor, matching en la ficha de propiedad y acciones desde cualquier vista. |
+| N5 | Citas: todos los tipos y campos, edición, tours con duración por parada en los dos catálogos, resultado estructurado, iCal, preparación para optimizar rutas. |
+| N6 | Activity en todas las fichas, tareas editables, ofertas visibles con historial, operaciones con listado y Kanban, vínculo con reservas y contratos. |
+| N7 | Documentos legales con permisos, media completo, búsqueda (mapa, radio, bbox y todos los filtros), acciones masivas completas, campos personalizados. |
+| N8 | Comunicaciones (formularios, widget), dashboard por comercial, automatizaciones reales, capas de INMO Intelligence, correcciones de documentación. |
