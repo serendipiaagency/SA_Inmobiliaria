@@ -198,7 +198,15 @@ Email.
 | Situación | Cabecera From | Responder a |
 |---|---|---|
 | Dominio propio **verificado** en Resend | `Costa Azul <hola@costaazul.es>` | su «Responder a» (si lo hay) |
-| Sin dominio, o aún sin verificar | `Costa Azul vía INMO <info@serendipiaagency.com>` | «Responder a» → dirección del remitente → email legal |
+| Sin dominio, o aún sin verificar (lo normal: no hace falta configurar nada) | `Costa Azul <info@serendipiaagency.com>` | «Responder a» → dirección del remitente → email legal → correo de su primer administrador |
+
+**Sin configurar nada** una empresa ya envía con su nombre y recibe las
+respuestas: al darla de alta (registro web o asistente), el correo de su
+administrador queda como su «Responder a» (`email_reply_to`), y para las
+empresas anteriores a esto se usa en el momento el de su primer
+administrador. La verificación del dominio es opcional: sólo hace falta para
+que también la DIRECCIÓN sea la suya. Es el mismo modelo que CA_backend
+(`src/core/email/business-sender.ts`).
 
 Nunca se envía desde una dirección de empresa sin verificar. Resend la
 rechazaría, y además sería suplantar un dominio no probado. Antes de este
@@ -253,7 +261,7 @@ rechazado todos esos envíos.
   plataforma envía desde los dominios de todas las empresas.
 - **El plan de Resend limita cuántos dominios caben en la cuenta.** Cuando no
   quedan, el alta del dominio falla con el mensaje de Resend y la empresa
-  sigue enviando vía INMO.
+  sigue enviando con su nombre desde la dirección de la plataforma.
 
 ### Configuración
 

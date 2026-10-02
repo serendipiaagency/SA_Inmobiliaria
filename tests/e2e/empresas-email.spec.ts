@@ -7,8 +7,9 @@ import { STATE_A, STATE_B } from './global-setup'
  *
  *  - El administrador de una empresa (Skyline, org 2) registra hola@<su
  *    dominio> en Sistema → Emails, ve los registros DNS, comprueba y queda
- *    verificado. Antes de verificar, sus emails salen «vía INMO»; después, de
- *    su dirección.
+ *    verificado. Antes (y sin configurar nada), sus emails salen con su nombre
+ *    desde la dirección de INMO y las respuestas a su administrador; después,
+ *    de su dirección.
  *  - Lo que envía a SUS clientes (contrato) sale de su dirección; las altas de
  *    usuario salen siempre de INMO <info@serendipiaagency.com>.
  *  - Otra empresa no puede usar ese dominio; Gmail no vale como remitente.
@@ -47,7 +48,9 @@ test.describe('Email propio de la empresa', () => {
     await page.goto('/admin/emails')
     await expect(page.getByTestId('org-sender-panel')).toHaveAttribute('data-ready', 'true')
     await expect(page.getByTestId('org-sender-effective')).toHaveAttribute('data-mode', 'platform')
-    await expect(page.getByTestId('org-sender-from')).toContainText('vía INMO <info@serendipiaagency.com>')
+    // Sin configurar nada: su nombre, la dirección de INMO, respuestas a su administrador.
+    await expect(page.getByTestId('org-sender-from')).toHaveText('Skyline Estates <info@serendipiaagency.com>')
+    await expect(page.getByTestId('org-sender-effective')).toContainText('admin@skyline-estates.com')
 
     // Gmail no sirve como remitente (nadie puede verificar su DNS).
     await page.getByTestId('org-sender-address').fill('skyline@gmail.com')
@@ -65,7 +68,7 @@ test.describe('Email propio de la empresa', () => {
     const records = page.getByTestId('org-sender-records')
     await expect(records).toContainText(`send.${DOMAIN}`)
     await expect(records).toContainText(`resend._domainkey.${DOMAIN}`)
-    // Todavía sin verificar: vía INMO, con las respuestas a la empresa.
+    // Todavía sin verificar: dirección de INMO, con las respuestas a la empresa.
     await expect(page.getByTestId('org-sender-effective')).toHaveAttribute('data-mode', 'platform')
     await expect(page.getByTestId('org-sender-effective')).toContainText('ventas@skyline-correo.es')
 

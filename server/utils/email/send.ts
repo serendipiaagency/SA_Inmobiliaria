@@ -3,7 +3,7 @@ import * as schema from '../../db/schema'
 import { htmlToText, renderEmailLayout, type EmailLocale } from './layout'
 import { TEMPLATES, type TemplateKey } from './templates'
 import { callResendApi } from './resendClient'
-import { SYSTEM_SENDER_TEMPLATES, effectiveOrgSender } from './orgSender'
+import { SYSTEM_SENDER_TEMPLATES, resolveEffectiveOrgSender } from './orgSender'
 import { platformEmailConfig } from './platformConfig'
 
 /** Retry backoff schedule in minutes — 5 attempts total, then permanently 'failed' ("reintentos limitados"). */
@@ -30,7 +30,8 @@ interface OrgEmailIdentity {
  * Remitente y marca con los que sale un email de esta empresa. El remitente
  * lo decide effectiveOrgSender() (server/utils/email/orgSender.ts): su propia
  * dirección sólo cuando su dominio está verificado en Resend; si no,
- * «Empresa vía INMO <remitente de la plataforma>» con Responder-a la empresa.
+ * «Empresa <remitente de la plataforma>» con Responder-a el correo de la
+ * empresa (el que configuró o, si no, el de su administrador).
  * Antes caía en `notificaciones@sa-inmobiliaria.com`, un dominio que no existe,
  * y usaba la dirección de la empresa aunque nadie la hubiera verificado:
  * Resend habría rechazado todos esos envíos.
@@ -38,7 +39,7 @@ interface OrgEmailIdentity {
 async function resolveOrgEmailIdentity(db: any, env: Record<string, any>, organizationId: number): Promise<OrgEmailIdentity> {
   const [org] = await db.select().from(schema.organizations).where(eq(schema.organizations.id, organizationId)).limit(1)
   const companyName = org?.companyName || org?.name || platformEmailConfig(env).fromName
-  const sender = effectiveOrgSender(org, env)
+  const sender = await resolveEffectiveOrgSender(db, env, org)
   let internalRecipients: string[]
   try {
     internalRecipients = JSON.parse(org?.emailInternalRecipientsJson || '[]')

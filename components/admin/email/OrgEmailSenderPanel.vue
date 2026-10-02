@@ -6,7 +6,7 @@
       <!-- Cómo salen hoy -->
       <div class="rounded-2xl border p-5" :class="state.effective.mode === 'own' ? 'border-emerald-200 bg-emerald-50' : 'border-line bg-paper'" data-testid="org-sender-effective" :data-mode="state.effective.mode">
         <p class="text-xs font-semibold uppercase tracking-widest" :class="state.effective.mode === 'own' ? 'text-emerald-800' : 'text-stone-500'">
-          {{ state.effective.mode === 'own' ? 'Tus emails salen de tu dirección' : 'Tus emails salen vía INMO' }}
+          {{ state.effective.mode === 'own' ? 'Tus emails salen de tu dirección' : 'Tus emails salen con tu nombre, desde la dirección de INMO' }}
         </p>
         <p class="mt-2 break-all font-mono text-sm text-ink" data-testid="org-sender-from">{{ state.effective.fromHeader }}</p>
         <p v-if="state.effective.replyTo" class="mt-1 text-sm text-stone-600">Las respuestas llegan a <span class="font-medium text-ink">{{ state.effective.replyTo }}</span>.</p>
@@ -22,7 +22,7 @@
       <form class="card space-y-5 p-5 sm:p-6" novalidate @submit.prevent="save">
         <div>
           <h3 class="text-base font-bold text-ink">Remitente de tu empresa</h3>
-          <p class="mt-1 text-sm text-stone-500">Una dirección de tu propio dominio (no Gmail, Outlook…). Hasta que el dominio esté verificado, los emails salen vía INMO con «Responder a» tu dirección.</p>
+          <p class="mt-1 text-sm text-stone-500">Opcional: una dirección de tu propio dominio (no Gmail, Outlook…). Sin ella tus emails ya salen con tu nombre y las respuestas te llegan a ti; con ella verificada, también la dirección es la tuya.</p>
         </div>
         <p v-if="formError" class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700" role="alert" data-testid="org-sender-error">{{ formError }}</p>
         <div class="grid gap-5 sm:grid-cols-2">

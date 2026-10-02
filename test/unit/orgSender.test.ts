@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as schema from '../../server/db/schema'
-import { OrgSenderError, effectiveOrgSender, emailDomainOwner, formatFromHeader, orgSenderView, saveOrgSender, senderDomainProblem, verifyOrgSender } from '../../server/utils/email/orgSender'
+import { OrgSenderError, effectiveOrgSender, emailDomainOwner, formatFromHeader, orgSenderView, resolveEffectiveOrgSender, saveOrgSender, senderDomainProblem, verifyOrgSender } from '../../server/utils/email/orgSender'
 import { createTestDb, seedTenant, type TenantFixture } from './helpers/tenantFixtures'
 
 /**
@@ -80,14 +80,23 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('effectiveOrgSender', () => {
-  it('sin dominio verificado: «Empresa vía INMO» desde el remitente de la plataforma, respuestas a la empresa', () => {
+  it('sin dominio verificado: su nombre con la dirección de la plataforma, respuestas a la empresa', () => {
     expect(effectiveOrgSender({ name: 'Costa Azul', emailSenderAddress: 'hola@costaazul.es', emailSenderDomainVerified: 0 })).toEqual({
       mode: 'platform',
-      fromHeader: 'Costa Azul vía INMO <info@serendipiaagency.com>',
+      fromHeader: 'Costa Azul <info@serendipiaagency.com>',
       replyTo: 'hola@costaazul.es',
     })
     expect(effectiveOrgSender({ name: 'Costa Azul', legalEmail: 'legal@costaazul.es' }).replyTo).toBe('legal@costaazul.es')
     expect(effectiveOrgSender({ name: 'Costa Azul', emailReplyTo: 'Ventas@Gmail.com', emailSenderAddress: 'hola@costaazul.es' }).replyTo).toBe('ventas@gmail.com')
+    // Último recurso: el correo de su administrador.
+    expect(effectiveOrgSender({ name: 'Costa Azul' }, {}, { fallbackReplyTo: 'admin@costaazul.es' }).replyTo).toBe('admin@costaazul.es')
+    expect(effectiveOrgSender({ name: 'Costa Azul', legalEmail: 'legal@costaazul.es' }, {}, { fallbackReplyTo: 'admin@costaazul.es' }).replyTo).toBe('legal@costaazul.es')
+  })
+
+  it('una empresa que no ha configurado nada: su nombre y las respuestas al correo de su administrador', async () => {
+    await db.update(schema.users).set({ email: 'Admin@Remite-A.es' }).where(eq(schema.users.id, a.userId))
+    const org = (await db.select().from(schema.organizations).where(eq(schema.organizations.id, a.orgId)))[0]
+    expect(await resolveEffectiveOrgSender(db, {}, org)).toEqual({ mode: 'platform', fromHeader: 'Remite A <info@serendipiaagency.com>', replyTo: 'admin@remite-a.es' })
   })
 
   it('con dominio verificado: su dirección y su nombre', () => {
@@ -133,7 +142,7 @@ describe('saveOrgSender + verifyOrgSender', () => {
     expect((await orgRow(a.orgId)).emailSenderDomainVerified).toBe(1)
   })
 
-  it('un dominio que no verifica se queda pendiente y los emails siguen saliendo vía INMO', async () => {
+  it('un dominio que no verifica se queda pendiente y los emails siguen saliendo con la dirección de la plataforma', async () => {
     await saveOrgSender(db, ENV, a.orgId, { senderAddress: 'hola@lento.es' }, ADMIN)
     const { view } = await verifyOrgSender(db, ENV, a.orgId)
     expect(view.domain).toMatchObject({ status: 'pending', verified: false })
@@ -161,7 +170,7 @@ describe('saveOrgSender + verifyOrgSender', () => {
     await expectSenderError(saveOrgSender(db, ENV, a.orgId, { senderAddress: 'yo@serendipiaagency.com' }, ADMIN), 'senderAddress')
     const { view } = await saveOrgSender(db, ENV, a.orgId, { senderAddress: '', replyTo: 'inmobiliaria@gmail.com' }, ADMIN)
     expect(view.domain).toBeNull()
-    expect(view.effective).toEqual({ mode: 'platform', fromHeader: 'Remite A vía INMO <info@serendipiaagency.com>', replyTo: 'inmobiliaria@gmail.com' })
+    expect(view.effective).toEqual({ mode: 'platform', fromHeader: 'Remite A <info@serendipiaagency.com>', replyTo: 'inmobiliaria@gmail.com' })
     expect(calls.filter((c) => c.startsWith('POST /domains'))).toHaveLength(0)
   })
 
