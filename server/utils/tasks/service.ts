@@ -5,6 +5,7 @@ import { now } from '../db'
 import { recordActivity } from '../activity/service'
 import { syncLeadNextAction } from '../leads/nextAction'
 import type { PropertyKind } from '../matching/service'
+import { propertyState, trashedPropertyMessage, type PropertyState } from '../properties/trash'
 
 /**
  * TaskService (FASE 22) — trabajo pendiente, deliberadamente distinto de
@@ -79,7 +80,12 @@ async function belongsToOrg(db: any, table: any, id: number, orgId: number): Pro
  * catálogos de la organización — el mismo criterio que ya seguían las filas
  * guardadas sin `propertyKind`.
  */
-export async function assertTaskReferences(db: any, orgId: number, refs: Pick<CreateTaskInput, 'assigneeId' | 'contactId' | 'leadId' | 'propertyId' | 'propertyKind' | 'appointmentId' | 'dealId'>) {
+export async function assertTaskReferences(
+  db: any,
+  orgId: number,
+  refs: Pick<CreateTaskInput, 'assigneeId' | 'contactId' | 'leadId' | 'propertyId' | 'propertyKind' | 'appointmentId' | 'dealId'>,
+  opts: { allowTrashedProperty?: boolean } = {},
+) {
   const missing = (what: string) => createError({ statusCode: 404, statusMessage: `${what} no encontrado en esta organización` })
   if (refs.assigneeId && !(await belongsToOrg(db, schema.teamMembers, refs.assigneeId, orgId))) throw missing('Responsable')
   if (refs.contactId && !(await belongsToOrg(db, schema.contacts, refs.contactId, orgId))) throw missing('Contacto')
@@ -87,17 +93,22 @@ export async function assertTaskReferences(db: any, orgId: number, refs: Pick<Cr
   if (refs.appointmentId && !(await belongsToOrg(db, schema.visits, refs.appointmentId, orgId))) throw missing('Cita')
   if (refs.dealId && !(await belongsToOrg(db, schema.dealOperations, refs.dealId, orgId))) throw missing('Operación')
   if (refs.propertyId) {
-    const tables = refs.propertyKind === 'agent' ? [schema.agentProperties] : refs.propertyKind === 'developer' ? [schema.developerProperties] : [schema.developerProperties, schema.agentProperties]
-    let found = false
-    for (const t of tables) if (!found && (await belongsToOrg(db, t, refs.propertyId, orgId))) found = true
-    if (!found) throw missing('Inmueble')
+    const kinds: PropertyKind[] = refs.propertyKind === 'agent' ? ['agent'] : refs.propertyKind === 'developer' ? ['developer'] : ['developer', 'agent']
+    const states: PropertyState[] = []
+    for (const kind of kinds) states.push(await propertyState(db, orgId, kind, refs.propertyId))
+    if (states.every((st) => st === 'missing')) throw missing('Inmueble')
+    // Una tarea NUEVA sobre una propiedad en la papelera no se crea — salvo
+    // cuando la propiedad viene heredada de algo que ya existía (el
+    // seguimiento de una visita ya hecha, appointments/outcome.ts): eso es
+    // historia, no trabajo nuevo sobre el catálogo.
+    if (!states.includes('live') && !opts.allowTrashedProperty) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('crearle una tarea') })
   }
 }
 
 /** Crea una Task y registra TASK_CREATED. Si queda ligada a un lead, recalcula su próxima acción. */
-export async function createTask(db: any, orgId: number, input: CreateTaskInput, opts: { createdBy?: number | null } = {}): Promise<TaskRow> {
+export async function createTask(db: any, orgId: number, input: CreateTaskInput, opts: { createdBy?: number | null; allowTrashedProperty?: boolean } = {}): Promise<TaskRow> {
   validate(input)
-  await assertTaskReferences(db, orgId, input)
+  await assertTaskReferences(db, orgId, input, { allowTrashedProperty: opts.allowTrashedProperty })
   const nowTs = now()
   const [row] = await db
     .insert(schema.tasks)

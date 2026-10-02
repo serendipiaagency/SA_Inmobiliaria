@@ -1,7 +1,8 @@
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { useDb, schema } from '../../../utils/db'
 import { requireApiKey } from '../../../utils/apiAuth'
 import { rateLimit } from '../../../utils/rateLimit'
+import { livePropertyCond } from '../../../utils/properties/trash'
 
 /**
  * GET /api/v1/scheduler/schedules — Fase 16 (public API). Requires
@@ -25,7 +26,9 @@ export default defineEventHandler(async (event) => {
     })
     .from(schema.publicationSchedules)
     .leftJoin(schema.developerProperties, eq(schema.developerProperties.id, schema.publicationSchedules.developerPropertyId))
-    .where(eq(schema.publicationSchedules.organizationId, orgId))
+    // API v1: las programaciones de una propiedad en la papelera no se listan
+    // (la API no ve la papelera; el panel sí, como historia).
+    .where(and(eq(schema.publicationSchedules.organizationId, orgId), livePropertyCond(schema.developerProperties)))
     .orderBy(desc(schema.publicationSchedules.baseScheduledAt))
     .limit(200)
 

@@ -1,5 +1,6 @@
 import { and, eq, like, or, sql } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
+import { livePropertyCond } from '../../utils/properties/trash'
 
 /**
  * Autocomplete for the smart search box.
@@ -29,7 +30,8 @@ export default defineEventHandler(async (event) => {
 
   const pat = `%${q}%`
   const P = schema.developerProperties
-  const orgCond = eq(P.organizationId, orgId)
+  // Las sugerencias salen del catálogo vivo: nada de la papelera.
+  const orgCond = and(eq(P.organizationId, orgId), livePropertyCond(P))
   const [cities, communities, streets, postalCodes, refsByName, refsBySlug] = await Promise.all([
     db.select({ name: schema.locations.name }).from(schema.locations).where(and(eq(schema.locations.organizationId, orgId), like(schema.locations.name, pat))).limit(5),
     db

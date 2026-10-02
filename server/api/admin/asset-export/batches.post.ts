@@ -3,6 +3,7 @@ import { requireOrgScope } from '../../../utils/auth'
 import { useDb, schema, now } from '../../../utils/db'
 import { logAdminAction } from '../../../utils/audit'
 import { FORMAT_BY_KEY } from '../../../utils/assetExport/formats'
+import { livePropertyCond } from '../../../utils/properties/trash'
 
 interface CreateBatchBody {
   name?: string
@@ -43,7 +44,8 @@ export default defineEventHandler(async (event) => {
   const foundAssets = await db
     .select({ id: schema.developerProperties.id })
     .from(schema.developerProperties)
-    .where(and(inArray(schema.developerProperties.id, assetIds), eq(schema.developerProperties.organizationId, orgId)))
+    // Las de la papelera se saltan como las ajenas: no se exporta material nuevo de ellas.
+    .where(and(inArray(schema.developerProperties.id, assetIds), eq(schema.developerProperties.organizationId, orgId), livePropertyCond(schema.developerProperties)))
   const validIds = new Set(foundAssets.map((a) => a.id))
   const skipped = assetIds.filter((id) => !validIds.has(id))
 

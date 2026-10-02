@@ -5,6 +5,7 @@ import { buildJobRows, type TemplateStep } from '../../../utils/publication/sche
 import { ensureChannelConfigs } from '../../../utils/publication/defaults'
 import { logAdminAction } from '../../../utils/audit'
 import { assertOwnedReference } from '../../../utils/tenantPolicy'
+import { assertLiveProperty } from '../../../utils/properties/trash'
 
 /** POST /api/admin/scheduler/duplicate — Fase 4/10 ("duplicar programación"). Copies a schedule's channel sequence (same relative offsets) onto a new base time. */
 export default defineEventHandler(async (event) => {
@@ -52,6 +53,9 @@ export default defineEventHandler(async (event) => {
       label: 'Propiedad',
     })
   }
+  // La copia es una programación nueva: la propiedad (la nueva o la de
+  // origen) no puede estar en la papelera.
+  await assertLiveProperty(db, orgId, 'developer', developerPropertyId, { action: 'programar su publicación' })
   const scheduleInsert = await db
     .insert(schema.publicationSchedules)
     .values({

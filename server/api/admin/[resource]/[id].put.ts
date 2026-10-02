@@ -26,6 +26,7 @@ import {
   type SheetPayload,
 } from '../../../utils/properties/extendedSheet'
 import { isSubtypeOf } from '../../../../utils/propertySheet'
+import { isPropertyTrashed } from '../../../utils/properties/trash'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -166,15 +167,20 @@ export default defineEventHandler(async (event) => {
   // (Fase 11): a real price drop or status change here can fire a rule that
   // re-publishes the property across its configured channels — see
   // server/utils/publication/automations.ts.
+  //
+  // Papelera: una ficha borrada se puede seguir editando (para dejarla lista
+  // antes de restaurarla; sólo «Restaurar» la saca de ahí), pero nunca
+  // dispara una republicación — eso la volvería a sacar a los portales.
   let automationsFired = 0
+  const trashed = isPropertyTrashed(existing as { deletedAt?: string | null })
   if (key === 'developer-properties') {
     if (typeof data.price === 'number' && existing.price !== data.price) {
       await db.insert(schema.priceHistory).values({ developerPropertyId: id, price: data.price, previousPrice: existing.price ?? null, changedBy: user.id, reason: priceReason, recordedAt: now() })
-      if (data.price < existing.price) {
+      if (data.price < existing.price && !trashed) {
         automationsFired += await fireAutomationRules(db, orgId!, id, 'price_drop', `precio ${existing.price} → ${data.price}`)
       }
     }
-    if (typeof data.status === 'string' && existing.status !== data.status) {
+    if (typeof data.status === 'string' && existing.status !== data.status && !trashed) {
       automationsFired += await fireAutomationRules(db, orgId!, id, 'status_change', `estado ${existing.status} → ${data.status}`)
     }
   }

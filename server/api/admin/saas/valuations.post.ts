@@ -2,6 +2,7 @@ import { and, eq, isNotNull } from 'drizzle-orm'
 import { requireOrgScope } from '../../../utils/auth'
 import { useDb, schema, now } from '../../../utils/db'
 import { logAdminAction } from '../../../utils/audit'
+import { livePropertyCond } from '../../../utils/properties/trash'
 
 interface ValuationBody {
   propertyType?: string
@@ -26,7 +27,8 @@ export default defineEventHandler(async (event) => {
   if (!Number.isFinite(area) || area <= 0) throw createError({ statusCode: 422, statusMessage: 'La superficie debe ser un número positivo' })
 
   const db = useDb(event)
-  const conds = [eq(schema.developerProperties.organizationId, orgId), isNotNull(schema.developerProperties.price), isNotNull(schema.developerProperties.area)]
+  // Comparables: sólo propiedades vivas (fuera de la papelera).
+  const conds = [eq(schema.developerProperties.organizationId, orgId), livePropertyCond(schema.developerProperties), isNotNull(schema.developerProperties.price), isNotNull(schema.developerProperties.area)]
   if (body.community?.trim()) conds.push(eq(schema.developerProperties.community, body.community.trim()))
   if (body.propertyType?.trim()) conds.push(eq(schema.developerProperties.propertyType, body.propertyType.trim()))
 

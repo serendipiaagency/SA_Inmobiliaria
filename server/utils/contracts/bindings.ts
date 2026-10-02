@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
-import type { H3Event } from 'h3'
+import { createError, type H3Event } from 'h3'
 import { useDb, schema } from '../db'
+import { trashedPropertyMessage } from '../properties/trash'
 
 const TOKEN_RE = /\{\{([a-zA-Z0-9_.]+)\}\}/g
 
@@ -30,6 +31,9 @@ export async function resolveContractBindings(
   if (opts.assetKind === 'property' && opts.assetId) {
     const property = (await db.select().from(schema.developerProperties).where(eq(schema.developerProperties.id, opts.assetId)).limit(1))[0]
     if (property && property.organizationId === orgId) {
+      // Un contrato NUEVO sobre una propiedad de la papelera, no (los ya
+      // generados conservan su texto: aquí sólo se pasa al crear uno).
+      if (property.deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('generar un contrato') })
       values['property.name'] = property.name
       values['property.community'] = property.community || ''
       values['property.price'] = property.price != null ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(property.price) : ''

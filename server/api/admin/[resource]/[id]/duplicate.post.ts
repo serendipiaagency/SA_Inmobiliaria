@@ -6,6 +6,7 @@ import { authorizeRecord } from '../../../../utils/tenantPolicy'
 import { logAdminAction } from '../../../../utils/audit'
 import { loadPropertySheet, savePropertySheet } from '../../../../utils/properties/extendedSheet'
 import { PROPERTY_SHEET_FIELDS } from '../../../../../utils/propertySheet'
+import { isPropertyTrashed, trashedPropertyMessage } from '../../../../utils/properties/trash'
 
 /**
  * Clones an off-plan project — the main row plus its gallery and social
@@ -28,6 +29,8 @@ export default defineEventHandler(async (event) => {
   const db = useDb(event)
 
   const { row: original } = await authorizeRecord(db, { resourceKey: key, table: def.table, policy: def.tenantPolicy, id, orgId })
+  // Duplicar es crear una propiedad nueva a partir de esta: desde la papelera, no.
+  if (isPropertyTrashed(original as { deletedAt?: string | null })) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('duplicarla') })
 
   const clone = { ...original } as Record<string, any>
   delete clone.id

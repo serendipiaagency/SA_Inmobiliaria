@@ -1,5 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../utils/db'
+import { livePropertyCond } from '../utils/properties/trash'
 
 // "/" only shows this org's portal home when the sitemap is fetched from
 // the org's own custom domain (see server/api/public/tenant.get.ts) — which
@@ -32,7 +33,12 @@ export default defineEventHandler(async (event) => {
   const orgId = resolvePublicOrgId(event)
 
   const [properties, blogPosts, team, communities, cmsArticles, cmsAuthors] = await Promise.all([
-    db.select({ slug: schema.developerProperties.slug }).from(schema.developerProperties).where(eq(schema.developerProperties.organizationId, orgId)).all(),
+    // Sólo propiedades vivas: una de la papelera respondería 404.
+    db
+      .select({ slug: schema.developerProperties.slug })
+      .from(schema.developerProperties)
+      .where(and(eq(schema.developerProperties.organizationId, orgId), livePropertyCond(schema.developerProperties)))
+      .all(),
     db.select({ slug: schema.blogs.slug }).from(schema.blogs).where(eq(schema.blogs.organizationId, orgId)).all(),
     db
       .select({ slug: schema.teamMembers.slug })

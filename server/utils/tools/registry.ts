@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { getRequestURL } from 'h3'
 import { schema } from '../db'
 import { buildPropertyFilterConds, PROPERTY_FEATURE_COLUMNS, propertyTableFor, type PropertyFeature } from '../properties/searchService'
+import { livePropertyCond } from '../properties/trash'
 import { toPublicProperty } from '../propertyPrivacy'
 import { getPropertySchemaFor, isFieldApplicable } from '../propertySchema/registry'
 import { upsertLead } from '../leads'
@@ -149,9 +150,14 @@ function assertPublishable(kind: PropertyKind, row: any) {
 /** Tipo de entidad de una propiedad en trazas y en el contexto de INMO: el catálogo forma parte de su identidad. */
 const propertyEntity = (kind: PropertyKind) => (kind === 'agent' ? 'agent_property' : 'developer_property')
 
+/**
+ * Para INMO y la Domain Tools API una propiedad en la papelera no existe:
+ * ni se enseña, ni se envía, ni se le crea una cita u oferta. Misma
+ * respuesta que una que no es de la agencia.
+ */
 async function loadOwnedProperty(db: any, orgId: number, kind: PropertyKind, id: number) {
   const P = propertyTableFor(kind) as any
-  const [row] = await db.select().from(P).where(and(eq(P.id, id), eq(P.organizationId, orgId))).limit(1)
+  const [row] = await db.select().from(P).where(and(eq(P.id, id), eq(P.organizationId, orgId), livePropertyCond(P))).limit(1)
   if (!row) throw new ToolError('NOT_FOUND', 'Propiedad no encontrada.')
   return row
 }
@@ -246,10 +252,10 @@ const searchProperties: DomainTool = {
           features: input.features,
         }),
       ]
-      // Sólo lo que la agencia tiene en oferta: 2ª mano disponible; obra nueva sin borrar.
+      // Sólo lo que la agencia tiene en oferta: 2ª mano disponible, y nada de la papelera en ningún catálogo.
       if (kind === 'agent') conds.push(eq(P.status, 'available'))
       if (input.commercialId) conds.push(eq(P.agentId, input.commercialId))
-      if (P.deletedAt) conds.push(isNull(P.deletedAt))
+      conds.push(livePropertyCond(P))
       const order = input.sort === 'price_asc' ? asc(P.price) : input.sort === 'price_desc' ? desc(P.price) : desc(P.id)
       const [{ n }] = await ctx.db.select({ n: sql<number>`count(*)` }).from(P).where(and(...conds))
       total += Number(n)

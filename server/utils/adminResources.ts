@@ -370,6 +370,9 @@ export const adminResources: Record<string, ResourceDef> = {
     relations: { agentId: { table: schema.teamMembers, label: 'Comercial' } },
     translations: { table: schema.propertyTranslations, foreignKey: 'propertyId' },
     referencePrefix: 'S',
+    // Papelera (deleted_at, migración 0086): borrar la manda allí; qué
+    // consultas la excluyen está en server/utils/properties/trash.ts.
+    softDelete: true,
   },
 
   'developer-properties': {
@@ -491,6 +494,8 @@ export const adminResources: Record<string, ResourceDef> = {
     relations: { developerId: { table: schema.developers, label: 'Promotora' }, agentId: { table: schema.teamMembers, label: 'Comercial' } },
     slugFrom: 'name',
     referencePrefix: 'W',
+    // Papelera (deleted_at, migración 0086), igual que 2ª mano.
+    softDelete: true,
   },
 
   /**

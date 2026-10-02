@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3'
 import { and, count, desc, eq } from 'drizzle-orm'
 import { cfEnv, now, schema, useDb } from '../db'
+import { livePropertyCond } from '../properties/trash'
 import { createPasswordResetToken, type SessionUser } from '../auth'
 import { logAdminAction } from '../audit'
 import { getRequestId } from '../requestId'
@@ -307,8 +308,9 @@ export async function notifyOrganizationStatusChange(event: H3Event, org: { id: 
 export async function organizationOverview(db: any, orgId: number) {
   const [[users], [properties], [developerProperties], [team], [leads]] = await Promise.all([
     db.select({ n: count() }).from(schema.users).where(eq(schema.users.organizationId, orgId)),
-    db.select({ n: count() }).from(schema.agentProperties).where(eq(schema.agentProperties.organizationId, orgId)),
-    db.select({ n: count() }).from(schema.developerProperties).where(eq(schema.developerProperties.organizationId, orgId)),
+    // Propiedades vivas: las de la papelera no cuentan en el resumen de la empresa.
+    db.select({ n: count() }).from(schema.agentProperties).where(and(eq(schema.agentProperties.organizationId, orgId), livePropertyCond(schema.agentProperties))),
+    db.select({ n: count() }).from(schema.developerProperties).where(and(eq(schema.developerProperties.organizationId, orgId), livePropertyCond(schema.developerProperties))),
     db.select({ n: count() }).from(schema.teamMembers).where(eq(schema.teamMembers.organizationId, orgId)),
     db.select({ n: count() }).from(schema.leads).where(eq(schema.leads.organizationId, orgId)),
   ])

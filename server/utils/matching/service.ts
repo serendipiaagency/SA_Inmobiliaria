@@ -4,6 +4,7 @@ import { useDb, schema, now } from '../db'
 import { evaluateMatch, RULES_VERSION, type MatchResult, type MatchableProperty, type MatchableRequirement } from './engine'
 import type { ZoneRef } from '../buyerRequirements/service'
 import { recordActivity } from '../activity/service'
+import { livePropertyCond } from '../properties/trash'
 
 /**
  * Las dos direcciones del matching (FASE 11), sobre el mismo motor.
@@ -130,7 +131,8 @@ async function candidatesInCatalog(event: H3Event, orgId: number, kind: Property
   const db = useDb(event)
   const { property: P } = tablesFor(kind)
 
-  const filters = [eq(P.organizationId, orgId)]
+  // Una propiedad en la papelera no es candidata para nadie.
+  const filters = [eq(P.organizationId, orgId), livePropertyCond(P)]
   // agent_properties usa status='available'; developer_properties no tiene ese
   // concepto de disponibilidad binaria (new/under_construction/ready son todas
   // comercializables) — sólo se filtra por estado en el catálogo que lo define.
@@ -233,7 +235,8 @@ export async function findRequirementsForProperty(
   const db = useDb(event)
   const { property: P, match: M } = tablesFor(kind)
 
-  const property = (await db.select().from(P).where(and(eq(P.id, propertyId), eq(P.organizationId, orgId))).limit(1))[0]
+  // En la papelera: no se buscan compradores para ella (el endpoint responde 404).
+  const property = (await db.select().from(P).where(and(eq(P.id, propertyId), eq(P.organizationId, orgId), livePropertyCond(P))).limit(1))[0]
   if (!property) return null
 
   const filters = [
@@ -334,6 +337,9 @@ async function upsertMatchStatus(
 
   const property = (await db.select().from(P).where(and(eq(P.id, input.propertyId), eq(P.organizationId, orgId))).limit(1))[0]
   if (!property) throw new MatchStatusError('Inmueble no encontrado')
+  // Una decisión nueva (seleccionar, descartar, marcar enviado) sobre una
+  // propiedad en la papelera no tiene sentido: primero se restaura.
+  if (property.deletedAt) throw new MatchStatusError('El inmueble está en la papelera: restáuralo antes de decidir sobre este match.')
 
   const criteriaMap = await criteriaFor(event, orgId, [requirement.id])
   const result = evaluateMatch(property as MatchableProperty, toMatchable(requirement, criteriaMap.get(requirement.id) || []))

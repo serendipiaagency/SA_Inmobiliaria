@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, isNull, like, lte, or, sql, type SQL } from 'd
 import type { H3Event } from 'h3'
 import { schema, useDb } from '../db'
 import { tablesFor, type PropertyKind } from '../matching/service'
+import { livePropertyCond } from './trash'
 
 /**
  * Property Search Service (FASE 27) — el filtro profesional único sobre
@@ -79,6 +80,11 @@ export function propertyTableFor(kind: PropertyKind) {
  * vivía duplicado (developer-properties / properties) en
  * `[resource]/index.get.ts`, con el mismo bug esperando a diverger la
  * primera vez que alguien tocara sólo una de las dos copias.
+ *
+ * Papelera: estas condiciones NO deciden si una propiedad borrada entra o
+ * no. Quien llama añade `livePropertyCond()` (properties/trash.ts) — o, en
+ * la vista Papelera del listado admin, lo contrario. Así el mismo filtro
+ * sirve para las dos vistas sin contradecirse.
  */
 export function buildPropertyFilterConds(kind: PropertyKind, filters: PropertySearchFilters): SQL[] {
   const t = propertyTableFor(kind) as any
@@ -238,7 +244,14 @@ export async function searchPropertiesCompact(event: H3Event, orgId: number, q: 
         bedrooms: schema.developerProperties.bedrooms,
       })
       .from(schema.developerProperties)
-      .where(and(eq(schema.developerProperties.organizationId, orgId), or(like(schema.developerProperties.name, needle), like(schema.developerProperties.community, needle))))
+      .where(
+        and(
+          eq(schema.developerProperties.organizationId, orgId),
+          // Un selector de inmueble (Calendar, Comunicaciones) nunca ofrece uno de la papelera.
+          livePropertyCond(schema.developerProperties),
+          or(like(schema.developerProperties.name, needle), like(schema.developerProperties.community, needle)),
+        ),
+      )
       .orderBy(asc(schema.developerProperties.name))
       .limit(perKindLimit),
     db
@@ -254,6 +267,7 @@ export async function searchPropertiesCompact(event: H3Event, orgId: number, q: 
       .where(
         and(
           eq(schema.agentProperties.organizationId, orgId),
+          livePropertyCond(schema.agentProperties),
           or(like(schema.agentProperties.reference, needle), like(schema.agentProperties.street, needle), like(schema.agentProperties.city, needle)),
         ),
       )

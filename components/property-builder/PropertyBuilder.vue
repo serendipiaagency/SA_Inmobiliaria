@@ -36,9 +36,11 @@
             <span class="rounded-full bg-ink px-1.5 py-0.5 text-[9px] font-bold text-white">IA</span>
             Generar contenido
           </NuxtLink>
-          <AdminAssetExportButton v-if="resource === 'developer-properties' && !isNew && canEdit" :asset-id="recordId!" :property-type="form.propertyType" variant="quiet" />
-          <a v-if="resource === 'developer-properties' && !isNew" :href="`/propiedades/${form.slug || recordId}`" target="_blank" rel="noopener" class="pe-btn-quiet">Vista previa</a>
-          <button v-if="!isNew" type="button" class="pe-btn-quiet" data-testid="property-share-whatsapp" @click="shareOpen = true">Compartir por WhatsApp</button>
+          <!-- En la papelera no se exporta, no hay ficha pública que previsualizar
+               y no se envía: el servidor lo rechazaría igualmente (422/404). -->
+          <AdminAssetExportButton v-if="resource === 'developer-properties' && !isNew && canEdit && !trashedAt" :asset-id="recordId!" :property-type="form.propertyType" variant="quiet" />
+          <a v-if="resource === 'developer-properties' && !isNew && !trashedAt" :href="`/propiedades/${form.slug || recordId}`" target="_blank" rel="noopener" class="pe-btn-quiet">Vista previa</a>
+          <button v-if="!isNew && !trashedAt" type="button" class="pe-btn-quiet" data-testid="property-share-whatsapp" @click="shareOpen = true">Compartir por WhatsApp</button>
         </template>
       </PropertyEditorHeader>
       <AdminCommsSharePropertyModal
@@ -48,6 +50,21 @@
       />
 
       <div class="mx-auto max-w-[1400px] px-4 py-6 sm:px-6">
+        <!-- Papelera (deleted_at, migración 0086): la ficha se puede abrir y
+             editar para revisarla, pero sólo «Restaurar» la saca de ahí. -->
+        <div
+          v-if="!isNew && trashedAt"
+          class="mb-4 flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800"
+          data-testid="property-editor-trashed"
+        >
+          <span class="min-w-0 flex-1 basis-64">
+            Esta propiedad está en la papelera: no aparece en el listado, en la web, en las búsquedas ni en el matching. Puedes revisarla y editarla; sólo «Restaurar» la devuelve al catálogo.
+          </span>
+          <button v-if="canEdit" type="button" class="pe-btn-quiet shrink-0" data-testid="property-editor-restore" :disabled="restoring" @click="restoreFromTrash">
+            {{ restoring ? 'Restaurando…' : 'Restaurar' }}
+          </button>
+        </div>
+
         <!-- Búsqueda de campos (FASE 25): con decenas de campos repartidos en
              pasos, escribir «IBI» o «catastral» lleva directo al campo. -->
         <div class="relative mb-4 max-w-md" data-testid="property-field-search">
@@ -374,6 +391,27 @@ const isDirty = computed(() => JSON.stringify({ form, translations: hasTranslati
 
 const saving = ref(false)
 const shareOpen = ref(false)
+/**
+ * Fecha de borrado si la ficha está en la papelera. Va aparte de `form` a
+ * propósito: no es un campo editable (el PUT lo ignora) y cambiarlo dentro de
+ * `form` dispararía un autoguardado sin nada que guardar.
+ */
+const trashedAt = ref<string | null>(null)
+const restoring = ref(false)
+
+async function restoreFromTrash() {
+  if (!recordId.value) return
+  restoring.value = true
+  try {
+    await $fetch<{ ok: true }>(`/api/admin/${props.resource}/${recordId.value}/restore`, { method: 'POST' })
+    trashedAt.value = null
+    toast.success('Propiedad restaurada')
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'No se pudo restaurar la propiedad')
+  } finally {
+    restoring.value = false
+  }
+}
 const saved = ref(false)
 const error = ref('')
 
@@ -430,6 +468,7 @@ onMounted(async () => {
     try {
       const res = await $fetch<{ row: Record<string, any>; translations: any[]; priceHistory?: PriceHistoryRow[] }>(`/api/admin/${props.resource}/${props.id}`)
       for (const key of Object.keys(res.row)) form[key] = res.row[key]
+      trashedAt.value = res.row.deletedAt ?? null
       priceHistory.value = res.priceHistory || []
       persistedPrice = typeof res.row.price === 'number' ? res.row.price : null
       if (hasTranslationsSection) {

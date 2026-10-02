@@ -10,6 +10,7 @@ import type { TemplateStructure } from '../../../utils/assetExport/types'
 import { buildStructuredKey } from '../../../utils/media'
 import { registerGeneratedFile } from '../../../utils/mediaAssets'
 import { assertQuotaAvailable } from '../../../utils/mediaQuota'
+import { livePropertyCond } from '../../../utils/properties/trash'
 
 interface CreateExportBody {
   assetId?: number
@@ -51,7 +52,8 @@ export default defineEventHandler(async (event) => {
     await db
       .select({ id: schema.developerProperties.id, name: schema.developerProperties.name, price: schema.developerProperties.price })
       .from(schema.developerProperties)
-      .where(and(eq(schema.developerProperties.id, body.assetId), eq(schema.developerProperties.organizationId, orgId)))
+      // API v1: una propiedad en la papelera responde 404, igual que una que no existe.
+      .where(and(eq(schema.developerProperties.id, body.assetId), eq(schema.developerProperties.organizationId, orgId), livePropertyCond(schema.developerProperties)))
       .limit(1)
   )[0]
   if (!asset) throw createError({ statusCode: 404, statusMessage: 'Asset not found' })

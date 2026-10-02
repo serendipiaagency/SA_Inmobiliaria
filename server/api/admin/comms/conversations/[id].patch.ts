@@ -4,6 +4,7 @@ import { now, schema, useDb } from '../../../../utils/db'
 import { logAdminAction } from '../../../../utils/audit'
 import { loadConversationForOrg } from '../../../../utils/comms/admin'
 import { PROPERTY_KINDS } from '../../../../utils/matching/service'
+import { assertLiveProperty } from '../../../../utils/properties/trash'
 
 /** PATCH /api/admin/comms/conversations/:id — estado (open|pending|closed), comercial asignado, propiedad de contexto. */
 export default defineEventHandler(async (event) => {
@@ -37,14 +38,11 @@ export default defineEventHandler(async (event) => {
       patch.propertyKind = null
     } else {
       const kind = PROPERTY_KINDS.includes(body.propertyKind) ? body.propertyKind : 'developer'
-      const table = kind === 'developer' ? schema.developerProperties : schema.agentProperties
-      const rows = await db
-        .select({ id: table.id })
-        .from(table)
-        .where(and(eq(table.id, Number(body.propertyId)), eq(table.organizationId, orgId)))
-        .limit(1)
-      if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Propiedad no encontrada' })
-      patch.propertyId = rows[0].id
+      const propertyId = Number(body.propertyId)
+      if (!Number.isInteger(propertyId) || propertyId <= 0) throw createError({ statusCode: 404, statusMessage: 'Propiedad no encontrada' })
+      // Vincular el hilo a una propiedad es una relación NUEVA: de la papelera, no.
+      await assertLiveProperty(db, orgId, kind, propertyId, { action: 'vincularla a la conversación' })
+      patch.propertyId = propertyId
       patch.propertyKind = kind
     }
   }

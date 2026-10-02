@@ -2,10 +2,12 @@ import { and, asc, eq, lte } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { now } from '../db'
 import { runChannelAdapter } from './adapters'
+import type { PublishResult } from './adapters/types'
 import { evaluateCondition } from './conditions'
 import { addBackoff } from './scheduling'
 import { CHANNEL_BY_KEY } from './channels'
 import { logPublicationEvent } from './logs'
+import { trashedPropertyMessage } from '../properties/trash'
 
 const BATCH_SIZE = 25
 
@@ -75,24 +77,31 @@ export async function executeJob(db: any, env: Record<string, any>, job: any, ru
   })
 
   const property = await db
-    .select({ id: schema.developerProperties.id, slug: schema.developerProperties.slug, name: schema.developerProperties.name })
+    .select({ id: schema.developerProperties.id, slug: schema.developerProperties.slug, name: schema.developerProperties.name, deletedAt: schema.developerProperties.deletedAt })
     .from(schema.developerProperties)
     .where(eq(schema.developerProperties.id, sched.developerPropertyId))
     .limit(1)
 
   const startedAt = now()
   const t0 = Date.now()
-  const result = await runChannelAdapter({
-    channelKey: job.channelKey,
-    action: job.action,
-    property: property[0] || { id: sched.developerPropertyId, slug: null, name: 'Propiedad' },
-    externalId: job.externalId,
-    idempotencyKey: `job-${job.id}-attempt-${job.retryCount + 1}`,
-    env,
-    db,
-    organizationId: job.organizationId,
-    timeoutMs: (job.maxDurationSeconds || 120) * 1000,
-  })
+  // Papelera: una propiedad borrada no se publica ni se actualiza en ningún
+  // canal (el trabajo queda «blocked», sin gastar reintentos). Retirarla
+  // (`unpublish`) sí se deja pasar: es justo lo que conviene hacer con ella.
+  const { deletedAt: propertyDeletedAt, ...propertyRef } = property[0] || { id: sched.developerPropertyId, slug: null, name: 'Propiedad', deletedAt: null }
+  const result: PublishResult =
+    propertyDeletedAt && job.action !== 'unpublish'
+      ? { state: 'failed', ok: false, retryable: false, message: trashedPropertyMessage('publicarla') }
+      : await runChannelAdapter({
+          channelKey: job.channelKey,
+          action: job.action,
+          property: propertyRef,
+          externalId: job.externalId,
+          idempotencyKey: `job-${job.id}-attempt-${job.retryCount + 1}`,
+          env,
+          db,
+          organizationId: job.organizationId,
+          timeoutMs: (job.maxDurationSeconds || 120) * 1000,
+        })
   const finishedAt = now()
 
   await db.insert(schema.publicationExecutions).values({

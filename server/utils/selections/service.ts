@@ -1,7 +1,8 @@
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import { createError } from 'h3'
 import { now, schema } from '../db'
-import { tablesFor, type PropertyKind } from '../matching/service'
+import type { PropertyKind } from '../matching/service'
+import { propertyState, trashedPropertyMessage } from '../properties/trash'
 
 /**
  * Selección de propiedades para una persona (FASE 31 §44-45, migración
@@ -55,9 +56,10 @@ export async function createPropertySelection(
     const key = `${item.propertyKind}:${item.propertyId}`
     if (seen.has(key)) throw createError({ statusCode: 422, statusMessage: 'Hay una propiedad repetida en la selección.' })
     seen.add(key)
-    const P = tablesFor(item.propertyKind).property as any
-    const [row] = await db.select({ id: P.id }).from(P).where(and(eq(P.id, item.propertyId), eq(P.organizationId, orgId))).limit(1)
-    if (!row) throw createError({ statusCode: 404, statusMessage: `Propiedad ${key} no encontrada` })
+    // …y no estar en la papelera: una selección es para enseñarla.
+    const state = await propertyState(db, orgId, item.propertyKind, item.propertyId)
+    if (state === 'missing') throw createError({ statusCode: 404, statusMessage: `Propiedad ${key} no encontrada` })
+    if (state === 'trashed') throw createError({ statusCode: 422, statusMessage: `Propiedad ${key}: ${trashedPropertyMessage('incluirla en una selección')}` })
   }
 
   const nowTs = now()

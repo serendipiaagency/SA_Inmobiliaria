@@ -3,6 +3,7 @@ import { useDb, schema } from '../../utils/db'
 import { requireApiKey } from '../../utils/apiAuth'
 import { rateLimit } from '../../utils/rateLimit'
 import { attachPhotos } from '../../utils/photos'
+import { livePropertyCond } from '../../utils/properties/trash'
 
 /**
  * GET /api/v1/properties — documented on /admin/api since before this
@@ -19,7 +20,8 @@ export default defineEventHandler(async (event) => {
   const page = Math.max(1, parseInt(String(query.page || '1'), 10) || 1)
   const perPage = Math.min(48, Math.max(1, parseInt(String(query.perPage || '20'), 10) || 20))
 
-  const conds = [eq(P.organizationId, orgId)]
+  // API v1: nada de la papelera.
+  const conds = [eq(P.organizationId, orgId), livePropertyCond(P)]
   if (query.community) conds.push(eq(P.community, String(query.community)))
   if (query.status) conds.push(eq(P.status, String(query.status)))
   const minPrice = Number(query.minPrice)

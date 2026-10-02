@@ -2,6 +2,7 @@ import { and, eq, isNull, or } from 'drizzle-orm'
 import { requireOrgScope } from '../../../utils/auth'
 import { useDb, schema, now } from '../../../utils/db'
 import { logAdminAction } from '../../../utils/audit'
+import { trashedPropertyMessage } from '../../../utils/properties/trash'
 
 interface CreateProjectBody {
   templateId?: number
@@ -33,12 +34,14 @@ export default defineEventHandler(async (event) => {
 
   const asset = (
     await db
-      .select({ id: schema.developerProperties.id, name: schema.developerProperties.name, price: schema.developerProperties.price, organizationId: schema.developerProperties.organizationId })
+      .select({ id: schema.developerProperties.id, name: schema.developerProperties.name, price: schema.developerProperties.price, organizationId: schema.developerProperties.organizationId, deletedAt: schema.developerProperties.deletedAt })
       .from(schema.developerProperties)
       .where(and(eq(schema.developerProperties.id, body.assetId), eq(schema.developerProperties.organizationId, orgId)))
       .limit(1)
   )[0]
   if (!asset) throw createError({ statusCode: 404, statusMessage: 'Asset not found' })
+  // Una pieza nueva de una propiedad de la papelera, no.
+  if (asset.deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('exportarla') })
 
   const nowTs = now()
   const inserted = await db

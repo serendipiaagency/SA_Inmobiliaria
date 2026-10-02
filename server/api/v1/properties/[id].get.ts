@@ -3,6 +3,7 @@ import { useDb, schema } from '../../../utils/db'
 import { requireApiKey } from '../../../utils/apiAuth'
 import { rateLimit } from '../../../utils/rateLimit'
 import { attachPhotos } from '../../../utils/photos'
+import { livePropertyCond } from '../../../utils/properties/trash'
 
 /**
  * GET /api/v1/properties/:id — documented on /admin/api alongside the list
@@ -20,7 +21,8 @@ export default defineEventHandler(async (event) => {
   const rows = await db
     .select()
     .from(schema.developerProperties)
-    .where(and(eq(schema.developerProperties.id, id), eq(schema.developerProperties.organizationId, orgId)))
+    // En la papelera: 404, igual que una que no existe.
+    .where(and(eq(schema.developerProperties.id, id), eq(schema.developerProperties.organizationId, orgId), livePropertyCond(schema.developerProperties)))
     .limit(1)
   if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Property not found' })
 

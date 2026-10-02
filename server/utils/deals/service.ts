@@ -4,6 +4,7 @@ import * as schema from '../../db/schema'
 import { now } from '../db'
 import { recordActivity } from '../activity/service'
 import type { PropertyKind } from '../matching/service'
+import { assertLiveProperty } from '../properties/trash'
 
 /**
  * DealService (FASE 24) — el único sitio que crea o transiciona un Deal
@@ -88,6 +89,9 @@ export async function createDeal(db: any, orgId: number, input: { acceptedOfferI
 
   const existing = await db.select({ id: schema.dealOperations.id }).from(schema.dealOperations).where(eq(schema.dealOperations.acceptedOfferId, offer.id)).limit(1)
   if (existing[0]) throw createError({ statusCode: 409, statusMessage: 'Ya existe una operación para esta oferta' })
+  // Una operación nueva sobre una propiedad en la papelera, no. Las que ya
+  // existían siguen avanzando y cerrándose (historia).
+  await assertLiveProperty(db, orgId, offer.propertyKind === 'agent' ? 'agent' : 'developer', offer.propertyId, { action: 'crear una operación', notFoundMessage: 'Inmueble no encontrado' })
 
   const sellerRows = await db.select({ contactId: schema.offerSellers.contactId }).from(schema.offerSellers).where(eq(schema.offerSellers.offerId, offer.id))
 

@@ -1,12 +1,25 @@
 <template>
   <div>
     <div class="mb-4 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-semibold tracking-tight">{{ config.title }}</h1>
-        <p class="mt-1 text-sm text-stone-500">{{ data?.total ?? 0 }} propiedad{{ data?.total === 1 ? '' : 'es' }}</p>
+      <div class="min-w-0">
+        <h1 class="text-2xl font-semibold tracking-tight">{{ trashed ? `Papelera · ${config.title}` : config.title }}</h1>
+        <p class="mt-1 text-sm text-stone-500" data-testid="property-list-count">
+          {{ data?.total ?? 0 }} propiedad{{ data?.total === 1 ? '' : 'es' }}{{ trashed ? ' en la papelera' : '' }}
+        </p>
       </div>
-      <NuxtLink :to="`/admin/${config.resource}/new`" class="btn-primary">+ Nueva propiedad</NuxtLink>
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Papelera (deleted_at, migración 0086): lo borrado se puede revisar, restaurar o eliminar definitivamente. -->
+        <button type="button" class="btn-quiet" data-testid="property-trash-toggle" @click="toggleTrash">
+          {{ trashed ? '← Volver al listado' : 'Papelera' }}
+        </button>
+        <NuxtLink v-if="!trashed" :to="`/admin/${config.resource}/new`" class="btn-primary">+ Nueva propiedad</NuxtLink>
+      </div>
     </div>
+
+    <p v-if="trashed" class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800" data-testid="property-trash-notice">
+      Las propiedades de la papelera no aparecen en el listado, en la web, en las búsquedas ni en el matching. «Restaurar» la devuelve tal cual estaba;
+      «Eliminar definitivamente» la borra para siempre y no se puede deshacer.
+    </p>
 
     <!-- Search + quick filters + view toggle -->
     <div class="mb-3 flex flex-wrap items-center gap-2">
@@ -39,7 +52,7 @@
         Filtros <span v-if="advancedCount" class="ml-1 rounded-full bg-ink px-1.5 py-0.5 text-[10px] font-semibold text-white">{{ advancedCount }}</span>
       </button>
 
-      <div class="relative">
+      <div v-if="!trashed" class="relative">
         <button type="button" class="btn-quiet" :class="savedViewsOpen ? '!border-ink !text-ink' : ''" @click="savedViewsOpen = !savedViewsOpen; columnsOpen = false">
           Vistas guardadas
         </button>
@@ -85,9 +98,9 @@
         </div>
       </div>
 
-      <a :href="exportHref" download class="btn-quiet">Exportar CSV</a>
+      <a v-if="!trashed" :href="exportHref" download class="btn-quiet">Exportar CSV</a>
 
-      <div class="relative">
+      <div v-if="!trashed" class="relative">
         <button v-if="view === 'list'" type="button" class="btn-quiet" :class="columnsOpen ? '!border-ink !text-ink' : ''" @click="columnsOpen = !columnsOpen; savedViewsOpen = false">
           Columnas
         </button>
@@ -99,7 +112,7 @@
         </div>
       </div>
 
-      <div class="ml-auto flex rounded-lg border border-line bg-white p-0.5">
+      <div v-if="!trashed" class="ml-auto flex rounded-lg border border-line bg-white p-0.5">
         <button type="button" class="rounded-md px-2.5 py-1 text-xs font-medium transition" :class="view === 'list' ? 'bg-ink text-white' : 'text-stone-500'" @click="setView('list')">Lista</button>
         <button type="button" class="rounded-md px-2.5 py-1 text-xs font-medium transition" :class="view === 'grid' ? 'bg-ink text-white' : 'text-stone-500'" @click="setView('grid')">Grid</button>
       </div>
@@ -194,10 +207,34 @@
     </div>
 
     <div v-if="pending" class="py-20 text-center text-sm text-stone-400">Cargando…</div>
-    <div v-else-if="!data?.rows?.length" class="card px-4 py-16 text-center">
-      <p class="text-sm font-medium text-stone-500">No se han encontrado propiedades</p>
-      <p class="mt-1 text-xs text-stone-400">{{ hasActiveFilters ? 'Prueba a ajustar la búsqueda o los filtros.' : 'Crea la primera con "+ Nueva propiedad".' }}</p>
+    <div v-else-if="!data?.rows?.length" class="card px-4 py-16 text-center" :data-testid="trashed ? 'property-trash-empty' : undefined">
+      <p class="text-sm font-medium text-stone-500">{{ trashed ? 'La papelera está vacía' : 'No se han encontrado propiedades' }}</p>
+      <p class="mt-1 text-xs text-stone-400">
+        {{ hasActiveFilters ? 'Prueba a ajustar la búsqueda o los filtros.' : trashed ? 'Lo que elimines del listado aparecerá aquí.' : 'Crea la primera con "+ Nueva propiedad".' }}
+      </p>
     </div>
+
+    <!-- Papelera: una lista apilada (no la tabla ni las tarjetas del listado),
+         con las dos únicas acciones que tienen sentido aquí. Se apila y
+         envuelve a ancho de móvil: sin scroll horizontal a 375 px. -->
+    <ul v-else-if="trashed" class="card divide-y divide-line" data-testid="property-trash-list">
+      <li v-for="p in data.rows" :key="p.id" class="flex flex-wrap items-center gap-3 px-4 py-3" :data-testid="`property-trash-row-${p.id}`">
+        <NuxtLink :to="`/admin/${config.resource}/${p.id}`" class="flex min-w-0 flex-1 basis-56 items-center gap-2.5" title="Abrir la ficha para revisarla">
+          <img v-if="config.rowImage(p)" :src="mediaUrl(config.rowImage(p)!)" class="h-9 w-9 shrink-0 rounded object-cover" >
+          <span v-else class="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-stone-100 text-sm">🏠</span>
+          <span class="min-w-0">
+            <span class="block truncate font-medium text-ink">{{ config.rowTitle(p) }}</span>
+            <span class="block truncate text-[11px] text-stone-400">
+              Ref. #{{ p.id }} · {{ config.rowLocation(p) }}<template v-if="p.deletedAt"> · Borrada el {{ formatDate(p.deletedAt) }}</template>
+            </span>
+          </span>
+        </NuxtLink>
+        <div v-if="canWriteProperties" class="flex shrink-0 flex-wrap items-center gap-3 text-xs">
+          <button type="button" class="font-medium text-emerald-700 hover:underline" data-testid="property-restore" @click="restore(p.id)">Restaurar</button>
+          <button type="button" class="font-medium text-red-600 hover:underline" data-testid="property-hard-delete" @click="removeForever(p.id)">Eliminar definitivamente</button>
+        </div>
+      </li>
+    </ul>
 
     <!-- Grid view -->
     <div v-else-if="view === 'grid'" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -365,6 +402,16 @@ function qsNum(key: string): number | null {
 }
 
 const q = ref(qs('q'))
+/**
+ * Papelera: la misma página y los mismos filtros, pero sobre lo borrado
+ * (`?trashed=1` en el endpoint genérico). Vive en la URL como el resto del
+ * estado, pero NO entra en un filtro/vista guardada: guardar «la papelera»
+ * como vista no tiene sentido.
+ */
+const trashed = ref(qs('trashed') === '1')
+const { canWrite } = useAdminPermissions()
+/** Restaurar y eliminar definitivamente escriben: sólo se ofrecen a quien puede escribir en el área (el servidor lo exige igualmente). */
+const canWriteProperties = computed(() => canWrite('web'))
 const status = ref(qs('status'))
 const transactionType = ref(qs('transactionType'))
 const propertyType = ref(qs('propertyType'))
@@ -628,6 +675,7 @@ const { data, pending, refresh } = await useFetch<any>(() => `/api/admin/${props
   query: computed(() => ({
     page: page.value,
     q: q.value,
+    trashed: trashed.value ? 1 : undefined,
     status: status.value,
     // Sólo se envía en el catálogo que lo tiene: el otro endpoint no conoce
     // el parámetro y no hay razón para mandárselo vacío.
@@ -739,10 +787,11 @@ function applySavableQuery(parsed: Record<string, unknown>) {
 
 /** Refleja el estado en la URL (FASE 27 §72) — `replace`, no `push`: cambiar un filtro no debe llenar el historial de "atrás" con un paso por cada tecla. */
 watch(
-  [q, page, ...FILTER_REFS],
+  [q, page, trashed, ...FILTER_REFS],
   () => {
     const query: Record<string, string> = { ...currentSavableQuery() }
     if (page.value > 1) query.page = String(page.value)
+    if (trashed.value) query.trashed = '1'
     router.replace({ query })
   },
   { flush: 'post' },
@@ -779,15 +828,59 @@ async function duplicate(id: number) {
   }
 }
 
+function formatDate(v: string) {
+  const d = new Date(v)
+  return Number.isNaN(d.getTime()) ? v : d.toLocaleDateString('es-ES')
+}
+
+function toggleTrash() {
+  trashed.value = !trashed.value
+  page.value = 1
+  clearSelection()
+  savedViewsOpen.value = false
+  columnsOpen.value = false
+}
+
+/**
+ * «Eliminar» ya no borra: manda la propiedad a la papelera (mismo texto que
+ * el listado genérico, pages/admin/[resource]/index.vue). Sólo «Eliminar
+ * definitivamente», desde la papelera, no se puede deshacer.
+ */
 async function remove(id: number) {
-  const ok = await confirm('Esta propiedad se eliminará permanentemente.', { title: '¿Eliminar propiedad?', confirmLabel: 'Eliminar', danger: true })
+  const ok = await confirm('Irá a la papelera, desde donde podrás restaurarla.', { title: '¿Mover a la papelera?', confirmLabel: 'Mover a la papelera', danger: true })
   if (!ok) return
   try {
     await $fetch<{ ok: true }>(`/api/admin/${props.resource}/${id}`, { method: 'DELETE' })
-    toast.success('Propiedad eliminada')
+    toast.success('Movida a la papelera')
     await refresh()
-  } catch {
-    toast.error('No se pudo eliminar la propiedad')
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'No se pudo mover la propiedad a la papelera')
+  }
+}
+
+async function removeForever(id: number) {
+  const ok = await confirm('Esta acción no se puede deshacer: la propiedad y su ficha se borran para siempre.', {
+    title: '¿Eliminar esta propiedad definitivamente?',
+    confirmLabel: 'Eliminar',
+    danger: true,
+  })
+  if (!ok) return
+  try {
+    await $fetch<{ ok: true }>(`/api/admin/${props.resource}/${id}?hard=1`, { method: 'DELETE' })
+    toast.success('Propiedad eliminada definitivamente')
+    await refresh()
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'No se pudo eliminar la propiedad')
+  }
+}
+
+async function restore(id: number) {
+  try {
+    await $fetch<{ ok: true }>(`/api/admin/${props.resource}/${id}/restore`, { method: 'POST' })
+    toast.success('Propiedad restaurada')
+    await refresh()
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'No se pudo restaurar la propiedad')
   }
 }
 

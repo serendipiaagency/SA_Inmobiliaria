@@ -40,6 +40,21 @@ const PROPERTY_SHEET_HELP_STEPS: string[] = [
   'Según el tipo de inmueble, el editor sólo enseña lo que aplica: un terreno no pide calefacción ni cocina, un garaje no pide distribución de vivienda. Salvo un subtipo que ya no corresponde, ningún dato se borra al cambiar de tipo: sólo deja de mostrarse.',
 ]
 
+/**
+ * Papelera de propiedades (deleted_at, migración 0086): igual en los dos
+ * catálogos, así que se documenta una vez. Ver docs/ficha-ampliada-propiedad.md,
+ * «Papelera», para la lista de qué consultas excluyen las borradas.
+ */
+const PROPERTY_TRASH_HELP_STEPS: string[] = [
+  '"Eliminar" (en la tarjeta o en la fila de la lista) ya no borra la propiedad: la manda a la Papelera, desde donde se puede restaurar. Antes de hacerlo te pide confirmación ("¿Mover a la papelera?").',
+  'Una propiedad en la Papelera desaparece del listado, de la web pública (su ficha responde "no encontrada"), del sitemap, del widget, de la API v1, de las búsquedas y selectores de inmueble, del matching, de las alertas de búsquedas guardadas, de los contadores y estadísticas, de INMO y de las acciones masivas ("Seleccionar todos los filtrados" no la incluye). Tampoco se publica en ningún canal: un trabajo de publicación pendiente queda bloqueado, aunque retirarla de un canal sí se permite.',
+  'Lo que ya existía sobre ella se conserva tal cual: sus ofertas, operaciones, visitas, contratos, tareas y conversaciones siguen viéndola (borrar no reescribe la historia). Lo que no se puede es crear algo NUEVO sobre una propiedad de la Papelera — una oferta, una visita o un tour, una tarea, un envío por WhatsApp, una selección, una operación, un contrato, una exportación o una programación de publicación —: el panel lo rechaza con "La propiedad está en la papelera: restáurala antes de…".',
+  'El botón "Papelera", arriba a la derecha del listado, enseña sólo las propiedades borradas (con la fecha en que se borraron). La búsqueda y los filtros funcionan igual dentro de la Papelera. "← Volver al listado" regresa a las propiedades vivas.',
+  'En la Papelera cada propiedad tiene dos acciones: "Restaurar" la devuelve al listado exactamente como estaba (con su ficha, galería, planos e histórico de precios), y "Eliminar definitivamente" la borra para siempre junto con su ficha ampliada — esto último no se puede deshacer y pide confirmación.',
+  'Pulsar una propiedad de la Papelera abre su ficha para revisarla: arriba aparece el aviso "Esta propiedad está en la papelera" con un botón "Restaurar". Puedes seguir editando la ficha mientras está en la Papelera (los cambios se guardan), pero editarla no la saca de ahí: sólo "Restaurar" lo hace. Mientras tanto no se ofrecen "Vista previa", "Compartir por WhatsApp" ni la exportación de piezas.',
+  'Cada agencia sólo ve y restaura su propia Papelera: una propiedad borrada de otra inmobiliaria no aparece nunca, ni se puede restaurar ni eliminar desde otra cuenta.',
+]
+
 export function useHelpContent() {
   const sections: HelpSection[] = [
     // --- General ---------------------------------------------------------
@@ -340,7 +355,7 @@ export function useHelpContent() {
         'El botón "Exportar seleccionadas" descarga en CSV sólo las filas marcadas (o, si usaste "Seleccionar las N que cumplen el filtro", las que cumplen ese filtro) — es el mismo "Exportar CSV" de arriba, aplicado a tu selección en vez de a todo el listado.',
         'Al abrir una propiedad ya creada, el panel "Histórico de precios" (debajo del editor) lista cada cambio real de precio con su fecha, el más reciente primero — tanto los hechos a mano en la ficha como los de "Actualizar precio" en bloque. Es de sólo lectura: un intento de guardar que el servidor rechaza (por ejemplo, publicar sin los campos obligatorios) no deja ninguna fila.',
         'Ordena por más recientes/antiguas, precio (mayor o menor) o nombre (A-Z/Z-A). El botón de vista cambia entre cuadrícula (tarjetas con imagen, precio, ubicación y estado) y lista; la preferencia se recuerda en este navegador.',
-        'Cada tarjeta tiene un menú "..." con Publicar/Despublicar, Duplicar (crea una copia editable con "(copia)" en el nombre) y Eliminar, además de los enlaces Editar y Vista previa.',
+        'Cada tarjeta tiene un menú "..." con Publicar/Despublicar, Duplicar (crea una copia editable con "(copia)" en el nombre) y Eliminar (la manda a la Papelera, ver más abajo), además de los enlaces Editar y Vista previa. Una propiedad de la Papelera no se puede duplicar: primero hay que restaurarla.',
         'Publicar comprueba que estén rellenos los campos que necesita una ficha pública (nombre, operación, precio, ciudad, coordenadas, portada…) — si falta alguno, "Publicar" se rechaza con un aviso de qué falta en vez de publicar una ficha incompleta. Guardar como borrador (sin publicar) no exige nada de esto: puedes guardar en cualquier momento aunque falten datos.',
         'Al crear o editar una propiedad se abre el Property Editor: un editor por pasos (Información básica, Ubicación, Precio, Características, Descripción, Multimedia, Galería, Planos, Tipos de unidad, Redes sociales, Comercial/Inversión) en vez de un formulario largo. La pantalla tiene tres columnas: a la izquierda el progreso y la lista de pasos, en el centro el paso que estás rellenando (con "PASO n DE N" sobre el título) y a la derecha una vista previa de la ficha. Dentro de un paso con muchos campos, estos se agrupan bajo subtítulos (p. ej. "Identificación"/"Clasificación", "Dimensiones"/"Equipamiento"), y los grupos de casillas —el equipamiento, por ejemplo— se pulsan como etiquetas en vez de marcarse una a una.',
         'Navega entre pasos pulsando en la columna de la izquierda o con "← Anterior"/"Siguiente →" al final de cada uno; en el último paso el botón pasa a ser "Finalizar ✓", que guarda. En pantallas pequeñas la columna de pasos se convierte en una tira horizontal encima del formulario y las columnas laterales desaparecen para dejarle todo el ancho a los campos.',
@@ -362,6 +377,7 @@ export function useHelpContent() {
         'En "Características", además de habitaciones y baños hay aseos, salones, cocinas y plazas de garaje (con el mismo control +/−), y un grupo "Superficies" con útil, parcela, terraza, jardín, balcón y trastero — todas opcionales, en m². El grupo "Estado" recoge el estado físico (a estrenar, excelente, buen estado, a renovar, a reformar) y si está amueblada. La casilla "Características repasadas" (al final de Equipamiento) marca que alguien ha revisado de verdad el equipamiento de la ficha — sin marcarla, un "No" en ascensor/piscina/etc. se interpreta como "todavía sin repasar", no como una respuesta negativa confirmada; esto lo usa el motor de compatibilidad de leads.',
         'El paso "Estancias personalizadas" (junto a Características) permite añadir dormitorios, despachos u otras estancias con su propio tipo, nombre, superficie, planta, orientación y notas — pulsa "+ Añadir estancia" y rellena sus campos; cada uno se guarda solo al salir del campo, sin esperar a "Guardar cambios". Arrastra una estancia para reordenarla, o pulsa "Eliminar" para quitarla (pide confirmación).',
         ...PROPERTY_SHEET_HELP_STEPS,
+        ...PROPERTY_TRASH_HELP_STEPS,
       ],
     },
     {
@@ -427,6 +443,7 @@ export function useHelpContent() {
         'La sección "Comercial / Inversión" tiene el mismo selector "Comercial asignado" (foto/iniciales, nombre, cargo) que Propiedades (web), más las marcas de exclusiva/reservada/tour virtual y los datos de inversión (rentabilidad estimada, gastos de comunidad).',
         'La descripción se edita en inglés y árabe desde la sección "Descripción" (son las traducciones que ve el público, no hay un texto en un idioma único) — es la única diferencia real de contenido frente a Propiedades (web). Cada idioma tiene el mismo editor de texto enriquecido (negrita, cursiva, listas, enlaces) que el resto de descripciones largas del constructor.',
         ...PROPERTY_SHEET_HELP_STEPS,
+        ...PROPERTY_TRASH_HELP_STEPS,
       ],
     },
     {
@@ -880,6 +897,13 @@ export function useHelpContent() {
   ]
 
   const faqs: HelpFaq[] = [
+    {
+      id: 'faq-papelera-propiedades',
+      question: 'He eliminado una propiedad por error, ¿se puede recuperar?',
+      answer:
+        'Sí. En "Propiedades (web)" y "Propiedades 2ª mano", "Eliminar" manda la propiedad a la Papelera. Pulsa el botón "Papelera" del listado, busca la propiedad y pulsa "Restaurar": vuelve tal cual estaba, con su ficha, galería e histórico. Mientras está en la Papelera no se ve en la web, en las búsquedas ni en el matching, y no se le pueden crear ofertas, visitas ni envíos nuevos. Sólo "Eliminar definitivamente", desde la propia Papelera, la borra para siempre.',
+      tags: ['propiedad', 'papelera', 'eliminar', 'restaurar', 'borrar', 'recuperar'],
+    },
     {
       id: 'faq-ficha-ampliada',
       question: '¿Dónde están la calefacción, el IBI, la referencia catastral o el certificado energético de una propiedad?',

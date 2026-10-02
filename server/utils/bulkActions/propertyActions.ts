@@ -9,6 +9,7 @@ import { adminResources } from '../adminResources'
 import type { BulkActionItemHandler } from './service'
 import { MAX_BULK_ACTION_TARGETS } from './service'
 import { getOrCreateTag, linkTag } from '../tags/service'
+import { livePropertyCond, trashedPropertyMessage } from '../properties/trash'
 
 function propertyTable(kind: PropertyKind) {
   return tablesFor(kind).property as any
@@ -25,7 +26,8 @@ function propertyTable(kind: PropertyKind) {
 export async function resolveFilteredPropertyIds(event: H3Event, orgId: number, kind: PropertyKind, filters: Record<string, unknown>): Promise<number[]> {
   const db = useDb(event)
   const t = propertyTable(kind)
-  const conds = [eq(t.organizationId, orgId), ...buildPropertyFilterConds(kind, parsePropertyFilters(filters))]
+  // «Todos los filtrados» son los del listado normal: nunca los de la papelera.
+  const conds = [eq(t.organizationId, orgId), livePropertyCond(t), ...buildPropertyFilterConds(kind, parsePropertyFilters(filters))]
 
   const q = typeof filters.q === 'string' ? filters.q.trim() : ''
   if (q) {
@@ -42,12 +44,18 @@ export async function resolveFilteredPropertyIds(event: H3Event, orgId: number, 
   return rows.map((r: any) => r.id)
 }
 
-/** Cada handler recibe el id ya reclamado, y primero confirma que la propiedad sigue existiendo y sigue siendo de esta organización — una fila pudo borrarse entre seleccionarla y procesarla. */
+/**
+ * Cada handler recibe el id ya reclamado, y primero confirma que la propiedad
+ * sigue existiendo, sigue siendo de esta organización y no está en la
+ * papelera — una fila pudo borrarse entre seleccionarla y procesarla. Ese
+ * elemento falla con su motivo; el resto del lote sigue.
+ */
 async function assertOwnedProperty(event: H3Event, orgId: number, kind: PropertyKind, propertyId: number) {
   const db = useDb(event)
   const t = propertyTable(kind)
   const row = (await db.select().from(t).where(and(eq(t.id, propertyId), eq(t.organizationId, orgId))).limit(1))[0]
   if (!row) throw createError({ statusCode: 404, statusMessage: 'Propiedad no encontrada' })
+  if (row.deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('aplicarle una acción masiva') })
   return row
 }
 

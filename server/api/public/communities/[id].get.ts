@@ -1,6 +1,7 @@
 import { and, eq, inArray, like } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../../utils/db'
 import { toPublicProperties } from '../../../utils/propertyPrivacy'
+import { livePropertyCond } from '../../../utils/properties/trash'
 
 export default defineEventHandler(async (event) => {
   const id = parseInt(getRouterParam(event, 'id') || '', 10)
@@ -39,6 +40,7 @@ export default defineEventHandler(async (event) => {
       and(
         like(schema.developerProperties.community, `%${community.name}%`),
         eq(schema.developerProperties.organizationId, orgId),
+        livePropertyCond(schema.developerProperties),
       ),
     )
 
