@@ -19,7 +19,12 @@
  *                                                   (falla con 422 si el destinatario
  *                                                   lleva «+fail@»: así se prueba que un
  *                                                   email caído no deshace el alta)
- *   GET  /domains                                → Resend: serendipiaagency.com verificado
+ *   GET  /domains                                → Resend: serendipiaagency.com verificado,
+ *                                                   un dominio «ajeno» dado de alta a mano y
+ *                                                   los creados por la suite
+ *   POST /domains, GET /domains/:id,
+ *   POST /domains/:id/verify                     → Resend: alta y verificación de dominios de
+ *                                                   empresa; verifica los que empiezan por «ok-»
  *   GET  /__requests                             → todo lo recibido, en orden
  *   cualquier otra cosa                          → error con la forma de Meta
  *
@@ -38,6 +43,20 @@ import { createServer } from 'node:http'
 const port = Number(process.env.E2E_PROVIDER_MOCK_PORT || 8799)
 const requests = []
 let seq = 0
+
+// Dominios de la cuenta de Resend simulada (server/utils/email/orgSender.ts).
+const domains = new Map([
+  ['e2e-dom-platform', { id: 'e2e-dom-platform', name: 'serendipiaagency.com', status: 'verified', region: 'eu-west-1' }],
+  ['e2e-dom-ajeno', { id: 'e2e-dom-ajeno', name: 'ajeno-preexistente.es', status: 'verified', region: 'eu-west-1' }],
+])
+function domainRecords(d) {
+  const st = d.status === 'verified' ? 'verified' : d.status === 'pending' ? 'pending' : 'not_started'
+  return [
+    { record: 'SPF', name: 'send', type: 'MX', ttl: 'Auto', status: st, value: `feedback-smtp.${d.region}.amazonses.com`, priority: 10 },
+    { record: 'SPF', name: 'send', type: 'TXT', ttl: 'Auto', status: st, value: '"v=spf1 include:amazonses.com ~all"' },
+    { record: 'DKIM', name: 'resend._domainkey', type: 'TXT', ttl: 'Auto', status: st, value: `p=E2E${Buffer.from(d.name).toString('base64')}` },
+  ]
+}
 
 /** Contenido no-JSON de un tool_result: se trata como resultado sin datos. */
 function parseJson(raw) {
@@ -135,9 +154,27 @@ const server = createServer((req, res) => {
       seq += 1
       return send(res, 200, { id: `e2e-email-${Date.now()}-${seq}` })
     }
+    if (url.pathname.startsWith('/domains') && !entry.hasBearer) return send(res, 401, { name: 'missing_api_key', message: 'Missing API key' })
     if (req.method === 'GET' && url.pathname === '/domains') {
-      if (!entry.hasBearer) return send(res, 401, { name: 'missing_api_key', message: 'Missing API key' })
-      return send(res, 200, { data: [{ id: 'e2e-domain-1', name: 'serendipiaagency.com', status: 'verified' }] })
+      return send(res, 200, { data: [...domains.values()].map((d) => ({ id: d.id, name: d.name, status: d.status, region: d.region, created_at: '2026-10-01T00:00:00Z' })) })
+    }
+    if (req.method === 'POST' && url.pathname === '/domains') {
+      const name = String(body?.name || '').toLowerCase()
+      if ([...domains.values()].some((d) => d.name === name)) return send(res, 403, { name: 'validation_error', message: `The domain ${name} already exists` })
+      seq += 1
+      const d = { id: `e2e-dom-${seq}`, name, status: 'not_started', region: body?.region || 'us-east-1' }
+      domains.set(d.id, d)
+      return send(res, 201, { ...d, records: domainRecords(d) })
+    }
+    const domainPath = url.pathname.match(/^\/domains\/([^/]+)(\/verify)?$/)
+    if (domainPath) {
+      const d = domains.get(decodeURIComponent(domainPath[1]))
+      if (!d) return send(res, 404, { name: 'not_found', message: 'Domain not found' })
+      if (req.method === 'POST' && domainPath[2]) {
+        d.status = d.name.startsWith('ok-') ? 'verified' : 'pending'
+        return send(res, 200, { object: 'domain', id: d.id })
+      }
+      if (req.method === 'GET' && !domainPath[2]) return send(res, 200, { object: 'domain', ...d, records: domainRecords(d) })
     }
 
     const messages = url.pathname.match(/^\/v[\d.]+\/([^/]+)\/messages$/)

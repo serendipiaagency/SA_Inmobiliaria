@@ -743,8 +743,15 @@ export function useHelpContent() {
       group: 'Sistema',
       title: 'Emails',
       route: '/admin/emails',
-      summary: 'Historial real de los emails transaccionales que envía la plataforma (leads, citas, contratos, depósitos, contraseñas…) vía Resend.',
+      summary: 'Desde qué dirección envía tu empresa sus emails a clientes y equipo (con la verificación de tu dominio), y el historial real de envíos vía Resend.',
       steps: [
+        'Arriba ves con qué remitente salen HOY tus emails. Sin dominio propio verificado salen como «Tu empresa vía INMO <info@serendipiaagency.com>» y las respuestas te llegan a tu dirección («Responder a» o, si no la pones, la del remitente).',
+        'Para enviar desde tu dirección (p. ej. hola@tuinmobiliaria.es): escríbela en «Dirección del remitente» y pulsa «Guardar remitente». Tiene que ser de un dominio tuyo: Gmail, Outlook, Yahoo… no sirven como remitente (sí como «Responder a»).',
+        'Al guardar aparecen 3 registros DNS. Añádelos tal cual en el panel donde gestionas el DNS de tu dominio (tu registrador, Cloudflare, tu hosting…). Pulsa un nombre o un valor para copiarlo. No tocan tu correo actual: van en subdominios propios.',
+        'Después pulsa «Comprobar ahora». El DNS puede tardar desde minutos hasta 48 horas; mientras tanto tus emails siguen saliendo vía INMO, no se pierde ninguno. Cuando el estado pasa a «Verificado», salen de tu dirección.',
+        'Las altas de usuario, la bienvenida y la recuperación de contraseña salen siempre de INMO <info@serendipiaagency.com>, aunque tengas tu dominio verificado: son emails de la cuenta, no de tu empresa.',
+        '«Avisos internos para tu equipo» son las direcciones que reciben los avisos de nuevos leads, mensajes de contacto y reclamaciones (una por línea, hasta 10).',
+        'Un dominio sólo puede usarlo una empresa en INMO. Si al guardar te dice que ya lo usa otra, o que está dado de alta en la plataforma, contacta con soporte de INMO.',
         'Si arriba aparece un aviso rojo o ámbar, el canal de email tiene un problema: lo verás también en el Dashboard. En verde no hay aviso, la pantalla se queda como siempre.',
         '"El envío de emails no está conectado" significa que falta el secreto RESEND_API_KEY en el Worker — lo configura quien administra Cloudflare. Mientras tanto nada se pierde: los envíos se siguen registrando aquí y se reintentan solos cuando se conecte.',
         'El estado solo pasa a "Entregado" cuando Resend lo confirma — "Enviado" únicamente significa que Resend aceptó la petición, no que llegó a un buzón real.',
@@ -820,7 +827,7 @@ export function useHelpContent() {
         'Administrador inicial: "Invitar ahora" crea su cuenta como Administrador de esa empresa (nunca super admin) y le envía desde INMO <info@serendipiaagency.com> un enlace para definir su contraseña. Nadie elige la contraseña por él y nunca se envía una contraseña por email. El enlace caduca en 1 hora: después, "Reenviar invitación" en la ficha → Usuarios, o "¿Olvidaste tu contraseña?" en el login.',
         'Al terminar verás si la invitación salió de verdad ("enviada", "en cola" si el proveedor no respondió, o "no enviada" si el envío de emails no está configurado). Desde ahí: "Ver empresa", "Crear otra empresa" o volver al listado. Si sales a mitad del alta con datos escritos, el panel te pide confirmación.',
         'La ficha de una empresa se organiza en secciones: Resumen (usuarios, propiedades, equipo y leads reales), Identidad, Configuración, Email, Datos legales, Usuarios y Estado. "Guardar cambios" guarda sólo lo que has tocado.',
-        'Email: los campos de remitente configuran cómo firma ESTA empresa los emails a SUS clientes y quién recibe sus avisos internos (uno por línea). "Dominio verificado" se recalcula solo contra Resend, nunca se marca a mano — ver docs/resend-email.md. Los emails de INMO a la empresa (bienvenida, invitación, cambios de estado) salen siempre del remitente de la plataforma.',
+        'Email: el mismo panel que ve el administrador de la empresa en Sistema → Emails — su remitente, la verificación de su dominio (registros DNS y «Comprobar ahora») y sus avisos internos. Se guarda con su propio botón. Como super admin puedes asignar a una empresa un dominio que ya estaba dado de alta a mano en Resend. Los emails de cuenta (bienvenida, invitación, recuperar contraseña, cambios de estado) salen siempre de INMO <info@serendipiaagency.com>.',
         'Datos legales (razón social, CIF/NIF, dirección, email y teléfono) son el responsable del tratamiento de esa empresa y aparecen en sus páginas de Privacidad y Términos; mientras estén vacíos, muestran "Por confirmar".',
         'Estado: "Suspendida" bloquea el acceso de todo su equipo al momento, incluidas las sesiones abiertas, sin borrar datos ni cuentas; "Activa" lo devuelve tal cual. Ambos cambios piden confirmación, constan en la auditoría y avisan por email a los administradores de la empresa y al super admin.',
         'La columna "Origen" del listado dice cómo se dio de alta cada empresa: desde este panel o desde el registro web público (Landing → "Registro empresa"). Las del registro web entran con acceso inmediato y su administrador es quien se registró.',
@@ -830,6 +837,13 @@ export function useHelpContent() {
   ]
 
   const faqs: HelpFaq[] = [
+    {
+      id: 'faq-email-propio',
+      question: '¿Cómo hago que los emails a mis clientes salgan desde mi dirección y no «vía INMO»?',
+      answer:
+        'En Sistema → Emails escribe una dirección de tu dominio (por ejemplo hola@tuinmobiliaria.es) en «Dirección del remitente» y guarda. Te aparecerán 3 registros DNS: añádelos en el panel de tu dominio y pulsa «Comprobar ahora». En cuanto el dominio figure como «Verificado», tus emails a clientes y a tu equipo salen de tu dirección. Hasta entonces salen «vía INMO» con las respuestas dirigidas a ti, así que no se pierde nada. Las direcciones de Gmail, Outlook o similares no pueden ser remitente porque nadie puede verificar su dominio; sí puedes ponerlas en «Responder a».',
+      tags: ['email', 'remitente', 'dominio', 'dns', 'verificar', 'vía inmo', 'correo propio'],
+    },
     {
       id: 'faq-empresa-suspendida',
       question: 'Un cliente dice que no puede entrar y su contraseña es correcta: «el acceso de tu empresa está suspendido». ¿Qué pasa?',

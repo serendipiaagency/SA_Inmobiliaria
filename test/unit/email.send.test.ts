@@ -99,26 +99,48 @@ describe('sendTransactionalEmail — simulated successful provider', () => {
     expect(row.deliveredAt).toBeFalsy()
   })
 
-  it('uses the org\'s own configured sender identity when set, not the platform default', async () => {
+  it('uses the org\'s own sender only once its domain is verified; until then «Empresa vía INMO» with reply-to the org', async () => {
     stubSuccessfulResend()
     const { db } = createTestDb()
     const a = await seedTenant(db, 'EmailCustomSender')
     await db.update(schema.organizations).set({ emailSenderName: 'Custom Agency', emailSenderAddress: 'hello@customagency.example', emailReplyTo: 'support@customagency.example' }).where(eq(schema.organizations.id, a.orgId))
 
-    const [result] = await sendTransactionalEmail(db, { RESEND_API_KEY: 'k' }, { organizationId: a.orgId, template: 'user_welcome', to: 'newuser@example.com', data: { name: 'X', email: 'newuser@example.com' } })
-    const [row] = await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, result.logId))
-    expect(row.fromHeader).toBe('Custom Agency <hello@customagency.example>')
-    expect(row.replyTo).toBe('support@customagency.example')
+    const send = async () => {
+      const [result] = await sendTransactionalEmail(db, { RESEND_API_KEY: 'k' }, { organizationId: a.orgId, template: 'lead_created', to: 'client@example.com', data: { name: 'X' } })
+      return (await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, result!.logId)))[0]
+    }
+    // Sin verificar: nunca su dirección (Resend la rechazaría; sería suplantar un dominio no probado).
+    const before = await send()
+    expect(before.fromHeader).toBe('Custom Agency vía INMO <info@serendipiaagency.com>')
+    expect(before.replyTo).toBe('support@customagency.example')
+
+    await db.update(schema.organizations).set({ emailSenderDomainVerified: 1 }).where(eq(schema.organizations.id, a.orgId))
+    const after = await send()
+    expect(after.fromHeader).toBe('Custom Agency <hello@customagency.example>')
+    expect(after.replyTo).toBe('support@customagency.example')
   })
 
-  it('falls back to the platform default sender when the org has no custom one configured', async () => {
+  it('account emails (welcome, password reset) always come from the platform sender, even with a verified company domain', async () => {
+    stubSuccessfulResend()
+    const { db } = createTestDb()
+    const a = await seedTenant(db, 'EmailAccount')
+    await db.update(schema.organizations).set({ emailSenderName: 'Custom Agency', emailSenderAddress: 'hello@customagency.example', emailSenderDomainVerified: 1 }).where(eq(schema.organizations.id, a.orgId))
+    for (const template of ['user_welcome', 'password_reset'] as const) {
+      const [result] = await sendTransactionalEmail(db, { RESEND_API_KEY: 'k' }, { organizationId: a.orgId, template, to: 'newuser@example.com', data: { name: 'X', email: 'newuser@example.com' } })
+      const [row] = await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, result!.logId))
+      expect(row.fromHeader).toBe('INMO <info@serendipiaagency.com>')
+    }
+  })
+
+  it('with no sender configured, company emails go out «Empresa vía INMO» from the platform sender (never the old non-existent domain)', async () => {
     stubSuccessfulResend()
     const { db } = createTestDb()
     const a = await seedTenant(db, 'EmailDefaultSender')
 
     const [result] = await sendTransactionalEmail(db, { RESEND_API_KEY: 'k' }, { organizationId: a.orgId, template: 'contract_sent', to: 'client@example.com', data: { title: 'Contrato', url: 'https://x/y' } })
     const [row] = await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, result.logId))
-    expect(row.fromHeader).toContain('sa-inmobiliaria.com')
+    expect(row.fromHeader).toBe('EmailDefaultSender vía INMO <info@serendipiaagency.com>')
+    expect(row.fromHeader).not.toContain('sa-inmobiliaria.com')
   })
 })
 

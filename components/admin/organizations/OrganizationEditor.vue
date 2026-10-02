@@ -119,36 +119,15 @@
             </div>
           </div>
 
-          <!-- Email -->
+          <!-- Email: el remitente de la empresa y la verificación de su dominio
+               (mismo panel que ve su administrador en Sistema → Emails). Se
+               guarda aparte, con su propio botón: no entra en «Guardar cambios». -->
           <div v-else-if="active === 'email'" class="space-y-6" data-testid="org-panel-email">
             <div>
               <h2 class="text-lg font-bold text-ink">Email</h2>
-              <p class="mt-1 text-sm text-stone-500">Cómo firma esta empresa los emails que envía a SUS clientes. Los emails de INMO a la empresa salen siempre de info@serendipiaagency.com.</p>
+              <p class="mt-1 text-sm text-stone-500">Desde qué dirección envía esta empresa a sus clientes y a su equipo. Las altas, bienvenidas y recuperaciones de contraseña salen siempre del remitente de INMO.</p>
             </div>
-            <div class="grid gap-5 sm:grid-cols-2">
-              <div>
-                <label for="ed-sender-name" class="label">Nombre del remitente</label>
-                <input id="ed-sender-name" v-model="form.emailSenderName" type="text" class="input" :placeholder="form.companyName || form.name" :disabled="!canEdit">
-              </div>
-              <div>
-                <label for="ed-sender-address" class="label">Dirección del remitente</label>
-                <input id="ed-sender-address" v-model="form.emailSenderAddress" type="email" class="input" placeholder="hola@inmobiliaria.es" :disabled="!canEdit" data-testid="org-edit-sender">
-                <p class="mt-1.5 text-xs" :class="row.emailSenderDomainVerified ? 'text-emerald-700' : 'text-stone-500'">
-                  {{ row.emailSenderAddress ? (row.emailSenderDomainVerified ? 'Dominio verificado en el proveedor de email.' : 'Dominio sin verificar: hasta que lo esté, se usa el remitente de la plataforma.') : 'Vacío: se usa el remitente de la plataforma.' }}
-                </p>
-              </div>
-              <div>
-                <label for="ed-reply" class="label">Responder a</label>
-                <input id="ed-reply" v-model="form.emailReplyTo" type="email" class="input" :disabled="!canEdit">
-              </div>
-            </div>
-            <div>
-              <label for="ed-recipients" class="label">Destinatarios internos</label>
-              <textarea id="ed-recipients" v-model="recipientsText" rows="3" class="input" placeholder="ventas@inmobiliaria.es&#10;ops@inmobiliaria.es" :disabled="!canEdit" data-testid="org-edit-recipients" />
-              <p class="mt-1.5 text-xs" :class="recipientsInvalid.length ? 'font-medium text-red-600' : 'text-stone-500'">
-                {{ recipientsInvalid.length ? `No son correos válidos: ${recipientsInvalid.join(', ')}` : 'Uno por línea. Reciben los avisos de nuevos leads, mensajes de contacto y reclamaciones.' }}
-              </p>
-            </div>
+            <AdminEmailOrgEmailSenderPanel :organization-id="row.id" :can-edit="canEdit" :fallback-name="row.companyName || row.name" />
           </div>
 
           <!-- Datos legales -->
@@ -250,8 +229,7 @@ const SECTIONS = [
 ] as const
 type SectionKey = (typeof SECTIONS)[number]['key']
 
-const EDITABLE = ['name', 'companyName', 'domain', 'logo', 'brandColor', 'status', 'emailLocale', 'emailSenderName', 'emailSenderAddress', 'emailReplyTo', 'legalCompanyName', 'taxId', 'legalAddress', 'legalEmail', 'legalPhone'] as const
-const EMAIL_RE = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/
+const EDITABLE = ['name', 'companyName', 'domain', 'logo', 'brandColor', 'status', 'emailLocale', 'legalCompanyName', 'taxId', 'legalAddress', 'legalEmail', 'legalPhone'] as const
 const GB = 1024 ** 3
 
 const route = useRoute()
@@ -261,8 +239,6 @@ const overview = ref<{ counts: Record<string, number>; users: { id: number; name
 const loadError = ref('')
 const form = reactive<Record<string, any>>({})
 const original = ref('')
-const recipientsText = ref('')
-const originalRecipients = ref('')
 const domainState = ref<DomainState>('empty')
 const saving = ref(false)
 const saveState = ref<'idle' | 'saved'>('idle')
@@ -273,22 +249,11 @@ const inviting = ref<number | null>(null)
 const toast = useToast()
 const { confirm } = useConfirm()
 
-function parseRecipients(json: unknown): string {
-  try {
-    const list = JSON.parse(String(json || '[]'))
-    return Array.isArray(list) ? list.map(String).join('\n') : ''
-  } catch {
-    return String(json || '') // JSON antiguo mal formado: se muestra tal cual para corregirlo
-  }
-}
-
 function hydrate(r: Record<string, any>) {
   row.value = r
   for (const f of EDITABLE) form[f] = r[f] ?? ''
   form.storageLimitGb = r.storageBytesLimit ? Math.round(r.storageBytesLimit / GB) : 5
   original.value = JSON.stringify(form)
-  recipientsText.value = parseRecipients(r.emailInternalRecipientsJson)
-  originalRecipients.value = recipientsText.value
 }
 
 // useFetch y no un $fetch suelto: los datos viajan en el payload de SSR y el
@@ -302,9 +267,7 @@ if (loaded.value) {
   loadError.value = fetchError.value.statusCode === 404 ? 'Esta empresa no existe.' : 'No se ha podido cargar la empresa.'
 }
 
-const recipientsList = computed(() => recipientsText.value.split(/[\n,;]+/).map((s) => s.trim()).filter(Boolean))
-const recipientsInvalid = computed(() => recipientsList.value.filter((r) => !EMAIL_RE.test(r)))
-const dirty = computed(() => JSON.stringify(form) !== original.value || recipientsText.value !== originalRecipients.value)
+const dirty = computed(() => JSON.stringify(form) !== original.value)
 watch(dirty, (d) => {
   if (d) saveState.value = 'idle'
 })
@@ -346,7 +309,6 @@ async function save() {
   if (!String(form.name).trim()) return fail('identidad', 'El nombre de la empresa no puede quedar vacío.')
   if (domainState.value === 'taken' || domainState.value === 'invalid') return fail('identidad', 'Revisa el dominio: está ocupado o no es válido.')
   if (form.brandColor && !isHexColor(form.brandColor)) return fail('identidad', 'El color debe tener el formato #RRGGBB.')
-  if (recipientsInvalid.value.length) return fail('email', 'Hay destinatarios internos que no son correos válidos.')
   const before = JSON.parse(original.value)
   if (form.status === 'suspended' && before.status !== 'suspended') {
     const users = overview.value?.counts.users ?? 0
@@ -361,7 +323,6 @@ async function save() {
   const body: Record<string, any> = {}
   for (const f of EDITABLE) if (form[f] !== before[f]) body[f] = typeof form[f] === 'string' ? form[f].trim() : form[f]
   if (form.storageLimitGb !== before.storageLimitGb) body.storageLimitGb = form.storageLimitGb
-  if (recipientsText.value !== originalRecipients.value) body.emailInternalRecipientsJson = JSON.stringify(recipientsList.value)
 
   saving.value = true
   try {
