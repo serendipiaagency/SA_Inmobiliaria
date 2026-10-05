@@ -1,4 +1,4 @@
-import { and, eq, isNull, lt, ne } from 'drizzle-orm'
+import { and, eq, isNull, lt, ne, notInArray } from 'drizzle-orm'
 import { schema, now } from '../db'
 
 /**
@@ -69,6 +69,55 @@ export async function markFirstAppointment(db: any, orgId: number, leadId: numbe
   if (!lead || lead.firstAppointmentAt) return
   const nowTs = now()
   await db.update(schema.leads).set({ firstAppointmentAt: nowTs, updatedAt: nowTs }).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId)))
+}
+
+/**
+ * Un contacto saliente real con la persona del lead (FASE 16): un WhatsApp
+ * enviado, una llamada hecha o anotada. Rellena, sin pisar nunca lo que ya
+ * tenía:
+ *   - `firstContactAt`: el primer contacto por cualquier canal, automático o
+ *     no (una plantilla enviada por una automatización también cuenta);
+ *   - `firstResponseAt` (la «primera respuesta humana»): sólo si lo hizo una
+ *     persona (`human`) — y entonces la alerta «sin atender» se cierra ya,
+ *     sin esperar al cron;
+ *   - `lastContactAt`: siempre, para que «sin contacto X días» cuente también
+ *     lo que sale de la agencia y no sólo lo que entra.
+ * Si llega `contactId` sin `leadId`, marca los leads abiertos de esa persona.
+ * Nunca lanza: el contacto ya ocurrió, una marca que falle no debe deshacerlo.
+ */
+export async function markLeadContacted(db: any, orgId: number, target: { leadId?: number | null; contactId?: number | null }, opts: { human: boolean; at?: string }) {
+  try {
+    const at = opts.at || now()
+    let ids: number[] = []
+    if (target.leadId) ids = [target.leadId]
+    else if (target.contactId) {
+      const rows = await db
+        .select({ id: schema.leads.id })
+        .from(schema.leads)
+        .where(and(eq(schema.leads.organizationId, orgId), eq(schema.leads.contactId, target.contactId), isNull(schema.leads.deletedAt), notInArray(schema.leads.status, ['won', 'lost'])))
+      ids = rows.map((r: any) => r.id)
+    }
+    for (const leadId of ids) {
+      const [lead] = await db
+        .select({ firstContactAt: schema.leads.firstContactAt, firstResponseAt: schema.leads.firstResponseAt })
+        .from(schema.leads)
+        .where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId)))
+        .limit(1)
+      if (!lead) continue
+      await db
+        .update(schema.leads)
+        .set({
+          lastContactAt: at,
+          updatedAt: at,
+          ...(!lead.firstContactAt ? { firstContactAt: at } : {}),
+          ...(opts.human && !lead.firstResponseAt ? { firstResponseAt: at } : {}),
+        })
+        .where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId)))
+      if (opts.human) await resolveAlert(db, orgId, leadId, 'unattended', 'auto')
+    }
+  } catch {
+    // El contacto ya ocurrió; la marca se puede reconstruir desde Activity.
+  }
 }
 
 function minutesAgo(n: number): string {

@@ -90,5 +90,5 @@ permisos; el servicio acota cada lectura y escritura por organización.
 | Motor, señales, reglas, historial | `server/utils/leads/score.ts` |
 | Migración | `migrations/0083_lead_score.sql` |
 | Ganchos | `server/utils/leads.ts`, `leads/nextAction.ts`, `buyerRequirements/service.ts`, `comms/inbox.ts`, `comms/calls.ts`, `server/tasks/leads/sla-check.ts`, `bulkActions/leadActions.ts` |
-| Interfaz | `components/admin/LeadScoreBadge.vue`, `pages/admin/leads.vue`, `pages/admin/enrutamiento.vue` |
+| Interfaz | `components/admin/LeadScoreBadge.vue`, `pages/admin/leads/index.vue`, `pages/admin/enrutamiento.vue` |
 | Pruebas | `test/unit/leadScore.test.ts` |

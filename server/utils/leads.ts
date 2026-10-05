@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull, notInArray } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, now, cfEnv } from './db'
 import { dispatchWebhook } from './webhooks'
@@ -9,7 +9,7 @@ import { routeLead, assignLead, buildRoutingContextFromProperty } from './leads/
 import { recordActivity } from './activity/service'
 import { recomputeLeadScore } from './leads/score'
 
-interface UpsertLeadInput {
+export interface UpsertLeadInput {
   /** Which tenant this lead belongs to — always the caller's resolved org, never client input. */
   organizationId: number
   name: string
@@ -34,6 +34,56 @@ interface UpsertLeadInput {
   agentName?: string | null
   budget?: number | null
   notes?: string | null
+  // Núcleo inmobiliario (migración 0086): idioma (también para el enrutado),
+  // id del lead en el sistema de origen (portal, CRM externo), portal,
+  // prioridad, oficina/equipo y quién lo dio de alta a mano.
+  language?: string | null
+  externalId?: string | null
+  portal?: string | null
+  priority?: string | null
+  officeId?: number | null
+  teamId?: number | null
+  createdBy?: number | null
+}
+
+/**
+ * El lead que una entrada nueva debe actualizar en vez de duplicar (FASE 14),
+ * dentro de la organización y en este orden:
+ *   1. mismo id externo del mismo origen (un portal que reenvía su lead);
+ *   2. mismo email (el comportamiento de siempre);
+ *   3. la misma persona — el Contact que ya resolvió `resolveContact()` por
+ *      email, teléfono o WhatsApp normalizados — con un lead todavía abierto
+ *      (ni ganado ni perdido). Un lead cerrado no se reabre en silencio: la
+ *      persona vuelve y se crea uno nuevo, con su propia historia.
+ */
+export async function findReusableLead(
+  db: any,
+  orgId: number,
+  input: { email?: string | null; externalId?: string | null; source?: string | null; contactId?: number | null },
+): Promise<{ id: number; matchedOn: 'external_id' | 'email' | 'contact' } | null> {
+  const base = [eq(schema.leads.organizationId, orgId), isNull(schema.leads.deletedAt)]
+  if (input.externalId && input.source) {
+    const [row] = await db
+      .select({ id: schema.leads.id })
+      .from(schema.leads)
+      .where(and(...base, eq(schema.leads.externalId, input.externalId), eq(schema.leads.source, input.source)))
+      .limit(1)
+    if (row) return { id: row.id, matchedOn: 'external_id' }
+  }
+  if (input.email) {
+    const [row] = await db.select({ id: schema.leads.id }).from(schema.leads).where(and(...base, eq(schema.leads.email, input.email))).limit(1)
+    if (row) return { id: row.id, matchedOn: 'email' }
+  }
+  if (input.contactId) {
+    const [row] = await db
+      .select({ id: schema.leads.id })
+      .from(schema.leads)
+      .where(and(...base, eq(schema.leads.contactId, input.contactId), notInArray(schema.leads.status, ['won', 'lost'])))
+      .orderBy(schema.leads.id)
+      .limit(1)
+    if (row) return { id: row.id, matchedOn: 'contact' }
+  }
+  return null
 }
 
 /**
@@ -73,29 +123,42 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
     }
   }
 
-  if (input.email) {
-    const existing = await db
-      .select({ id: schema.leads.id, score: schema.leads.score })
-      .from(schema.leads)
-      .where(and(eq(schema.leads.email, input.email), eq(schema.leads.organizationId, input.organizationId)))
-      .limit(1)
-    if (existing[0]) {
-      await db
-        .update(schema.leads)
-        .set({
-          lastContactAt: nowTs,
-          updatedAt: nowTs,
-          ...(input.propertyId ? { propertyId: input.propertyId, propertyName: input.propertyName || null } : {}),
-          ...(input.agentId ? { agentId: input.agentId, agentName: input.agentName || null } : {}),
-          ...(input.phone ? { phone: input.phone } : {}),
-          ...(input.budget ? { budget: input.budget } : {}),
-          ...(contactId && { contactId }),
-        })
-        .where(eq(schema.leads.id, existing[0].id))
-      await refreshScore(db, input.organizationId, existing[0].id, 'signal')
-      return { id: existing[0].id, created: false }
-    }
+  const reusable = await findReusableLead(db, input.organizationId, { email: input.email, externalId: input.externalId, source: input.source, contactId })
+  if (reusable) {
+    const [current] = await db.select().from(schema.leads).where(and(eq(schema.leads.id, reusable.id), eq(schema.leads.organizationId, input.organizationId))).limit(1)
+    await db
+      .update(schema.leads)
+      .set({
+        lastContactAt: nowTs,
+        updatedAt: nowTs,
+        ...(input.propertyId ? { propertyId: input.propertyId, propertyName: input.propertyName || null } : {}),
+        ...(input.agentId ? { agentId: input.agentId, agentName: input.agentName || null } : {}),
+        ...(input.phone ? { phone: input.phone } : {}),
+        ...(input.budget ? { budget: input.budget } : {}),
+        ...(contactId && { contactId }),
+        // Lo que faltaba en el lead existente se completa; lo que ya tenía no se pisa.
+        ...(input.email && !current?.email ? { email: input.email } : {}),
+        ...(input.whatsapp && !current?.whatsapp ? { whatsapp: input.whatsapp } : {}),
+        ...(input.language && !current?.language ? { language: input.language } : {}),
+        ...(input.externalId && !current?.externalId ? { externalId: input.externalId } : {}),
+      })
+      .where(and(eq(schema.leads.id, reusable.id), eq(schema.leads.organizationId, input.organizationId)))
+    await refreshScore(db, input.organizationId, reusable.id, 'signal')
+    return { id: reusable.id, created: false, matchedOn: reusable.matchedOn }
   }
+
+  return insertLead(event, input, contactId)
+}
+
+/**
+ * Inserta SIEMPRE un lead nuevo, con su actividad, aviso, webhook, enrutado y
+ * score. Lo usan `upsertLead()` (cuando no hay nada que reutilizar) y el alta
+ * manual del panel cuando alguien decide «crear igualmente» pese a un
+ * duplicado (server/utils/leads/admin.ts).
+ */
+export async function insertLead(event: H3Event, input: UpsertLeadInput, contactId: number | null, opts: { skipRouting?: boolean } = {}) {
+  const db = useDb(event)
+  const nowTs = now()
 
   const [row] = await db
     .insert(schema.leads)
@@ -116,6 +179,14 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
       landingPage: input.landingPage || null,
       referrer: input.referrer || null,
       originalMessage: input.originalMessage || null,
+      portal: input.portal || null,
+      priority: input.priority || null,
+      language: input.language || null,
+      externalId: input.externalId || null,
+      officeId: input.officeId ?? null,
+      teamId: input.teamId ?? null,
+      createdBy: input.createdBy ?? null,
+      convertedAt: contactId ? nowTs : null,
       status: 'new',
       stage: 'new',
       // FASE 32: ya no hay "bump" — la puntuación la calcula
@@ -154,9 +225,13 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
   // FASE 15 (migración 0071): sólo enruta si quien llamó no trajo ya un
   // comercial (p.ej. una reserva de cita con un agente concreto vino con
   // dueño desde el principio — el routing nunca pisa una elección explícita).
-  if (!input.agentId) {
+  if (!input.agentId && !opts.skipRouting) {
     try {
       const ctx = await buildRoutingContextFromProperty(event, input.organizationId, input.propertyId)
+      // El idioma del lead también enruta (regla «Idioma»), y la oficina que
+      // ya trae acota el reparto a esa oficina.
+      ctx.language = input.language || null
+      ctx.officeId = input.officeId ?? null
       const decision = await routeLead(event, input.organizationId, ctx)
       if (decision.commercialId) await assignLead(event, input.organizationId, row.id, decision)
     } catch {
@@ -165,7 +240,7 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
   }
 
   await refreshScore(db, input.organizationId, row.id, 'created')
-  return { id: row.id, created: true }
+  return { id: row.id, created: true, matchedOn: null }
 }
 
 /**

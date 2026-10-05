@@ -90,7 +90,7 @@
       <div v-else class="space-y-2">
         <div v-for="a in alerts" :key="a.id" class="flex items-center justify-between rounded-lg border border-line px-4 py-2.5 text-sm" :data-testid="`sla-alert-${a.id}`">
           <div class="min-w-0">
-            <NuxtLink :to="`/admin/leads`" class="font-medium hover:underline">{{ a.leadName }}</NuxtLink>
+            <NuxtLink :to="`/admin/leads/${a.leadId}`" class="font-medium hover:underline" :data-testid="`sla-alert-lead-${a.leadId}`">{{ a.leadName }}</NuxtLink>
             <span class="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">{{ typeLabel(a.type) }}</span>
             <p class="mt-0.5 text-xs text-stone-400">
               Fase: {{ a.leadStage || 'nueva' }}{{ a.leadAgentName ? ` · ${a.leadAgentName}` : ' · sin asignar' }} · abierta desde {{ dt.date(a.openedAt) }}

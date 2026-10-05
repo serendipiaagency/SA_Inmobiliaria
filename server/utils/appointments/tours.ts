@@ -7,6 +7,8 @@ import { generateManagementToken } from './managementToken'
 import { recordActivity } from '../activity/service'
 import { syncLeadNextAction } from '../leads/nextAction'
 import { propertyState, trashedPropertyMessage } from '../properties/trash'
+import { markFirstAppointment } from '../leads/sla'
+import { assertLeadInOrg } from './adminCreate'
 
 /**
  * Tours (FASE 18, migración 0073): un cliente viendo varios inmuebles en una
@@ -68,6 +70,7 @@ function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string): b
  */
 export async function createTour(db: any, orgId: number, input: CreateTourInput): Promise<{ id: number; stopIds: number[] }> {
   if (!input.stops.length) throw createError({ statusCode: 422, statusMessage: 'Un tour necesita al menos una parada' })
+  if (input.leadId) await assertLeadInOrg(db, orgId, input.leadId)
 
   const nowTs = now()
   const resolved: Array<TourStopInput & { agentName: string; propertyName: string | null; durationMinutes: number; endsAt: string }> = []
@@ -156,7 +159,7 @@ export async function createTour(db: any, orgId: number, input: CreateTourInput)
     )
     const stopIds = results.map((r: any) => r[0].id)
 
-    const contactId = input.leadId ? ((await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(eq(schema.leads.id, input.leadId)).limit(1))[0]?.contactId ?? null) : null
+    const contactId = input.leadId ? ((await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(and(eq(schema.leads.id, input.leadId), eq(schema.leads.organizationId, orgId))).limit(1))[0]?.contactId ?? null) : null
     for (const [index, stopId] of stopIds.entries()) {
       const stop = resolved[index]
       await recordActivity(db, orgId, {
@@ -172,7 +175,10 @@ export async function createTour(db: any, orgId: number, input: CreateTourInput)
         metadata: { tourId: tour.id, tourStopOrder: index },
       })
     }
-    if (input.leadId) await syncLeadNextAction(db, orgId, input.leadId)
+    if (input.leadId) {
+      await syncLeadNextAction(db, orgId, input.leadId)
+      await markFirstAppointment(db, orgId, input.leadId)
+    }
 
     return { id: tour.id, stopIds }
   } catch (e: any) {

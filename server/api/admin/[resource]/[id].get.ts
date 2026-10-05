@@ -6,6 +6,7 @@ import { authorizeRecord } from '../../../utils/tenantPolicy'
 import { organizationOverview } from '../../../utils/organizations/lifecycle'
 import { loadPropertySheet, propertyKindForResource } from '../../../utils/properties/extendedSheet'
 import { listContactRoles } from '../../../utils/contacts/crm'
+import { getLeadDetail } from '../../../utils/leads/admin'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -61,6 +62,8 @@ export default defineEventHandler(async (event) => {
   if (key === 'contacts') {
     return { row: { ...row, roles: await listContactRoles(db, orgId!, id) }, translations }
   }
+  // Ficha del lead: historial de etapas y de asignaciones, contacto, oficina, SLA, visitas y conversaciones.
+  if (key === 'leads') return { ...(await getLeadDetail(event, orgId!, id)), translations }
   if (key === 'organizations') {
     return { row, translations, overview: await organizationOverview(db, id) }
   }

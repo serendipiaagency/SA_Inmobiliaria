@@ -1,16 +1,18 @@
 import { and, eq, inArray, isNull, notInArray, sql } from 'drizzle-orm'
-import type { H3Event } from 'h3'
+import { createError, type H3Event } from 'h3'
 import { useDb, schema, now, isUniqueConstraintError } from '../db'
 import { recordActivity } from '../activity/service'
 import { livePropertyCond } from '../properties/trash'
+import { ROUTING_SCOPES } from '../../../utils/leadCatalog'
 
 /**
  * Lead Routing (FASE 15, migración 0071).
  *
  * Servicio central: nadie más debe decidir a mano a qué comercial va un
- * lead nuevo — todo pasa por `routeLead()` + `assignLead()`. No existe
- * Office ni Team como entidades (mismo hueco documentado desde la 0066);
- * "Team" se resuelve con `teamMembers.department`, ya existente.
+ * lead nuevo — todo pasa por `routeLead()` + `assignLead()`. Oficinas y
+ * equipos son entidades desde la migración 0086 (reglas «Oficina» y
+ * «Equipo», y `targetOfficeId`); `teamMembers.department` sigue valiendo
+ * como reparto por departamento.
  */
 
 export class LeadRoutingError extends Error {}
@@ -23,6 +25,90 @@ export interface RoutingContext {
   propertyType?: string | null
   /** true = developer_properties (obra nueva); false = agent_properties (2ª mano); null = no se sabe. */
   isNewBuild?: boolean | null
+  /** Oficina que ya trae el lead (migración 0086): la regla «Oficina» compara con ella. */
+  officeId?: number | null
+  /** Momento de la entrada, para las reglas con horario. Por defecto, ahora. */
+  at?: Date
+}
+
+/**
+ * Horario de una regla (lead_routing_rules.schedule_json, migración 0086):
+ * `{ days: [1..7] (1 = lunes), from: 'HH:MM', to: 'HH:MM', timezone: 'Europe/Madrid' }`.
+ * Fuera de su horario la regla no aplica y se prueba la siguiente — así un
+ * equipo de guardia recibe lo que entra de noche o en fin de semana.
+ */
+export interface RoutingSchedule {
+  days?: number[]
+  from?: string
+  to?: string
+  timezone?: string
+}
+
+export function parseRoutingSchedule(raw: unknown): RoutingSchedule | null {
+  if (!raw) return null
+  let v: any = raw
+  if (typeof raw === 'string') {
+    try {
+      v = JSON.parse(raw)
+    } catch {
+      return null
+    }
+  }
+  if (!v || typeof v !== 'object') return null
+  return v as RoutingSchedule
+}
+
+/** Valida un horario antes de guardarlo (lo usa el alta/edición de reglas). Devuelve el texto del error o null. */
+export function validateRoutingSchedule(raw: unknown): string | null {
+  if (raw === null || raw === undefined || raw === '') return null
+  const s = parseRoutingSchedule(raw)
+  if (!s) return 'El horario no es un JSON válido'
+  if (s.days && (!Array.isArray(s.days) || s.days.some((d) => !Number.isInteger(d) || d < 1 || d > 7))) return 'Los días van de 1 (lunes) a 7 (domingo)'
+  for (const k of ['from', 'to'] as const) if (s[k] && !/^([01]\d|2[0-3]):[0-5]\d$/.test(s[k]!)) return `«${k === 'from' ? 'Desde' : 'Hasta'}» debe tener el formato HH:MM`
+  if (s.timezone) {
+    try {
+      new Intl.DateTimeFormat('es-ES', { timeZone: s.timezone })
+    } catch {
+      return 'Zona horaria no válida (usa el formato Europe/Madrid)'
+    }
+  }
+  return null
+}
+
+/**
+ * Valida una regla antes de guardarla (alta y edición desde el CRUD
+ * genérico), sobre el estado resultante: ámbito del catálogo, horario bien
+ * formado, y que la oficina o el equipo de `matchValue` son de esta agencia
+ * (`matchValue` es texto libre: el motor genérico no puede validarlo como
+ * relación). Lanza 422/404.
+ */
+export async function validateRoutingRule(db: any, orgId: number, data: Record<string, any>, existing: Record<string, any> | null): Promise<void> {
+  const merged = { ...(existing || {}), ...data }
+  if (!(ROUTING_SCOPES as readonly string[]).includes(String(merged.scope))) throw createError({ statusCode: 422, statusMessage: 'Ámbito de la regla no válido' })
+  const scheduleProblem = validateRoutingSchedule(merged.scheduleJson)
+  if (scheduleProblem) throw createError({ statusCode: 422, statusMessage: scheduleProblem })
+  const value = merged.matchValue == null || merged.matchValue === '' ? null : String(merged.matchValue).trim()
+  if (merged.scope === 'team' || (merged.scope === 'office' && value)) {
+    const id = Number(value)
+    if (!Number.isInteger(id) || id <= 0) throw createError({ statusCode: 422, statusMessage: merged.scope === 'team' ? 'Elige el equipo de la regla' : 'La oficina de la regla no es válida' })
+    const table = merged.scope === 'team' ? schema.teams : schema.offices
+    const [row] = await db.select({ id: table.id }).from(table).where(and(eq(table.id, id), eq(table.organizationId, orgId))).limit(1)
+    if (!row) throw createError({ statusCode: 404, statusMessage: merged.scope === 'team' ? 'Equipo no encontrado' : 'Oficina no encontrada' })
+  }
+}
+
+/** ¿Está `at` dentro del horario? Sin horario, siempre. Admite franjas que cruzan la medianoche (22:00-06:00). */
+export function isWithinSchedule(schedule: RoutingSchedule | null, at: Date = new Date()): boolean {
+  if (!schedule) return true
+  const tz = schedule.timezone || 'Europe/Madrid'
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: tz, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(at)
+  const get = (t: string) => parts.find((p) => p.type === t)?.value || ''
+  const day = ({ Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 } as Record<string, number>)[get('weekday')]
+  const hm = `${get('hour')}:${get('minute')}`
+  if (schedule.days?.length && !schedule.days.includes(day)) return false
+  const from = schedule.from || '00:00'
+  const to = schedule.to || '23:59'
+  return from <= to ? hm >= from && hm <= to : hm >= from || hm <= to
 }
 
 export interface RoutingDecision {
@@ -84,11 +170,17 @@ async function resolvePropertyResponsible(event: H3Event, orgId: number, propert
   return row?.agentId ?? null
 }
 
-/** Comerciales activos de la organización, opcionalmente acotados a un department. Orden por id: determinista. */
-async function poolFor(event: H3Event, orgId: number, department: string | null | undefined): Promise<number[]> {
+/**
+ * Comerciales activos de la organización, opcionalmente acotados a un
+ * department (texto), a una oficina o a un equipo (entidades, migración
+ * 0086). Orden por id: determinista.
+ */
+async function poolFor(event: H3Event, orgId: number, department: string | null | undefined, opts: { officeId?: number | null; teamId?: number | null } = {}): Promise<number[]> {
   const db = useDb(event)
   const filters = [eq(schema.teamMembers.organizationId, orgId), eq(schema.teamMembers.employmentStatus, 'active')]
   if (department) filters.push(eq(schema.teamMembers.department, department))
+  if (opts.officeId) filters.push(eq(schema.teamMembers.officeId, opts.officeId))
+  if (opts.teamId) filters.push(eq(schema.teamMembers.teamId, opts.teamId))
   const rows = await db.select({ id: schema.teamMembers.id }).from(schema.teamMembers).where(and(...filters)).orderBy(schema.teamMembers.id)
   return rows.map((r: any) => r.id)
 }
@@ -184,6 +276,9 @@ export async function routeLead(event: H3Event, orgId: number, ctx: RoutingConte
   for (const rule of rules as any[]) {
     let matched = false
     let label = rule.name
+    // Fuera de su horario, la regla no aplica (se prueba la siguiente).
+    if (!isWithinSchedule(parseRoutingSchedule(rule.scheduleJson), ctx.at)) continue
+    let teamId: number | null = null
 
     if (rule.scope === 'property') {
       if (ctx.propertyId) {
@@ -207,6 +302,17 @@ export async function routeLead(event: H3Event, orgId: number, ctx: RoutingConte
     } else if (rule.scope === 'department') {
       matched = true // regla de reparto — sin condición propia, es el nivel de "equipo" o el catch-all final
       label = rule.targetDepartment ? `Equipo ${rule.targetDepartment}` : 'Reparto general'
+    } else if (rule.scope === 'office') {
+      // El lead ya trae oficina (formulario de una oficina, alta manual): la
+      // regla aplica si es la suya. Sin `matchValue`, aplica a cualquier lead
+      // y reparte dentro de `targetOfficeId`.
+      matched = rule.matchValue ? Number(rule.matchValue) === Number(ctx.officeId) : true
+      label = 'Oficina'
+    } else if (rule.scope === 'team') {
+      // Reparto dentro de un equipo (entidad Equipos): `matchValue` es su id.
+      teamId = Number(rule.matchValue) || null
+      matched = !!teamId
+      label = 'Equipo'
     }
     if (!matched) continue
 
@@ -214,10 +320,11 @@ export async function routeLead(event: H3Event, orgId: number, ctx: RoutingConte
       return { commercialId: rule.targetCommercialId, ruleId: rule.id, explanation: `${rule.name} → ${label}` }
     }
 
-    const pool = await poolFor(event, orgId, rule.targetDepartment)
+    const officeId = rule.targetOfficeId ?? (rule.scope === 'office' ? ctx.officeId ?? null : null)
+    const pool = await poolFor(event, orgId, rule.targetDepartment, { officeId, teamId })
     if (!pool.length) continue // nadie en este grupo — se prueba la siguiente regla, nunca se bloquea aquí
 
-    const scopeKey = rule.targetDepartment || 'org'
+    const scopeKey = [rule.targetDepartment || 'org', officeId ? `office:${officeId}` : null, teamId ? `team:${teamId}` : null].filter(Boolean).join('|')
     const picked = rule.strategy === 'workload' ? await pickByWorkload(event, orgId, pool) : await pickByRoundRobin(event, orgId, scopeKey, pool)
     if (picked) {
       const strategyLabel = rule.strategy === 'workload' ? 'Carga de trabajo' : 'Round Robin'
@@ -245,7 +352,20 @@ export async function assignLead(event: H3Event, orgId: number, leadId: number, 
   }
 
   const nowTs = now()
-  await db.update(schema.leads).set({ agentId: decision.commercialId, agentName, updatedAt: nowTs }).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId)))
+  // La oficina y el equipo del lead siguen al comercial cuando el lead no
+  // tenía (migración 0086): así filtran y segmentan por oficina sin un paso más.
+  const [lead] = await db.select({ officeId: schema.leads.officeId, teamId: schema.leads.teamId }).from(schema.leads).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId))).limit(1)
+  let inherit: Record<string, number> = {}
+  if (decision.commercialId && (!lead?.officeId || !lead?.teamId)) {
+    const [tm] = await db
+      .select({ officeId: schema.teamMembers.officeId, teamId: schema.teamMembers.teamId })
+      .from(schema.teamMembers)
+      .where(and(eq(schema.teamMembers.id, decision.commercialId), eq(schema.teamMembers.organizationId, orgId)))
+      .limit(1)
+    if (!lead?.officeId && tm?.officeId) inherit.officeId = tm.officeId
+    if (!lead?.teamId && tm?.teamId) inherit.teamId = tm.teamId
+  }
+  await db.update(schema.leads).set({ agentId: decision.commercialId, agentName, updatedAt: nowTs, ...inherit }).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId)))
   await db.insert(schema.leadAssignmentHistory).values({
     organizationId: orgId,
     leadId,

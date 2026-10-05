@@ -137,7 +137,7 @@ export async function ensureContactRole(db: any, orgId: number, contactId: numbe
   if (!current.includes(role)) await db.insert(schema.contactRoles).values({ organizationId: orgId, contactId, role, createdBy: userId, createdAt: now() })
 }
 
-async function assertOwnedRef(db: any, table: any, id: number | null | undefined, orgId: number, label: string) {
+export async function assertOwnedRef(db: any, table: any, id: number | null | undefined, orgId: number, label: string) {
   if (id == null) return
   const [row] = await db.select({ id: table.id }).from(table).where(and(eq(table.id, id), eq(table.organizationId, orgId))).limit(1)
   if (!row) fail(404, `${label} no encontrado`)

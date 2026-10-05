@@ -23,11 +23,11 @@ export default defineEventHandler(async (event) => {
   const source = String(q.source || '')
   const search = String(q.search || '').trim()
 
-  const where: string[] = ['organization_id = ?']
+  const where: string[] = ['organization_id = ?', 'deleted_at IS NULL']
   const binds: any[] = [orgId]
   if (status && status !== 'all') { where.push('status = ?'); binds.push(status) }
   if (source && source !== 'all') { where.push('source = ?'); binds.push(source) }
-  if (search) { where.push('(name LIKE ? OR email LIKE ? OR property_name LIKE ?)'); binds.push(`%${search}%`, `%${search}%`, `%${search}%`) }
+  if (search) { where.push('(name LIKE ? OR email LIKE ? OR phone LIKE ? OR property_name LIKE ?)'); binds.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`) }
   // FASE 33 §101 — el detalle de cada KPI del dashboard comercial abre este
   // listado con el mismo scope: periodo de alta o de cualificación, comercial,
   // oficina, portal, campaña, inmueble y «sin atender» (alerta SLA abierta).
@@ -43,6 +43,12 @@ export default defineEventHandler(async (event) => {
   const agentIdFilter = parseInt(String(q.agentId || ''), 10)
   if (agentIdFilter > 0) { where.push('agent_id = ?'); binds.push(agentIdFilter) }
   if (q.office) { where.push('agent_id IN (SELECT id FROM team_members WHERE organization_id = ? AND office_name = ?)'); binds.push(orgId, String(q.office)) }
+  // Oficina y equipo como entidades (migración 0086): los del propio lead.
+  const officeIdFilter = parseInt(String(q.officeId || ''), 10)
+  if (officeIdFilter > 0) { where.push('office_id = ?'); binds.push(officeIdFilter) }
+  const teamIdFilter = parseInt(String(q.teamId || ''), 10)
+  if (teamIdFilter > 0) { where.push('team_id = ?'); binds.push(teamIdFilter) }
+  if (q.priority) { where.push('priority = ?'); binds.push(String(q.priority)) }
   if (q.portal) { where.push('portal = ?'); binds.push(String(q.portal)) }
   if (q.campaign) { where.push('(campaign = ? OR utm_campaign = ?)'); binds.push(String(q.campaign), String(q.campaign)) }
   const propertyIdFilter = parseInt(String(q.propertyId || ''), 10)
@@ -88,7 +94,8 @@ export default defineEventHandler(async (event) => {
                 priority, score, budget, property_name AS propertyName,
                 agent_id AS agentId, agent_name AS agentName, last_contact_at AS lastContactAt, created_at AS createdAt,
                 next_action_type AS nextActionType, next_action_at AS nextActionAt, contact_id AS contactId, first_response_at AS firstResponseAt,
-                score_computed_at AS scoreComputedAt
+                score_computed_at AS scoreComputedAt, office_id AS officeId, team_id AS teamId, language,
+                first_contact_at AS firstContactAt
          FROM leads ${clause} ORDER BY ${orderBy} LIMIT 200`,
       )
       .bind(...binds)
@@ -99,14 +106,14 @@ export default defineEventHandler(async (event) => {
   // para quien todavía filtre por él, pero ya no es la dimensión de posición.
   const byStage = (
     await raw
-      .prepare('SELECT stage, count(*) AS n FROM leads WHERE organization_id = ? AND status != ? GROUP BY stage')
+      .prepare('SELECT stage, count(*) AS n FROM leads WHERE organization_id = ? AND deleted_at IS NULL AND status != ? GROUP BY stage')
       .bind(orgId, 'lost')
       .all<{ stage: string; n: number }>()
   ).results
   const counts: Record<string, number> = {}
   for (const r of byStage) counts[r.stage] = r.n
   counts.lost = (
-    await raw.prepare("SELECT count(*) AS n FROM leads WHERE organization_id = ? AND status = 'lost'").bind(orgId).first<{ n: number }>()
+    await raw.prepare("SELECT count(*) AS n FROM leads WHERE organization_id = ? AND deleted_at IS NULL AND status = 'lost'").bind(orgId).first<{ n: number }>()
   )?.n || 0
 
   return { rows, counts, total: rows.length }

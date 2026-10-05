@@ -8,6 +8,7 @@ import type { PropertyKind } from '../matching/service'
 import { assertLiveProperty } from '../properties/trash'
 import { recordActivity } from '../activity/service'
 import { syncLeadNextAction } from '../leads/nextAction'
+import { markFirstAppointment } from '../leads/sla'
 
 const DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
 const VALID_CHANNELS = ['in_person', 'video', 'phone'] as const
@@ -51,6 +52,9 @@ export async function createAdminAppointment(db: any, orgId: number, input: Crea
     .limit(1)
   const agent = agentRows[0]
   if (!agent) throw createError({ statusCode: 404, statusMessage: 'Comercial no encontrado' })
+  // El lead tiene que ser de esta agencia: un id ajeno dejaría la cita
+  // colgando de un lead que nadie de aquí puede ver.
+  if (input.leadId) await assertLeadInOrg(db, orgId, input.leadId)
 
   let propertyName: string | null = null
   const propertyKind: PropertyKind | null = input.propertyId ? input.propertyKind || 'developer' : null
@@ -127,7 +131,16 @@ export async function createAdminAppointment(db: any, orgId: number, input: Crea
     actorType: 'user',
     metadata: { channel, type },
   })
-  if (input.leadId) await syncLeadNextAction(db, orgId, input.leadId)
+  if (input.leadId) {
+    await syncLeadNextAction(db, orgId, input.leadId)
+    await markFirstAppointment(db, orgId, input.leadId)
+  }
 
   return visit
+}
+
+/** 404 si el lead no existe en esta agencia — mismo trato que cualquier referencia ajena. */
+export async function assertLeadInOrg(db: any, orgId: number, leadId: number) {
+  const rows = await db.select({ id: schema.leads.id }).from(schema.leads).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId))).limit(1)
+  if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Lead no encontrado' })
 }

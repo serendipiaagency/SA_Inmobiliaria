@@ -6,6 +6,7 @@
         <p class="mt-1 text-sm text-stone-500">{{ total }} leads · arrastra una tarjeta para cambiar su estado</p>
       </div>
       <div class="flex items-center gap-2">
+        <button v-if="canEdit" type="button" class="btn-primary" data-testid="lead-new" @click="creating = true">+ Nuevo lead</button>
         <div class="flex gap-1 rounded-lg bg-stone-100 p-0.5">
           <button class="rounded-md px-3 py-1.5 text-xs font-medium transition" :class="view === 'board' ? 'bg-white text-ink shadow-sm' : 'text-stone-500'" @click="view = 'board'">Pipeline</button>
           <button class="rounded-md px-3 py-1.5 text-xs font-medium transition" :class="view === 'table' ? 'bg-white text-ink shadow-sm' : 'text-stone-500'" @click="view = 'table'">Tabla</button>
@@ -21,7 +22,15 @@
       </div>
       <select v-model="source" class="rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink">
         <option value="all">Todos los orígenes</option>
-        <option v-for="s in sources" :key="s" :value="s">{{ s }}</option>
+        <option v-for="s in LEAD_SOURCES" :key="s" :value="s">{{ LEAD_SOURCE_LABELS[s] }}</option>
+      </select>
+      <select v-model="officeId" class="rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink" data-testid="leads-office-filter">
+        <option value="">Todas las oficinas</option>
+        <option v-for="o in offices" :key="o.id" :value="String(o.id)">{{ o.label }}</option>
+      </select>
+      <select v-model="priority" class="rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink" data-testid="leads-priority-filter">
+        <option value="">Cualquier prioridad</option>
+        <option v-for="p in LEAD_PRIORITIES" :key="p" :value="p">{{ LEAD_PRIORITY_LABELS[p] }}</option>
       </select>
       <button v-if="Object.keys(drill).length" type="button" class="rounded-full bg-ink px-3 py-1 text-xs font-medium text-white" data-testid="leads-drill-chip" @click="clearDrill">
         {{ drill.ids ? 'Lead abierto desde INMO' : 'Filtrado desde el dashboard' }} · quitar ✕
@@ -67,14 +76,14 @@
           >
             <div class="flex items-start justify-between gap-2">
               <div class="min-w-0">
-                <NuxtLink v-if="l.contactId" :to="`/admin/contactos/${l.contactId}?tab=comunicaciones`" class="block truncate text-sm font-semibold hover:underline" :data-testid="`lead-contact-link-${l.id}`" title="Ver ficha y comunicaciones">{{ l.name }}</NuxtLink>
-                <p v-else class="truncate text-sm font-semibold">{{ l.name }}</p>
+                <NuxtLink :to="`/admin/leads/${l.id}`" class="block truncate text-sm font-semibold hover:underline" :data-testid="`lead-link-${l.id}`" title="Abrir la ficha del lead">{{ l.name }}</NuxtLink>
+                <NuxtLink v-if="l.contactId" :to="`/admin/contactos/${l.contactId}?tab=comunicaciones`" class="block truncate text-[11px] text-stone-400 hover:underline" :data-testid="`lead-contact-link-${l.id}`" title="Ver el contacto y sus comunicaciones">Ver contacto</NuxtLink>
                 <p class="truncate text-xs text-stone-500">{{ l.propertyName }}</p>
               </div>
               <AdminLeadScoreBadge class="shrink-0" :lead="l" compact @updated="(u) => Object.assign(l, u)" />
             </div>
             <div class="mt-2 flex items-center justify-between text-xs text-stone-400">
-              <span class="capitalize">{{ l.source }}</span>
+              <span>{{ leadSourceLabel(l.source) }}</span>
               <span>{{ dt.money(l.budget, { compact: true }) }}</span>
             </div>
             <p v-if="col.key === 'lost' && l.lostReason" class="mt-1 text-[11px] text-stone-400">{{ lostReasonLabel(l.lostReason) }}</p>
@@ -170,11 +179,10 @@
               <tr v-for="l in rows" :key="l.id" class="border-b border-line/60 last:border-0 hover:bg-stone-50">
                 <td class="px-4 py-3"><input type="checkbox" :checked="isSelected(l.id)" @change="toggleSelect(l.id)" ></td>
                 <td class="px-4 py-3">
-                  <NuxtLink v-if="l.contactId" :to="`/admin/contactos/${l.contactId}?tab=comunicaciones`" class="font-medium hover:underline">{{ l.name }}</NuxtLink>
-                  <p v-else class="font-medium">{{ l.name }}</p>
+                  <NuxtLink :to="`/admin/leads/${l.id}`" class="font-medium hover:underline">{{ l.name }}</NuxtLink>
                   <p class="text-xs text-stone-400">{{ l.email }}</p>
                 </td>
-                <td class="px-4 py-3 capitalize text-stone-600">{{ l.source }}</td>
+                <td class="px-4 py-3 text-stone-600">{{ leadSourceLabel(l.source) }}</td>
                 <td class="px-4 py-3 text-stone-600">{{ stageLabel(l.stage) }}</td>
                 <td class="px-4 py-3"><AdminStatusPill :status="l.status" /></td>
                 <td class="px-4 py-3 text-right"><AdminLeadScoreBadge :lead="l" @updated="(u) => Object.assign(l, u)" /></td>
@@ -193,6 +201,9 @@
         </div>
       </AdminPanel>
     </template>
+
+    <LeadFormModal v-if="creating" @close="creating = false" @saved="onCreated" />
+    <LeadLostModal v-if="losingLead" :name="losingLead.name" @close="cancelLost" @confirm="confirmLost" />
 
     <!-- Nueva tarea -->
     <div v-if="newTaskLead" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="newTaskLead = null">
@@ -227,6 +238,10 @@
 
 <script setup lang="ts">
 import { formatRelative } from '~/composables/useClientConfig'
+import { LEAD_LOST_REASON_LABELS, LEAD_PRIORITIES, LEAD_PRIORITY_LABELS, LEAD_SOURCES, LEAD_SOURCE_LABELS, leadSourceLabel } from '~/utils/leadCatalog'
+import { loadRelationOptions, type RelationOption } from '~/composables/useRelationOptions'
+import LeadFormModal from '~/components/admin/leads/LeadFormModal.vue'
+import LeadLostModal from '~/components/admin/leads/LeadLostModal.vue'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Leads — M&M Real Estate' })
@@ -234,10 +249,23 @@ const dt = useDash()
 const toast = useToast()
 const { confirm } = useConfirm()
 
+const { canWrite } = useAdminPermissions()
+const canEdit = computed(() => canWrite('crm'))
+
 const view = ref<'board' | 'table'>('board')
 const search = ref('')
 const source = ref('all')
-const sources = ['web', 'portal', 'referral', 'ads', 'social', 'call']
+const officeId = ref('')
+const priority = ref('')
+const offices = ref<RelationOption[]>([])
+onMounted(() => loadRelationOptions('offices').then((r) => (offices.value = r)))
+
+// Alta manual (FASE 12): al crear, se abre su ficha.
+const creating = ref(false)
+async function onCreated(id: number) {
+  creating.value = false
+  await navigateTo(`/admin/leads/${id}`)
+}
 
 const scoreMin = ref('')
 const sort = ref('')
@@ -261,7 +289,7 @@ function clearDrill() {
 }
 
 const { data, refresh } = await useFetch<any>('/api/admin/saas/leads', {
-  query: computed(() => ({ search: search.value, source: source.value, scoreMin: scoreMin.value, sort: sort.value, ...drill.value })),
+  query: computed(() => ({ search: search.value, source: source.value, officeId: officeId.value, priority: priority.value, scoreMin: scoreMin.value, sort: sort.value, ...drill.value })),
 })
 const rows = computed<any[]>(() => data.value?.rows || [])
 const counts = ref<Record<string, number>>({})
@@ -318,9 +346,8 @@ function byColumn(key: string) {
 function stageLabel(stage: string) {
   return columns.find((c) => c.key === stage)?.label || stage
 }
-const LOST_REASON_LABELS: Record<string, string> = { no_response: 'Sin respuesta', not_interested: 'Sin interés', duplicate: 'Duplicado', other: 'Otro motivo' }
 function lostReasonLabel(reason: string) {
-  return LOST_REASON_LABELS[reason] || reason
+  return LEAD_LOST_REASON_LABELS[reason] || reason
 }
 
 // --- Tareas (FASE 22) — próxima acción y creación rápida desde el tablero ---
@@ -392,7 +419,7 @@ function clearSelection() {
   selectedIds.value = []
 }
 // Cambiar de filtro invalida la selección — mismo criterio que PropertyList.vue.
-watch([search, source, scoreMin, drill], () => clearSelection())
+watch([search, source, officeId, priority, scoreMin, drill], () => clearSelection())
 
 const pipelineColumns = columns.filter((c) => c.key !== 'lost')
 
@@ -486,15 +513,35 @@ async function runBulkAction() {
 }
 
 const dragId = ref<number | null>(null)
+// Soltar en «Perdidos» abre el modal del motivo (catálogo + comentario): el
+// movimiento sólo se aplica al confirmarlo.
+const losingLead = ref<any>(null)
+function cancelLost() {
+  losingLead.value = null
+}
+async function confirmLost(v: { lostReason: string; note: string | null }) {
+  const lead = losingLead.value
+  losingLead.value = null
+  if (lead) await applyDrop(lead, 'lost', v)
+}
 async function onDrop(columnKey: string) {
   const id = dragId.value
   dragId.value = null
   if (!id) return
   const lead = rows.value.find((l) => l.id === id)
   if (!lead) return
+  const fromColumn = lead.status === 'lost' ? 'lost' : lead.stage
+  if (fromColumn === columnKey) return
+  if (columnKey === 'lost') {
+    losingLead.value = lead
+    return
+  }
+  await applyDrop(lead, columnKey)
+}
+async function applyDrop(lead: any, columnKey: string, lost?: { lostReason: string; note: string | null }) {
+  const id = lead.id
   const wasLost = lead.status === 'lost'
   const fromColumn = wasLost ? 'lost' : lead.stage
-  if (fromColumn === columnKey) return
 
   // optimistic
   counts.value[fromColumn] = Math.max(0, (counts.value[fromColumn] || 1) - 1)
@@ -504,14 +551,12 @@ async function onDrop(columnKey: string) {
   const previousLostReason = lead.lostReason
 
   try {
-    if (columnKey === 'lost') {
+    if (columnKey === 'lost' && lost) {
       // Perder pide motivo: un lead perdido sin explicación no dice nada al
-      // repasar el pipeline la semana siguiente.
-      const reason = window.prompt('Motivo de la pérdida (sin respuesta / sin interés / duplicado / otro)') || 'other'
-      const lostReason = ['no_response', 'not_interested', 'duplicate'].includes(reason) ? reason : 'other'
+      // repasar el pipeline la semana siguiente. Queda en su historial.
       lead.status = 'lost'
-      lead.lostReason = lostReason
-      const res = await $fetch<any>(`/api/admin/saas/leads/${id}`, { method: 'PATCH', body: { lost: true, lostReason } })
+      lead.lostReason = lost.lostReason
+      const res = await $fetch<any>(`/api/admin/saas/leads/${id}`, { method: 'PATCH', body: { lost: true, lostReason: lost.lostReason, note: lost.note } })
       lead.status = res.status
       lead.stage = res.stage
       lead.lostReason = res.lostReason

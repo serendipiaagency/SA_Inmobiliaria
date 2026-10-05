@@ -31,6 +31,8 @@ export default defineEventHandler(async (event) => {
   }
   // La traza de Domain Tools es auditoría: nadie la borra desde el panel.
   if (key === 'domain-tools') throw createError({ statusCode: 405, statusMessage: 'La traza de Domain Tools no se puede borrar' })
+  // Un lead no se borra: se marca como perdido (con su motivo), y así su historia sigue contando.
+  if (key === 'leads') throw createError({ statusCode: 405, statusMessage: 'Los leads no se borran: márcalo como perdido con su motivo' })
   const id = parseInt(getRouterParam(event, 'id') || '', 10)
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   if (key === 'users' && id === user.id) {

@@ -3,6 +3,7 @@ import * as schema from '../../db/schema'
 import { isUniqueConstraintError, now } from '../db'
 import { recordActivity } from '../activity/service'
 import { recomputeLeadScoreForCommsContact } from '../leads/score'
+import { markLeadContacted } from '../leads/sla'
 import { findOrCreateConversation, isoToDbTs, resolveActivityContact, upsertContact, type IngestContext } from './inbox'
 import { metaCallAction } from './providers/metaCloud'
 import type { CallEvent, LoadedChannel } from './types'
@@ -177,6 +178,9 @@ export async function ingestCallEvent(db: any, channel: LoadedChannel, event: Ca
       propertyKind: existing.propertyId ? (existing.propertyKind === 'agent' ? 'agent' : 'developer') : null,
       actorType: 'system',
     })
+    // FASE 16 — una llamada contestada (en cualquier sentido) es contacto
+    // real con una persona de la agencia al otro lado.
+    await markLeadContacted(db, channel.organizationId, { leadId, contactId }, { human: true, at: ts })
     // FASE 32 — una llamada entrante contestada es la señal «respondió».
     if (existing.direction === 'inbound') await recomputeLeadScoreForCommsContact(db, channel.organizationId, existing.contactId)
   }
@@ -346,6 +350,7 @@ export async function logManualCall(
       actorType: 'user',
       actorId: input.userId,
     })
+    await markLeadContacted(db, input.orgId, { leadId, contactId }, { human: true, at: nowTs })
     if (input.direction === 'inbound') await recomputeLeadScoreForCommsContact(db, input.orgId, input.contactId)
   }
   return row
