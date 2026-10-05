@@ -282,6 +282,7 @@
             <li v-for="p in data.properties" :key="p.linkId" class="flex flex-wrap items-center justify-between gap-2 px-4 py-3" data-testid="contact-property-row">
               <NuxtLink :to="`/admin/${p.propertyKind === 'developer' ? 'developer-properties' : 'properties'}/${p.property.id}`" class="min-w-0 font-medium hover:underline">
                 {{ p.property.title || p.property.reference || `Propiedad #${p.property.id}` }}
+                <span v-if="p.property.deletedAt" class="ml-1 rounded-full bg-stone-200 px-2 py-0.5 text-[11px] font-medium text-stone-600" data-testid="contact-property-trashed">En la papelera</span>
                 <span class="block text-[11px] font-normal text-stone-400">{{ p.propertyKind === 'developer' ? 'Web' : '2ª mano' }} · {{ propertyTypeLabel(p.property.propertyType) }} · {{ p.property.city || '—' }}</span>
               </NuxtLink>
               <span class="flex items-center gap-2 text-[12px]">

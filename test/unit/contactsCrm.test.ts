@@ -130,6 +130,22 @@ describe('propietarios y contactos de una propiedad (property_contacts)', () => 
     await expect(validatePropertyContact(db, A.orgId, { propertyKind: 'otro', propertyId: 1, contactId: ana.id, role: 'owner' }, null)).rejects.toThrow(/propertyKind/)
   })
 
+  it('no vincula a nadie nuevo a una propiedad de la papelera, pero el vínculo que ya existía se puede editar', async () => {
+    const { db } = createTestDb()
+    const A = await seedTenant(db, 'OwnersTrash')
+    const ana = await contact(db, A.orgId, { name: 'Ana' })
+    const luis = await contact(db, A.orgId, { name: 'Luis' })
+    const base = { propertyKind: 'agent', propertyId: A.propertyId }
+    const [link] = await db.insert(schema.propertyContacts).values({ organizationId: A.orgId, ...base, contactId: ana.id, role: 'owner', ownershipPct: 50, createdAt: ts, updatedAt: ts }).returning()
+    await db.update(schema.agentProperties).set({ deletedAt: ts }).where(eq(schema.agentProperties.id, A.propertyId))
+
+    await expect(validatePropertyContact(db, A.orgId, { ...base, contactId: luis.id, role: 'co_owner', ownershipPct: 50 }, null)).rejects.toMatchObject({ statusCode: 422, statusMessage: expect.stringMatching(/papelera/) })
+    await expect(validatePropertyContact(db, A.orgId, { ownershipPct: 60 }, link)).resolves.toBeUndefined()
+    // Y en «Propiedades» del contacto sigue apareciendo, marcada como borrada.
+    const props = await listContactProperties(db, A.orgId, ana.id)
+    expect(props[0].property.deletedAt).toBe(ts)
+  })
+
   it('nunca vincula la propiedad o el contacto de otra agencia', async () => {
     const { db } = createTestDb()
     const A = await seedTenant(db, 'OwnersIsoA')

@@ -4,6 +4,7 @@ import { now, schema, useDb } from '../db'
 import type { SessionUser } from '../auth'
 import { logAdminAction } from '../audit'
 import { createContact, findDuplicateContacts, orgDefaultCountryPrefix, updateContact, type ContactInput } from './service'
+import { assertLiveProperty } from '../properties/trash'
 import {
   CONTACT_ROLES,
   CONTACT_SOURCES,
@@ -236,7 +237,11 @@ export async function validatePropertyContact(db: any, orgId: number, data: Reco
   const kind = assertPropertyKind(merged.propertyKind)
   const propertyId = Number(merged.propertyId)
   if (!Number.isInteger(propertyId) || propertyId <= 0) fail(422, 'Falta la propiedad')
-  await assertPropertyOwned(db, orgId, kind, propertyId)
+  // Vincular a alguien es crear algo nuevo sobre la propiedad: no si está en
+  // la papelera. Editar un vínculo que ya existía sí se permite.
+  const samePropertyAsBefore = !!existing && existing.propertyKind === kind && Number(existing.propertyId) === propertyId
+  if (samePropertyAsBefore) await assertPropertyOwned(db, orgId, kind, propertyId)
+  else await assertLiveProperty(db, orgId, kind, propertyId, { action: 'vincular a una persona' })
   const contactId = Number(merged.contactId)
   if (!Number.isInteger(contactId) || contactId <= 0) fail(422, 'Falta el contacto')
   await assertOwnedRef(db, schema.contacts, contactId, orgId, 'Contacto')
@@ -312,7 +317,7 @@ export async function listContactProperties(db: any, orgId: number, contactId: n
     if (!ids.length) continue
     const t = propertyTable(kind) as any
     const rows = await db
-      .select({ id: t.id, reference: t.reference, propertyType: t.propertyType, price: t.price, city: t.city, status: t.status, title: kind === 'developer' ? t.name : t.slug })
+      .select({ id: t.id, reference: t.reference, propertyType: t.propertyType, price: t.price, city: t.city, status: t.status, title: kind === 'developer' ? t.name : t.slug, deletedAt: t.deletedAt })
       .from(t)
       .where(and(eq(t.organizationId, orgId), inArray(t.id, ids)))
     const byId = new Map<number, any>(rows.map((r: any) => [r.id, r]))
