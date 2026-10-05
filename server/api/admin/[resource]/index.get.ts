@@ -56,6 +56,13 @@ export default defineEventHandler(async (event) => {
   const tenantWhere = buildTenantWhere(db, def.table, def.tenantPolicy, orgId)
   if (tenantWhere) conds.push(tenantWhere)
   if (def.softDelete) conds.push(trashed ? sql`${def.table.deletedAt} is not null` : isNull(def.table.deletedAt))
+  // Filtros exactos que el recurso declara (notas de un contacto, propietarios
+  // de una propiedad…). Nunca una columna que no esté en `filterFields`.
+  for (const f of def.filterFields || []) {
+    const v = query[f]
+    if (v === undefined || v === null || v === '') continue
+    conds.push(eq(def.table[f], /^\d+$/.test(String(v)) ? Number(v) : String(v)))
+  }
 
   // "Propiedades (web)" y "Propiedades 2ª mano" admin listing — price/
   // location/type/status/beds/baths/area/exclusividad/publicación/fechas de
@@ -311,13 +318,16 @@ export default defineEventHandler(async (event) => {
     return { rows, total, page, perPage }
   }
 
-  const rows = await db
+  // Las notas fijadas van primero; el resto, de la más reciente a la más antigua.
+  const order = key === 'notes' ? [desc(schema.notes.isPinned), desc(def.table.id)] : [desc(def.table.id)]
+  let rows = await db
     .select()
     .from(def.table)
     .where(where as any)
-    .orderBy(desc(def.table.id))
+    .orderBy(...order)
     .limit(perPage)
     .offset((page - 1) * perPage)
+  if (def.decorateRows && orgId != null) rows = await def.decorateRows(db, orgId, rows)
 
   return { rows, total, page, perPage }
 })

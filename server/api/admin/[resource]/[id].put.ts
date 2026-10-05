@@ -14,6 +14,7 @@ import { propertyBulkHandlers } from '../../../utils/bulkActions/propertyActions
 import { leadBulkHandlers } from '../../../utils/bulkActions/leadActions'
 import { checkDomainAvailability } from '../../../utils/organizations/provisioning'
 import { notifyOrganizationStatusChange } from '../../../utils/organizations/lifecycle'
+import { updateContactFromAdmin, validateNotePayload, validatePropertyContact } from '../../../utils/contacts/crm'
 import {
   assertSheetReferences,
   assertSubtypeMatchesType,
@@ -72,6 +73,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody<Record<string, any>>(event)
+  // Contactos (FASES 8-9): edición con normalización, deduplicación frente a
+  // otras personas de la agencia (409 salvo force) y roles.
+  if (key === 'contacts') return updateContactFromAdmin(event, orgId!, user, id, body || {})
   const data = await buildPayload(def, body || {}, false, event)
   delete data.organizationId // tenant ownership can't be reassigned via this endpoint
   delete data.userId // authorship can't be reassigned via this endpoint either
@@ -117,6 +121,9 @@ export default defineEventHandler(async (event) => {
       data.storageBytesLimit = gb * 1024 ** 3
     }
   }
+
+  if (key === 'property-contacts') await validatePropertyContact(db, orgId!, data, existing as any)
+  if (key === 'notes') await validateNotePayload(db, orgId!, data, existing as any)
 
   const tenantWhere = buildTenantWhere(db, def.table, def.tenantPolicy, orgId)
   const idCond = eq(def.table.id, id)

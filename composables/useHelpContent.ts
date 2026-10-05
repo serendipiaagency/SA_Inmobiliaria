@@ -55,6 +55,11 @@ const PROPERTY_TRASH_HELP_STEPS: string[] = [
   'Cada agencia sólo ve y restaura su propia Papelera: una propiedad borrada de otra inmobiliaria no aparece nunca, ni se puede restaurar ni eliminar desde otra cuenta.',
 ]
 
+/** Paso «Propietarios» del editor (PropertyContact), igual en los dos catálogos. */
+const PROPERTY_OWNERS_HELP_STEPS: string[] = [
+  'El paso «Propietarios» (aparece una vez creada la propiedad) lista quién es quién: propietario, copropietario, apoderado, inquilino o contacto. Busca a la persona entre tus contactos o créala ahí mismo; a propietarios y copropietarios se les puede dar su % de propiedad — la suma nunca puede pasar del 100 % (el editor avisa si no llega al 100 %). Marca uno como «Principal» si quieres destacarlo. «Quitar» lo desvincula sin borrar el contacto.',
+]
+
 export function useHelpContent() {
   const sections: HelpSection[] = [
     // --- General ---------------------------------------------------------
@@ -97,6 +102,10 @@ export function useHelpContent() {
         'La pestaña "Comunicaciones" reúne lo que se ha hablado con esa persona por todos sus leads y clientes: conversaciones de WhatsApp, llamadas y los emails que la plataforma le ha enviado (confirmaciones de visita, avisos…). El email es sólo saliente: la plataforma envía correo pero no recibe respuestas, así que aquí no hay bandeja de entrada de email.',
         'La pestaña "Posibles duplicados" busca, dentro de tu agencia, otras fichas que coincidan en email, teléfono o WhatsApp con esta persona. Antes de fusionar te enseña los dos registros completos, en qué campos difieren (por ejemplo, dos emails distintos) y cuántas necesidades, leads y clientes se moverían al contacto que sobrevive.',
         'Al fusionar eliges, campo a campo, cuál de los dos valores se queda cuando hay conflicto; lo que no elijas se rellena con el dato del duplicado sólo si el superviviente lo tenía vacío. El duplicado nunca se borra: se archiva, y todo lo que colgaba de él (necesidades, leads, clientes) pasa a la ficha que queda activa.',
+        'La cabecera de la ficha reúne lo esencial: teléfono, email, WhatsApp, idioma, país, comercial, oficina, origen, estado, score (el mejor de sus leads), último contacto y próxima acción, con botones directos para llamar, escribir por WhatsApp o enviar un email. «Editar» abre todos esos datos y los roles; si el email o teléfono nuevos ya son de otra persona de tu agencia te lo dice antes de guardar (puedes «Guardar igualmente» si de verdad son dos personas).',
+        'Roles: una persona puede ser a la vez comprador, vendedor, propietario, arrendador, inquilino, inversor, colaborador, proveedor u otro. Se marcan en «Editar» y el listado de Contactos se puede filtrar por rol. Al vincular a alguien como propietario de una propiedad, recibe el rol «Propietario» automáticamente.',
+        'Pestañas: Resumen, Necesidades, Propiedades (en las que figura y con qué papel; «Vincular a una propiedad» lo añade), Leads, Visitas, Ofertas (como comprador o como vendedor), Comunicaciones (los tres canales juntos) y por separado Emails, WhatsApp y Llamadas, Tareas (con alta rápida), Documentos (los de sus propiedades y los que se le han concedido), Notas, Actividad y «Ficha y duplicados».',
+        'Notas: escribe notas internas sobre la persona; se pueden fijar arriba, editar y eliminar (van a la papelera). Nunca se envían al cliente.',
       ],
     },
     {
@@ -378,6 +387,7 @@ export function useHelpContent() {
         'El paso "Estancias personalizadas" (junto a Características) permite añadir dormitorios, despachos u otras estancias con su propio tipo, nombre, superficie, planta, orientación y notas — pulsa "+ Añadir estancia" y rellena sus campos; cada uno se guarda solo al salir del campo, sin esperar a "Guardar cambios". Arrastra una estancia para reordenarla, o pulsa "Eliminar" para quitarla (pide confirmación).',
         ...PROPERTY_SHEET_HELP_STEPS,
         ...PROPERTY_TRASH_HELP_STEPS,
+        ...PROPERTY_OWNERS_HELP_STEPS,
       ],
     },
     {
@@ -444,6 +454,7 @@ export function useHelpContent() {
         'La descripción se edita en inglés y árabe desde la sección "Descripción" (son las traducciones que ve el público, no hay un texto en un idioma único) — es la única diferencia real de contenido frente a Propiedades (web). Cada idioma tiene el mismo editor de texto enriquecido (negrita, cursiva, listas, enlaces) que el resto de descripciones largas del constructor.',
         ...PROPERTY_SHEET_HELP_STEPS,
         ...PROPERTY_TRASH_HELP_STEPS,
+        ...PROPERTY_OWNERS_HELP_STEPS,
       ],
     },
     {
@@ -903,6 +914,13 @@ export function useHelpContent() {
       answer:
         'Sí. En "Propiedades (web)" y "Propiedades 2ª mano", "Eliminar" manda la propiedad a la Papelera. Pulsa el botón "Papelera" del listado, busca la propiedad y pulsa "Restaurar": vuelve tal cual estaba, con su ficha, galería e histórico. Mientras está en la Papelera no se ve en la web, en las búsquedas ni en el matching, y no se le pueden crear ofertas, visitas ni envíos nuevos. Sólo "Eliminar definitivamente", desde la propia Papelera, la borra para siempre.',
       tags: ['propiedad', 'papelera', 'eliminar', 'restaurar', 'borrar', 'recuperar'],
+    },
+    {
+      id: 'faq-editar-contacto',
+      question: '¿Cómo cambio el teléfono, el idioma o la próxima acción de un contacto?',
+      answer:
+        'Abre el contacto (CRM → Contactos) y pulsa «Editar» en la cabecera. Ahí están todos los datos de la persona, sus roles y la próxima acción con su fecha. Si el teléfono o email nuevos ya pertenecen a otro contacto de tu agencia, se te avisa antes de guardar.',
+      tags: ['contacto', 'editar', 'roles', 'próxima acción'],
     },
     {
       id: 'faq-ficha-ampliada',

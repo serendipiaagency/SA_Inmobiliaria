@@ -12,6 +12,7 @@ import { resolveFilteredPropertyIds } from '../../../utils/bulkActions/propertyA
 import { executeTool } from '../../../utils/tools/execute'
 import { InmoError, runInmoTurn } from '../../../utils/inmo/orchestrator'
 import { createOrganizationFromAdmin, resendAdminInvite } from '../../../utils/organizations/lifecycle'
+import { createContactFromAdmin, ensureContactRole, validateNotePayload, validatePropertyContact } from '../../../utils/contacts/crm'
 import {
   assertSheetReferences,
   assertSubtypeMatchesType,
@@ -119,6 +120,10 @@ export default defineEventHandler(async (event) => {
     return { ok: true, id: job.id, job }
   }
 
+  // Contactos (FASES 8-9): alta con normalización, deduplicación (409 con
+  // candidatos salvo force) y roles — el mismo camino que Contactos → Nuevo.
+  if (key === 'contacts') return createContactFromAdmin(event, orgId!, user, body || {})
+
   const data = await buildPayload(def, body || {}, true, event)
   // Tenant ownership is always server-resolved, never taken from client input —
   // for direct-policy resources it's the org column, for child resources it's
@@ -166,9 +171,22 @@ export default defineEventHandler(async (event) => {
     // Quién dio de alta la propiedad: siempre la sesión, nunca el cliente.
     data.createdBy = user.id
   }
+  // Propietarios/contactos de una propiedad y notas: la propiedad o la
+  // entidad a la que apuntan se valida por tipo (y por organización) antes de
+  // escribir; el autor es siempre la sesión.
+  if (key === 'property-contacts') {
+    await validatePropertyContact(db, orgId!, data, null)
+    data.createdBy = user.id
+  }
+  if (key === 'notes') {
+    await validateNotePayload(db, orgId!, data, null)
+    data.createdBy = user.id
+  }
   const inserted = await db.insert(def.table).values(data).returning({ id: def.table.id }).catch(rethrowUniqueViolation)
   const id = inserted[0]?.id
   if (propertyKind && sheet && hasSheetChanges(sheet)) await savePropertySheet(db, orgId!, propertyKind, id, sheet, user.id)
+  // Vincular a alguien como propietario de una propiedad le da el rol «Propietario».
+  if (key === 'property-contacts' && (data.role === 'owner' || data.role === 'co_owner')) await ensureContactRole(db, orgId!, data.contactId, 'owner', user.id)
 
   if (def.translations && Array.isArray(body?.translations)) {
     const { authorized } = await authorizeRecord(db, { resourceKey: key, table: def.table, policy: def.tenantPolicy, id, orgId })
