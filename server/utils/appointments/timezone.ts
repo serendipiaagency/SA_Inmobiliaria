@@ -50,6 +50,33 @@ export function zonedWallTimeToUtc(wall: string, timeZone: string): Date {
   return new Date(ts)
 }
 
+/** La hora de pared 'YYYY-MM-DD HH:MM:SS' que marca un reloj de `timeZone` en el instante `date`. */
+export function utcToWallTime(date: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(date)
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || '00'
+  return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')}`
+}
+
+/**
+ * «Ahora» en la hora de pared de la agenda de un comercial (la zona de su
+ * oficina, o la de la agencia): lo que hay que comparar con `scheduledAt`,
+ * que también es hora de pared. Comparar con el reloj UTC del servidor
+ * desplazaba los huecos libres tantas horas como la zona.
+ */
+export async function agendaNowWall(db: any, orgId: number, agentId: number | null | undefined, at: Date = new Date()): Promise<string> {
+  const tz = await (await createTimezoneResolver(db, orgId)).resolve({ agentId: agentId ?? null })
+  return utcToWallTime(at, tz)
+}
+
 /** 'YYYYMMDDTHHMMSSZ' (formato UTC de iCal) de una hora de pared en `timeZone`. */
 export function wallTimeToIcsUtc(wall: string, timeZone: string): string {
   return zonedWallTimeToUtc(wall, timeZone).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')

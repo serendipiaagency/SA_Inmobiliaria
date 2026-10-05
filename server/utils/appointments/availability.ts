@@ -1,6 +1,6 @@
 import { and, eq, gte, lt, lte, ne } from 'drizzle-orm'
 import * as schema from '../../db/schema'
-import { now } from '../db'
+import { agendaNowWall } from './timezone'
 import { APPOINTMENT_MAX_MINUTES } from '../../../utils/appointmentCatalog'
 
 export interface Slot {
@@ -43,6 +43,8 @@ export interface AvailabilityOptions {
   maxAppointmentsPerDay?: number | null
   /** Excludes this visit id from the busy-check — a client rescheduling their own appointment shouldn't have it block itself. */
   excludeVisitId?: number
+  /** «Ahora» en hora de pared de la agenda; si no llega, se calcula (zona de la oficina del comercial o de la agencia). */
+  nowWall?: string
 }
 
 /**
@@ -94,7 +96,9 @@ export async function computeAvailableSlots(
   if (options.maxAppointmentsPerDay != null && busy.length >= options.maxAppointmentsPerDay) return []
 
   const buffer = options.bufferMinutes || 0
-  const nowTs = now()
+  // Los huecos son hora de pared de la agenda: «ya pasado» se mide con el
+  // reloj de esa misma zona, no con el UTC del servidor.
+  const nowTs = options.nowWall ?? (await agendaNowWall(db, orgId, agentId))
   const slots: Slot[] = []
   for (const rule of rules) {
     const windowStart = timeToMinutes(rule.startTime)

@@ -216,14 +216,18 @@ El feed también:
 Lo que sí funciona hoy es la suscripción iCal de solo lectura de cada
 comercial.
 
+## Recordatorios y huecos libres con la zona de la agenda
+
+Igual que el iCal, los **recordatorios** (`server/tasks/appointments/reminders.ts`
+→ `server/utils/appointments/reminderWindow.ts`) convierten la hora de pared de
+cada cita a su instante real con la zona de la cita, su oficina, la oficina de
+su comercial o la agencia: el aviso de «24 h antes» y el de «1 h antes» salen a
+su hora en cualquier zona. Los **huecos libres** de la reserva pública miden
+«ya pasado» y «hoy» con el reloj de la zona de la agenda del comercial
+(`agendaNowWall`), no con el UTC del servidor.
+
 ## Pendiente (conocido)
 
-- Los **recordatorios** (`server/tasks/appointments/reminders.ts`) y el cálculo
-  de huecos libres comparan la hora de pared con el reloj UTC del servidor.
-  En una agencia a UTC+2 el aviso de «1 h antes» sale 3 h antes. Es el mismo
-  problema que tenía el iCal, pero fuera del alcance de este bloque. La
-  conversión ya existe (`zonedWallTimeToUtc` en `timezone.ts`) y es la que
-  hay que reutilizar ahí.
 - Añadir o quitar paradas de un tour ya creado: hoy se cancela la parada (con
   motivo) o se crea otra cita.
 
