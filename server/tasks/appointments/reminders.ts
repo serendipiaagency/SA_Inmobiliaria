@@ -1,7 +1,8 @@
 import { drizzle } from 'drizzle-orm/d1'
-import { and, eq, gte, isNull, lte } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { notifyAppointment } from '../../utils/appointments/notifications'
+import { dueReminderVisits } from '../../utils/appointments/reminderWindow'
 
 function fmt(d: Date): string {
   return d.toISOString().replace('T', ' ').slice(0, 19)
@@ -27,17 +28,8 @@ export default defineTask<{ skipped: true; reason: string } | { sent24h: number;
     const db = drizzle(env.DB as D1Database, { schema })
     const now = new Date()
 
-    const due24h = await db
-      .select()
-      .from(schema.visits)
-      .where(
-        and(
-          eq(schema.visits.status, 'scheduled'),
-          isNull(schema.visits.reminder24hSentAt),
-          gte(schema.visits.scheduledAt, fmt(new Date(now.getTime() + 23.5 * 60 * 60 * 1000))),
-          lte(schema.visits.scheduledAt, fmt(new Date(now.getTime() + 24.5 * 60 * 60 * 1000))),
-        ),
-      )
+    // Ventanas en instantes reales: cada cita se convierte con su zona (ver reminderWindow.ts).
+    const due24h = await dueReminderVisits(db, 'reminder24hSentAt', now, 23.5 * 60 * 60 * 1000, 24.5 * 60 * 60 * 1000)
     let sent24h = 0
     for (const visit of due24h) {
       if (visit.clientEmail || visit.clientPhone) {
@@ -57,20 +49,11 @@ export default defineTask<{ skipped: true; reason: string } | { sent24h: number;
         })
         sent24h++
       }
-      await db.update(schema.visits).set({ reminder24hSentAt: fmt(now) }).where(eq(schema.visits.id, visit.id))
+      // reminderStatus es lo que el panel enseña (FASE 17): enviado, o sin recordatorio si no hay a quién avisar.
+      await db.update(schema.visits).set({ reminder24hSentAt: fmt(now), reminderStatus: visit.clientEmail || visit.clientPhone ? 'sent' : 'not_applicable' }).where(eq(schema.visits.id, visit.id))
     }
 
-    const due1h = await db
-      .select()
-      .from(schema.visits)
-      .where(
-        and(
-          eq(schema.visits.status, 'scheduled'),
-          isNull(schema.visits.reminder1hSentAt),
-          gte(schema.visits.scheduledAt, fmt(new Date(now.getTime() + 50 * 60 * 1000))),
-          lte(schema.visits.scheduledAt, fmt(new Date(now.getTime() + 70 * 60 * 1000))),
-        ),
-      )
+    const due1h = await dueReminderVisits(db, 'reminder1hSentAt', now, 50 * 60 * 1000, 70 * 60 * 1000)
     let sent1h = 0
     for (const visit of due1h) {
       if (visit.clientEmail || visit.clientPhone) {
@@ -90,7 +73,7 @@ export default defineTask<{ skipped: true; reason: string } | { sent24h: number;
         })
         sent1h++
       }
-      await db.update(schema.visits).set({ reminder1hSentAt: fmt(now) }).where(eq(schema.visits.id, visit.id))
+      await db.update(schema.visits).set({ reminder1hSentAt: fmt(now), reminderStatus: visit.clientEmail || visit.clientPhone ? 'sent' : 'not_applicable' }).where(eq(schema.visits.id, visit.id))
     }
 
     return { result: { sent24h, sent1h } }

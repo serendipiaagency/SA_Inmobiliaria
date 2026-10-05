@@ -210,8 +210,8 @@
         <ul class="divide-y divide-line text-sm">
           <li v-for="v in data.visits" :key="v.id" class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
             <div class="min-w-0">
-              <p class="font-medium">{{ v.propertyName || 'Cita' }}</p>
-              <p class="text-xs text-stone-400">{{ formatDateTime(v.scheduledAt) }} · {{ v.agentName || 'Sin comercial' }}</p>
+              <p class="font-medium">{{ appointmentTypeLabel(v.type) }}{{ v.propertyName ? ` — ${v.propertyName}` : '' }}</p>
+              <p class="text-xs text-stone-400">{{ formatDateTime(v.scheduledAt) }} · {{ v.agentName || 'Sin comercial' }}<span v-if="v.outcome"> · {{ visitOutcomeLabel(v.outcome) }}</span><span v-if="v.interestLevel"> · interés {{ v.interestLevel }}/5</span></p>
             </div>
             <AdminStatusPill :status="v.status" />
           </li>
@@ -261,6 +261,7 @@
 <script setup lang="ts">
 import { LEAD_LOST_REASON_LABELS, LEAD_PRIORITY_LABELS, LEAD_STAGES, LEAD_STAGE_LABELS, leadSourceLabel } from '~/utils/leadCatalog'
 import { LANGUAGE_LABELS } from '~/utils/crmCatalog'
+import { appointmentTypeLabel, visitOutcomeLabel } from '~/utils/appointmentCatalog'
 import { formatDateTime } from '~/composables/useClientConfig'
 import { renderActivity } from '~/composables/useActivityRenderer'
 import { loadRelationOptions, type RelationOption } from '~/composables/useRelationOptions'

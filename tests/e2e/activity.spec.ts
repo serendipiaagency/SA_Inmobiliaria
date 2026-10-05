@@ -79,7 +79,8 @@ test.describe('Activity Timeline (FASE 21)', () => {
     expect(visitRes.ok(), await visitRes.text()).toBeTruthy()
     const visit = await visitRes.json()
 
-    const cancelRes = await a.patch(`/api/admin/saas/visits/${visit.id}`, { data: { status: 'cancelled' } })
+    // Cancelar exige motivo (núcleo N5, FASE 17).
+    const cancelRes = await a.patch(`/api/admin/saas/visits/${visit.id}`, { data: { status: 'cancelled', cancellationReason: 'Prueba E2E de actividad' } })
     expect(cancelRes.ok()).toBeTruthy()
 
     const { rows } = await (await a.get('/api/admin/saas/activity', { params: { appointmentId: String(visit.id) } })).json()

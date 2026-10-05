@@ -149,9 +149,7 @@
         <h3 class="mb-4 text-sm font-semibold">Nueva cita</h3>
         <div class="space-y-3">
           <select v-model="apptForm.type" class="input">
-            <option value="notary">Notaría/Firma</option>
-            <option value="call">Llamada</option>
-            <option value="other">Otro</option>
+            <option v-for="t in DEAL_APPOINTMENT_TYPES" :key="t" :value="t">{{ APPOINTMENT_TYPE_LABELS[t] }}</option>
           </select>
           <select v-model="apptForm.agentId" class="input">
             <option value="">Elige un comercial…</option>
@@ -173,6 +171,7 @@
 
 <script setup lang="ts">
 import { formatDateTime, formatRelative } from '~/composables/useClientConfig'
+import { APPOINTMENT_TYPE_LABELS, appointmentTypeLabel } from '~/utils/appointmentCatalog'
 
 /**
  * Ficha de la Operación (FASE 24) — property/buyer/sellers/importe
@@ -203,7 +202,6 @@ const DEAL_STATUS_LABELS: Record<string, string> = { active: 'Activa', closed: '
 const DEAL_STATUS_CLS: Record<string, string> = { active: 'bg-blue-50 text-blue-700', closed: 'bg-emerald-50 text-emerald-700', cancelled: 'bg-stone-100 text-stone-500' }
 function dealStageLabel(s: string) { return DEAL_STAGE_LABELS[s] || s }
 function dealStatusLabel(s: string) { return DEAL_STATUS_LABELS[s] || s }
-function appointmentTypeLabel(t: string) { return { property_viewing: 'Visita a inmueble', call: 'Llamada', notary: 'Notaría/Firma', other: 'Otro' }[t] || t }
 function money(n: number) { return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n) }
 
 const loadError = ref('')
@@ -319,6 +317,8 @@ async function completeTask(t: any) {
 }
 
 const newAppointment = ref(false)
+/** Las citas que tienen sentido dentro de una operación (FASE 24): notaría, firma, reunión, tasación, llamada… */
+const DEAL_APPOINTMENT_TYPES = ['notary', 'signing', 'meeting', 'valuation', 'call', 'video_call', 'other'] as const
 const apptForm = reactive({ type: 'notary', agentId: '' as string | number, scheduledAt: '' })
 const apptError = ref('')
 const savingAppt = ref(false)
@@ -344,6 +344,8 @@ async function submitNewAppointment() {
         propertyId: detail.value?.deal.propertyId,
         propertyKind: detail.value?.deal.propertyKind,
         leadId: detail.value?.deal.leadId,
+        // Sin lead, la cita se vincula directamente al comprador (con un lead, hereda su persona).
+        contactId: detail.value?.deal.leadId ? null : detail.value?.deal.buyerContactId ?? null,
         dealId: Number(id),
       },
     })

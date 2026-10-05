@@ -1,5 +1,6 @@
-import { and, eq, gte, ne } from 'drizzle-orm'
-import { useDb, schema, now } from '../../utils/db'
+import { eq } from 'drizzle-orm'
+import { useDb, schema } from '../../utils/db'
+import { buildAgentIcs } from '../../utils/appointments/ical'
 
 /**
  * Private iCal feed for one agent's appointments — "subscribe by URL" in
@@ -10,47 +11,24 @@ import { useDb, schema, now } from '../../utils/db'
  * only). Reading the agent's *external* calendar back into this app's
  * availability would need real OAuth (Google/Microsoft), which isn't
  * available in this deployment.
+ *
+ * Las horas salen en UTC real, convertidas con la zona horaria de cada cita
+ * (server/utils/appointments/ical.ts): antes la hora local se marcaba como UTC.
  */
 export default defineEventHandler(async (event) => {
   const token = getRouterParam(event, 'token')?.replace(/\.ics$/, '')
   if (!token) throw createError({ statusCode: 404, statusMessage: 'Not found' })
 
   const db = useDb(event)
-  const agentRows = await db.select().from(schema.teamMembers).where(eq(schema.teamMembers.icalToken, token)).limit(1)
+  const agentRows = await db
+    .select({ id: schema.teamMembers.id, name: schema.teamMembers.name, organizationId: schema.teamMembers.organizationId })
+    .from(schema.teamMembers)
+    .where(eq(schema.teamMembers.icalToken, token))
+    .limit(1)
   const agent = agentRows[0]
   if (!agent) throw createError({ statusCode: 404, statusMessage: 'Not found' })
 
-  const visits = await db
-    .select()
-    .from(schema.visits)
-    .where(and(eq(schema.visits.agentId, agent.id), ne(schema.visits.status, 'cancelled'), gte(schema.visits.scheduledAt, now().slice(0, 10))))
-
-  const toIcsDate = (dt: string) => `${dt.replace(/[-:]/g, '').replace(' ', 'T')}Z`
-  const icsEscape = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n')
-
-  const events = visits
-    .map((v) => {
-      const summary = `${v.clientName}${v.propertyName ? ` — ${v.propertyName}` : ''}`
-      const description = [v.channel === 'video' ? 'Videollamada' : v.channel === 'phone' ? 'Llamada' : 'Presencial', v.videoLink].filter(Boolean).join('\n')
-      return [
-        'BEGIN:VEVENT',
-        `UID:visit-${v.id}@sa-inmobiliaria`,
-        `DTSTAMP:${toIcsDate(now())}`,
-        `DTSTART:${toIcsDate(v.scheduledAt)}`,
-        `DTEND:${toIcsDate(v.endsAt || v.scheduledAt)}`,
-        `SUMMARY:${icsEscape(summary)}`,
-        description ? `DESCRIPTION:${icsEscape(description)}` : '',
-        `STATUS:${v.status === 'completed' ? 'CONFIRMED' : 'CONFIRMED'}`,
-        'END:VEVENT',
-      ]
-        .filter(Boolean)
-        .join('\r\n')
-    })
-    .join('\r\n')
-
-  const body = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//SA Inmobiliaria//Agenda de citas//ES', `X-WR-CALNAME:Citas — ${icsEscape(agent.name)}`, events, 'END:VCALENDAR']
-    .filter(Boolean)
-    .join('\r\n')
+  const body = await buildAgentIcs(db, agent)
 
   setResponseHeader(event, 'content-type', 'text/calendar; charset=utf-8')
   setResponseHeader(event, 'content-disposition', 'inline; filename="agenda.ics"')

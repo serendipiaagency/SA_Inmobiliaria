@@ -81,7 +81,7 @@ test.describe('Tours — visitas multi-inmueble', () => {
     expect(tour.stops.every((s: any) => s.status === 'scheduled' && s.confirmationStatus === 'pending')).toBe(true)
 
     // Cancelar una parada no toca la otra — no hay estado de tour, sólo el de cada parada.
-    const cancelRes = await a.patch(`/api/admin/saas/visits/${tour.stops[0].id}`, { data: { status: 'cancelled' } })
+    const cancelRes = await a.patch(`/api/admin/saas/visits/${tour.stops[0].id}`, { data: { status: 'cancelled', cancellationReason: 'Prueba E2E de tours' } })
     expect(cancelRes.ok()).toBeTruthy()
     const afterRes = await a.get('/api/admin/saas/tours')
     const afterTour = (await afterRes.json()).rows.find((t: any) => t.id === id)

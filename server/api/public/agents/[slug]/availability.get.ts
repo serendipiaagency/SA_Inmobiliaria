@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../../../utils/db'
 import { computeAvailableSlots } from '../../../../utils/appointments/availability'
 import { rateLimit } from '../../../../utils/rateLimit'
+import { agendaNowWall } from '../../../../utils/appointments/timezone'
 
 const MAX_DAYS = 30
 
@@ -29,11 +30,13 @@ export default defineEventHandler(async (event) => {
   if (!agent) throw createError({ statusCode: 404, statusMessage: 'Agent not found' })
 
   const q = getQuery(event)
-  const fromStr = /^\d{4}-\d{2}-\d{2}$/.test(String(q.from || '')) ? String(q.from) : new Date().toISOString().slice(0, 10)
+  // «Hoy» y «ya pasado» en la zona de la agenda del comercial, una vez para todos los días.
+  const nowWall = await agendaNowWall(db, orgId, agent.id)
+  const fromStr = /^\d{4}-\d{2}-\d{2}$/.test(String(q.from || '')) ? String(q.from) : nowWall.slice(0, 10)
   const days = Math.min(MAX_DAYS, Math.max(1, Number(q.days) || 14))
 
   const fromDate = new Date(`${fromStr}T00:00:00Z`)
-  const options = { bufferMinutes: agent.bufferMinutes, maxAppointmentsPerDay: agent.maxAppointmentsPerDay }
+  const options = { bufferMinutes: agent.bufferMinutes, maxAppointmentsPerDay: agent.maxAppointmentsPerDay, nowWall }
   const results: { date: string; slots: { start: string; end: string }[] }[] = []
   for (let i = 0; i < days; i++) {
     const d = new Date(fromDate)

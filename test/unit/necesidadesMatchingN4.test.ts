@@ -361,6 +361,24 @@ describe('N4 — acciones sobre una compatibilidad', () => {
     ).rejects.toMatchObject({ statusCode: 409 })
   })
 
+  it('crear visita: si la persona tiene un lead abierto, la cita se le enlaza y cuenta como su primera cita', async () => {
+    const { db } = createTestDb()
+    const a = await seedTenant(db, 'N4VisitLead')
+    const c = await contact(db, a.orgId, { name: 'Lola Vidal', email: 'lola@example.com' })
+    const laura = await commercial(db, a.orgId)
+    const p1 = await flat(db, a.orgId)
+    const [closed] = await db.insert(schema.leads).values({ organizationId: a.orgId, name: 'Lola Vidal', source: 'web', status: 'lost', stage: 'contacted', contactId: c.id, createdAt: '2026-01-01 00:00:00', updatedAt: '2026-01-01 00:00:00' }).returning()
+    const [open] = await db.insert(schema.leads).values({ organizationId: a.orgId, name: 'Lola Vidal', source: 'web', status: 'new', stage: 'new', contactId: c.id, createdAt: '2026-01-02 00:00:00', updatedAt: '2026-01-02 00:00:00' }).returning()
+    const { createBuyerRequirement, createVisitFromMatch } = await load()
+    const req = await createBuyerRequirement(ev(db), a.orgId, { contactId: c.id, priceMax: 650_000 })
+    const res = await createVisitFromMatch(ev(db), a.orgId, { buyerRequirementId: req.id, propertyId: p1.id, propertyKind: 'agent', agentId: laura.id, scheduledAt: '2026-11-12 10:00:00' })
+    expect(res.visit.leadId).toBe(open.id)
+    const [lead] = await db.select().from(schema.leads).where(eq(schema.leads.id, open.id))
+    expect(lead.firstAppointmentAt).toBeTruthy()
+    const [lost] = await db.select().from(schema.leads).where(eq(schema.leads.id, closed.id))
+    expect(lost.firstAppointmentAt).toBeNull()
+  })
+
   it('crear visita para alguien sin email ni teléfono: 422 que lo dice, sin cita a medias', async () => {
     const { db } = createTestDb()
     const a = await seedTenant(db, 'N4VisitNoChannel')

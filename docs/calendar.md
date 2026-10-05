@@ -4,6 +4,17 @@ Calendar es una vista, no un dominio nuevo. Todo lo que muestra y todo lo que
 mueve es `visits` (Appointment, FASE 17-19) — no existe ninguna tabla
 `calendar_events` ni nada parecido.
 
+> **Actualizado en el bloque N5 (FASES 17-20):**
+> - los filtros de oficina (`officeId`, la entidad Oficinas), tipo (todos los
+>   tipos nuevos) y cliente (`contactId`, directo o por el lead);
+> - el iCal con la zona horaria correcta;
+> - el estado honesto de Google/Outlook;
+> - la edición completa de una cita.
+>
+> Todo eso está en [citas-y-visitas.md](citas-y-visitas.md). Lo de abajo es
+> el diseño original de la FASE 20; donde contradiga a ese documento, manda
+> el nuevo.
+
 ## Dónde vive
 
 `pages/admin/visitas.vue`, pestaña "Calendario" (junto a Lista y Tours, ya
@@ -14,10 +25,10 @@ antes de esta FASE, ahora ampliada) y Agenda (pensada para móvil).
 
 - `GET /api/admin/saas/calendar` — `visits` por rango de fechas (`from`/`to`,
   obligatorios) con los filtros de la sección 10 del megaprompt: `agentId`,
-  `office` (ver más abajo), `type`, `status` (siempre `visits.status`, nunca
-  `confirmationStatus` — son conceptos distintos, FASE 17), `propertyId` +
-  `propertyKind`, `contactId` (vía `visits.leadId → leads.contactId`, así que
-  sólo filtra citas que sí llegaron con un lead resuelto).
+  `officeId` (oficina como entidad; `office`, texto libre, por compatibilidad),
+  `type`, `status` (siempre `visits.status`, nunca `confirmationStatus` — son
+  conceptos distintos, FASE 17), `propertyId` + `propertyKind`, `contactId`
+  (el contacto de la cita o, si no tiene, el de su lead) y `leadId`.
 - `POST /api/admin/saas/visits` — crea **una** cita suelta desde el panel
   (`server/utils/appointments/adminCreate.ts`), no un tour de una parada.
   Misma validación que `createTour()` por parada (comercial real, inmueble
@@ -51,10 +62,9 @@ antes de esta FASE, ahora ampliada) y Agenda (pensada para móvil).
 
 ## Decisiones de diseño (huecos reales del repo, no elegidos por preferencia)
 
-- **Office = `team_members.office_name`.** No existe una entidad `Office` en
-  el repositorio (ya lo decía un comentario de FASE 15 sobre `Team`, y otro
-  en el propio `team_members` sobre `office_name`/`department`). Se usa el
-  campo libre existente en vez de inventar una tabla nueva.
+- ~~**Office = `team_members.office_name`.**~~ Superado: desde la migración
+  0086 existe la entidad Oficinas y el filtro es `officeId` (bloque N5). El
+  texto libre se sigue aceptando como `office` por compatibilidad.
 - **Permisos por fila: no existen.** El RBAC de este panel es por área
   (`crm`, `general`, …), no por comercial. El filtro de Comercial en Calendar
   organiza la vista; no restringe qué puede ver cada usuario — ni aquí ni en
@@ -69,10 +79,9 @@ antes de esta FASE, ahora ampliada) y Agenda (pensada para móvil).
   píxeles — un asa de arrastre real habría exigido posicionamiento por
   píxel que este proyecto no tenía y que no merecía la pena introducir sólo
   para esto.
-- **Activity todavía no existe** (es FASE 21): mover/crear/redimensionar una
-  cita no registra ningún evento de actividad comercial todavía. Cuando FASE
-  21 exista, esa llamada se añade dentro de estos mismos servicios — no hace
-  falta rediseñar nada de Calendar para conectarla.
+- ~~**Activity todavía no existe**~~ Superado: crear, mover y cancelar una
+  cita registran `APPOINTMENT_CREATED`, `APPOINTMENT_RESCHEDULED` y
+  `APPOINTMENT_CANCELLED` (FASE 21) desde estos mismos servicios.
 
 ## Pruebas
 

@@ -490,6 +490,7 @@ export async function getLeadDetail(event: H3Event, orgId: number, id: number) {
       propertyName: schema.visits.propertyName,
       agentName: schema.visits.agentName,
       outcome: schema.visits.outcome,
+      interestLevel: schema.visits.interestLevel,
     })
     .from(schema.visits)
     .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.leadId, id)))

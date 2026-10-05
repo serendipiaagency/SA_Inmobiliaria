@@ -214,6 +214,9 @@ describe('confirmación de acciones con efectos externos (§20)', () => {
     expect(cancelled).toMatchObject({ ok: true, output: { status: 'cancelled' } })
     const [row] = await db.select().from(schema.visits).where(eq(schema.visits.id, id))
     expect(row.status).toBe('cancelled')
+    // Cancelar exige motivo (FASE 17): sin uno explícito, queda dicho desde dónde se canceló.
+    expect(row.cancellationReason).toBe('Cancelada con la herramienta cancel_viewing')
+    expect(row.cancelledAt).toBeTruthy()
   })
 
   it('send_property de una 2ª mano vendida → PROPERTY_NOT_PUBLISHABLE antes de tocar Comunicaciones', async () => {
