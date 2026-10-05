@@ -64,12 +64,17 @@
       </div>
     </AdminPanel>
 
-    <div class="mb-4">
+    <div class="mb-4 flex flex-col gap-2 sm:flex-row">
       <input v-model="search" type="search" class="cfg-input" placeholder="Buscar por nombre, email o teléfono…" >
+      <!-- Filtro por rol (FASE 8): una persona puede tener varios. -->
+      <select v-model="role" class="cfg-input sm:!w-52" aria-label="Filtrar por rol" data-testid="contacts-role-filter">
+        <option value="">Todos los roles</option>
+        <option v-for="r in CONTACT_ROLES" :key="r" :value="r">{{ CONTACT_ROLE_LABELS[r] }}</option>
+      </select>
     </div>
 
     <div v-if="!contacts.length" class="rounded-xl border border-dashed border-line px-6 py-10 text-center text-sm text-stone-500">
-      {{ search ? 'Ningún contacto coincide con la búsqueda.' : 'Todavía no hay contactos.' }}
+      {{ search || role ? 'Ningún contacto coincide con la búsqueda.' : 'Todavía no hay contactos.' }}
     </div>
 
     <AdminPanel v-else :pad="false">
@@ -88,6 +93,7 @@
               <td class="px-4 py-3">
                 <NuxtLink :to="`/admin/contactos/${c.id}`" class="font-medium hover:underline">{{ c.name }}</NuxtLink>
                 <span v-if="c.kind === 'company'" class="ml-2 rounded bg-stone-100 px-1.5 py-0.5 text-[10px] uppercase text-stone-500">Empresa</span>
+                <span v-if="c.roles?.length" class="mt-0.5 block text-[11px] text-stone-400" data-testid="contact-row-roles">{{ c.roles.map((r: string) => CONTACT_ROLE_LABELS[r as ContactRole] || r).join(' · ') }}</span>
               </td>
               <td class="px-4 py-3 text-stone-600">
                 <span v-if="c.email">{{ c.email }}</span>
@@ -109,14 +115,17 @@
 </template>
 
 <script setup lang="ts">
+import { CONTACT_ROLES, CONTACT_ROLE_LABELS, type ContactRole } from '~/utils/crmCatalog'
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Contactos — M&M Real Estate' })
 const dt = useDash()
 const toast = useToast()
 
 const search = ref('')
+const role = ref('')
 const { data, refresh } = await useFetch<any[]>('/api/admin/saas/contacts', {
-  query: computed(() => ({ search: search.value || undefined })),
+  query: computed(() => ({ search: search.value || undefined, role: role.value || undefined })),
 })
 const contacts = computed(() => data.value || [])
 

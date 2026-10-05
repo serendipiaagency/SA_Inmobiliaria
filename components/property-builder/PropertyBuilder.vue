@@ -227,6 +227,7 @@
                   <ChildCardManager v-else-if="s.kind === 'child-table'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" :columns="s.columns" />
                   <SocialLinksManager v-else-if="s.kind === 'social'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" />
                   <PropertyRoomManager v-else-if="s.kind === 'rooms'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" />
+                  <PropertyContactsManager v-else-if="s.kind === 'owners'" :parent-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" :can-edit="canEdit" />
                 </fieldset>
 
                 <PropertyEditorFooter
@@ -280,6 +281,7 @@ import GalleryManager from './GalleryManager.vue'
 import ChildCardManager from './ChildCardManager.vue'
 import SocialLinksManager from './SocialLinksManager.vue'
 import PropertyRoomManager from './PropertyRoomManager.vue'
+import PropertyContactsManager from './PropertyContactsManager.vue'
 import PropertyCommunications from './PropertyCommunications.vue'
 import PropertyPriceHistory from './PropertyPriceHistory.vue'
 

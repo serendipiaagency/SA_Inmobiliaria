@@ -354,3 +354,32 @@ export function pricePerSquareMeter(price: unknown, area: unknown): number | nul
   if (!Number.isFinite(p) || !Number.isFinite(a) || p <= 0 || a <= 0) return null
   return Math.round((p / a) * 100) / 100
 }
+
+/** Tipos de documento de una propiedad (FASE 6). */
+export const PROPERTY_DOCUMENT_TYPES = ['deed', 'land_registry_note', 'ibi', 'energy_certificate', 'plans', 'contract', 'mandate', 'licenses', 'receipts', 'community', 'other'] as const
+export const PROPERTY_DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  deed: 'Escritura',
+  land_registry_note: 'Nota simple',
+  ibi: 'Recibo de IBI',
+  energy_certificate: 'Certificado energético',
+  plans: 'Planos',
+  contract: 'Contrato',
+  mandate: 'Mandato / hoja de encargo',
+  licenses: 'Licencias',
+  receipts: 'Recibos',
+  community: 'Comunidad de propietarios',
+  other: 'Otros',
+}
+
+/**
+ * Quién puede ver un documento (FASE 6): interno (sólo el equipo),
+ * propietario (también los propietarios de la propiedad), comprador
+ * autorizado (además, los contactos a los que se les concede) o público.
+ */
+export const DOCUMENT_VISIBILITIES = ['internal', 'owner', 'authorized_buyer', 'public'] as const
+export const DOCUMENT_VISIBILITY_LABELS: Record<string, string> = {
+  internal: 'Interno',
+  owner: 'Propietario',
+  authorized_buyer: 'Comprador autorizado',
+  public: 'Público',
+}

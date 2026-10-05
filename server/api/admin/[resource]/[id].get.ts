@@ -5,6 +5,7 @@ import { getResource } from '../../../utils/adminResources'
 import { authorizeRecord } from '../../../utils/tenantPolicy'
 import { organizationOverview } from '../../../utils/organizations/lifecycle'
 import { loadPropertySheet, propertyKindForResource } from '../../../utils/properties/extendedSheet'
+import { listContactRoles } from '../../../utils/contacts/crm'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -56,6 +57,10 @@ export default defineEventHandler(async (event) => {
   }
   // Ficha de empresa (Sistemas > Empresas): resumen y usuarios reales de esa
   // organización, para las secciones Resumen y Usuarios del editor.
+  // Contacto: con sus roles (contact_roles), que no son columnas de la fila.
+  if (key === 'contacts') {
+    return { row: { ...row, roles: await listContactRoles(db, orgId!, id) }, translations }
+  }
   if (key === 'organizations') {
     return { row, translations, overview: await organizationOverview(db, id) }
   }

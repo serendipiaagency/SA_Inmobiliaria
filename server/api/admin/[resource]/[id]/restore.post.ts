@@ -27,7 +27,9 @@ export default defineEventHandler(async (event) => {
   const where = tenantWhere ? and(idCond, tenantWhere) : idCond
 
   // Restaurar puede chocar con un registro vivo del mismo nombre (índice único parcial): 409 legible.
-  await db.update(def.table).set({ deletedAt: null }).where(where as any).catch(rethrowUniqueViolation)
+  // Un contacto restaurado vuelve a estar activo (una fusión lo dejó «archivado»).
+  const restored: Record<string, unknown> = key === 'contacts' ? { deletedAt: null, status: 'active' } : { deletedAt: null }
+  await db.update(def.table).set(restored).where(where as any).catch(rethrowUniqueViolation)
   await logAdminAction(event, { user, orgId, action: 'restore', resource: key, resourceId: id })
   return { ok: true }
 })

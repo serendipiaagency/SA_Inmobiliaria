@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray, or } from 'drizzle-orm'
 import { createError, type H3Event } from 'h3'
 import { schema, now, slugify, useDb, cfEnv } from './db'
 import { hashPassword, createPasswordResetToken } from './auth'
@@ -13,7 +13,21 @@ import {
 } from './tenantPolicy'
 import type { AdminArea } from '../../utils/adminAreas'
 import { getRequestId } from './requestId'
+import { selectInChunks } from './sqlChunks'
 import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '../../utils/propertySheet'
+import {
+  CONTACT_SOURCES,
+  CONTACT_SOURCE_LABELS,
+  CONTACT_STATUSES,
+  CONTACT_STATUS_LABELS,
+  LANGUAGE_LABELS,
+  LANGUAGE_OPTIONS,
+  NEXT_ACTION_LABELS,
+  NEXT_ACTION_TYPES,
+  NOTE_ENTITY_TYPES,
+  PROPERTY_CONTACT_ROLES,
+  PROPERTY_CONTACT_ROLE_LABELS,
+} from '../../utils/crmCatalog'
 
 /** Oficinas y equipos: nombre con contenido, email con forma de email y zona horaria IANA real. */
 function validateOfficeOrTeam(data: Record<string, any>): Record<string, any> {
@@ -125,6 +139,18 @@ export interface ResourceDef {
   prepare?: (data: Record<string, any>, isCreate: boolean, event?: H3Event) => Promise<Record<string, any>>
   /** Side effect after a successful create (e.g. the welcome email for a new user) — never blocks or fails the create itself. */
   afterCreate?: (event: H3Event, id: number, data: Record<string, any>) => Promise<void>
+  /**
+   * Columnas por las que el listado genérico admite un filtro exacto por
+   * query (`?entityType=contact&entityId=5`). Sólo estas: nunca una columna
+   * arbitraria que mande el cliente.
+   */
+  filterFields?: string[]
+  /**
+   * Completa las filas del listado genérico con datos de otras tablas (el
+   * nombre del contacto de un propietario, el autor de una nota) — siempre
+   * acotado a `orgId`.
+   */
+  decorateRows?: (db: any, orgId: number, rows: any[]) => Promise<any[]>
 }
 
 /**
@@ -1036,6 +1062,116 @@ export const adminResources: Record<string, ResourceDef> = {
     tenantPolicy: { type: 'direct' },
     softDelete: true,
     prepare: async (data) => validateOfficeOrTeam(data),
+  },
+
+  /**
+   * Contactos (FASES 8-9) en el motor genérico: es lo que da la edición
+   * (PUT) que no existía, la papelera y las opciones de los selectores de
+   * contacto. El alta y la edición pasan por server/utils/contacts/crm.ts
+   * (normalización, deduplicación, roles), no por el guardado genérico.
+   * El listado y la ficha 360 siguen en /api/admin/saas/contacts*.
+   */
+  contacts: {
+    area: 'crm',
+    table: schema.contacts,
+    label: 'Contactos',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      kind: { type: 'select', label: 'Tipo', options: ['person', 'company'], optionLabels: { person: 'Persona', company: 'Empresa' } },
+      email: { type: 'text', label: 'Email' },
+      phone: { type: 'text', label: 'Teléfono' },
+      whatsapp: { type: 'text', label: 'WhatsApp' },
+      language: { type: 'select', label: 'Idioma', options: [...LANGUAGE_OPTIONS], optionLabels: LANGUAGE_LABELS },
+      country: { type: 'text', label: 'País' },
+      source: { type: 'select', label: 'Origen', options: [...CONTACT_SOURCES], optionLabels: CONTACT_SOURCE_LABELS },
+      assignedCommercialId: { type: 'number', label: 'Comercial responsable', relation: { resource: 'team', labelField: 'name' } },
+      officeId: { type: 'number', label: 'Oficina', relation: { resource: 'offices', labelField: 'name' } },
+      status: { type: 'select', label: 'Estado', options: [...CONTACT_STATUSES], optionLabels: CONTACT_STATUS_LABELS },
+      nextActionType: { type: 'select', label: 'Próxima acción', options: [...NEXT_ACTION_TYPES], optionLabels: NEXT_ACTION_LABELS },
+      nextActionAt: { type: 'text', label: 'Fecha de la próxima acción' },
+      notes: { type: 'textarea', label: 'Notas' },
+    },
+    listFields: ['id', 'name', 'email', 'phone', 'status'],
+    searchFields: ['name', 'email', 'phone', 'whatsapp'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    relations: { assignedCommercialId: { table: schema.teamMembers, label: 'Comercial' }, officeId: { table: schema.offices, label: 'Oficina' } },
+    softDelete: true,
+  },
+
+  /**
+   * Contactos de una propiedad (PropertyContact, FASE 8): propietario,
+   * copropietario, apoderado, inquilino o contacto, con % de propiedad. La
+   * propiedad se valida por catálogo (propertyKind) en
+   * server/utils/contacts/crm.ts#validatePropertyContact.
+   */
+  'property-contacts': {
+    area: 'crm',
+    table: schema.propertyContacts,
+    label: 'Propietarios y contactos de la propiedad',
+    fields: {
+      propertyKind: { type: 'select', label: 'Catálogo', required: true, options: ['agent', 'developer'], optionLabels: { agent: '2ª mano', developer: 'Web / obra nueva' } },
+      propertyId: { type: 'number', label: 'Propiedad', required: true },
+      contactId: { type: 'number', label: 'Contacto', required: true, relation: { resource: 'contacts', labelField: 'name' } },
+      role: { type: 'select', label: 'Papel', required: true, options: [...PROPERTY_CONTACT_ROLES], optionLabels: PROPERTY_CONTACT_ROLE_LABELS },
+      ownershipPct: { type: 'number', label: '% de propiedad' },
+      isPrimary: { type: 'number', label: 'Principal' },
+      notes: { type: 'textarea', label: 'Notas' },
+    },
+    listFields: ['id', 'propertyKind', 'propertyId', 'contactId', 'role', 'ownershipPct'],
+    searchFields: [],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    relations: { contactId: { table: schema.contacts, label: 'Contacto' } },
+    softDelete: true,
+    filterFields: ['propertyKind', 'propertyId', 'contactId', 'role'],
+    decorateRows: async (db, orgId, rows) => {
+      const ids = [...new Set(rows.map((r) => r.contactId))]
+      if (!ids.length) return rows
+      const contacts = await selectInChunks(ids, (part) =>
+        db
+          .select({ id: schema.contacts.id, name: schema.contacts.name, email: schema.contacts.email, phone: schema.contacts.phone })
+          .from(schema.contacts)
+          .where(and(eq(schema.contacts.organizationId, orgId), inArray(schema.contacts.id, part))),
+      )
+      const byId = new Map<number, any>(contacts.map((c: any) => [c.id, c]))
+      return rows.map((r) => ({ ...r, contact: byId.get(r.contactId) || null }))
+    },
+  },
+
+  /** Nota como entidad (FASE 0): de un contacto, lead, propiedad, cita u operación. */
+  notes: {
+    area: 'crm',
+    table: schema.notes,
+    label: 'Notas',
+    fields: {
+      entityType: { type: 'select', label: 'Sobre', required: true, options: [...NOTE_ENTITY_TYPES] },
+      entityId: { type: 'number', label: 'Registro', required: true },
+      propertyKind: { type: 'select', label: 'Catálogo (si es una propiedad)', options: ['agent', 'developer'] },
+      body: { type: 'textarea', label: 'Nota', required: true },
+      isPinned: { type: 'number', label: 'Fijada' },
+    },
+    listFields: ['id', 'entityType', 'entityId', 'body', 'createdAt'],
+    searchFields: ['body'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    softDelete: true,
+    filterFields: ['entityType', 'entityId', 'propertyKind', 'contactId', 'leadId', 'propertyId', 'appointmentId', 'dealOperationId'],
+    decorateRows: async (db, orgId, rows) => {
+      const ids = [...new Set(rows.map((r) => r.createdBy).filter(Boolean))]
+      if (!ids.length) return rows
+      const users = await selectInChunks(ids, (part) =>
+        db
+          .select({ id: schema.users.id, name: schema.users.name })
+          .from(schema.users)
+          .where(and(inArray(schema.users.id, part), or(eq(schema.users.organizationId, orgId), eq(schema.users.role, 'super_admin')))),
+      )
+      const byId = new Map<number, string>(users.map((u: any) => [u.id, u.name]))
+      return rows.map((r) => ({ ...r, authorName: byId.get(r.createdBy) || null }))
+    },
   },
 
   /** Equipos comerciales (migración 0086), opcionalmente dentro de una oficina. */

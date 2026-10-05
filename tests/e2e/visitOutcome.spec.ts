@@ -53,13 +53,16 @@ test.describe('Resultado de visita', () => {
   })
 
   async function seedVisit(tag: string) {
-    const res = await a.post('/api/admin/saas/tours', {
-      data: {
-        clientName: `E2E Outcome ${tag}`,
-        clientEmail: `e2e-outcome-${tag}-${Date.now()}@example.com`,
-        stops: [{ agentId, scheduledAt: randomFutureSlot() }],
-      },
+    // La franja es aleatoria y la agenda de este comercial la comparten otros
+    // specs de la misma sesión: si ya está ocupada (409), se prueba otra.
+    let res = await a.post('/api/admin/saas/tours', {
+      data: { clientName: `E2E Outcome ${tag}`, clientEmail: `e2e-outcome-${tag}-${Date.now()}@example.com`, stops: [{ agentId, scheduledAt: randomFutureSlot() }] },
     })
+    for (let attempt = 0; attempt < 5 && res.status() === 409; attempt++) {
+      res = await a.post('/api/admin/saas/tours', {
+        data: { clientName: `E2E Outcome ${tag}`, clientEmail: `e2e-outcome-${tag}-${Date.now()}@example.com`, stops: [{ agentId, scheduledAt: randomFutureSlot() }] },
+      })
+    }
     expect(res.ok(), await res.text()).toBeTruthy()
     const { stopIds } = await res.json()
     return stopIds[0] as number

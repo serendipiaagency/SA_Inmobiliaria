@@ -65,6 +65,10 @@ const RESOURCE_ROWS: Record<string, (f: TenantFixture, tag: string) => Record<st
   'lead-bulk-jobs': (f, tag) => ({ organizationId: f.orgId, entityType: 'lead', action: 'add_tag', paramsJson: JSON.stringify({ tagName: `${tag}` }), totalCount: 1, requestedBy: f.userId }),
   offices: (f, tag) => ({ organizationId: f.orgId, name: `${tag} office`, status: 'active' }),
   teams: (f, tag) => ({ organizationId: f.orgId, name: `${tag} team`, status: 'active' }),
+  contacts: (f, tag) => ({ organizationId: f.orgId, name: `${tag} contact`, status: 'active' }),
+  // El contacto de cada agencia lo acaba de crear la fila `contacts` (va antes en adminResources).
+  'property-contacts': (f) => ({ organizationId: f.orgId, propertyKind: 'agent', propertyId: f.propertyId, contactId: ids.contacts[f.orgId === A.orgId ? 'a' : 'b'], role: 'owner' }),
+  notes: (f, tag) => ({ organizationId: f.orgId, entityType: 'lead', entityId: f.leadId, leadId: f.leadId, body: `${tag} nota` }),
 }
 
 /** Resources deliberately outside the tenant matrix, each with a stated reason. */
@@ -244,7 +248,7 @@ describe('cross-tenant CREATE with a foreign relation is refused', () => {
 
   it('the declared relations cover the known client-supplied foreign keys', () => {
     expect(relationKeys.sort()).toEqual(
-      ['cms-authors', 'cms-categories', 'cms-comments', 'cms-media-folders', 'developer-properties', 'lead-routing-rules', 'properties', 'team', 'team-member-documents', 'teams'].sort(),
+      ['cms-authors', 'cms-categories', 'cms-comments', 'cms-media-folders', 'contacts', 'developer-properties', 'lead-routing-rules', 'properties', 'property-contacts', 'team', 'team-member-documents', 'teams'].sort(),
     )
   })
 
@@ -328,6 +332,21 @@ describe('cross-tenant CREATE with a foreign relation is refused', () => {
     await expectCrossTenantDenied(
       () => assertPayloadReferences(db, adminResources.teams, { officeId: ids.offices.b }, A.orgId, { isCreate: true }),
       'teams.officeId → oficina de otra agencia',
+    )
+  })
+
+  it('un contacto no se asigna a un comercial u oficina de otra agencia, ni se vincula a una propiedad un contacto ajeno', async () => {
+    await expectCrossTenantDenied(
+      () => assertPayloadReferences(db, adminResources.contacts, { assignedCommercialId: B.teamMemberId }, A.orgId, { isCreate: false }),
+      'contacts.assignedCommercialId → comercial de otra agencia',
+    )
+    await expectCrossTenantDenied(
+      () => assertPayloadReferences(db, adminResources.contacts, { officeId: ids.offices.b }, A.orgId, { isCreate: false }),
+      'contacts.officeId → oficina de otra agencia',
+    )
+    await expectCrossTenantDenied(
+      () => assertPayloadReferences(db, adminResources['property-contacts'], { contactId: ids.contacts.b }, A.orgId, { isCreate: true }),
+      'property-contacts.contactId → contacto de otra agencia',
     )
   })
 

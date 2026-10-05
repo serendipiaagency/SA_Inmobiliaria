@@ -110,7 +110,12 @@ export interface RoomsSection extends BaseSection {
   parentField: string
 }
 
-export type BuilderSection = FieldsSection | LocationSection | GallerySection | ChildTableSection | SocialSection | TranslationsSection | RoomsSection
+/** Propietarios, copropietarios, apoderados, inquilinos y contactos de la propiedad (PropertyContact, FASE 8). */
+export interface OwnersSection extends BaseSection {
+  kind: 'owners'
+}
+
+export type BuilderSection = FieldsSection | LocationSection | GallerySection | ChildTableSection | SocialSection | TranslationsSection | RoomsSection | OwnersSection
 
 /**
  * Splits a section's fields into visual subsections by their `group` label,
@@ -226,6 +231,14 @@ const SHEET_INSTALLATIONS_SECTION: FieldsSection = {
   kind: 'fields',
   fields: [...sheetGroup('installations'), ...sheetGroup('common'), ...sheetGroup('exterior')],
 }
+const OWNERS_SECTION: OwnersSection = {
+  key: 'owners',
+  label: 'Propietarios',
+  icon: 'badge',
+  description: 'Propietarios (con su % de propiedad), apoderados, inquilinos y contactos de la propiedad.',
+  kind: 'owners',
+}
+
 const SHEET_LEGAL_SECTION: FieldsSection = {
   key: 'legal',
   label: 'Legal y certificados',
@@ -468,6 +481,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'serviceChargeAnnual', label: 'Gastos de comunidad anuales', type: 'number', group: 'Inversión' },
       ],
     },
+    OWNERS_SECTION,
     SHEET_LEGAL_SECTION,
   ],
 
@@ -682,6 +696,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'serviceChargeAnnual', label: 'Gastos de comunidad anuales', type: 'number', group: 'Inversión' },
       ],
     },
+    OWNERS_SECTION,
     SHEET_LEGAL_SECTION,
   ],
 }

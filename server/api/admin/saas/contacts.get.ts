@@ -1,7 +1,9 @@
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { requireOrgScope } from '../../../utils/auth'
 import { useDb, schema } from '../../../utils/db'
 import { searchContacts } from '../../../utils/contacts/service'
+import { selectInChunks } from '../../../utils/sqlChunks'
+import { CONTACT_ROLES } from '../../../../utils/crmCatalog'
 
 /** Lista/busca contactos del tenant. La búsqueda mira nombre, email y teléfono (searchContacts, compartida con la Domain Tool find_contacts). */
 export default defineEventHandler(async (event) => {
@@ -11,7 +13,8 @@ export default defineEventHandler(async (event) => {
   const search = String(query.search || '').trim()
   const limit = Math.min(Number(query.limit) || 100, 200)
 
-  const rows = await searchContacts(db, orgId, search, limit)
+  const role = typeof query.role === 'string' && (CONTACT_ROLES as readonly string[]).includes(query.role) ? query.role : null
+  const rows = await searchContacts(db, orgId, search, limit, { role })
 
   // Cuántas necesidades tiene cada contacto, para la lista. Una sola consulta
   // agregada en vez de una por fila.
@@ -25,5 +28,17 @@ export default defineEventHandler(async (event) => {
     .groupBy(schema.buyerRequirements.contactId)
 
   const byContact = new Map(counts.map((c) => [c.contactId, Number(c.total)]))
-  return rows.map((r) => ({ ...r, requirementsCount: byContact.get(r.id) || 0 }))
+  // Los roles de cada contacto de la página, en una sola consulta.
+  // Por trozos: una página de hasta 200 contactos supera el límite de parámetros de D1.
+  const roleRows = await selectInChunks(
+    rows.map((r) => r.id),
+    (part) =>
+      db
+        .select({ contactId: schema.contactRoles.contactId, role: schema.contactRoles.role })
+        .from(schema.contactRoles)
+        .where(and(eq(schema.contactRoles.organizationId, orgId), inArray(schema.contactRoles.contactId, part))),
+  )
+  const rolesBy = new Map<number, string[]>()
+  for (const r of roleRows) rolesBy.set(r.contactId, [...(rolesBy.get(r.contactId) || []), r.role])
+  return rows.map((r) => ({ ...r, requirementsCount: byContact.get(r.id) || 0, roles: rolesBy.get(r.id) || [] }))
 })

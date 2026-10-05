@@ -24,6 +24,13 @@ export interface ContactInput {
   notes?: string | null
   externalSource?: string | null
   externalId?: string | null
+  // Cabecera CRM 360 (migración 0086).
+  country?: string | null
+  source?: string | null
+  officeId?: number | null
+  status?: string | null
+  nextActionType?: string | null
+  nextActionAt?: string | null
 }
 
 /** El email en minúsculas y sin espacios. `null` cuando no hay nada que normalizar. */
@@ -158,8 +165,14 @@ export async function findDuplicateContacts(
  * Busca contactos del tenant por nombre, email o teléfono — la búsqueda de la
  * lista de Contactos, compartida con la Domain Tool find_contacts (FASE 31).
  */
-export async function searchContacts(db: any, orgId: number, search: string, limit = 100) {
+export async function searchContacts(db: any, orgId: number, search: string, limit = 100, opts: { role?: string | null } = {}) {
   const conditions = [eq(schema.contacts.organizationId, orgId), isNull(schema.contacts.deletedAt)]
+  // Filtro por rol (FASE 8): sólo los contactos que tienen ese rol en contact_roles.
+  if (opts.role) {
+    conditions.push(
+      sql`exists (select 1 from contact_roles cr where cr.contact_id = ${schema.contacts.id} and cr.organization_id = ${orgId} and cr.role = ${opts.role})`,
+    )
+  }
   const term = search.trim()
   if (term) {
     const pattern = `%${term.toLowerCase()}%`
@@ -227,6 +240,11 @@ export async function createContact(
       language: input.language || null,
       assignedCommercialId: input.assignedCommercialId ?? null,
       notes: input.notes || null,
+      country: input.country || null,
+      source: input.source || null,
+      officeId: input.officeId ?? null,
+      nextActionType: input.nextActionType || null,
+      nextActionAt: input.nextActionAt || null,
       status: 'active',
       createdBy: opts.createdBy ?? null,
       createdAt: nowTs,
@@ -270,6 +288,12 @@ export async function updateContact(
   if (input.assignedCommercialId !== undefined) patch.assignedCommercialId = input.assignedCommercialId
   if (input.notes !== undefined) patch.notes = input.notes || null
   if (input.kind !== undefined) patch.kind = input.kind === 'company' ? 'company' : 'person'
+  if (input.country !== undefined) patch.country = input.country || null
+  if (input.source !== undefined) patch.source = input.source || null
+  if (input.officeId !== undefined) patch.officeId = input.officeId
+  if (input.status !== undefined && input.status) patch.status = input.status
+  if (input.nextActionType !== undefined) patch.nextActionType = input.nextActionType || null
+  if (input.nextActionAt !== undefined) patch.nextActionAt = input.nextActionAt || null
 
   await db.update(schema.contacts).set(patch).where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.organizationId, orgId)))
   // Acotada por organización igual que la escritura: nunca se devuelve una
