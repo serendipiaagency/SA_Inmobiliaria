@@ -4,6 +4,7 @@ import * as schema from '../../db/schema'
 import { now } from '../db'
 import { recordActivity } from '../activity/service'
 import { advancePropertyMatches, type PropertyKind } from '../matching/service'
+import { assertLiveProperty } from '../properties/trash'
 
 /**
  * OfferService (FASE 23) — el único sitio que crea o transiciona una Offer.
@@ -68,11 +69,6 @@ interface TermsInput {
   expiration?: string | null
 }
 
-async function assertPropertyExists(db: any, orgId: number, propertyId: number, propertyKind: PropertyKind) {
-  const table = propertyKind === 'agent' ? schema.agentProperties : schema.developerProperties
-  const rows = await db.select({ id: table.id }).from(table).where(and(eq(table.id, propertyId), eq(table.organizationId, orgId))).limit(1)
-  if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Inmueble no encontrado' })
-}
 
 async function assertContactExists(db: any, orgId: number, contactId: number, label: string) {
   const rows = await db.select({ id: schema.contacts.id }).from(schema.contacts).where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.organizationId, orgId))).limit(1)
@@ -139,7 +135,9 @@ export interface CreateOfferInput {
 /** Crea una Offer en borrador (`draft`), con su primera revisión ("created"). */
 export async function createOffer(db: any, orgId: number, input: CreateOfferInput, opts: { createdBy?: number | null } = {}): Promise<OfferRow> {
   if (!(input.amount > 0)) throw createError({ statusCode: 422, statusMessage: 'El importe debe ser mayor que cero' })
-  await assertPropertyExists(db, orgId, input.propertyId, input.propertyKind)
+  // Una oferta nueva necesita una propiedad de esta agencia y fuera de la papelera.
+  // Las ofertas que ya existían sobre una propiedad borrada siguen su curso (historia).
+  await assertLiveProperty(db, orgId, input.propertyKind, input.propertyId, { action: 'crear una oferta', notFoundMessage: 'Inmueble no encontrado' })
   await assertContactExists(db, orgId, input.buyerContactId, 'Comprador')
   const sellerIds = [...new Set(input.sellerContactIds || [])]
   for (const id of sellerIds) await assertContactExists(db, orgId, id, 'Vendedor')

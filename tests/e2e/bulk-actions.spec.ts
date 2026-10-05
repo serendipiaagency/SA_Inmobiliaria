@@ -319,7 +319,7 @@ test.describe('Bulk Actions — Propiedades (incremento 2)', () => {
     await row.locator('input[type="checkbox"]').check()
 
     await page.locator('select').filter({ hasText: 'Elige una acción…' }).selectOption('update_price')
-    await page.getByPlaceholder('Nuevo precio (€)').fill('250000')
+    await page.getByPlaceholder('Nuevo precio', { exact: true }).fill('250000')
     await page.getByRole('button', { name: 'Aplicar' }).click()
 
     const dialog = page.getByRole('alertdialog')

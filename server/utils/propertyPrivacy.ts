@@ -47,6 +47,9 @@ const INTERNAL_ONLY_KEYS = [
   'featuresReviewedAt',
   'featuresReviewedBy',
   'locationPrivacyRadius',
+  // Migración 0086: quién dio de alta la ficha (users.id) y el borrado lógico.
+  'createdBy',
+  'deletedAt',
 ] as const
 
 /**

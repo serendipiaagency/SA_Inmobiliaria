@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { answerQuestion } from '../../utils/ai'
 import { rateLimit } from '../../utils/rateLimit'
+import { livePropertyCond } from '../../utils/properties/trash'
 
 export default defineEventHandler(async (event) => {
   // Each call can hit a paid LLM API (see server/utils/ai.ts) — cap it well before the
@@ -23,7 +24,8 @@ export default defineEventHandler(async (event) => {
   const rows = await db
     .select()
     .from(P)
-    .where(and(body?.slug ? eq(P.slug, String(body.slug)) : eq(P.id, Number(body?.id)), eq(P.organizationId, orgId)))
+    // En la papelera: 404, igual que una que no existe.
+    .where(and(body?.slug ? eq(P.slug, String(body.slug)) : eq(P.id, Number(body?.id)), eq(P.organizationId, orgId), livePropertyCond(P)))
     .limit(1)
   const project = rows[0]
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })

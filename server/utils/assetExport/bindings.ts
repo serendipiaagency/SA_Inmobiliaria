@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, cfEnv } from '../db'
 import { getOrCreateAssetQrUrl } from './qrLinks'
+import { trashedPropertyMessage } from '../properties/trash'
 
 export interface AssetBindings {
   values: Record<string, string>
@@ -68,6 +69,9 @@ export async function resolveAssetBindings(
   const rows = await db.select().from(schema.developerProperties).where(eq(schema.developerProperties.id, params.assetId)).limit(1)
   const asset = rows[0]
   if (!asset || asset.organizationId !== params.orgId) throw createError({ statusCode: 404, statusMessage: 'Asset not found' })
+  // Toda exportación (pieza, lote, catálogo, API v1) pasa por aquí: de una
+  // propiedad en la papelera no se genera material nuevo.
+  if (asset.deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('exportarla') })
 
   const tenant = await resolveTenantBindings(event, params.orgId)
 

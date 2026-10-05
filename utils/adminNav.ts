@@ -56,6 +56,8 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: 'Compatibilidades', to: '/admin/compatibilidades', icon: 'sparkles' },
       { label: 'Leads', to: '/admin/leads', icon: 'contact' },
       { label: 'Enrutamiento y SLA', to: '/admin/enrutamiento', icon: 'bolt' },
+      { label: 'Oficinas', to: '/admin/offices', icon: 'building' },
+      { label: 'Equipos', to: '/admin/teams', icon: 'team' },
       { label: 'Clientes', to: '/admin/clientes', icon: 'users' },
       { label: 'Comunicaciones', to: '/admin/comunicaciones', icon: 'chat' },
       { label: 'Visitas', to: '/admin/visitas', icon: 'calendar' },

@@ -6,6 +6,7 @@ import { buildJobRows, type TemplateStep } from '../../../utils/publication/sche
 import { ensureChannelConfigs } from '../../../utils/publication/defaults'
 import { maybeApplyAiTime } from '../../../utils/publication/aiTime'
 import { logAdminAction } from '../../../utils/audit'
+import { assertLiveProperty } from '../../../utils/properties/trash'
 
 /**
  * POST /api/admin/scheduler/create — Fase 4/5/16.
@@ -23,12 +24,8 @@ export default defineEventHandler(async (event) => {
   // Ownership, not mere existence: without the organization filter a tenant
   // could schedule — and the dispatcher would then really publish — another
   // tenant's project across its own configured channels.
-  const propertyRows = await db
-    .select({ id: schema.developerProperties.id })
-    .from(schema.developerProperties)
-    .where(and(eq(schema.developerProperties.id, developerPropertyId), eq(schema.developerProperties.organizationId, orgId)))
-    .limit(1)
-  if (!propertyRows[0]) throw createError({ statusCode: 404, statusMessage: 'Propiedad no encontrada' })
+  // Y fuera de la papelera: programar la publicación de una propiedad borrada es 422.
+  await assertLiveProperty(db, orgId, 'developer', developerPropertyId, { action: 'programar su publicación' })
 
   const explicitTimeGiven = Boolean(body?.baseScheduledAt)
   let baseScheduledAt = String(body?.baseScheduledAt || now())

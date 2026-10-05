@@ -3,6 +3,7 @@ import { useDb, schema } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
 import { attachPhotos } from '../../../utils/photos'
 import { PUBLIC_TEAM_COLUMNS } from '../../../utils/publicTeam'
+import { livePropertyCond } from '../../../utils/properties/trash'
 
 /**
  * Same shape as /api/public/home, but scoped to the admin's own active
@@ -15,7 +16,13 @@ export default defineEventHandler(async (event) => {
   const db = useDb(event)
 
   const [projects, communities, blogs, team] = await Promise.all([
-    db.select().from(schema.developerProperties).where(eq(schema.developerProperties.organizationId, orgId)).orderBy(desc(schema.developerProperties.id)).limit(12),
+    // Igual que /api/public/home: nada de la papelera.
+    db
+      .select()
+      .from(schema.developerProperties)
+      .where(and(eq(schema.developerProperties.organizationId, orgId), livePropertyCond(schema.developerProperties)))
+      .orderBy(desc(schema.developerProperties.id))
+      .limit(12),
     db.select().from(schema.communities).where(eq(schema.communities.organizationId, orgId)).orderBy(desc(schema.communities.id)).limit(6),
     db.select().from(schema.blogs).where(eq(schema.blogs.organizationId, orgId)).orderBy(desc(schema.blogs.id)).limit(3),
     // Idéntico a /api/public/home: el lienzo tiene que ver exactamente lo

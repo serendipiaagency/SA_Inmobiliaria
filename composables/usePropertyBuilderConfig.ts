@@ -18,10 +18,12 @@
  * entrada en los dos.
  */
 
+import { PROPERTY_SHEET_GROUPS, PROPERTY_TYPES, PROPERTY_TYPE_LABELS, pricePerSquareMeter, type SheetField } from '~/utils/propertySheet'
+
 export interface FieldSpec {
   key: string
   label: string
-  type: 'text' | 'textarea' | 'rich-text' | 'number' | 'stepper' | 'select' | 'checkbox' | 'image' | 'url' | 'json' | 'relation' | 'agent' | 'payment-plan' | 'video'
+  type: 'text' | 'textarea' | 'rich-text' | 'number' | 'stepper' | 'select' | 'checkbox' | 'image' | 'url' | 'json' | 'relation' | 'agent' | 'payment-plan' | 'video' | 'date' | 'computed'
   options?: string[]
   /**
    * Etiqueta legible por valor, para los `select` cuyo valor guardado es una
@@ -40,6 +42,20 @@ export interface FieldSpec {
   recommended?: boolean
   /** Visual subheading a 'fields' section groups this field under (e.g. "Identificación", "Equipamiento"). Consecutive fields sharing the same group render together under one heading — see groupFields(). Omit for a field that isn't part of a named group. */
   group?: string
+  /**
+   * Campo condicional (FASE 25): sólo se enseña si `form[key]` vale uno de
+   * `in` — p. ej. la fianza sólo en alquiler. `notIn` es lo contrario. Un
+   * valor vacío cuenta como `emptyAs` (por defecto, 'sale' para la operación).
+   */
+  showWhen?: { key: string; in?: string[]; notIn?: string[]; emptyAs?: string }
+  /** Para `computed`: valor derivado de la ficha que se enseña pero nunca se guarda. */
+  compute?: (form: Record<string, any>) => string
+  /**
+   * Campo de la interfaz que no es una columna de la propiedad (el motivo de
+   * un cambio de precio, un valor calculado): el filtrado por schema
+   * (PropertySchemaRegistry) no lo oculta.
+   */
+  virtual?: boolean
 }
 
 interface BaseSection {
@@ -115,18 +131,13 @@ export function groupFields(fields: FieldSpec[]): { label: string | null; fields
   return groups
 }
 
-const PROPERTY_TYPE_OPTIONS = ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio']
 /**
- * PropertySchemaRegistry (FASE 26) sólo puede resolver un schema distinto de
- * 'residential' (Land/Commercial/Industrial/Garage/Building) si el propio
- * selector ofrece esos tipos — si no, el filtrado condicional por schema
- * (FASE 25) nunca se activa en la práctica. Ampliado sólo en 2ª mano
- * ('properties'): developer-properties son siempre unidades residenciales
- * de una promoción, nunca un garaje o un solar sueltos, y su propertyType no
- * participa del mapeo a schema de todas formas (ver AGENT_PROPERTY_TYPE_TO_SCHEMA
- * en server/utils/propertySchema/registry.ts).
+ * Tipos de inmueble: la misma lista en los dos catálogos (utils/propertySheet.ts),
+ * con su etiqueta en español. En 2ª mano el tipo decide además el schema
+ * (PropertySchemaRegistry, FASE 26) y con él qué campos aplican; en obra
+ * nueva el schema es siempre newDevelopment.
  */
-const SECOND_HAND_PROPERTY_TYPE_OPTIONS = [...PROPERTY_TYPE_OPTIONS, 'Land', 'Office', 'Retail', 'Warehouse', 'Garage', 'Building']
+const PROPERTY_TYPE_OPTIONS = [...PROPERTY_TYPES] as string[]
 const ORIENTATION_OPTIONS = ['N', 'S', 'E', 'W', 'SE', 'SW', 'NE', 'NW']
 const ENERGY_OPTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 const CONDITION_OPTIONS = ['new', 'excellent', 'good', 'to_renovate', 'to_reform']
@@ -135,6 +146,94 @@ const FURNISHED_OPTIONS = ['yes', 'no', 'partially']
 const FURNISHED_LABELS: Record<string, string> = { yes: 'Sí', no: 'No', partially: 'Parcialmente' }
 const LOCATION_PRIVACY_OPTIONS = ['exact', 'approximate', 'hidden_number']
 const LOCATION_PRIVACY_LABELS: Record<string, string> = { exact: 'Exacta', approximate: 'Aproximada', hidden_number: 'Ocultar número' }
+
+/** Un campo de la ficha ampliada (utils/propertySheet.ts) como campo del editor. */
+function sheetSpec(f: SheetField, group: string): FieldSpec {
+  const type: FieldSpec['type'] =
+    f.type === 'bool' ? 'checkbox' : f.type === 'integer' ? 'number' : f.type === 'relation' ? 'relation' : (f.type as FieldSpec['type'])
+  return {
+    key: f.key,
+    label: f.label,
+    type,
+    group,
+    hint: f.hint,
+    ...(f.options ? { options: f.options, optionLabels: f.optionLabels } : {}),
+    ...(f.relationResource ? { relationResource: f.relationResource } : {}),
+    ...(f.type === 'textarea' ? { span: 2 as const } : {}),
+  }
+}
+
+/** Los campos de un bloque de la ficha ampliada, con el rótulo de grupo que se quiera en el editor. */
+function sheetGroup(key: string, group?: string, extra: Partial<FieldSpec> = {}): FieldSpec[] {
+  const g = PROPERTY_SHEET_GROUPS.find((x) => x.key === key)
+  if (!g) throw new Error(`Bloque de ficha desconocido: ${key}`)
+  return g.fields.map((f) => ({ ...sheetSpec(f, group ?? g.label), ...extra }))
+}
+
+/** Los campos de un bloque sin rótulo de grupo (para mezclarlos con los de una sección sin grupos, como Ubicación). */
+function sheetGroupFlat(key: string): FieldSpec[] {
+  return sheetGroup(key).map(({ group: _group, ...f }) => f)
+}
+
+const ONLY_RENT = { key: 'transactionType', in: ['rent'], emptyAs: 'sale' }
+const ONLY_SALE = { key: 'transactionType', notIn: ['rent'], emptyAs: 'sale' }
+
+/** Precio por m² (o renta por m²) calculado: precio ÷ superficie construida. Nunca se guarda. */
+const PRICE_PER_M2: FieldSpec = {
+  key: 'pricePerSquareMeter',
+  label: 'Precio por m²',
+  type: 'computed',
+  virtual: true,
+  hint: 'Calculado: precio ÷ superficie construida.',
+  group: 'Precio principal',
+  compute: (form) => {
+    const v = pricePerSquareMeter(form.price, form.area)
+    return v == null ? 'Indica precio y superficie construida' : v.toLocaleString('es-ES', { maximumFractionDigits: 2 })
+  },
+}
+
+/** Motivo del cambio de precio: se guarda en el histórico sólo si el precio cambia. */
+const PRICE_CHANGE_REASON: FieldSpec = {
+  key: 'priceChangeReason',
+  label: 'Motivo del cambio de precio',
+  type: 'text',
+  virtual: true,
+  span: 2,
+  hint: 'Opcional. Si cambias el precio, queda en el histórico junto a quién lo cambió.',
+  group: 'Precio principal',
+}
+
+/** Bloques de la ficha ampliada que comparten los dos catálogos, en el orden del editor. */
+const SHEET_PRICE_FIELDS: FieldSpec[] = [
+  ...sheetGroup('sale', 'Venta', { showWhen: ONLY_SALE }),
+  ...sheetGroup('rent', 'Alquiler', { showWhen: ONLY_RENT }),
+  ...sheetGroup('costs', 'Gastos del inmueble'),
+  ...sheetGroup('commissions', 'Comisiones'),
+]
+const SHEET_BUILDING_SECTION: FieldsSection = {
+  key: 'building',
+  label: 'Edificio y vivienda',
+  icon: 'building',
+  description: 'Datos del edificio y calidades de la vivienda.',
+  kind: 'fields',
+  fields: [...sheetGroup('building'), ...sheetGroup('dwelling')],
+}
+const SHEET_INSTALLATIONS_SECTION: FieldsSection = {
+  key: 'installations',
+  label: 'Instalaciones y exteriores',
+  icon: 'sparkles',
+  description: 'Instalaciones, zonas comunes y exteriores.',
+  kind: 'fields',
+  fields: [...sheetGroup('installations'), ...sheetGroup('common'), ...sheetGroup('exterior')],
+}
+const SHEET_LEGAL_SECTION: FieldsSection = {
+  key: 'legal',
+  label: 'Legal y certificados',
+  icon: 'doc',
+  description: 'Situación registral, cargas, licencias y certificado energético. Todo interno salvo la calificación energética.',
+  kind: 'fields',
+  fields: [...sheetGroup('legal'), ...sheetGroup('energy')],
+}
 
 export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
   'developer-properties': [
@@ -154,8 +253,10 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'developerId', label: 'Promotora', type: 'relation', relationResource: 'developers', required: true, group: 'Clasificación' },
         { key: 'status', label: 'Estado', type: 'select', options: ['new', 'under_construction', 'ready'], optionLabels: { new: 'Obra nueva', under_construction: 'En construcción', ready: 'Lista' }, group: 'Clasificación' },
         { key: 'transactionType', label: 'Operación', type: 'select', options: ['sale', 'rent'], optionLabels: { sale: 'Venta', rent: 'Alquiler' }, group: 'Clasificación' },
-        { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, group: 'Clasificación' },
+        { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, optionLabels: PROPERTY_TYPE_LABELS, group: 'Clasificación' },
+        ...sheetGroup('identification', 'Clasificación').filter((f) => f.key === 'subtype' || f.key === 'commercialStatus'),
         { key: 'yearBuilt', label: 'Año de construcción', type: 'number', group: 'Clasificación' },
+        ...sheetGroup('identification', 'Identificación comercial').filter((f) => f.key === 'commercialCode'),
         { key: 'captureDate', label: 'Fecha de captación', type: 'text', group: 'Captación' },
         { key: 'captureSource', label: 'Origen de captación', type: 'text', group: 'Captación' },
       ],
@@ -180,6 +281,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'doorLetter', label: 'Letra', type: 'text' },
         { key: 'postalCode', label: 'Código postal', type: 'text' },
         { key: 'district', label: 'Distrito', type: 'text' },
+        ...sheetGroupFlat('location'),
         {
           key: 'locationPrivacy',
           label: 'Privacidad de la ubicación',
@@ -199,12 +301,15 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Precio de salida, evolución y plan de pagos.',
       kind: 'fields',
       fields: [
-        { key: 'price', label: 'Precio de salida (AED)', type: 'number', required: true, group: 'Precio principal' },
-        { key: 'priceOld', label: 'Precio anterior (AED)', type: 'number', hint: 'Para mostrar un precio tachado si ha bajado.', group: 'Precio principal' },
+        { key: 'price', label: 'Precio de salida', type: 'number', required: true, group: 'Precio principal' },
+        { key: 'priceOld', label: 'Precio anterior', type: 'number', hint: 'Para mostrar un precio tachado si ha bajado.', group: 'Precio principal' },
+        PRICE_PER_M2,
+        PRICE_CHANGE_REASON,
         { key: 'handoverDate', label: 'Fecha de entrega', type: 'text', group: 'Condiciones' },
         { key: 'handoverPercentage', label: '% a la entrega', type: 'text', group: 'Condiciones' },
         { key: 'downPercentage', label: '% de entrada', type: 'text', group: 'Condiciones' },
         { key: 'constructionPercentage', label: '% durante construcción', type: 'text', group: 'Condiciones' },
+        ...SHEET_PRICE_FIELDS,
         { key: 'paymentPlan', label: 'Plan de pagos', type: 'payment-plan', span: 2, group: 'Plan de pagos' },
       ],
     },
@@ -228,6 +333,8 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'gardenArea', label: 'Superficie de jardín (m²)', type: 'number', group: 'Superficies' },
         { key: 'balconyArea', label: 'Superficie de balcón (m²)', type: 'number', group: 'Superficies' },
         { key: 'storageArea', label: 'Superficie de trastero (m²)', type: 'number', group: 'Superficies' },
+        ...sheetGroup('surfaces', 'Superficies'),
+        ...sheetGroup('distribution', 'Distribución'),
         { key: 'condition', label: 'Estado físico', type: 'select', options: CONDITION_OPTIONS, optionLabels: CONDITION_LABELS, group: 'Estado' },
         { key: 'furnished', label: 'Amueblado', type: 'select', options: FURNISHED_OPTIONS, optionLabels: FURNISHED_LABELS, group: 'Estado' },
         { key: 'orientation', label: 'Orientación', type: 'select', options: ORIENTATION_OPTIONS, group: 'Certificación' },
@@ -257,6 +364,8 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       childResource: 'developer-property-rooms',
       parentField: 'developerPropertyId',
     },
+    SHEET_BUILDING_SECTION,
+    SHEET_INSTALLATIONS_SECTION,
     {
       key: 'description',
       label: 'Descripción',
@@ -283,6 +392,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'masterPlanImage', label: 'Imagen del master plan', type: 'image', group: 'Planos y ubicación' },
         { key: 'locationMap', label: 'Mapa de ubicación', type: 'image', group: 'Planos y ubicación' },
         { key: 'videoUrl', label: 'Vídeo', type: 'video', span: 2, group: 'Vídeo' },
+        ...sheetGroup('media', 'Tour virtual').map((f) => ({ ...f, span: 2 as const })),
         { key: 'dronePhoto', label: 'Foto aérea (drone)', type: 'image', group: 'Fotografía premium' },
         { key: 'nightPhoto', label: 'Foto nocturna', type: 'image', group: 'Fotografía premium' },
         { key: 'beforePhoto', label: 'Foto "antes"', type: 'image', group: 'Fotografía premium' },
@@ -347,6 +457,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       kind: 'fields',
       fields: [
         { key: 'agentId', label: 'Comercial asignado', type: 'agent', group: 'Comercial' },
+        ...sheetGroup('identification', 'Comercial').filter((f) => f.key === 'officeId' || f.key === 'teamId'),
         { key: 'mandateType', label: 'Tipo de mandato', type: 'text', group: 'Comercial' },
         { key: 'exclusiveFrom', label: 'Exclusividad — inicio', type: 'text', group: 'Comercial' },
         { key: 'exclusiveUntil', label: 'Exclusividad — vencimiento', type: 'text', group: 'Comercial' },
@@ -354,9 +465,10 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'isReserved', label: 'Reservada', type: 'checkbox', group: 'Inversión' },
         { key: 'hasTour', label: 'Tiene tour virtual', type: 'checkbox', group: 'Inversión' },
         { key: 'rentalYield', label: 'Rentabilidad estimada (%)', type: 'number', group: 'Inversión' },
-        { key: 'serviceChargeAnnual', label: 'Gastos de comunidad anuales (AED)', type: 'number', group: 'Inversión' },
+        { key: 'serviceChargeAnnual', label: 'Gastos de comunidad anuales', type: 'number', group: 'Inversión' },
       ],
     },
+    SHEET_LEGAL_SECTION,
   ],
 
   // Parity with 'developer-properties' (migration 0059) — every field above
@@ -377,10 +489,13 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'agencyReference', label: 'Referencia de agencia', type: 'text', group: 'Identificación' },
         { key: 'externalSource', label: 'Origen externo', type: 'text', hint: 'De dónde procede si viene de un sistema externo.', group: 'Identificación' },
         { key: 'externalReference', label: 'Referencia externa', type: 'text', group: 'Identificación' },
-        { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: SECOND_HAND_PROPERTY_TYPE_OPTIONS, recommended: true, group: 'Clasificación' },
+        { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, optionLabels: PROPERTY_TYPE_LABELS, recommended: true, group: 'Clasificación' },
+        ...sheetGroup('identification', 'Clasificación').filter((f) => f.key === 'subtype'),
         { key: 'transactionType', label: 'Operación', type: 'select', options: ['sale', 'rent'], optionLabels: { sale: 'Venta', rent: 'Alquiler' }, recommended: true, group: 'Clasificación' },
         { key: 'status', label: 'Estado', type: 'select', options: ['available', 'sold'], optionLabels: { available: 'Disponible', sold: 'Vendida' }, group: 'Clasificación' },
+        ...sheetGroup('identification', 'Clasificación').filter((f) => f.key === 'commercialStatus'),
         { key: 'yearBuilt', label: 'Año de construcción', type: 'number', group: 'Clasificación' },
+        ...sheetGroup('identification', 'Identificación comercial').filter((f) => f.key === 'commercialCode'),
         { key: 'captureDate', label: 'Fecha de captación', type: 'text', group: 'Captación' },
         { key: 'captureSource', label: 'Origen de captación', type: 'text', group: 'Captación' },
         { key: 'keyHighlights', label: 'Puntos clave', type: 'textarea', span: 2, group: 'Contenido' },
@@ -406,6 +521,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'doorLetter', label: 'Letra', type: 'text' },
         { key: 'postalCode', label: 'Código postal', type: 'text' },
         { key: 'district', label: 'Distrito', type: 'text' },
+        ...sheetGroupFlat('location'),
         { key: 'location', label: 'Referencia de ubicación (heredado)', type: 'text', span: 2, hint: 'Campo de texto libre anterior. Se conserva por compatibilidad; usa los campos de arriba para direcciones nuevas.' },
         {
           key: 'locationPrivacy',
@@ -426,8 +542,11 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Precio de venta o alquiler.',
       kind: 'fields',
       fields: [
-        { key: 'price', label: 'Precio (AED)', type: 'number', required: true, group: 'Precio principal' },
-        { key: 'priceOld', label: 'Precio anterior (AED)', type: 'number', hint: 'Para mostrar un precio tachado si ha bajado.', group: 'Precio principal' },
+        { key: 'price', label: 'Precio (venta) o renta mensual (alquiler)', type: 'number', required: true, group: 'Precio principal' },
+        { key: 'priceOld', label: 'Precio anterior', type: 'number', hint: 'Para mostrar un precio tachado si ha bajado.', group: 'Precio principal' },
+        PRICE_PER_M2,
+        PRICE_CHANGE_REASON,
+        ...SHEET_PRICE_FIELDS,
         { key: 'paymentPlan', label: 'Plan de pagos', type: 'payment-plan', span: 2, group: 'Plan de pagos' },
       ],
     },
@@ -451,6 +570,8 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'gardenArea', label: 'Superficie de jardín (m²)', type: 'number', group: 'Superficies' },
         { key: 'balconyArea', label: 'Superficie de balcón (m²)', type: 'number', group: 'Superficies' },
         { key: 'storageArea', label: 'Superficie de trastero (m²)', type: 'number', group: 'Superficies' },
+        ...sheetGroup('surfaces', 'Superficies'),
+        ...sheetGroup('distribution', 'Distribución'),
         { key: 'condition', label: 'Estado físico', type: 'select', options: CONDITION_OPTIONS, optionLabels: CONDITION_LABELS, group: 'Estado' },
         { key: 'furnished', label: 'Amueblado', type: 'select', options: FURNISHED_OPTIONS, optionLabels: FURNISHED_LABELS, group: 'Estado' },
         { key: 'orientation', label: 'Orientación', type: 'select', options: ORIENTATION_OPTIONS, group: 'Certificación' },
@@ -480,6 +601,8 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       childResource: 'agent-property-rooms',
       parentField: 'propertyId',
     },
+    SHEET_BUILDING_SECTION,
+    SHEET_INSTALLATIONS_SECTION,
     {
       key: 'description',
       label: 'Descripción',
@@ -496,6 +619,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       fields: [
         { key: 'mainImage', label: 'Imagen principal', type: 'image', recommended: true, group: 'Identidad visual' },
         { key: 'videoUrl', label: 'Vídeo', type: 'video', span: 2, group: 'Vídeo' },
+        ...sheetGroup('media', 'Tour virtual').map((f) => ({ ...f, span: 2 as const })),
         { key: 'dronePhoto', label: 'Foto aérea (drone)', type: 'image', group: 'Fotografía premium' },
         { key: 'nightPhoto', label: 'Foto nocturna', type: 'image', group: 'Fotografía premium' },
         { key: 'beforePhoto', label: 'Foto "antes"', type: 'image', group: 'Fotografía premium' },
@@ -547,6 +671,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       kind: 'fields',
       fields: [
         { key: 'agentId', label: 'Comercial asignado', type: 'agent', span: 2, group: 'Comercial' },
+        ...sheetGroup('identification', 'Comercial').filter((f) => f.key === 'officeId' || f.key === 'teamId'),
         { key: 'mandateType', label: 'Tipo de mandato', type: 'text', group: 'Comercial' },
         { key: 'exclusiveFrom', label: 'Exclusividad — inicio', type: 'text', group: 'Comercial' },
         { key: 'exclusiveUntil', label: 'Exclusividad — vencimiento', type: 'text', group: 'Comercial' },
@@ -554,8 +679,9 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'isReserved', label: 'Reservada', type: 'checkbox', group: 'Inversión' },
         { key: 'hasTour', label: 'Tiene tour virtual', type: 'checkbox', group: 'Inversión' },
         { key: 'rentalYield', label: 'Rentabilidad estimada (%)', type: 'number', group: 'Inversión' },
-        { key: 'serviceChargeAnnual', label: 'Gastos de comunidad anuales (AED)', type: 'number', group: 'Inversión' },
+        { key: 'serviceChargeAnnual', label: 'Gastos de comunidad anuales', type: 'number', group: 'Inversión' },
       ],
     },
+    SHEET_LEGAL_SECTION,
   ],
 }

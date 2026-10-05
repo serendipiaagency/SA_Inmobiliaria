@@ -259,13 +259,24 @@ describe('propertyBulkHandlers — publish/withdraw (FASE 28 incremento 2, §90-
     await expect(handlers.publish(ev(db), fixture.orgId, fixture.projectId, {})).rejects.toMatchObject({ statusCode: 422 })
   })
 
-  it('publicar/retirar no aplican a 2ª mano (agent-properties no tiene consumidor público)', async () => {
+  it('2ª mano también se publica y se retira, con la validación de publicación de su schema (residencial)', async () => {
     const { db } = createTestDb()
     const fixture = await seedTenant(db, 'BulkPublishAgent')
-    const prop = await seedAgentProperty(db, fixture.orgId)
     const handlers = propertyBulkHandlers('agent')
-    await expect(handlers.publish(ev(db), fixture.orgId, prop.id, {})).rejects.toMatchObject({ statusCode: 422 })
-    await expect(handlers.withdraw(ev(db), fixture.orgId, prop.id, {})).rejects.toMatchObject({ statusCode: 422 })
+    // Sin ciudad, país, operación ni superficie: el schema residencial no deja publicarla.
+    const incomplete = await seedAgentProperty(db, fixture.orgId)
+    await expect(handlers.publish(ev(db), fixture.orgId, incomplete.id, {})).rejects.toMatchObject({ statusCode: 422 })
+
+    const complete = await seedAgentProperty(db, fixture.orgId, { propertyType: 'Apartment', transactionType: 'sale', country: 'España', city: 'Málaga', area: 90 })
+    await handlers.publish(ev(db), fixture.orgId, complete.id, {})
+    const [published] = await db.select().from(schema.agentProperties).where(eq(schema.agentProperties.id, complete.id))
+    expect(published.publishedAt).toBeTruthy()
+
+    await handlers.withdraw(ev(db), fixture.orgId, complete.id, {})
+    const [withdrawn] = await db.select().from(schema.agentProperties).where(eq(schema.agentProperties.id, complete.id))
+    expect(withdrawn.publishedAt).toBeNull()
+    // Retirar una que no estaba publicada no es un error.
+    await handlers.withdraw(ev(db), fixture.orgId, incomplete.id, {})
   })
 
   it('retirar limpia publishedAt sin borrar la fila, y es idempotente sobre una ya retirada', async () => {
@@ -325,6 +336,37 @@ describe('propertyBulkHandlers — update_price (FASE 28 incremento 2, §94-95)'
     await expect(handlers.update_price(ev(db), fixture.orgId, prop.id, { price: -100 })).rejects.toMatchObject({ statusCode: 422 })
     const history = await db.select().from(schema.agentPropertyPriceHistory).where(eq(schema.agentPropertyPriceHistory.propertyId, prop.id))
     expect(history).toHaveLength(0)
+  })
+
+  it('por porcentaje: aplica el % sobre el precio de cada propiedad y deja precio anterior, usuario y motivo en el histórico', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'BulkPricePercent')
+    const a = await seedAgentProperty(db, fixture.orgId, { price: 200000 })
+    const b = await seedAgentProperty(db, fixture.orgId, { price: 100000 })
+    const handlers = propertyBulkHandlers('agent')
+
+    await handlers.update_price(ev(db), fixture.orgId, a.id, { percent: -5 }, fixture.userId)
+    await handlers.update_price(ev(db), fixture.orgId, b.id, { percent: 3, reason: 'Ajuste de mercado' }, fixture.userId)
+
+    const [ra] = await db.select().from(schema.agentProperties).where(eq(schema.agentProperties.id, a.id))
+    const [rb] = await db.select().from(schema.agentProperties).where(eq(schema.agentProperties.id, b.id))
+    expect(ra.price).toBe(190000)
+    expect(rb.price).toBe(103000)
+    const [ha] = await db.select().from(schema.agentPropertyPriceHistory).where(eq(schema.agentPropertyPriceHistory.propertyId, a.id))
+    expect(ha).toMatchObject({ price: 190000, previousPrice: 200000, changedBy: fixture.userId, reason: 'Acción masiva: -5 %' })
+    const [hb] = await db.select().from(schema.agentPropertyPriceHistory).where(eq(schema.agentPropertyPriceHistory.propertyId, b.id))
+    expect(hb).toMatchObject({ price: 103000, previousPrice: 100000, reason: 'Ajuste de mercado' })
+  })
+
+  it('por porcentaje: rechaza 0, fuera de rango o una propiedad sin precio', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'BulkPricePercentInvalid')
+    const handlers = propertyBulkHandlers('agent')
+    const prop = await seedAgentProperty(db, fixture.orgId, { price: 100000 })
+    await expect(handlers.update_price(ev(db), fixture.orgId, prop.id, { percent: 0 })).rejects.toMatchObject({ statusCode: 422 })
+    await expect(handlers.update_price(ev(db), fixture.orgId, prop.id, { percent: -95 })).rejects.toMatchObject({ statusCode: 422 })
+    const noPrice = await seedAgentProperty(db, fixture.orgId, { price: null })
+    await expect(handlers.update_price(ev(db), fixture.orgId, noPrice.id, { percent: 10 })).rejects.toMatchObject({ statusCode: 422 })
   })
 })
 

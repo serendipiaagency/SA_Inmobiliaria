@@ -3,6 +3,7 @@ import { useDb, schema, resolvePublicOrgId } from '../../../../utils/db'
 import { attachPhotos } from '../../../../utils/photos'
 import { explainSimilarity, type SimilarityFacts } from '../../../../utils/ai'
 import { toPublicProperty } from '../../../../utils/propertyPrivacy'
+import { livePropertyCond } from '../../../../utils/properties/trash'
 
 /**
  * Real similar-property ranking: a deterministic attribute-similarity score
@@ -18,7 +19,8 @@ export default defineEventHandler(async (event) => {
   const db = useDb(event)
   const P = schema.developerProperties
   const orgId = resolvePublicOrgId(event)
-  const rows = await db.select().from(P).where(and(eq(P.slug, slug), eq(P.organizationId, orgId))).limit(1)
+  // Una propiedad en la papelera responde 404, igual que una que no existe.
+  const rows = await db.select().from(P).where(and(eq(P.slug, slug), eq(P.organizationId, orgId), livePropertyCond(P))).limit(1)
   const base = rows[0]
   if (!base) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
 
@@ -32,7 +34,7 @@ export default defineEventHandler(async (event) => {
     // Candidates come from this tenant's own catalog only — a "similar
     // property" from another agency would be both a leak and an advert for a
     // competitor's listing.
-    .where(and(ne(P.id, base.id), eq(P.organizationId, orgId)))
+    .where(and(ne(P.id, base.id), eq(P.organizationId, orgId), livePropertyCond(P)))
     .orderBy(sql`case when ${P.community} = ${base.community} then 0 else 1 end`)
     .limit(200)
   const candidates = candidateRows.map((r: any) => ({ ...r.project, developerName: r.developerName }))

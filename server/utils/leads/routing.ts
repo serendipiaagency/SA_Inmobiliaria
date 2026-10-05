@@ -2,6 +2,7 @@ import { and, eq, inArray, isNull, notInArray, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, now, isUniqueConstraintError } from '../db'
 import { recordActivity } from '../activity/service'
+import { livePropertyCond } from '../properties/trash'
 
 /**
  * Lead Routing (FASE 15, migración 0071).
@@ -46,6 +47,9 @@ function normalizeText(v: string | null | undefined): string {
  * agent_properties tiene un comercial responsable propio; developer_properties
  * no (no hay columna para ello), así que la regla 'property' nunca aplica a
  * un lead de obra nueva — es honesto, no un hueco por arreglar.
+ *
+ * Una propiedad en la papelera no aporta contexto (ni comercial
+ * responsable): el lead se enruta como si no trajera propiedad.
  */
 export async function buildRoutingContextFromProperty(event: H3Event, orgId: number, propertyId: number | null | undefined): Promise<RoutingContext> {
   if (!propertyId) return {}
@@ -54,14 +58,14 @@ export async function buildRoutingContextFromProperty(event: H3Event, orgId: num
   const agentRows = await db
     .select({ district: schema.agentProperties.district, city: schema.agentProperties.city, propertyType: schema.agentProperties.propertyType })
     .from(schema.agentProperties)
-    .where(and(eq(schema.agentProperties.id, propertyId), eq(schema.agentProperties.organizationId, orgId)))
+    .where(and(eq(schema.agentProperties.id, propertyId), eq(schema.agentProperties.organizationId, orgId), livePropertyCond(schema.agentProperties)))
     .limit(1)
   if (agentRows[0]) return { propertyId, ...agentRows[0], isNewBuild: false }
 
   const devRows = await db
     .select({ district: schema.developerProperties.district, city: schema.developerProperties.city, propertyType: schema.developerProperties.propertyType })
     .from(schema.developerProperties)
-    .where(and(eq(schema.developerProperties.id, propertyId), eq(schema.developerProperties.organizationId, orgId)))
+    .where(and(eq(schema.developerProperties.id, propertyId), eq(schema.developerProperties.organizationId, orgId), livePropertyCond(schema.developerProperties)))
     .limit(1)
   if (devRows[0]) return { propertyId, ...devRows[0], isNewBuild: true }
 
@@ -74,7 +78,7 @@ async function resolvePropertyResponsible(event: H3Event, orgId: number, propert
     await db
       .select({ agentId: schema.agentProperties.agentId })
       .from(schema.agentProperties)
-      .where(and(eq(schema.agentProperties.id, propertyId), eq(schema.agentProperties.organizationId, orgId)))
+      .where(and(eq(schema.agentProperties.id, propertyId), eq(schema.agentProperties.organizationId, orgId), livePropertyCond(schema.agentProperties)))
       .limit(1)
   )[0]
   return row?.agentId ?? null

@@ -1,5 +1,6 @@
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../../../utils/db'
+import { livePropertyCond } from '../../../../utils/properties/trash'
 
 function findLastPriceDrop(history: { price: number; recordedAt: string }[]): { amount: number; date: string } | null {
   let drop: { amount: number; date: string } | null = null
@@ -20,7 +21,8 @@ export default defineEventHandler(async (event) => {
   const rows = await db
     .select({ id: schema.developerProperties.id, viewCount: schema.developerProperties.viewCount, favoriteCount: schema.developerProperties.favoriteCount })
     .from(schema.developerProperties)
-    .where(and(eq(schema.developerProperties.slug, slug), eq(schema.developerProperties.organizationId, orgId)))
+    // Una propiedad en la papelera responde 404, igual que una que no existe.
+    .where(and(eq(schema.developerProperties.slug, slug), eq(schema.developerProperties.organizationId, orgId), livePropertyCond(schema.developerProperties)))
     .limit(1)
   const project = rows[0]
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })

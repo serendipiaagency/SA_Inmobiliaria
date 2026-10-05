@@ -27,6 +27,7 @@
  * **Añadir un tercer catálogo de propiedades es añadir una entrada aquí y
  * otra en PROPERTY_BUILDER_SECTIONS, no escribir otra página.**
  */
+import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '~/utils/propertySheet'
 
 /** Los tonos que usa la celda de estado. Cerrados a propósito: si hiciera falta uno nuevo es una decisión de diseño, no un color suelto en una plantilla. */
 export type ListChipTone = 'neutral' | 'muted' | 'positive' | 'strong'
@@ -126,7 +127,7 @@ export const PROPERTY_LIST_CONFIG: Record<string, PropertyListConfig> = {
     sortOptions: BASE_SORT_OPTIONS,
     hasTransactionFilter: true,
 
-    rowTitle: (p) => p.propertyType || 'Vivienda',
+    rowTitle: (p) => (p.propertyType ? PROPERTY_TYPE_LABELS[p.propertyType] || p.propertyType : 'Vivienda'),
     rowImage: (p) => p.mainImage || null,
     // `location` es el campo de texto libre anterior a la dirección granular
     // (ver la sección Ubicación en PROPERTY_BUILDER_SECTIONS): sigue siendo
@@ -148,14 +149,14 @@ export const PROPERTY_LIST_CONFIG: Record<string, PropertyListConfig> = {
   },
 }
 
-/** Los tipos de propiedad del selector rápido — idénticos en los dos catálogos, y los mismos que ofrece el editor. */
-// Mismos 11 valores que SECOND_HAND_PROPERTY_TYPE_OPTIONS en
-// usePropertyBuilderConfig.ts (duplicado literal, mismo patrón que ya tenía
-// este fichero antes de FASE 25/26 — sin import cruzado entre los dos
-// "gemelos" de configuración) — test/unit/propertyListConfig.test.ts exige
-// que este filtro y el selector del editor de 2ª mano ofrezcan exactamente
-// los mismos tipos.
-export const PROPERTY_LIST_TYPES = ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio', 'Land', 'Office', 'Retail', 'Warehouse', 'Garage', 'Building']
+/**
+ * Los tipos de propiedad del selector rápido — idénticos en los dos
+ * catálogos y los mismos que ofrece el editor: los dos salen de la lista
+ * común `utils/propertySheet.ts` (test/unit/propertyListConfig.test.ts lo
+ * comprueba). Se enseñan por su etiqueta en español (PROPERTY_TYPE_LABELS).
+ */
+export const PROPERTY_LIST_TYPES: string[] = [...PROPERTY_TYPES]
+export { PROPERTY_TYPE_LABELS }
 
 export const LIST_CHIP_CLASSES: Record<ListChipTone, string> = {
   neutral: 'bg-stone-100 text-stone-600',

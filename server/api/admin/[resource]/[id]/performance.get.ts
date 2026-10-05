@@ -3,6 +3,7 @@ import { schema, useDb } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
 import { getResource } from '../../../../utils/adminResources'
 import { authorizeRecord } from '../../../../utils/tenantPolicy'
+import { livePropertyCond } from '../../../../utils/properties/trash'
 
 /**
  * Real, derived-only metrics for a Comercial's "Rendimiento" tab — every
@@ -38,8 +39,15 @@ export default defineEventHandler(async (event) => {
       .select({ dealValue: schema.deals.dealValue, commissionAmount: schema.deals.commissionAmount })
       .from(schema.deals)
       .where(and(eq(schema.deals.organizationId, orgId), eq(schema.deals.agentId, id))),
-    db.select({ c: sql<number>`count(*)` }).from(schema.developerProperties).where(and(eq(schema.developerProperties.organizationId, orgId), eq(schema.developerProperties.agentId, id))),
-    db.select({ c: sql<number>`count(*)` }).from(schema.agentProperties).where(and(eq(schema.agentProperties.organizationId, orgId), eq(schema.agentProperties.agentId, id))),
+    // Propiedades asignadas: las de la papelera no cuentan.
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(schema.developerProperties)
+      .where(and(eq(schema.developerProperties.organizationId, orgId), eq(schema.developerProperties.agentId, id), livePropertyCond(schema.developerProperties))),
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(schema.agentProperties)
+      .where(and(eq(schema.agentProperties.organizationId, orgId), eq(schema.agentProperties.agentId, id), livePropertyCond(schema.agentProperties))),
   ])
 
   return {

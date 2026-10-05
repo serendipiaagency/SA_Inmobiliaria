@@ -4,6 +4,7 @@ import { requireApiKey } from '../../utils/apiAuth'
 import { upsertLead } from '../../utils/leads'
 import { rateLimit } from '../../utils/rateLimit'
 import { isValidEmail, isValidPhone } from '../../utils/validate'
+import { trashedPropertyMessage } from '../../utils/properties/trash'
 
 interface CreateLeadBody {
   name?: string
@@ -41,11 +42,13 @@ export default defineEventHandler(async (event) => {
   let propertyName: string | null = null
   if (body.propertyId) {
     const rows = await db
-      .select({ name: schema.developerProperties.name })
+      .select({ name: schema.developerProperties.name, deletedAt: schema.developerProperties.deletedAt })
       .from(schema.developerProperties)
       .where(and(eq(schema.developerProperties.id, body.propertyId), eq(schema.developerProperties.organizationId, orgId)))
       .limit(1)
     if (!rows[0]) throw createError({ statusCode: 422, statusMessage: 'propertyId does not belong to this organization' })
+    // Un lead nuevo no se asocia a una propiedad de la papelera.
+    if (rows[0].deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('asociarle un lead') })
     propertyName = rows[0].name
   }
 

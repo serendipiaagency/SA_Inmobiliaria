@@ -3,6 +3,7 @@ import { useDb, schema, now } from '../../../utils/db'
 import { logAdminAction } from '../../../utils/audit'
 import { dispatchWebhook } from '../../../utils/webhooks'
 import { assertOwnedReference } from '../../../utils/tenantPolicy'
+import { assertLiveProperty } from '../../../utils/properties/trash'
 
 interface CreateDealBody {
   leadId?: number
@@ -41,6 +42,8 @@ export default defineEventHandler(async (event) => {
   const propertyId = body.propertyId
     ? await assertOwnedReference(db, { table: schema.developerProperties, id: body.propertyId, orgId, label: 'Propiedad' })
     : null
+  // Un cierre nuevo no se apunta sobre una propiedad de la papelera.
+  if (propertyId) await assertLiveProperty(db, orgId, 'developer', propertyId, { action: 'registrar un cierre' })
   const agentId = body.agentId
     ? await assertOwnedReference(db, { table: schema.teamMembers, id: body.agentId, orgId, label: 'Agente' })
     : null

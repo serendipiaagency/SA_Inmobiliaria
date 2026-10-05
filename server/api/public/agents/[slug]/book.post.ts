@@ -13,6 +13,7 @@ import { getRequestId } from '../../../../utils/requestId'
 import { isValidEmail, isValidPhone } from '../../../../utils/validate'
 import { recordActivity } from '../../../../utils/activity/service'
 import { syncLeadNextAction } from '../../../../utils/leads/nextAction'
+import { livePropertyCond } from '../../../../utils/properties/trash'
 
 const VALID_CHANNELS = ['in_person', 'video', 'phone'] as const
 const SLOT_START_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
@@ -72,7 +73,9 @@ export default defineEventHandler(async (event) => {
     const propRows = await db
       .select({ id: schema.developerProperties.id, name: schema.developerProperties.name })
       .from(schema.developerProperties)
-      .where(and(eq(schema.developerProperties.id, Number(body.propertyId)), eq(schema.developerProperties.organizationId, orgId)))
+      // Una propiedad en la papelera se trata como una que no existe: la cita
+      // se reserva sin inmueble, igual que con un id desconocido.
+      .where(and(eq(schema.developerProperties.id, Number(body.propertyId)), eq(schema.developerProperties.organizationId, orgId), livePropertyCond(schema.developerProperties)))
       .limit(1)
     if (propRows[0]) {
       propertyId = propRows[0].id

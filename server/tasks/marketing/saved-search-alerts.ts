@@ -2,6 +2,7 @@ import { drizzle } from 'drizzle-orm/d1'
 import { and, eq, gte } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { sendTransactionalEmail } from '../../utils/email/send'
+import { livePropertyCond } from '../../utils/properties/trash'
 
 function fmt(d: Date): string {
   return d.toISOString().replace('T', ' ').slice(0, 19)
@@ -42,7 +43,8 @@ export default defineTask<{ skipped: true; reason: string } | { checked: number;
       }
 
       const since = search.lastNotifiedAt || fmt(new Date(now.getTime() - 24 * 60 * 60 * 1000))
-      const conds = [eq(schema.developerProperties.organizationId, search.organizationId), gte(schema.developerProperties.createdAt, since)]
+      // Una alerta nunca avisa de una propiedad que ya está en la papelera.
+      const conds = [eq(schema.developerProperties.organizationId, search.organizationId), gte(schema.developerProperties.createdAt, since), livePropertyCond(schema.developerProperties)]
       if (filters.community) conds.push(eq(schema.developerProperties.community, String(filters.community)))
       if (filters.type) conds.push(eq(schema.developerProperties.propertyType, String(filters.type)))
 

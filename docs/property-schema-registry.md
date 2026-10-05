@@ -107,15 +107,24 @@ todo ese catálogo resuelve siempre a `newDevelopment`, porque lo que
 distingue un esquema ahí (`handoverDate`, `constructionPercentage`...) es
 del proyecto/promoción, no del tipo de unidad dentro de él.
 
-Exponer estos 6 tipos nuevos en el selector del editor (`PROPERTY_TYPE_OPTIONS`
-en `composables/usePropertyBuilderConfig.ts`) y las secciones/campos
-condicionales que los consuman es trabajo de **FASE 25**, no de este PR —
-FASE 26 entrega el registro y su primera integración server-side real
-(validación), FASE 25 lo consume en el editor.
+**Actualización (núcleo inmobiliario, migración 0086):** el selector de tipo
+es ya la lista común de los dos catálogos (`utils/propertySheet.ts`:
+piso, casa, chalet, adosado, ático, dúplex, estudio, finca, terreno, local,
+oficina, nave, garaje, edificio y promoción, con su subtipo) y el editor
+filtra por schema en 2ª mano. Casa, dúplex y finca resuelven a
+`residential`; promoción, a `building`. Los campos de la ficha ampliada
+(edificio, vivienda, instalaciones, zonas comunes, exterior, económica,
+comisiones, legal) están declarados en cada schema según apliquen — un
+terreno no tiene calefacción, un garaje no tiene distribución de vivienda —
+con su regla de exposición: lo legal, el precio mínimo autorizado y las
+comisiones son `internalRule`.
 
 ## Lo que este PR no hace (a propósito)
 
-- **No construye Owner/Documentos como tabs de la ficha.** El propio
+- **No construía Owner/Documentos como tabs de la ficha** (situación
+  cuando se escribió; el núcleo inmobiliario los crea: `property_contacts`
+  y `property_documents`, migración 0086 — ver
+  docs/auditoria-nucleo-megaprompt.md). El propio
   megaprompt (preámbulo de FASE 25-29) da por hecho que `PROPERTY CONTACT`
   y `PROPERTY DOCUMENTS` ya existen de una fase anterior — verificado
   directamente sobre `schema.ts`: **no existen en absoluto**, ni con ese

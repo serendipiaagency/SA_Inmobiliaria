@@ -1,6 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { useDb, schema, now, resolvePublicOrgId, isUniqueConstraintError } from '../../utils/db'
 import { getOrSetVisitorId } from '../../utils/visitor'
+import { livePropertyCond } from '../../utils/properties/trash'
 
 /**
  * Real per-visitor favorite state (the `favorites` table, migration 0055),
@@ -26,7 +27,8 @@ export default defineEventHandler(async (event) => {
     await db
       .select({ id: schema.developerProperties.id })
       .from(schema.developerProperties)
-      .where(and(eq(schema.developerProperties.id, id), eq(schema.developerProperties.organizationId, orgId)))
+      // En la papelera: 404, igual que una que no existe.
+      .where(and(eq(schema.developerProperties.id, id), eq(schema.developerProperties.organizationId, orgId), livePropertyCond(schema.developerProperties)))
       .limit(1)
   )[0]
   if (!property) throw createError({ statusCode: 404, statusMessage: 'Not found' })

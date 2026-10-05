@@ -61,7 +61,15 @@
 
         <select v-if="fd.type === 'select'" v-model="form[field]" class="input">
           <option value="">—</option>
-          <option v-for="opt in fd.options" :key="opt" :value="opt">{{ opt }}</option>
+          <option v-for="opt in fd.options" :key="opt" :value="opt">{{ fd.optionLabels?.[opt] || opt }}</option>
+        </select>
+
+        <!-- Un id de otro recurso (oficina, equipo, comercial, usuario) se
+             elige por su nombre, nunca tecleando el número. -->
+        <select v-else-if="fd.relation" v-model="form[field]" class="input" :data-relation="fd.relation.resource">
+          <option value="">—</option>
+          <option v-if="form[field] && !relationOptions[String(field)]?.some((o) => o.id === Number(form[field]))" :value="form[field]">#{{ form[field] }}</option>
+          <option v-for="opt in relationOptions[String(field)] || []" :key="opt.id" :value="opt.id">{{ opt.label }}</option>
         </select>
 
         <textarea v-else-if="fd.type === 'textarea' || fd.type === 'json'" v-model="form[field]" class="input" rows="4" />
@@ -109,6 +117,7 @@
 import PropertyBuilder from '~/components/property-builder/PropertyBuilder.vue'
 import OrganizationCreateWizard from '~/components/admin/organizations/OrganizationCreateWizard.vue'
 import OrganizationEditor from '~/components/admin/organizations/OrganizationEditor.vue'
+import { loadRelationOptions, invalidateRelationOptions, type RelationOption } from '~/composables/useRelationOptions'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -165,6 +174,14 @@ if (!isNew.value && !isPropertyBuilderResource.value && !isOrganization.value) {
   }
 }
 
+// Opciones de los campos-relación del recurso (oficina, equipo, comercial…).
+const relationOptions = reactive<Record<string, RelationOption[]>>({})
+onMounted(() => {
+  for (const [field, fd] of Object.entries<any>(meta.value?.fields || {})) {
+    if (fd?.relation) loadRelationOptions(fd.relation.resource, fd.relation.labelField).then((rows) => (relationOptions[field] = rows))
+  }
+})
+
 const saving = ref(false)
 const saved = ref(false)
 const error = ref('')
@@ -203,6 +220,8 @@ async function save() {
     } else {
       await $fetch(`/api/admin/${resource.value}/${id.value}`, { method: 'PUT', body })
     }
+    // Un nombre nuevo o cambiado tiene que verse ya en los desplegables que apuntan a este recurso.
+    invalidateRelationOptions(resource.value)
     saved.value = true
   } catch (e: any) {
     error.value = e?.statusMessage || e?.data?.statusMessage || 'No se ha podido guardar'

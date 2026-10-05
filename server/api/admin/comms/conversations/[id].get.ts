@@ -38,23 +38,25 @@ export default defineEventHandler(async (event) => {
     .where(eq(schema.teamMembers.organizationId, orgId))
     .orderBy(asc(schema.teamMembers.name))
 
-  let property: { id: number; name: string; slug: string | null; coverImage: string | null; kind: 'agent' | 'developer' } | null = null
+  // Historia: la propiedad de contexto se sigue enseñando aunque esté en la
+  // papelera (el hilo ya hablaba de ella); `deletedAt` deja que el panel lo diga.
+  let property: { id: number; name: string; slug: string | null; coverImage: string | null; kind: 'agent' | 'developer'; deletedAt: string | null } | null = null
   if (conversation.propertyId) {
     const kind = conversation.propertyKind === 'agent' ? 'agent' : 'developer'
     if (kind === 'developer') {
       const rows = await db
-        .select({ id: schema.developerProperties.id, name: schema.developerProperties.name, slug: schema.developerProperties.slug, coverImage: schema.developerProperties.coverImage })
+        .select({ id: schema.developerProperties.id, name: schema.developerProperties.name, slug: schema.developerProperties.slug, coverImage: schema.developerProperties.coverImage, deletedAt: schema.developerProperties.deletedAt })
         .from(schema.developerProperties)
         .where(and(eq(schema.developerProperties.id, conversation.propertyId), eq(schema.developerProperties.organizationId, orgId)))
         .limit(1)
       property = rows[0] ? { ...rows[0], kind } : null
     } else {
       const rows = await db
-        .select({ id: schema.agentProperties.id, street: schema.agentProperties.street, city: schema.agentProperties.city, mainImage: schema.agentProperties.mainImage })
+        .select({ id: schema.agentProperties.id, street: schema.agentProperties.street, city: schema.agentProperties.city, mainImage: schema.agentProperties.mainImage, deletedAt: schema.agentProperties.deletedAt })
         .from(schema.agentProperties)
         .where(and(eq(schema.agentProperties.id, conversation.propertyId), eq(schema.agentProperties.organizationId, orgId)))
         .limit(1)
-      property = rows[0] ? { id: rows[0].id, name: rows[0].street || rows[0].city || `Inmueble #${rows[0].id}`, slug: null, coverImage: rows[0].mainImage, kind } : null
+      property = rows[0] ? { id: rows[0].id, name: rows[0].street || rows[0].city || `Inmueble #${rows[0].id}`, slug: null, coverImage: rows[0].mainImage, kind, deletedAt: rows[0].deletedAt } : null
     }
   }
 

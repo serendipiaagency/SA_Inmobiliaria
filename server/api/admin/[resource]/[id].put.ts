@@ -1,7 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { now, useDb, schema } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
-import { getResource, buildPayload, syncTranslations, assertPayloadReferences } from '../../../utils/adminResources'
+import { getResource, buildPayload, syncTranslations, assertPayloadReferences, rethrowUniqueViolation } from '../../../utils/adminResources'
 import { logAdminAction } from '../../../utils/audit'
 import { fireAutomationRules } from '../../../utils/publication/automations'
 import { authorizeRecord, buildTenantWhere } from '../../../utils/tenantPolicy'
@@ -14,6 +14,19 @@ import { propertyBulkHandlers } from '../../../utils/bulkActions/propertyActions
 import { leadBulkHandlers } from '../../../utils/bulkActions/leadActions'
 import { checkDomainAvailability } from '../../../utils/organizations/provisioning'
 import { notifyOrganizationStatusChange } from '../../../utils/organizations/lifecycle'
+import {
+  assertSheetReferences,
+  assertSubtypeMatchesType,
+  assertValidPropertyType,
+  extractSheetPayload,
+  hasSheetChanges,
+  loadPropertySheet,
+  propertyKindForResource,
+  savePropertySheet,
+  type SheetPayload,
+} from '../../../utils/properties/extendedSheet'
+import { isSubtypeOf } from '../../../../utils/propertySheet'
+import { isPropertyTrashed } from '../../../utils/properties/trash'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -122,11 +135,31 @@ export default defineEventHandler(async (event) => {
   // Va ANTES del histórico de precios y de las automatizaciones: un PUT que
   // acaba en 422 no puede haber dejado ya una fila de histórico con un
   // precio que nunca se guardó, ni haber disparado una republicación.
-  if (key === 'properties' || key === 'developer-properties') {
+  const propertyKind = propertyKindForResource(key)
+  let sheet: SheetPayload | null = null
+  if (propertyKind) {
     const merged = { ...(existing as Record<string, unknown>), ...data }
     const isPublishing = key === 'developer-properties' && typeof data.publishedAt === 'string' && !(existing as any).publishedAt
     assertSchemaValid(key === 'developer-properties' ? 'developer' : 'agent', (merged.propertyType as string | null) ?? null, merged, isPublishing ? 'publish' : 'save')
+    // Tipo de inmueble: lista común de los dos catálogos. Sólo se exige al
+    // CAMBIARLO — una ficha antigua con un tipo fuera de la lista se sigue
+    // pudiendo guardar sin tocarlo (el autoguardado reenvía la ficha entera).
+    if ('propertyType' in data && data.propertyType !== (existing as any).propertyType) assertValidPropertyType(data.propertyType)
+    // Ficha ampliada (migración 0086): validada aquí, guardada tras el UPDATE.
+    sheet = extractSheetPayload(body || {})
+    const typeChanged = 'propertyType' in data && data.propertyType !== (existing as any).propertyType
+    if ('subtype' in sheet.details) {
+      assertSubtypeMatchesType(sheet.details.subtype, merged.propertyType)
+    } else if (typeChanged) {
+      // Cambiar el tipo invalida un subtipo que ya no le corresponde.
+      const current = await loadPropertySheet(db, orgId!, propertyKind, id)
+      if (current.subtype && !isSubtypeOf(current.subtype, merged.propertyType)) sheet.details.subtype = null
+    }
+    await assertSheetReferences(db, sheet, orgId!)
   }
+  // Motivo del cambio de precio (opcional): viaja con el PUT de la ficha y
+  // sólo se usa si el precio cambia de verdad.
+  const priceReason = typeof body?.priceChangeReason === 'string' && body.priceChangeReason.trim() ? body.priceChangeReason.trim().slice(0, 500) : null
 
   // Off-plan project prices are chartable on the public property page — every
   // real edit here becomes a real data point, never a fabricated one.
@@ -134,15 +167,20 @@ export default defineEventHandler(async (event) => {
   // (Fase 11): a real price drop or status change here can fire a rule that
   // re-publishes the property across its configured channels — see
   // server/utils/publication/automations.ts.
+  //
+  // Papelera: una ficha borrada se puede seguir editando (para dejarla lista
+  // antes de restaurarla; sólo «Restaurar» la saca de ahí), pero nunca
+  // dispara una republicación — eso la volvería a sacar a los portales.
   let automationsFired = 0
+  const trashed = isPropertyTrashed(existing as { deletedAt?: string | null })
   if (key === 'developer-properties') {
     if (typeof data.price === 'number' && existing.price !== data.price) {
-      await db.insert(schema.priceHistory).values({ developerPropertyId: id, price: data.price, recordedAt: now() })
-      if (data.price < existing.price) {
+      await db.insert(schema.priceHistory).values({ developerPropertyId: id, price: data.price, previousPrice: existing.price ?? null, changedBy: user.id, reason: priceReason, recordedAt: now() })
+      if (data.price < existing.price && !trashed) {
         automationsFired += await fireAutomationRules(db, orgId!, id, 'price_drop', `precio ${existing.price} → ${data.price}`)
       }
     }
-    if (typeof data.status === 'string' && existing.status !== data.status) {
+    if (typeof data.status === 'string' && existing.status !== data.status && !trashed) {
       automationsFired += await fireAutomationRules(db, orgId!, id, 'status_change', `estado ${existing.status} → ${data.status}`)
     }
   }
@@ -154,7 +192,7 @@ export default defineEventHandler(async (event) => {
   // la acción en bloque): con ISO aquí y `YYYY-MM-DD HH:MM:SS` allí, dos
   // filas del mismo día se ordenaban mal al comparar el texto.
   if (key === 'properties' && typeof data.price === 'number' && existing.price !== data.price) {
-    await db.insert(schema.agentPropertyPriceHistory).values({ propertyId: id, price: data.price, recordedAt: now() })
+    await db.insert(schema.agentPropertyPriceHistory).values({ propertyId: id, price: data.price, previousPrice: existing.price ?? null, changedBy: user.id, reason: priceReason, recordedAt: now() })
   }
 
   // The public article's comment_count only reflects visible (approved) comments —
@@ -174,8 +212,9 @@ export default defineEventHandler(async (event) => {
   }
 
   if (Object.keys(data).length) {
-    await db.update(def.table).set(data).where(where as any)
+    await db.update(def.table).set(data).where(where as any).catch(rethrowUniqueViolation)
   }
+  if (propertyKind && sheet && hasSheetChanges(sheet)) await savePropertySheet(db, orgId!, propertyKind, id, sheet, user.id)
   await syncTranslations(db, def, authorized, body?.translations)
   // Lo sensible se anota con detalle (server/utils/sensitiveAudit.ts): una
   // contraseña cambiada, un rol que sube, unos permisos que cambian, un

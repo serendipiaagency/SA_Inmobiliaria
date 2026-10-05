@@ -5,6 +5,7 @@ import { now } from '../db'
 import { hasOverlappingVisit, shiftDateTime } from './availability'
 import { generateManagementToken } from './managementToken'
 import type { PropertyKind } from '../matching/service'
+import { assertLiveProperty } from '../properties/trash'
 import { recordActivity } from '../activity/service'
 import { syncLeadNextAction } from '../leads/nextAction'
 
@@ -54,6 +55,8 @@ export async function createAdminAppointment(db: any, orgId: number, input: Crea
   let propertyName: string | null = null
   const propertyKind: PropertyKind | null = input.propertyId ? input.propertyKind || 'developer' : null
   if (input.propertyId) {
+    // Una cita nueva no se programa sobre una propiedad en la papelera.
+    await assertLiveProperty(db, orgId, propertyKind!, input.propertyId, { action: 'programar una cita', notFoundMessage: 'Inmueble no encontrado' })
     if (propertyKind === 'agent') {
       const propRows = await db
         .select({ reference: schema.agentProperties.reference, street: schema.agentProperties.street, streetNumber: schema.agentProperties.streetNumber })

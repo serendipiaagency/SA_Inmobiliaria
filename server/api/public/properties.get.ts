@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, inArray, like, lte, or, sql, type SQL } from '
 import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { attachPhotos } from '../../utils/photos'
 import { toPublicProperties } from '../../utils/propertyPrivacy'
+import { livePropertyCond } from '../../utils/properties/trash'
 
 const P = schema.developerProperties
 
@@ -27,7 +28,8 @@ export default defineEventHandler(async (event) => {
   // zero real conditions) even though every call site here always passes
   // at least one — `conds` has to accept that possibility to hold their
   // result, and `and(...conds)` below already filters out `undefined` entries.
-  const conds: (SQL<unknown> | undefined)[] = [eq(P.organizationId, resolvePublicOrgId(event))]
+  // Nada de la papelera en la web pública (tampoco al pedir ids concretos de favoritos/comparar).
+  const conds: (SQL<unknown> | undefined)[] = [eq(P.organizationId, resolvePublicOrgId(event)), livePropertyCond(P)]
   const q = String(query.q || '').trim()
   if (q)
     conds.push(

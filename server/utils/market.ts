@@ -1,5 +1,6 @@
 import { and, eq, ne } from 'drizzle-orm'
 import { schema } from './db'
+import { livePropertyCond } from './properties/trash'
 
 export interface MarketStats {
   comparableCount: number
@@ -14,7 +15,8 @@ export async function getMarketStats(db: any, project: { id: number; community: 
     ? await db
         .select({ price: P.price, area: P.area, rentalYield: P.rentalYield })
         .from(P)
-        .where(and(eq(P.community, project.community), ne(P.id, project.id)))
+        // Comparables: sólo propiedades vivas (una de la papelera no es mercado).
+        .where(and(eq(P.community, project.community), ne(P.id, project.id), livePropertyCond(P)))
     : []
 
   const pricesPerM2 = comparables.map((c: any) => (c.price && c.area ? c.price / c.area : null)).filter((v: any): v is number => v != null)

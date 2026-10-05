@@ -194,6 +194,9 @@ export default defineEventHandler(async (event) => {
   const { emails } = await listPersonCommunications(db, orgId, { emails: [client.email] })
 
   // --- Propiedades relacionadas, resueltas en vivo -------------------------
+  // Historia: una propiedad que ya está en la papelera sigue apareciendo
+  // aquí (la visita o la operación existieron), con `deletedAt` para que la
+  // ficha lo diga en vez de enlazar a algo que ya no está en el catálogo.
   const RELATION_LABELS = { visit: 'Visita', deal: 'Operación', reservation: 'Reserva', lead: 'Interés' } as const
   type RelationKey = keyof typeof RELATION_LABELS
 
@@ -224,6 +227,7 @@ export default defineEventHandler(async (event) => {
           status: schema.developerProperties.status,
           image: schema.developerProperties.coverImage,
           publishedAt: schema.developerProperties.publishedAt,
+          deletedAt: schema.developerProperties.deletedAt,
         })
         .from(schema.developerProperties)
         .where(and(eq(schema.developerProperties.organizationId, orgId), inArray(schema.developerProperties.id, propertyIds))),
@@ -238,6 +242,7 @@ export default defineEventHandler(async (event) => {
           status: schema.agentProperties.status,
           image: schema.agentProperties.mainImage,
           location: schema.agentProperties.location,
+          deletedAt: schema.agentProperties.deletedAt,
         })
         .from(schema.agentProperties)
         .where(and(eq(schema.agentProperties.organizationId, orgId), inArray(schema.agentProperties.id, propertyIds))),

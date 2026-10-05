@@ -18,7 +18,7 @@
           </span>
           <span class="text-[11px] text-stone-400">Ref. #{{ property.id }}</span>
         </div>
-        <p class="line-clamp-1 font-medium text-ink">{{ property.propertyType || 'Vivienda' }}</p>
+        <p class="line-clamp-1 font-medium text-ink">{{ property.propertyType ? propertyTypeLabel(property.propertyType) : 'Vivienda' }}</p>
         <p class="mt-0.5 line-clamp-1 text-[12px] text-stone-450">
           {{ [property.district, property.city, property.country].filter(Boolean).join(' · ') || property.location || 'Sin ubicación' }}
         </p>
@@ -51,6 +51,7 @@
 </template>
 
 <script setup lang="ts">
+import { propertyTypeLabel } from '~/utils/propertySheet'
 const props = defineProps<{ property: Record<string, any> }>()
 const emit = defineEmits<{ 'toggle-sold': [id: number]; duplicate: [id: number]; delete: [id: number] }>()
 

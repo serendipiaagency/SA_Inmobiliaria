@@ -89,6 +89,12 @@ const IDENTIFICATION_FIELDS: PropertyFieldRule[] = [
   internalRule('captureDate'),
   internalRule('captureSource'),
   rule('transactionType', { requiredForPublish: true, requiredForPortal: true }),
+  // Ficha ampliada (migración 0086, utils/propertySheet.ts).
+  internalRule('commercialCode'),
+  rule('subtype'),
+  rule('commercialStatus', { portalRelevant: false }),
+  internalRule('officeId'),
+  internalRule('teamId'),
 ]
 
 const LOCATION_FIELDS: PropertyFieldRule[] = [
@@ -107,6 +113,14 @@ const LOCATION_FIELDS: PropertyFieldRule[] = [
   rule('lng', { requiredForPortal: true }),
   internalRule('locationPrivacy'),
   internalRule('locationPrivacyRadius'),
+  rule('region'),
+  rule('province'),
+  rule('municipality'),
+  rule('neighborhood'),
+  rule('streetType'),
+  // La escalera es parte de la dirección exacta, como portal/planta/puerta:
+  // no se expone hasta que la proyección pública aplique locationPrivacy sobre ella.
+  internalRule('staircase'),
 ]
 
 const PRICE_FIELDS: PropertyFieldRule[] = [
@@ -114,10 +128,114 @@ const PRICE_FIELDS: PropertyFieldRule[] = [
   rule('priceOld'),
   rule('rentalYield'),
   rule('serviceChargeAnnual'),
+  // Económica y comisiones (migración 0086). Mínimo autorizado, recomendado
+  // y comisiones son internos: nunca salen en la web ni en un portal.
+  internalRule('priceMinAuthorized'),
+  internalRule('priceRecommended'),
+  rule('rentDeposit'),
+  rule('rentGuarantee'),
+  rule('rentExpensesIncluded'),
+  rule('communityFeeMonthly'),
+  rule('ibiAnnual'),
+  rule('garbageTaxAnnual'),
+  internalRule('commissionType'),
+  internalRule('commissionValue'),
+  internalRule('commissionVatPct'),
+  internalRule('buyerFee'),
+  internalRule('ownerFee'),
+]
+
+/** Legal y certificado energético (FASE 6, migración 0086): todo interno salvo la parte energética que exige la normativa de publicidad. */
+const LEGAL_FIELDS: PropertyFieldRule[] = [
+  internalRule('cadastralReference'),
+  internalRule('registryStatus'),
+  internalRule('registryPropertyNumber'),
+  internalRule('landRegistry'),
+  internalRule('encumbrances'),
+  internalRule('mortgageStatus'),
+  internalRule('occupancyStatus'),
+  internalRule('licenses'),
+  internalRule('habitabilityCertificate'),
+  internalRule('iteStatus'),
+  internalRule('energyCertificateNumber'),
+  rule('energyCertificateExpiry', { portalRelevant: false }),
+  rule('energyConsumption'),
+  rule('emissionsRating'),
+  rule('emissionsValue'),
+]
+
+const BUILDING_FIELDS: PropertyFieldRule[] = [
+  rule('renovationYear'),
+  rule('buildingFloors'),
+  rule('buildingUnits'),
+  rule('hasConcierge'),
+  rule('hasDoorman'),
+  rule('facade'),
+  rule('structure'),
+]
+
+const DWELLING_FIELDS: PropertyFieldRule[] = [
+  rule('exteriorInterior'),
+  rule('kitchenType'),
+  rule('flooring'),
+  rule('carpentry'),
+  rule('glazing'),
+  rule('ceilingHeight'),
+  rule('isRenovated'),
+  rule('hasBuiltInWardrobes'),
+]
+
+const INSTALLATION_FIELDS: PropertyFieldRule[] = [
+  rule('heating'),
+  rule('hotWater'),
+  rule('hasAirConditioning'),
+  rule('hasUnderfloorHeating'),
+  rule('hasFireplace'),
+  rule('hasHomeAutomation'),
+  rule('hasAlarm'),
+  rule('hasFiber'),
+  rule('hasSolarPanels'),
+  rule('hasAerothermal'),
+]
+
+const COMMON_AREA_FIELDS: PropertyFieldRule[] = [
+  rule('hasCommunityPool'),
+  rule('hasCommunityGarden'),
+  rule('hasGym'),
+  rule('hasPaddle'),
+  rule('hasTennis'),
+  rule('hasPlayground'),
+  rule('hasCoworking'),
+  rule('hasSocialRoom'),
+  rule('hasSecurity'),
+]
+
+const EXTERIOR_FIELDS: PropertyFieldRule[] = [
+  rule('views'),
+  rule('isBeachfront'),
+  rule('hasPrivateGarden'),
+  rule('hasPrivatePool'),
+  rule('hasPorch'),
+  rule('hasPatio'),
+  rule('hasBalcony'),
+]
+
+/** Superficies y distribución de la ficha ampliada que aplican a vivienda. */
+const RESIDENTIAL_EXTRA_SURFACE_FIELDS: PropertyFieldRule[] = [
+  rule('totalArea'),
+  rule('computableArea'),
+  rule('roomsTotal'),
+  rule('terracesCount'),
+  rule('balconiesCount'),
+  rule('storeroomsCount'),
+  rule('dressingRoomsCount'),
+  rule('studiesCount'),
+  rule('floorsCount'),
 ]
 
 const MEDIA_FIELDS: PropertyFieldRule[] = [
   rule('videoUrl'),
+  rule('virtualTourUrl'),
   rule('dronePhoto'),
   rule('nightPhoto'),
   rule('beforePhoto'),
@@ -157,6 +275,7 @@ const RESIDENTIAL_SURFACE_FIELDS: PropertyFieldRule[] = [
   // que existiera el registro.
   rule('plotArea'),
   rule('garageSpaces'),
+  ...RESIDENTIAL_EXTRA_SURFACE_FIELDS,
 ]
 
 function sectionsFor(fieldGroups: { key: string; label: string; fields: PropertyFieldRule[] }[]): { sections: PropertySchemaSectionDef[]; fields: Record<string, PropertyFieldRule> } {
@@ -175,7 +294,13 @@ const RESIDENTIAL = sectionsFor([
   { key: 'surfaces', label: 'Superficies y distribución', fields: RESIDENTIAL_SURFACE_FIELDS },
   { key: 'condition', label: 'Estado', fields: CONDITION_FIELDS },
   { key: 'equipment', label: 'Equipamiento', fields: EQUIPMENT_FIELDS },
+  { key: 'building', label: 'Edificio', fields: BUILDING_FIELDS },
+  { key: 'dwelling', label: 'Vivienda', fields: DWELLING_FIELDS },
+  { key: 'installations', label: 'Instalaciones', fields: INSTALLATION_FIELDS },
+  { key: 'common', label: 'Zonas comunes', fields: COMMON_AREA_FIELDS },
+  { key: 'exterior', label: 'Exterior', fields: EXTERIOR_FIELDS },
   { key: 'price', label: 'Precio', fields: PRICE_FIELDS },
+  { key: 'legal', label: 'Legal y certificados', fields: LEGAL_FIELDS },
   { key: 'media', label: 'Media', fields: MEDIA_FIELDS },
 ])
 
@@ -185,9 +310,10 @@ const LAND = sectionsFor([
   {
     key: 'plot',
     label: 'Parcela',
-    fields: [rule('plotArea', { requiredForPublish: true, requiredForPortal: true }), rule('condition')],
+    fields: [rule('plotArea', { requiredForPublish: true, requiredForPortal: true }), rule('condition'), rule('totalArea'), rule('computableArea'), rule('views')],
   },
   { key: 'price', label: 'Precio', fields: PRICE_FIELDS },
+  { key: 'legal', label: 'Legal y certificados', fields: LEGAL_FIELDS.filter((f) => !f.key.startsWith('energy') && !f.key.startsWith('emissions')) },
   { key: 'media', label: 'Media', fields: MEDIA_FIELDS },
 ])
 
@@ -197,11 +323,34 @@ const COMMERCIAL = sectionsFor([
   {
     key: 'surfaces',
     label: 'Superficies',
-    fields: [rule('area', { requiredForPublish: true, requiredForPortal: true }), rule('usableArea'), rule('toilets')],
+    fields: [
+      rule('area', { requiredForPublish: true, requiredForPortal: true }),
+      rule('usableArea'),
+      rule('toilets'),
+      rule('officeArea'),
+      rule('commercialArea'),
+      rule('totalArea'),
+      rule('computableArea'),
+      rule('floorsCount'),
+      rule('storeroomsCount'),
+    ],
   },
   { key: 'condition', label: 'Estado', fields: CONDITION_FIELDS },
   { key: 'equipment', label: 'Equipamiento', fields: EQUIPMENT_FIELDS },
+  { key: 'building', label: 'Edificio', fields: BUILDING_FIELDS },
+  {
+    key: 'premises',
+    label: 'Local / oficina',
+    fields: [rule('exteriorInterior'), rule('flooring'), rule('carpentry'), rule('glazing'), rule('ceilingHeight'), rule('isRenovated')],
+  },
+  {
+    key: 'installations',
+    label: 'Instalaciones',
+    fields: INSTALLATION_FIELDS.filter((f) => !['hasFireplace', 'hasUnderfloorHeating'].includes(f.key)),
+  },
+  { key: 'common', label: 'Zonas comunes', fields: [rule('hasSecurity'), rule('hasCoworking')] },
   { key: 'price', label: 'Precio', fields: PRICE_FIELDS },
+  { key: 'legal', label: 'Legal y certificados', fields: LEGAL_FIELDS },
   { key: 'media', label: 'Media', fields: MEDIA_FIELDS },
 ])
 
@@ -211,10 +360,21 @@ const INDUSTRIAL = sectionsFor([
   {
     key: 'surfaces',
     label: 'Superficies',
-    fields: [rule('area', { requiredForPublish: true, requiredForPortal: true }), rule('plotArea'), rule('storageArea')],
+    fields: [
+      rule('area', { requiredForPublish: true, requiredForPortal: true }),
+      rule('plotArea'),
+      rule('storageArea'),
+      rule('officeArea'),
+      rule('totalArea'),
+      rule('computableArea'),
+      rule('floorsCount'),
+      rule('ceilingHeight'),
+    ],
   },
-  { key: 'condition', label: 'Estado', fields: [rule('condition'), rule('yearBuilt')] },
+  { key: 'condition', label: 'Estado', fields: [rule('condition'), rule('yearBuilt'), rule('renovationYear'), rule('structure'), rule('isRenovated')] },
+  { key: 'installations', label: 'Instalaciones', fields: [rule('heating'), rule('hasAirConditioning'), rule('hasAlarm'), rule('hasFiber'), rule('hasSolarPanels'), rule('hasSecurity')] },
   { key: 'price', label: 'Precio', fields: PRICE_FIELDS },
+  { key: 'legal', label: 'Legal y certificados', fields: LEGAL_FIELDS },
   { key: 'media', label: 'Media', fields: MEDIA_FIELDS },
 ])
 
@@ -224,10 +384,12 @@ const GARAGE = sectionsFor([
   {
     key: 'surfaces',
     label: 'Superficies',
-    fields: [rule('area', { requiredForPublish: true }), rule('garageSpaces', { requiredForPortal: true })],
+    fields: [rule('area', { requiredForPublish: true }), rule('garageSpaces', { requiredForPortal: true }), rule('totalArea'), rule('storeroomsCount')],
   },
+  { key: 'equipment', label: 'Equipamiento', fields: [rule('hasElevator'), rule('accessible'), rule('hasAlarm'), rule('hasSecurity'), rule('hasDoorman')] },
   { key: 'price', label: 'Precio', fields: PRICE_FIELDS },
-  { key: 'media', label: 'Media', fields: [rule('videoUrl')] },
+  { key: 'legal', label: 'Legal y certificados', fields: LEGAL_FIELDS.filter((f) => !f.key.startsWith('energy') && !f.key.startsWith('emissions')) },
+  { key: 'media', label: 'Media', fields: [rule('videoUrl'), rule('virtualTourUrl')] },
 ])
 
 const BUILDING = sectionsFor([
@@ -236,10 +398,23 @@ const BUILDING = sectionsFor([
   {
     key: 'surfaces',
     label: 'Superficies',
-    fields: [rule('area', { requiredForPublish: true, requiredForPortal: true }), rule('plotArea'), rule('garageSpaces')],
+    fields: [
+      rule('area', { requiredForPublish: true, requiredForPortal: true }),
+      rule('plotArea'),
+      rule('garageSpaces'),
+      rule('totalArea'),
+      rule('computableArea'),
+      rule('floorsCount'),
+      rule('storeroomsCount'),
+    ],
   },
   { key: 'condition', label: 'Estado', fields: [rule('condition'), rule('yearBuilt'), rule('energyRating')] },
+  { key: 'equipment', label: 'Equipamiento', fields: [rule('hasElevator'), rule('accessible')] },
+  { key: 'building', label: 'Edificio', fields: BUILDING_FIELDS },
+  { key: 'installations', label: 'Instalaciones', fields: INSTALLATION_FIELDS },
+  { key: 'common', label: 'Zonas comunes', fields: COMMON_AREA_FIELDS },
   { key: 'price', label: 'Precio', fields: PRICE_FIELDS },
+  { key: 'legal', label: 'Legal y certificados', fields: LEGAL_FIELDS },
   { key: 'media', label: 'Media', fields: MEDIA_FIELDS },
 ])
 
@@ -267,7 +442,13 @@ const NEW_DEVELOPMENT = sectionsFor([
   { key: 'surfaces', label: 'Superficies y distribución', fields: RESIDENTIAL_SURFACE_FIELDS },
   { key: 'condition', label: 'Estado', fields: CONDITION_FIELDS },
   { key: 'equipment', label: 'Equipamiento', fields: EQUIPMENT_FIELDS },
+  { key: 'building', label: 'Edificio', fields: BUILDING_FIELDS },
+  { key: 'dwelling', label: 'Vivienda', fields: DWELLING_FIELDS },
+  { key: 'installations', label: 'Instalaciones', fields: INSTALLATION_FIELDS },
+  { key: 'common', label: 'Zonas comunes', fields: COMMON_AREA_FIELDS },
+  { key: 'exterior', label: 'Exterior', fields: EXTERIOR_FIELDS },
   { key: 'price', label: 'Precio', fields: PRICE_FIELDS },
+  { key: 'legal', label: 'Legal y certificados', fields: LEGAL_FIELDS },
   {
     key: 'construction',
     label: 'Construcción y entrega',
@@ -306,10 +487,16 @@ export const PROPERTY_SCHEMAS: Record<PropertySchemaKey, PropertySchemaDef> = {
  */
 export const AGENT_PROPERTY_TYPE_TO_SCHEMA: Record<string, PropertySchemaKey> = {
   Apartment: 'residential',
+  House: 'residential',
   Villa: 'residential',
   Townhouse: 'residential',
   Penthouse: 'residential',
+  Duplex: 'residential',
   Studio: 'residential',
+  Finca: 'residential',
+  // Una promoción completa vendida desde 2ª mano (p. ej. un resto de obra
+  // nueva) comparte campos con un edificio entero.
+  Development: 'building',
   Land: 'land',
   Office: 'commercial',
   Retail: 'commercial',

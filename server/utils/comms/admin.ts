@@ -7,6 +7,7 @@ import { generateManagementToken } from '../appointments/managementToken'
 import { syncLeadNextAction } from '../leads/nextAction'
 import { toPublicProperty } from '../propertyPrivacy'
 import { markMatchSent, PROPERTY_KINDS, type PropertyKind } from '../matching/service'
+import { assertLiveProperty, trashedPropertyMessage } from '../properties/trash'
 import { listChannels, loadChannel } from './credentials'
 import { previewOf, sendOutbound, serviceWindow, type SendOutboundResult } from './inbox'
 import { formatPhone, whatsappClickToChatUrl } from './phone'
@@ -265,12 +266,15 @@ export async function buildPropertyShare(db: any, orgId: number, propertyId: num
         bedrooms: schema.developerProperties.bedrooms,
         area: schema.developerProperties.area,
         locationPrivacy: schema.developerProperties.locationPrivacy,
+        deletedAt: schema.developerProperties.deletedAt,
       })
       .from(schema.developerProperties)
       .where(and(eq(schema.developerProperties.id, propertyId), eq(schema.developerProperties.organizationId, orgId)))
       .limit(1)
     const raw = rows[0]
     if (!raw) throw createError({ statusCode: 404, statusMessage: 'Propiedad no encontrada' })
+    // Enviar (o reintentar el envío de) una propiedad de la papelera, no.
+    if (raw.deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('enviarla') })
     const p = toPublicProperty(raw)
     const url = `${origin.replace(/\/$/, '')}/propiedades/${p.slug || p.id}`
     const facts = [formatPriceEs(p.price), p.bedrooms ? `${p.bedrooms} dorm.` : null, p.area ? `${Math.round(p.area)} m²` : null].filter(Boolean).join(' · ')
@@ -291,12 +295,14 @@ export async function buildPropertyShare(db: any, orgId: number, propertyId: num
       bedrooms: schema.agentProperties.bedrooms,
       area: schema.agentProperties.area,
       locationPrivacy: schema.agentProperties.locationPrivacy,
+      deletedAt: schema.agentProperties.deletedAt,
     })
     .from(schema.agentProperties)
     .where(and(eq(schema.agentProperties.id, propertyId), eq(schema.agentProperties.organizationId, orgId)))
     .limit(1)
   const raw = rows[0]
   if (!raw) throw createError({ statusCode: 404, statusMessage: 'Propiedad no encontrada' })
+  if (raw.deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('enviarla') })
   const p = toPublicProperty(raw) as typeof raw
   const name = p.street || p.city || `Inmueble #${p.id}`
   const facts = [formatPriceEs(p.price), p.bedrooms ? `${p.bedrooms} dorm.` : null, p.area ? `${Math.round(p.area)} m²` : null].filter(Boolean).join(' · ')
@@ -409,6 +415,8 @@ export async function createFollowUpVisit(db: any, input: FollowUpInput): Promis
   let propertyName: string | null = null
   const propertyKind: PropertyKind | null = input.propertyId ? input.propertyKind || 'developer' : null
   if (input.propertyId) {
+    // Un seguimiento nuevo no se programa sobre una propiedad en la papelera.
+    await assertLiveProperty(db, input.orgId, propertyKind!, input.propertyId, { action: 'programar un seguimiento', notFoundMessage: 'Inmueble no encontrado' })
     if (propertyKind === 'agent') {
       const rows = await db
         .select({ reference: schema.agentProperties.reference, street: schema.agentProperties.street, streetNumber: schema.agentProperties.streetNumber })

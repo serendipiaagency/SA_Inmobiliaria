@@ -1,6 +1,7 @@
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, sql, type SQL } from 'drizzle-orm'
 import { useDb, schema } from '../../utils/db'
 import { requireOrgScope } from '../../utils/auth'
+import { livePropertyCond } from '../../utils/properties/trash'
 
 /**
  * Dashboard counters. Every count is confined to the caller's own
@@ -13,18 +14,19 @@ export default defineEventHandler(async (event) => {
   const { orgId } = await requireOrgScope(event)
   const db = useDb(event)
 
-  async function count(table: any): Promise<number> {
+  async function count(table: any, extra?: SQL): Promise<number> {
     const rows = await db
       .select({ count: sql<number>`count(*)` })
       .from(table)
-      .where(eq(table.organizationId, orgId))
+      .where(extra ? and(eq(table.organizationId, orgId), extra) : eq(table.organizationId, orgId))
     return rows[0]?.count ?? 0
   }
 
   const [projects, properties, developersCount, agentsCount, communitiesCount, blogsCount, visitors, vendors, messages] =
     await Promise.all([
-      count(schema.developerProperties),
-      count(schema.agentProperties),
+      // Las propiedades en la papelera no cuentan en el panel.
+      count(schema.developerProperties, livePropertyCond(schema.developerProperties)),
+      count(schema.agentProperties, livePropertyCond(schema.agentProperties)),
       count(schema.developers),
       count(schema.agents),
       count(schema.communities),

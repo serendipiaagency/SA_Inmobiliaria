@@ -6,7 +6,9 @@ export default defineEventHandler(async (event) => {
   const rows = await db
     .select({
       developer: schema.developers,
-      projectCount: sql<number>`(select count(*) from developer_properties dp where dp.developer_id = ${schema.developers.id})`,
+      // Sólo proyectos vivos: `dp.deleted_at is null` es livePropertyCond()
+      // (properties/trash.ts) escrita a mano porque la subconsulta usa el alias `dp`.
+      projectCount: sql<number>`(select count(*) from developer_properties dp where dp.developer_id = ${schema.developers.id} and dp.deleted_at is null)`,
     })
     .from(schema.developers)
     .where(and(eq(schema.developers.status, 'active'), eq(schema.developers.organizationId, resolvePublicOrgId(event))))

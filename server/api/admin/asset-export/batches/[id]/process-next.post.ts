@@ -8,6 +8,7 @@ import type { TemplateStructure } from '../../../../../utils/assetExport/types'
 import { buildStructuredKey } from '../../../../../utils/media'
 import { registerGeneratedFile } from '../../../../../utils/mediaAssets'
 import { assertQuotaAvailable } from '../../../../../utils/mediaQuota'
+import { trashedPropertyMessage } from '../../../../../utils/properties/trash'
 
 /**
  * Renders exactly one pending item from the batch, then returns. The
@@ -47,7 +48,11 @@ export default defineEventHandler(async (event) => {
     const template = (await db.select().from(schema.assetExportTemplates).where(eq(schema.assetExportTemplates.id, item.templateId!)).limit(1))[0]
     if (!template) throw createError({ statusCode: 404, statusMessage: 'Template not found' })
 
-    const asset = (await db.select({ name: schema.developerProperties.name }).from(schema.developerProperties).where(eq(schema.developerProperties.id, item.assetId)).limit(1))[0]
+    const asset = (await db.select({ name: schema.developerProperties.name, deletedAt: schema.developerProperties.deletedAt }).from(schema.developerProperties).where(eq(schema.developerProperties.id, item.assetId)).limit(1))[0]
+    // Si la propiedad pasó a la papelera después de crear el lote, este
+    // elemento falla con su motivo ANTES de crear un proyecto de exportación
+    // vacío (resolveAssetBindings también lo impediría, pero más tarde).
+    if (asset?.deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('exportarla') })
 
     const project = (
       await db

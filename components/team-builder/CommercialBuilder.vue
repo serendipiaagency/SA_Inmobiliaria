@@ -73,8 +73,34 @@
               <span class="label">Código interno de empleado</span>
               <input v-model="form.employeeCode" class="input" >
             </label>
+            <!-- Oficina y equipo son fichas propias (CRM → Oficinas / Equipos,
+                 migración 0086): lo que filtra y reparte por oficina usa el id.
+                 El texto anterior se conserva aparte para no perder nada. -->
             <label class="block">
-              <span class="label">Oficina / sede</span>
+              <span class="label">Oficina</span>
+              <select v-model="form.officeId" class="input" data-testid="commercial-office">
+                <option :value="null">—</option>
+                <option v-for="o in officeOptions" :key="o.id" :value="o.id">{{ o.label }}</option>
+              </select>
+              <span v-if="!officeOptions.length" class="mt-1 block text-[11px] text-stone-400">Da de alta tus oficinas en CRM → Oficinas.</span>
+            </label>
+            <label class="block">
+              <span class="label">Equipo</span>
+              <select v-model="form.teamId" class="input" data-testid="commercial-team">
+                <option :value="null">—</option>
+                <option v-for="t in teamOptions" :key="t.id" :value="t.id">{{ t.label }}</option>
+              </select>
+            </label>
+            <label class="block">
+              <span class="label">Usuario del panel</span>
+              <select v-model="form.userId" class="input" data-testid="commercial-user">
+                <option :value="null">— Sin cuenta de acceso —</option>
+                <option v-for="u in userOptions" :key="u.id" :value="u.id">{{ u.label }}</option>
+              </select>
+              <span class="mt-1 block text-[11px] text-stone-400">La cuenta con la que esta persona entra al panel: así sabe qué leads, visitas y tareas son suyos.</span>
+            </label>
+            <label class="block">
+              <span class="label">Oficina (texto anterior)</span>
               <input v-model="form.officeName" class="input" >
             </label>
             <label class="block">
@@ -121,7 +147,7 @@
             </label>
             <label class="block">
               <span class="label">Oficina</span>
-              <input :value="form.officeName" class="input" disabled >
+              <input :value="officeOptions.find((o) => o.id === form.officeId)?.label || form.officeName || ''" class="input" disabled >
             </label>
           </div>
           <div class="flex flex-wrap gap-2 text-[12px]">
@@ -291,6 +317,7 @@
 </template>
 
 <script setup lang="ts">
+import { loadRelationOptions, type RelationOption } from '~/composables/useRelationOptions'
 import TagChipsField from './TagChipsField.vue'
 import CommercialPreview from './CommercialPreview.vue'
 import CommercialStepper from './CommercialStepper.vue'
@@ -328,7 +355,17 @@ const extraActive = ref('propiedades')
 const isNew = computed(() => props.id === 'new')
 const recordId = ref<number | null>(isNew.value ? null : Number(props.id))
 const loading = ref(true)
-const form = reactive<Record<string, any>>({ employmentStatus: 'active', showOnWeb: true, sortOrder: 0 })
+const form = reactive<Record<string, any>>({ employmentStatus: 'active', showOnWeb: true, sortOrder: 0, officeId: null, teamId: null, userId: null })
+
+// Oficinas, equipos y usuarios de esta agencia para los tres vínculos de la ficha.
+const officeOptions = ref<RelationOption[]>([])
+const teamOptions = ref<RelationOption[]>([])
+const userOptions = ref<RelationOption[]>([])
+onMounted(() => {
+  loadRelationOptions('offices').then((r) => (officeOptions.value = r))
+  loadRelationOptions('teams').then((r) => (teamOptions.value = r))
+  loadRelationOptions('users').then((r) => (userOptions.value = r))
+})
 
 // contractType is free text on the model — offer the common options as a
 // select, but never silently drop a legacy custom value that isn't among them.
@@ -389,7 +426,7 @@ function sectionState(key: string): 'complete' | 'error' | 'neutral' {
     // employmentStatus always has a default value ('active'), so it can't be
     // used as a "the user filled this in" signal — only officeName/managerId
     // count, both genuinely empty on a fresh record.
-    return isFilled(form.officeName) || isFilled(form.managerId) ? 'complete' : 'neutral'
+    return isFilled(form.officeId) || isFilled(form.officeName) || isFilled(form.managerId) ? 'complete' : 'neutral'
   }
   if (key === 'contacto') {
     if (!isFilled(form.email)) return 'error'

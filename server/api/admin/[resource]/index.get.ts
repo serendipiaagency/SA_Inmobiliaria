@@ -5,6 +5,7 @@ import { getResource } from '../../../utils/adminResources'
 import { buildTenantWhere } from '../../../utils/tenantPolicy'
 import { buildPropertyFilterConds, parsePropertyFilters, DEVELOPER_PROPERTY_SORTS, PROPERTIES_SORTS, PROPERTY_EXPORT_MAX_ROWS, rowsToCsv } from '../../../utils/properties/searchService'
 import { savedViewVisibilityCond } from '../../../utils/properties/savedViews'
+import { livePropertyCond } from '../../../utils/properties/trash'
 import { toolCatalogFor } from '../../../utils/tools/execute'
 import { checkDomainAvailability } from '../../../utils/organizations/provisioning'
 
@@ -92,6 +93,9 @@ export default defineEventHandler(async (event) => {
   // developer-properties branch above for living here instead of a sibling
   // literal route.
   const isTeam = key === 'team'
+  // Las propiedades en la papelera no cuentan como «asignadas» a nadie.
+  const liveDev = livePropertyCond(schema.developerProperties)
+  const liveAgent = livePropertyCond(schema.agentProperties)
   if (isTeam) {
     const t = schema.teamMembers
     if (query.employmentStatus) conds.push(eq(t.employmentStatus, String(query.employmentStatus)))
@@ -103,13 +107,13 @@ export default defineEventHandler(async (event) => {
     if (query.language) conds.push(like(t.languages, `%${query.language}%`))
     if (query.assignedProperties === 'with') {
       conds.push(sql`(
-        exists(select 1 from developer_properties where developer_properties.agent_id = ${t.id})
-        or exists(select 1 from agent_properties where agent_properties.agent_id = ${t.id})
+        exists(select 1 from developer_properties where developer_properties.agent_id = ${t.id} and ${liveDev})
+        or exists(select 1 from agent_properties where agent_properties.agent_id = ${t.id} and ${liveAgent})
       )`)
     } else if (query.assignedProperties === 'without') {
       conds.push(sql`not (
-        exists(select 1 from developer_properties where developer_properties.agent_id = ${t.id})
-        or exists(select 1 from agent_properties where agent_properties.agent_id = ${t.id})
+        exists(select 1 from developer_properties where developer_properties.agent_id = ${t.id} and ${liveDev})
+        or exists(select 1 from agent_properties where agent_properties.agent_id = ${t.id} and ${liveAgent})
       )`)
     }
   }
@@ -227,6 +231,8 @@ export default defineEventHandler(async (event) => {
         isReserved: t.isReserved,
         publishedAt: t.publishedAt,
         updatedAt: t.updatedAt,
+        // La vista Papelera enseña cuándo se borró.
+        deletedAt: t.deletedAt,
         developerId: t.developerId,
         developerName: schema.developers.name,
       })
@@ -262,6 +268,7 @@ export default defineEventHandler(async (event) => {
         isExclusive: t.isExclusive,
         publishedAt: t.publishedAt,
         updatedAt: t.updatedAt,
+        deletedAt: t.deletedAt,
       })
       .from(t)
       .where(where as any)
@@ -292,8 +299,8 @@ export default defineEventHandler(async (event) => {
         showOnWeb: t.showOnWeb,
         updatedAt: t.updatedAt,
         assignedPropertiesCount: sql<number>`(
-          (select count(*) from developer_properties where developer_properties.agent_id = ${t.id})
-          + (select count(*) from agent_properties where agent_properties.agent_id = ${t.id})
+          (select count(*) from developer_properties where developer_properties.agent_id = ${t.id} and ${liveDev})
+          + (select count(*) from agent_properties where agent_properties.agent_id = ${t.id} and ${liveAgent})
         )`,
       })
       .from(t)

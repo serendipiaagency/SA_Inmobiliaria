@@ -6,6 +6,7 @@ import { recordActivity } from '../activity/service'
 import { createTask } from '../tasks/service'
 import { createOffer } from '../offers/service'
 import { advancePropertyMatches } from '../matching/service'
+import { assertLiveProperty } from '../properties/trash'
 
 /**
  * Resultado de visita (FASE 19, migración 0074).
@@ -60,6 +61,12 @@ export async function recordVisitOutcome(db: any, orgId: number, visitId: number
   const visit = rows[0]
   if (!visit) throw createError({ statusCode: 404, statusMessage: 'Visita no encontrada' })
   if (visit.status !== 'completed') throw createError({ statusCode: 422, statusMessage: 'Sólo se puede anotar el resultado de una visita completada' })
+  // Una oferta nueva sobre una propiedad que ya está en la papelera se
+  // rechaza ANTES de anotar nada: si no, el resultado quedaría guardado y la
+  // petición fallaría a medias.
+  if (input.createOffer && visit.propertyId && visit.propertyKind) {
+    await assertLiveProperty(db, orgId, visit.propertyKind === 'agent' ? 'agent' : 'developer', visit.propertyId, { action: 'crear una oferta', notFoundMessage: 'Inmueble no encontrado' })
+  }
 
   const nowTs = now()
   await db
@@ -110,7 +117,10 @@ export async function recordVisitOutcome(db: any, orgId: number, visitId: number
         propertyKind: visit.propertyKind as any,
         appointmentId: visitId,
       },
-      { createdBy: opts.actorId ?? null },
+      // El seguimiento hereda la propiedad de una visita que ya ocurrió:
+      // aunque esa propiedad esté hoy en la papelera, el seguimiento al
+      // cliente sigue teniendo sentido (historia, no catálogo).
+      { createdBy: opts.actorId ?? null, allowTrashedProperty: true },
     )
   }
 

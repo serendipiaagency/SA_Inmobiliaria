@@ -6,6 +6,7 @@ import { hasOverlappingVisit, shiftDateTime } from './availability'
 import { generateManagementToken } from './managementToken'
 import { recordActivity } from '../activity/service'
 import { syncLeadNextAction } from '../leads/nextAction'
+import { propertyState, trashedPropertyMessage } from '../properties/trash'
 
 /**
  * Tours (FASE 18, migración 0073): un cliente viendo varios inmuebles en una
@@ -85,6 +86,12 @@ export async function createTour(db: any, orgId: number, input: CreateTourInput)
 
     let propertyName: string | null = null
     if (stop.propertyId) {
+      // Igual que una cita suelta (adminCreate.ts): el inmueble tiene que ser
+      // de esta agencia y no estar en la papelera. Antes un id ajeno o
+      // inexistente se guardaba en la parada sin nombre.
+      const state = await propertyState(db, orgId, 'developer', stop.propertyId)
+      if (state === 'missing') throw createError({ statusCode: 404, statusMessage: `${label}: inmueble no encontrado` })
+      if (state === 'trashed') throw createError({ statusCode: 422, statusMessage: `${label}: ${trashedPropertyMessage('incluirla en un tour')}` })
       const propRows = await db
         .select({ name: schema.developerProperties.name })
         .from(schema.developerProperties)

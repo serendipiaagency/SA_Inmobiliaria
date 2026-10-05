@@ -84,9 +84,12 @@ export default defineEventHandler(async (event) => {
   const totals = {
     leads: (await raw.prepare('SELECT count(*) AS n FROM leads WHERE organization_id = ?1').bind(orgId).first<{ n: number }>())?.n || 0,
     clients: (await raw.prepare("SELECT count(*) AS n FROM clients WHERE organization_id = ?1 AND stage='active'").bind(orgId).first<{ n: number }>())?.n || 0,
+    // Propiedades vivas: `deleted_at IS NULL` es la condición de
+    // properties/trash.ts (livePropertyCond), escrita en SQL crudo porque
+    // este resumen usa el binding D1 directamente.
     properties:
-      ((await raw.prepare('SELECT count(*) AS n FROM developer_properties WHERE organization_id = ?1').bind(orgId).first<{ n: number }>())?.n || 0) +
-      ((await raw.prepare('SELECT count(*) AS n FROM agent_properties WHERE organization_id = ?1').bind(orgId).first<{ n: number }>())?.n || 0),
+      ((await raw.prepare('SELECT count(*) AS n FROM developer_properties WHERE organization_id = ?1 AND deleted_at IS NULL').bind(orgId).first<{ n: number }>())?.n || 0) +
+      ((await raw.prepare('SELECT count(*) AS n FROM agent_properties WHERE organization_id = ?1 AND deleted_at IS NULL').bind(orgId).first<{ n: number }>())?.n || 0),
     upcomingVisits: (await raw.prepare("SELECT count(*) AS n FROM visits WHERE organization_id = ?1 AND status='scheduled'").bind(orgId).first<{ n: number }>())?.n || 0,
     pendingInvoices:
       (await raw.prepare("SELECT count(*) AS n FROM invoices WHERE organization_id = ?1 AND status IN ('pending','overdue')").bind(orgId).first<{ n: number }>())?.n || 0,

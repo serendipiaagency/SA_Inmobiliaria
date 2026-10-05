@@ -48,16 +48,34 @@ Los estilos compartidos viven en `assets/css/main.css` bajo el prefijo `.pe-*`
 
 ## Lo que el editor promete y cumple
 
-- **No autoguarda.** Lo escrito vive en el formulario hasta que se pulsa
-  Guardar / Crear propiedad / Finalizar. La cabecera dice si hay cambios
-  pendientes y `onBeforeRouteLeave` pide confirmación antes de salir con
-  algo sin guardar. El pie lo escribe tal cual en vez de copiar el
-  «se guarda automáticamente» de la referencia de diseño: sería la frase
-  más cómoda de poner y la más cara cuando alguien cierra la pestaña
-  creyéndosela.
-  Sí se guardan por su cuenta —porque son listas propias, no campos de la
-  ficha— el orden de la galería y las tarjetas de planos, tipos de unidad y
-  redes sociales.
+- **Autoguarda en edición** (FASE 25). Al crear hay que pulsar «Crear
+  propiedad» (no hay fila a la que guardar todavía); a partir de ahí cada
+  cambio se guarda solo tras 1 s sin escribir, con el mismo patrón que el
+  Constructor Web. «Guardar cambios» sigue para confirmar al momento. Si el
+  último guardado falla, la cabecera y el pie lo dicen —nunca un «Guardado»
+  que no ha llegado al servidor— y `onBeforeRouteLeave` pide confirmación.
+  Las listas propias (galería, planos, tipos de unidad, redes, estancias) se
+  guardan por su cuenta, como antes.
+- **Ficha ampliada** (núcleo inmobiliario, migración 0086): los campos de
+  `utils/propertySheet.ts` —subtipo, estado y código comercial, oficina,
+  equipo, ubicación administrativa, superficies y distribución adicionales,
+  edificio, vivienda, instalaciones, zonas comunes, exterior, tour virtual,
+  económica, alquiler, comisiones, legal y certificado energético— viven en
+  dos tablas 1:1 (`property_details`, `property_legal_economics`) y el editor
+  los trata como campos planos más: el GET de la ficha los devuelve junto a
+  la fila y el PUT/POST los acepta en el mismo cuerpo
+  (`server/utils/properties/extendedSheet.ts`). Ver
+  [`docs/ficha-ampliada-propiedad.md`](./ficha-ampliada-propiedad.md).
+- **Campos condicionales** (`showWhen`): fianza, depósito y gastos incluidos
+  sólo con operación «Alquiler»; precio mínimo autorizado y recomendado sólo
+  en venta. El subtipo ofrece sólo los subtipos del tipo elegido.
+- **Búsqueda de campos y grupos plegables**: el buscador de encima de los
+  pasos encuentra cualquier campo visible por su rótulo, grupo o pista y
+  salta a él; cada grupo con título se pliega pulsándolo.
+- **Valores calculados** (`type: 'computed'`, `virtual: true`): el precio
+  por m² se enseña, nunca se guarda. «Motivo del cambio de precio» también
+  es virtual: viaja con el PUT y sólo se escribe en el histórico si el
+  precio cambia.
 - **El progreso sale de campos reales.** `sectionStates` y `progressPercent`
   cuentan los campos `required`/`recommended` que hay rellenos. Abrir un paso
   no lo marca como hecho. Un paso sin campos que seguir (galería, planos,
@@ -178,10 +196,15 @@ Todo pasa por `composables/usePropertyBuilderConfig.ts`:
 
 - `tests/e2e/property-editor.spec.ts` — los cuatro recorridos en un navegador:
   que son el mismo editor, alta y edición que persisten de verdad, navegación
-  por pasos, ausencia de autoguardado (incluida la comprobación de que el
-  servidor no recibe nada), estancias personalizadas (añadir/editar/eliminar
+  por pasos, autoguardado real tras el debounce, estancias personalizadas (añadir/editar/eliminar
   con persistencia inmediata por campo), ficha de otra inmobiliaria,
   responsive y modo de sólo lectura.
+- `tests/e2e/nucleo-n1.spec.ts` — ficha ampliada: búsqueda de campos,
+  condicionales por operación, subtipos por tipo, precio con motivo en el
+  histórico, tipo↔subtipo y oficina ajena rechazados, oficinas y equipos con
+  papelera.
+- `test/unit/propertyExtendedSheet.test.ts` — validación por tipo de campo,
+  guardado parcial, aislamiento entre agencias y catálogos.
 - `tests/e2e/developer-properties-admin.spec.ts`,
   `tests/e2e/properties-secondhand-admin.spec.ts`,
   `tests/e2e/property-builder.spec.ts` — persistencia campo a campo por API

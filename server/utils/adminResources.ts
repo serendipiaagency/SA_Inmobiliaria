@@ -13,6 +13,29 @@ import {
 } from './tenantPolicy'
 import type { AdminArea } from '../../utils/adminAreas'
 import { getRequestId } from './requestId'
+import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '../../utils/propertySheet'
+
+/** Oficinas y equipos: nombre con contenido, email con forma de email y zona horaria IANA real. */
+function validateOfficeOrTeam(data: Record<string, any>): Record<string, any> {
+  if (typeof data.name === 'string') {
+    data.name = data.name.trim()
+    if (!data.name) throw createError({ statusCode: 422, statusMessage: 'El nombre es obligatorio' })
+    if (data.name.length > 120) throw createError({ statusCode: 422, statusMessage: 'El nombre admite como máximo 120 caracteres' })
+  }
+  if (typeof data.email === 'string' && data.email) {
+    data.email = data.email.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) throw createError({ statusCode: 422, statusMessage: 'El email no tiene un formato válido' })
+  }
+  if (typeof data.timezone === 'string' && data.timezone) {
+    try {
+      new Intl.DateTimeFormat('es-ES', { timeZone: data.timezone })
+    } catch {
+      throw createError({ statusCode: 422, statusMessage: 'Zona horaria no válida (usa el formato Europe/Madrid)' })
+    }
+  }
+  if (data.status != null && !['active', 'inactive'].includes(data.status)) throw createError({ statusCode: 422, statusMessage: 'Estado no válido' })
+  return data
+}
 
 export type FieldType = 'text' | 'textarea' | 'number' | 'image' | 'file' | 'select' | 'json'
 
@@ -21,6 +44,15 @@ export interface FieldDef {
   label: string
   required?: boolean
   options?: string[]
+  /** Etiqueta legible por valor de un `select` (el valor guardado no cambia). */
+  optionLabels?: Record<string, string>
+  /**
+   * Campo que guarda el id de otro recurso del panel: el formulario genérico
+   * lo pinta como un desplegable con los registros de `resource` (por su
+   * `labelField`) en vez de pedir un número. La pertenencia a la organización
+   * la sigue validando `relations` en el servidor.
+   */
+  relation?: { resource: string; labelField?: string }
 }
 
 /**
@@ -265,21 +297,21 @@ export const adminResources: Record<string, ResourceDef> = {
       district: { type: 'text', label: 'Distrito' },
       lat: { type: 'number', label: 'Latitud' },
       lng: { type: 'number', label: 'Longitud' },
-      propertyType: { type: 'text', label: 'Tipo de inmueble' },
-      transactionType: { type: 'select', label: 'Operación', options: ['sale', 'rent'] },
-      price: { type: 'number', label: 'Precio (AED)' },
-      area: { type: 'number', label: 'Superficie (sqft)' },
+      propertyType: { type: 'select', label: 'Tipo de inmueble', options: [...PROPERTY_TYPES], optionLabels: PROPERTY_TYPE_LABELS },
+      transactionType: { type: 'select', label: 'Operación', options: ['sale', 'rent'], optionLabels: { sale: 'Venta', rent: 'Alquiler' } },
+      price: { type: 'number', label: 'Precio' },
+      area: { type: 'number', label: 'Superficie construida (m²)' },
       bedrooms: { type: 'number', label: 'Dormitorios' },
       bathrooms: { type: 'number', label: 'Baños' },
       mainImage: { type: 'image', label: 'Imagen principal' },
       videoUrl: { type: 'text', label: 'URL del vídeo' },
-      status: { type: 'select', label: 'Estado', options: ['available', 'sold'] },
-      agentId: { type: 'number', label: 'Comercial (ID)' },
+      status: { type: 'select', label: 'Estado', options: ['available', 'sold'], optionLabels: { available: 'Disponible', sold: 'Vendida' } },
+      agentId: { type: 'number', label: 'Comercial', relation: { resource: 'team', labelField: 'name' } },
       // Parity with developer-properties (migration 0059) — see that
       // resource's fields above for the same `type: 'number'` boolean-coercion
       // note on the has*/is* flags.
       yearBuilt: { type: 'number', label: 'Año de construcción' },
-      priceOld: { type: 'number', label: 'Precio anterior (AED)' },
+      priceOld: { type: 'number', label: 'Precio anterior' },
       keyHighlights: { type: 'textarea', label: 'Puntos destacados' },
       orientation: { type: 'select', label: 'Orientación', options: ['N', 'S', 'E', 'W', 'SE', 'SW', 'NE', 'NW'] },
       energyRating: { type: 'select', label: 'Certificado energético', options: ['A', 'B', 'C', 'D', 'E', 'F', 'G'] },
@@ -294,7 +326,7 @@ export const adminResources: Record<string, ResourceDef> = {
       isReserved: { type: 'number', label: 'Reservado' },
       hasTour: { type: 'number', label: 'Tour virtual' },
       rentalYield: { type: 'number', label: 'Rentabilidad del alquiler (%)' },
-      serviceChargeAnnual: { type: 'number', label: 'Gastos de comunidad anuales (AED)' },
+      serviceChargeAnnual: { type: 'number', label: 'Gastos de comunidad anuales' },
       dronePhoto: { type: 'image', label: 'Foto con dron' },
       nightPhoto: { type: 'image', label: 'Foto nocturna' },
       beforePhoto: { type: 'image', label: 'Foto antes' },
@@ -338,6 +370,9 @@ export const adminResources: Record<string, ResourceDef> = {
     relations: { agentId: { table: schema.teamMembers, label: 'Comercial' } },
     translations: { table: schema.propertyTranslations, foreignKey: 'propertyId' },
     referencePrefix: 'S',
+    // Papelera (deleted_at, migración 0086): borrar la manda allí; qué
+    // consultas la excluyen está en server/utils/properties/trash.ts.
+    softDelete: true,
   },
 
   'developer-properties': {
@@ -348,8 +383,8 @@ export const adminResources: Record<string, ResourceDef> = {
       developerId: { type: 'number', label: 'Promotora (ID)', required: true },
       name: { type: 'text', label: 'Nombre', required: true },
       slug: { type: 'text', label: 'Slug' },
-      status: { type: 'select', label: 'Estado', options: ['new', 'under_construction', 'ready'] },
-      price: { type: 'number', label: 'Precio desde (AED)' },
+      status: { type: 'select', label: 'Estado', options: ['new', 'under_construction', 'ready'], optionLabels: { new: 'Obra nueva', under_construction: 'En construcción', ready: 'Lista' } },
+      price: { type: 'number', label: 'Precio desde' },
       description: { type: 'textarea', label: 'Descripción' },
       keyHighlights: { type: 'textarea', label: 'Puntos destacados' },
       paymentPlan: { type: 'json', label: 'Plan de pago (JSON)' },
@@ -374,7 +409,7 @@ export const adminResources: Record<string, ResourceDef> = {
       // deliberate: buildPayload() coerces via Number(), so a JS boolean
       // from the builder's checkboxes becomes the 0/1 these integer columns
       // already store — there's no boolean FieldType in this generic CRUD.
-      propertyType: { type: 'select', label: 'Tipo de inmueble', options: ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio'] },
+      propertyType: { type: 'select', label: 'Tipo de inmueble', options: [...PROPERTY_TYPES], optionLabels: PROPERTY_TYPE_LABELS },
       bedrooms: { type: 'number', label: 'Dormitorios' },
       bathrooms: { type: 'number', label: 'Baños' },
       area: { type: 'number', label: 'Superficie (m²)' },
@@ -388,7 +423,7 @@ export const adminResources: Record<string, ResourceDef> = {
       hasGarden: { type: 'number', label: 'Jardín' },
       petsAllowed: { type: 'number', label: 'Admite mascotas' },
       accessible: { type: 'number', label: 'Accesible' },
-      priceOld: { type: 'number', label: 'Precio anterior (AED)' },
+      priceOld: { type: 'number', label: 'Precio anterior' },
       isExclusive: { type: 'number', label: 'Exclusiva' },
       isReserved: { type: 'number', label: 'Reservado' },
       publishedAt: { type: 'text', label: 'Publicado el' },
@@ -412,8 +447,8 @@ export const adminResources: Record<string, ResourceDef> = {
       beforePhoto: { type: 'image', label: 'Foto antes' },
       afterPhoto: { type: 'image', label: 'Foto después' },
       aiStagedPhoto: { type: 'image', label: 'Foto con puesta en escena por IA' },
-      serviceChargeAnnual: { type: 'number', label: 'Gastos de comunidad anuales (AED)' },
-      agentId: { type: 'number', label: 'Comercial (ID)' },
+      serviceChargeAnnual: { type: 'number', label: 'Gastos de comunidad anuales' },
+      agentId: { type: 'number', label: 'Comercial', relation: { resource: 'team', labelField: 'name' } },
       // --- Property Core (migración 0068) ---
       // Identificación (FASE 1): la referencia interna la genera
       // referencePrefix si se deja vacía; el resto son opcionales y se
@@ -423,7 +458,7 @@ export const adminResources: Record<string, ResourceDef> = {
       externalSource: { type: 'text', label: 'Origen externo' },
       externalReference: { type: 'text', label: 'Referencia externa' },
       agencyReference: { type: 'text', label: 'Referencia de agencia' },
-      transactionType: { type: 'select', label: 'Operación', options: ['sale', 'rent'] },
+      transactionType: { type: 'select', label: 'Operación', options: ['sale', 'rent'], optionLabels: { sale: 'Venta', rent: 'Alquiler' } },
       mandateType: { type: 'text', label: 'Tipo de mandato' },
       exclusiveFrom: { type: 'text', label: 'Exclusividad — inicio' },
       exclusiveUntil: { type: 'text', label: 'Exclusividad — vencimiento' },
@@ -459,6 +494,8 @@ export const adminResources: Record<string, ResourceDef> = {
     relations: { developerId: { table: schema.developers, label: 'Promotora' }, agentId: { table: schema.teamMembers, label: 'Comercial' } },
     slugFrom: 'name',
     referencePrefix: 'W',
+    // Papelera (deleted_at, migración 0086), igual que 2ª mano.
+    softDelete: true,
   },
 
   /**
@@ -933,8 +970,15 @@ export const adminResources: Record<string, ResourceDef> = {
       // --- Comerciales ficha (added 0047) ---
       employeeCode: { type: 'text', label: 'Código de empleado' },
       department: { type: 'text', label: 'Departamento' },
-      officeName: { type: 'text', label: 'Oficina' },
-      managerId: { type: 'number', label: 'Responsable (ID)' },
+      // Oficina y equipo como entidades (migración 0086); `officeName` queda
+      // como texto heredado de las fichas anteriores.
+      officeId: { type: 'number', label: 'Oficina', relation: { resource: 'offices', labelField: 'name' } },
+      teamId: { type: 'number', label: 'Equipo', relation: { resource: 'teams', labelField: 'name' } },
+      // El usuario del panel que ES este comercial: lo que permite a cada
+      // comercial ver "lo suyo" (sus leads, visitas y tareas).
+      userId: { type: 'number', label: 'Usuario del panel', relation: { resource: 'users', labelField: 'name' } },
+      officeName: { type: 'text', label: 'Oficina (texto anterior)' },
+      managerId: { type: 'number', label: 'Responsable', relation: { resource: 'team', labelField: 'name' } },
       hireDate: { type: 'text', label: 'Fecha de alta' },
       contractType: { type: 'text', label: 'Tipo de contrato' },
       employmentStatus: { type: 'select', label: 'Situación laboral', options: ['active', 'inactive', 'on_leave'] },
@@ -951,9 +995,69 @@ export const adminResources: Record<string, ResourceDef> = {
     hasUpdatedAt: true,
     tenantPolicy: { type: 'direct' },
     // managerId is client-supplied: without this, tenant A could point a
-    // manager at tenant B's team member.
-    relations: { managerId: { table: schema.teamMembers, label: 'Responsable' } },
+    // manager at tenant B's team member. Same for the office, team and panel
+    // user links (migración 0086).
+    relations: {
+      managerId: { table: schema.teamMembers, label: 'Responsable' },
+      officeId: { table: schema.offices, label: 'Oficina' },
+      teamId: { table: schema.teams, label: 'Equipo' },
+      userId: { table: schema.users, label: 'Usuario del panel' },
+    },
     slugFrom: 'name',
+  },
+
+  /**
+   * Oficinas (núcleo inmobiliario, migración 0086). Lo que filtra, enruta y
+   * segmenta por oficina es este id — leads, citas, propiedades, comerciales
+   * y reglas de reparto lo referencian. Borrar una oficina la manda a la
+   * Papelera: lo que la referenciaba conserva el id (y su historia).
+   */
+  offices: {
+    area: 'crm',
+    table: schema.offices,
+    label: 'Oficinas',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      code: { type: 'text', label: 'Código' },
+      email: { type: 'text', label: 'Email' },
+      phone: { type: 'text', label: 'Teléfono' },
+      address: { type: 'text', label: 'Dirección' },
+      city: { type: 'text', label: 'Localidad' },
+      province: { type: 'text', label: 'Provincia' },
+      postalCode: { type: 'text', label: 'Código postal' },
+      country: { type: 'text', label: 'País' },
+      timezone: { type: 'text', label: 'Zona horaria (p. ej. Europe/Madrid)' },
+      status: { type: 'select', label: 'Estado', options: ['active', 'inactive'], optionLabels: { active: 'Activa', inactive: 'Inactiva' } },
+    },
+    listFields: ['id', 'name', 'code', 'city', 'phone', 'status'],
+    searchFields: ['name', 'code', 'city', 'email', 'phone'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    softDelete: true,
+    prepare: async (data) => validateOfficeOrTeam(data),
+  },
+
+  /** Equipos comerciales (migración 0086), opcionalmente dentro de una oficina. */
+  teams: {
+    area: 'crm',
+    table: schema.teams,
+    label: 'Equipos',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      officeId: { type: 'number', label: 'Oficina', relation: { resource: 'offices', labelField: 'name' } },
+      leadMemberId: { type: 'number', label: 'Responsable del equipo', relation: { resource: 'team', labelField: 'name' } },
+      description: { type: 'textarea', label: 'Descripción' },
+      status: { type: 'select', label: 'Estado', options: ['active', 'inactive'], optionLabels: { active: 'Activo', inactive: 'Inactivo' } },
+    },
+    listFields: ['id', 'name', 'officeId', 'leadMemberId', 'status'],
+    searchFields: ['name', 'description'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    relations: { officeId: { table: schema.offices, label: 'Oficina' }, leadMemberId: { table: schema.teamMembers, label: 'Responsable del equipo' } },
+    softDelete: true,
+    prepare: async (data) => validateOfficeOrTeam(data),
   },
 
   'team-member-documents': {
@@ -1184,6 +1288,19 @@ export const adminResources: Record<string, ResourceDef> = {
     tenantPolicy: { type: 'direct' },
     readonly: true,
   },
+}
+
+/**
+ * Un índice único que salta (nombre de oficina repetido, slug o referencia ya
+ * usados…) es un error del usuario, no del servidor: 409 con un mensaje que
+ * se pueda leer, en vez del 500 crudo de D1.
+ */
+export function rethrowUniqueViolation(err: unknown): never {
+  const msg = String((err as any)?.cause?.message || (err as any)?.message || '')
+  if (msg.includes('UNIQUE constraint failed')) {
+    throw createError({ statusCode: 409, statusMessage: 'Ya existe otro registro con ese mismo valor (el mismo nombre, referencia, código o usuario vinculado). Usa otro.' })
+  }
+  throw err
 }
 
 export function getResource(event: H3Event): { key: string; def: ResourceDef } {

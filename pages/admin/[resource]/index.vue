@@ -2,9 +2,12 @@
   <div v-if="meta">
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
       <h1 class="text-2xl font-bold">{{ meta.label }}</h1>
-      <div class="flex gap-2">
+      <div class="flex flex-wrap gap-2">
         <input v-model="q" class="input !w-56" placeholder="Buscar…" @keyup.enter="page = 1" >
-        <NuxtLink v-if="!meta.readonly && canEdit" :to="`/admin/${resource}/new`" class="btn-primary">+ Nuevo</NuxtLink>
+        <button v-if="meta.softDelete" type="button" class="btn-secondary" data-testid="resource-trash-toggle" @click="toggleTrash">
+          {{ trashed ? '← Volver al listado' : 'Papelera' }}
+        </button>
+        <NuxtLink v-if="!meta.readonly && canEdit && !trashed" :to="`/admin/${resource}/new`" class="btn-primary">+ Nuevo</NuxtLink>
       </div>
     </div>
 
@@ -24,15 +27,21 @@
               {{ cell(f, row[f]) }}
             </td>
             <td class="whitespace-nowrap px-4 py-3 text-right">
-              <NuxtLink :to="`/admin/${resource}/${row.id}`" class="mr-3 font-medium text-emerald-700 hover:underline">
-                {{ meta.readonly || !canEdit ? 'Ver' : 'Editar' }}
-              </NuxtLink>
-              <button v-if="canEdit" class="font-medium text-red-600 transition hover:underline active:scale-95" @click="remove(row.id)">Eliminar</button>
+              <template v-if="trashed">
+                <button v-if="canEdit" class="mr-3 font-medium text-emerald-700 hover:underline" data-testid="resource-restore" @click="restore(row.id)">Restaurar</button>
+                <button v-if="canEdit" class="font-medium text-red-600 hover:underline" @click="remove(row.id, true)">Eliminar definitivamente</button>
+              </template>
+              <template v-else>
+                <NuxtLink :to="`/admin/${resource}/${row.id}`" class="mr-3 font-medium text-emerald-700 hover:underline">
+                  {{ meta.readonly || !canEdit ? 'Ver' : 'Editar' }}
+                </NuxtLink>
+                <button v-if="canEdit" class="font-medium text-red-600 transition hover:underline active:scale-95" @click="remove(row.id)">Eliminar</button>
+              </template>
             </td>
           </tr>
           <tr v-if="!data?.rows?.length">
             <td :colspan="meta.listFields.length + 1" class="px-4 py-14 text-center">
-              <p class="text-sm font-medium text-slate-500">Sin resultados en {{ meta.label }}</p>
+              <p class="text-sm font-medium text-slate-500">{{ trashed ? 'La papelera está vacía' : `Sin resultados en ${meta.label}` }}</p>
               <p class="mt-1 text-xs text-slate-400">{{ q ? 'Prueba con otro término de búsqueda.' : 'Todavía no hay registros aquí.' }}</p>
             </td>
           </tr>
@@ -50,6 +59,7 @@
 
 <script setup lang="ts">
 import { organizationCellLabel } from '~/utils/organizationLabels'
+import { loadRelationOptions, invalidateRelationOptions } from '~/composables/useRelationOptions'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -57,6 +67,7 @@ const route = useRoute()
 const resource = computed(() => String(route.params.resource))
 const q = ref('')
 const page = ref(1)
+const trashed = ref(false)
 
 const { data: resources } = await useFetch<Record<string, any>>('/api/admin/resources')
 const meta = computed(() => resources.value?.[resource.value])
@@ -73,36 +84,76 @@ const { canWrite } = useAdminPermissions()
 const canEdit = computed(() => (meta.value?.area ? canWrite(meta.value.area) : true))
 
 const { data, refresh } = await useFetch<any>(() => `/api/admin/${resource.value}`, {
-  query: computed(() => ({ page: page.value, q: q.value })),
+  query: computed(() => ({ page: page.value, q: q.value, trashed: trashed.value ? 1 : undefined })),
 })
 const totalPages = computed(() => Math.ceil((data.value?.total || 0) / (data.value?.perPage || 20)))
 
 watch(resource, () => {
   page.value = 1
   q.value = ''
+  trashed.value = false
 })
+
+function toggleTrash() {
+  trashed.value = !trashed.value
+  page.value = 1
+}
 
 // Empresas: estado y origen del alta en palabras («Activa», «Registro web»),
 // no el valor guardado. El resto de recursos muestran el dato tal cual.
 function cell(field: string, value: unknown) {
   if (resource.value === 'organizations') return organizationCellLabel(field, value) ?? value
+  const fd = meta.value?.fields?.[field]
+  if (value === null || value === undefined || value === '') return value
+  // Un id de otro recurso se lee por su nombre; un valor de desplegable, por su etiqueta.
+  if (fd?.relation) return relationLabels[field]?.get(Number(value)) ?? `#${value}`
+  if (fd?.optionLabels?.[String(value)]) return fd.optionLabels[String(value)]
   return value
 }
+
+// Nombres de los registros a los que apuntan las columnas-relación del listado.
+const relationLabels = reactive<Record<string, Map<number, string>>>({})
+function loadListRelations() {
+  for (const field of meta.value?.listFields || []) {
+    const fd = meta.value?.fields?.[field]
+    if (fd?.relation) loadRelationOptions(fd.relation.resource, fd.relation.labelField).then((rows) => (relationLabels[field] = new Map(rows.map((r) => [r.id, r.label]))))
+  }
+}
+onMounted(loadListRelations)
+watch(resource, loadListRelations)
 
 const { confirm } = useConfirm()
 const toast = useToast()
 
-async function remove(id: number) {
-  const ok = await confirm('Esta acción no se puede deshacer.', { title: '¿Eliminar este registro?', confirmLabel: 'Eliminar', danger: true })
+async function remove(id: number, hard = false) {
+  // Con Papelera, «Eliminar» se puede deshacer; sólo el borrado definitivo no.
+  const toTrash = !!meta.value?.softDelete && !hard
+  const ok = await confirm(toTrash ? 'Irá a la papelera, desde donde podrás restaurarlo.' : 'Esta acción no se puede deshacer.', {
+    title: toTrash ? '¿Mover a la papelera?' : '¿Eliminar este registro definitivamente?',
+    confirmLabel: toTrash ? 'Mover a la papelera' : 'Eliminar',
+    danger: true,
+  })
   if (!ok) return
   try {
     // Explicit generic: a dynamic `resource` segment makes Nitro's typed-route
     // inference match the wrong route's (GET/PUT-only) method union otherwise.
-    await $fetch<{ ok: true }>(`/api/admin/${resource.value}/${id}`, { method: 'DELETE' })
+    await $fetch<{ ok: true }>(`/api/admin/${resource.value}/${id}${hard ? '?hard=1' : ''}`, { method: 'DELETE' })
+    invalidateRelationOptions(resource.value)
     await refresh()
-    toast.success('Registro eliminado')
+    toast.success(toTrash ? 'Movido a la papelera' : 'Registro eliminado')
   } catch (e: any) {
-    toast.error(e?.statusMessage || 'No se ha podido eliminar el registro')
+    toast.error(e?.data?.statusMessage || e?.statusMessage || 'No se ha podido eliminar el registro')
+  }
+}
+
+async function restore(id: number) {
+  try {
+    await $fetch<{ ok: true }>(`/api/admin/${resource.value}/${id}/restore`, { method: 'POST' })
+    invalidateRelationOptions(resource.value)
+    await refresh()
+    toast.success('Restaurado')
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || e?.statusMessage || 'No se ha podido restaurar')
   }
 }
 </script>
