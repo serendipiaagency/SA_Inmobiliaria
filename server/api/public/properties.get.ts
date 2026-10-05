@@ -4,6 +4,7 @@ import { attachPhotos } from '../../utils/photos'
 import { toPublicProperties } from '../../utils/propertyPrivacy'
 import { livePropertyCond } from '../../utils/properties/trash'
 import { geoConds, parseGeoFilters } from '../../utils/properties/geoSearch'
+import { inJsonList } from '../../utils/sqlChunks'
 
 const P = schema.developerProperties
 
@@ -89,7 +90,8 @@ export default defineEventHandler(async (event) => {
     .map((v) => Number(v))
     .filter((v) => Number.isInteger(v) && v > 0)
     .slice(0, 200)
-  if (idList.length) conds.push(inArray(P.id, idList))
+  // Un solo parámetro (JSON): hasta 200 favoritos no caben en los 100 de D1.
+  if (idList.length) conds.push(inJsonList(P.id, idList))
 
   const minPrice = Number(query.minPrice)
   const maxPrice = Number(query.maxPrice)

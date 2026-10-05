@@ -28,3 +28,22 @@ describe('IN por trozos para D1', () => {
     expect(called).toBe(false)
   })
 })
+
+describe('IN con un solo parámetro (json_each)', () => {
+  it('filtra por una lista de cualquier tamaño ocupando UN parámetro, y una lista vacía no devuelve nada', async () => {
+    const { createTestDb, seedTenant } = await import('./helpers/tenantFixtures')
+    const schema = await import('../../server/db/schema')
+    const { and, eq } = await import('drizzle-orm')
+    const { inJsonList } = await import('../../server/utils/sqlChunks')
+    const { db } = createTestDb()
+    const t = await seedTenant(db, 'JsonList')
+    const ids = [t.projectId, ...Array.from({ length: 250 }, (_, i) => 900000 + i)]
+    const cond = and(eq(schema.developerProperties.organizationId, t.orgId), inJsonList(schema.developerProperties.id, ids))
+    const rows = await db.select({ id: schema.developerProperties.id }).from(schema.developerProperties).where(cond)
+    expect(rows.map((r: any) => r.id)).toEqual([t.projectId])
+    // 251 ids, pero la consulta sólo lleva 2 parámetros (organización + la lista JSON).
+    const query = db.select({ id: schema.developerProperties.id }).from(schema.developerProperties).where(cond).toSQL()
+    expect(query.params).toHaveLength(2)
+    expect(await db.select().from(schema.developerProperties).where(inJsonList(schema.developerProperties.id, []))).toEqual([])
+  })
+})

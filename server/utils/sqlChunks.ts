@@ -1,3 +1,5 @@
+import { sql, type AnyColumn, type SQL } from 'drizzle-orm'
+
 /**
  * D1 admite como máximo 100 parámetros por consulta: un `IN (…)` con una
  * página entera de ids (el listado genérico pagina hasta 100) más la
@@ -18,4 +20,16 @@ export async function selectInChunks<T, R>(list: readonly T[], run: (part: T[]) 
   const out: R[] = []
   for (const part of chunkList(list)) out.push(...(await run(part)))
   return out
+}
+
+/**
+ * `col IN (…)` con UN solo parámetro: la lista va como JSON y SQLite la
+ * despliega con `json_each`. Para condiciones dentro de una consulta que no
+ * se puede trocear (un filtro de listado, un UPDATE de varias filas): sea
+ * cual sea el tamaño de la lista, ocupa un parámetro de los 100 de D1.
+ * Lista vacía = ninguna fila (como `inArray` con `[]`).
+ */
+export function inJsonList(col: AnyColumn | SQL, values: readonly (number | string)[]): SQL {
+  if (!values.length) return sql`0`
+  return sql`${col} in (select value from json_each(${JSON.stringify(values)}))`
 }

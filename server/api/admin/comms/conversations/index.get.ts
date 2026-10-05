@@ -3,6 +3,7 @@ import { requireOrgScope } from '../../../../utils/auth'
 import { schema, useDb } from '../../../../utils/db'
 import { agentNames, crmNamesFor, serializeConversation } from '../../../../utils/comms/admin'
 import { listWebThreads, serializeWebThreads, webThreadCounts } from '../../../../utils/comms/web'
+import { inJsonList } from '../../../../utils/sqlChunks'
 
 const SOURCES = ['all', 'whatsapp', 'web', 'web_form', 'web_chat'] as const
 type Source = (typeof SOURCES)[number]
@@ -75,7 +76,7 @@ export default defineEventHandler(async (event) => {
         .where(and(eq(schema.commsContacts.organizationId, orgId), like(schema.leads.name, pattern)))
         .limit(200)
       const contactFilterIds = [...new Set([...matches, ...crmClients, ...crmLeads].map((r: any) => r.id as number))]
-      conds.push(contactFilterIds.length ? or(inArray(schema.commsConversations.contactId, contactFilterIds), like(schema.commsConversations.lastMessagePreview, pattern))! : like(schema.commsConversations.lastMessagePreview, pattern))
+      conds.push(contactFilterIds.length ? or(inJsonList(schema.commsConversations.contactId, contactFilterIds), like(schema.commsConversations.lastMessagePreview, pattern))! : like(schema.commsConversations.lastMessagePreview, pattern))
     }
 
     const rows = await db

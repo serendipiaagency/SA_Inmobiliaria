@@ -11,6 +11,7 @@ import { agentNames, buildPropertyShare } from './admin'
 import { normalizePhone } from './phone'
 import { PREVIEW_MAX } from './inbox'
 import { createPropertyShareLink, personalPropertyUrl, randomUrlToken, sha256OfText } from './shareLinks'
+import { inJsonList } from '../sqlChunks'
 
 /**
  * Hilos web de la bandeja de Comunicaciones (bloque N8a, FASE 29;
@@ -419,7 +420,7 @@ export async function pollWebChat(db: any, orgId: number, token: unknown, afterI
     await db
       .update(schema.commsWebMessages)
       .set({ status: 'delivered' })
-      .where(and(eq(schema.commsWebMessages.threadId, thread.id), inArray(schema.commsWebMessages.id, delivered)))
+      .where(and(eq(schema.commsWebMessages.threadId, thread.id), inJsonList(schema.commsWebMessages.id, delivered)))
   }
   return { status: thread.status, messages: rows.map(toPublicMessage) }
 }
@@ -452,14 +453,14 @@ async function peopleFor(db: any, orgId: number, rows: WebThreadRow[]): Promise<
     const found = await db
       .select({ id: schema.contacts.id, name: schema.contacts.name, email: schema.contacts.email, phone: schema.contacts.phone })
       .from(schema.contacts)
-      .where(and(eq(schema.contacts.organizationId, orgId), inArray(schema.contacts.id, contactIds)))
+      .where(and(eq(schema.contacts.organizationId, orgId), inJsonList(schema.contacts.id, contactIds)))
     for (const c of found) contacts.set(c.id, c)
   }
   if (leadIds.length) {
     const found = await db
       .select({ id: schema.leads.id, name: schema.leads.name, status: schema.leads.status, email: schema.leads.email })
       .from(schema.leads)
-      .where(and(eq(schema.leads.organizationId, orgId), inArray(schema.leads.id, leadIds)))
+      .where(and(eq(schema.leads.organizationId, orgId), inJsonList(schema.leads.id, leadIds)))
     for (const l of found) leads.set(l.id, l)
   }
   const agents = await agentNames(
@@ -566,7 +567,7 @@ export async function webThreadMessages(db: any, thread: WebThreadRow, limit = 2
     const found = await db
       .select({ id: schema.emailLog.id, status: schema.emailLog.status, errorMessage: schema.emailLog.errorMessage })
       .from(schema.emailLog)
-      .where(and(eq(schema.emailLog.organizationId, thread.organizationId), inArray(schema.emailLog.id, logIds)))
+      .where(and(eq(schema.emailLog.organizationId, thread.organizationId), inJsonList(schema.emailLog.id, logIds)))
     for (const l of found) logs.set(l.id, { status: l.status, errorMessage: l.errorMessage })
   }
   return rows.map((r) => serializeWebMessage(r, r.emailLogId ? logs.get(r.emailLogId) : null))
@@ -610,8 +611,8 @@ function listConds(orgId: number, f: WebThreadListFilter, db: any): SQL[] {
     conds.push(or(like(T.visitorName, pattern), like(T.visitorEmail, pattern), like(T.visitorPhone, pattern), like(T.lastMessagePreview, pattern))!)
   }
   const people: SQL[] = []
-  if (f.contactIds?.length) people.push(inArray(T.contactId, f.contactIds))
-  if (f.leadIds?.length) people.push(inArray(T.leadId, f.leadIds))
+  if (f.contactIds?.length) people.push(inJsonList(T.contactId, f.contactIds))
+  if (f.leadIds?.length) people.push(inJsonList(T.leadId, f.leadIds))
   if (f.contactIds || f.leadIds) conds.push(people.length ? or(...people)! : sql`0`)
   return conds
 }

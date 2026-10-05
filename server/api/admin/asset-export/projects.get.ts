@@ -1,6 +1,7 @@
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { requireOrgScope } from '../../../utils/auth'
 import { useDb, schema } from '../../../utils/db'
+import { inJsonList } from '../../../utils/sqlChunks'
 
 /** Lists the active org's export projects, optionally filtered to one asset (?assetKind=&assetId=). */
 export default defineEventHandler(async (event) => {
@@ -28,7 +29,7 @@ export default defineEventHandler(async (event) => {
     const rows = await db
       .select({ id: schema.developerProperties.id, price: schema.developerProperties.price })
       .from(schema.developerProperties)
-      .where(inArray(schema.developerProperties.id, propertyIds))
+      .where(and(eq(schema.developerProperties.organizationId, orgId), inJsonList(schema.developerProperties.id, propertyIds)))
     for (const r of rows) prices.set(r.id, r.price)
   }
 

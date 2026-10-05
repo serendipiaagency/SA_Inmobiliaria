@@ -1,7 +1,8 @@
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { useDb, schema, now } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
 import { logAdminAction } from '../../../utils/audit'
+import { inJsonList } from '../../../utils/sqlChunks'
 
 /** POST /api/admin/scheduler/resume — Fase 7/16. Body: {jobId} or {scheduleId}. */
 export default defineEventHandler(async (event) => {
@@ -30,7 +31,7 @@ export default defineEventHandler(async (event) => {
       await db
         .update(schema.publicationJobs)
         .set({ status: 'pending', updatedAt: nowTs })
-        .where(inArray(schema.publicationJobs.id, jobs.map((j: any) => j.id)))
+        .where(inJsonList(schema.publicationJobs.id, jobs.map((j: any) => j.id)))
     }
     await db.insert(schema.publicationHistory).values({ organizationId: orgId, scheduleId: body.scheduleId, jobId: null, event: 'schedule_resumed', message: `Programación reanudada (${jobs.length} job(s)).`, createdAt: nowTs })
     await logAdminAction(event, { user, orgId, action: 'resume', resource: 'scheduler-schedule', resourceId: body.scheduleId, detail: `${jobs.length} jobs` })

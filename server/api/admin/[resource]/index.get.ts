@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, like, or, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, isNull, like, or, sql } from 'drizzle-orm'
 import { schema, useDb } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
@@ -19,6 +19,7 @@ import { propertyFilterOptions } from '../../../utils/properties/filterOptions'
 import { customFieldValuesResourceGet, isCustomFieldValueResource } from '../../../utils/customFields/service'
 import { isTagLinkResource, tagLinksResourceGet, withTags } from '../../../utils/tags/service'
 import { haversineKm } from '../../../../utils/maps/geo'
+import { inJsonList } from '../../../utils/sqlChunks'
 
 /** Tope de puntos de la vista Mapa del listado de propiedades: más que eso se pide acercar el mapa o filtrar. */
 const MAP_MAX_POINTS = 1000
@@ -149,7 +150,8 @@ export default defineEventHandler(async (event) => {
         .split(',')
         .map((s) => parseInt(s.trim(), 10))
         .filter((n) => Number.isInteger(n) && n > 0)
-      if (idList.length) conds.push(inArray(def.table.id, idList))
+      // Un solo parámetro (JSON): una selección puede tener miles de ids y D1 admite 100.
+      if (idList.length) conds.push(inJsonList(def.table.id, idList))
     }
   }
 
