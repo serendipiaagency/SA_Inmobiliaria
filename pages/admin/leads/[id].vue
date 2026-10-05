@@ -17,6 +17,8 @@
         <p v-if="data.contact" class="mt-1 text-[13px]">
           Contacto: <NuxtLink :to="`/admin/contactos/${data.contact.id}`" class="font-medium underline" data-testid="lead-contact-link">{{ data.contact.name }}</NuxtLink>
         </p>
+        <!-- Etiquetas (FASE 0, bloque N7b): verlas, añadir y quitar a mano. -->
+        <TagsEditor class="mt-2" entity-type="lead" :entity-id="leadId" :can-edit="canEdit" />
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <AdminLeadScoreBadge :lead="lead" @updated="(u: any) => Object.assign(lead, u)" />
@@ -121,6 +123,9 @@
           <p class="mb-1 text-[11px] uppercase tracking-wide text-stone-400">Notas internas</p>
           <p class="whitespace-pre-line">{{ lead.notes }}</p>
         </div>
+      </AdminPanel>
+      <AdminPanel title="Campos personalizados" class="mt-4">
+        <CustomFieldsPanel entity-type="lead" :entity-id="leadId" :can-edit="canEdit" />
       </AdminPanel>
     </section>
 
@@ -260,6 +265,8 @@ import { nextActionLabel } from '~/utils/pipelineCatalog'
 import ActivityTimeline from '~/components/admin/activity/ActivityTimeline.vue'
 import { loadRelationOptions, type RelationOption } from '~/composables/useRelationOptions'
 import NotesPanel from '~/components/admin/notes/NotesPanel.vue'
+import TagsEditor from '~/components/admin/tags/TagsEditor.vue'
+import CustomFieldsPanel from '~/components/admin/custom-fields/CustomFieldsPanel.vue'
 import LeadFormModal from '~/components/admin/leads/LeadFormModal.vue'
 import LeadLostModal from '~/components/admin/leads/LeadLostModal.vue'
 

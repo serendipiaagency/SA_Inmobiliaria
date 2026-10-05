@@ -29,11 +29,15 @@ PropertyBuilder.vue                 armazón: pasos, sección activa, guardado
 │   ├── StepperField / AgentPickerField / PaymentPlanEditor / VideoField
 │   └── RichTextField.client.vue
 ├── LocationSection.vue             dirección granular + mapa
-├── GalleryManager.vue              galería (orden, portada)
+├── GalleryManager.vue              galería (orden, portada, datos por foto, selección múltiple)
+│   └── PropertyMediaManager.vue    vídeos, tours, renders, PDF, drone y 360 (property_media)
 ├── ChildCardManager.vue            planos, tipos de unidad
 ├── SocialLinksManager.vue          redes sociales
 ├── TranslationsEditor.vue          descripción en/ar
 ├── PropertyRoomManager.vue         estancias personalizadas (dormitorio, despacho…)
+├── PropertySummaryHeader.vue       resumen de la ficha (estado, canales, dueños, documentos…)
+├── PropertyDocumentsManager.vue    paso «Documentos» (gestor documental con permisos)
+├── PropertyPortalsPanel.vue        paso «Portales» (estado por canal de publicación)
 ├── PropertyEditorFooter.vue        Anterior · aviso · Siguiente / Finalizar
 └── PropertyEditorPreview.vue       vista previa en vivo (columna derecha)
 ```
@@ -88,6 +92,21 @@ Los estilos compartidos viven en `assets/css/main.css` bajo el prefijo `.pe-*`
 - **Los desplegables enseñan castellano.** `optionLabels` en el `FieldSpec`
   traduce el valor que guarda la columna (`under_construction`, `sale`,
   `available`…). El valor enviado a la API no cambia.
+
+## Bloque N7a: documentos, multimedia, resumen y portales
+
+- **Resumen** encima de los pasos (al editar), **«Documentos»** y
+  **«Portales»** como pasos (`kind: 'panel'` en la configuración) y la
+  multimedia completa dentro de «Galería y multimedia», en los dos catálogos.
+  Los componentes viven en `components/admin/property/` y se montan con una
+  línea cada uno.
+- **Defaults inteligentes** al crear (`applyPropertyDefaults`,
+  `composables/usePropertyDefaults.ts`) y **validación inmediata por campo**
+  (`utils/propertyFieldValidation.ts`, en `PropertyBuilderField.vue`).
+- El filtrado por el PropertySchemaRegistry se aplica ya en los dos
+  catálogos.
+
+Detalle en [`documentos-y-multimedia.md`](./documentos-y-multimedia.md).
 
 ## Property Core (migración 0068)
 

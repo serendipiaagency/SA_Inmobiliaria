@@ -178,7 +178,27 @@ describe('search_properties estructurado (§27)', () => {
 
     const byCommercial = await executeTool(ctx(a), 'search_properties', { commercialId: a.teamMemberId })
     const kinds = (byCommercial as any).output.results.map((x: any) => x.kind)
+    // La promoción del seed no tiene comercial: sólo sale la de 2ª mano.
     expect(kinds).toEqual(['agent'])
+  })
+
+  it('el filtro por comercial también encuentra obra nueva (FASE 31: antes la excluía siempre)', async () => {
+    await db.update(schema.developerProperties).set({ agentId: a.teamMemberId }).where(eq(schema.developerProperties.id, a.projectId))
+    await db.insert(schema.agentProperties).values({ organizationId: a.orgId, status: 'available', slug: 'p-del-comercial', agentId: a.teamMemberId, createdAt: 'x', updatedAt: 'x' })
+
+    const both = await executeTool(ctx(a), 'search_properties', { commercialId: a.teamMemberId })
+    expect(both.ok).toBe(true)
+    const out = (both as any).output
+    expect(out.results.map((x: any) => x.kind).sort()).toEqual(['agent', 'developer'])
+    expect(out.results.find((x: any) => x.kind === 'developer').id).toBe(a.projectId)
+    expect(out.total).toBe(2)
+
+    const onlyNew = await executeTool(ctx(a), 'search_properties', { catalog: 'developer', commercialId: a.teamMemberId })
+    expect((onlyNew as any).output.results.map((x: any) => x.id)).toEqual([a.projectId])
+
+    // El comercial de otra agencia no encuentra nada aquí.
+    const other = await executeTool(ctx(a), 'search_properties', { commercialId: b.teamMemberId })
+    expect((other as any).output.total).toBe(0)
   })
 })
 

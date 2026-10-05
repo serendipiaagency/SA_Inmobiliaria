@@ -1,6 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm'
 import { requireUser } from '../../utils/auth'
 import { useDb, schema } from '../../utils/db'
+import { contactIdsForEmail, listContactDocuments } from '../../utils/properties/documents'
 
 /**
  * Client-facing self-service view. There is no FK linking `users` to
@@ -33,5 +34,24 @@ export default defineEventHandler(async (event) => {
       .orderBy(desc(schema.contracts.createdAt)),
   ])
 
-  return { visits, leads, contracts }
+  // Documentos de propiedades (FASE 6, bloque N7a): los que puede ver la
+  // persona de la agencia con este mismo email — como propietario, por
+  // acceso concedido o porque son públicos. Se descargan en /api/media con
+  // esta misma sesión, que vuelve a comprobar el permiso en cada descarga.
+  const contactIds = await contactIdsForEmail(db, user.organizationId, email)
+  const documents = (await listContactDocuments(db, user.organizationId, contactIds)).map((d: any) => ({
+    id: d.id,
+    title: d.title,
+    docTypeLabel: d.docTypeLabel,
+    propertyName: d.propertyName,
+    accessLabel: d.accessLabel,
+    issuedAt: d.issuedAt,
+    expiresAt: d.expiresAt,
+    expiryState: d.expiryState,
+    mimeType: d.mimeType,
+    sizeBytes: d.sizeBytes,
+    downloadUrl: d.downloadUrl,
+  }))
+
+  return { visits, leads, contracts, documents }
 })

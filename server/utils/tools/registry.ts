@@ -196,7 +196,7 @@ const searchProperties: DomainTool = {
     bedroomsMin: { type: 'integer' },
     bathroomsMin: { type: 'integer' },
     features: { type: 'array', items: { type: 'string', enum: FEATURES }, description: 'Características que DEBE tener.' },
-    commercialId: { type: 'integer', description: 'Sólo las de este comercial (el comercial asignado existe sólo en 2ª mano).' },
+    commercialId: { type: 'integer', description: 'Sólo las de este comercial asignado (en los dos catálogos).' },
     sort: { type: 'string', enum: ['price_asc', 'price_desc', 'newest'] },
     limit: { type: 'integer', minimum: 1, maximum: 20 },
   }),
@@ -220,9 +220,10 @@ const searchProperties: DomainTool = {
     limit: v.int(o, 'limit', { min: 1, max: 20 }) ?? 10,
   }),
   async run(ctx, input) {
-    let kinds: PropertyKind[] = input.catalog === 'both' ? ['developer', 'agent'] : [input.catalog]
-    // Obra nueva no tiene comercial asignado: filtrar por comercial sólo puede devolver 2ª mano.
-    if (input.commercialId) kinds = kinds.filter((k) => k === 'agent')
+    // Los dos catálogos tienen comercial asignado (`agent_id`): filtrar por
+    // comercial busca en los dos. Antes se descartaba obra nueva (FASE 31,
+    // fallo de la auditoría del núcleo), y sus propiedades nunca salían.
+    const kinds: PropertyKind[] = input.catalog === 'both' ? ['developer', 'agent'] : [input.catalog]
     const results: any[] = []
     let total = 0
     for (const kind of kinds) {

@@ -3,6 +3,9 @@ import type { H3Event } from 'h3'
 import { schema, useDb } from '../db'
 import { tablesFor, type PropertyKind } from '../matching/service'
 import { livePropertyCond } from './trash'
+import { geoConds, parseGeoFilters, type GeoFilter } from './geoSearch'
+import { parseTagIds, tagFilterConds } from '../tags/service'
+import { customFieldFilterConds, parseCustomFieldFilters, type CustomFieldFilter } from '../customFields/service'
 
 /**
  * Property Search Service (FASE 27) — el filtro profesional único sobre
@@ -58,7 +61,35 @@ export interface PropertySearchFilters {
   zones?: string[]
   propertyTypes?: string[]
   features?: PropertyFeature[]
+  /**
+   * Bloque N7b (FASE 27): subtipo y oficina (ficha ampliada,
+   * `property_details`), comercial asignado (`agentId`, «none» = sin
+   * comercial), propietario (PropertyContact con papel propietario o
+   * copropietario: por texto o por id de contacto) y portal (un trabajo de
+   * publicación en ese canal — sólo existe en obra nueva).
+   */
+  subtype?: string
+  agentId?: number | 'none'
+  officeId?: number
+  owner?: string
+  ownerContactId?: number
+  portal?: string
+  /** FASE 2: barrio (o urbanización) y municipio (o localidad) — los de la ficha ampliada y los antiguos. */
+  neighborhood?: string
+  municipality?: string
+  /** FASE 0: etiquetas (todas las indicadas) y campos personalizados. */
+  tagIds?: number[]
+  customFields?: CustomFieldFilter[]
+  /** FASE 2: zona visible del mapa (bounding box) y/o radio alrededor de unas coordenadas. */
+  geo?: GeoFilter
 }
+
+/**
+ * Estados de un trabajo de publicación que cuentan como «está (o va a estar)
+ * en ese portal»: programado, en cola, publicándose, publicado o
+ * reintentando. Un trabajo cancelado, fallido u omitido no.
+ */
+export const PORTAL_ACTIVE_JOB_STATUSES = ['pending', 'queued', 'running', 'success', 'retrying', 'paused'] as const
 
 export const PROPERTY_FEATURE_COLUMNS = {
   terrace: 'hasTerrace',
@@ -123,6 +154,45 @@ export function buildPropertyFilterConds(kind: PropertyKind, filters: PropertySe
   }
   if (filters.propertyTypes?.length) conds.push(or(...filters.propertyTypes.map((pt) => eq(t.propertyType, pt)))!)
   for (const f of filters.features || []) conds.push(eq(t[PROPERTY_FEATURE_COLUMNS[f]], 1))
+
+  // --- Bloque N7b ---------------------------------------------------------
+  // Toda subconsulta se correlaciona con el id, el catálogo y la ORGANIZACIÓN
+  // de la propiedad: un id de oficina, contacto, etiqueta o campo de otra
+  // agencia no coincide con nada.
+  const details = (cond: SQL) =>
+    sql`exists (select 1 from property_details pd where pd.organization_id = ${t.organizationId} and pd.property_kind = ${kind} and pd.property_id = ${t.id} and ${cond})`
+  if (filters.subtype) conds.push(details(sql`pd.subtype = ${filters.subtype}`))
+  if (filters.officeId) conds.push(details(sql`pd.office_id = ${filters.officeId}`))
+  if (filters.agentId === 'none') conds.push(isNull(t.agentId))
+  else if (filters.agentId) conds.push(eq(t.agentId, filters.agentId))
+  if (filters.neighborhood) conds.push(or(like(t.community, `%${filters.neighborhood}%`), details(sql`pd.neighborhood like ${`%${filters.neighborhood}%`}`))!)
+  if (filters.municipality) conds.push(or(like(t.city, `%${filters.municipality}%`), details(sql`pd.municipality like ${`%${filters.municipality}%`}`))!)
+  if (filters.owner || filters.ownerContactId) {
+    const who = filters.ownerContactId
+      ? sql`pc.contact_id = ${filters.ownerContactId}`
+      : sql`(c.name like ${`%${filters.owner}%`} or c.email like ${`%${filters.owner}%`} or c.phone like ${`%${filters.owner}%`})`
+    conds.push(sql`exists (select 1 from property_contacts pc
+      join contacts c on c.id = pc.contact_id and c.organization_id = pc.organization_id
+      where pc.organization_id = ${t.organizationId} and pc.property_kind = ${kind} and pc.property_id = ${t.id}
+        and pc.deleted_at is null and pc.role in ('owner', 'co_owner') and ${who})`)
+  }
+  if (filters.portal) {
+    // La publicación multicanal sólo programa obra nueva
+    // (publication_schedules.developer_property_id): en 2ª mano ninguna
+    // propiedad está en un portal, y el filtro lo dice devolviendo cero.
+    if (kind === 'developer') {
+      conds.push(sql`exists (select 1 from publication_jobs j
+        join publication_schedules ps on ps.id = j.schedule_id and ps.organization_id = j.organization_id
+        where j.organization_id = ${t.organizationId} and ps.developer_property_id = ${t.id}
+          and j.channel_key = ${filters.portal} and j.action = 'publish'
+          and j.status in (select value from json_each(${JSON.stringify(PORTAL_ACTIVE_JOB_STATUSES)})))`)
+    } else {
+      conds.push(sql`0 = 1`)
+    }
+  }
+  if (filters.tagIds?.length) conds.push(...tagFilterConds(kind, t.id, t.organizationId, filters.tagIds))
+  if (filters.customFields?.length) conds.push(...customFieldFilterConds(kind, t, filters.customFields))
+  conds.push(...geoConds(t.lat, t.lng, filters.geo))
   return conds
 }
 
@@ -145,6 +215,17 @@ export function parsePropertyFilters(query: Record<string, unknown>): PropertySe
   const str = (v: unknown) => (v != null && String(v).trim() !== '' ? String(v) : undefined)
   const bool = (v: unknown) => (v === '1' || v === 'true' ? true : v === '0' || v === 'false' ? false : undefined)
   const published = query.published === 'published' || query.published === 'unpublished' ? (query.published as 'published' | 'unpublished') : undefined
+  const posInt = (v: unknown) => {
+    const n = Number(v)
+    return v != null && v !== '' && Number.isInteger(n) && n > 0 ? n : undefined
+  }
+  const features = String(query.features ?? '')
+    .split(',')
+    .map((f) => f.trim())
+    .filter((f): f is PropertyFeature => f in PROPERTY_FEATURE_COLUMNS)
+  const tagIds = parseTagIds(query.tags)
+  const customFields = parseCustomFieldFilters(query)
+  const geo = parseGeoFilters(query)
   return {
     priceMin: num(query.priceMin),
     priceMax: num(query.priceMax),
@@ -165,6 +246,19 @@ export function parsePropertyFilters(query: Record<string, unknown>): PropertySe
     capturedTo: str(query.capturedTo),
     updatedFrom: str(query.updatedFrom),
     updatedTo: str(query.updatedTo),
+    features: features.length ? [...new Set(features)] : undefined,
+    subtype: str(query.subtype),
+    agentId: query.agentId === 'none' ? 'none' : posInt(query.agentId),
+    officeId: posInt(query.officeId),
+    owner: str(query.owner)?.slice(0, 120),
+    ownerContactId: posInt(query.ownerId),
+    portal: str(query.portal),
+    neighborhood: str(query.neighborhood),
+    municipality: str(query.municipality),
+    // Sin filtro, `undefined` (no una lista o un objeto vacíos), como el resto.
+    tagIds: tagIds.length ? tagIds : undefined,
+    customFields: customFields.length ? customFields : undefined,
+    geo: geo.bbox || geo.radius ? geo : undefined,
   }
 }
 

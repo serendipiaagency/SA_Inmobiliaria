@@ -60,6 +60,13 @@ son puro cálculo/DOM, reutilizables desde cualquier modo.
 | `components/EmbedMiniMap.client.vue` | `/embed` (widget externo) | Presentación — mini-mapa de solo lectura |
 | `components/PropertyLocationMap.client.vue` | Ficha pública de una propiedad | Presentación — un único marcador, solo lectura |
 | `components/MapTeaserMap.client.vue` | Bloque "Mapa (teaser)" del Constructor Web | Presentación + **builder-edit** (ver abajo) |
+| `components/property-list/PropertyListMap.client.vue` | Listado de Propiedades (web) y 2ª mano del panel (botón «Mapa») | Búsqueda — todos los resultados filtrados, «Buscar en esta zona» (bounding box) y «Buscar alrededor de un punto» (radio). Ver `docs/property-search.md`, bloque N7b |
+
+`MapExplorer.client.vue` (`/mapa`) tiene además el botón «Buscar en esta
+zona», que filtra la web pública por la zona visible (`north/south/east/west`
+sobre las coordenadas publicadas, nunca las exactas de una ubicación
+aproximada), y `fitToItems=false` para no volver a encuadrar el mapa justo
+después de buscar.
 
 Todos son `.client.vue`: el código de Leaflet toca globals del navegador en
 cuanto se evalúa, así que no puede vivir en el bundle SSR de Nitro/Workers.

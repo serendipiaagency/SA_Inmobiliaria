@@ -21,6 +21,8 @@ export type MediaCategory =
   | 'catalog'
   | 'upload'
   | 'team-member-document'
+  // Documentos de una propiedad (FASE 6): escrituras, notas simples, certificados…
+  | 'property-document'
 
 export interface RegisterMediaAssetInput {
   organizationId: number

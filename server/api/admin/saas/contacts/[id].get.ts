@@ -5,7 +5,7 @@ import { listBuyerRequirements, summarizeRequirement } from '../../../../utils/b
 import { listPersonCommunications } from '../../../../utils/comms/related'
 import { listContactProperties, listContactRoles } from '../../../../utils/contacts/crm'
 import { listPropertySelectionsWithItems } from '../../../../utils/selections/service'
-import { DOCUMENT_VISIBILITY_LABELS, PROPERTY_DOCUMENT_TYPE_LABELS } from '../../../../../utils/propertySheet'
+import { listContactDocuments } from '../../../../utils/properties/documents'
 
 /**
  * Ficha de un contacto: sus datos, sus necesidades, los leads/clientes que le
@@ -109,27 +109,14 @@ export default defineEventHandler(async (event) => {
   const score = leads.reduce<number | null>((max, l) => (typeof l.score === 'number' && (max === null || l.score > max) ? l.score : max), null)
   const lastContactAt = [contact.lastContactAt, ...leads.map((l) => l.lastContactAt)].filter(Boolean).sort().pop() || null
 
-  // Documentos (FASE 6): los de las propiedades en las que figura y los que
-  // se le han concedido expresamente. Sólo metadatos — el fichero se abre
-  // desde la ficha de la propiedad, con su permiso.
-  const grantRows = await db
-    .select({ documentId: schema.propertyDocumentAccess.documentId })
-    .from(schema.propertyDocumentAccess)
-    .where(and(eq(schema.propertyDocumentAccess.organizationId, orgId), eq(schema.propertyDocumentAccess.contactId, id)))
-  const docConds = [
-    ...properties.map((p: any) => and(eq(schema.propertyDocuments.propertyKind, p.propertyKind), eq(schema.propertyDocuments.propertyId, p.property.id))),
-    ...(grantRows.length ? [inArray(schema.propertyDocuments.id, grantRows.map((g: any) => g.documentId))] : []),
-  ]
-  const documents = docConds.length
-    ? (
-        await db
-          .select({ id: schema.propertyDocuments.id, title: schema.propertyDocuments.title, docType: schema.propertyDocuments.docType, visibility: schema.propertyDocuments.visibility, propertyKind: schema.propertyDocuments.propertyKind, propertyId: schema.propertyDocuments.propertyId, createdAt: schema.propertyDocuments.createdAt })
-          .from(schema.propertyDocuments)
-          .where(and(eq(schema.propertyDocuments.organizationId, orgId), isNull(schema.propertyDocuments.deletedAt), or(...docConds)))
-          .orderBy(desc(schema.propertyDocuments.id))
-          .limit(200)
-      ).map((d: any) => ({ ...d, docTypeLabel: PROPERTY_DOCUMENT_TYPE_LABELS[d.docType] || d.docType, visibilityLabel: DOCUMENT_VISIBILITY_LABELS[d.visibility] || d.visibility }))
-    : []
+  // Documentos (FASE 6, bloque N7a): los que esta persona puede ver, cada uno
+  // con el porqué — como propietario o copropietario de la propiedad (si el
+  // documento es al menos «propietario»), por acceso concedido (si es al
+  // menos «comprador autorizado») o porque es público y la propiedad está
+  // publicada. Los concedidos que con la visibilidad actual no dan acceso
+  // salen marcados. Nada de otra agencia ni de la papelera; las listas de ids
+  // van por trozos (límite de 100 parámetros de D1).
+  const documents = await listContactDocuments(db, orgId, [id], { includeInactiveGrants: true })
 
   // Selecciones de propiedades preparadas para esta persona (INMO o
   // «Crear selección» desde una compatibilidad, núcleo N4).

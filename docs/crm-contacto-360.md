@@ -54,7 +54,10 @@ contacto.
   «Editar» (`components/admin/contacts/ContactEditModal.vue`). Pestañas:
   Resumen, Necesidades, Propiedades, Leads, Visitas, Ofertas,
   Comunicaciones, Emails, WhatsApp, Llamadas, Tareas, Documentos, Notas,
-  Actividad, Ficha y duplicados.
+  Actividad, Ficha y duplicados. «Documentos» (bloque N7a) lista lo que esa
+  persona puede descargar y por qué (propietaria, acceso concedido o
+  público), con los concedidos sin efecto marcados — ver
+  [`documentos-y-multimedia.md`](./documentos-y-multimedia.md).
 - **Listado de Contactos**: filtro por rol y roles de cada fila.
 - **Editor de propiedades**: paso «Propietarios»
   (`components/property-builder/PropertyContactsManager.vue`) en los dos

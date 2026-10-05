@@ -1,20 +1,25 @@
 import { and, desc, eq, or } from 'drizzle-orm'
-import { schema, useDb } from '../../../utils/db'
-import { requireOrgScope, requireSuperAdmin } from '../../../utils/auth'
+import { cfEnv, schema, useDb } from '../../../utils/db'
+import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
 import { authorizeRecord } from '../../../utils/tenantPolicy'
 import { organizationOverview } from '../../../utils/organizations/lifecycle'
 import { loadPropertySheet, propertyKindForResource } from '../../../utils/properties/extendedSheet'
 import { listContactRoles } from '../../../utils/contacts/crm'
 import { getLeadDetail } from '../../../utils/leads/admin'
+import { decorateDocumentRows } from '../../../utils/properties/documents'
+import { buildPropertySummary } from '../../../utils/properties/summary'
+import { assertCustomFieldValueScope } from '../../../utils/customFields/service'
+import { assertTagLinkScope } from '../../../utils/tags/service'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
   let orgId: number | null = null
+  let user: SessionUser
   if (def.superAdminOnly) {
-    await requireSuperAdmin(event)
+    user = await requireSuperAdmin(event)
   } else {
-    orgId = (await requireOrgScope(event, def.area, 'read')).orgId
+    ;({ user, orgId } = await requireOrgScope(event, def.area, 'read'))
   }
   const id = parseInt(getRouterParam(event, 'id') || '', 10)
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
@@ -24,6 +29,10 @@ export default defineEventHandler(async (event) => {
   // another tenant — the two cases must stay indistinguishable, otherwise the
   // status code alone confirms which ids are real elsewhere on the platform.
   const { row } = await authorizeRecord(db, { resourceKey: key, table: def.table, policy: def.tenantPolicy, id, orgId })
+  // Un valor o un enlace de etiqueta leído por el recurso del área que no le
+  // corresponde (p. ej. el de una propiedad por el recurso de CRM): 404.
+  assertCustomFieldValueScope(key, row)
+  assertTagLinkScope(key, row)
 
   let translations: any[] = []
   if (def.translations) {
@@ -54,6 +63,12 @@ export default defineEventHandler(async (event) => {
     // Ficha ampliada (property_details / property_legal_economics): campos
     // planos más de la fila, así el editor los trata igual que el resto.
     const sheet = await loadPropertySheet(db, orgId!, propertyKindForResource(key)!, id)
+    // Resumen de la ficha (FASE 25, bloque N7a): estado, precio, canales de
+    // publicación, propietarios, compatibles, ofertas, documentos caducados,
+    // multimedia y qué falta para publicar. `?view=summary` — sin ruta nueva.
+    if (getQuery(event).view === 'summary') {
+      return { summary: await buildPropertySummary(event, db, cfEnv(event) as Record<string, any>, orgId!, user, propertyKindForResource(key)!, row, sheet) }
+    }
     return { row: { ...row, ...sheet }, translations, priceHistory }
   }
   // Ficha de empresa (Sistemas > Empresas): resumen y usuarios reales de esa
@@ -64,6 +79,11 @@ export default defineEventHandler(async (event) => {
   }
   // Ficha del lead: historial de etapas y de asignaciones, contacto, oficina, SLA, visitas y conversaciones.
   if (key === 'leads') return { ...(await getLeadDetail(event, orgId!, id)), translations }
+  // Documento de una propiedad (FASE 6): con sus etiquetas, caducidad y los contactos con acceso concedido.
+  if (key === 'property-documents') {
+    const [decorated] = await decorateDocumentRows(db, orgId!, [row])
+    return { row: decorated, translations }
+  }
   if (key === 'organizations') {
     return { row, translations, overview: await organizationOverview(db, id) }
   }

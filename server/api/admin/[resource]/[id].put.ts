@@ -30,6 +30,10 @@ import {
 } from '../../../utils/properties/extendedSheet'
 import { isSubtypeOf } from '../../../../utils/propertySheet'
 import { isPropertyTrashed } from '../../../utils/properties/trash'
+import { documentUpdateFromBody, grantDocumentAccess, revokeDocumentAccess } from '../../../utils/properties/documents'
+import { PROPERTY_FILE_COLUMNS, enforceSingleMainMedia, releaseMediaKeyIfUnreferenced, syncMediaKeyVisibility, validatePropertyMedia } from '../../../utils/properties/media'
+import { isCustomFieldValueResource, validateCustomFieldDefinition } from '../../../utils/customFields/service'
+import { isTagLinkResource } from '../../../utils/tags/service'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -41,6 +45,11 @@ export default defineEventHandler(async (event) => {
     ;({ user, orgId } = await requireOrgScope(event, def.area, 'write'))
   }
   if (def.readonly) throw createError({ statusCode: 405, statusMessage: 'Resource is read-only' })
+  // Valores de campos personalizados y etiquetas de una ficha: se guardan
+  // (POST con todos los valores) o se quitan (DELETE del enlace), nunca se
+  // editan fila a fila.
+  if (isCustomFieldValueResource(key)) throw createError({ statusCode: 405, statusMessage: 'Los valores se guardan desde el panel de la ficha (POST con todos los valores)' })
+  if (isTagLinkResource(key)) throw createError({ statusCode: 405, statusMessage: 'Una etiqueta se añade o se quita; no se edita' })
   const id = parseInt(getRouterParam(event, 'id') || '', 10)
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   const db = useDb(event)
@@ -80,6 +89,24 @@ export default defineEventHandler(async (event) => {
   if (key === 'contacts') return updateContactFromAdmin(event, orgId!, user, id, body || {})
   // Leads: datos de captación con deduplicación; etapa, resultado y comercial van por sus rutas con historial.
   if (key === 'leads') return updateLeadFromAdmin(event, orgId!, user, id, body || {})
+  // Documentos (FASE 6): conceder/revocar acceso a un contacto, o editar
+  // metadatos (tipo, título, fechas, notas, visibilidad). El fichero y la
+  // propiedad no cambian por aquí.
+  if (key === 'property-documents') {
+    const doc = existing as Record<string, any>
+    if (body?.action === 'grant' || body?.action === 'revoke') {
+      const contactId = Number(body.contactId)
+      const res = body.action === 'grant' ? await grantDocumentAccess(db, orgId!, user.id, doc, contactId) : await revokeDocumentAccess(db, orgId!, doc, contactId)
+      await logAdminAction(event, { user, orgId, action: body.action === 'grant' ? 'update' : 'revoke', resource: key, resourceId: id, detail: `${body.action === 'grant' ? 'acceso concedido' : 'acceso revocado'} al contacto ${contactId}` })
+      return { ...res, id }
+    }
+    const docData = documentUpdateFromBody(body || {}, doc)
+    if (Object.keys(docData).length) {
+      await db.update(def.table).set(docData).where(and(eq(def.table.id, id), eq(schema.propertyDocuments.organizationId, orgId!)))
+    }
+    await logAdminAction(event, { user, orgId, action: 'update', resource: key, resourceId: id })
+    return { ok: true, id }
+  }
   const data = await buildPayload(def, body || {}, false, event)
   delete data.organizationId // tenant ownership can't be reassigned via this endpoint
   delete data.userId // authorship can't be reassigned via this endpoint either
@@ -129,6 +156,8 @@ export default defineEventHandler(async (event) => {
   if (key === 'property-contacts') await validatePropertyContact(db, orgId!, data, existing as any)
   if (key === 'notes') await validateNotePayload(db, orgId!, data, existing as any)
   if (key === 'lead-routing-rules') await validateRoutingRule(db, orgId!, data, existing as any)
+  if (key === 'property-media') await validatePropertyMedia(db, orgId!, data, existing as any)
+  if (key === 'custom-fields') await validateCustomFieldDefinition(db, orgId!, data, existing as any)
 
   const tenantWhere = buildTenantWhere(db, def.table, def.tenantPolicy, orgId)
   const idCond = eq(def.table.id, id)
@@ -228,6 +257,24 @@ export default defineEventHandler(async (event) => {
   }
   if (propertyKind && sheet && hasSheetChanges(sheet)) await savePropertySheet(db, orgId!, propertyKind, id, sheet, user.id)
   await syncTranslations(db, def, authorized, body?.translations)
+  // Multimedia (FASE 7): un fichero sustituido o quitado no se queda
+  // huérfano si ya nadie lo usa, y «privado» decide si se sirve sin sesión.
+  const prev = existing as Record<string, any>
+  if (key === 'property-media') {
+    const row = { ...prev, ...data }
+    await enforceSingleMainMedia(db, orgId!, { id, propertyKind: row.propertyKind, propertyId: row.propertyId, mediaType: row.mediaType, isMain: row.isMain ? 1 : 0 })
+    if ('r2Key' in data && data.r2Key !== prev.r2Key) await releaseMediaKeyIfUnreferenced(db, orgId!, prev.r2Key)
+    if (row.r2Key) await syncMediaKeyVisibility(db, orgId!, row.r2Key)
+  }
+  if (key === 'project-images' || key === 'gallery-images' || key === 'floor-plans' || key === 'agent-property-floor-plans') {
+    if ('image' in data && data.image !== prev.image) await releaseMediaKeyIfUnreferenced(db, orgId!, prev.image)
+    if ('image' in data || 'isPrivate' in data) await syncMediaKeyVisibility(db, orgId!, data.image ?? prev.image)
+  }
+  if (propertyKind) {
+    for (const col of PROPERTY_FILE_COLUMNS[propertyKind]) {
+      if (col in data && data[col] !== prev[col]) await releaseMediaKeyIfUnreferenced(db, orgId!, prev[col])
+    }
+  }
   // Lo sensible se anota con detalle (server/utils/sensitiveAudit.ts): una
   // contraseña cambiada, un rol que sube, unos permisos que cambian, un
   // dominio que se mueve. El resto sigue como "update <recurso> <id>".

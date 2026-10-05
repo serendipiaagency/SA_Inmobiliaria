@@ -505,10 +505,61 @@ export const AGENT_PROPERTY_TYPE_TO_SCHEMA: Record<string, PropertySchemaKey> = 
   Building: 'building',
 }
 
+/**
+ * Obra nueva de un tipo no residencial (bloque N7a, FASES 25-26): una
+ * promoción de locales, de naves, de garajes o de suelo sigue siendo obra
+ * nueva — conserva la identificación del proyecto (nombre, promotora),
+ * «Construcción y entrega» y la multimedia de la promoción —, pero sus
+ * superficies, estado, equipamiento, edificio, instalaciones y legal son los
+ * del tipo: un garaje en obra nueva tampoco tiene dormitorios. Así el editor
+ * de los dos catálogos filtra los campos con el registro, no sólo el de 2ª
+ * mano. La clave sigue siendo `newDevelopment` (es el mismo esquema de
+ * catálogo); cambia su composición.
+ *
+ * Los tipos residenciales y «Edificio» / «Promoción» resuelven al
+ * `newDevelopment` de siempre.
+ */
+export const DEVELOPER_VARIANT_BASES = ['land', 'commercial', 'industrial', 'garage'] as const
+type DeveloperVariantBase = (typeof DEVELOPER_VARIANT_BASES)[number]
+
+function buildDeveloperVariant(base: DeveloperVariantBase): PropertySchemaDef {
+  const nd = PROPERTY_SCHEMAS.newDevelopment
+  const typed = PROPERTY_SCHEMAS[base]
+  const fromProject = (key: string) => ({ section: nd.sections.find((x) => x.key === key)!, rules: nd.fields })
+  const parts = [
+    fromProject('identification'),
+    ...typed.sections.filter((x) => x.key !== 'identification' && x.key !== 'media').map((section) => ({ section, rules: typed.fields })),
+    fromProject('construction'),
+    fromProject('media'),
+  ]
+  const sections: PropertySchemaSectionDef[] = []
+  const fields: Record<string, PropertyFieldRule> = {}
+  for (const { section, rules } of parts) {
+    sections.push(section)
+    for (const key of section.fields) fields[key] = rules[key]
+  }
+  return { key: 'newDevelopment', label: `${nd.label} · ${typed.label}`, catalogs: ['developer'], sections, fields }
+}
+
+export const DEVELOPER_SCHEMA_VARIANTS: Record<DeveloperVariantBase, PropertySchemaDef> = {
+  land: buildDeveloperVariant('land'),
+  commercial: buildDeveloperVariant('commercial'),
+  industrial: buildDeveloperVariant('industrial'),
+  garage: buildDeveloperVariant('garage'),
+}
+
 export function getPropertySchemaFor(catalog: PropertyCatalog, propertyType: string | null | undefined): PropertySchemaDef {
-  if (catalog === 'developer') return PROPERTY_SCHEMAS.newDevelopment
-  const key = (propertyType && AGENT_PROPERTY_TYPE_TO_SCHEMA[propertyType]) || 'residential'
-  return PROPERTY_SCHEMAS[key]
+  const mapped = (propertyType && AGENT_PROPERTY_TYPE_TO_SCHEMA[propertyType]) || 'residential'
+  if (catalog === 'developer') {
+    return (DEVELOPER_VARIANT_BASES as readonly string[]).includes(mapped) ? DEVELOPER_SCHEMA_VARIANTS[mapped as DeveloperVariantBase] : PROPERTY_SCHEMAS.newDevelopment
+  }
+  return PROPERTY_SCHEMAS[mapped]
+}
+
+/** Todos los esquemas que puede resolver un catálogo (los 7 de siempre más las variantes de obra nueva). */
+export function schemasForCatalog(catalog: PropertyCatalog): PropertySchemaDef[] {
+  const base = Object.values(PROPERTY_SCHEMAS).filter((x) => x.catalogs.includes(catalog))
+  return catalog === 'developer' ? [...base, ...Object.values(DEVELOPER_SCHEMA_VARIANTS)] : base
 }
 
 export function getPropertySchema(key: PropertySchemaKey): PropertySchemaDef {
@@ -563,4 +614,51 @@ export function getPortalRelevantFields(schema: PropertySchemaDef): string[] {
   return Object.values(schema.fields)
     .filter((f) => f.portalRelevant)
     .map((f) => f.key)
+}
+
+/** `publicFields` del esquema: lo que puede salir en la web pública (bloque N7a: lo usa server/utils/propertyPrivacy.ts). */
+export function publicFields(schema: PropertySchemaDef): Set<string> {
+  return new Set(getPublicExposableFields(schema))
+}
+
+/** `portalFields` del esquema: lo que puede entregarse a un portal (bloque N7a: lo usa server/utils/publication/listing.ts). */
+export function portalFields(schema: PropertySchemaDef): Set<string> {
+  return new Set(getPortalRelevantFields(schema))
+}
+
+/**
+ * Claves sobre las que el registro tiene opinión en un catálogo (las declara
+ * algún esquema que ese catálogo puede resolver). Una clave fuera de este
+ * conjunto (id, slug, galería, fechas de la fila…) es estructura de la fila y
+ * la proyección pública no la decide con el registro.
+ */
+const declaredCache = new Map<PropertyCatalog, Set<string>>()
+export function registryDeclaredKeys(catalog: PropertyCatalog): Set<string> {
+  let set = declaredCache.get(catalog)
+  if (!set) {
+    set = new Set<string>()
+    for (const sch of schemasForCatalog(catalog)) for (const key of Object.keys(sch.fields)) set.add(key)
+    declaredCache.set(catalog, set)
+  }
+  return set
+}
+
+/**
+ * Proyecta una fila (más su ficha ampliada, si se le pasa) con un conjunto de
+ * campos del registro: de lo que el registro declara para el catálogo, sólo
+ * pasa lo que está en `allowed`; lo que el registro no modela pasa tal cual
+ * salvo que se pida `onlyDeclared` (entonces sólo sale lo permitido). Nunca
+ * muta la fila.
+ */
+export function projectWithFields<T extends Record<string, any>>(row: T, catalog: PropertyCatalog, allowed: Set<string>, opts: { onlyDeclared?: boolean } = {}): Partial<T> {
+  const declared = registryDeclaredKeys(catalog)
+  const out: Record<string, any> = {}
+  for (const [key, value] of Object.entries(row)) {
+    if (declared.has(key)) {
+      if (allowed.has(key)) out[key] = value
+    } else if (!opts.onlyDeclared) {
+      out[key] = value
+    }
+  }
+  return out as Partial<T>
 }

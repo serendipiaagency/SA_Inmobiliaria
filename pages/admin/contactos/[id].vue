@@ -18,6 +18,8 @@
               <span v-if="!data.contact.roles?.length" class="text-[11px] text-stone-400">Sin roles</span>
               <span class="rounded-full px-2 py-0.5 text-[11px] font-medium" :class="data.contact.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-500'">{{ CONTACT_STATUS_LABELS[data.contact.status] || data.contact.status }}</span>
             </div>
+            <!-- Etiquetas (FASE 0, bloque N7b): los contactos ya se pueden etiquetar. -->
+            <TagsEditor class="mt-2" entity-type="contact" :entity-id="contactId" :can-edit="canEdit" />
           </div>
           <div class="flex shrink-0 flex-wrap gap-2">
             <a v-if="data.contact.phone" :href="`tel:${data.contact.phone}`" class="rounded-lg border border-line px-3 py-1.5 text-[12px] font-medium hover:bg-stone-50">Llamar</a>
@@ -225,16 +227,29 @@
         </AdminPanel>
       </section>
 
-      <!-- DOCUMENTOS: los de sus propiedades que puede ver (propietario) o le han concedido -->
+      <!-- DOCUMENTOS: los que esta persona puede ver — como propietaria, por acceso concedido o porque son públicos -->
       <section v-show="tab === 'documentos'" data-testid="contact-documentos">
+        <p class="mb-3 text-[12px] text-stone-500">
+          Lo que esta persona puede descargar desde «Mi cuenta» (entrando con su email). Los documentos se suben y se conceden en la ficha de cada propiedad, paso «Documentos».
+        </p>
         <p v-if="!data.documents?.length" class="rounded-xl border border-dashed border-line px-6 py-10 text-center text-sm text-stone-500">
-          Sin documentos. Los documentos se suben en la ficha de cada propiedad (paso «Documentos») y aquí aparecen los de las propiedades de esta persona que puede ver.
+          Sin documentos: no figura como propietaria de ninguna propiedad con documentos para propietarios, ni tiene accesos concedidos.
         </p>
         <AdminPanel v-else :pad="false">
           <ul class="divide-y divide-line text-sm">
-            <li v-for="d in data.documents" :key="d.id" class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-              <span class="min-w-0 font-medium">{{ d.title }}</span>
-              <span class="text-[11px] text-stone-500">{{ d.docTypeLabel }} · {{ d.visibilityLabel }}</span>
+            <li v-for="d in data.documents" :key="d.id" class="flex flex-wrap items-center justify-between gap-2 px-4 py-3" data-testid="contact-document-row">
+              <span class="min-w-0">
+                <span class="block font-medium">{{ d.title }}</span>
+                <span class="block text-[11px] text-stone-500">
+                  <NuxtLink :to="`/admin/${d.propertyKind === 'developer' ? 'developer-properties' : 'properties'}/${d.propertyId}`" class="hover:underline">{{ d.propertyName }}</NuxtLink>
+                  · {{ d.docTypeLabel }} · {{ d.visibilityLabel }}
+                </span>
+              </span>
+              <span class="flex flex-wrap items-center gap-2 text-[11px]">
+                <span class="rounded-full px-2 py-0.5 font-semibold" :class="d.accessVia ? 'bg-emerald-50 text-emerald-800' : 'bg-stone-100 text-stone-500'" data-testid="contact-document-access">{{ d.accessLabel }}</span>
+                <span v-if="d.expiryState === 'expired' || d.expiryState === 'expiring'" class="rounded-full px-2 py-0.5 font-semibold" :class="d.expiryState === 'expired' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800'">{{ d.expiryLabel }} · {{ dt.date(d.expiresAt) }}</span>
+                <a v-if="d.downloadUrl" :href="d.downloadUrl" class="font-semibold text-ink hover:underline">Descargar</a>
+              </span>
             </li>
           </ul>
         </AdminPanel>
@@ -293,6 +308,10 @@
             <div><dt class="text-stone-400">Alta</dt><dd>{{ dt.date(data.contact.createdAt) }}</dd></div>
             <div v-if="data.clients.length"><dt class="text-stone-400">Ficha de cliente</dt><dd>{{ data.clients.map((c: any) => c.type).join(', ') }}</dd></div>
           </dl>
+        </AdminPanel>
+
+        <AdminPanel title="Campos personalizados" class="mt-4">
+          <CustomFieldsPanel entity-type="contact" :entity-id="contactId" :can-edit="canEdit" />
         </AdminPanel>
 
         <!-- Deduplicación (FASE 14): sólo detecta y ofrece fusionar — nunca automático. -->
@@ -364,6 +383,8 @@ import { propertyTypeLabel } from '~/utils/propertySheet'
 import { formatDateTime } from '~/composables/useClientConfig'
 import ActivityTimeline from '~/components/admin/activity/ActivityTimeline.vue'
 import NotesPanel from '~/components/admin/notes/NotesPanel.vue'
+import TagsEditor from '~/components/admin/tags/TagsEditor.vue'
+import CustomFieldsPanel from '~/components/admin/custom-fields/CustomFieldsPanel.vue'
 import ContactEditModal from '~/components/admin/contacts/ContactEditModal.vue'
 import RequirementEditor from '~/components/admin/requirements/RequirementEditor.vue'
 import RequirementCard from '~/components/admin/requirements/RequirementCard.vue'

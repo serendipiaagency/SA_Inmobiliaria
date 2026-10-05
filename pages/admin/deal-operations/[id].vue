@@ -107,6 +107,10 @@
       </div>
 
       <div class="space-y-6">
+        <!-- Campos personalizados de la operación (FASE 0, bloque N7b). -->
+        <AdminPanel title="Campos personalizados">
+          <CustomFieldsPanel entity-type="deal" :entity-id="deal.id" :can-edit="canEdit" compact />
+        </AdminPanel>
         <AdminPanel title="Partes">
           <dl class="space-y-3 text-sm">
             <div>
@@ -209,6 +213,7 @@ import ActivityTimeline from '~/components/admin/activity/ActivityTimeline.vue'
 import TaskFormModal from '~/components/admin/tasks/TaskFormModal.vue'
 import OfferDetailModal from '~/components/admin/offers/OfferDetailModal.vue'
 import DealRecordsPanel from '~/components/admin/deals/DealRecordsPanel.vue'
+import CustomFieldsPanel from '~/components/admin/custom-fields/CustomFieldsPanel.vue'
 import { DEAL_STAGES, DEAL_STAGE_LABELS, DEAL_STATUS_LABELS, TASK_STATUS_LABELS, TASK_TYPE_LABELS, formatAmount, nextActionLabel, offerFinanceLabel } from '~/utils/pipelineCatalog'
 
 /**

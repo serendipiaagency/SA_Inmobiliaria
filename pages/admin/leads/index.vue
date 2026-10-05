@@ -3,7 +3,7 @@
     <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">Leads</h1>
-        <p class="mt-1 text-sm text-stone-500">{{ total }} leads · arrastra una tarjeta para cambiar su estado</p>
+        <p class="mt-1 text-sm text-stone-500">{{ pipelineTotal }} leads · arrastra una tarjeta para cambiar su estado</p>
       </div>
       <div class="flex items-center gap-2">
         <button v-if="canEdit" type="button" class="btn-primary" data-testid="lead-new" @click="creating = true">+ Nuevo lead</button>
@@ -46,7 +46,19 @@
         <option value="">Más recientes primero</option>
         <option value="score">Mayor puntuación primero</option>
       </select>
+      <!-- Etiquetas (FASE 0, bloque N7b) -->
+      <select v-model="tag" class="rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink" aria-label="Filtrar por etiqueta" data-testid="leads-tag-filter">
+        <option value="">Todas las etiquetas</option>
+        <option v-for="t in tagOptions" :key="t.id" :value="String(t.id)">{{ t.name }}</option>
+      </select>
+      <!-- Exportación completa del filtro (FASE 28, bloque N7b): todas las filas, no sólo la página. -->
+      <a :href="exportAllHref" download class="rounded-lg border border-line bg-white px-3 py-2 text-sm font-medium text-stone-600 hover:border-ink hover:text-ink" data-testid="leads-export-all">
+        Exportar CSV ({{ total }})
+      </a>
     </div>
+    <p v-if="view === 'board' && total > rows.length" class="-mt-2 mb-3 text-[12px] text-stone-500" data-testid="leads-board-cap">
+      El pipeline enseña los {{ rows.length }} leads más recientes de {{ total }} que cumplen el filtro. La vista Tabla los pagina todos, y «Exportar CSV» los descarga todos.
+    </p>
 
     <!-- Board -->
     <div v-if="view === 'board'" class="flex gap-3 overflow-x-auto pb-2">
@@ -82,6 +94,7 @@
               </div>
               <AdminLeadScoreBadge class="shrink-0" :lead="l" compact @updated="(u) => Object.assign(l, u)" />
             </div>
+            <TagChips v-if="l.tags?.length" class="mt-1.5" :tags="l.tags" />
             <div class="mt-2 flex items-center justify-between text-xs text-stone-400">
               <span>{{ leadSourceLabel(l.source) }}</span>
               <span>{{ dt.money(l.budget, { compact: true }) }}</span>
@@ -114,9 +127,9 @@
     <!-- Table -->
     <template v-else>
       <!-- Bulk Actions (FASE 28 incremento 3) — sólo en la vista de tabla, igual
-           que PropertyList.vue no las ofrece en su cuadrícula. Sin "todos los
-           filtrados": esta página no pagina, así que las filas cargadas YA son
-           el filtro completo (ver leads.get.ts). -->
+           que PropertyList.vue no las ofrece en su cuadrícula. Con la Tabla ya
+           paginada (bloque N7b), «Seleccionar los N que cumplen el filtro» deja
+           que el servidor resuelva la selección completa (server/utils/leads/list.ts). -->
       <div v-if="selectionCount > 0" class="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-white p-3">
         <span class="text-sm font-medium">{{ selectionCount }} seleccionado{{ selectionCount === 1 ? '' : 's' }}</span>
         <select v-model="bulkAction" class="input !w-52" @change="onBulkActionChange">
@@ -158,6 +171,14 @@
         <button type="button" class="text-[12px] text-stone-500 hover:text-ink" :disabled="bulkRunning" @click="clearSelection">Cancelar selección</button>
       </div>
 
+      <div v-if="allVisibleSelected && !selectAllFilteredMode && filteredTotal > rows.length" class="mb-3 text-center text-[12px] text-stone-500" data-testid="leads-select-all-filtered-hint">
+        Has seleccionado los {{ rows.length }} leads de esta página.
+        <button type="button" class="font-medium text-ink hover:underline" data-testid="leads-select-all-filtered" @click="selectAllFiltered">Seleccionar los {{ filteredTotal }} que cumplen el filtro</button>
+      </div>
+      <p v-if="selectAllFilteredMode" class="mb-3 text-center text-[12px] text-stone-500">
+        Seleccionados los {{ filteredTotal }} leads que cumplen el filtro (máximo 2000 por acción).
+      </p>
+
       <AdminPanel :pad="false">
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
@@ -182,6 +203,7 @@
                 <td class="px-4 py-3">
                   <NuxtLink :to="`/admin/leads/${l.id}`" class="font-medium hover:underline">{{ l.name }}</NuxtLink>
                   <p class="text-xs text-stone-400">{{ l.email }}</p>
+                  <TagChips v-if="l.tags?.length" class="mt-1" :tags="l.tags" />
                 </td>
                 <td class="px-4 py-3 text-stone-600">{{ leadSourceLabel(l.source) }}</td>
                 <td class="px-4 py-3 text-stone-600">{{ stageLabel(l.stage) }}</td>
@@ -205,6 +227,15 @@
           </table>
         </div>
       </AdminPanel>
+      <!-- Paginación (FASE 28, bloque N7b): antes la Tabla se cortaba en 200 filas. -->
+      <div class="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm" data-testid="leads-pagination">
+        <span class="text-[12px] text-stone-500">{{ filteredTotal }} lead{{ filteredTotal === 1 ? '' : 's' }} con este filtro</span>
+        <div v-if="tablePages > 1" class="flex items-center gap-3">
+          <button type="button" class="btn-secondary !py-1.5" :disabled="page <= 1" data-testid="leads-page-prev" @click="page--">← Anterior</button>
+          <span>{{ page }} / {{ tablePages }}</span>
+          <button type="button" class="btn-secondary !py-1.5" :disabled="page >= tablePages" data-testid="leads-page-next" @click="page++">Siguiente →</button>
+        </div>
+      </div>
     </template>
 
     <LeadFormModal v-if="creating" @close="creating = false" @saved="onCreated" />
@@ -247,6 +278,7 @@ import { nextActionLabel } from '~/utils/pipelineCatalog'
 import { loadRelationOptions, type RelationOption } from '~/composables/useRelationOptions'
 import LeadFormModal from '~/components/admin/leads/LeadFormModal.vue'
 import LeadLostModal from '~/components/admin/leads/LeadLostModal.vue'
+import TagChips from '~/components/admin/tags/TagChips.vue'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Leads — M&M Real Estate' })
@@ -293,13 +325,52 @@ function clearDrill() {
   router.replace({ query: q })
 }
 
+// Etiquetas (FASE 0): el filtro y su catálogo (las de la agencia).
+const tag = ref(typeof route.query.tags === 'string' ? route.query.tags : '')
+const tagOptions = ref<{ id: number; name: string }[]>([])
+onMounted(async () => {
+  try {
+    tagOptions.value = (await $fetch<{ rows: { id: number; name: string }[] }>('/api/admin/crm-tags')).rows
+  } catch {
+    tagOptions.value = []
+  }
+})
+
+/**
+ * Paginación (FASE 28, bloque N7b): la Tabla pide páginas de 100 con el total
+ * real; el Pipeline sigue cargando los 200 más recientes del filtro (un
+ * tablero no se pagina) y avisa si hay más.
+ */
+const TABLE_PER_PAGE = 100
+const page = ref(1)
+/** El filtro actual tal cual lo entiende el servidor — el mismo para listar, exportar y «todos los filtrados». */
+const currentFilters = computed<Record<string, string>>(() => {
+  const out: Record<string, string> = {}
+  const add = (k: string, v: string) => {
+    if (v && v !== 'all') out[k] = v
+  }
+  add('search', search.value)
+  add('source', source.value)
+  add('officeId', officeId.value)
+  add('priority', priority.value)
+  add('scoreMin', scoreMin.value)
+  add('sort', sort.value)
+  add('tags', tag.value)
+  return { ...out, ...drill.value }
+})
 const { data, refresh } = await useFetch<any>('/api/admin/saas/leads', {
-  query: computed(() => ({ search: search.value, source: source.value, officeId: officeId.value, priority: priority.value, scoreMin: scoreMin.value, sort: sort.value, ...drill.value })),
+  query: computed(() => ({ ...currentFilters.value, ...(view.value === 'table' ? { page: page.value, perPage: TABLE_PER_PAGE } : { page: 1, perPage: 200 }) })),
 })
 const rows = computed<any[]>(() => data.value?.rows || [])
+const filteredTotal = computed<number>(() => Number(data.value?.total) || 0)
+const tablePages = computed(() => Math.max(1, Math.ceil(filteredTotal.value / TABLE_PER_PAGE)))
+watch([search, source, officeId, priority, scoreMin, sort, tag, drill, view], () => (page.value = 1))
+const exportAllHref = computed(() => `/api/admin/saas/leads?${new URLSearchParams({ ...currentFilters.value, format: 'csv' }).toString()}`)
 const counts = ref<Record<string, number>>({})
 watch(data, (d) => { if (d?.counts) counts.value = { ...d.counts } }, { immediate: true })
-const total = computed(() => Object.values(counts.value).reduce((a, b) => a + b, 0))
+/** Leads del filtro (lo que exporta «Exportar CSV»); el subtítulo de arriba usa los contadores del pipeline. */
+const total = computed(() => filteredTotal.value)
+const pipelineTotal = computed(() => Object.values(counts.value).reduce((a, b) => a + b, 0))
 
 const { data: agentsData } = await useFetch<any>('/api/admin/saas/agents')
 const agents = computed<any[]>(() => agentsData.value?.rows || [])
@@ -399,20 +470,27 @@ async function submitNewTask() {
 /**
  * Bulk Actions (FASE 28 incremento 3) — mismo framework de jobs que
  * Properties (server/utils/bulkActions/service.ts) y el mismo criterio de
- * confirmación+progreso+fallo parcial (docs/bulk-actions.md). Sin "todos los
- * filtrados": esta página no pagina, las filas visibles ya son la selección
- * filtrada completa.
+ * confirmación+progreso+fallo parcial (docs/bulk-actions.md). Selección
+ * manual, de la página o de todos los filtrados (bloque N7b: la Tabla pagina).
  */
 const selectedIds = ref<number[]>([])
-const selectionCount = computed(() => selectedIds.value.length)
+/** «Todos los filtrados»: la selección la resuelve el servidor con el mismo filtro (como en Propiedades). */
+const selectAllFilteredMode = ref(false)
+const selectionCount = computed(() => (selectAllFilteredMode.value ? filteredTotal.value : selectedIds.value.length))
 function isSelected(id: number) {
   return selectedIds.value.includes(id)
 }
 function toggleSelect(id: number) {
+  selectAllFilteredMode.value = false
   selectedIds.value = isSelected(id) ? selectedIds.value.filter((i) => i !== id) : [...selectedIds.value, id]
+}
+function selectAllFiltered() {
+  selectAllFilteredMode.value = true
+  selectedIds.value = rows.value.map((l) => l.id)
 }
 const allVisibleSelected = computed(() => !!rows.value.length && rows.value.every((l) => isSelected(l.id)))
 function toggleSelectAllVisible() {
+  selectAllFilteredMode.value = false
   if (allVisibleSelected.value) {
     const visible = new Set(rows.value.map((l) => l.id))
     selectedIds.value = selectedIds.value.filter((id) => !visible.has(id))
@@ -422,9 +500,10 @@ function toggleSelectAllVisible() {
 }
 function clearSelection() {
   selectedIds.value = []
+  selectAllFilteredMode.value = false
 }
 // Cambiar de filtro invalida la selección — mismo criterio que PropertyList.vue.
-watch([search, source, officeId, priority, scoreMin, drill], () => clearSelection())
+watch([search, source, officeId, priority, scoreMin, tag, drill], () => clearSelection())
 
 const pipelineColumns = columns.filter((c) => c.key !== 'lost')
 
@@ -466,7 +545,8 @@ const BULK_ACTION_LABELS: Record<string, string> = {
 
 /** Mismo endpoint que "Exportar CSV" en Properties, con un filtro por ids — server/api/admin/saas/leads.get.ts. */
 function exportSelection() {
-  const params = new URLSearchParams({ format: 'csv', ids: selectedIds.value.join(',') })
+  // «Todos los filtrados» exporta el filtro entero (sin tope); si no, los ids elegidos.
+  const params = new URLSearchParams(selectAllFilteredMode.value ? { ...currentFilters.value, format: 'csv' } : { format: 'csv', ids: selectedIds.value.join(',') })
   window.open(`/api/admin/saas/leads?${params.toString()}`, '_blank')
 }
 
@@ -495,7 +575,9 @@ async function runBulkAction() {
   try {
     const created = await $fetch<{ job: { id: number; totalCount: number } }>('/api/admin/lead-bulk-jobs', {
       method: 'POST',
-      body: { action: bulkAction.value, params, ids: selectedIds.value },
+      body: selectAllFilteredMode.value
+        ? { action: bulkAction.value, params, selectAllFiltered: true, filters: currentFilters.value }
+        : { action: bulkAction.value, params, ids: selectedIds.value },
     })
     let job = created.job as any
     while (true) {

@@ -34,6 +34,12 @@
       </div>
       <OutcomeSummary v-else-if="row.offers?.length" :v="row" />
 
+      <!-- Campos personalizados de la cita (FASE 0, bloque N7b). -->
+      <div class="rounded-lg border border-line p-3">
+        <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">Campos personalizados</p>
+        <CustomFieldsPanel entity-type="appointment" :entity-id="row.id" :can-edit="canWrite('crm')" compact />
+      </div>
+
       <p v-if="actionError" class="text-sm font-medium text-red-600">{{ actionError }}</p>
     </div>
     <template v-if="row" #footer>
@@ -55,6 +61,7 @@
 import CommsModal from '~/components/admin/comms/Modal.vue'
 import AdminStatusPill from '~/components/admin/StatusPill.vue'
 import OutcomeSummary from '~/components/admin/appointments/OutcomeSummary.vue'
+import CustomFieldsPanel from '~/components/admin/custom-fields/CustomFieldsPanel.vue'
 import { appointmentChannelLabel, appointmentTypeLabel, confirmationLabel, reminderSummary } from '~/utils/appointmentCatalog'
 
 /**
@@ -66,6 +73,7 @@ const props = withDefaults(defineProps<{ id: number; resizable?: boolean; refres
 const emit = defineEmits<{ close: []; edit: [row: any]; outcome: [row: any]; cancel: [row: any]; changed: [] }>()
 const toast = useToast()
 const dt = useDash()
+const { canWrite } = useAdminPermissions()
 
 const row = ref<any>(null)
 const loadError = ref('')

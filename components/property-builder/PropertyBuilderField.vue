@@ -95,6 +95,7 @@
     <input v-else-if="spec.type === 'url'" :value="modelValue ?? ''" type="url" placeholder="https://…" :aria-label="spec.label" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value)" >
     <input v-else :value="modelValue ?? ''" :aria-label="spec.label" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value)" >
 
+    <span v-if="fieldError" class="mt-1.5 block text-[11px] font-medium text-red-600" role="alert" :data-testid="`field-error-${spec.key}`">{{ fieldError }}</span>
     <span v-if="spec.hint" class="mt-1.5 block text-[11px] text-stone-450">{{ spec.hint }}</span>
   </div>
 </template>
@@ -110,7 +111,15 @@ import RichTextField from './RichTextField.client.vue'
 const props = defineProps<{ spec: FieldSpec; modelValue: any; uploadFolder: string }>()
 const emit = defineEmits<{ 'update:modelValue': [value: any] }>()
 
-const inputCls = 'pe-input'
+/**
+ * Validación inmediata por campo (FASE 25, bloque N7a): el mismo criterio
+ * que el servidor (utils/propertySheet.ts para la ficha ampliada y unos
+ * límites básicos de la fila), dicho junto al campo en cuanto se escribe —
+ * no al guardar. Es ayuda: el servidor vuelve a validar cada PUT.
+ */
+const touched = ref(false)
+const fieldError = computed(() => validatePropertyField(props.spec, props.modelValue, touched.value))
+const inputCls = computed(() => (fieldError.value ? 'pe-input !border-red-400' : 'pe-input'))
 
 function numOrNull(v: string) {
   if (v === '') return null
@@ -118,6 +127,7 @@ function numOrNull(v: string) {
   return Number.isNaN(n) ? null : n
 }
 function emitUpdate(v: any) {
+  touched.value = true
   emit('update:modelValue', v)
 }
 

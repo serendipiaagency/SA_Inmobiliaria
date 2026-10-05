@@ -36,6 +36,7 @@
           <span v-if="property.bathrooms != null">🛁 {{ property.bathrooms }}</span>
           <span v-if="property.area != null">📐 {{ property.area }} m²</span>
         </div>
+        <TagChips v-if="property.tags?.length" class="mt-2" :tags="property.tags" />
         <p v-if="property.developerName" class="mt-1.5 truncate text-[11px] text-stone-400">{{ property.developerName }}</p>
       </div>
     </NuxtLink>
@@ -58,6 +59,7 @@
 </template>
 
 <script setup lang="ts">
+import TagChips from '~/components/admin/tags/TagChips.vue'
 const props = defineProps<{ property: Record<string, any> }>()
 const emit = defineEmits<{ publish: [id: number]; duplicate: [id: number]; delete: [id: number] }>()
 

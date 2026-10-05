@@ -4,6 +4,7 @@ import { useDb, schema } from '../../../utils/db'
 import { searchContacts } from '../../../utils/contacts/service'
 import { selectInChunks } from '../../../utils/sqlChunks'
 import { CONTACT_ROLES } from '../../../../utils/crmCatalog'
+import { parseTagIds, tagsByEntity } from '../../../utils/tags/service'
 
 /** Lista/busca contactos del tenant. La búsqueda mira nombre, email y teléfono (searchContacts, compartida con la Domain Tool find_contacts). */
 export default defineEventHandler(async (event) => {
@@ -14,7 +15,7 @@ export default defineEventHandler(async (event) => {
   const limit = Math.min(Number(query.limit) || 100, 200)
 
   const role = typeof query.role === 'string' && (CONTACT_ROLES as readonly string[]).includes(query.role) ? query.role : null
-  const rows = await searchContacts(db, orgId, search, limit, { role })
+  const rows = await searchContacts(db, orgId, search, limit, { role, tagIds: parseTagIds(query.tags) })
 
   // Cuántas necesidades tiene cada contacto, para la lista. Una sola consulta
   // agregada en vez de una por fila.
@@ -40,5 +41,7 @@ export default defineEventHandler(async (event) => {
   )
   const rolesBy = new Map<number, string[]>()
   for (const r of roleRows) rolesBy.set(r.contactId, [...(rolesBy.get(r.contactId) || []), r.role])
-  return rows.map((r) => ({ ...r, requirementsCount: byContact.get(r.id) || 0, roles: rolesBy.get(r.id) || [] }))
+  // Etiquetas de cada contacto (FASE 0): una consulta para toda la página.
+  const tagsBy = await tagsByEntity(db, orgId, 'contact', rows.map((r) => r.id))
+  return rows.map((r) => ({ ...r, requirementsCount: byContact.get(r.id) || 0, roles: rolesBy.get(r.id) || [], tags: tagsBy.get(r.id) || [] }))
 })

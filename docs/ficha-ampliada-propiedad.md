@@ -205,10 +205,33 @@ etiqueta (`FieldDef.optionLabels`).
 
 Lo legal, el precio mínimo autorizado, el recomendado, las comisiones, el
 código comercial, la oficina y el equipo son internos (`internalRule` en el
-PropertySchemaRegistry) y no forman parte de ninguna respuesta pública: la
-web pública lee la fila de la propiedad, no la ficha ampliada. `createdBy` y
-`deletedAt` de la propiedad están en la lista de columnas que
+PropertySchemaRegistry) y no forman parte de ninguna respuesta pública.
+`createdBy` y `deletedAt` de la propiedad están en la lista de columnas que
 `toPublicProperty()` elimina siempre.
+
+Desde el bloque N7a la proyección pública la decide el registro
+(`publicFields` del esquema que resuelve la propiedad): la ficha pública de
+obra nueva incluye `details` con **sólo** los campos públicos de la ficha
+ampliada que tienen valor (`toPublicSheet`), y lo que se entrega a un portal
+sólo lleva `portalFields` (`buildPortalListing`). Ver
+[`documentos-y-multimedia.md`](./documentos-y-multimedia.md).
+
+## Documentos, multimedia, resumen y portales (bloque N7a)
+
+El gestor documental con permisos por rol (FASE 6), la multimedia completa
+con metadatos por recurso (FASE 7), el resumen de la ficha, el paso
+«Portales», los defaults inteligentes y la validación inmediata por campo
+(FASE 25), y el uso de `publicFields` / `portalFields` del registro en los
+dos catálogos (FASE 26) están documentados en
+[`documentos-y-multimedia.md`](./documentos-y-multimedia.md).
+
+Sobre la Papelera: crear un documento, dar acceso a uno o añadir un recurso
+multimedia son «algo nuevo» sobre la propiedad (422 si está en la papelera,
+mismo mensaje que el resto); editar los que ya existían, no. Las fotos de
+galería, los planos y el resto de tablas hijas siguen editables como hasta
+ahora. Borrar definitivamente una propiedad libera además los ficheros de
+sus fotos, planos y multimedia (si nadie más de la agencia los usa) y se
+lleva sus documentos con sus ficheros.
 
 ## Deriva conocida de producción
 

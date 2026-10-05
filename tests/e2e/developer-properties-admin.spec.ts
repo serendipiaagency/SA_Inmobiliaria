@@ -188,7 +188,8 @@ test.describe('Propiedades (web) — listado admin', () => {
     // matter for "no raw JSON textarea in the Precio section" here.
     await expect(page.locator('textarea:visible')).toHaveCount(0)
 
-    await nav.getByRole('button', { name: 'Multimedia' }).click()
+    // «Multimedia» a secas: «Galería y multimedia» (bloque N7a) también lo contiene.
+    await nav.getByTestId('property-editor-step-media').click()
     await expect(page.getByRole('button', { name: 'URL externa' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Subir archivo' })).toBeVisible()
 

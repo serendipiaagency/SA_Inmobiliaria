@@ -66,8 +66,11 @@ como mucho 8 coincidencias con sus leads y necesidades y marca `ambiguous`.
   orden y límite (≤ 20). Lo que no se envía no filtra (§8). **§9**: si todos
   los tipos pedidos son de un schema sin `area` y con `plotArea` (Suelo), el
   `areaMin/areaMax` se aplica a la parcela. 2ª mano sólo `available`.
-  Filtrar por comercial devuelve sólo 2ª mano (obra nueva no tiene comercial
-  asignado).
+  Filtrar por comercial busca en los dos catálogos: obra nueva también tiene
+  comercial asignado (`developer_properties.agent_id`). Hasta el bloque N7b
+  el filtro descartaba obra nueva entera (fallo de la FASE 31 en
+  `docs/auditoria-nucleo-megaprompt.md`); lo cubre
+  `test/unit/domainTools.test.ts`.
 - **get_property.** `public` aplica `toPublicProperty` (sin referencias
   internas ni número de portal según `locationPrivacy`); `internal` añade
   mandato, referencia de agencia y dirección. Nunca la fila entera.

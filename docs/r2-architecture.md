@@ -113,6 +113,22 @@ exigen sesión + `organizationId` coincidente) — la diferencia es que
 denegación (Fase 5 del encargo). Se reservó ese coste de auditoría para datos
 personales reales (identidad, firma), no para PDF operativos internos.
 
+## Documentos de propiedad (bloque N7a)
+
+Los ficheros del gestor documental de propiedades se registran
+`confidential`, categoría `property-document`, bajo
+`tenants/<org>/property-documents/`, con `entityType = property_documents`.
+Para ellos `/api/media/<clave>` no decide por la `visibility` del fichero
+sino por la del documento (`decideDocumentAccess`, en
+`server/utils/properties/documents.ts`): equipo de la agencia, propietarios y
+compradores autorizados desde «Mi cuenta», o el público si el documento es
+público y la propiedad está publicada y viva. Ver
+[`documentos-y-multimedia.md`](./documentos-y-multimedia.md).
+
+Borrar una foto, un plano o un recurso multimedia libera su `media_assets`
+(`releaseMediaKeyIfUnreferenced`) cuando ninguna otra ficha de la agencia lo
+usa, y «privado» en una foto o recurso pasa su fichero a `private`.
+
 ## El ciclo de vida de un archivo
 
 ### Subida por un usuario (KYC, logo, imagen de blog…)

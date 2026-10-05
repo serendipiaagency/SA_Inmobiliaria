@@ -125,7 +125,17 @@ export interface BuyerMatchesSection extends BaseSection {
   kind: 'buyer-matches'
 }
 
-export type BuilderSection = FieldsSection | LocationSection | GallerySection | ChildTableSection | SocialSection | TranslationsSection | RoomsSection | OwnersSection | BuyerMatchesSection
+/**
+ * Paneles propios de la ficha (bloque N7a): «Documentos» (FASE 6, gestor
+ * documental con permisos) y «Portales» (FASE 25, en qué canales está
+ * publicada). No tienen campos de la fila: se gestionan solos.
+ */
+export interface PanelSection extends BaseSection {
+  kind: 'panel'
+  panel: 'documents' | 'portals'
+}
+
+export type BuilderSection = FieldsSection | LocationSection | GallerySection | ChildTableSection | SocialSection | TranslationsSection | RoomsSection | OwnersSection | BuyerMatchesSection | PanelSection
 
 /**
  * Splits a section's fields into visual subsections by their `group` label,
@@ -256,6 +266,24 @@ const BUYER_MATCHES_SECTION: BuyerMatchesSection = {
   icon: 'chart',
   description: 'Qué necesidades registradas encajan con este inmueble, por qué, y las acciones con cada comprador.',
   kind: 'buyer-matches',
+}
+
+const DOCUMENTS_SECTION: PanelSection = {
+  key: 'documents',
+  label: 'Documentos',
+  icon: 'doc',
+  description: 'Escrituras, nota simple, IBI, certificados, planos y contratos, con quién puede verlos y su caducidad.',
+  kind: 'panel',
+  panel: 'documents',
+}
+
+const PORTALS_SECTION: PanelSection = {
+  key: 'portals',
+  label: 'Portales',
+  icon: 'sparkles',
+  description: 'En qué canales está publicada la propiedad y el estado de cada uno.',
+  kind: 'panel',
+  panel: 'portals',
 }
 
 const SHEET_LEGAL_SECTION: FieldsSection = {
@@ -434,9 +462,9 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
     },
     {
       key: 'gallery',
-      label: 'Galería',
+      label: 'Galería y multimedia',
       icon: 'widget',
-      description: 'Fotografías del proyecto, en orden y con imagen principal.',
+      description: 'Fotografías del proyecto (orden, portada, datos de cada foto, ocultar y descargar) y sus vídeos, tours, renders, PDF, drone y 360°.',
       kind: 'gallery',
       childResource: 'project-images',
       parentField: 'developerPropertyId',
@@ -502,6 +530,8 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
     },
     OWNERS_SECTION,
     SHEET_LEGAL_SECTION,
+    DOCUMENTS_SECTION,
+    PORTALS_SECTION,
     BUYER_MATCHES_SECTION,
   ],
 
@@ -663,9 +693,9 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
     },
     {
       key: 'gallery',
-      label: 'Galería',
+      label: 'Galería y multimedia',
       icon: 'widget',
-      description: 'Fotografías de la vivienda.',
+      description: 'Fotografías de la vivienda (orden, portada, datos de cada foto, ocultar y descargar) y sus vídeos, tours, renders, PDF, drone y 360°.',
       kind: 'gallery',
       childResource: 'gallery-images',
       parentField: 'propertyId',
@@ -718,6 +748,8 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
     },
     OWNERS_SECTION,
     SHEET_LEGAL_SECTION,
+    DOCUMENTS_SECTION,
+    PORTALS_SECTION,
     BUYER_MATCHES_SECTION,
   ],
 }

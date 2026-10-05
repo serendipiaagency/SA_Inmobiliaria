@@ -104,6 +104,8 @@ export function buildStructuredKey(organizationId: number, category: MediaCatego
         return `tenants/${organizationId}/contracts`
       case 'team-member-document':
         return `tenants/${organizationId}/team-documents`
+      case 'property-document':
+        return `tenants/${organizationId}/property-documents`
       case 'export':
         return `tenants/${organizationId}/exports`
       case 'catalog':

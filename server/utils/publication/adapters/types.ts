@@ -4,6 +4,8 @@
  * the dispatcher (server/utils/publication/dispatcher.ts) checks `retryable`
  * before spending any of a job's retry budget on them.
  */
+import type { PortalListing } from '../listing'
+
 export type PublishState = 'not_configured' | 'not_implemented' | 'connected' | 'publishing' | 'published' | 'failed' | 'unpublished'
 
 export interface PublishContext {
@@ -16,6 +18,14 @@ export interface PublishContext {
   env: Record<string, any>
   /** Decrypted per-organization credential, if the org configured its own (see credentials.ts). Falls back to `env[secretEnvVar]` when absent. */
   credential?: string | null
+  /**
+   * Los datos que puede recibir el canal (bloque N7a): sólo los `portalFields`
+   * del PropertySchemaRegistry y sólo fotos/multimedia publicables, no
+   * privadas y no ocultas — ver server/utils/publication/listing.ts. Un
+   * adaptador real publica ESTO, nunca la fila de la base de datos. Vacío en
+   * `unpublish` (no hace falta).
+   */
+  listing?: PortalListing | null
 }
 
 export interface PublishResult {

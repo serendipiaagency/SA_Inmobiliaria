@@ -3,10 +3,14 @@ import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { attachPhotos } from '../../utils/photos'
 import { toPublicProperties } from '../../utils/propertyPrivacy'
 import { livePropertyCond } from '../../utils/properties/trash'
+import { geoConds, parseGeoFilters } from '../../utils/properties/geoSearch'
 
 const P = schema.developerProperties
 
 const ENERGY_ORDER = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+
+/** Tope de propiedades por petición del mapa público (`view=map`). */
+const MAP_MAX_PER_PAGE = 300
 
 /**
  * Off-plan project search with advanced filters + live count.
@@ -15,13 +19,19 @@ const ENERGY_ORDER = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
  *   minArea, maxArea, bedrooms (min), bathrooms (min), type, new, orientation, minYear,
  *   energy (max letter), condition, furnished, and boolean features: elevator, pool,
  *   garage, terrace, garden, pets, accessible.
- * Params: sort (price_asc|price_desc|newest), page, perPage, countOnly.
+ * FASE 2: city, municipality, neighborhood; north/south/east/west (zona
+ *   visible del mapa) y lat/lng/radiusKm (radio).
+ * Params: sort (price_asc|price_desc|newest), page, perPage, countOnly,
+ *   view=map (hasta 300 por página, para el mapa).
  */
 export default defineEventHandler(async (event) => {
   const db = useDb(event)
   const query = getQuery(event)
   const page = Math.max(1, parseInt(String(query.page || '1'), 10) || 1)
-  const perPage = Math.min(48, Math.max(1, parseInt(String(query.perPage || '12'), 10) || 12))
+  // El mapa público (`view=map`, pages/mapa.vue) pide más de una página de
+  // tarjetas: hasta MAP_MAX_PER_PAGE. El listado normal sigue en 48.
+  const maxPerPage = String(query.view || '') === 'map' ? MAP_MAX_PER_PAGE : 48
+  const perPage = Math.min(maxPerPage, Math.max(1, parseInt(String(query.perPage || '12'), 10) || 12))
   const countOnly = String(query.countOnly || '') === '1'
 
   // `or()`/`and()` are typed to return `SQL | undefined` (they can, with
@@ -51,6 +61,25 @@ export default defineEventHandler(async (event) => {
   if (query.orientation) conds.push(eq(P.orientation, String(query.orientation)))
   if (query.condition) conds.push(eq(P.condition, String(query.condition)))
   if (query.furnished) conds.push(eq(P.furnished, String(query.furnished)))
+  // FASE 2 (bloque N7b): localidad/municipio y barrio. Municipio y barrio
+  // también se buscan en la ficha ampliada (property_details), acotada a la
+  // misma organización que la propiedad.
+  if (query.city) conds.push(like(P.city, `%${String(query.city)}%`))
+  if (query.municipality) {
+    const v = `%${String(query.municipality)}%`
+    conds.push(or(like(P.city, v), sql`exists (select 1 from property_details pd where pd.organization_id = ${P.organizationId} and pd.property_kind = 'developer' and pd.property_id = ${P.id} and pd.municipality like ${v})`))
+  }
+  if (query.neighborhood) {
+    const v = `%${String(query.neighborhood)}%`
+    conds.push(or(like(P.community, v), sql`exists (select 1 from property_details pd where pd.organization_id = ${P.organizationId} and pd.property_kind = 'developer' and pd.property_id = ${P.id} and pd.neighborhood like ${v})`))
+  }
+  // Zona visible del mapa (north/south/east/west) y radio (lat/lng/radiusKm).
+  // Sobre las coordenadas QUE SE PUBLICAN: si la ubicación es aproximada, las
+  // redondeadas (toPublicProperty) — buscar por zona nunca afina más que el
+  // pin que ya se enseña.
+  const publicLat = sql`(case when ${P.locationPrivacy} = 'approximate' then round(${P.lat}, 3) else ${P.lat} end)`
+  const publicLng = sql`(case when ${P.locationPrivacy} = 'approximate' then round(${P.lng}, 3) else ${P.lng} end)`
+  conds.push(...geoConds(publicLat, publicLng, parseGeoFilters(query)))
 
   // Fetch by exact ids (favorites/compare) — bypasses the normal page size
   // cap so a saved item never silently disappears once the catalog grows

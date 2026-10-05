@@ -64,3 +64,12 @@ cada uno queda honestamente bloqueado (`not_implemented`) hasta que exista.
 6. Nada más en el sistema (dispatcher, creación de programaciones, UI)
    necesita cambiar — están escritos contra la interfaz, no contra ningún
    canal concreto.
+7. **Qué publicar** (bloque N7a): el adaptador recibe `ctx.listing`
+   (`server/utils/publication/listing.ts`, `buildPortalListing`): sólo los
+   `portalFields` del PropertySchemaRegistry para el esquema de la
+   propiedad, la ubicación con su privacidad aplicada y sólo fotos y
+   multimedia publicables, no privadas y no ocultas. Un adaptador real
+   publica eso, nunca la fila de la base de datos.
+
+El estado de cada canal para una propiedad (su último trabajo) se ve en la
+ficha, paso «Portales» (`GET /api/admin/developer-properties/:id?view=summary`).
