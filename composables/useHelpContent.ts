@@ -60,6 +60,12 @@ const PROPERTY_OWNERS_HELP_STEPS: string[] = [
   'El paso «Propietarios» (aparece una vez creada la propiedad) lista quién es quién: propietario, copropietario, apoderado, inquilino o contacto. Busca a la persona entre tus contactos o créala ahí mismo; a propietarios y copropietarios se les puede dar su % de propiedad — la suma nunca puede pasar del 100 % (el editor avisa si no llega al 100 %). Marca uno como «Principal» si quieres destacarlo. «Quitar» lo desvincula sin borrar el contacto.',
 ]
 
+/** Paso «Compradores compatibles» del editor de propiedad (núcleo N4), igual en los dos catálogos. */
+const PROPERTY_BUYER_MATCHES_HELP_STEPS: string[] = [
+  'El paso «Compradores compatibles» (el último del editor, aparece una vez creada la propiedad) enseña qué necesidades activas de tus contactos encajan con este inmueble, con su porcentaje y el desglose línea a línea (✓ cumple, △ casi, ✕ no cumple, ? no consta). Se calcula al abrir el paso con lo último guardado: si acabas de cambiar la ficha, pulsa «Recalcular». «Incluir descartados por un imprescindible» enseña también los que no pasan un imprescindible, con el porqué.',
+  'En cada comprador tienes las acciones de siempre: «Seleccionar», «Enviar propiedad» (por WhatsApp desde Comunicaciones; sólo se pone «Enviado» si el envío sale de verdad, y si el contacto no tiene teléfono el botón queda desactivado y lo dice), «Crear selección» (nueva o añadiéndola a una que ya tenga esa persona), «Crear visita» (eliges comercial, fecha y canal; comprueba que el comercial no tenga otra cita a esa hora) y «Descartar» con motivo — «Recuperar» lo deshace.',
+]
+
 export function useHelpContent() {
   const sections: HelpSection[] = [
     // --- General ---------------------------------------------------------
@@ -114,13 +120,18 @@ export function useHelpContent() {
       title: 'Necesidades del comprador',
       route: '/admin/contactos',
       summary:
-        'Qué busca cada persona, en estructurado: operación, tipo, presupuesto, zonas, superficie, habitaciones y características, con la importancia de cada criterio.',
+        'Qué busca cada persona, en estructurado: operación, tipos, presupuesto, superficie, dormitorios y baños, zonas deseadas y excluidas, radio, estado, obra nueva / 2ª mano / reformado, características, fecha deseada, financiación y urgencia — con la importancia de cada preferencia.',
       steps: [
-        'Entra en un contacto y abre la pestaña "Necesidades" → "Nueva necesidad".',
+        'Entra en un contacto y abre la pestaña "Necesidades" → "Nueva necesidad". Para cambiar una que ya existe, pulsa "Editar" en su tarjeta: se abre el mismo editor con todo lo guardado.',
         'Una misma persona puede tener varias a la vez (vivienda habitual, inversión, local): crea una por cada búsqueda real, porque los criterios son distintos.',
-        'En cada característica marca si es imprescindible, preferible o indiferente. Lo que no marques queda sin declarar — que no pidas garaje no significa que lo rechaces, y esa diferencia importa al cruzar con el catálogo.',
-        'Deja en blanco lo que el cliente no haya concretado. Un precio máximo vacío significa "no lo ha dicho", nunca "cero".',
-        '"Validar presupuesto" es una acción con autor y fecha: márcala sólo cuando lo hayas comprobado de verdad, no porque el cliente haya mencionado una cifra.',
+        'Tipos de inmueble: la misma lista que en las propiedades (piso, casa, chalet, adosado, ático, dúplex, estudio, finca, terreno, local, oficina, nave, garaje, edificio, promoción). Sin marcar ninguno, cualquier tipo vale.',
+        'Junto a cada preferencia hay un desplegable Imprescindible / Preferible / Indiferente: tipo, precio, superficie, dormitorios, baños, zona (deseadas y radio), estado, obra y cada característica (terraza, garaje, ascensor, piscina, jardín, accesible, admite mascotas, aire acondicionado). Un imprescindible incumplido descarta el inmueble; un preferible sólo baja el porcentaje; un indiferente no cuenta. En una característica, "Indiferente" es no declararla — que no pida garaje no significa que lo rechace —; si la marcas, elige "La quiere" o "La quiere sin".',
+        'Hay cosas que filtran siempre, se elija lo que se elija (lo recuerda el desplegable "Qué filtra siempre" al final del editor): la operación (comprar no es alquilar), el precio cuando se pasa más de un 10 % del máximo, las zonas excluidas, y el tipo de inmueble mientras sea imprescindible (lo es por defecto). El precio sólo admite imprescindible o preferible: si no le importa, déjalo en blanco.',
+        'Zonas: elige el tipo (distrito o barrio, localidad, código postal, urbanización u otra) y escribe una cada vez — se guardan una a una, nunca "Chamberí, Salamanca" en un texto. Las zonas excluidas descartan siempre. "Buscar en un radio" fija un centro (busca un lugar o haz clic en el mapa) y los km; zonas y radio se suman: basta con estar en una zona deseada o dentro del radio.',
+        '"Estado" (en buen estado / para reformar / cualquiera) se compara con el estado físico de la ficha del inmueble; "Obra" (obra nueva / segunda mano / reformado), con el año de construcción y con "Reformado" y "Año de reforma" de la ficha ampliada. Si la ficha no tiene el dato, la línea sale como "no consta", nunca como cumplida.',
+        'Deja en blanco lo que el cliente no haya concretado. Un precio máximo vacío significa "no lo ha dicho", nunca "cero". La fecha deseada es cuándo quiere comprar o entrar a vivir; en "Financiación" anota si necesita hipoteca, en qué punto está y notas (banco, importe preaprobado…).',
+        '"Validar presupuesto" es una acción con autor y fecha: márcala sólo cuando lo hayas comprobado de verdad, no porque el cliente haya mencionado una cifra. La tarjeta enseña quién lo validó y cuándo.',
+        '"Buscar propiedades" en la tarjeta lista los inmuebles compatibles de los dos catálogos con su desglose y las acciones de cada uno (seleccionar, enviar propiedad, crear selección, crear visita, descartar). Marca la casilla de varios y pulsa "Crear selección con N propiedades" para guardarlos juntos; las selecciones de la persona aparecen debajo de sus necesidades, en "Selecciones".',
         'El estado de cada necesidad (activa, pausada, cubierta, archivada) se cambia desde el propio desplegable de la tarjeta, sin abrir un formulario aparte. Pausa una búsqueda cuando el cliente te dice "de momento lo dejamos", márcala cubierta cuando ya ha comprado o alquilado, y archívala si ya no aplica — una necesidad pausada o archivada sigue viendo sus compatibilidades, simplemente deja de aparecer como una búsqueda activa.',
       ],
     },
@@ -137,9 +148,10 @@ export function useHelpContent() {
         'Cada línea del desglose dice qué se comparó: ✓ cumple, △ se queda cerca (78 m² frente a 80), ✕ no cumple, ? no hay dato para saberlo.',
         'Un criterio imprescindible incumplido descarta el inmueble y se marca como tal; uno preferible sólo baja el porcentaje.',
         'Si un imprescindible no se puede comprobar, el inmueble no se descarta: sale como "revisar", porque esconderlo por una ficha incompleta haría perder operaciones.',
-        '"Seleccionar" y "Descartar" guardan la decisión (el descarte, con motivo). Consultar compatibilidades no guarda nada.',
+        'Además del tipo, la zona, el precio, la superficie, los dormitorios y baños y las características, el desglose compara el estado del inmueble con lo que busca el comprador (en buen estado / para reformar) y si es obra nueva, segunda mano o reformado. Si la ficha no tiene el dato, la línea lo dice ("no consta") en vez de suponerlo.',
+        'Las acciones son las mismas en Compatibilidades, en la ficha de la propiedad (paso "Compradores compatibles") y en la ficha del contacto (Necesidades → "Buscar propiedades"): "Seleccionar" / "Quitar selección", "Enviar propiedad", "Crear selección" (nueva o añadiendo a una que ya tenga esa persona), "Crear visita" (comercial, fecha y canal; se comprueba que no tenga otra cita a esa hora y queda en Visitas y en la ficha del contacto) y "Descartar" con motivo ("Recuperar" lo deshace). Crear una selección o una visita deja el match en "Seleccionado" si estaba sin decidir. Consultar compatibilidades no guarda nada.',
         'Con un match "Seleccionado" aparece "Crear oferta": pide el importe y da de alta una oferta real en borrador (CRM → ficha del cliente → pestaña "Ofertas"), ya ligada a esa necesidad y a ese match. No se envía sola — se revisa y se envía desde ahí.',
-        'Si el contacto tiene teléfono, junto a "Crear oferta" aparece "Enviar propiedad": abre (o reutiliza) su conversación de WhatsApp en Comunicaciones y le manda el inmueble con foto y ficha — con enlace público si es de Propiedades (web), sólo con foto y texto si es de 2ª mano. El botón sólo se pone en verde ("Enviado") cuando el envío se ha confirmado de verdad, nunca sólo por pulsarlo — si no hay ningún número de WhatsApp conectado, abre en su lugar la app de WhatsApp con el enlace wa.me.',
+        '"Enviar propiedad" abre (o reutiliza) la conversación de WhatsApp del contacto en Comunicaciones y le manda el inmueble con foto y ficha — con enlace público si es de Propiedades (web), sólo con foto y texto si es de 2ª mano. El match sólo pasa a "Enviado" cuando el envío se ha confirmado de verdad, nunca sólo por pulsarlo. Si el contacto no tiene teléfono ni WhatsApp, el botón está desactivado y lo dice; si la agencia no tiene ningún número de WhatsApp conectado, la ventana lo explica y ofrece abrir WhatsApp con su número — y la propiedad no queda marcada como enviada.',
         'El estado del match avanza solo cuando las cosas pasan de verdad: "Enviado" cuando el WhatsApp sale, "Visita" cuando anotas el resultado de una visita a ese inmueble (si el cliente dice que no le interesa, queda descartado con ese motivo) y "Ofertado" cuando se crea una oferta. Nunca retrocede y nunca recupera un descarte: eso lo decides tú.',
         'En un inmueble sin características repasadas, lo que no está marcado cuenta como desconocido. Pulsa "He repasado las características" para que a partir de ahí un hueco signifique de verdad "no lo tiene".',
       ],
@@ -394,6 +406,7 @@ export function useHelpContent() {
         ...PROPERTY_SHEET_HELP_STEPS,
         ...PROPERTY_TRASH_HELP_STEPS,
         ...PROPERTY_OWNERS_HELP_STEPS,
+        ...PROPERTY_BUYER_MATCHES_HELP_STEPS,
       ],
     },
     {
@@ -461,6 +474,7 @@ export function useHelpContent() {
         ...PROPERTY_SHEET_HELP_STEPS,
         ...PROPERTY_TRASH_HELP_STEPS,
         ...PROPERTY_OWNERS_HELP_STEPS,
+        ...PROPERTY_BUYER_MATCHES_HELP_STEPS,
       ],
     },
     {
@@ -1121,8 +1135,29 @@ export function useHelpContent() {
       id: 'faq-match-enviar',
       question: '¿Por qué no puedo marcar un match como "enviado"?',
       answer:
-        'Porque marcarlo sin que exista un envío real convertiría el historial en algo que no se puede creer. El estado "enviado" lo pondrá el Centro de Comunicaciones cuando registre el envío de verdad, y lo mismo con "visitado" y "ofertado" cuando existan las visitas y las ofertas. De momento puedes seleccionar y descartar, que son decisiones que sí tomas tú.',
+        'Porque marcarlo sin que exista un envío real convertiría el historial en algo que no se puede creer. "Enviado" lo pone el Centro de Comunicaciones cuando el WhatsApp sale de verdad (botón "Enviar propiedad"), "Visita" cuando anotas el resultado de una visita y "Ofertado" cuando se crea la oferta. A mano puedes seleccionar, descartar y recuperar, que son decisiones que sí tomas tú.',
       tags: ['matching', 'compatibilidades', 'estados'],
+    },
+    {
+      id: 'faq-match-filtro-duro',
+      question: 'Puse la zona como "preferible" y un piso en una zona excluida no aparece. ¿Por qué?',
+      answer:
+        'Porque una zona excluida es un veto: descarta el inmueble siempre, sea cual sea la importancia de la zona. Lo mismo pasa con la operación (comprar no es alquilar), con el precio cuando se pasa más de un 10 % del máximo y con el tipo de inmueble mientras sea imprescindible (lo es por defecto; bájalo a "preferible" si al cliente le valen otros tipos). Lo tienes resumido al final del editor de la necesidad, en "Qué filtra siempre".',
+      tags: ['matching', 'necesidades', 'importancia'],
+    },
+    {
+      id: 'faq-match-estado-no-consta',
+      question: 'El comprador quiere un piso en buen estado y en el desglose sale "? Estado: no consta". ¿Qué hago?',
+      answer:
+        'Rellena el "Estado físico" del inmueble en su ficha (paso Características → Estado). El motor nunca supone que una vivienda está bien porque no diga lo contrario: hasta que el dato existe, la línea sale como "no consta" y, si el estado era imprescindible, el inmueble queda para "revisar" en vez de descartarse. Con "Reformado" pasa igual: se lee de "Reformado" y "Año de reforma" (paso Edificio y vivienda).',
+      tags: ['matching', 'necesidades', 'estado'],
+    },
+    {
+      id: 'faq-match-selecciones',
+      question: '¿Dónde veo las selecciones que he creado para un cliente?',
+      answer:
+        'En su ficha: Contactos → la persona → pestaña "Necesidades", bloque "Selecciones", con las propiedades de cada una (enlazan a su ficha) y la necesidad de la que salieron. Se crean con "Crear selección" desde cualquier compatibilidad (o marcando varias en "Buscar propiedades") y también las que prepara INMO.',
+      tags: ['matching', 'selecciones', 'contactos'],
     },
     {
       id: 'faq-lead-source',

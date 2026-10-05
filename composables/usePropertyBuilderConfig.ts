@@ -18,7 +18,7 @@
  * entrada en los dos.
  */
 
-import { PROPERTY_SHEET_GROUPS, PROPERTY_TYPES, PROPERTY_TYPE_LABELS, pricePerSquareMeter, type SheetField } from '~/utils/propertySheet'
+import { PROPERTY_CONDITIONS, PROPERTY_CONDITION_LABELS, PROPERTY_SHEET_GROUPS, PROPERTY_TYPES, PROPERTY_TYPE_LABELS, pricePerSquareMeter, type SheetField } from '~/utils/propertySheet'
 
 export interface FieldSpec {
   key: string
@@ -115,7 +115,17 @@ export interface OwnersSection extends BaseSection {
   kind: 'owners'
 }
 
-export type BuilderSection = FieldsSection | LocationSection | GallerySection | ChildTableSection | SocialSection | TranslationsSection | RoomsSection | OwnersSection
+/**
+ * Compradores compatibles (FASE 11, núcleo N4): la dirección Inmueble →
+ * compradores del motor de matching dentro de la propia ficha, con las
+ * acciones sobre cada compatibilidad. Sólo lectura de la ficha: no tiene
+ * campos que guardar.
+ */
+export interface BuyerMatchesSection extends BaseSection {
+  kind: 'buyer-matches'
+}
+
+export type BuilderSection = FieldsSection | LocationSection | GallerySection | ChildTableSection | SocialSection | TranslationsSection | RoomsSection | OwnersSection | BuyerMatchesSection
 
 /**
  * Splits a section's fields into visual subsections by their `group` label,
@@ -145,8 +155,9 @@ export function groupFields(fields: FieldSpec[]): { label: string | null; fields
 const PROPERTY_TYPE_OPTIONS = [...PROPERTY_TYPES] as string[]
 const ORIENTATION_OPTIONS = ['N', 'S', 'E', 'W', 'SE', 'SW', 'NE', 'NW']
 const ENERGY_OPTIONS = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
-const CONDITION_OPTIONS = ['new', 'excellent', 'good', 'to_renovate', 'to_reform']
-const CONDITION_LABELS: Record<string, string> = { new: 'A estrenar', excellent: 'Excelente', good: 'Buen estado', to_renovate: 'A renovar', to_reform: 'A reformar' }
+// Estado físico: catálogo común (utils/propertySheet.ts), el mismo que lee el motor de matching.
+const CONDITION_OPTIONS = [...PROPERTY_CONDITIONS] as string[]
+const CONDITION_LABELS = PROPERTY_CONDITION_LABELS
 const FURNISHED_OPTIONS = ['yes', 'no', 'partially']
 const FURNISHED_LABELS: Record<string, string> = { yes: 'Sí', no: 'No', partially: 'Parcialmente' }
 const LOCATION_PRIVACY_OPTIONS = ['exact', 'approximate', 'hidden_number']
@@ -237,6 +248,14 @@ const OWNERS_SECTION: OwnersSection = {
   icon: 'badge',
   description: 'Propietarios (con su % de propiedad), apoderados, inquilinos y contactos de la propiedad.',
   kind: 'owners',
+}
+
+const BUYER_MATCHES_SECTION: BuyerMatchesSection = {
+  key: 'buyer-matches',
+  label: 'Compradores compatibles',
+  icon: 'chart',
+  description: 'Qué necesidades registradas encajan con este inmueble, por qué, y las acciones con cada comprador.',
+  kind: 'buyer-matches',
 }
 
 const SHEET_LEGAL_SECTION: FieldsSection = {
@@ -483,6 +502,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
     },
     OWNERS_SECTION,
     SHEET_LEGAL_SECTION,
+    BUYER_MATCHES_SECTION,
   ],
 
   // Parity with 'developer-properties' (migration 0059) — every field above
@@ -698,5 +718,6 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
     },
     OWNERS_SECTION,
     SHEET_LEGAL_SECTION,
+    BUYER_MATCHES_SECTION,
   ],
 }

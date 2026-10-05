@@ -21,6 +21,7 @@ const LABELS: Record<string, string> = {
   BUYER_REQUIREMENT_CREATED: 'Necesidad registrada',
   MATCH_SELECTED: 'Coincidencia seleccionada',
   MATCH_DISCARDED: 'Coincidencia descartada',
+  PROPERTY_SELECTION_CREATED: 'Selección de propiedades',
   APPOINTMENT_CREATED: 'Cita agendada',
   APPOINTMENT_RESCHEDULED: 'Cita reprogramada',
   APPOINTMENT_CANCELLED: 'Cita cancelada',
@@ -44,6 +45,11 @@ export function renderActivity(row: ActivityRow): { title: string; detail: strin
   const meta = metadata(row)
 
   if (row.eventType === 'MATCH_DISCARDED' && meta.reason) return { title, detail: meta.reason }
+  if (row.eventType === 'PROPERTY_SELECTION_CREATED' && meta.title) {
+    const added = Number(meta.added) || 0
+    const verb = meta.created ? 'Creada' : 'Ampliada'
+    return { title, detail: `${verb}: «${meta.title}» (${added} ${added === 1 ? 'propiedad' : 'propiedades'})` }
+  }
   if (row.eventType === 'VISIT_OUTCOME_RECORDED' && meta.outcome) {
     const outcomeLabel: Record<string, string> = { interested: 'Interesado', wants_to_think: 'Se lo piensa', not_interested: 'No le convenció' }
     return { title, detail: outcomeLabel[meta.outcome] || meta.outcome }

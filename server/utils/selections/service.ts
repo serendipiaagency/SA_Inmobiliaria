@@ -1,8 +1,9 @@
-import { and, asc, eq, isNull } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm'
 import { createError } from 'h3'
 import { now, schema } from '../db'
-import type { PropertyKind } from '../matching/service'
 import { propertyState, trashedPropertyMessage } from '../properties/trash'
+import { selectInChunks } from '../sqlChunks'
+import { tablesFor, type PropertyKind } from '../matching/service'
 
 /**
  * Selección de propiedades para una persona (FASE 31 §44-45, migración
@@ -111,4 +112,95 @@ export async function listPropertySelectionsForContact(db: any, orgId: number, c
     .from(schema.propertySelections)
     .where(and(eq(schema.propertySelections.organizationId, orgId), eq(schema.propertySelections.contactId, contactId)))
     .orderBy(asc(schema.propertySelections.createdAt))
+}
+
+/**
+ * Añade propiedades a una selección ya existente (núcleo N4: «Crear
+ * selección» desde una compatibilidad puede ir a una selección que la
+ * persona ya tiene). Mismas reglas que al crearla: cada propiedad existe en
+ * SU catálogo y es de esta organización, máximo 30 por selección. Las que ya
+ * estaban no se duplican ni dan error: se informa de cuántas se añadieron.
+ */
+export async function addItemsToPropertySelection(db: any, orgId: number, selectionId: number, items: SelectionItemInput[]) {
+  if (!items.length) throw createError({ statusCode: 422, statusMessage: 'Elige al menos una propiedad.' })
+  const selection = await getPropertySelection(db, orgId, selectionId)
+  if (!selection) throw createError({ statusCode: 404, statusMessage: 'Selección no encontrada' })
+
+  const present = new Set(selection.items.map((i: any) => `${i.propertyKind}:${i.propertyId}`))
+  const fresh: SelectionItemInput[] = []
+  for (const item of items) {
+    const key = `${item.propertyKind}:${item.propertyId}`
+    if (present.has(key)) continue
+    present.add(key)
+    // Mismo criterio que al crear la selección: ajena o inexistente → 404; en la papelera → 422.
+    const state = await propertyState(db, orgId, item.propertyKind, item.propertyId)
+    if (state === 'missing') throw createError({ statusCode: 404, statusMessage: `Propiedad ${key} no encontrada` })
+    if (state === 'trashed') throw createError({ statusCode: 422, statusMessage: `Propiedad ${key}: ${trashedPropertyMessage('incluirla en una selección')}` })
+    fresh.push(item)
+  }
+  if (selection.items.length + fresh.length > 30) throw createError({ statusCode: 422, statusMessage: 'Máximo 30 propiedades por selección.' })
+
+  if (fresh.length) {
+    const nowTs = now()
+    const start = selection.items.reduce((max: number, i: any) => Math.max(max, Number(i.position) + 1), 0)
+    await db.insert(schema.propertySelectionItems).values(
+      fresh.map((item, i) => ({
+        selectionId,
+        propertyId: item.propertyId,
+        propertyKind: item.propertyKind,
+        position: start + i,
+        note: item.note ? item.note.slice(0, 500) : null,
+        createdAt: nowTs,
+      })),
+    )
+    await db
+      .update(schema.propertySelections)
+      .set({ updatedAt: nowTs })
+      .where(and(eq(schema.propertySelections.id, selectionId), eq(schema.propertySelections.organizationId, orgId)))
+  }
+  return { selection: await getPropertySelection(db, orgId, selectionId), added: fresh.length }
+}
+
+/**
+ * Las selecciones de una persona con sus propiedades ya nombradas, para la
+ * ficha del contacto. El nombre se lee del catálogo en vivo (nunca una copia):
+ * una propiedad que ya no existe se queda como «Propiedad #id».
+ */
+export async function listPropertySelectionsWithItems(db: any, orgId: number, contactId: number) {
+  const selections = await listPropertySelectionsForContact(db, orgId, contactId)
+  if (!selections.length) return []
+  // Por trozos (D1: máximo 100 parámetros por consulta); el orden por posición se rehace al agrupar.
+  const items = await selectInChunks<number, any>(
+    selections.map((s: any) => s.id as number),
+    (part) => db.select().from(schema.propertySelectionItems).where(inArray(schema.propertySelectionItems.selectionId, part)) as Promise<any[]>,
+  )
+  items.sort((a: any, b: any) => a.position - b.position)
+
+  const names = new Map<string, string>()
+  for (const kind of ['agent', 'developer'] as PropertyKind[]) {
+    const ids = [...new Set(items.filter((i: any) => i.propertyKind === kind).map((i: any) => i.propertyId))] as number[]
+    if (!ids.length) continue
+    const rows: any[] = await selectInChunks(ids, (part) =>
+      kind === 'developer'
+        ? db
+            .select({ id: schema.developerProperties.id, name: schema.developerProperties.name })
+            .from(schema.developerProperties)
+            .where(and(eq(schema.developerProperties.organizationId, orgId), inArray(schema.developerProperties.id, part)))
+        : db
+            .select({ id: schema.agentProperties.id, reference: schema.agentProperties.reference, street: schema.agentProperties.street, city: schema.agentProperties.city })
+            .from(schema.agentProperties)
+            .where(and(eq(schema.agentProperties.organizationId, orgId), inArray(schema.agentProperties.id, part))),
+    )
+    for (const r of rows) names.set(`${kind}:${r.id}`, r.name || r.reference || [r.street, r.city].filter(Boolean).join(', ') || `Propiedad #${r.id}`)
+  }
+
+  return selections
+    .slice()
+    .reverse()
+    .map((s: any) => ({
+      ...s,
+      items: items
+        .filter((i: any) => i.selectionId === s.id)
+        .map((i: any) => ({ propertyId: i.propertyId, propertyKind: i.propertyKind, position: i.position, note: i.note, name: names.get(`${i.propertyKind}:${i.propertyId}`) || `Propiedad #${i.propertyId}` })),
+    }))
 }

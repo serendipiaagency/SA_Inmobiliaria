@@ -51,6 +51,20 @@ export const PROPERTY_TYPE_LABELS: Record<string, string> = {
   Development: 'Promoción',
 }
 
+/**
+ * Estado físico del inmueble (columna `condition` de los dos catálogos) —
+ * distinto del estado comercial. Lo usan el editor y el motor de matching
+ * (criterio «Estado» frente a `conditionPref` de la necesidad).
+ */
+export const PROPERTY_CONDITIONS = ['new', 'excellent', 'good', 'to_renovate', 'to_reform'] as const
+export const PROPERTY_CONDITION_LABELS: Record<string, string> = {
+  new: 'A estrenar',
+  excellent: 'Excelente',
+  good: 'Buen estado',
+  to_renovate: 'A renovar',
+  to_reform: 'A reformar',
+}
+
 /** Subtipos por tipo. Un subtipo sólo es válido para su tipo (lo comprueba el servidor). */
 export const PROPERTY_SUBTYPES: Record<string, Record<string, string>> = {
   Apartment: { flat: 'Piso', apartment: 'Apartamento', loft: 'Loft', ground_floor: 'Bajo', ground_floor_garden: 'Bajo con jardín', mezzanine: 'Entresuelo' },

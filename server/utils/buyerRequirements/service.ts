@@ -1,8 +1,25 @@
-import { and, desc, eq, isNull } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, now } from '../db'
 import { recordActivity } from '../activity/service'
 import { recomputeLeadScoresForContact } from '../leads/score'
+import { selectInChunks } from '../sqlChunks'
+import {
+  BUILD_PREFS,
+  CONDITION_PREFS,
+  CRITERION_LABELS,
+  FEATURE_CRITERIA,
+  IMPORTANCE_CRITERIA,
+  IMPORTANCES,
+  MORTGAGE_STATUSES,
+  REQUIREMENT_OPERATIONS,
+  REQUIREMENT_STATUSES,
+  URGENCIES,
+  VALUE_CRITERIA,
+  allowedImportances,
+  zoneLabel,
+} from '../../../utils/buyerRequirementCatalog'
+import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '../../../utils/propertySheet'
 
 /**
  * BuyerRequirement — la necesidad inmobiliaria (FASE 10, migración 0066).
@@ -15,26 +32,24 @@ import { recomputeLeadScoresForContact } from '../leads/score'
  * especifica precio máximo, `priceMax` queda a NULL, que significa "no
  * especificado" — nunca 0, y nunca "no quiere pagar nada". Lo mismo con las
  * características: no pedir garaje no es pedir que NO tenga garaje.
+ *
+ * Los vocabularios (estados, urgencias, importancias, criterios…) y sus
+ * etiquetas viven en `utils/buyerRequirementCatalog.ts`, compartido con el
+ * editor del panel: aquí sólo se reexportan para no romper a quien ya los
+ * importaba de este módulo.
  */
 
-export const STATUSES = ['active', 'paused', 'fulfilled', 'archived'] as const
-export const OPERATIONS = ['sale', 'rent'] as const
-export const IMPORTANCES = ['required', 'preferred', 'indifferent'] as const
-export const URGENCIES = ['low', 'medium', 'high', 'urgent'] as const
-export const BUILD_PREFS = ['new', 'second_hand', 'renovated'] as const
-export const CONDITION_PREFS = ['good', 'to_reform', 'any'] as const
-export const MORTGAGE_STATUSES = ['not_needed', 'required', 'requested', 'preapproved', 'approved'] as const
-
-/** Los tipos estables del catálogo. Coinciden con developer_properties.property_type_main y agent_properties.property_type. */
-export const PROPERTY_TYPES = ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio'] as const
+export const STATUSES = REQUIREMENT_STATUSES
+export const OPERATIONS = REQUIREMENT_OPERATIONS
+export { BUILD_PREFS, CONDITION_PREFS, FEATURE_CRITERIA, IMPORTANCES, MORTGAGE_STATUSES, URGENCIES }
 
 /**
- * Criterios que viven en la tabla de criterios (los que no tienen columna
- * propia en buyer_requirements). Los valores numéricos principales — precio,
- * superficie, habitaciones — sí son columnas indexables, y aquí sólo se
- * guarda su importancia.
+ * Los tipos de inmueble son los del catálogo común de los dos catálogos de
+ * propiedades (`utils/propertySheet.ts`). Antes sólo se aceptaban cinco
+ * (Apartment, Villa, Townhouse, Penthouse, Studio); siguen siendo válidos —
+ * son un subconjunto del catálogo común —, así que lo ya guardado no cambia.
  */
-export const FEATURE_CRITERIA = ['terrace', 'elevator', 'garage', 'pool', 'garden'] as const
+export { PROPERTY_TYPES }
 
 export type Importance = (typeof IMPORTANCES)[number]
 
@@ -74,16 +89,85 @@ export interface BuyerRequirementInput {
   urgency?: string | null
   notes?: string | null
   assignedCommercialId?: number | null
-  /** Importancia por criterio: { terrace: 'required', elevator: 'preferred', price: 'required' }. */
+  /**
+   * Importancia por criterio (catálogo `IMPORTANCE_CRITERIA`):
+   * { propertyType: 'required', price: 'preferred', terrace: 'required', … }.
+   */
   importances?: Record<string, Importance>
-  /** Características pedidas explícitamente: { terrace: true }. Una ausente queda sin declarar, no a false. */
+  /**
+   * Características pedidas explícitamente: { terrace: true } la quiere,
+   * { pool: false } la quiere SIN. Una ausente queda sin declarar, nunca a false.
+   */
   features?: Record<string, boolean>
 }
 
-export class BuyerRequirementValidationError extends Error {}
+/**
+ * Error de dominio. `statusCode` 422 para un dato inválido y 404 para una
+ * referencia (contacto) que no existe en esta organización: a quien llama
+ * desde otra agencia se le responde igual que si no existiera.
+ */
+export class BuyerRequirementValidationError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: 404 | 422 = 422,
+  ) {
+    super(message)
+  }
+}
 
-function assert(condition: unknown, message: string): asserts condition {
-  if (!condition) throw new BuyerRequirementValidationError(message)
+function assert(condition: unknown, message: string, statusCode: 404 | 422 = 422): asserts condition {
+  if (!condition) throw new BuyerRequirementValidationError(message, statusCode)
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+const MAX_ZONES = 30
+const ZONE_TEXT_MAX = 120
+
+function isFiniteNumber(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v)
+}
+
+/** Una zona es una referencia estructurada con al menos un dato; nunca un texto con varias zonas dentro. */
+function validateZones(zones: unknown, what: string) {
+  if (zones === undefined) return
+  assert(Array.isArray(zones), `${what}: debe ser una lista de zonas`)
+  assert(zones.length <= MAX_ZONES, `${what}: máximo ${MAX_ZONES} zonas`)
+  for (const zone of zones as unknown[]) {
+    assert(zone && typeof zone === 'object' && !Array.isArray(zone), `${what}: cada zona debe ser una referencia estructurada`)
+    const z = zone as Record<string, unknown>
+    for (const key of ['city', 'district', 'postalCode', 'label'] as const) {
+      if (z[key] === undefined || z[key] === null) continue
+      assert(typeof z[key] === 'string' && String(z[key]).length <= ZONE_TEXT_MAX, `${what}: «${key}» debe ser un texto de hasta ${ZONE_TEXT_MAX} caracteres`)
+    }
+    for (const key of ['communityId', 'locationId'] as const) {
+      if (z[key] === undefined || z[key] === null) continue
+      assert(Number.isInteger(z[key]) && (z[key] as number) > 0, `${what}: «${key}» debe ser un identificador`)
+    }
+    const filled = ['city', 'district', 'postalCode', 'label'].some((k) => typeof z[k] === 'string' && String(z[k]).trim()) || z.communityId || z.locationId
+    assert(filled, `${what}: hay una zona vacía`)
+  }
+}
+
+/**
+ * Clave comparable de una zona, para detectar la misma zona deseada y
+ * excluida a la vez: su referencia principal (urbanización del catálogo,
+ * distrito, localidad, CP o nombre libre), sin tildes ni mayúsculas. La
+ * etiqueta que acompaña a un distrito no cuenta: {district: X} y
+ * {district: X, label: X} son la misma zona.
+ */
+function zoneKey(zone: ZoneRef): string {
+  const norm = (v: unknown) =>
+    String(v ?? '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+  if (zone.communityId) return `community:${zone.communityId}`
+  if (zone.locationId) return `location:${zone.locationId}`
+  if (zone.district) return `district:${norm(zone.district)}`
+  if (zone.city) return `city:${norm(zone.city)}`
+  if (zone.postalCode) return `postalCode:${norm(zone.postalCode)}`
+  return `label:${norm(zone.label)}`
 }
 
 /** Valida lo que el dominio exige. Se ejecuta en el servidor siempre, aunque el formulario ya haya validado. */
@@ -91,9 +175,23 @@ export function validateBuyerRequirement(input: BuyerRequirementInput) {
   assert(Number.isFinite(input.contactId) && input.contactId > 0, 'contactId es obligatorio')
   if (input.status !== undefined) assert(STATUSES.includes(input.status as any), 'status no reconocido')
   if (input.operation !== undefined) assert(OPERATIONS.includes(input.operation as any), 'operation debe ser sale o rent')
+  if (input.title != null) assert(typeof input.title === 'string' && input.title.length <= 200, 'El título admite hasta 200 caracteres')
 
+  if (input.propertyTypes !== undefined) assert(Array.isArray(input.propertyTypes), 'Los tipos de inmueble deben ser una lista')
   for (const t of input.propertyTypes || []) {
     assert(PROPERTY_TYPES.includes(t as any), `Tipo de inmueble no reconocido: ${t}`)
+  }
+
+  for (const [label, value] of [
+    ['precio mínimo', input.priceMin],
+    ['precio máximo', input.priceMax],
+    ['superficie mínima', input.areaMin],
+    ['superficie máxima', input.areaMax],
+    ['radio', input.radiusKm],
+    ['número de habitaciones', input.bedroomsMin],
+    ['número de baños', input.bathroomsMin],
+  ] as const) {
+    if (value != null) assert(isFiniteNumber(value), `El ${label} debe ser un número`)
   }
 
   // min <= max, con ambos opcionales. Si sólo hay uno, no hay nada que comparar.
@@ -123,14 +221,39 @@ export function validateBuyerRequirement(input: BuyerRequirementInput) {
   if (input.buildPref != null) assert(BUILD_PREFS.includes(input.buildPref as any), 'Preferencia de obra no reconocida')
   if (input.conditionPref != null) assert(CONDITION_PREFS.includes(input.conditionPref as any), 'Preferencia de estado no reconocida')
   if (input.mortgageStatus != null) assert(MORTGAGE_STATUSES.includes(input.mortgageStatus as any), 'Estado de hipoteca no reconocido')
+  if (input.needsMortgage != null) assert(input.needsMortgage === 0 || input.needsMortgage === 1, '«Necesita financiación» debe ser sí, no o sin especificar')
+  if (input.desiredDate != null) {
+    assert(typeof input.desiredDate === 'string' && DATE_RE.test(input.desiredDate) && !Number.isNaN(Date.parse(input.desiredDate)), 'Fecha deseada inválida (AAAA-MM-DD)')
+  }
+  if (input.financingNotes != null) assert(typeof input.financingNotes === 'string' && input.financingNotes.length <= 2000, 'Las notas de financiación admiten hasta 2000 caracteres')
+  if (input.notes != null) assert(typeof input.notes === 'string' && input.notes.length <= 4000, 'Las notas admiten hasta 4000 caracteres')
 
   // El radio necesita centro: un radio sin punto de partida no significa nada.
   if (input.radiusKm != null) {
     assert(input.centerLat != null && input.centerLng != null, 'Un radio de búsqueda necesita coordenadas de centro')
   }
+  if (input.centerLat != null) assert(isFiniteNumber(input.centerLat) && input.centerLat >= -90 && input.centerLat <= 90, 'La latitud del centro debe estar entre -90 y 90')
+  if (input.centerLng != null) assert(isFiniteNumber(input.centerLng) && input.centerLng >= -180 && input.centerLng <= 180, 'La longitud del centro debe estar entre -180 y 180')
+
+  validateZones(input.desiredZones, 'Zonas deseadas')
+  validateZones(input.excludedZones, 'Zonas excluidas')
+  if (input.desiredZones?.length && input.excludedZones?.length) {
+    const desired = new Set(input.desiredZones.map(zoneKey))
+    const both = input.excludedZones.find((z) => desired.has(zoneKey(z)))
+    assert(!both, `«${both ? zoneLabel(both) : ''}» no puede ser a la vez zona deseada y excluida`)
+  }
 
   for (const [criterion, importance] of Object.entries(input.importances || {})) {
+    assert((IMPORTANCE_CRITERIA as readonly string[]).includes(criterion), `Criterio no reconocido: ${criterion}`)
     assert(IMPORTANCES.includes(importance), `Importancia no reconocida para ${criterion}: ${importance}`)
+    assert(
+      allowedImportances(criterion).includes(importance),
+      `${CRITERION_LABELS[criterion] || criterion} no puede ser «indiferente»: si no importa, déjalo en blanco`,
+    )
+  }
+  for (const [feature, wanted] of Object.entries(input.features || {})) {
+    assert((FEATURE_CRITERIA as readonly string[]).includes(feature), `Característica no reconocida: ${feature}`)
+    assert(typeof wanted === 'boolean', `La característica ${feature} debe ser sí o no`)
   }
 }
 
@@ -143,7 +266,8 @@ function criteriaRowsFor(input: BuyerRequirementInput, orgId: number, requiremen
   // Características: sólo se guarda lo que se ha pedido explícitamente. Una
   // característica que el comprador no mencionó no se convierte en un
   // criterio `false` — el matching debe poder distinguir "no le importa" de
-  // "no la quiere".
+  // "no la quiere". Una característica «indiferente» tampoco se guarda: es
+  // exactamente lo mismo que no haberla mencionado.
   for (const feature of FEATURE_CRITERIA) {
     const wanted = features[feature]
     const importance = importances[feature]
@@ -162,10 +286,13 @@ function criteriaRowsFor(input: BuyerRequirementInput, orgId: number, requiremen
 
   // Importancia de los criterios que sí tienen columna propia. El valor no se
   // duplica aquí: vive en buyer_requirements y esta fila sólo dice cuánto
-  // pesa.
-  for (const criterion of ['price', 'area', 'bedrooms', 'bathrooms', 'zone', 'build', 'condition'] as const) {
+  // pesa. Aquí «indiferente» SÍ se guarda: el tipo de inmueble es
+  // imprescindible por defecto (DEFAULT_IMPORTANCE), así que «no le importa
+  // el tipo» tiene que quedar escrito para poder distinguirlo de «no lo ha
+  // dicho».
+  for (const criterion of VALUE_CRITERIA) {
     const importance = importances[criterion]
-    if (!importance || importance === 'indifferent') continue
+    if (!importance) continue
     rows.push({
       organizationId: orgId,
       buyerRequirementId: requirementId,
@@ -197,7 +324,8 @@ export async function createBuyerRequirement(
       .where(and(eq(schema.contacts.id, input.contactId), eq(schema.contacts.organizationId, orgId), isNull(schema.contacts.deletedAt)))
       .limit(1)
   )[0]
-  assert(contact, 'Contacto no encontrado')
+  assert(contact, 'Contacto no encontrado', 404)
+  await assertCommercialInOrg(db, orgId, input.assignedCommercialId)
 
   const nowTs = now()
   const [requirement] = await db
@@ -256,6 +384,18 @@ export async function createBuyerRequirement(
   return requirement
 }
 
+/** El comercial asignado tiene que ser de esta agencia: un id ajeno colgaría la necesidad de alguien que nadie de aquí puede ver. */
+async function assertCommercialInOrg(db: any, orgId: number, commercialId: number | null | undefined) {
+  if (commercialId == null) return
+  assert(Number.isInteger(commercialId) && commercialId > 0, 'Comercial inválido')
+  const [row] = await db
+    .select({ id: schema.teamMembers.id })
+    .from(schema.teamMembers)
+    .where(and(eq(schema.teamMembers.id, commercialId), eq(schema.teamMembers.organizationId, orgId)))
+    .limit(1)
+  assert(row, 'Comercial no encontrado', 404)
+}
+
 /**
  * FASE 32 — presupuesto validado, fecha deseada, urgencia y financiación
  * son señales del Lead Score de los leads de esta persona. Nunca deshace la
@@ -285,8 +425,13 @@ export async function updateBuyerRequirement(
   )[0]
   if (!existing) return null
 
-  const merged = { ...existing, ...input, contactId: existing.contactId } as BuyerRequirementInput
+  // Lo guardado se combina con lo que llega para validar las reglas que
+  // cruzan campos (mínimo ≤ máximo, radio con centro, zona deseada y
+  // excluida a la vez). Lo guardado pasa antes por `storedAsInput()`: una fila
+  // antigua con un dato mal formado no debe impedir, p. ej., pausarla.
+  const merged = { ...storedAsInput(existing), ...input, contactId: existing.contactId } as BuyerRequirementInput
   validateBuyerRequirement(merged)
+  await assertCommercialInOrg(db, orgId, input.assignedCommercialId)
 
   const patch: Record<string, unknown> = { updatedAt: now() }
   const direct: (keyof BuyerRequirementInput)[] = [
@@ -295,6 +440,13 @@ export async function updateBuyerRequirement(
     'mortgageStatus', 'financingNotes', 'urgency', 'notes', 'assignedCommercialId',
   ]
   for (const key of direct) if (input[key] !== undefined) patch[key] = input[key]
+  if (typeof patch.title === 'string') patch.title = patch.title.trim()
+  // Quitar el radio deja también sin centro: un centro suelto no filtra nada
+  // y confundiría al volver a abrir el editor.
+  if (input.radiusKm === null && input.centerLat === undefined && input.centerLng === undefined) {
+    patch.centerLat = null
+    patch.centerLng = null
+  }
   if (input.propertyTypes !== undefined) patch.propertyTypesJson = JSON.stringify(input.propertyTypes)
   if (input.desiredZones !== undefined) patch.desiredZonesJson = JSON.stringify(input.desiredZones)
   if (input.excludedZones !== undefined) patch.excludedZonesJson = JSON.stringify(input.excludedZones)
@@ -358,10 +510,27 @@ export async function listBuyerRequirements(event: H3Event, orgId: number, opts:
   const rows = await db.select().from(schema.buyerRequirements).where(where).orderBy(desc(schema.buyerRequirements.id))
   if (!rows.length) return []
 
-  const criteria = await db
-    .select()
-    .from(schema.buyerRequirementCriteria)
-    .where(eq(schema.buyerRequirementCriteria.organizationId, orgId))
+  // Por trozos: el listado de toda la agencia puede tener cientos de
+  // necesidades y D1 no admite más de 100 parámetros por consulta.
+  const criteria = await selectInChunks(
+    rows.map((r) => r.id),
+    (part) =>
+      db
+        .select()
+        .from(schema.buyerRequirementCriteria)
+        .where(and(eq(schema.buyerRequirementCriteria.organizationId, orgId), inArray(schema.buyerRequirementCriteria.buyerRequirementId, part))),
+  )
+
+  // Quién validó el presupuesto: la validación es una acción con autor, y la
+  // ficha lo enseña con nombre, no con un id.
+  const validatorIds = [...new Set(rows.map((r) => r.budgetValidatedBy).filter((id): id is number => typeof id === 'number'))]
+  const validators = await selectInChunks(validatorIds, (part) =>
+    db
+      .select({ id: schema.users.id, name: schema.users.name })
+      .from(schema.users)
+      .where(and(eq(schema.users.organizationId, orgId), inArray(schema.users.id, part))),
+  )
+  const validatorName = new Map<number, string>(validators.map((u: { id: number; name: string }) => [u.id, u.name]))
 
   const byRequirement = new Map<number, typeof criteria>()
   for (const c of criteria) {
@@ -376,7 +545,41 @@ export async function listBuyerRequirements(event: H3Event, orgId: number, opts:
     desiredZones: safeParse<ZoneRef[]>(r.desiredZonesJson, []),
     excludedZones: safeParse<ZoneRef[]>(r.excludedZonesJson, []),
     criteria: byRequirement.get(r.id) || [],
+    budgetValidatedByName: r.budgetValidatedBy ? validatorName.get(r.budgetValidatedBy) || null : null,
   }))
+}
+
+/** Lo guardado de una necesidad con la forma de la entrada, saneado (ver `updateBuyerRequirement`). */
+function storedAsInput(row: typeof schema.buyerRequirements.$inferSelect): Partial<BuyerRequirementInput> {
+  const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+  const int = (v: unknown) => (Number.isInteger(v) && (v as number) >= 0 ? (v as number) : null)
+  const oneOf = (v: unknown, list: readonly string[]) => (typeof v === 'string' && list.includes(v) ? v : null)
+  // Sólo zonas con algún dato: una fila antigua con basura dentro no bloquea la edición.
+  const zones = (raw: string | null): ZoneRef[] => {
+    const parsed = safeParse<unknown>(raw, [])
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (z): z is ZoneRef => !!z && typeof z === 'object' && ['city', 'district', 'postalCode', 'label'].some((k) => typeof (z as any)[k] === 'string' && (z as any)[k].trim()),
+    )
+  }
+  return {
+    priceMin: num(row.priceMin),
+    priceMax: num(row.priceMax),
+    areaMin: num(row.areaMin),
+    areaMax: num(row.areaMax),
+    bedroomsMin: int(row.bedroomsMin),
+    bathroomsMin: int(row.bathroomsMin),
+    centerLat: num(row.centerLat),
+    centerLng: num(row.centerLng),
+    radiusKm: num(row.radiusKm),
+    conditionPref: oneOf(row.conditionPref, CONDITION_PREFS),
+    buildPref: oneOf(row.buildPref, BUILD_PREFS),
+    urgency: oneOf(row.urgency, URGENCIES),
+    mortgageStatus: oneOf(row.mortgageStatus, MORTGAGE_STATUSES),
+    desiredDate: typeof row.desiredDate === 'string' && DATE_RE.test(row.desiredDate) ? row.desiredDate : null,
+    desiredZones: zones(row.desiredZonesJson),
+    excludedZones: zones(row.excludedZonesJson),
+  }
 }
 
 function safeParse<T>(raw: string | null, fallback: T): T {
@@ -391,12 +594,14 @@ function safeParse<T>(raw: string | null, fallback: T): T {
 /**
  * El resumen legible de una necesidad, construido desde los datos
  * estructurados — nunca escrito a mano ni generado por un modelo:
- * "Compra · Piso/Ático · Chamberí · ≤ 650.000 € · ≥ 2 dorm. · Terraza imprescindible".
+ * "Compra · Piso/Ático · Chamberí · sin Lavapiés · ≤ 650.000 € · ≥ 2 dorm. · Terraza imprescindible".
  */
 export function summarizeRequirement(requirement: {
   operation: string
   propertyTypes?: string[]
   desiredZones?: ZoneRef[]
+  excludedZones?: ZoneRef[]
+  radiusKm?: number | null
   priceMax?: number | null
   priceMin?: number | null
   bedroomsMin?: number | null
@@ -404,10 +609,14 @@ export function summarizeRequirement(requirement: {
 }): string {
   const parts: string[] = [requirement.operation === 'rent' ? 'Alquiler' : 'Compra']
 
-  if (requirement.propertyTypes?.length) parts.push(requirement.propertyTypes.join('/'))
+  // Las etiquetas del catálogo común (Piso, Ático…), nunca la clave interna.
+  if (requirement.propertyTypes?.length) parts.push(requirement.propertyTypes.map((t) => PROPERTY_TYPE_LABELS[t] || t).join('/'))
 
-  const zones = (requirement.desiredZones || []).map((z) => z.label || z.district || z.city).filter(Boolean)
+  const zones = (requirement.desiredZones || []).map((z) => zoneLabel(z)).filter(Boolean)
   if (zones.length) parts.push(zones.join(' + '))
+  const excluded = (requirement.excludedZones || []).map((z) => zoneLabel(z)).filter(Boolean)
+  if (excluded.length) parts.push(`sin ${excluded.join(' ni ')}`)
+  if (requirement.radiusKm != null) parts.push(`radio ${requirement.radiusKm} km`)
 
   const money = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
   if (requirement.priceMax != null) parts.push(`≤ ${money(requirement.priceMax)}`)
@@ -415,9 +624,9 @@ export function summarizeRequirement(requirement: {
 
   if (requirement.bedroomsMin != null) parts.push(`≥ ${requirement.bedroomsMin} dorm.`)
 
-  const labels: Record<string, string> = { terrace: 'Terraza', elevator: 'Ascensor', garage: 'Garaje', pool: 'Piscina', garden: 'Jardín' }
   for (const c of requirement.criteria || []) {
-    const label = labels[c.criterionType]
+    if (!(FEATURE_CRITERIA as readonly string[]).includes(c.criterionType)) continue
+    const label = CRITERION_LABELS[c.criterionType]
     if (!label || c.valueBool === 0) continue
     if (c.importance === 'required') parts.push(`${label} imprescindible`)
     else if (c.importance === 'preferred') parts.push(`${label} preferible`)

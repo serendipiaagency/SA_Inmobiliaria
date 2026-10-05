@@ -87,7 +87,9 @@ describe('BuyerRequirement — resumen legible', () => {
     })
 
     expect(summary).toContain('Compra')
-    expect(summary).toContain('Apartment/Penthouse')
+    // Los tipos se leen con la etiqueta del catálogo común, no con la clave interna.
+    expect(summary).toContain('Piso/Ático')
+    expect(summary).not.toContain('Apartment')
     expect(summary).toContain('Chamberí + Salamanca')
     expect(summary).toContain('≥ 2 dorm.')
     expect(summary).toContain('Terraza imprescindible')

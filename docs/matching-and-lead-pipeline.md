@@ -21,9 +21,17 @@ niveles de importancia:
 
 - `required` — imprescindible: si no se cumple, el inmueble queda descartado.
 - `preferred` — puntúa, pero no descarta.
-- `indifferent` — no se guarda como fila (`criteriaRowsFor()` en
-  `server/utils/buyerRequirements/service.ts` lo omite): "no le importa" no
-  es lo mismo que "lo tiene marcado como preferido a favor".
+- `indifferent` — en una característica no se guarda como fila
+  (`criteriaRowsFor()` en `server/utils/buyerRequirements/service.ts` la
+  omite): "no le importa" no es lo mismo que "lo tiene marcado como preferido
+  a favor". En los criterios con valor propio (tipo, precio, superficie…) sí
+  se guarda desde el núcleo N4, porque el tipo de inmueble es imprescindible
+  por defecto.
+
+> Núcleo N4: editor completo de la necesidad, importancia por criterio,
+> estado del inmueble en el motor, «Compradores compatibles» en la ficha de
+> propiedad y acciones (enviar, crear selección, crear visita, descartar)
+> desde cualquier vista. Ver `docs/necesidades-y-matching.md`.
 
 `status` (`active | paused | fulfilled | archived`) es el ciclo de vida de la
 búsqueda en sí — independiente de si algún match concreto se marcó
@@ -37,7 +45,9 @@ inmueble → compradores) llaman exactamente a esta función, así que no pueden
 divergir — está prohibido por diseño tener un motor paralelo por catálogo.
 
 Tres reglas gobiernan el archivo entero (están también como comentario en la
-cabecera del fichero):
+cabecera del fichero). Qué criterios evalúa hoy y cuáles son siempre filtro
+duro (operación, precio fuera del 10 %, zonas excluidas, tipo imprescindible
+por defecto): `docs/necesidades-y-matching.md`.
 
 1. **La explicación la produce el motor.** Cada criterio evaluado devuelve
    qué se comparó, con qué valores, y cuánto pesó — nunca un porcentaje suelto
@@ -91,12 +101,14 @@ por tenant, operación y un margen de precio (`PREFILTER_SLACK`, alineado con
 `setMatchStatus()` recalcula el resultado con el motor en el propio servidor
 y lo persiste junto al `breakdownJson` — el cliente nunca puede mandar un
 score y que el histórico se lo crea. Sólo `new | selected | discarded` se
-pueden fijar a mano (`MANUAL_STATUSES`); `sent`/`viewing`/`offered` están
+pueden fijar a mano (`MANUAL_STATUSES`; `new` es «recuperar» un descarte); `sent`/`viewing`/`offered` están
 reservados para cuando exista el envío real (Comunicaciones), la visita
 (Appointment) o la oferta (Offer) — no se simulan con un estado suelto.
 
 Desde FASE 34 esos tres estados **se escriben solos** cuando el hecho ocurre:
 - `sent`: `markMatchSent()`, sólo si el proveedor aceptó el envío (FASE 29).
+  Desde N4 también sólo hacia delante: no retrocede un `viewing`/`offered` ni
+  resucita un `discarded`.
 - `viewing` / `discarded`: `recordVisitOutcome()` vía
   `advancePropertyMatches()`. Una visita con resultado lleva el match de esa
   persona con ese inmueble a `viewing`. Si el resultado es «no le interesa»,
