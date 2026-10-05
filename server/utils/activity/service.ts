@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, lt, or, type SQL } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, lt, or, sql, type SQL } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { now } from '../db'
 import type { PropertyKind } from '../matching/service'
@@ -77,6 +77,10 @@ export const ACTIVITY_EVENT_TYPES = [
   'PROPERTY_SENT',
   'PROPERTY_SHARE_OPENED',
   'CALL_COMPLETED',
+  // Unificar dos contactos duplicados (server/utils/contacts/merge.ts). Su
+  // metadata `mergedContactIds` es lo que hace que la cronología del que se
+  // conserva incluya la de los unificados (ver `contactActivityCond`).
+  'CONTACT_MERGED',
 ] as const
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number]
 
@@ -182,6 +186,20 @@ async function dealActivityCond(db: any, orgId: number, dealId: number): Promise
 }
 
 /**
+ * Condición «actividad de esta persona»: la suya y la de los contactos que
+ * se unificaron en ella. La relación se lee de sus propios eventos
+ * CONTACT_MERGED — esta tabla es append-only, así que al fusionar no se
+ * reescribe ningún evento del duplicado. Subconsulta, no lista de ids: no
+ * crece con el número de contactos unificados (límite de 100 parámetros de D1).
+ */
+export function contactActivityCond(orgId: number, contactId: number): SQL {
+  return or(
+    eq(schema.activities.contactId, contactId),
+    sql`${schema.activities.contactId} in (select cast(j.value as integer) from ${schema.activities} as m, json_each(m.metadata_json, '$.mergedContactIds') as j where m.organization_id = ${orgId} and m.contact_id = ${contactId} and m.event_type = 'CONTACT_MERGED' and json_valid(m.metadata_json))`,
+  ) as SQL
+}
+
+/**
  * Lista la actividad de una entidad, más reciente primero, paginada por
  * cursor (id — monótono con el orden de inserción, más barato que un OFFSET
  * sobre una tabla que crece sin límite). Exige exactamente un filtro: una
@@ -190,7 +208,7 @@ async function dealActivityCond(db: any, orgId: number, dealId: number): Promise
 export async function listActivity(db: any, orgId: number, filter: ListActivityFilter, opts: { before?: number; limit?: number } = {}): Promise<{ rows: ActivityRow[]; nextBefore: number | null }> {
   const limit = Math.max(1, Math.min(opts.limit ?? 30, 100))
   const conditions = [eq(schema.activities.organizationId, orgId)]
-  if (filter.contactId) conditions.push(eq(schema.activities.contactId, filter.contactId))
+  if (filter.contactId) conditions.push(contactActivityCond(orgId, filter.contactId))
   if (filter.leadId) conditions.push(eq(schema.activities.leadId, filter.leadId))
   if (filter.propertyId) {
     conditions.push(eq(schema.activities.propertyId, filter.propertyId))

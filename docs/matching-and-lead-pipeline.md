@@ -197,13 +197,13 @@ fichas:
 
 - `previewMerge()` (`server/utils/contacts/merge.ts`) enseña los dos
   registros completos, en qué campos (`name`/`email`/`phone`/`whatsapp`)
-  difieren, y cuántas filas de `buyer_requirements`/`leads`/`clients`
-  cuelgan del duplicado — nada se toca todavía.
-- `mergeContacts()` reasigna esas tres relaciones al `masterId` (nunca las
-  borra ni las copia: `UPDATE ... SET contact_id = master`), y **archiva**
-  el duplicado (`status: 'archived'`, `deletedAt`) — nunca un `DELETE`. Un
-  merge erróneo se puede auditar después porque la fila del duplicado sigue
-  existiendo.
+  difieren, cuántas filas de cada relación cuelgan del duplicado
+  (`relations`) y si algo impide fusionar (`blockers`) — nada se toca todavía.
+- `mergeContacts()` reasigna al `masterId` todo lo que cuelga del duplicado
+  (detalle y criterio de cada tabla en `docs/crm-contacto-360.md`, sección
+  «Unificar duplicados») y **archiva** el duplicado (`status: 'archived'`,
+  `deletedAt`) — nunca un `DELETE`. Un merge erróneo se puede auditar
+  después porque la fila del duplicado sigue existiendo.
 - `fields` resuelve los conflictos campo a campo. Un campo ausente de
   `fields` conserva el valor del superviviente si ya tenía uno, o toma el
   del duplicado sólo si el superviviente lo tenía vacío — nunca se pierde un
@@ -213,11 +213,12 @@ fichas:
   sobre el patch habría dejado a NULL la normalización de cualquier campo no
   tocado explícitamente (bug real, encontrado y corregido durante el
   desarrollo de esta fase, nunca llegó a desplegarse).
-- Matches ya persistidos (`property_matches`/`developer_property_matches`)
-  guardan el `contactId` que tenían en el momento en que se crearon — son
-  histórico de una decisión comercial tomada entonces y no se reescriben al
-  fusionar; los matches nuevos que se generen después ya salen con el
-  `contactId` correcto porque `buyer_requirements.contactId` sí se reasignó.
+- Matches ya persistidos (`property_matches`/`developer_property_matches`):
+  su `contactId` es la copia del de su necesidad, así que pasa al
+  superviviente junto con ella. Estado, puntuación y motivo de descarte —la
+  decisión comercial que se tomó— no cambian. (Antes no se movía; con eso
+  una visita u oferta del superviviente no hacía avanzar esos matches,
+  porque `advancePropertyMatches` los busca por contacto.)
 
 ## Qué queda fuera a propósito (para más adelante)
 

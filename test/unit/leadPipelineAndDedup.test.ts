@@ -246,7 +246,8 @@ describe('FASE 14 — Deduplicación segura de Contact (migración 0069)', () =>
 
     const preview = await previewMerge(ev(db), fixture.orgId, master.id, duplicate.id)
     expect(preview.conflicts).toEqual([{ field: 'email', masterValue: 'elena@example.com', duplicateValue: 'elena.soto@example.com' }])
-    expect(preview.relations).toEqual({ buyerRequirements: 0, leads: 0, clients: 0 })
+    expect(preview.relations).toMatchObject({ buyerRequirements: 0, leads: 0, clients: 0, propertyContacts: 0, offers: 0 })
+    expect(preview.blockers).toEqual([])
   })
 
   it('no se puede fusionar un contacto consigo mismo, ni uno que no existe en el tenant', async () => {

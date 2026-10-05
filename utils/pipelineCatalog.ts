@@ -169,6 +169,7 @@ export const ACTIVITY_EVENT_LABELS: Record<string, string> = {
   PROPERTY_SENT: 'Ficha enviada por WhatsApp',
   PROPERTY_SHARE_OPENED: 'El cliente abrió la ficha enviada',
   CALL_COMPLETED: 'Llamada atendida',
+  CONTACT_MERGED: 'Contactos unificados',
 }
 
 /** Grupos para filtrar una cronología (chips del componente ActivityTimeline). */
@@ -180,6 +181,7 @@ export const ACTIVITY_GROUPS: { key: string; label: string; types: string[] }[] 
   { key: 'ofertas', label: 'Ofertas', types: ['OFFER_CREATED', 'OFFER_SUBMITTED', 'OFFER_COUNTERED', 'OFFER_RESUBMITTED', 'OFFER_ACCEPTED', 'OFFER_REJECTED', 'OFFER_WITHDRAWN', 'OFFER_EXPIRED'] },
   { key: 'operacion', label: 'Operación', types: ['DEAL_CREATED', 'DEAL_STAGE_CHANGED', 'DEAL_CLOSED', 'DEAL_CANCELLED', 'DEAL_RECORD_LINKED', 'DEAL_RECORD_UNLINKED'] },
   { key: 'comunicaciones', label: 'Comunicaciones', types: ['PROPERTY_SENT', 'PROPERTY_SHARE_OPENED', 'CALL_COMPLETED'] },
+  { key: 'contacto', label: 'Contacto', types: ['CONTACT_MERGED'] },
 ]
 
 export const ACTIVITY_ACTOR_LABELS: Record<string, string> = { user: 'Usuario', contact: 'Cliente', system: 'Sistema', ai: 'IA' }
