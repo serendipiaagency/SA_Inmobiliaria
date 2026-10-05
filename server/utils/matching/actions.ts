@@ -1,4 +1,4 @@
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, desc, eq, isNull, notInArray } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema } from '../db'
 import { recordActivity } from '../activity/service'
@@ -169,11 +169,22 @@ export async function createVisitFromMatch(event: H3Event, orgId: number, input:
     throw new MatchStatusError(`${contact.name} no tiene email ni teléfono: añádelos en su ficha antes de agendarle una visita.`)
   }
 
+  // El lead abierto más reciente de esa persona, si lo tiene: así la visita
+  // cuenta como su primera cita (SLA) y aparece en la ficha del lead.
+  const [openLead] = await db
+    .select({ id: schema.leads.id })
+    .from(schema.leads)
+    .where(and(eq(schema.leads.organizationId, orgId), eq(schema.leads.contactId, contact.id), isNull(schema.leads.deletedAt), notInArray(schema.leads.status, ['won', 'lost'])))
+    .orderBy(desc(schema.leads.id))
+    .limit(1)
+
   const visit = await createAdminAppointment(db, orgId, {
     clientName: contact.name,
     clientEmail: contact.email || null,
     clientPhone: phone,
     contactId: contact.id,
+    leadId: openLead?.id ?? null,
+    createdBy: opts.userId ?? null,
     agentId: input.agentId,
     propertyId: input.propertyId,
     propertyKind: input.propertyKind,
