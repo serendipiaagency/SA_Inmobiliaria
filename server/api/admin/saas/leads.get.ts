@@ -65,7 +65,9 @@ export default defineEventHandler(async (event) => {
   const idsParam = String(q.ids || '').trim()
   if (idsParam) {
     const idList = idsParam.split(',').map((s) => parseInt(s.trim(), 10)).filter((n) => Number.isInteger(n) && n > 0)
-    if (idList.length) { where.push(`id IN (${idList.map(() => '?').join(',')})`); binds.push(...idList) }
+    // Un solo parámetro JSON en vez de un `?` por id: D1 no admite más de 100
+    // parámetros por consulta, y una selección puede tener hasta 200 leads.
+    if (idList.length) { where.push('id IN (SELECT value FROM json_each(?))'); binds.push(JSON.stringify(idList)) }
   }
   const clause = `WHERE ${where.join(' AND ')}`
 

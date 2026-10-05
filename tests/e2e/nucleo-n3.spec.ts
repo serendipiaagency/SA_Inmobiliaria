@@ -65,6 +65,15 @@ test.describe('N3 — leads: alta, ficha, historial y enrutado', () => {
     expect((await b.post('/api/admin/leads', { data: { name: 'X', email: `b-${RUN}@example.com`, source: 'web', mergeIntoLeadId: id } })).status()).toBe(404)
   })
 
+  test('exportar una selección grande de leads no choca con el límite de parámetros de D1', async () => {
+    const one = await (await a.post('/api/admin/leads', { data: { name: `Export N3 ${RUN}`, email: `export-${RUN}@example.com`, source: 'web' } })).json()
+    // 150 ids inexistentes + el real: con un `?` por id serían más de 100 parámetros.
+    const ids = [...Array.from({ length: 150 }, (_, i) => 900000000 + i), one.id].join(',')
+    const res = await a.get('/api/admin/saas/leads', { params: { format: 'csv', ids } })
+    expect(res.ok(), await res.text()).toBeTruthy()
+    expect(await res.text()).toContain(`Export N3 ${RUN}`)
+  })
+
   test('reglas de enrutado: equipo ajeno 404, horario mal formado 422, regla de equipo con horario válida', async () => {
     const teamB = await b.post('/api/admin/teams', { data: { name: `Equipo B N3 ${RUN}` } })
     const teamBId = (await teamB.json()).id
