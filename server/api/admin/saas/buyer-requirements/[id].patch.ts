@@ -15,7 +15,8 @@ export default defineEventHandler(async (event) => {
     return updated
   } catch (err) {
     if (err instanceof BuyerRequirementValidationError) {
-      throw createError({ statusCode: 422, statusMessage: err.message })
+      // 422 para un dato inválido; 404 para un contacto que no es de esta agencia.
+      throw createError({ statusCode: err.statusCode, statusMessage: err.message })
     }
     throw err
   }

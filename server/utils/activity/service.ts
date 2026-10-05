@@ -33,6 +33,8 @@ export const ACTIVITY_EVENT_TYPES = [
   'BUYER_REQUIREMENT_CREATED',
   'MATCH_SELECTED',
   'MATCH_DISCARDED',
+  // Núcleo N4: «Crear selección» desde una compatibilidad (server/utils/matching/actions.ts).
+  'PROPERTY_SELECTION_CREATED',
   'APPOINTMENT_CREATED',
   'APPOINTMENT_RESCHEDULED',
   'APPOINTMENT_CANCELLED',

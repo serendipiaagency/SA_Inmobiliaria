@@ -1,6 +1,6 @@
 import { createError } from 'h3'
 import * as schema from '../../db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { now } from '../db'
 import { hasOverlappingVisit, shiftDateTime } from './availability'
 import { generateManagementToken } from './managementToken'
@@ -28,6 +28,12 @@ export interface CreateAdminAppointmentInput {
   leadId?: number | null
   /** FASE 24: cuando esta cita es de un Deal (notaría/firma) — aparece en Calendar automáticamente, sin mecanismo aparte. */
   dealId?: number | null
+  /**
+   * Núcleo N4: la persona (Contact) de la cita cuando se crea desde una
+   * compatibilidad. Tiene que ser de esta organización; queda en
+   * `visits.contact_id`, que es lo que lee la pestaña «Visitas» de su ficha.
+   */
+  contactId?: number | null
 }
 
 /**
@@ -55,6 +61,7 @@ export async function createAdminAppointment(db: any, orgId: number, input: Crea
   // El lead tiene que ser de esta agencia: un id ajeno dejaría la cita
   // colgando de un lead que nadie de aquí puede ver.
   if (input.leadId) await assertLeadInOrg(db, orgId, input.leadId)
+  if (input.contactId) await assertContactInOrg(db, orgId, input.contactId)
 
   let propertyName: string | null = null
   const propertyKind: PropertyKind | null = input.propertyId ? input.propertyKind || 'developer' : null
@@ -109,13 +116,14 @@ export async function createAdminAppointment(db: any, orgId: number, input: Crea
       type,
       leadId: input.leadId || null,
       dealId: input.dealId || null,
+      contactId: input.contactId || null,
       managementToken: generateManagementToken(),
       createdAt: nowTs,
     })
     .returning()
 
-  let contactId: number | null = null
-  if (input.leadId) {
+  let contactId: number | null = input.contactId || null
+  if (!contactId && input.leadId) {
     const leadRows = await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(and(eq(schema.leads.id, input.leadId), eq(schema.leads.organizationId, orgId))).limit(1)
     contactId = leadRows[0]?.contactId ?? null
   }
@@ -143,4 +151,14 @@ export async function createAdminAppointment(db: any, orgId: number, input: Crea
 export async function assertLeadInOrg(db: any, orgId: number, leadId: number) {
   const rows = await db.select({ id: schema.leads.id }).from(schema.leads).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId))).limit(1)
   if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Lead no encontrado' })
+}
+
+/** 404 si el contacto no existe (o está archivado por una fusión) en esta agencia. */
+export async function assertContactInOrg(db: any, orgId: number, contactId: number) {
+  const rows = await db
+    .select({ id: schema.contacts.id })
+    .from(schema.contacts)
+    .where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.organizationId, orgId), isNull(schema.contacts.deletedAt)))
+    .limit(1)
+  if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Contacto no encontrado' })
 }

@@ -153,7 +153,9 @@
                      pie: quien tiene lectura debe poder seguir recorriendo los
                      pasos con Anterior/Siguiente, que quedarían muertos dentro
                      de un fieldset deshabilitado. -->
-                <fieldset class="block border-t border-line px-6 py-6 sm:px-8" :disabled="!canEdit">
+                <!-- «Compradores compatibles» no edita la ficha: no se deshabilita
+                     en modo consulta (sus acciones ya miran el permiso de CRM). -->
+                <fieldset class="block border-t border-line px-6 py-6 sm:px-8" :disabled="!canEdit && s.kind !== 'buyer-matches'">
                   <div v-if="s.kind === 'fields'" class="space-y-7">
                     <div v-for="(g, gi) in groupFields(s.fields)" :key="gi">
                       <!-- Un grupo de un solo campo que se llama igual que él
@@ -228,6 +230,13 @@
                   <SocialLinksManager v-else-if="s.kind === 'social'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" />
                   <PropertyRoomManager v-else-if="s.kind === 'rooms'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" />
                   <PropertyContactsManager v-else-if="s.kind === 'owners'" :parent-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" :can-edit="canEdit" />
+                  <PropertyBuyerMatches
+                    v-else-if="s.kind === 'buyer-matches'"
+                    :parent-id="recordId"
+                    :kind="resource === 'developer-properties' ? 'developer' : 'agent'"
+                    :property-name="headerTitle"
+                    :active="activeKey === s.key"
+                  />
                 </fieldset>
 
                 <PropertyEditorFooter
@@ -282,6 +291,7 @@ import ChildCardManager from './ChildCardManager.vue'
 import SocialLinksManager from './SocialLinksManager.vue'
 import PropertyRoomManager from './PropertyRoomManager.vue'
 import PropertyContactsManager from './PropertyContactsManager.vue'
+import PropertyBuyerMatches from './PropertyBuyerMatches.vue'
 import PropertyCommunications from './PropertyCommunications.vue'
 import PropertyPriceHistory from './PropertyPriceHistory.vue'
 

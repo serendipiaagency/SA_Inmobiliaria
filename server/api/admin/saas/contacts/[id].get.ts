@@ -4,6 +4,7 @@ import { useDb, schema } from '../../../../utils/db'
 import { listBuyerRequirements, summarizeRequirement } from '../../../../utils/buyerRequirements/service'
 import { listPersonCommunications } from '../../../../utils/comms/related'
 import { listContactProperties, listContactRoles } from '../../../../utils/contacts/crm'
+import { listPropertySelectionsWithItems } from '../../../../utils/selections/service'
 import { DOCUMENT_VISIBILITY_LABELS, PROPERTY_DOCUMENT_TYPE_LABELS } from '../../../../../utils/propertySheet'
 
 /**
@@ -130,6 +131,10 @@ export default defineEventHandler(async (event) => {
       ).map((d: any) => ({ ...d, docTypeLabel: PROPERTY_DOCUMENT_TYPE_LABELS[d.docType] || d.docType, visibilityLabel: DOCUMENT_VISIBILITY_LABELS[d.visibility] || d.visibility }))
     : []
 
+  // Selecciones de propiedades preparadas para esta persona (INMO o
+  // «Crear selección» desde una compatibilidad, núcleo N4).
+  const selections = await listPropertySelectionsWithItems(db, orgId, id)
+
   return {
     contact: { ...contact, roles, commercialName: commercial?.name ?? null, officeName: office?.name ?? null, score, lastContactAt },
     requirements: requirements.map((r) => ({ ...r, summary: summarizeRequirement(r) })),
@@ -139,5 +144,6 @@ export default defineEventHandler(async (event) => {
     properties,
     visits,
     documents,
+    selections,
   }
 })

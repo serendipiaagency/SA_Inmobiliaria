@@ -133,20 +133,22 @@ La ficha es `contactos/[id]` y hoy tiene Necesidades, Leads y Comunicaciones. **
 
 ### FASE 10: perfil del comprador
 
+> Actualizado tras el bloque N4 (detalle en `docs/necesidades-y-matching.md`).
+
 - **OK:** la entidad completa en base de datos y API.
-- **PARCIAL:**
-  - Sin interfaz para m² máximos, baños mínimos, zonas excluidas, radio, estado, obra nueva / 2ª mano / reformado, fecha deseada y financiación.
-  - La importancia (imprescindible / preferible / indiferente) solo se puede fijar en 5 características.
-  - Una necesidad ya creada no se puede editar.
-  - El motor de matching no evalúa el estado del inmueble.
+- **OK (N4):** editor completo para crear y **editar** desde la pestaña «Necesidades» del contacto: operación, los 15 tipos del catálogo común, precio mín./máx., m² mín./máx., dormitorios y baños mínimos, zonas deseadas y excluidas estructuradas, radio (centro en mapa + km), estado, obra nueva / 2ª mano / reformado, terraza, garaje, ascensor, jardín, piscina (y accesible, mascotas, aire acondicionado), fecha deseada, hipoteca y financiación, presupuesto validado (con autor y fecha) y urgencia.
+- **OK (N4):** importancia imprescindible / preferible / indiferente en **cada** preferencia (tipo, precio —sin «indiferente»—, superficie, dormitorios, baños, zona, estado, obra y cada característica). Siempre filtro duro, documentado en el editor y en la ayuda: operación, precio fuera del 10 %, zonas excluidas y el tipo mientras sea imprescindible (lo es por defecto).
+- **OK (N4):** el motor evalúa el estado del inmueble (`conditionPref` frente a `condition`) y «reformado» desde la ficha ampliada, con su línea ✓/△/✕/? — sin dato, «no consta».
+- **Pendiente fuera de N4:** las zonas son texto estructurado (distrito, localidad, CP, urbanización); no hay selector del catálogo de comunidades (`communityId`) ni de localizaciones.
 
 ### FASE 11: matching
 
-- **OK:** en los dos sentidos, con puntuación explicable (✓/△/✕) y descartar.
-- **PARCIAL:**
-  - Enviar propiedad: solo desde Compatibilidades.
-  - Crear selección y crear visita: solo desde INMO.
-- **FALTA:** matching en la ficha de propiedad.
+> Actualizado tras el bloque N4.
+
+- **OK:** en los dos sentidos, con puntuación explicable (✓/△/✕/?).
+- **OK (N4):** «Compradores compatibles» en la ficha de propiedad de los dos catálogos (paso del editor).
+- **OK (N4):** las cuatro acciones —enviar propiedad, crear selección, crear visita, descartar (con motivo, y recuperar)— desde la ficha de propiedad, Compatibilidades y la pestaña «Necesidades» del contacto (que además permite elegir varias para una selección). Enviar usa el Centro de Comunicaciones (nunca simulado; sin teléfono o sin WhatsApp conectado lo dice); selección y visita reutilizan el servicio de INMO y `createAdminAppointment`; todo validado por organización (404 lo ajeno).
+- **Pendiente fuera de N4:** no hay vista propia de una selección (se listan en la ficha del contacto con sus propiedades, pero no se reordenan ni se envían como conjunto).
 
 ### FASE 12: leads
 

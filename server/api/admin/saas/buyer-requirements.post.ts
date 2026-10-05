@@ -14,7 +14,8 @@ export default defineEventHandler(async (event) => {
     // Las reglas del dominio se traducen a 422 con el mensaje real, para que
     // el formulario pueda enseñárselo a quien lo rellena.
     if (err instanceof BuyerRequirementValidationError) {
-      throw createError({ statusCode: 422, statusMessage: err.message })
+      // 422 para un dato inválido; 404 para un contacto que no es de esta agencia.
+      throw createError({ statusCode: err.statusCode, statusMessage: err.message })
     }
     throw err
   }

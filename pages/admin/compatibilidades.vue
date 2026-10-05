@@ -76,46 +76,28 @@
                 <span v-if="m.contact?.phone"> · {{ m.contact.phone }}</span>
               </p>
             </div>
-            <div class="flex shrink-0 gap-2 text-xs">
-              <button
-                type="button"
-                class="rounded-lg border border-line px-2 py-1 font-medium hover:bg-stone-50"
-                :class="m.persisted?.status === 'selected' ? 'border-emerald-300 text-emerald-700' : ''"
-                data-testid="match-select"
-                @click="decide(m, 'selected')"
-              >
-                {{ m.persisted?.status === 'selected' ? 'Seleccionado' : 'Seleccionar' }}
-              </button>
-              <button
-                type="button"
-                class="rounded-lg border border-line px-2 py-1 font-medium hover:bg-stone-50"
-                :class="m.persisted?.status === 'discarded' ? 'border-rose-300 text-rose-700' : ''"
-                @click="decide(m, 'discarded')"
-              >
-                {{ m.persisted?.status === 'discarded' ? 'Descartado' : 'Descartar' }}
-              </button>
-              <button
-                v-if="m.persisted?.status === 'selected' && m.contact"
-                type="button"
-                class="rounded-lg border border-line px-2 py-1 font-medium hover:bg-stone-50"
-                @click="openOfferForm(m)"
-              >
-                Crear oferta
-              </button>
-              <button
-                v-if="(m.persisted?.status === 'selected' || m.sent) && m.contact?.phone"
-                type="button"
-                class="rounded-lg border border-line px-2 py-1 font-medium hover:bg-stone-50"
-                :class="m.sent ? 'border-emerald-300 text-emerald-700' : ''"
-                :disabled="sendingPropertyFor === m"
-                data-testid="match-send-property"
-                @click="sendPropertyToMatch(m)"
-              >
-                {{ sendingPropertyFor === m ? 'Enviando…' : m.sent ? 'Propiedad enviada' : 'Enviar propiedad' }}
-              </button>
-            </div>
+            <button
+              v-if="canEdit && m.contact && ['selected', 'sent', 'viewing'].includes(m.persisted?.status)"
+              type="button"
+              class="shrink-0 rounded-lg border border-line px-2 py-1 text-xs font-medium hover:bg-stone-50"
+              @click="openOfferForm(m)"
+            >
+              Crear oferta
+            </button>
           </div>
           <AdminMatchBreakdown :result="m.result" class="mt-3 border-t border-line pt-3" />
+          <p v-if="m.persisted?.discardedReason" class="mt-1 text-[11px] text-stone-400">Motivo del descarte: {{ m.persisted.discardedReason }}</p>
+          <MatchActions
+            v-if="propertyId && propertyKind"
+            class="mt-3"
+            :requirement-id="m.requirement.id"
+            :requirement-title="m.requirement.title"
+            :contact="m.contact"
+            :property="{ id: propertyId, kind: propertyKind, name: currentName }"
+            :persisted="m.persisted"
+            :default-agent-id="m.requirement.assignedCommercialId"
+            @update:persisted="(v) => (m.persisted = v)"
+          />
           <div v-if="offerFormFor === m" class="mt-3 flex items-center gap-2 border-t border-line pt-3">
             <input v-model.number="offerAmount" type="number" min="1" step="1" class="cfg-input" placeholder="Importe de la oferta (€)" >
             <button type="button" class="btn-primary shrink-0 !px-3 !py-1.5 text-xs" :disabled="!(offerAmount! > 0) || creatingOffer" @click="createOfferFromMatch(m)">
@@ -130,11 +112,15 @@
 </template>
 
 <script setup lang="ts">
+import MatchActions from '~/components/admin/matching/MatchActions.vue'
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Compatibilidades — M&M Real Estate' })
 
 const dt = useDash()
 const toast = useToast()
+const { canWrite } = useAdminPermissions()
+const canEdit = computed(() => canWrite('crm'))
 
 /** `"developer:12"` / `"agent:7"` — un único v-model para un selector con dos catálogos. */
 const selected = ref<string | null>(null)
@@ -154,6 +140,13 @@ const current = computed(() => {
   if (propertyKind.value === 'developer') return developerProperties.value.find((p) => p.id === propertyId.value) || null
   if (propertyKind.value === 'agent') return agentProperties.value.find((p) => p.id === propertyId.value) || null
   return null
+})
+
+/** El nombre con el que se enseña (y se envía) el inmueble elegido. */
+const currentName = computed(() => {
+  const p = current.value
+  if (!p) return propertyId.value ? `Inmueble #${propertyId.value}` : ''
+  return p.name || p.reference || p.location || `Inmueble #${p.id}`
 })
 
 function money(n: number) {
@@ -220,49 +213,10 @@ async function createOfferFromMatch(m: any) {
   }
 }
 
-// --- Enviar propiedad desde un match seleccionado (FASE 29 §126-127) ---
-// "Enviar propiedad" en Matching ahora pasa por el Centro de Comunicaciones
-// — nunca un envío simulado: PropertyMatch sólo pasa a `sent` cuando
-// sendOutbound() confirma que el mensaje salió de verdad (ver
-// share-property.post.ts#markMatchSent).
-const sendingPropertyFor = ref<any>(null)
-async function sendPropertyToMatch(m: any) {
-  if (!propertyId.value || !propertyKind.value || !m.contact?.phone) return
-  sendingPropertyFor.value = m
-  try {
-    const conv = await $fetch<{ id: number }>('/api/admin/comms/conversations', { method: 'POST', body: { phone: m.contact.phone } })
-    await $fetch(`/api/admin/comms/conversations/${conv.id}/share-property`, {
-      method: 'POST',
-      body: { propertyId: propertyId.value, propertyKind: propertyKind.value, buyerRequirementId: m.requirement.id },
-    })
-    m.sent = true
-    toast.success('Propiedad enviada por WhatsApp')
-  } catch (err: any) {
-    const data = err?.data?.data
-    if (err?.statusCode === 409 && data?.clickToChatUrl) {
-      window.open(data.clickToChatUrl, '_blank', 'noopener')
-      toast.info('No hay ningún número de WhatsApp conectado: se abre la app de WhatsApp.', 7000)
-    } else {
-      toast.error(err?.data?.statusMessage || 'No se pudo enviar la propiedad')
-    }
-  } finally {
-    sendingPropertyFor.value = null
-  }
-}
-
-async function decide(m: any, status: 'selected' | 'discarded') {
-  let discardedReason: string | undefined
-  if (status === 'discarded') discardedReason = window.prompt('Motivo del descarte (opcional)') || undefined
-  try {
-    const saved = await $fetch<any>('/api/admin/saas/matching/matches', {
-      method: 'POST',
-      body: { buyerRequirementId: m.requirement.id, propertyId: propertyId.value, propertyKind: propertyKind.value, status, discardedReason },
-    })
-    m.persisted = { id: saved.id, status: saved.status, discardedReason: saved.discardedReason }
-  } catch (err: any) {
-    toast.error(err?.data?.statusMessage || 'No se pudo guardar la decisión')
-  }
-}
+// Seleccionar, enviar propiedad (Centro de Comunicaciones, sólo «Enviado»
+// cuando el envío se confirma), crear selección, crear visita y descartar
+// viven en components/admin/matching/MatchActions.vue: las mismas acciones
+// que la ficha de propiedad y la pestaña «Necesidades» del contacto.
 </script>
 
 <style scoped>

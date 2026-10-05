@@ -1,10 +1,11 @@
 import { and, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, now } from '../db'
-import { evaluateMatch, RULES_VERSION, type MatchResult, type MatchableProperty, type MatchableRequirement } from './engine'
+import { evaluateMatch, importanceOf, RULES_VERSION, type MatchResult, type MatchableProperty, type MatchableRequirement } from './engine'
 import type { ZoneRef } from '../buyerRequirements/service'
 import { recordActivity } from '../activity/service'
 import { livePropertyCond } from '../properties/trash'
+import { selectInChunks } from '../sqlChunks'
 
 /**
  * Las dos direcciones del matching (FASE 11), sobre el mismo motor.
@@ -104,10 +105,14 @@ function toMatchable(row: typeof schema.buyerRequirements.$inferSelect, criteria
 async function criteriaFor(event: H3Event, orgId: number, requirementIds: number[]) {
   const db = useDb(event)
   if (!requirementIds.length) return new Map<number, { criterionType: string; importance: string; valueBool: number | null }[]>()
-  const rows = await db
-    .select()
-    .from(schema.buyerRequirementCriteria)
-    .where(and(eq(schema.buyerRequirementCriteria.organizationId, orgId), inArray(schema.buyerRequirementCriteria.buyerRequirementId, requirementIds)))
+  // Por trozos: Inmueble → compradores puede llegar con cientos de necesidades
+  // candidatas y D1 no admite más de 100 parámetros por consulta.
+  const rows = await selectInChunks([...new Set(requirementIds)], (part) =>
+    db
+      .select()
+      .from(schema.buyerRequirementCriteria)
+      .where(and(eq(schema.buyerRequirementCriteria.organizationId, orgId), inArray(schema.buyerRequirementCriteria.buyerRequirementId, part))),
+  )
 
   const byRequirement = new Map<number, { criterionType: string; importance: string; valueBool: number | null }[]>()
   for (const r of rows) {
@@ -126,6 +131,28 @@ export interface ScoredProperty {
   persisted: { id: number; status: string; discardedReason: string | null } | null
 }
 
+/**
+ * Los datos de la ficha ampliada (`property_details`) que el motor lee:
+ * reformado / año de reforma (obra «reformado») y aire acondicionado. Se
+ * añaden a la fila del catálogo sin pisar nada; una propiedad sin ficha
+ * ampliada se queda con esos datos a NULL, que el motor lee como «no consta».
+ */
+export async function withPropertyDetails<T extends Record<string, any>>(db: any, orgId: number, kind: PropertyKind, rows: T[]): Promise<(T & MatchableDetails)[]> {
+  if (!rows.length) return rows as (T & MatchableDetails)[]
+  const D = schema.propertyDetails
+  // Por trozos: hasta MAX_CANDIDATES ids, y D1 no admite más de 100 parámetros por consulta.
+  const details = await selectInChunks<number, any>([...new Set(rows.map((r) => Number(r.id)))], (part) =>
+    db
+      .select({ propertyId: D.propertyId, isRenovated: D.isRenovated, renovationYear: D.renovationYear, hasAirConditioning: D.hasAirConditioning })
+      .from(D)
+      .where(and(eq(D.organizationId, orgId), eq(D.propertyKind, kind), inArray(D.propertyId, part))),
+  )
+  const byProperty = new Map<number, MatchableDetails>(details.map((d: any) => [d.propertyId, { isRenovated: d.isRenovated, renovationYear: d.renovationYear, hasAirConditioning: d.hasAirConditioning }]))
+  return rows.map((r) => ({ ...r, ...(byProperty.get(Number(r.id)) || { isRenovated: null, renovationYear: null, hasAirConditioning: null }) }))
+}
+
+type MatchableDetails = Pick<MatchableProperty, 'isRenovated' | 'renovationYear' | 'hasAirConditioning'>
+
 /** Candidatos con margen de precio de un catálogo, ya recortados en SQL. */
 async function candidatesInCatalog(event: H3Event, orgId: number, kind: PropertyKind, matchable: MatchableRequirement) {
   const db = useDb(event)
@@ -139,7 +166,11 @@ async function candidatesInCatalog(event: H3Event, orgId: number, kind: Property
   if (kind === 'agent') filters.push(eq(P.status, 'available'))
 
   filters.push(or(isNull(P.transactionType), eq(P.transactionType, matchable.operation))!)
-  if (matchable.propertyTypes?.length) {
+  // El tipo sólo recorta en SQL cuando es imprescindible (lo es por defecto).
+  // Si la necesidad lo bajó a preferible o indiferente, los demás tipos tienen
+  // que llegar al motor para puntuar (o no) — si no, esa importancia sería
+  // mentira en esta dirección y verdad en la contraria.
+  if (matchable.propertyTypes?.length && importanceOf(matchable, 'propertyType') === 'required') {
     filters.push(or(isNull(P.propertyType), inArray(P.propertyType, matchable.propertyTypes))!)
   }
   if (matchable.priceMax != null) {
@@ -150,7 +181,7 @@ async function candidatesInCatalog(event: H3Event, orgId: number, kind: Property
   }
 
   const candidates = await db.select().from(P).where(and(...filters)).limit(MAX_CANDIDATES)
-  return candidates as (MatchableProperty & { slug: string | null; mainImage: string | null; location: string | null; name: string | null })[]
+  return (await withPropertyDetails(db, orgId, kind, candidates)) as (MatchableProperty & { slug: string | null; mainImage: string | null; location: string | null; name: string | null })[]
 }
 
 async function persistedMatchesForRequirement(event: H3Event, orgId: number, kind: PropertyKind, requirementId: number) {
@@ -213,7 +244,7 @@ export async function findPropertiesForRequirement(
 
 export interface ScoredRequirement {
   requirement: MatchableRequirement & { title: string; contactId: number; assignedCommercialId: number | null; status: string }
-  contact: { id: number; name: string; email: string | null; phone: string | null } | null
+  contact: { id: number; name: string; email: string | null; phone: string | null; whatsapp: string | null } | null
   result: MatchResult
   persisted: { id: number; status: string; discardedReason: string | null } | null
 }
@@ -236,8 +267,9 @@ export async function findRequirementsForProperty(
   const { property: P, match: M } = tablesFor(kind)
 
   // En la papelera: no se buscan compradores para ella (el endpoint responde 404).
-  const property = (await db.select().from(P).where(and(eq(P.id, propertyId), eq(P.organizationId, orgId), livePropertyCond(P))).limit(1))[0]
-  if (!property) return null
+  const row = (await db.select().from(P).where(and(eq(P.id, propertyId), eq(P.organizationId, orgId), livePropertyCond(P))).limit(1))[0]
+  if (!row) return null
+  const [property] = await withPropertyDetails(db, orgId, kind, [row])
 
   const filters = [
     eq(schema.buyerRequirements.organizationId, orgId),
@@ -261,12 +293,12 @@ export async function findRequirementsForProperty(
   const criteriaMap = await criteriaFor(event, orgId, candidates.map((c) => c.id))
 
   const contactIds = [...new Set(candidates.map((c) => c.contactId))]
-  const contacts = contactIds.length
-    ? await db
-        .select({ id: schema.contacts.id, name: schema.contacts.name, email: schema.contacts.email, phone: schema.contacts.phone })
-        .from(schema.contacts)
-        .where(and(eq(schema.contacts.organizationId, orgId), inArray(schema.contacts.id, contactIds)))
-    : []
+  const contacts = await selectInChunks(contactIds, (part) =>
+    db
+      .select({ id: schema.contacts.id, name: schema.contacts.name, email: schema.contacts.email, phone: schema.contacts.phone, whatsapp: schema.contacts.whatsapp })
+      .from(schema.contacts)
+      .where(and(eq(schema.contacts.organizationId, orgId), inArray(schema.contacts.id, part))),
+  )
   const byContact = new Map(contacts.map((c) => [c.id, c]))
 
   const persisted = await db.select().from(M).where(and(eq(M.organizationId, orgId), eq(M.propertyId, propertyId)))
@@ -307,7 +339,19 @@ function sortByScore(list: { result: MatchResult; property?: { id: number }; req
   })
 }
 
-export class MatchStatusError extends Error {}
+/**
+ * Error de una decisión sobre un match. `statusCode` 404 cuando la necesidad
+ * o el inmueble no existen en esta organización (a otra agencia se le
+ * responde igual que si no existieran) y 422 cuando la decisión no es válida.
+ */
+export class MatchStatusError extends Error {
+  constructor(
+    message: string,
+    readonly statusCode: 404 | 422 = 422,
+  ) {
+    super(message)
+  }
+}
 
 /**
  * El cuerpo real de guardar la decisión sobre un par (necesidad, inmueble) —
@@ -333,13 +377,14 @@ async function upsertMatchStatus(
       .where(and(eq(schema.buyerRequirements.id, input.buyerRequirementId), eq(schema.buyerRequirements.organizationId, orgId), isNull(schema.buyerRequirements.deletedAt)))
       .limit(1)
   )[0]
-  if (!requirement) throw new MatchStatusError('Necesidad no encontrada')
+  if (!requirement) throw new MatchStatusError('Necesidad no encontrada', 404)
 
-  const property = (await db.select().from(P).where(and(eq(P.id, input.propertyId), eq(P.organizationId, orgId))).limit(1))[0]
-  if (!property) throw new MatchStatusError('Inmueble no encontrado')
+  const row = (await db.select().from(P).where(and(eq(P.id, input.propertyId), eq(P.organizationId, orgId))).limit(1))[0]
+  if (!row) throw new MatchStatusError('Inmueble no encontrado', 404)
   // Una decisión nueva (seleccionar, descartar, marcar enviado) sobre una
   // propiedad en la papelera no tiene sentido: primero se restaura.
-  if (property.deletedAt) throw new MatchStatusError('El inmueble está en la papelera: restáuralo antes de decidir sobre este match.')
+  if (row.deletedAt) throw new MatchStatusError('El inmueble está en la papelera: restáuralo antes de decidir sobre este match.')
+  const [property] = await withPropertyDetails(db, orgId, input.propertyKind, [row])
 
   const criteriaMap = await criteriaFor(event, orgId, [requirement.id])
   const result = evaluateMatch(property as MatchableProperty, toMatchable(requirement, criteriaMap.get(requirement.id) || []))
@@ -475,6 +520,18 @@ export async function markMatchSent(
   input: { buyerRequirementId: number; propertyId: number; propertyKind: PropertyKind },
   opts: { userId?: number | null } = {},
 ) {
+  // Sólo hacia delante (núcleo N4: «Enviar propiedad» se puede pulsar desde
+  // cualquier vista del matching): volver a mandar un inmueble ya visitado u
+  // ofertado no devuelve el match a «enviado», y un descarte —decisión de
+  // una persona— no se resucita por un envío.
+  const db = useDb(event)
+  const { match: M } = tablesFor(input.propertyKind)
+  const [existing] = await db
+    .select()
+    .from(M)
+    .where(and(eq(M.organizationId, orgId), eq(M.buyerRequirementId, input.buyerRequirementId), eq(M.propertyId, input.propertyId)))
+    .limit(1)
+  if (existing && (existing.status === 'discarded' || (MATCH_PROGRESS[existing.status] ?? 0) > MATCH_PROGRESS.sent)) return existing
   return upsertMatchStatus(event, orgId, { ...input, status: 'sent' }, opts)
 }
 

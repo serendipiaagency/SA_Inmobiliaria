@@ -25,13 +25,24 @@
  */
 
 // Los tipos del dominio de la necesidad no se redeclaran aquí: importarlos
-// como tipos se borra al compilar, así que el motor sigue sin depender de
-// nada en tiempo de ejecución y no puede haber dos definiciones de ZoneRef
-// que se desincronicen.
+// como tipos se borra al compilar, y no puede haber dos definiciones de
+// ZoneRef que se desincronicen. Lo único que el motor importa en tiempo de
+// ejecución son catálogos de datos puros (etiquetas, columnas, importancia
+// por defecto), compartidos con el panel: ni base de datos, ni red, ni Nuxt.
 import type { Importance, ZoneRef } from '../buyerRequirements/service'
+import { CRITERION_LABELS, FEATURE_CRITERIA, FEATURE_SOURCES, defaultImportanceOf, type FeatureCriterion } from '../../../utils/buyerRequirementCatalog'
+import { PROPERTY_CONDITION_LABELS, PROPERTY_TYPE_LABELS } from '../../../utils/propertySheet'
 
-/** Sube cuando cambian los pesos o las reglas, para que un breakdown guardado siga siendo interpretable. */
-export const RULES_VERSION = 1
+/**
+ * Sube cuando cambian los pesos o las reglas, para que un breakdown guardado siga siendo interpretable.
+ *
+ * v2 (núcleo N4): se evalúa el estado del inmueble (`conditionPref`), la obra
+ * «reformado» lee la ficha ampliada, zonas deseadas y radio se suman en vez
+ * de pisarse, una zona excluida descarta siempre, el tipo de inmueble es
+ * imprescindible por defecto y hay tres características más (accesible,
+ * mascotas, aire acondicionado).
+ */
+export const RULES_VERSION = 2
 
 export type Outcome = 'matched' | 'partial' | 'failed' | 'unknown'
 export type Eligibility = 'eligible' | 'ineligible' | 'needs_review'
@@ -57,7 +68,10 @@ export const WEIGHTS: Record<string, number> = {
   garage: 5,
   elevator: 4,
   pool: 4,
+  accessible: 4,
   garden: 3,
+  pets: 3,
+  airConditioning: 3,
 }
 
 /**
@@ -67,21 +81,8 @@ export const WEIGHTS: Record<string, number> = {
  */
 export const PARTIAL_TOLERANCE = 0.1
 
-const LABELS: Record<string, string> = {
-  price: 'Precio',
-  zone: 'Zona',
-  propertyType: 'Tipo de inmueble',
-  bedrooms: 'Dormitorios',
-  bathrooms: 'Baños',
-  area: 'Superficie',
-  build: 'Obra',
-  condition: 'Estado',
-  terrace: 'Terraza',
-  garage: 'Garaje',
-  elevator: 'Ascensor',
-  pool: 'Piscina',
-  garden: 'Jardín',
-}
+/** Las etiquetas de cada criterio son las del catálogo compartido con el editor de la necesidad. */
+const LABELS: Record<string, string> = CRITERION_LABELS
 
 export interface CriterionOutcome {
   key: string
@@ -133,6 +134,14 @@ export interface MatchableProperty {
   hasGarage?: number | null
   hasTerrace?: number | null
   hasGarden?: number | null
+  accessible?: number | null
+  petsAllowed?: number | null
+  /** Estado físico (`condition`): new | excellent | good | to_renovate | to_reform. NULL = no consta. */
+  condition?: string | null
+  /** De la ficha ampliada (`property_details`), que admite NULL: NULL = no consta, 0 = «no» escrito por alguien. */
+  hasAirConditioning?: number | null
+  isRenovated?: number | null
+  renovationYear?: number | null
   /**
    * Cuándo se repasaron las características del inmueble.
    *
@@ -173,13 +182,6 @@ export interface MatchableRequirement {
   criteria?: { criterionType: string; importance: string; valueBool?: number | null }[]
 }
 
-const FEATURE_COLUMNS = {
-  terrace: 'hasTerrace',
-  garage: 'hasGarage',
-  elevator: 'hasElevator',
-  pool: 'hasPool',
-  garden: 'hasGarden',
-} as const
 
 function normalizeText(value: string | null | undefined): string {
   return String(value || '')
@@ -193,12 +195,16 @@ function money(n: number): string {
   return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
 }
 
-/** Importancia declarada para un criterio. Por defecto `preferred`: puntúa, pero no descarta. */
-function importanceOf(requirement: MatchableRequirement, key: string): Importance {
+/**
+ * Importancia declarada para un criterio. Sin declarar, la del catálogo
+ * (`DEFAULT_IMPORTANCE`): `preferred` —puntúa, pero no descarta— salvo el
+ * tipo de inmueble, que es imprescindible por defecto.
+ */
+export function importanceOf(requirement: Pick<MatchableRequirement, 'criteria'>, key: string): Importance {
   const row = (requirement.criteria || []).find((c) => c.criterionType === key)
   const value = row?.importance
   if (value === 'required' || value === 'preferred' || value === 'indifferent') return value
-  return 'preferred'
+  return defaultImportanceOf(key)
 }
 
 /**
@@ -237,13 +243,20 @@ function zoneContains(zone: ZoneRef, property: MatchableProperty): boolean | nul
   return decidable.some(Boolean)
 }
 
+type Evaluation = { outcome: Outcome; detail: string; forceRequired?: boolean }
+
 /**
- * Evalúa la zona. Las exclusiones tienen precedencia: un inmueble en una zona
- * excluida no es un cumplimiento pleno por estar dentro de una zona deseada
- * más amplia (un piso en Lavapiés no vale porque "Madrid" esté en las zonas
- * deseadas).
+ * Evalúa la zona: zonas deseadas, zonas excluidas y radio.
+ *
+ * - Las exclusiones tienen precedencia y son **siempre un filtro duro**: un
+ *   inmueble en una zona excluida queda descartado aunque la zona sea
+ *   «preferible» (un piso en Lavapiés no vale porque "Madrid" esté en las
+ *   zonas deseadas, y tampoco puntúa a medias: el comprador lo vetó).
+ * - Zonas deseadas y radio se suman: basta con cumplir una de las dos cosas
+ *   (estar en Chamberí, o a menos de 3 km del colegio). Antes el radio
+ *   pisaba a las zonas y éstas se ignoraban sin avisar.
  */
-function evaluateZone(requirement: MatchableRequirement, property: MatchableProperty): { outcome: Outcome; detail: string } | null {
+function evaluateZone(requirement: MatchableRequirement, property: MatchableProperty): Evaluation | null {
   const desired = requirement.desiredZones || []
   const excluded = requirement.excludedZones || []
   const hasRadius = requirement.radiusKm != null && requirement.centerLat != null && requirement.centerLng != null
@@ -253,43 +266,57 @@ function evaluateZone(requirement: MatchableRequirement, property: MatchableProp
   for (const zone of excluded) {
     if (zoneContains(zone, property) === true) {
       const name = zone.label || zone.district || zone.city || zone.postalCode || 'zona excluida'
-      return { outcome: 'failed', detail: `está en ${name}, una zona excluida` }
+      return { outcome: 'failed', detail: `está en ${name}, una zona excluida`, forceRequired: true }
     }
   }
+
+  const candidates: Evaluation[] = []
 
   if (hasRadius) {
     if (property.lat == null || property.lng == null) {
-      return { outcome: 'unknown', detail: 'el inmueble no tiene coordenadas, no se puede medir la distancia' }
+      candidates.push({ outcome: 'unknown', detail: 'el inmueble no tiene coordenadas, no se puede medir la distancia' })
+    } else {
+      const km = distanceKm(requirement.centerLat!, requirement.centerLng!, property.lat, property.lng)
+      const radius = requirement.radiusKm!
+      if (km <= radius) candidates.push({ outcome: 'matched', detail: `a ${km.toFixed(1)} km del centro buscado (radio ${radius} km)` })
+      else if (km <= radius * (1 + PARTIAL_TOLERANCE)) candidates.push({ outcome: 'partial', detail: `a ${km.toFixed(1)} km, algo más lejos del radio de ${radius} km` })
+      else candidates.push({ outcome: 'failed', detail: `a ${km.toFixed(1)} km, fuera del radio de ${radius} km` })
     }
-    const km = distanceKm(requirement.centerLat!, requirement.centerLng!, property.lat, property.lng)
-    const radius = requirement.radiusKm!
-    if (km <= radius) return { outcome: 'matched', detail: `a ${km.toFixed(1)} km del centro buscado (radio ${radius} km)` }
-    if (km <= radius * (1 + PARTIAL_TOLERANCE)) {
-      return { outcome: 'partial', detail: `a ${km.toFixed(1)} km, algo más lejos del radio de ${radius} km` }
-    }
-    return { outcome: 'failed', detail: `a ${km.toFixed(1)} km, fuera del radio de ${radius} km` }
   }
 
-  if (!desired.length) {
+  if (desired.length) {
+    let anyDecidable = false
+    let found: ZoneRef | null = null
+    for (const zone of desired) {
+      const inside = zoneContains(zone, property)
+      if (inside !== null) anyDecidable = true
+      if (inside === true) {
+        found = zone
+        break
+      }
+    }
+    if (found) {
+      candidates.push({ outcome: 'matched', detail: String(found.label || found.district || found.city || found.postalCode || 'la zona buscada') })
+    } else if (!anyDecidable) {
+      candidates.push({ outcome: 'unknown', detail: 'el inmueble no tiene ubicación estructurada comparable' })
+    } else {
+      const names = desired.map((z) => z.label || z.district || z.city || z.postalCode).filter(Boolean)
+      const where = property.district || property.city || 'ubicación desconocida'
+      candidates.push({ outcome: 'failed', detail: `está en ${where}, fuera de ${names.join(' + ')}` })
+    }
+  }
+
+  if (!candidates.length) {
     // Sólo había exclusiones y ninguna se cumplió: el inmueble no está vetado.
     return { outcome: 'matched', detail: 'no está en ninguna de las zonas excluidas' }
   }
 
-  let anyDecidable = false
-  for (const zone of desired) {
-    const inside = zoneContains(zone, property)
-    if (inside !== null) anyDecidable = true
-    if (inside === true) {
-      const name = zone.label || zone.district || zone.city || zone.postalCode || 'la zona buscada'
-      return { outcome: 'matched', detail: String(name) }
-    }
-  }
-
-  if (!anyDecidable) return { outcome: 'unknown', detail: 'el inmueble no tiene ubicación estructurada comparable' }
-
-  const names = desired.map((z) => z.label || z.district || z.city || z.postalCode).filter(Boolean)
-  const where = property.district || property.city || 'ubicación desconocida'
-  return { outcome: 'failed', detail: `está en ${where}, fuera de ${names.join(' + ')}` }
+  // La mejor de las dos vías (zona o radio). Un «no consta» sólo gana si la
+  // otra vía tampoco lo descarta con datos: si una dice ✕ con certeza y la
+  // otra no se puede medir, el resultado honesto es «no se sabe».
+  const order: Outcome[] = ['matched', 'partial', 'unknown', 'failed']
+  candidates.sort((a, b) => order.indexOf(a.outcome) - order.indexOf(b.outcome))
+  return candidates[0]
 }
 
 /**
@@ -324,21 +351,21 @@ function evaluateRange(
 
 /**
  * Resuelve una característica booleana del inmueble aplicando la política de
- * UNKNOWN descrita en `MatchableProperty.featuresReviewedAt`.
+ * UNKNOWN descrita en `MatchableProperty.featuresReviewedAt` para las
+ * columnas `NOT NULL DEFAULT 0` de los catálogos, y leyendo NULL como «no
+ * consta» en las de la ficha ampliada (`FEATURE_SOURCES` del catálogo).
  */
-export function featureValue(property: MatchableProperty, feature: keyof typeof FEATURE_COLUMNS): boolean | null {
-  const raw = property[FEATURE_COLUMNS[feature]]
-  if (raw === 1) return true
+export function featureValue(property: MatchableProperty, feature: FeatureCriterion): boolean | null {
+  const source = FEATURE_SOURCES[feature]
+  const raw = (property as unknown as Record<string, unknown>)[source.column]
+  if (raw === 1 || raw === true) return true
   if (raw == null) return null
-  // raw === 0: sólo es un "no" si alguien repasó las características.
+  if (!source.reviewed) return false // ficha ampliada: el 0 lo escribió alguien
+  // raw === 0 en una columna NOT NULL DEFAULT 0: sólo es un "no" si alguien repasó las características.
   return property.featuresReviewedAt ? false : null
 }
 
-function evaluateFeature(
-  requirement: MatchableRequirement,
-  property: MatchableProperty,
-  feature: keyof typeof FEATURE_COLUMNS,
-): { outcome: Outcome; detail: string } | null {
+function evaluateFeature(requirement: MatchableRequirement, property: MatchableProperty, feature: FeatureCriterion): Evaluation | null {
   const row = (requirement.criteria || []).find((c) => c.criterionType === feature)
   if (!row) return null
 
@@ -351,12 +378,63 @@ function evaluateFeature(
   return { outcome: 'failed', detail: wanted ? `no tiene ${label}` : `tiene ${label} y se pedía sin` }
 }
 
-function evaluateBuild(requirement: MatchableRequirement, property: MatchableProperty): { outcome: Outcome; detail: string } | null {
+/** Estados físicos en los que se puede entrar a vivir sin obra. */
+const READY_CONDITIONS = ['new', 'excellent', 'good']
+/** Estados que piden obra: «a renovar» (actualizar) es menos que «a reformar». */
+const WORK_CONDITIONS = ['to_renovate', 'to_reform']
+
+/**
+ * Estado físico del inmueble frente a `conditionPref`. Sólo lee la columna
+ * `condition` de la ficha: si nadie la ha rellenado, «no consta» — nunca se
+ * supone que una vivienda está bien porque no diga lo contrario.
+ *
+ *   conditionPref = good       → a estrenar / excelente / buen estado ✓,
+ *                                a renovar △, a reformar ✕
+ *   conditionPref = to_reform  → a reformar / a renovar ✓, en buen estado △
+ *                                (no es lo que busca, pero no lo descarta)
+ *   conditionPref = any / NULL → sin criterio
+ */
+function evaluateCondition(requirement: MatchableRequirement, property: MatchableProperty): Evaluation | null {
+  const pref = requirement.conditionPref
+  if (!pref || pref === 'any') return null
+  if (!property.condition) return { outcome: 'unknown', detail: 'no consta el estado del inmueble' }
+  const condition = property.condition
+  const label = (PROPERTY_CONDITION_LABELS[condition] || condition).toLowerCase()
+  if (!READY_CONDITIONS.includes(condition) && !WORK_CONDITIONS.includes(condition)) {
+    return { outcome: 'unknown', detail: `estado «${condition}» no reconocido` }
+  }
+
+  if (pref === 'good') {
+    if (READY_CONDITIONS.includes(condition)) return { outcome: 'matched', detail: label }
+    if (condition === 'to_renovate') return { outcome: 'partial', detail: `${label}; se buscaba en buen estado` }
+    return { outcome: 'failed', detail: `${label}; se buscaba en buen estado` }
+  }
+  if (pref === 'to_reform') {
+    if (WORK_CONDITIONS.includes(condition)) return { outcome: 'matched', detail: `${label}, como se buscaba` }
+    return { outcome: 'partial', detail: `${label}; se buscaba para reformar` }
+  }
+  return null
+}
+
+/**
+ * Obra nueva / segunda mano / reformado frente a `buildPref`. No se deduce
+ * del catálogo desde el que se creó la ficha: sale del año de construcción
+ * y, para «reformado», de la ficha ampliada (reformado / año de reforma). Si
+ * el dato no está, es desconocido y punto.
+ */
+function evaluateBuild(requirement: MatchableRequirement, property: MatchableProperty): Evaluation | null {
   if (!requirement.buildPref) return null
-  // No se deduce del módulo desde el que se creó la ficha: si no hay un dato
-  // real sobre el inmueble, es desconocido y punto.
+
+  if (requirement.buildPref === 'renovated') {
+    if (property.isRenovated === 1 || property.renovationYear != null) {
+      return { outcome: 'matched', detail: property.renovationYear != null ? `reformado en ${property.renovationYear}` : 'reformado' }
+    }
+    if (property.isRenovated === 0) return { outcome: 'failed', detail: 'no está reformado' }
+    return { outcome: 'unknown', detail: 'no consta si está reformado' }
+  }
+
   if (property.yearBuilt == null) {
-    return { outcome: 'unknown', detail: 'no consta si es obra nueva, segunda mano o reformado' }
+    return { outcome: 'unknown', detail: 'no consta el año de construcción: no se sabe si es obra nueva o segunda mano' }
   }
   const year = new Date().getFullYear()
   const isNew = property.yearBuilt >= year - 2
@@ -370,8 +448,7 @@ function evaluateBuild(requirement: MatchableRequirement, property: MatchablePro
       ? { outcome: 'failed', detail: `obra nueva (${property.yearBuilt}), se buscaba segunda mano` }
       : { outcome: 'matched', detail: `segunda mano (${property.yearBuilt})` }
   }
-  // 'renovated' no tiene dato estructurado propio todavía.
-  return { outcome: 'unknown', detail: 'no hay dato de reforma en la ficha del inmueble' }
+  return null
 }
 
 function symbolFor(outcome: Outcome): string {
@@ -387,9 +464,9 @@ function symbolFor(outcome: Outcome): string {
  * en que se consultó la base de datos.
  */
 export function evaluateMatch(property: MatchableProperty, requirement: MatchableRequirement): MatchResult {
-  const raw: { key: string; outcome: Outcome; detail: string }[] = []
+  const raw: ({ key: string } & Evaluation)[] = []
 
-  const push = (key: string, result: { outcome: Outcome; detail: string } | null) => {
+  const push = (key: string, result: Evaluation | null) => {
     if (result) raw.push({ key, ...result })
   }
 
@@ -415,9 +492,10 @@ export function evaluateMatch(property: MatchableProperty, requirement: Matchabl
     } else {
       const wanted = requirement.propertyTypes.map(normalizeText)
       const actual = normalizeText(property.propertyType)
+      const typeLabel = (t: string) => PROPERTY_TYPE_LABELS[t] || t
       push('propertyType', wanted.includes(actual)
-        ? { outcome: 'matched', detail: property.propertyType }
-        : { outcome: 'failed', detail: `es ${property.propertyType} y se buscaba ${requirement.propertyTypes.join('/')}` })
+        ? { outcome: 'matched', detail: typeLabel(property.propertyType) }
+        : { outcome: 'failed', detail: `es ${typeLabel(property.propertyType).toLowerCase()} y se buscaba ${requirement.propertyTypes.map(typeLabel).join('/').toLowerCase()}` })
     }
   }
 
@@ -426,14 +504,17 @@ export function evaluateMatch(property: MatchableProperty, requirement: Matchabl
   push('bedrooms', evaluateRange(property.bedrooms, requirement.bedroomsMin, null, (n) => `${n} dorm.`, 'número de dormitorios'))
   push('bathrooms', evaluateRange(property.bathrooms, requirement.bathroomsMin, null, (n) => `${n} baños`, 'número de baños'))
   push('zone', evaluateZone(requirement, property))
+  push('condition', evaluateCondition(requirement, property))
   push('build', evaluateBuild(requirement, property))
-  for (const feature of Object.keys(FEATURE_COLUMNS) as (keyof typeof FEATURE_COLUMNS)[]) {
+  for (const feature of FEATURE_CRITERIA) {
     push(feature, evaluateFeature(requirement, property, feature))
   }
 
   const outcomes: CriterionOutcome[] = []
   for (const item of raw) {
-    const importance = importanceOf(requirement, item.key)
+    // Un filtro duro (zona excluida) es imprescindible se haya declarado lo
+    // que se haya declarado para el criterio.
+    const importance: Importance = item.forceRequired ? 'required' : importanceOf(requirement, item.key)
     // Un criterio indiferente no penaliza ni puntúa: se descarta del cálculo
     // entero en lugar de sumar cero y ensuciar la explicación.
     if (importance === 'indifferent') continue

@@ -254,3 +254,172 @@ describe('motor de matching — pesos', () => {
     expect(result.eligibility).toBe('eligible')
   })
 })
+
+describe('motor de matching — estado del inmueble (conditionPref, núcleo N4)', () => {
+  const pide = (conditionPref: string, importance: 'required' | 'preferred' = 'preferred') =>
+    requirement({ conditionPref, criteria: [{ criterionType: 'condition', importance }] })
+
+  it('«en buen estado»: a estrenar, excelente o buen estado cumplen', () => {
+    for (const condition of ['new', 'excellent', 'good']) {
+      const c = evaluateMatch(property({ condition }), pide('good')).criteria.find((x) => x.key === 'condition')!
+      expect(c.outcome, condition).toBe('matched')
+    }
+  })
+
+  it('«en buen estado»: a renovar se queda cerca (△) y a reformar no cumple (✕), con la explicación', () => {
+    const renovar = evaluateMatch(property({ condition: 'to_renovate' }), pide('good'))
+    expect(renovar.criteria.find((x) => x.key === 'condition')!.outcome).toBe('partial')
+    expect(renovar.explanation.some((l) => l.startsWith('△') && l.includes('Estado') && l.includes('a renovar'))).toBe(true)
+
+    const reformar = evaluateMatch(property({ condition: 'to_reform' }), pide('good'))
+    const line = reformar.criteria.find((x) => x.key === 'condition')!
+    expect(line.outcome).toBe('failed')
+    expect(line.detail).toContain('a reformar')
+  })
+
+  it('«para reformar»: a reformar o a renovar cumplen; en buen estado se queda cerca, no se descarta', () => {
+    expect(evaluateMatch(property({ condition: 'to_reform' }), pide('to_reform')).criteria.find((x) => x.key === 'condition')!.outcome).toBe('matched')
+    expect(evaluateMatch(property({ condition: 'to_renovate' }), pide('to_reform')).criteria.find((x) => x.key === 'condition')!.outcome).toBe('matched')
+    expect(evaluateMatch(property({ condition: 'good' }), pide('to_reform')).criteria.find((x) => x.key === 'condition')!.outcome).toBe('partial')
+  })
+
+  it('sin estado en la ficha: la línea dice que no consta — nunca se supone que está bien', () => {
+    const result = evaluateMatch(property({ condition: null }), pide('good', 'required'))
+    const line = result.criteria.find((x) => x.key === 'condition')!
+    expect(line.outcome).toBe('unknown')
+    expect(line.detail).toContain('no consta')
+    expect(result.eligibility).toBe('needs_review')
+    expect(result.explanation.some((l) => l.startsWith('?') && l.includes('Estado'))).toBe(true)
+  })
+
+  it('«cualquier estado» no genera criterio', () => {
+    expect(evaluateMatch(property({ condition: 'to_reform' }), requirement({ conditionPref: 'any' })).criteria.find((x) => x.key === 'condition')).toBeUndefined()
+  })
+
+  it('estado imprescindible incumplido descarta', () => {
+    expect(evaluateMatch(property({ condition: 'to_reform' }), pide('good', 'required')).eligibility).toBe('ineligible')
+  })
+})
+
+describe('motor de matching — obra nueva / segunda mano / reformado (buildPref, núcleo N4)', () => {
+  const year = new Date().getFullYear()
+
+  it('obra nueva y segunda mano salen del año de construcción', () => {
+    expect(evaluateMatch(property({ yearBuilt: year }), requirement({ buildPref: 'new' })).criteria.find((c) => c.key === 'build')!.outcome).toBe('matched')
+    expect(evaluateMatch(property({ yearBuilt: 1990 }), requirement({ buildPref: 'new' })).criteria.find((c) => c.key === 'build')!.outcome).toBe('failed')
+    expect(evaluateMatch(property({ yearBuilt: 1990 }), requirement({ buildPref: 'second_hand' })).criteria.find((c) => c.key === 'build')!.outcome).toBe('matched')
+    expect(evaluateMatch(property({ yearBuilt: year }), requirement({ buildPref: 'second_hand' })).criteria.find((c) => c.key === 'build')!.outcome).toBe('failed')
+  })
+
+  it('sin año de construcción no se deduce nada: no consta', () => {
+    const line = evaluateMatch(property({ yearBuilt: null }), requirement({ buildPref: 'new' })).criteria.find((c) => c.key === 'build')!
+    expect(line.outcome).toBe('unknown')
+    expect(line.detail).toContain('no consta')
+  })
+
+  it('«reformado» lee la ficha ampliada: reformado o año de reforma cumplen; un «no» escrito no cumple; sin dato, no consta', () => {
+    const conAño = evaluateMatch(property({ renovationYear: 2021 }), requirement({ buildPref: 'renovated' })).criteria.find((c) => c.key === 'build')!
+    expect(conAño.outcome).toBe('matched')
+    expect(conAño.detail).toContain('2021')
+    expect(evaluateMatch(property({ isRenovated: 1 }), requirement({ buildPref: 'renovated' })).criteria.find((c) => c.key === 'build')!.outcome).toBe('matched')
+    expect(evaluateMatch(property({ isRenovated: 0 }), requirement({ buildPref: 'renovated' })).criteria.find((c) => c.key === 'build')!.outcome).toBe('failed')
+    expect(evaluateMatch(property({ isRenovated: null }), requirement({ buildPref: 'renovated' })).criteria.find((c) => c.key === 'build')!.outcome).toBe('unknown')
+  })
+})
+
+describe('motor de matching — zonas, radio y filtros duros (núcleo N4)', () => {
+  it('una zona excluida descarta siempre, aunque la zona sea «preferible»', () => {
+    const result = evaluateMatch(
+      property({ city: 'Madrid', district: 'Lavapiés' }),
+      requirement({ desiredZones: [{ city: 'Madrid' }], excludedZones: [{ district: 'Lavapiés' }], criteria: [{ criterionType: 'zone', importance: 'preferred' }] }),
+    )
+    expect(result.eligibility).toBe('ineligible')
+    expect(result.criteria.find((c) => c.key === 'zone')!.importance).toBe('required')
+  })
+
+  it('…y ni siquiera «indiferente» la deja pasar', () => {
+    const result = evaluateMatch(
+      property({ district: 'Lavapiés' }),
+      requirement({ excludedZones: [{ district: 'Lavapiés' }], criteria: [{ criterionType: 'zone', importance: 'indifferent' }] }),
+    )
+    expect(result.eligibility).toBe('ineligible')
+  })
+
+  it('zonas deseadas y radio se suman: fuera del radio pero en una zona deseada cumple', () => {
+    const madrid = { lat: 40.4168, lng: -3.7038 }
+    const result = evaluateMatch(
+      property({ district: 'Chamberí', lat: 41.3851, lng: 2.1734 }),
+      requirement({ desiredZones: [{ district: 'Chamberí' }], centerLat: madrid.lat, centerLng: madrid.lng, radiusKm: 2 }),
+    )
+    expect(result.criteria.find((c) => c.key === 'zone')!.outcome).toBe('matched')
+  })
+
+  it('dentro del radio aunque el distrito no sea uno de los deseados también cumple', () => {
+    const result = evaluateMatch(
+      property({ district: 'Salamanca', lat: 40.4245, lng: -3.6835 }),
+      requirement({ desiredZones: [{ district: 'Chamberí' }], centerLat: 40.4168, centerLng: -3.7038, radiusKm: 5 }),
+    )
+    expect(result.criteria.find((c) => c.key === 'zone')!.outcome).toBe('matched')
+  })
+
+  it('el tipo de inmueble es imprescindible por defecto; bajado a preferible sólo resta puntos', () => {
+    const local = property({ propertyType: 'Retail' })
+    expect(evaluateMatch(local, requirement({ propertyTypes: ['Apartment'] })).eligibility).toBe('ineligible')
+    const preferible = evaluateMatch(local, requirement({ propertyTypes: ['Apartment'], priceMax: 650000, criteria: [{ criterionType: 'propertyType', importance: 'preferred' }] }))
+    expect(preferible.eligibility).toBe('eligible')
+    expect(preferible.failed.map((c) => c.key)).toContain('propertyType')
+    // La explicación usa la etiqueta en castellano, no la clave interna.
+    expect(preferible.criteria.find((c) => c.key === 'propertyType')!.detail).toContain('local')
+  })
+})
+
+describe('motor de matching — más características (núcleo N4)', () => {
+  it('accesible y mascotas siguen la regla de la ficha repasada (0 sin repasar = no consta)', () => {
+    const sinRepasar = property({ featuresReviewedAt: null, accessible: 0, petsAllowed: 0 })
+    expect(featureValue(sinRepasar, 'accessible')).toBeNull()
+    expect(featureValue(sinRepasar, 'pets')).toBeNull()
+    const repasada = property({ accessible: 0, petsAllowed: 1 })
+    expect(featureValue(repasada, 'accessible')).toBe(false)
+    expect(featureValue(repasada, 'pets')).toBe(true)
+  })
+
+  it('aire acondicionado sale de la ficha ampliada: NULL no consta, 0 es un «no» escrito', () => {
+    expect(featureValue(property({ hasAirConditioning: null, featuresReviewedAt: null }), 'airConditioning')).toBeNull()
+    expect(featureValue(property({ hasAirConditioning: 0, featuresReviewedAt: null }), 'airConditioning')).toBe(false)
+    const result = evaluateMatch(property({ hasAirConditioning: 1 }), requirement({ criteria: [{ criterionType: 'airConditioning', importance: 'required', valueBool: 1 }] }))
+    expect(result.matched.map((c) => c.key)).toContain('airConditioning')
+    expect(result.explanation.some((l) => l.startsWith('✓') && l.includes('Aire acondicionado'))).toBe(true)
+  })
+
+  it('el ejemplo del encargo: ✓ zona ✓ precio ✓ dormitorios ✓ terraza ✓ ascensor △ superficie ✕ garaje', () => {
+    const result = evaluateMatch(
+      property({ area: 78, hasGarage: 0 }),
+      requirement({
+        priceMax: 650000,
+        areaMin: 80,
+        bedroomsMin: 2,
+        desiredZones: [{ district: 'Chamberí' }],
+        criteria: [
+          { criterionType: 'terrace', importance: 'preferred', valueBool: 1 },
+          { criterionType: 'elevator', importance: 'preferred', valueBool: 1 },
+          { criterionType: 'garage', importance: 'preferred', valueBool: 1 },
+        ],
+      }),
+    )
+    const mark = (key: string) => result.explanation.find((l) => l.includes(`${result.criteria.find((c) => c.key === key)!.label}:`))!.slice(0, 1)
+    expect(mark('zone')).toBe('✓')
+    expect(mark('price')).toBe('✓')
+    expect(mark('bedrooms')).toBe('✓')
+    expect(mark('terrace')).toBe('✓')
+    expect(mark('elevator')).toBe('✓')
+    expect(mark('area')).toBe('△')
+    expect(mark('garage')).toBe('✕')
+    expect(result.eligibility).toBe('eligible')
+    expect(result.score).toBeGreaterThan(70)
+    expect(result.score).toBeLessThan(100)
+  })
+
+  it('la versión de reglas sube con los cambios del N4', () => {
+    expect(RULES_VERSION).toBeGreaterThanOrEqual(2)
+  })
+})
