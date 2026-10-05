@@ -120,9 +120,9 @@ describe('cómo se pinta cada fila', () => {
     expect(PROPERTY_LIST_CONFIG.properties.previewHref).toBeNull()
   })
 
-  it('el filtro venta/alquiler solo existe donde significa algo', () => {
+  it('el filtro venta/alquiler está en los dos catálogos (FASE 27, bloque N7b: los dos tienen transaction_type)', () => {
     expect(PROPERTY_LIST_CONFIG.properties.hasTransactionFilter).toBe(true)
-    expect(PROPERTY_LIST_CONFIG['developer-properties'].hasTransactionFilter).toBe(false)
+    expect(PROPERTY_LIST_CONFIG['developer-properties'].hasTransactionFilter).toBe(true)
   })
 
   it('los tipos de propiedad del filtro son los mismos que ofrece el editor', () => {

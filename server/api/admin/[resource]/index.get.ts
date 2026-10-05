@@ -8,6 +8,15 @@ import { savedViewVisibilityCond } from '../../../utils/properties/savedViews'
 import { livePropertyCond } from '../../../utils/properties/trash'
 import { toolCatalogFor } from '../../../utils/tools/execute'
 import { checkDomainAvailability } from '../../../utils/organizations/provisioning'
+import { propertyDefaults } from '../../../utils/properties/summary'
+import { squaredDistanceSql } from '../../../utils/properties/geoSearch'
+import { propertyFilterOptions } from '../../../utils/properties/filterOptions'
+import { customFieldValuesResourceGet, isCustomFieldValueResource } from '../../../utils/customFields/service'
+import { isTagLinkResource, tagLinksResourceGet, withTags } from '../../../utils/tags/service'
+import { haversineKm } from '../../../../utils/maps/geo'
+
+/** Tope de puntos de la vista Mapa del listado de propiedades: más que eso se pide acercar el mapa o filtrar. */
+const MAP_MAX_POINTS = 1000
 
 const TEAM_SORTS: Record<string, any> = {
   newest: desc(schema.teamMembers.createdAt),
@@ -40,6 +49,23 @@ export default defineEventHandler(async (event) => {
   if (key === 'organizations' && typeof query.domainAvailable === 'string') {
     const excludeId = Number(query.excludeId)
     return checkDomainAvailability(db, query.domainAvailable, Number.isInteger(excludeId) && excludeId > 0 ? { excludeOrganizationId: excludeId } : {})
+  }
+  // Valores por defecto de una propiedad nueva (FASE 25, «defaults
+  // inteligentes»): operación, privacidad, país y localidad habituales de la
+  // agencia y el comercial vinculado a la cuenta, con su oficina y equipo.
+  if ((key === 'properties' || key === 'developer-properties') && query.view === 'defaults') {
+    return { defaults: await propertyDefaults(db, orgId!, user.id, key === 'properties' ? 'agent' : 'developer') }
+  }
+  // Campos personalizados y etiquetas de una ficha (FASE 0, bloque N7b): el
+  // GET no es un listado de filas sino «lo de este registro» (o el catálogo),
+  // con el registro comprobado contra la organización. Un recurso por área
+  // (propiedades → Portal Web; contactos, leads, citas y operaciones → CRM).
+  if (isCustomFieldValueResource(key)) return customFieldValuesResourceGet(db, orgId!, key, query)
+  if (isTagLinkResource(key)) return tagLinksResourceGet(db, orgId!, key, query)
+  // Opciones de los filtros del listado de propiedades (oficinas, comerciales,
+  // etiquetas, campos personalizados, portales) en una sola llamada.
+  if ((key === 'developer-properties' || key === 'properties') && query.view === 'filterOptions') {
+    return propertyFilterOptions(db, orgId!, key === 'developer-properties' ? 'developer' : 'agent')
   }
   const page = Math.max(1, parseInt(String(query.page || '1'), 10) || 1)
   const perPage = Math.min(100, Math.max(1, parseInt(String(query.perPage || '20'), 10) || 20))
@@ -79,8 +105,9 @@ export default defineEventHandler(async (event) => {
   // parametrizado por `kind`, no duplicado por catálogo como antes.
   const isDeveloperProperties = key === 'developer-properties'
   const isProperties = key === 'properties'
-  if (isDeveloperProperties || isProperties) {
-    conds.push(...buildPropertyFilterConds(isDeveloperProperties ? 'developer' : 'agent', parsePropertyFilters(query)))
+  const propertyFilters = isDeveloperProperties || isProperties ? parsePropertyFilters(query) : null
+  if (propertyFilters) {
+    conds.push(...buildPropertyFilterConds(isDeveloperProperties ? 'developer' : 'agent', propertyFilters))
     // Bulk Actions (FASE 28 incremento 2) — "exportar seleccionadas" reutiliza
     // este mismo endpoint con un filtro por ids, no un mecanismo nuevo (ver
     // docs/bulk-actions.md). Sólo se activa si `ids` llega — el resto de
@@ -140,6 +167,34 @@ export default defineEventHandler(async (event) => {
   }
 
   const where = conds.length ? and(...conds) : undefined
+
+  // Vista Mapa del listado de propiedades (FASE 2): los puntos de TODO el
+  // resultado filtrado (no sólo la página), con tope, y sólo los que tienen
+  // coordenadas válidas. Mismas condiciones que el listado: lo que sale en el
+  // mapa es exactamente lo que se puede paginar.
+  if ((isDeveloperProperties || isProperties) && query.view === 'map') {
+    const t = (isDeveloperProperties ? schema.developerProperties : schema.agentProperties) as any
+    const withCoords = and(where as any, sql`${t.lat} is not null and ${t.lng} is not null and not (${t.lat} = 0 and ${t.lng} = 0)`)
+    const [{ n }] = await db.select({ n: sql<number>`count(*)` }).from(t).where(withCoords)
+    const points = await db
+      .select({
+        id: t.id,
+        lat: t.lat,
+        lng: t.lng,
+        price: t.price,
+        status: t.status,
+        propertyType: t.propertyType,
+        reference: t.reference,
+        city: t.city,
+        district: t.district,
+        ...(isDeveloperProperties ? { name: t.name, coverImage: t.coverImage, community: t.community } : { mainImage: t.mainImage, transactionType: t.transactionType }),
+      })
+      .from(t)
+      .where(withCoords)
+      .orderBy(desc(t.id))
+      .limit(MAP_MAX_POINTS)
+    return { points, total: Number(n) || 0, capped: Number(n) > MAP_MAX_POINTS, maxPoints: MAP_MAX_POINTS }
+  }
 
   // Export CSV (§79) — mismas condiciones y las mismas columnas ya
   // autorizadas que el listado JSON de abajo, así que nunca puede exponer
@@ -214,9 +269,22 @@ export default defineEventHandler(async (event) => {
     .where(where as any)
   const total = countRows[0]?.count ?? 0
 
+  // Orden por cercanía (FASE 2): sólo con una búsqueda por radio, que es la que tiene centro.
+  const radius = propertyFilters?.geo?.radius
+  const byDistance = String(query.sort || '') === 'distance' && radius
+  /** Etiquetas de cada fila y, con radio, su distancia real al centro (km). */
+  async function decorateProperties(kind: 'agent' | 'developer', rows: any[]) {
+    const tagged = await withTags(db, orgId!, kind, rows)
+    if (!radius) return tagged
+    return tagged.map((r: any) => ({
+      ...r,
+      distanceKm: typeof r.lat === 'number' && typeof r.lng === 'number' ? Math.round(haversineKm(radius, { lat: r.lat, lng: r.lng }) * 100) / 100 : null,
+    }))
+  }
+
   if (isDeveloperProperties) {
     const t = schema.developerProperties
-    const sort = DEVELOPER_PROPERTY_SORTS[String(query.sort || 'newest')] || DEVELOPER_PROPERTY_SORTS.newest
+    const sort = byDistance ? asc(squaredDistanceSql(t.lat, t.lng, radius)) : DEVELOPER_PROPERTY_SORTS[String(query.sort || 'newest')] || DEVELOPER_PROPERTY_SORTS.newest
     const rows = await db
       .select({
         id: t.id,
@@ -242,6 +310,10 @@ export default defineEventHandler(async (event) => {
         deletedAt: t.deletedAt,
         developerId: t.developerId,
         developerName: schema.developers.name,
+        transactionType: t.transactionType,
+        reference: t.reference,
+        lat: t.lat,
+        lng: t.lng,
       })
       .from(t)
       .leftJoin(schema.developers, eq(t.developerId, schema.developers.id))
@@ -249,12 +321,12 @@ export default defineEventHandler(async (event) => {
       .orderBy(sort)
       .limit(perPage)
       .offset((page - 1) * perPage)
-    return { rows, total, page, perPage }
+    return { rows: await decorateProperties('developer', rows), total, page, perPage }
   }
 
   if (isProperties) {
     const t = schema.agentProperties
-    const sort = PROPERTIES_SORTS[String(query.sort || 'newest')] || PROPERTIES_SORTS.newest
+    const sort = byDistance ? asc(squaredDistanceSql(t.lat, t.lng, radius)) : PROPERTIES_SORTS[String(query.sort || 'newest')] || PROPERTIES_SORTS.newest
     const rows = await db
       .select({
         id: t.id,
@@ -276,13 +348,16 @@ export default defineEventHandler(async (event) => {
         publishedAt: t.publishedAt,
         updatedAt: t.updatedAt,
         deletedAt: t.deletedAt,
+        reference: t.reference,
+        lat: t.lat,
+        lng: t.lng,
       })
       .from(t)
       .where(where as any)
       .orderBy(sort)
       .limit(perPage)
       .offset((page - 1) * perPage)
-    return { rows, total, page, perPage }
+    return { rows: await decorateProperties('agent', rows), total, page, perPage }
   }
 
   if (isTeam) {
@@ -319,7 +394,13 @@ export default defineEventHandler(async (event) => {
   }
 
   // Las notas fijadas van primero; el resto, de la más reciente a la más antigua.
-  const order = key === 'notes' ? [desc(schema.notes.isPinned), desc(def.table.id)] : [desc(def.table.id)]
+  const order =
+    key === 'notes'
+      ? [desc(schema.notes.isPinned), desc(def.table.id)]
+      : key === 'custom-fields'
+        ? // Campos personalizados: en el orden en que salen en las fichas.
+          [asc(schema.customFieldDefinitions.entityType), asc(schema.customFieldDefinitions.sortOrder), asc(def.table.id)]
+        : [desc(def.table.id)]
   let rows = await db
     .select()
     .from(def.table)

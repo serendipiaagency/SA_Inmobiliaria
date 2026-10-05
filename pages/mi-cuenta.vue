@@ -1,7 +1,7 @@
 <template>
   <div class="mx-auto max-w-3xl px-4 py-16">
     <h1 class="heading-serif text-3xl">Mi cuenta</h1>
-    <p class="mt-1 text-sm text-stone-500">Hola {{ user?.name }} — aquí tienes tus visitas, solicitudes y contratos.</p>
+    <p class="mt-1 text-sm text-stone-500">Hola {{ user?.name }} — aquí tienes tus visitas, solicitudes, documentos y contratos.</p>
 
     <section class="mt-10">
       <h2 class="text-lg font-semibold">Visitas</h2>
@@ -21,6 +21,23 @@
         <li v-for="l in data.leads" :key="l.id" class="py-3">
           <p class="font-medium">{{ l.propertyName || 'Consulta general' }}</p>
           <p class="text-xs text-stone-400">Estado: {{ leadStatusLabel(l.status) }}</p>
+        </li>
+      </ul>
+    </section>
+
+    <section class="mt-10" data-testid="client-documents">
+      <h2 class="text-lg font-semibold">Documentos</h2>
+      <p v-if="!data?.documents?.length" class="mt-2 text-sm text-stone-400">Sin documentos compartidos contigo.</p>
+      <ul v-else class="mt-3 divide-y divide-line text-sm">
+        <li v-for="d in data.documents" :key="d.id" class="flex items-center justify-between gap-3 py-3">
+          <div class="min-w-0">
+            <p class="font-medium">{{ d.title }}</p>
+            <p class="text-xs text-stone-400">
+              {{ d.propertyName }} · {{ d.docTypeLabel }} · {{ d.accessLabel }}
+              <template v-if="d.expiryState === 'expired'"> · caducado</template>
+            </p>
+          </div>
+          <a v-if="d.downloadUrl" :href="d.downloadUrl" class="shrink-0 text-xs font-medium text-ink hover:underline">Descargar</a>
         </li>
       </ul>
     </section>

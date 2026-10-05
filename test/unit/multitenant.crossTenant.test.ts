@@ -70,7 +70,23 @@ const RESOURCE_ROWS: Record<string, (f: TenantFixture, tag: string) => Record<st
   // El contacto de cada agencia lo acaba de crear la fila `contacts` (va antes en adminResources).
   'property-contacts': (f) => ({ organizationId: f.orgId, propertyKind: 'agent', propertyId: f.propertyId, contactId: ids.contacts[f.orgId === A.orgId ? 'a' : 'b'], role: 'owner' }),
   notes: (f, tag) => ({ organizationId: f.orgId, entityType: 'lead', entityId: f.leadId, leadId: f.leadId, body: `${tag} nota` }),
+  // Bloque N7a: documentos y multimedia de una propiedad (FASES 6-7).
+  'property-documents': (f, tag) => ({ organizationId: f.orgId, propertyKind: 'developer', propertyId: f.projectId, docType: 'deed', title: `${tag} escritura`, r2Key: `tenants/${f.orgId}/property-documents/${tag}.pdf`, visibility: 'internal' }),
+  'property-media': (f, tag) => ({ organizationId: f.orgId, propertyKind: 'agent', propertyId: f.propertyId, mediaType: 'video', url: `https://example.com/${tag}.mp4` }),
+  // Bloque N7b (FASE 0): definiciones y valores de campos personalizados, y etiquetas a mano.
+  'custom-fields': (f, tag) => ({ organizationId: f.orgId, entityType: 'lead', key: `${tag.replace(/[^a-z0-9]/g, '_')}_campo`, label: `${tag} campo`, fieldType: 'text' }),
+  'property-custom-field-values': (f) => ({ organizationId: f.orgId, definitionId: ids['custom-fields'][side(f)], entityType: 'property', entityKind: 'agent', entityId: f.propertyId, valueText: 'x' }),
+  'custom-field-values': (f) => ({ organizationId: f.orgId, definitionId: ids['custom-fields'][side(f)], entityType: 'lead', entityKind: 'lead', entityId: f.leadId, valueText: 'x' }),
+  'property-tags': (f) => ({ organizationId: f.orgId, tagId: tagIdBy[f.orgId], entityType: 'agent', entityId: f.propertyId }),
+  'crm-tags': (f) => ({ organizationId: f.orgId, tagId: tagIdBy[f.orgId], entityType: 'lead', entityId: f.leadId }),
 }
+
+/** Qué agencia es (para referenciar la fila que la misma agencia acaba de crear en otro recurso). */
+function side(f: TenantFixture): 'a' | 'b' {
+  return f.orgId === A.orgId ? 'a' : 'b'
+}
+/** Una etiqueta por agencia, creada antes de la matriz (tag_links exige una etiqueta real). */
+const tagIdBy: Record<number, number> = {}
 
 /** Resources deliberately outside the tenant matrix, each with a stated reason. */
 const GLOBAL_RESOURCES: Record<string, string> = {
@@ -92,6 +108,10 @@ beforeAll(async () => {
   ;({ db } = createTestDb())
   A = await seedTenant(db, 'Alpha')
   B = await seedTenant(db, 'Beta')
+  for (const f of [A, B]) {
+    const [t] = await db.insert(schema.tags).values({ organizationId: f.orgId, name: `Etiqueta ${f.orgId}`, slug: `etiqueta-${f.orgId}`, createdAt: '2026-01-01 00:00:00' }).returning({ id: schema.tags.id })
+    tagIdBy[f.orgId] = t.id
+  }
 
   for (const key of tenantScopedKeys) {
     const def = adminResources[key]

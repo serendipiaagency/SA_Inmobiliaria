@@ -50,7 +50,11 @@ export interface PropertyListConfig {
   cardToggleEvent: 'publish' | 'toggle-sold'
   statusOptions: { value: string; label: string }[]
   sortOptions: { value: string; label: string }[]
-  /** Si el catálogo distingue venta de alquiler (sólo 2ª mano). */
+  /**
+   * Si el listado ofrece el filtro venta/alquiler. Los dos catálogos tienen
+   * `transaction_type` desde la migración 0068 (obra nueva con «venta» por
+   * defecto), así que desde el bloque N7b se ofrece en los dos.
+   */
   hasTransactionFilter: boolean
 
   // --- Cómo se pinta una fila de la vista de lista -------------------------
@@ -97,7 +101,7 @@ export const PROPERTY_LIST_CONFIG: Record<string, PropertyListConfig> = {
     // algo aquí; una vivienda de reventa no lo tiene (se identifica por
     // tipo + referencia), y por eso 2ª mano no ofrece esa opción.
     sortOptions: [...BASE_SORT_OPTIONS, { value: 'name_asc', label: 'Nombre A-Z' }, { value: 'name_desc', label: 'Nombre Z-A' }],
-    hasTransactionFilter: false,
+    hasTransactionFilter: true,
 
     rowTitle: (p) => p.name,
     rowImage: (p) => p.coverImage || null,

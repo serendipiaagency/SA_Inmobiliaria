@@ -117,14 +117,21 @@ y "Exportar seleccionadas" (§92):
   compartida, y `[id].put.ts` ahora la llama en vez de repetir la
   comparación. El handler masivo `publish` llama exactamente a la misma
   función — nunca una tercera interpretación de `requiredForPublish`.
-- **Publicar** (§90) — sólo existe en `developer-properties`:
-  `agent-properties` no tiene consumidor público (mismo hallazgo de la
-  auditoría FASE 26/28), así que el handler rechaza con 422 si se invoca
-  sobre 2ª mano. Idempotente: publicar una ya publicada es un éxito
-  silencioso.
+- **Publicar** (§90) — en los dos catálogos (desde el bloque N1): marca
+  `publishedAt` con la validación de publicación del schema de cada catálogo
+  y tipo. Idempotente: publicar una ya publicada es un éxito silencioso.
 - **Retirar** (§91) — concepto nuevo: limpia `publishedAt` sin tocar el
-  resto de la fila, nunca `delete`. También sólo aplica a obra nueva, e
-  idempotente sobre una ya retirada.
+  resto de la fila, nunca `delete`. En los dos catálogos, e idempotente sobre
+  una ya retirada.
+
+  *Verificado en el bloque N7b:* los dos handlers aceptan `agent` y
+  `developer` (`propertyActions.ts`, probado en
+  `test/unit/bulkActions.test.ts` «2ª mano también se publica y se retira»),
+  y el desplegable del listado los ofrece en los dos. El precio por
+  porcentaje (N1) también: «por porcentaje» en el mismo test.
+  **Crear catálogo** sigue sólo en obra nueva a propósito: Asset Export
+  Studio (`asset-export/catalogs.post.ts`) sólo sabe componer fichas de
+  `developer_properties`.
 - **Actualizar precio** (§94-95) — genera SIEMPRE un
   `PropertyPriceHistory` por fila: `price_history` en obra nueva (mismo
   camino que ya usaba `[id].put.ts` en una edición manual, incluido
@@ -197,16 +204,37 @@ esa atribución. Los handlers de Properties lo ignoran sin cambios — una
 función declarada con menos parámetros de los que el tipo exige sigue
 siendo válida en TypeScript.
 
-### Sin "todos los filtrados"
+### Paginación, exportación completa y "todos los filtrados" (bloque N7b)
 
-A diferencia de `PropertyList.vue`, `pages/admin/leads/index.vue` no pagina: la
-vista Tabla carga un único listado con tope de 200 filas (mismo límite de
-siempre en `leads.get.ts`). Eso colapsa dos de los tres niveles de
-selección del encargo (§84) en uno solo — lo que ya está cargado en
-pantalla **es** el filtro completo, así que no hace falta un
-`resolveFilteredLeadIds()` del lado servidor ni un modo "todos los
-filtrados" en el cliente: la selección manual/de "toda la tabla visible"
-ya cubre el caso.
+Hasta el bloque N7b, `pages/admin/leads/index.vue` no paginaba: la Tabla
+cargaba un único listado con tope de 200 filas, y por tanto «Exportar
+seleccionados» nunca podía sacar más de 200 leads (hallazgo de la FASE 28 en
+`docs/auditoria-nucleo-megaprompt.md`). Ahora:
+
+- El filtro del listado se escribe una sola vez en
+  `server/utils/leads/list.ts#buildLeadListWhere` (búsqueda, origen, oficina,
+  prioridad, puntuación, el detalle de un KPI del dashboard, `ids` y la
+  etiqueta nueva `tags`).
+- La **Tabla pagina** (`page`, `perPage` ≤ 200; la pantalla pide 100) y
+  `total` es el total real del filtro. Sin `page`/`perPage`, el endpoint
+  devuelve las 200 primeras como siempre (lo usan INMO y otras pantallas). El
+  orden lleva `id` de desempate para que ninguna fila se repita o se salte
+  entre páginas. El **Pipeline** sigue cargando los 200 más recientes del
+  filtro (un tablero no se pagina) y avisa cuando hay más.
+- **«Exportar CSV (N)»** descarga TODO el filtro, por lotes de 500
+  (`exportLeadRows`), sin tope; cada lote es una consulta pequeña y del mismo
+  tamaño, y las etiquetas de cada lote salen en una consulta con los ids como
+  un único parámetro JSON — ninguna consulta pasa del límite de 100
+  parámetros de D1. El CSV añade la columna `tags`.
+- **«Seleccionar los N que cumplen el filtro»**: igual que en Propiedades, el
+  servidor resuelve la selección con el MISMO filtro
+  (`resolveFilteredLeadIds`, tope de 2.000 por acción masiva) cuando
+  `lead-bulk-jobs` recibe `selectAllFiltered: true` + `filters`. «Exportar
+  seleccionados» en ese modo exporta el filtro entero.
+
+Lo cubre `test/unit/leadListExport.test.ts` (más de 1.200 leads en varios
+lotes, cada uno una sola vez, sólo de la agencia, con el filtro y las
+etiquetas).
 
 ### Sin migración nueva
 

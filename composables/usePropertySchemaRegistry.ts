@@ -43,6 +43,8 @@ export interface PropertySchemaDef {
 interface PropertySchemasPayload {
   schemas: PropertySchemaDef[]
   agentTypeMap: Record<string, PropertySchemaKey>
+  /** Obra nueva de un tipo no residencial (suelo, local/oficina, nave, garaje): bloque N7a. */
+  developerVariants?: Partial<Record<PropertySchemaKey, PropertySchemaDef>>
 }
 
 export function usePropertySchemaRegistry() {
@@ -51,18 +53,20 @@ export function usePropertySchemaRegistry() {
   const payload = computed<PropertySchemasPayload>(() => resources.value?.__propertySchemas || { schemas: [], agentTypeMap: {} })
   const schemas = computed(() => payload.value.schemas)
   const agentTypeMap = computed(() => payload.value.agentTypeMap)
+  const developerVariants = computed(() => payload.value.developerVariants || {})
 
   /**
-   * `developer` siempre resuelve a `newDevelopment` (§35: PropertyType no es
-   * lo mismo que PropertySchema, y developer_properties no participa del
-   * mapeo — ver registry.ts). Sin schemas cargados todavía (primer render),
+   * Igual que `getPropertySchemaFor` del servidor: en 2ª mano el tipo elige
+   * el esquema; en obra nueva es `newDevelopment`, salvo que el tipo sea
+   * suelo, local/oficina, nave o garaje, que resuelven a su variante de obra
+   * nueva (bloque N7a). Sin schemas cargados todavía (primer render),
    * devuelve `undefined`: los consumidores deben tratar eso como "no filtrar
    * nada todavía", nunca como "ocultar todo".
    */
   function getSchemaFor(catalog: PropertyCatalog, propertyType: string | null | undefined): PropertySchemaDef | undefined {
     if (!schemas.value.length) return undefined
-    if (catalog === 'developer') return schemas.value.find((s) => s.key === 'newDevelopment')
     const key = (propertyType && agentTypeMap.value[propertyType]) || 'residential'
+    if (catalog === 'developer') return developerVariants.value[key] || schemas.value.find((s) => s.key === 'newDevelopment')
     return schemas.value.find((s) => s.key === key)
   }
 
@@ -75,8 +79,9 @@ export function usePropertySchemaRegistry() {
    */
   function declaredFieldKeys(catalog: PropertyCatalog): Set<string> {
     const set = new Set<string>()
-    for (const s of schemas.value) {
-      if (!s.catalogs.includes(catalog)) continue
+    const all = catalog === 'developer' ? [...schemas.value, ...Object.values(developerVariants.value)] : schemas.value
+    for (const s of all) {
+      if (!s || !s.catalogs.includes(catalog)) continue
       for (const key of Object.keys(s.fields)) set.add(key)
     }
     return set

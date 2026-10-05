@@ -71,10 +71,15 @@
         <option value="">Todos los roles</option>
         <option v-for="r in CONTACT_ROLES" :key="r" :value="r">{{ CONTACT_ROLE_LABELS[r] }}</option>
       </select>
+      <!-- Filtro por etiqueta (FASE 0, bloque N7b). -->
+      <select v-model="tag" class="cfg-input sm:!w-52" aria-label="Filtrar por etiqueta" data-testid="contacts-tag-filter">
+        <option value="">Todas las etiquetas</option>
+        <option v-for="t in tagOptions" :key="t.id" :value="String(t.id)">{{ t.name }}</option>
+      </select>
     </div>
 
     <div v-if="!contacts.length" class="rounded-xl border border-dashed border-line px-6 py-10 text-center text-sm text-stone-500">
-      {{ search || role ? 'Ningún contacto coincide con la búsqueda.' : 'Todavía no hay contactos.' }}
+      {{ search || role || tag ? 'Ningún contacto coincide con la búsqueda.' : 'Todavía no hay contactos.' }}
     </div>
 
     <AdminPanel v-else :pad="false">
@@ -94,6 +99,7 @@
                 <NuxtLink :to="`/admin/contactos/${c.id}`" class="font-medium hover:underline">{{ c.name }}</NuxtLink>
                 <span v-if="c.kind === 'company'" class="ml-2 rounded bg-stone-100 px-1.5 py-0.5 text-[10px] uppercase text-stone-500">Empresa</span>
                 <span v-if="c.roles?.length" class="mt-0.5 block text-[11px] text-stone-400" data-testid="contact-row-roles">{{ c.roles.map((r: string) => CONTACT_ROLE_LABELS[r as ContactRole] || r).join(' · ') }}</span>
+                <TagChips v-if="c.tags?.length" class="mt-1" :tags="c.tags" />
               </td>
               <td class="px-4 py-3 text-stone-600">
                 <span v-if="c.email">{{ c.email }}</span>
@@ -116,16 +122,28 @@
 
 <script setup lang="ts">
 import { CONTACT_ROLES, CONTACT_ROLE_LABELS, type ContactRole } from '~/utils/crmCatalog'
+import TagChips from '~/components/admin/tags/TagChips.vue'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Contactos — M&M Real Estate' })
 const dt = useDash()
 const toast = useToast()
 
+const route = useRoute()
 const search = ref('')
 const role = ref('')
+// `?tags=<id>` llega desde el enlace de una etiqueta; el desplegable lo cambia.
+const tag = ref(typeof route.query.tags === 'string' ? route.query.tags : '')
+const tagOptions = ref<{ id: number; name: string }[]>([])
+onMounted(async () => {
+  try {
+    tagOptions.value = (await $fetch<{ rows: { id: number; name: string }[] }>('/api/admin/crm-tags')).rows
+  } catch {
+    tagOptions.value = []
+  }
+})
 const { data, refresh } = await useFetch<any[]>('/api/admin/saas/contacts', {
-  query: computed(() => ({ search: search.value || undefined, role: role.value || undefined })),
+  query: computed(() => ({ search: search.value || undefined, role: role.value || undefined, tags: tag.value || undefined })),
 })
 const contacts = computed(() => data.value || [])
 

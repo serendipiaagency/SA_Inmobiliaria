@@ -8,6 +8,7 @@ import { addBackoff } from './scheduling'
 import { CHANNEL_BY_KEY } from './channels'
 import { logPublicationEvent } from './logs'
 import { trashedPropertyMessage } from '../properties/trash'
+import { buildPortalListing } from './listing'
 
 const BATCH_SIZE = 25
 
@@ -101,6 +102,8 @@ export async function executeJob(db: any, env: Record<string, any>, job: any, ru
           db,
           organizationId: job.organizationId,
           timeoutMs: (job.maxDurationSeconds || 120) * 1000,
+          // Lo único que ve el canal: portalFields y multimedia publicable (listing.ts).
+          listing: job.action === 'unpublish' ? null : await buildPortalListing(db, job.organizationId, 'developer', sched.developerPropertyId),
         })
   const finishedAt = now()
 

@@ -2,6 +2,7 @@ import { CHANNEL_BY_KEY, isChannelImplemented } from './channels'
 import { getChannelAdapter } from './adapters/registry'
 import { getChannelCredential } from './credentials'
 import type { PublishContext, PublishResult } from './adapters/types'
+import type { PortalListing } from './listing'
 
 /**
  * The orchestration layer between the dispatcher and a channel's own
@@ -34,6 +35,8 @@ export interface RunAdapterInput {
   organizationId?: number
   /** Caps how long a real adapter call may run — defaults to 2 minutes; the dispatcher passes the job's own `maxDurationSeconds`. */
   timeoutMs?: number
+  /** Lo que se entrega al canal (portalFields + multimedia publicable), ver listing.ts. */
+  listing?: PortalListing | null
 }
 
 function timeoutResult(label: string, timeoutMs: number): PublishResult {
@@ -90,6 +93,7 @@ export async function runChannelAdapter(input: RunAdapterInput): Promise<Publish
     idempotencyKey: input.idempotencyKey,
     env: input.env,
     credential,
+    listing: input.listing ?? null,
   }
   const methodByAction: Record<RunAdapterInput['action'], (ctx: PublishContext) => Promise<PublishResult>> = {
     publish: adapter.publish,

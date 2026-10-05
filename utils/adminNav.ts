@@ -56,6 +56,9 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: 'Compatibilidades', to: '/admin/compatibilidades', icon: 'sparkles' },
       { label: 'Leads', to: '/admin/leads', icon: 'contact' },
       { label: 'Enrutamiento y SLA', to: '/admin/enrutamiento', icon: 'bolt' },
+      // Bloque N7b (FASE 0): los campos extra de propiedades, contactos, leads,
+      // citas y operaciones de la agencia. Área CRM, como su recurso.
+      { label: 'Campos personalizados', to: '/admin/campos-personalizados', icon: 'layers' },
       { label: 'Oficinas', to: '/admin/offices', icon: 'building' },
       { label: 'Equipos', to: '/admin/teams', icon: 'team' },
       { label: 'Clientes', to: '/admin/clientes', icon: 'users' },

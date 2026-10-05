@@ -58,6 +58,28 @@ que necesite servirse por HTTP debe, por este orden de preferencia:
    nuevo — y entonces volver a medir el margen en un worktree limpio antes
    de asumir que cabe, exactamente como documenta P1-14.
 
+## Actualización (bloque N7a): `publicFields`, `portalFields` y los dos catálogos
+
+- `publicFields(schema)` y `portalFields(schema)` (registry.ts) ya se usan:
+  la proyección pública (`toPublicProperty` / `toPublicSheet`,
+  `server/utils/propertyPrivacy.ts`) sólo deja salir, de lo que el registro
+  declara para el catálogo, los `publicFields` del esquema resuelto; lo que se
+  entrega a un portal (`server/utils/publication/listing.ts`,
+  `buildPortalListing`) sólo lleva `portalFields`. Ver
+  [`documentos-y-multimedia.md`](./documentos-y-multimedia.md).
+- El editor de **los dos catálogos** filtra los campos con el registro
+  (`PropertyBuilder.vue` → `filterFieldsForSchema`). Obra nueva ya no es
+  siempre `newDevelopment` a secas: suelo, local/oficina, nave y garaje
+  resuelven a una **variante de obra nueva** (`DEVELOPER_SCHEMA_VARIANTS`) con
+  la identificación, «Construcción y entrega» y la multimedia del proyecto y
+  las superficies, estado, instalaciones y legal del tipo. La clave sigue
+  siendo `newDevelopment`. La validación al publicar usa la misma variante
+  (una promoción de suelo exige la parcela, no los m² construidos). El
+  cliente recibe las variantes en `__propertySchemas.developerVariants`.
+
+Lo que sigue más abajo describe el estado al crear el registro; donde
+contradiga esta sección, manda esta.
+
 ## `publicExposable`/`portalRelevant` no son autorización
 
 Un campo candidato a público (§42 del encargo) sigue sujeto a permissions,

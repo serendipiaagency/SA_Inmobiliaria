@@ -15,6 +15,10 @@ import { createOrganizationFromAdmin, resendAdminInvite } from '../../../utils/o
 import { createContactFromAdmin, ensureContactRole, validateNotePayload, validatePropertyContact } from '../../../utils/contacts/crm'
 import { createLeadFromAdmin } from '../../../utils/leads/admin'
 import { validateRoutingRule } from '../../../utils/leads/routing'
+import { enforceSingleMainMedia, syncMediaKeyVisibility, validatePropertyMedia } from '../../../utils/properties/media'
+import { resolveFilteredLeadIds, d1Runner } from '../../../utils/leads/list'
+import { customFieldValuesResourcePost, isCustomFieldValueResource, validateCustomFieldDefinition } from '../../../utils/customFields/service'
+import { addTagToEntity, isTagLinkResource, TAG_LINK_RESOURCES } from '../../../utils/tags/service'
 import {
   assertSheetReferences,
   assertSubtypeMatchesType,
@@ -112,7 +116,14 @@ export default defineEventHandler(async (event) => {
     // de la agencia tras cambiar sus reglas — no es una selección de pantalla
     // sino la organización entera, resuelta aquí y con el mismo tope de 2000.
     let ids: number[] = Array.isArray(body.ids) ? body.ids.map(Number) : []
-    if (body.selectAllFiltered && body.action === 'recalculate_score') {
+    if (body.selectAllFiltered && body.filters && typeof body.filters === 'object') {
+      // «Seleccionar todos los filtrados» (bloque N7b): el listado de leads ya
+      // pagina, así que la selección completa la resuelve el servidor con el
+      // MISMO filtro que la Tabla (server/utils/leads/list.ts), con el tope de
+      // siempre.
+      ids = await resolveFilteredLeadIds(d1Runner(cfEnv(event).DB), orgId!, body.filters, 2000)
+      if (ids.length > 2000) throw createError({ statusCode: 422, statusMessage: `La selección filtrada tiene más de 2000 leads — el máximo por acción masiva es 2000. Añade más filtros para acotarla.` })
+    } else if (body.selectAllFiltered && body.action === 'recalculate_score') {
       const rows = await db.select({ id: schema.leads.id }).from(schema.leads).where(eq(schema.leads.organizationId, orgId!)).limit(2001)
       if (rows.length > 2000) throw createError({ statusCode: 422, statusMessage: 'La agencia tiene más de 2000 leads — recalcula por partes desde el listado.' })
       ids = rows.map((r: { id: number }) => r.id)
@@ -129,6 +140,25 @@ export default defineEventHandler(async (event) => {
   // `mergeIntoLeadId` para unificar o `force` para crear igualmente) y
   // enrutado — el mismo `insertLead()` que la captación pública.
   if (key === 'leads') return createLeadFromAdmin(event, orgId!, user, body || {})
+  // Documentos de una propiedad (FASE 6): el alta lleva el fichero, así que
+  // va por la subida privada (multipart) y nunca por un JSON sin fichero.
+  if (key === 'property-documents') {
+    throw createError({ statusCode: 422, statusMessage: 'Un documento se da de alta con su fichero: usa POST /api/admin/property-documents/private-upload.' })
+  }
+  // Campos personalizados de una ficha (FASE 0): guardar los valores de UN
+  // registro — validados por tipo, con el registro y cada definición
+  // comprobados contra la organización.
+  if (isCustomFieldValueResource(key)) {
+    const res = await customFieldValuesResourcePost(db, orgId!, user.id, key, body || {})
+    await logAdminAction(event, { user, orgId, action: 'update', resource: key, resourceId: res.ref.entityId, detail: `${res.ref.entityType}:${res.ref.entityKind}` })
+    return res
+  }
+  // Etiquetar a mano (FASE 0): por nombre (se crea si no existe) o por id de una etiqueta de la agencia.
+  if (isTagLinkResource(key)) {
+    const res = await addTagToEntity(db, orgId!, TAG_LINK_RESOURCES[key]!, body || {})
+    await logAdminAction(event, { user, orgId, action: 'create', resource: key, resourceId: res.tag.id, detail: `${body?.entityType}:${body?.entityId}` })
+    return { ok: true, ...res }
+  }
 
   const data = await buildPayload(def, body || {}, true, event)
   // Tenant ownership is always server-resolved, never taken from client input —
@@ -189,8 +219,24 @@ export default defineEventHandler(async (event) => {
     data.createdBy = user.id
   }
   if (key === 'lead-routing-rules') await validateRoutingRule(db, orgId!, data, null)
+  // Multimedia (FASE 7): propiedad de la agencia y viva, tipo, fuente y fichero propio.
+  if (key === 'property-media') {
+    await validatePropertyMedia(db, orgId!, data, null)
+    data.createdBy = user.id
+  }
+  if (key === 'custom-fields') {
+    await validateCustomFieldDefinition(db, orgId!, data, null)
+    data.createdBy = user.id
+  }
   const inserted = await db.insert(def.table).values(data).returning({ id: def.table.id }).catch(rethrowUniqueViolation)
   const id = inserted[0]?.id
+  if (key === 'property-media') {
+    await enforceSingleMainMedia(db, orgId!, { id, propertyKind: data.propertyKind, propertyId: data.propertyId, mediaType: data.mediaType, isMain: data.isMain ? 1 : 0 })
+    if (data.r2Key) await syncMediaKeyVisibility(db, orgId!, data.r2Key)
+  }
+  // Una foto que nace privada deja de servirse sin sesión desde el primer momento.
+  // (la propiedad padre ya se comprobó de esta agencia en assertPayloadReferences).
+  if ((key === 'project-images' || key === 'gallery-images') && data.isPrivate) await syncMediaKeyVisibility(db, orgId!, data.image)
   if (propertyKind && sheet && hasSheetChanges(sheet)) await savePropertySheet(db, orgId!, propertyKind, id, sheet, user.id)
   // Vincular a alguien como propietario de una propiedad le da el rol «Propietario».
   if (key === 'property-contacts' && (data.role === 'owner' || data.role === 'co_owner')) await ensureContactRole(db, orgId!, data.contactId, 'owner', user.id)

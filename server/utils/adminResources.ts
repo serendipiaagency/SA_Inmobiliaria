@@ -14,7 +14,7 @@ import {
 import type { AdminArea } from '../../utils/adminAreas'
 import { getRequestId } from './requestId'
 import { selectInChunks } from './sqlChunks'
-import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '../../utils/propertySheet'
+import { DOCUMENT_VISIBILITIES, DOCUMENT_VISIBILITY_LABELS, PROPERTY_DOCUMENT_TYPES, PROPERTY_DOCUMENT_TYPE_LABELS, PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '../../utils/propertySheet'
 import {
   CONTACT_SOURCES,
   CONTACT_SOURCE_LABELS,
@@ -29,6 +29,11 @@ import {
   PROPERTY_CONTACT_ROLE_LABELS,
 } from '../../utils/crmCatalog'
 import { LEAD_PRIORITIES, LEAD_PRIORITY_LABELS, LEAD_SOURCES, LEAD_SOURCE_LABELS, ROUTING_SCOPES, ROUTING_SCOPE_LABELS } from '../../utils/leadCatalog'
+import { MEDIA_LANGUAGES, MEDIA_LANGUAGE_LABELS, PROPERTY_MEDIA_TYPES, PROPERTY_MEDIA_TYPE_LABELS } from '../../utils/propertyMediaCatalog'
+import { normalizeMediaMetadata } from './properties/media'
+import { decorateDocumentRows } from './properties/documents'
+import { CUSTOM_FIELD_ENTITY_LABELS, CUSTOM_FIELD_ENTITY_TYPES, CUSTOM_FIELD_TYPES, CUSTOM_FIELD_TYPE_LABELS } from '../../utils/customFieldCatalog'
+import { countValuesByDefinition } from './customFields/service'
 
 /** Oficinas y equipos: nombre con contenido, email con forma de email y zona horaria IANA real. */
 function validateOfficeOrTeam(data: Record<string, any>): Record<string, any> {
@@ -167,6 +172,22 @@ export function generateReferenceCode(): string {
     .toString(36)
     .toUpperCase()
     .padStart(6, '0')
+}
+
+/**
+ * Metadatos por foto de galería (FASE 7, migración 0086) — los mismos en los
+ * dos catálogos: título, alt, pie, idioma y los tres interruptores que deciden
+ * si sale fuera del panel (publicable, privada, oculta). Ver
+ * server/utils/properties/media.ts.
+ */
+const GALLERY_METADATA_FIELDS: Record<string, FieldDef> = {
+  title: { type: 'text', label: 'Título' },
+  alt: { type: 'text', label: 'Texto alternativo (alt)' },
+  caption: { type: 'textarea', label: 'Pie de foto' },
+  language: { type: 'select', label: 'Idioma', options: [...MEDIA_LANGUAGES], optionLabels: MEDIA_LANGUAGE_LABELS },
+  isPublishable: { type: 'number', label: 'Publicable' },
+  isPrivate: { type: 'number', label: 'Privada' },
+  isHidden: { type: 'number', label: 'Oculta' },
 }
 
 export const adminResources: Record<string, ResourceDef> = {
@@ -694,6 +715,7 @@ export const adminResources: Record<string, ResourceDef> = {
       developerPropertyId: { type: 'number', label: 'Proyecto (ID)', required: true },
       image: { type: 'image', label: 'Imagen', required: true },
       sortOrder: { type: 'number', label: 'Orden' },
+      ...GALLERY_METADATA_FIELDS,
     },
     listFields: ['id', 'developerPropertyId', 'image', 'sortOrder'],
     searchFields: [],
@@ -704,6 +726,9 @@ export const adminResources: Record<string, ResourceDef> = {
       parentTable: schema.developerProperties,
       parentLabel: 'Proyecto',
     },
+    // La galería de UNA propiedad (antes el gestor pedía 100 filas de toda la agencia y filtraba en el navegador).
+    filterFields: ['developerPropertyId'],
+    prepare: async (data) => normalizeMediaMetadata(data),
   },
 
   'gallery-images': {
@@ -714,6 +739,7 @@ export const adminResources: Record<string, ResourceDef> = {
       propertyId: { type: 'number', label: 'Propiedad (ID)', required: true },
       image: { type: 'image', label: 'Imagen', required: true },
       sortOrder: { type: 'number', label: 'Orden' },
+      ...GALLERY_METADATA_FIELDS,
     },
     listFields: ['id', 'propertyId', 'image', 'sortOrder'],
     searchFields: [],
@@ -724,6 +750,8 @@ export const adminResources: Record<string, ResourceDef> = {
       parentTable: schema.agentProperties,
       parentLabel: 'Propiedad',
     },
+    filterFields: ['propertyId'],
+    prepare: async (data) => normalizeMediaMetadata(data),
   },
 
   'agent-property-floor-plans': {
@@ -1182,6 +1210,68 @@ export const adminResources: Record<string, ResourceDef> = {
     },
   },
 
+  /**
+   * Documentos de una propiedad (FASE 6, bloque N7a), de los dos catálogos.
+   * El alta va con su fichero por `POST …/property-documents/private-upload`
+   * (server/utils/properties/documents.ts); el motor genérico lista, edita
+   * metadatos, manda a la papelera, restaura y borra. `PUT` con
+   * `{ action: 'grant' | 'revoke', contactId }` concede o revoca el acceso a
+   * un contacto. El fichero, el tamaño y el autor no son editables: los
+   * fija el servidor.
+   */
+  'property-documents': {
+    area: 'web',
+    table: schema.propertyDocuments,
+    label: 'Documentos de la propiedad',
+    fields: {
+      propertyKind: { type: 'select', label: 'Catálogo', required: true, options: ['agent', 'developer'], optionLabels: { agent: '2ª mano', developer: 'Web / obra nueva' } },
+      propertyId: { type: 'number', label: 'Propiedad', required: true },
+      docType: { type: 'select', label: 'Tipo de documento', required: true, options: [...PROPERTY_DOCUMENT_TYPES], optionLabels: PROPERTY_DOCUMENT_TYPE_LABELS },
+      title: { type: 'text', label: 'Título', required: true },
+      visibility: { type: 'select', label: 'Quién puede verlo', options: [...DOCUMENT_VISIBILITIES], optionLabels: DOCUMENT_VISIBILITY_LABELS },
+      issuedAt: { type: 'text', label: 'Fecha de emisión' },
+      expiresAt: { type: 'text', label: 'Fecha de caducidad' },
+      notes: { type: 'textarea', label: 'Notas' },
+    },
+    listFields: ['id', 'title', 'docType', 'visibility', 'expiresAt', 'createdAt'],
+    searchFields: ['title', 'fileName', 'notes'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    softDelete: true,
+    filterFields: ['propertyKind', 'propertyId', 'docType', 'visibility'],
+    decorateRows: (db, orgId, rows) => decorateDocumentRows(db, orgId, rows),
+  },
+
+  /**
+   * Multimedia de una propiedad que no es una foto de galería ni un plano
+   * (FASE 7, bloque N7a): vídeos (varios), tours virtuales, renders, PDF,
+   * drone y fotos 360, con título, alt, pie, idioma, principal, publicable,
+   * privado y oculto. Validado en server/utils/properties/media.ts.
+   */
+  'property-media': {
+    area: 'web',
+    table: schema.propertyMedia,
+    label: 'Multimedia de la propiedad',
+    fields: {
+      propertyKind: { type: 'select', label: 'Catálogo', required: true, options: ['agent', 'developer'], optionLabels: { agent: '2ª mano', developer: 'Web / obra nueva' } },
+      propertyId: { type: 'number', label: 'Propiedad', required: true },
+      mediaType: { type: 'select', label: 'Tipo de recurso', required: true, options: [...PROPERTY_MEDIA_TYPES], optionLabels: PROPERTY_MEDIA_TYPE_LABELS },
+      url: { type: 'text', label: 'Enlace (https://)' },
+      r2Key: { type: 'file', label: 'Fichero' },
+      ...GALLERY_METADATA_FIELDS,
+      isMain: { type: 'number', label: 'Principal de su tipo' },
+      sortOrder: { type: 'number', label: 'Orden' },
+    },
+    listFields: ['id', 'mediaType', 'title', 'isPublishable', 'isPrivate', 'isHidden'],
+    searchFields: ['title', 'caption'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    softDelete: true,
+    filterFields: ['propertyKind', 'propertyId', 'mediaType'],
+  },
+
   /** Nota como entidad (FASE 0): de un contacto, lead, propiedad, cita u operación. */
   notes: {
     area: 'crm',
@@ -1213,6 +1303,105 @@ export const adminResources: Record<string, ResourceDef> = {
       const byId = new Map<number, string>(users.map((u: any) => [u.id, u.name]))
       return rows.map((r) => ({ ...r, authorName: byId.get(r.createdBy) || null }))
     },
+  },
+
+  /**
+   * Campos personalizados (FASE 0, bloque N7b): la DEFINICIÓN de un campo
+   * extra de propiedades, contactos, leads, citas u operaciones. Página
+   * CRM → Campos personalizados. La validación (clave inmutable, opciones de
+   * las listas, tipo que no cambia con valores ya guardados, «público» sólo en
+   * propiedades) está en server/utils/customFields/service.ts, llamada desde
+   * los POST/PUT genéricos. Borrar la manda a la Papelera; archivar la oculta
+   * de las fichas sin perder los valores.
+   */
+  'custom-fields': {
+    area: 'crm',
+    table: schema.customFieldDefinitions,
+    label: 'Campos personalizados',
+    fields: {
+      entityType: { type: 'select', label: 'Se aplica a', required: true, options: [...CUSTOM_FIELD_ENTITY_TYPES], optionLabels: CUSTOM_FIELD_ENTITY_LABELS },
+      key: { type: 'text', label: 'Clave interna' },
+      label: { type: 'text', label: 'Etiqueta', required: true },
+      fieldType: { type: 'select', label: 'Tipo de campo', required: true, options: [...CUSTOM_FIELD_TYPES], optionLabels: CUSTOM_FIELD_TYPE_LABELS },
+      optionsJson: { type: 'json', label: 'Opciones (lista)' },
+      isRequired: { type: 'number', label: 'Obligatorio' },
+      section: { type: 'text', label: 'Sección' },
+      sortOrder: { type: 'number', label: 'Orden' },
+      helpText: { type: 'textarea', label: 'Ayuda' },
+      isPublic: { type: 'number', label: 'Visible en la web pública' },
+      status: { type: 'select', label: 'Estado', options: ['active', 'archived'], optionLabels: { active: 'Activo', archived: 'Archivado' } },
+    },
+    listFields: ['id', 'entityType', 'label', 'fieldType', 'section', 'status'],
+    searchFields: ['label', 'key', 'section'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    softDelete: true,
+    filterFields: ['entityType', 'status'],
+    // Cuántos registros tienen valor en cada campo: el panel avisa antes de cambiarlo o borrarlo.
+    decorateRows: async (db, orgId, rows) => {
+      const counts = await countValuesByDefinition(db, orgId, rows.map((r) => r.id))
+      return rows.map((r) => ({ ...r, valuesCount: counts.get(r.id) || 0 }))
+    },
+  },
+
+  /**
+   * Valores de los campos personalizados de UNA ficha. Dos recursos sobre la
+   * misma tabla porque el área de permisos la pone la entidad: propiedades
+   * (los dos catálogos) → Portal Web; el resto → CRM. GET y POST los atiende
+   * server/utils/customFields/service.ts (`{ entityType, entityKind, entityId }`
+   * comprobado contra la organización; valores validados por tipo); PUT y
+   * DELETE por fila no existen (405).
+   */
+  'property-custom-field-values': {
+    area: 'web',
+    table: schema.customFieldValues,
+    label: 'Campos personalizados (propiedades)',
+    fields: {},
+    listFields: ['id', 'definitionId', 'entityKind', 'entityId'],
+    searchFields: [],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+  },
+  'custom-field-values': {
+    area: 'crm',
+    table: schema.customFieldValues,
+    label: 'Campos personalizados (CRM)',
+    fields: {},
+    listFields: ['id', 'definitionId', 'entityType', 'entityId'],
+    searchFields: [],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+  },
+
+  /**
+   * Etiquetas a mano (FASE 0, bloque N7b): añadir (POST, por nombre o por id
+   * de una etiqueta de la agencia) y quitar (DELETE del enlace) desde una
+   * ficha; el GET da las de un registro o el catálogo de la agencia. Mismo
+   * Tag transversal que la acción masiva (server/utils/tags/service.ts). Dos
+   * recursos por el área: propiedades → Portal Web; leads y contactos → CRM.
+   */
+  'property-tags': {
+    area: 'web',
+    table: schema.tagLinks,
+    label: 'Etiquetas (propiedades)',
+    fields: {},
+    listFields: ['id', 'tagId', 'entityType', 'entityId'],
+    searchFields: [],
+    hasTimestamps: true,
+    tenantPolicy: { type: 'direct' },
+  },
+  'crm-tags': {
+    area: 'crm',
+    table: schema.tagLinks,
+    label: 'Etiquetas (contactos y leads)',
+    fields: {},
+    listFields: ['id', 'tagId', 'entityType', 'entityId'],
+    searchFields: [],
+    hasTimestamps: true,
+    tenantPolicy: { type: 'direct' },
   },
 
   /** Equipos comerciales (migración 0086), opcionalmente dentro de una oficina. */

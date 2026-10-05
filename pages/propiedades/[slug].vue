@@ -4,8 +4,8 @@
     <section id="fotos" ref="heroRef" class="mx-auto max-w-screen-2xl px-6 pt-6 lg:px-10">
       <MediaGallery
         :photos="photos"
+        :photo-alts="photoAlts"
         :name="data.project.name"
-        :has-tour="!!data.project.hasTour"
         :master-plan="masterPlan"
         :video-url="data.project.videoUrl"
         :drone-photo="dronePhoto"
@@ -14,6 +14,8 @@
         :after-photo="afterPhoto"
         :ai-staged-photo="aiStagedPhoto"
         :social-media="socialMediaForGallery"
+        :media="publicMedia"
+        :virtual-tour-url="virtualTourUrl"
       />
     </section>
 
@@ -148,6 +150,18 @@
             </ul>
           </section>
 
+          <!-- Campos personalizados que la agencia marcó «visible en la web pública» (FASE 0). Los internos nunca llegan aquí. -->
+          <section v-if="data.customFields?.length" id="mas-informacion" data-testid="property-public-custom-fields">
+            <p class="eyebrow">{{ t('propertyDetails.customFields.eyebrow', 'Más detalles') }}</p>
+            <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.customFields.heading', 'Más información') }}</h2>
+            <dl class="mt-7 grid gap-x-10 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+              <div v-for="f in data.customFields" :key="f.key">
+                <dt class="text-[12px] uppercase tracking-wide text-stone-400">{{ f.label }}</dt>
+                <dd class="mt-1 text-[15px] text-stone-700">{{ f.display }}</dd>
+              </div>
+            </dl>
+          </section>
+
           <!-- Units -->
           <section v-if="data.unitTypes.length">
             <p class="eyebrow">{{ t('propertyDetails.units.eyebrow', 'Residencias') }}</p>
@@ -158,6 +172,21 @@
                 <tbody><tr v-for="u in data.unitTypes" :key="u.id" class="border-b border-line/60 last:border-0"><td class="px-6 py-4 font-medium">{{ u.propertyType }}</td><td class="px-6 py-4 text-stone-600">{{ u.unitType }}</td><td class="px-6 py-4 text-stone-600">{{ u.size }}</td></tr></tbody>
               </table>
             </div>
+          </section>
+
+          <!-- Documentación pública (FASE 6-7): PDF publicables y documentos públicos, sólo con la propiedad publicada. -->
+          <section v-if="publicFiles.length" id="documentacion" data-testid="public-property-documents">
+            <p class="eyebrow">{{ t('propertyDetails.documents.eyebrow', 'Documentación') }}</p>
+            <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.documents.heading', 'Folletos y documentos') }}</h2>
+            <ul class="mt-7 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white">
+              <li v-for="f in publicFiles" :key="f.key" class="flex items-center justify-between gap-4 px-6 py-4 text-[15px]">
+                <span class="min-w-0">
+                  <span class="block truncate font-medium text-ink">{{ f.title }}</span>
+                  <span v-if="f.sub" class="block text-[12px] text-stone-500">{{ f.sub }}</span>
+                </span>
+                <a :href="f.url" target="_blank" rel="noopener" class="shrink-0 text-[12px] font-semibold uppercase tracking-widest2 text-ink hover:underline">{{ t('propertyDetails.documents.download', 'Descargar') }}</a>
+              </li>
+            </ul>
           </section>
 
           <!-- Servicios cercanos -->
@@ -348,10 +377,31 @@ async function doShare() {
   }
 }
 
-const photos = computed<string[]>(() => {
-  const list = [data.value?.project.coverImage, ...(data.value?.gallery.map((g: any) => g.image) || [])]
-  return [...new Set(list.filter(Boolean))].map((k: string) => mediaUrl(k))
+// La galería ya llega filtrada del servidor: sólo fotos publicables, no
+// privadas y no ocultas, en su orden (FASE 7). El alt de cada foto, si lo
+// tiene; si no, el nombre de la promoción.
+const galleryRows = computed<any[]>(() => {
+  const rows: any[] = []
+  const seen = new Set<string>()
+  if (data.value?.project.coverImage) {
+    seen.add(data.value.project.coverImage)
+    rows.push({ image: data.value.project.coverImage, alt: null })
+  }
+  for (const g of (data.value?.gallery as any[]) || []) {
+    if (!g.image || seen.has(g.image)) continue
+    seen.add(g.image)
+    rows.push(g)
+  }
+  return rows
 })
+const photos = computed<string[]>(() => galleryRows.value.map((g) => mediaUrl(g.image)))
+const photoAlts = computed<string[]>(() => galleryRows.value.map((g, i) => g.alt || g.title || `${data.value?.project.name || ''} ${i + 1}`.trim()))
+const publicMedia = computed<any[]>(() => ((data.value as any)?.media as any[]) || [])
+const virtualTourUrl = computed<string | null>(() => ((data.value as any)?.details?.virtualTourUrl as string) || null)
+const publicFiles = computed(() => [
+  ...publicMedia.value.filter((m) => m.mediaType === 'pdf').map((m) => ({ key: `m${m.id}`, title: m.title || t('propertyDetails.documents.brochure', 'Folleto'), sub: m.caption || '', url: m.url })),
+  ...((((data.value as any)?.documents as any[]) || []).map((d) => ({ key: `d${d.id}`, title: d.title, sub: d.docTypeLabel, url: d.url }))),
+])
 const masterPlan = computed(() => (data.value?.project.masterPlanImage ? mediaUrl(data.value.project.masterPlanImage) : null))
 const dronePhoto = computed(() => (data.value?.project.dronePhoto ? mediaUrl(data.value.project.dronePhoto) : null))
 const nightPhoto = computed(() => (data.value?.project.nightPhoto ? mediaUrl(data.value.project.nightPhoto) : null))

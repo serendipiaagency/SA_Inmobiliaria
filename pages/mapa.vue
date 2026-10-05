@@ -17,6 +17,9 @@
         </div>
         <div class="flex items-center justify-between">
           <p class="text-sm text-stone-500"><span class="font-semibold text-ink">{{ data?.total ?? items.length }}</span> {{ t('mapa.propertiesOnMap', 'propiedades en el mapa') }}</p>
+          <button v-if="hasArea" type="button" class="text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-ink" data-testid="map-clear-area" @click="clearArea">
+            {{ t('mapa.clearArea', 'Quitar zona') }}
+          </button>
           <button v-if="activeCount || q" type="button" class="text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-ink" @click="clearAll">
             {{ t('hero.clear', 'Limpiar') }}
           </button>
@@ -53,7 +56,7 @@
     <!-- Map -->
     <div v-show="view === 'map' || isDesktop" class="relative flex-1">
       <ClientOnly>
-        <MapExplorer :items="items" :active-id="active" @marker-hover="active = $event" @marker-click="onMarkerClick" />
+        <MapExplorer :items="items" :active-id="active" :fit-to-items="!hasArea" search-area @marker-hover="active = $event" @marker-click="onMarkerClick" @search-area="onSearchArea" />
         <template #fallback>
           <div class="flex h-full items-center justify-center bg-stone-100 text-stone-400">{{ t('mapa.loading', 'Cargando mapa…') }}</div>
         </template>
@@ -93,9 +96,19 @@ watch(
   (v) => (q.value = String(v || '')),
 )
 
+// `view=map` (FASE 2): hasta 300 propiedades sobre el mapa (antes 48), y la
+// zona visible como filtro (north/south/east/west) cuando se pulsa «Buscar en esta zona».
 const { data } = await useFetch('/api/public/properties', {
-  query: computed(() => ({ ...route.query, perPage: 48 })),
+  query: computed(() => ({ ...route.query, view: 'map', perPage: 300 })),
 })
+const AREA_KEYS = ['north', 'south', 'east', 'west'] as const
+const hasArea = computed(() => AREA_KEYS.every((k) => typeof route.query[k] === 'string' && route.query[k]))
+function onSearchArea(b: { north: number; south: number; east: number; west: number }) {
+  router.push({ query: { ...route.query, north: String(b.north), south: String(b.south), east: String(b.east), west: String(b.west) } })
+}
+function clearArea() {
+  router.push({ query: Object.fromEntries(Object.entries(route.query).filter(([k]) => !(AREA_KEYS as readonly string[]).includes(k))) })
+}
 const items = computed(() => withValidCoords((data.value?.rows as any[]) || []))
 
 // Advanced filter keys that count toward the badge

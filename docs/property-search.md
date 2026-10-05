@@ -156,3 +156,80 @@ excluir a propósito.
 - El **orden** (`sort`) sí se guarda como parte de `queryJson` (ya
   vivía en el filtro del incremento 1), así que una vista guardada
   recuerda cómo estaba ordenada — sólo la densidad de fila queda fuera.
+
+## Bloque N7b — búsqueda geográfica y los filtros que faltaban (FASES 2 y 27)
+
+Todo sigue pasando por el mismo motor (`buildPropertyFilterConds` /
+`parsePropertyFilters`): el listado, la exportación CSV, «seleccionar todos
+los filtrados» de las acciones masivas y los filtros y vistas guardadas ven
+exactamente lo mismo. Mismos nombres de parámetro en los dos catálogos.
+
+### Filtros nuevos
+
+| Parámetro | Qué filtra | Dónde está el dato |
+|---|---|---|
+| `subtype` | Subtipo | `property_details.subtype` |
+| `agentId` (`none` = sin comercial) | Comercial asignado | `agent_id` de cada catálogo |
+| `officeId` | Oficina | `property_details.office_id` |
+| `owner` / `ownerId` | Propietario o copropietario vivo, por nombre/email/teléfono o por contacto | `property_contacts` + `contacts` |
+| `portal` | Tiene un trabajo de publicación en ese canal (programado, en cola, publicándose, publicado o reintentando) | `publication_jobs` + `publication_schedules` — **sólo obra nueva**: la publicación multicanal no programa 2ª mano, y ahí el filtro devuelve cero (el panel ni lo ofrece) |
+| `features=pool,terrace,…` | Características que debe tener todas (las 5 de las Domain Tools, ya en el panel) | columnas `has_*` |
+| `neighborhood` | Barrio o urbanización | `property_details.neighborhood` o la columna antigua `community` |
+| `municipality` | Municipio o localidad | `property_details.municipality` o `city` |
+| `tags` | Etiquetas (todas) | `tag_links` — ver `docs/campos-personalizados-y-etiquetas.md` |
+| `cf_<id>`, `cf_<id>_min`, `cf_<id>_max` | Campos personalizados | `custom_field_values` |
+| `transactionType` | Venta / alquiler — ahora también en el panel de Propiedades (web) | `transaction_type` |
+
+Cada subconsulta se correlaciona con el id, el catálogo **y la organización**
+de la propiedad: el id de una oficina, contacto, etiqueta o definición de otra
+agencia no coincide con nada. Las opciones de los desplegables llegan en una
+sola llamada, `GET /api/admin/<catálogo>?view=filterOptions` (oficinas,
+comerciales, etiquetas, campos personalizados y portales), con el área del
+propio listado (Portal Web): quien sólo tiene Portal Web también puede filtrar
+por oficina.
+
+### Búsqueda geográfica
+
+- **Zona visible del mapa (bounding box):** `north`, `south`, `east`, `west`.
+  Si `west > east`, la caja cruza el antimeridiano y son dos franjas.
+- **Radio / coordenadas:** `lat`, `lng`, `radiusKm` (0 < r ≤ 500). Se escribe a
+  mano («Cerca de unas coordenadas») o se pulsa en el mapa.
+- `sort=distance` ordena por cercanía al centro del radio y cada fila trae
+  `distanceKm` (haversine).
+- Mal formada (falta un lado, fuera de rango, sur al norte del norte) → 422.
+  Nunca se ignora: ignorarla devolvería todas las propiedades.
+
+El cálculo vive en `utils/maps/geo.ts` (compartido con el cliente) y su
+traducción a SQL en `server/utils/properties/geoSearch.ts`. El radio usa la
+aproximación equirectangular (Δlat·111,32 km; Δlng·111,32·cos lat₀ km): sólo
+sumas y productos, porque D1 no garantiza funciones trigonométricas en SQL;
+el error es < 1 % para radios de cientos de km, y la caja que envuelve el
+círculo hace de prefiltro. Una propiedad sin coordenadas o con el (0,0) de
+«sin asignar» (`docs/maps.md`) nunca entra en una búsqueda geográfica.
+
+### Mapa del listado (panel)
+
+Botón «Mapa» del listado de los dos catálogos
+(`components/property-list/PropertyListMap.client.vue`, sobre la base
+compartida `useLeafletMap`). Pinta TODO el resultado filtrado con ubicación
+(`?view=map`, tope 1.000 puntos — con más, avisa de acercar o filtrar), y ofrece
+«Buscar en esta zona» (bounding box) y «Buscar alrededor de un punto» (radio).
+No filtra por su cuenta: emite el filtro y el listado lo aplica, así que va a
+la URL, al CSV, a las vistas guardadas y a las acciones masivas igual que
+cualquier otro.
+
+### Web pública (`GET /api/public/properties`)
+
+Sin romper lo que ya había (todo es opcional):
+
+- `city`, `municipality` y `neighborhood` (este último también en
+  `property_details`);
+- la misma caja y el mismo radio, **sobre las coordenadas que se publican**:
+  si la ubicación es aproximada, las redondeadas de `toPublicProperty` —
+  buscar por zona nunca afina más que el pin que ya se enseña;
+- `view=map` admite hasta 300 resultados por página (el resto sigue en 48).
+  `/mapa` lo usa, y su botón «Buscar en esta zona» filtra por la zona visible.
+
+Sigue pendiente: la web pública sólo tiene obra nueva (2ª mano no tiene
+consumidor público), y el buscador público (`FiltersModal.vue`) no expone
+municipio ni barrio todavía — el API ya los acepta.

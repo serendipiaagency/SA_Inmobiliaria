@@ -4,7 +4,8 @@ import { schema, useDb } from '../../utils/db'
 import { storeAndRegisterFile } from '../../utils/media'
 import type { MediaCategory } from '../../utils/mediaAssets'
 
-const PROPERTY_PHOTO_FOLDERS = new Set(['developer-properties', 'properties', 'floor-plans', 'project-images', 'gallery-images', 'social-media'])
+// `property-media`: renders, drone, 360 y PDF de la multimedia de una propiedad (FASE 7, bloque N7a).
+const PROPERTY_PHOTO_FOLDERS = new Set(['developer-properties', 'properties', 'floor-plans', 'project-images', 'gallery-images', 'social-media', 'property-media'])
 const LOGO_FOLDERS = new Set(['brand-kit', 'developers', 'agents', 'team', 'organizations'])
 // Logo de empresa: sólo imagen (nunca PDF) y como mucho 2 MB.
 const LOGO_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }

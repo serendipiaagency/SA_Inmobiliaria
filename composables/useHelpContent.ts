@@ -61,6 +61,34 @@ const PROPERTY_CRM_HELP_STEPS: string[] = [
   'El panel «Actividad» es la cronología de la propiedad: ofertas, citas y visitas, tareas, fichas enviadas por WhatsApp (y si el cliente las abrió), llamadas, coincidencias… con quién lo hizo y cuándo. Los botones de arriba filtran por tipo y «Ver más antigua» carga lo anterior.',
 ]
 
+/**
+ * Documentos, multimedia, resumen y portales de la ficha (bloque N7a), igual
+ * en los dos catálogos. Ver docs/documentos-y-multimedia.md.
+ */
+const PROPERTY_N7A_HELP_STEPS: string[] = [
+  'Al abrir una propiedad ya creada, arriba del todo está el «Resumen de la ficha»: estado (y si es exclusiva o está reservada), precio, en qué canales está publicada, propietarios, cuántos compradores encajan, ofertas abiertas, documentos (en rojo los caducados) y la multimedia que de verdad se publica. Si hay documentos caducados o que caducan en los próximos 30 días, o le falta algo para poder publicarse, lo avisa con una franja de color. «Actualizar» lo vuelve a calcular.',
+  'Paso «Documentos»: pulsa «Subir un documento», elige el fichero (PDF o imagen escaneada, hasta 20 MB), el tipo (escritura, nota simple, IBI, certificado energético, planos, contrato, mandato, licencias, recibos, comunidad u otros), el título, quién puede verlo y, si los tiene, las fechas de emisión y caducidad y unas notas. Pulsa «Subir documento». El fichero se comprueba antes de guardarlo (un PDF que no abre o un fichero disfrazado se rechaza).',
+  '«Quién puede verlo» decide quién lo descarga: «Interno» sólo tu equipo; «Propietario» además los propietarios y copropietarios de esta propiedad (paso «Propietarios»); «Comprador autorizado» además los contactos a los que les des acceso; «Público» además cualquiera desde la web, pero sólo mientras la propiedad esté publicada. Propietarios y compradores lo descargan desde «Mi cuenta», entrando con una cuenta de rol «usuario» con el mismo email que tienen en su contacto (Sistema → Usuarios).',
+  'En cada documento: «Descargar», «Editar» (tipo, título, visibilidad, fechas y notas), «Accesos» (busca un contacto y pulsa «Dar acceso»; «Revocar» lo quita) y «A la papelera». La pestaña «Papelera» del paso permite «Restaurar» o «Eliminar definitivamente». Un documento en la papelera no lo puede descargar nadie; a los 30 días su fichero se borra para siempre.',
+  'Paso «Galería y multimedia»: además de ordenar y elegir portada, cada foto tiene «Datos» (título, texto alternativo, pie, idioma, y las casillas publicable, privada y oculta). Marca varias fotos con su casilla (o «Seleccionar todo») para ocultarlas, mostrarlas, hacerlas privadas o publicables, descargarlas o eliminarlas de una vez. Las ocultas, privadas o no publicables se ven atenuadas y no salen ni en la web ni en los portales; una privada además deja de poder abrirse sin entrar en el panel.',
+  'Debajo de las fotos, «Vídeos, tours, renders, PDF, drone y 360°»: elige el tipo, pega un enlace https:// (YouTube, Vimeo, Matterport, Kuula…) o sube el fichero, ponle título, texto alternativo e idioma y pulsa «Añadir». Puedes añadir todos los vídeos que quieras; «Principal de su tipo» marca el que va primero. Cada recurso tiene las mismas casillas publicable / privado / oculto y se edita, descarga o manda a la papelera igual que las fotos.',
+  'En la web pública, la pestaña 360° sólo aparece si la propiedad tiene un tour virtual o una foto 360 de verdad; los vídeos de YouTube o Vimeo se abren en otra pestaña y los subidos se reproducen en la ficha; los renders tienen su pestaña y los PDF publicables y los documentos públicos salen en «Folletos y documentos».',
+  'Eliminar una foto ya no deja su fichero ocupando espacio: si ninguna otra ficha de tu agencia lo usa (por ejemplo, una promoción duplicada o la portada), deja de contar en tu almacenamiento al momento y se borra del todo a los 30 días.',
+  'Paso «Portales»: la web pública de tu agencia y cada canal de la publicación multicanal (Idealista, Fotocasa, redes, mensajería…) con su estado: publicada, programada, retirada, con error, bloqueada o sin programar, y si el canal tiene integración real. Hoy ningún portal la tiene, y el paso lo dice. Programar o retirar se hace en Portal Web → Publicación multicanal. A un portal sólo se le entregan los campos que el registro de esquemas permite y las fotos y recursos publicables.',
+  'Al crear una propiedad, el editor ya trae rellenado lo habitual: operación «Venta», ubicación exacta, el país y la localidad más frecuentes de tu agencia y, si tu usuario está vinculado a un comercial, ese comercial con su oficina y equipo. Puedes cambiar cualquiera. Mientras escribes, cada campo avisa al momento si algo no vale (un número negativo, un enlace sin https://, una fecha imposible).',
+  'El tipo de inmueble decide qué campos se ven en los dos catálogos: una promoción de obra nueva de garajes, locales, naves o suelo tampoco pide dormitorios, y para publicarla se exige lo de su tipo (por ejemplo, la parcela en un suelo).',
+]
+
+/** Búsqueda del bloque N7b (FASES 0, 2 y 27), igual en los dos catálogos. */
+const PROPERTY_SEARCH_N7B_HELP_STEPS: string[] = [
+  'En "Filtros" hay además: Subtipo, Comercial (o «Sin comercial»), Oficina, Propietario (escribe parte del nombre, email o teléfono de un propietario o copropietario), Barrio / urbanización, Municipio, Etiqueta, «Publicada en el portal» (sólo en Propiedades (web): la publicación multicanal sólo programa obra nueva) y Características (terraza, piscina, garaje, ascensor, jardín: debe tenerlas todas). Venta/alquiler está ya en los dos catálogos. Cada filtro aparece como chip, va a la URL, a «Exportar CSV», a las vistas guardadas y a «Seleccionar las N que cumplen el filtro».',
+  '«Campo personalizado» (en Filtros) busca por los campos propios de tu agencia: elige el campo y el valor (en un número o una fecha, «desde» y/o «hasta») y pulsa «Añadir filtro». En un texto busca lo que contenga lo escrito.',
+  'Búsqueda en el mapa: el botón «Mapa» enseña sobre el mapa todas las propiedades del filtro que tienen ubicación (hasta 1.000; si hay más, acerca el mapa o filtra). «Buscar en esta zona» filtra por lo que se ve en el mapa; «Buscar alrededor de un punto» + un radio en km: pulsa en el mapa y busca en ese radio, ordenando por cercanía («Más cerca primero») y enseñando la distancia en cada fila. «Quitar zona» lo deshace. También puedes escribir las coordenadas a mano en Filtros → «Cerca de unas coordenadas».',
+  'Las propiedades sin ubicación guardada (o con 0,0) nunca salen en una búsqueda por zona o radio: sitúalas en el mapa del paso «Ubicación» de su ficha.',
+  'Etiquetas: se ven en la lista y en las tarjetas. En la ficha de la propiedad (debajo del editor, una vez creada) escribe una etiqueta y pulsa «Añadir» — si ya existe en tu agencia se reutiliza —, o quítala con la ×. Son las mismas que pone la acción masiva «Añadir etiqueta».',
+  'Campos personalizados: en la ficha, debajo del editor, el panel «Campos personalizados» enseña los campos que tu agencia haya creado para propiedades (CRM → Campos personalizados), por sección. Rellénalos y pulsa «Guardar campos»; los marcados «Público» salen en la ficha pública de Propiedades (web), en «Más información». Los demás nunca salen de la agencia.',
+]
+
 /** Paso «Propietarios» del editor (PropertyContact), igual en los dos catálogos. */
 const PROPERTY_OWNERS_HELP_STEPS: string[] = [
   'El paso «Propietarios» (aparece una vez creada la propiedad) lista quién es quién: propietario, copropietario, apoderado, inquilino o contacto. Busca a la persona entre tus contactos o créala ahí mismo; a propietarios y copropietarios se les puede dar su % de propiedad — la suma nunca puede pasar del 100 % (el editor avisa si no llega al 100 %). Marca uno como «Principal» si quieres destacarlo. «Quitar» lo desvincula sin borrar el contacto.',
@@ -117,9 +145,11 @@ export function useHelpContent() {
         'Si los dos figuran como comprador y vendedor en la misma oferta u operación, no se pueden fusionar: no son la misma persona. La comparación te lo indica y el botón "Confirmar fusión" queda desactivado.',
         'La cabecera de la ficha reúne lo esencial: teléfono, email, WhatsApp, idioma, país, comercial, oficina, origen, estado, score (el mejor de sus leads), último contacto y próxima acción, con botones directos para llamar, escribir por WhatsApp o enviar un email. «Editar» abre todos esos datos y los roles; si el email o teléfono nuevos ya son de otra persona de tu agencia te lo dice antes de guardar (puedes «Guardar igualmente» si de verdad son dos personas).',
         'Roles: una persona puede ser a la vez comprador, vendedor, propietario, arrendador, inquilino, inversor, colaborador, proveedor u otro. Se marcan en «Editar» y el listado de Contactos se puede filtrar por rol. Al vincular a alguien como propietario de una propiedad, recibe el rol «Propietario» automáticamente.',
-        'Pestañas: Resumen, Necesidades, Propiedades (en las que figura y con qué papel; «Vincular a una propiedad» lo añade), Leads, Visitas, Ofertas (como comprador o como vendedor), Comunicaciones (los tres canales juntos) y por separado Emails, WhatsApp y Llamadas, Tareas (con alta rápida), Documentos (los de sus propiedades y los que se le han concedido), Notas, Actividad y «Ficha y duplicados».',
+        'Pestañas: Resumen, Necesidades, Propiedades (en las que figura y con qué papel; «Vincular a una propiedad» lo añade), Leads, Visitas, Ofertas (como comprador o como vendedor), Comunicaciones (los tres canales juntos) y por separado Emails, WhatsApp y Llamadas, Tareas (con alta rápida), Documentos (lo que esta persona puede descargar y por qué: como propietaria, por acceso concedido o porque es público; los concedidos que con la visibilidad actual no dan acceso salen marcados), Notas, Actividad y «Ficha y duplicados».',
         'Notas: escribe notas internas sobre la persona; se pueden fijar arriba, editar y eliminar (van a la papelera). Nunca se envían al cliente.',
         'Actividad: la cronología completa de la persona — leads, necesidades, coincidencias, citas y visitas, tareas, ofertas (también contraofertas y nuevas ofertas), operaciones, fichas enviadas y abiertas, llamadas —, con quién lo hizo y un enlace a cada cosa. Los botones de arriba filtran por tipo; «Ver más antigua» carga lo anterior.',
+        'Etiquetas: los contactos ya se pueden etiquetar. En la cabecera de la ficha, escribe una etiqueta en «+ Etiqueta» y pulsa «Añadir» (si ya existe en tu agencia, se reutiliza); la × la quita. Se ven en el listado de Contactos, que se puede filtrar por etiqueta con el desplegable «Todas las etiquetas».',
+        'Campos personalizados: en la pestaña «Ficha y duplicados», el panel «Campos personalizados» enseña los campos que tu agencia haya creado para contactos (CRM → Campos personalizados). Rellénalos y pulsa «Guardar campos»; un campo obligatorio vacío no deja guardar y te dice cuál falta.',
       ],
     },
     {
@@ -241,6 +271,9 @@ export function useHelpContent() {
         '"Próxima acción" (debajo de la tarjeta y en la columna del mismo nombre de la vista Tabla) dice qué toca y cuándo — p. ej. «Tarea · Llamada · mañana» o «Cita · Visita a inmueble · en 3 d» — y sale en rojo si ya pasó. Es la tarea abierta o la cita futura más próxima de ese lead: nunca algo que se escriba a mano, se recalcula sola. En la ficha del lead aparece en «Tiempos (SLA)» con su tipo. El botón "+ Tarea" de cada tarjeta crea una tarea ligada a ese lead, visible también en CRM → Tareas.',
         'En la vista Tabla, marca la casilla de una o varias filas (o la de la cabecera, para marcarlas todas) para actuar sobre varios leads a la vez: cambiar el comercial, cambiar la fase, añadir una etiqueta, o crear una tarea idéntica para cada uno. Aparece un botón "Aplicar" que pide confirmación con el número exacto de leads afectados y muestra el progreso mientras corre; si algo falla en una fila concreta (por ejemplo, una fase inválida), el resto de la selección sigue procesándose igual. "Exportar seleccionados" descarga un CSV sólo con esos leads.',
         'El número de cada lead es su Lead Score (0-100): una puntuación por reglas fijas de tu agencia sobre señales reales — presupuesto validado, compra prevista pronto, si ha respondido en las últimas horas, si tiene una visita pedida, si su financiación está validada y cuántas fichas enviadas por WhatsApp ha abierto. Haz clic en el número para ver "¿Por qué?": qué criterios suman, cuáles no y con qué dato, más su historial. Los filtros "Puntuación ≥" y "Mayor puntuación primero" ordenan y filtran por él.',
+        'La vista Tabla va por páginas de 100, con «← Anterior» / «Siguiente →» y el total de leads del filtro debajo. El Pipeline enseña los 200 más recientes del filtro y avisa si hay más. «Exportar CSV (N)» descarga TODOS los leads del filtro actual, sin límite de filas, con una columna de etiquetas. Al marcar todas las filas de la página aparece «Seleccionar los N que cumplen el filtro» para aplicar una acción masiva (o exportar) a todos ellos, hasta 2.000 por acción.',
+        'Etiquetas: se ven en las tarjetas del Pipeline y en la Tabla, y el desplegable «Todas las etiquetas» filtra por una. En la ficha del lead, bajo el nombre, «+ Etiqueta» añade una (nueva o existente) y la × la quita; son las mismas que pone la acción masiva «Añadir etiqueta».',
+        'Campos personalizados: en la ficha del lead, pestaña «Datos», el panel «Campos personalizados» enseña los campos que tu agencia haya creado para leads (CRM → Campos personalizados). Rellénalos y pulsa «Guardar campos».',
         'Un número con asterisco (*) es una puntuación del sistema anterior, que sumaba puntos fijos cada vez que alguien volvía a escribir y no se puede explicar. Pulsa "Recalcular con las señales actuales" en su detalle, o selecciónalos en la vista Tabla y usa la acción "Recalcular puntuación". El Lead Score no es la compatibilidad con un inmueble (eso es Compatibilidades/Matching), no reparte leads y no sustituye al SLA.',
       ],
     },
@@ -261,6 +294,23 @@ export function useHelpContent() {
         '"Alertas abiertas" lista los leads que están incumpliendo alguno de esos tres umbrales ahora mismo (el nombre abre la ficha del lead). Se resuelven solas en cuanto el lead deja de cumplir la condición (alguien le escribe o le llama, avanza de fase, hay una próxima acción), o puedes marcarlas resueltas a mano si ya la has revisado y no hace falta actuar. «Sin contacto» cuenta también los contactos que salen de la agencia, no sólo los que entran.',
         '"Lead Score" fija las reglas de puntuación de tu agencia: activa o desactiva cada criterio, cambia sus puntos y su ventana (días para "compra prevista", horas para "respondió", mínimo de fichas abiertas, estados de hipoteca que cuentan como financiación validada). Hay una penalización opcional, desactivada por defecto, para leads que no responden en N días. Cada criterio dice de dónde sale su dato — nunca se deduce de una conversación ni se inventan aperturas.',
         'Guardar las reglas no cambia ninguna puntuación por sí solo: pulsa "Recalcular todos los leads" para aplicarlas (se hace por partes, con progreso). A partir de ahí cada lead se recalcula solo cuando cambia una de sus señales, y las que caducan (como "respondió en las últimas 24 h") se revisan cada hora.',
+      ],
+    },
+    {
+      key: 'campos-personalizados',
+      group: 'CRM',
+      title: 'Campos personalizados',
+      route: '/admin/campos-personalizados',
+      summary:
+        'Los datos propios de tu agencia que no vienen en las fichas («Cliente VIP», «Fecha de entrega de llaves», «Tipo de inversor»…), para propiedades (los dos catálogos), contactos, leads, citas y operaciones.',
+      steps: [
+        'Elige arriba a qué se aplica (Propiedades, Contactos, Leads, Citas u Operaciones) y pulsa «+ Nuevo campo». Escribe la etiqueta (lo que se lee en la ficha) y el tipo: texto corto, texto largo, número, sí/no, fecha, lista (una opción) o lista (varias opciones). En una lista, escribe una opción por línea.',
+        '«Sección de la ficha» agrupa los campos bajo un título en la ficha (si no pones ninguna, salen bajo «Campos personalizados»); «Ayuda» es el texto que sale debajo del campo. Con ▲▼ cambias el orden en que salen.',
+        '«Obligatorio»: la ficha no deja guardar sus campos personalizados mientras ése esté vacío. «Visible en la web pública» (sólo en Propiedades): el valor sale en la ficha pública de Propiedades (web), en «Más información»; los demás campos nunca salen de la agencia.',
+        'La «Clave interna» se genera sola a partir de la etiqueta y no cambia nunca (los valores guardados dependen de ella); la etiqueta, la sección, la ayuda, las opciones y el orden sí se pueden editar. El tipo sólo se puede cambiar mientras ningún registro tenga valor en ese campo: si ya hay valores, archívalo y crea otro.',
+        '«Archivar» oculta el campo de las fichas sin perder sus valores («Activar» lo devuelve). «Eliminar» lo manda a la Papelera (botón «Papelera»), desde donde se restaura o se elimina definitivamente — esto último borra también todos sus valores.',
+        'Los valores se rellenan en cada ficha: debajo del editor de la propiedad, en la pestaña «Ficha y duplicados» del contacto, en la pestaña «Datos» del lead, en la ficha de la cita y en la de la operación. Cada valor se comprueba por su tipo al guardar (un número tiene que ser un número, una fecha una fecha real, una lista una de sus opciones).',
+        'En el listado de propiedades, Filtros → «Campo personalizado» busca por ellos.',
       ],
     },
     {
@@ -327,6 +377,7 @@ export function useHelpContent() {
         'Desde el mismo resultado: "Crear tarea de seguimiento" da de alta una tarea real; "Agendar ya la segunda visita" crea la cita con el mismo inmueble, cliente y comercial (comprobando su agenda); y "Crear oferta" crea una oferta real en borrador con importe, condiciones, financiación y vencimiento, que se ve en la Lista, en los Tours y en la ficha de la cita, y se envía desde la ficha del cliente → "Ofertas". Si la visita no tenía contacto, el formulario te pide elegir al comprador y queda vinculado. "Descarta este inmueble" deja ese inmueble como descartado en sus compatibilidades.',
         'La pestaña "Tours" agrupa varias visitas del mismo cliente en una salida. "+ Nuevo tour" pide el cliente (o su contacto o lead), las notas y una fila por parada: inmueble de obra nueva o de 2ª mano, comercial, hora y duración propia de cada parada (por ejemplo 10:00 durante 45 min y 10:45 durante 1 h). Las flechas ↑/↓ cambian el orden y "Recalcular horas" encadena la ruta: cada parada empieza al acabar la anterior más el desplazamiento que elijas. No se estiman trayectos: el desplazamiento lo decides tú.',
         '"Editar / reordenar" en un tour ya creado cambia el cliente, el lead, el contacto y las notas (se aplican a todas sus paradas) y el orden de la ruta, recalculando las horas si lo marcas. Cada parada movida se comprueba contra la agenda de su comercial y se avisa al cliente. Si el tour ya empezó (alguna parada completada), las horas se mueven parada a parada con "Editar".',
+        'La ficha de la cita tiene también el panel «Campos personalizados» con los campos que tu agencia haya creado para citas (CRM → Campos personalizados): rellénalos ahí y pulsa «Guardar campos».',
         'Cada cita avisa al cliente por email y, si tiene teléfono, por WhatsApp (confirmación, recordatorios 24 h y 1 h antes, cancelación y cambios); la ficha dice si los recordatorios están pendientes o enviados. El WhatsApp sale de verdad cuando la plataforma tiene conectado Twilio — Sistema → Estado del sistema lo dice; si no, el aviso queda registrado como "no conectado". El teléfono necesita prefijo internacional (+34…).',
       ],
     },
@@ -372,6 +423,7 @@ export function useHelpContent() {
         'Una operación nace siempre de una oferta aceptada ("Crear operación" en el detalle de la oferta). En su ficha: la etapa (con un motivo opcional que queda en el historial), el historial de etapas, la oferta aceptada con toda su negociación, las partes, y la oficina y el comercial, que se pueden cambiar ahí mismo (sólo oficinas de tu agencia).',
         '«Reserva, arras y contratos» vincula a la operación lo que ya existe en Reservas, Depósitos y Contratos: elige uno del desplegable y pulsa "Vincular"; "Desvincular" lo suelta sin borrarlo. Sólo se ofrecen los de tu agencia que aún no pertenecen a otra operación. Arras y contratos son de Finanzas: sin permiso de Finanzas no se ven ni se vinculan.',
         'La ficha tiene también sus tareas (créalas con "+ Nueva tarea": la operación, el comprador y el inmueble vienen ya puestos), sus citas de notaría o firma (aparecen en el Calendario) y la «Actividad»: todo lo ocurrido en la operación, en su oferta, en sus tareas y en sus citas.',
+        'En la columna derecha de la ficha, «Campos personalizados» recoge los campos que tu agencia haya creado para operaciones (CRM → Campos personalizados), con «Guardar campos».',
         'Cerrar crea solo su apunte en Finanzas → «Cierres y comisiones» (con la comisión a 0 para que pongas el % real) y, en 2ª mano en venta, marca el inmueble como vendido. Cancelar pide un motivo y no borra nada.',
       ],
     },
@@ -450,6 +502,8 @@ export function useHelpContent() {
         ...PROPERTY_OWNERS_HELP_STEPS,
         ...PROPERTY_BUYER_MATCHES_HELP_STEPS,
         ...PROPERTY_CRM_HELP_STEPS,
+        ...PROPERTY_N7A_HELP_STEPS,
+        ...PROPERTY_SEARCH_N7B_HELP_STEPS,
       ],
     },
     {
@@ -519,6 +573,8 @@ export function useHelpContent() {
         ...PROPERTY_OWNERS_HELP_STEPS,
         ...PROPERTY_BUYER_MATCHES_HELP_STEPS,
         ...PROPERTY_CRM_HELP_STEPS,
+        ...PROPERTY_N7A_HELP_STEPS,
+        ...PROPERTY_SEARCH_N7B_HELP_STEPS,
       ],
     },
     {
@@ -976,6 +1032,34 @@ export function useHelpContent() {
 
   const faqs: HelpFaq[] = [
     {
+      id: 'faq-campo-personalizado',
+      question: '¿Cómo añado un dato que no existe en la ficha (por ejemplo, «Cliente VIP» o «Fecha de llaves»)?',
+      answer:
+        'Con un campo personalizado: CRM → Campos personalizados, elige a qué se aplica (propiedades, contactos, leads, citas u operaciones) y «+ Nuevo campo». A partir de ahí aparece en todas las fichas de ese tipo, en el panel «Campos personalizados». Si es de propiedades y marcas «Visible en la web pública», sale también en la ficha pública. El tipo de un campo no se puede cambiar una vez que alguna ficha tiene valor: archívalo y crea otro.',
+      tags: ['campo personalizado', 'campos', 'ficha', 'dato', 'personalizar'],
+    },
+    {
+      id: 'faq-etiquetas',
+      question: '¿Dónde veo y quito las etiquetas que puse con una acción masiva?',
+      answer:
+        'En la ficha: bajo el nombre del lead o del contacto, y debajo del editor de la propiedad. La × quita una etiqueta y «+ Etiqueta» añade otra (nueva o existente). Los listados de propiedades, leads y contactos las enseñan en cada fila y se pueden filtrar por etiqueta. Los contactos también se pueden etiquetar.',
+      tags: ['etiqueta', 'tag', 'filtrar', 'contacto', 'lead', 'propiedad'],
+    },
+    {
+      id: 'faq-busqueda-mapa',
+      question: '¿Cómo busco propiedades en una zona o cerca de una dirección?',
+      answer:
+        'En el listado de Propiedades (web) o 2ª mano pulsa «Mapa». Mueve el mapa a la zona y pulsa «Buscar en esta zona», o pon un radio en km, pulsa «Buscar alrededor de un punto» y haz clic en el mapa: el listado se filtra y se ordena por cercanía. Si tienes las coordenadas, escríbelas en Filtros → «Cerca de unas coordenadas». Sólo salen las propiedades con ubicación guardada en su ficha.',
+      tags: ['mapa', 'zona', 'radio', 'coordenadas', 'búsqueda', 'cerca'],
+    },
+    {
+      id: 'faq-exportar-leads',
+      question: '¿Puedo exportar más de 200 leads?',
+      answer:
+        'Sí. «Exportar CSV (N)» en CRM → Leads descarga todos los leads del filtro que tengas puesto, sin límite de filas. La Tabla va por páginas; para una acción masiva sobre todos los del filtro, marca la casilla de la cabecera y pulsa «Seleccionar los N que cumplen el filtro» (hasta 2.000 por acción).',
+      tags: ['leads', 'exportar', 'csv', 'límite', 'paginación'],
+    },
+    {
       id: 'faq-cancelar-cita-motivo',
       question: '¿Por qué me pide un motivo al cancelar una cita?',
       answer:
@@ -1126,8 +1210,43 @@ export function useHelpContent() {
       id: 'faq-property-video-source',
       question: 'Puse una URL de vídeo en una propiedad y ahora subí un archivo, pero la URL ya no aparece, ¿la perdí?',
       answer:
-        'Es el comportamiento esperado: una propiedad solo puede tener una fuente de vídeo activa a la vez (una URL externa de YouTube/Vimeo/enlace directo, o un archivo subido), para evitar que queden dos vídeos contradictorios guardados. Al subir un archivo, sustituye a la URL que hubiera antes (y viceversa). Si necesitas volver a la URL anterior, tendrás que volver a introducirla en la pestaña "URL externa".',
+        'El campo «Vídeo» del paso «Multimedia» guarda una sola fuente (una URL externa de YouTube/Vimeo/enlace directo, o un archivo subido): al subir un archivo sustituye a la URL que hubiera antes (y viceversa). Si quieres varios vídeos, añádelos en «Galería y multimedia» → «Vídeos, tours, renders, PDF, drone y 360°»: ahí puedes tener todos los que necesites, con su título e idioma, y en la web salen todos.',
       tags: ['propiedades', 'video', 'multimedia', 'developer-properties'],
+    },
+    {
+      id: 'faq-documento-quien-lo-ve',
+      question: 'Subí la nota simple como «Propietario» pero el propietario dice que no la ve, ¿por qué?',
+      answer:
+        'Comprueba tres cosas: que esa persona figure como «Propietario» o «Copropietario» en el paso «Propietarios» de la propiedad (un inquilino o un apoderado no cuenta); que tenga una cuenta de rol «usuario» (Sistema → Usuarios) con exactamente el mismo email que su ficha de contacto, y que entre en «Mi cuenta» con ella; y que ni el documento ni la propiedad estén en la papelera. En la pestaña «Documentos» de su ficha de contacto ves qué documentos puede descargar y por qué.',
+      tags: ['documentos', 'propiedades', 'permisos', 'mi cuenta'],
+    },
+    {
+      id: 'faq-documento-acceso-sin-efecto',
+      question: 'Di acceso a un comprador pero sigue sin poder descargar el documento',
+      answer:
+        'Un acceso concedido sólo cuenta si el documento es «Comprador autorizado» o «Público». Con «Interno» o «Propietario» el acceso se guarda pero no tiene efecto (el paso «Documentos» lo avisa en «Accesos»): cambia la visibilidad a «Comprador autorizado». El comprador lo descarga desde «Mi cuenta», con una cuenta cuyo email coincida con el de su contacto.',
+      tags: ['documentos', 'compradores', 'permisos'],
+    },
+    {
+      id: 'faq-documento-publico-no-sale',
+      question: 'Marqué un documento como «Público» y no aparece en la web',
+      answer:
+        'Un documento público sólo se ofrece mientras la propiedad esté publicada (con fecha de publicación) y fuera de la papelera. Las propiedades de 2ª mano no tienen ficha en la web pública, así que sus documentos públicos sólo los ven sus propietarios y compradores autorizados.',
+      tags: ['documentos', 'web', 'propiedades'],
+    },
+    {
+      id: 'faq-foto-oculta-privada',
+      question: '¿Qué diferencia hay entre una foto oculta, una privada y una no publicable?',
+      answer:
+        'Las tres dejan la foto fuera de la web pública y de lo que se envía a los portales. «Oculta» y «No publicable» sólo la apartan (la foto se sigue pudiendo abrir si alguien tiene el enlace); «Privada» además hace que el fichero sólo se pueda abrir entrando en el panel de tu agencia. Si la misma imagen es también la portada, sigue siendo pública mientras lo sea.',
+      tags: ['multimedia', 'fotos', 'propiedades'],
+    },
+    {
+      id: 'faq-360-no-aparece',
+      question: 'Marqué «Tiene tour virtual» y en la web no sale la pestaña 360°',
+      answer:
+        'La pestaña 360° sólo aparece con un tour o una foto 360 reales: añade el enlace del tour (Matterport, Kuula…) o sube la foto 360 en «Galería y multimedia», o rellena «Enlace del tour virtual» en el paso «Multimedia». Antes la web simulaba el tour con la primera foto aunque no hubiera ninguno; ya no lo hace.',
+      tags: ['multimedia', '360', 'tour virtual', 'web'],
     },
     {
       id: 'faq-property-location-privacy',
@@ -1362,9 +1481,9 @@ export function useHelpContent() {
     },
     {
       id: 'faq-client-portal',
-      question: '¿Cómo ve un cliente sus propias visitas y contratos?',
+      question: '¿Cómo ve un cliente sus propias visitas, contratos y documentos?',
       answer:
-        'Dale de alta una cuenta con rol "usuario" en Sistema → Usuarios, usando exactamente el mismo email con el que aparece en sus visitas/contratos. Al iniciar sesión en /login, se le redirige a "Mi cuenta", donde ve solo lo suyo.',
+        'Dale de alta una cuenta con rol "usuario" en Sistema → Usuarios, usando exactamente el mismo email con el que aparece en sus visitas/contratos y en su ficha de contacto. Al iniciar sesión en /login, se le redirige a "Mi cuenta", donde ve solo lo suyo: visitas, solicitudes, contratos y los documentos de propiedades que puede descargar (como propietario, por acceso concedido o porque son públicos).',
       tags: ['portal', 'clientes', 'usuarios'],
     },
     {

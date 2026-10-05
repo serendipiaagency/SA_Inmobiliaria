@@ -3,6 +3,17 @@
     <div v-if="!ready" class="skeleton absolute inset-0 z-[400]" />
     <div ref="el" class="h-full w-full" />
 
+    <!-- Buscar en la zona visible (FASE 2): quien usa el mapa decide qué hacer con la caja. -->
+    <button
+      v-if="searchArea"
+      type="button"
+      class="absolute left-1/2 top-3 z-[500] -translate-x-1/2 rounded-full border border-line bg-white/95 px-4 py-2 text-[12px] font-semibold text-ink shadow-xl backdrop-blur hover:bg-ink hover:text-white"
+      data-testid="map-search-area"
+      @click="emitArea"
+    >
+      {{ t('map.searchArea', 'Buscar en esta zona') }}
+    </button>
+
     <!-- Layer / POI controls -->
     <div class="absolute right-3 top-3 z-[500] w-52 rounded-2xl border border-line bg-white/95 p-3 shadow-xl backdrop-blur">
       <p class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-stone-400">{{ t('map.layers.title', 'Vista') }}</p>
@@ -31,8 +42,16 @@ import { useLeafletMap, createTileLayer, type TileKey } from '~/composables/useL
 import { withValidCoords } from '~/utils/maps/coords'
 
 const { t } = useI18n()
-const props = defineProps<{ items: any[]; activeId?: number | null }>()
-const emit = defineEmits<{ 'marker-click': [number]; 'marker-hover': [number | null] }>()
+const props = withDefaults(defineProps<{ items: any[]; activeId?: number | null; fitToItems?: boolean; searchArea?: boolean }>(), { activeId: null, fitToItems: true, searchArea: false })
+const emit = defineEmits<{ 'marker-click': [number]; 'marker-hover': [number | null]; 'search-area': [bounds: { north: number; south: number; east: number; west: number }] }>()
+
+/** La zona visible, redondeada (5 decimales ≈ 1 m: de sobra para una búsqueda). */
+function emitArea() {
+  if (!map.value) return
+  const b = map.value.getBounds()
+  const r = (n: number) => Math.round(n * 1e5) / 1e5
+  emit('search-area', { north: r(Math.min(90, b.getNorth())), south: r(Math.max(-90, b.getSouth())), east: r(Math.min(180, b.getEast())), west: r(Math.max(-180, b.getWest())) })
+}
 
 // Centra sólo la vista inicial cuando todavía no hay ningún punto que
 // mostrar — nunca marca una propiedad ahí. Dubái, el mercado principal de
@@ -168,7 +187,8 @@ function buildMarkers() {
     cluster.addLayer(m)
     bounds.push([p.lat, p.lng])
   }
-  if (bounds.length > 1) map.value.fitBounds(bounds, { padding: [60, 60] })
+  // Tras «Buscar en esta zona» el mapa se queda donde lo dejó quien buscaba (fitToItems=false).
+  if (props.fitToItems && bounds.length > 1) map.value.fitBounds(bounds, { padding: [60, 60] })
 }
 
 onMounted(() => {

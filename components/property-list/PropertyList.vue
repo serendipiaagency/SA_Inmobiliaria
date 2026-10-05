@@ -46,6 +46,8 @@
       </select>
       <select v-model="sort" class="input !w-44">
         <option v-for="s in config.sortOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
+        <!-- Con una búsqueda por radio (FASE 2), por cercanía al centro. -->
+        <option v-if="hasRadius" value="distance">Más cerca primero</option>
       </select>
 
       <button type="button" class="btn-quiet" :class="filtersOpen ? '!border-ink !text-ink' : ''" @click="filtersOpen = !filtersOpen">
@@ -111,6 +113,11 @@
           </label>
         </div>
       </div>
+
+      <!-- Mapa (FASE 2): todo el resultado filtrado sobre el mapa; buscar en la zona visible o en un radio. -->
+      <button v-if="!trashed" type="button" class="btn-quiet" :class="mapOpen ? '!border-ink !text-ink' : ''" data-testid="property-map-toggle" @click="mapOpen = !mapOpen">
+        {{ mapOpen ? 'Ocultar mapa' : 'Mapa' }}
+      </button>
 
       <div v-if="!trashed" class="ml-auto flex rounded-lg border border-line bg-white p-0.5">
         <button type="button" class="rounded-md px-2.5 py-1 text-xs font-medium transition" :class="view === 'list' ? 'bg-ink text-white' : 'text-stone-500'" @click="setView('list')">Lista</button>
@@ -192,6 +199,9 @@
         <span class="label">Actualizada hasta</span>
         <input v-model="updatedTo" type="date" class="input" >
       </label>
+      <!-- Subtipo, comercial, oficina, propietario, portal, características, barrio,
+           municipio, etiquetas, campos personalizados y coordenadas (bloque N7b). -->
+      <PropertyListExtraFilters v-model="extra" :options="filterOptions" :property-type="propertyType || null" />
       <div class="col-span-full flex items-center gap-3">
         <button type="button" class="btn-primary !px-4 !py-2" @click="applyAndReset">Aplicar filtros</button>
         <button type="button" class="text-[13px] font-medium text-stone-500 hover:text-ink" @click="clearAll">Limpiar filtros</button>
@@ -205,6 +215,17 @@
       </button>
       <button type="button" class="text-[12px] font-medium text-stone-400 hover:text-ink hover:underline" @click="clearAll">Limpiar todo</button>
     </div>
+
+    <ClientOnly>
+      <PropertyListMap
+        v-if="mapOpen && !trashed"
+        :resource="resource"
+        :filters="mapFilters"
+        @search-area="onSearchArea"
+        @search-radius="onSearchRadius"
+        @clear-geo="clearGeo"
+      />
+    </ClientOnly>
 
     <div v-if="pending" class="py-20 text-center text-sm text-stone-400">Cargando…</div>
     <div v-else-if="!data?.rows?.length" class="card px-4 py-16 text-center" :data-testid="trashed ? 'property-trash-empty' : undefined">
@@ -324,10 +345,14 @@
                   <span class="min-w-0">
                     <span class="block truncate font-medium text-ink">{{ config.rowTitle(p) }}</span>
                     <span class="block text-[11px] text-stone-400">Ref. #{{ p.id }}</span>
+                    <TagChips v-if="p.tags?.length" class="mt-0.5" :tags="p.tags" />
                   </span>
                 </NuxtLink>
               </td>
-              <td v-if="isColumnVisible('location')" class="px-4 py-3 text-stone-500">{{ config.rowLocation(p) }}</td>
+              <td v-if="isColumnVisible('location')" class="px-4 py-3 text-stone-500">
+                {{ config.rowLocation(p) }}
+                <span v-if="p.distanceKm != null" class="block text-[11px] text-stone-400" data-testid="property-row-distance">a {{ formatKm(p.distanceKm) }}</span>
+              </td>
               <td v-if="isColumnVisible('price')" class="px-4 py-3 text-stone-700">{{ formatPrice(p.price) }}</td>
               <td v-if="isColumnVisible('details')" class="px-4 py-3 text-stone-500">
                 <span v-if="p.bedrooms != null">{{ p.bedrooms }} hab · </span><span v-if="p.bathrooms != null">{{ p.bathrooms }} baños · </span><span v-if="p.area != null">{{ p.area }} m²</span>
@@ -369,6 +394,9 @@ import { LIST_CHIP_CLASSES, PROPERTY_LIST_CONFIG, PROPERTY_LIST_TYPES, PROPERTY_
 import { usePropertySavedViews, type PropertySavedView } from '~/composables/usePropertySavedViews'
 import DeveloperPropertyCard from '~/components/admin/DeveloperPropertyCard.vue'
 import AgentPropertyCard from '~/components/admin/AgentPropertyCard.vue'
+import TagChips from '~/components/admin/tags/TagChips.vue'
+import PropertyListExtraFilters from '~/components/property-list/PropertyListExtraFilters.vue'
+import { BBOX_KEYS, RADIUS_KEYS, extraFilterChips, pickExtraFilters, type PropertyFilterOptions } from '~/utils/propertyListFilters'
 
 /**
  * El listado de propiedades, uno solo para los dos catálogos. Qué cambia
@@ -435,6 +463,49 @@ const capturedFrom = ref(qs('capturedFrom'))
 const capturedTo = ref(qs('capturedTo'))
 const updatedFrom = ref(qs('updatedFrom'))
 const updatedTo = ref(qs('updatedTo'))
+/**
+ * Filtros del bloque N7b (subtipo, comercial, oficina, propietario, portal,
+ * características, barrio, municipio, etiquetas, campos personalizados y
+ * búsqueda geográfica) en un único mapa con los nombres de la query del
+ * servidor (utils/propertyListFilters.ts). Se reemplaza entero en cada cambio,
+ * así el `watch` de los filtros lo detecta sin `deep`.
+ */
+const extra = ref<Record<string, string>>(pickExtraFilters(route.query as Record<string, unknown>))
+const filterOptions = ref<PropertyFilterOptions | null>(null)
+onMounted(async () => {
+  try {
+    filterOptions.value = await $fetch<PropertyFilterOptions>(`/api/admin/${props.resource}`, { query: { view: 'filterOptions' } })
+  } catch {
+    filterOptions.value = null
+  }
+})
+const hasRadius = computed(() => RADIUS_KEYS.every((k) => !!extra.value[k]))
+const hasGeo = computed(() => [...BBOX_KEYS, ...RADIUS_KEYS].some((k) => !!extra.value[k]))
+const extraChips = computed(() => extraFilterChips(extra.value, filterOptions.value))
+const mapOpen = ref(hasGeo.value)
+function withoutKeys(obj: Record<string, string>, keys: readonly string[]) {
+  return Object.fromEntries(Object.entries(obj).filter(([k]) => !keys.includes(k)))
+}
+/** «Buscar en esta zona» del mapa: la caja visible sustituye a un radio anterior. */
+function onSearchArea(b: { north: number; south: number; east: number; west: number }) {
+  extra.value = { ...withoutKeys(extra.value, RADIUS_KEYS), north: String(b.north), south: String(b.south), east: String(b.east), west: String(b.west) }
+  if (sort.value === 'distance') sort.value = 'newest'
+}
+/** Un punto pulsado en el mapa y un radio: sustituye a una zona anterior y ordena por cercanía. */
+function onSearchRadius(c: { lat: number; lng: number; radiusKm: number }) {
+  extra.value = { ...withoutKeys(extra.value, BBOX_KEYS), lat: String(c.lat), lng: String(c.lng), radiusKm: String(c.radiusKm) }
+  sort.value = 'distance'
+}
+function clearGeo() {
+  extra.value = withoutKeys(extra.value, [...BBOX_KEYS, ...RADIUS_KEYS])
+}
+// Sin radio no hay «más cerca primero».
+watch(hasRadius, (v) => {
+  if (!v && sort.value === 'distance') sort.value = 'newest'
+})
+function formatKm(v: number) {
+  return v < 1 ? `${Math.round(v * 1000)} m` : `${new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 }).format(v)} km`
+}
 // Si se llega con filtros avanzados ya puestos (enlace compartido, recarga), el panel se abre solo — de lo contrario estarían activos pero invisibles.
 const filtersOpen = ref(
   !!(
@@ -453,7 +524,8 @@ const filtersOpen = ref(
     capturedFrom.value ||
     capturedTo.value ||
     updatedFrom.value ||
-    updatedTo.value
+    updatedTo.value ||
+    extraChips.value.some((c) => c.key !== 'bbox' && c.key !== 'radius')
   ),
 )
 
@@ -602,7 +674,7 @@ const advancedCount = computed(() =>
     capturedTo.value,
     updatedFrom.value,
     updatedTo.value,
-  ].filter((v) => v !== null && v !== '').length,
+  ].filter((v) => v !== null && v !== '').length + extraChips.value.length,
 )
 const hasActiveFilters = computed(
   () => !!q.value || !!status.value || (config.value.hasTransactionFilter && !!transactionType.value) || !!propertyType.value || advancedCount.value > 0,
@@ -632,6 +704,7 @@ function clearAll() {
   capturedTo.value = ''
   updatedFrom.value = ''
   updatedTo.value = ''
+  extra.value = {}
   page.value = 1
 }
 
@@ -668,6 +741,7 @@ const chips = computed(() => {
   if (updatedFrom.value || updatedTo.value) {
     list.push({ key: 'updated', label: `Actualizada ${updatedFrom.value || '…'} – ${updatedTo.value || '…'}`, clear: () => ((updatedFrom.value = ''), (updatedTo.value = '')) })
   }
+  for (const c of extraChips.value) list.push({ key: c.key, label: c.label, clear: () => (extra.value = withoutKeys(extra.value, c.keys)) })
   return list
 })
 
@@ -698,6 +772,7 @@ const { data, pending, refresh } = await useFetch<any>(() => `/api/admin/${props
     capturedTo: capturedTo.value || undefined,
     updatedFrom: updatedFrom.value || undefined,
     updatedTo: updatedTo.value || undefined,
+    ...extra.value,
   })),
 })
 const totalPages = computed(() => Math.ceil((data.value?.total || 0) / (data.value?.perPage || 20)))
@@ -722,6 +797,7 @@ const FILTER_REFS = [
   capturedTo,
   updatedFrom,
   updatedTo,
+  extra,
 ]
 watch(FILTER_REFS, () => (page.value = 1))
 
@@ -755,8 +831,12 @@ function currentSavableQuery(): Record<string, string> {
   if (capturedTo.value) out.capturedTo = capturedTo.value
   if (updatedFrom.value) out.updatedFrom = updatedFrom.value
   if (updatedTo.value) out.updatedTo = updatedTo.value
+  Object.assign(out, extra.value)
   return out
 }
+
+/** El filtro que pinta el mapa: el mismo del listado (sin orden ni página). */
+const mapFilters = computed(() => withoutKeys(currentSavableQuery(), ['sort']))
 
 /** Aplica un filtro/vista guardada: primero limpia (para no arrastrar un valor de la sesión anterior que la vista no menciona), luego pone sólo lo que trae. */
 function applySavableQuery(parsed: Record<string, unknown>) {
@@ -782,6 +862,8 @@ function applySavableQuery(parsed: Record<string, unknown>) {
   if (parsed.capturedTo) capturedTo.value = String(parsed.capturedTo)
   if (parsed.updatedFrom) updatedFrom.value = String(parsed.updatedFrom)
   if (parsed.updatedTo) updatedTo.value = String(parsed.updatedTo)
+  extra.value = pickExtraFilters(parsed)
+  if (hasGeo.value) mapOpen.value = true
   filtersOpen.value = advancedCount.value > 0
 }
 

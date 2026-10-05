@@ -65,6 +65,8 @@
           </button>
         </div>
 
+        <PropertySummaryHeader v-if="!isNew && recordId" :resource="resource" :record-id="recordId" :refresh-key="summaryKey" />
+
         <!-- Búsqueda de campos (FASE 25): con decenas de campos repartidos en
              pasos, escribir «IBI» o «catastral» lleva directo al campo. -->
         <div class="relative mb-4 max-w-md" data-testid="property-field-search">
@@ -224,12 +226,16 @@
                     :parent-field="s.parentField"
                     :parent-id="recordId"
                     :cover-value="form[s.coverField || 'coverImage']"
+                    :can-edit="canEdit"
+                    :trashed="!!trashedAt"
                     @use-as-cover="(key) => (form[s.coverField || 'coverImage'] = key)"
                   />
                   <ChildCardManager v-else-if="s.kind === 'child-table'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" :columns="s.columns" />
                   <SocialLinksManager v-else-if="s.kind === 'social'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" />
                   <PropertyRoomManager v-else-if="s.kind === 'rooms'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" />
                   <PropertyContactsManager v-else-if="s.kind === 'owners'" :parent-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" :can-edit="canEdit" />
+                  <PropertyDocumentsManager v-else-if="s.kind === 'panel' && s.panel === 'documents'" :parent-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" :can-edit="canEdit" :trashed="!!trashedAt" @changed="summaryKey++" />
+                  <PropertyPortalsPanel v-else-if="s.kind === 'panel' && s.panel === 'portals'" :parent-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" :active="activeKey === s.key" />
                   <PropertyBuyerMatches
                     v-else-if="s.kind === 'buyer-matches'"
                     :parent-id="recordId"
@@ -269,6 +275,7 @@
 
         <PropertyPriceHistory v-if="!isNew && recordId" :rows="priceHistory" />
         <PropertyCommunications v-if="!isNew && recordId" :property-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" />
+        <PropertyExtraPanels v-if="!isNew && recordId" :property-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" />
         <PropertyCrmPanels v-if="!isNew && recordId" :property-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" :name="previewTitle" :trashed="!!trashedAt" />
       </div>
     </template>
@@ -296,6 +303,11 @@ import PropertyBuyerMatches from './PropertyBuyerMatches.vue'
 import PropertyCommunications from './PropertyCommunications.vue'
 import PropertyPriceHistory from './PropertyPriceHistory.vue'
 import PropertyCrmPanels from '~/components/admin/property/PropertyCrmPanels.vue'
+// Bloque N7a: resumen de la ficha, gestor documental y estado de publicación.
+import PropertySummaryHeader from '~/components/admin/property/PropertySummaryHeader.vue'
+import PropertyDocumentsManager from '~/components/admin/property/PropertyDocumentsManager.vue'
+import PropertyPortalsPanel from '~/components/admin/property/PropertyPortalsPanel.vue'
+import PropertyExtraPanels from '~/components/admin/property/PropertyExtraPanels.vue'
 
 /**
  * El Property Editor: **uno solo** para los cuatro recorridos — alta y
@@ -335,20 +347,20 @@ const staticSections = PROPERTY_BUILDER_SECTIONS[props.resource] as BuilderSecti
 const activeKey = ref(staticSections[0].key)
 const formCardEl = ref<HTMLElement | null>(null)
 
-// PropertySchemaRegistry (FASE 26): en 2ª mano ('properties'), un campo que
-// el schema resuelto (según form.propertyType) no declara se oculta — sin
-// esto no hay forma de que "Land" deje de mostrar habitaciones/baños (§27
-// del encargo). 'developer-properties' nunca se filtra: ese catálogo
-// siempre resuelve a 'newDevelopment' (ver registry.ts), que ya cubre
-// exactamente los mismos campos que la configuración estática declara —
-// filtrar ahí sería trabajo repetido sin efecto.
+// PropertySchemaRegistry (FASE 26): en los DOS catálogos, un campo que el
+// schema resuelto (según form.propertyType) no declara se oculta — sin esto
+// no hay forma de que "Terreno" deje de mostrar habitaciones/baños (§27 del
+// encargo). En obra nueva el schema es newDevelopment o, para suelo, local,
+// nave y garaje, su variante de obra nueva (bloque N7a, ver registry.ts).
 const { getSchemaFor, isFieldApplicable } = usePropertySchemaRegistry()
+const catalog = props.resource === 'properties' ? 'agent' : 'developer'
+/** Sube cuando cambia algo que el resumen de la cabecera cuenta (p. ej. un documento). */
+const summaryKey = ref(0)
 
 function filterFieldsForSchema(fields: FieldSpec[]): FieldSpec[] {
   const visible = fields.filter(isShownByCondition).map(withDynamicOptions)
-  if (props.resource !== 'properties') return visible
-  const schema = getSchemaFor('agent', form.propertyType)
-  return visible.filter((f) => f.virtual || isFieldApplicable('agent', schema, f.key))
+  const schema = getSchemaFor(catalog, form.propertyType)
+  return visible.filter((f) => f.virtual || isFieldApplicable(catalog, schema, f.key))
 }
 
 /** Campos condicionales (FASE 25): p. ej. fianza y depósito sólo en alquiler. */
@@ -503,6 +515,9 @@ onMounted(async () => {
       return
     }
   }
+  // Defaults inteligentes (FASE 25, bloque N7a): operación, privacidad, país y
+  // localidad habituales de la agencia y el comercial vinculado a la cuenta.
+  if (isNew.value) await applyPropertyDefaults(props.resource, form)
   snapshot()
   loading.value = false
   loaded = true

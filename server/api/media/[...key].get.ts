@@ -1,6 +1,8 @@
 import type { H3Event } from 'h3'
 import { cfEnv, useDb } from '../../utils/db'
-import { requireOrgScope } from '../../utils/auth'
+import { getSessionUser, requireOrgScope, resolveActiveOrgId } from '../../utils/auth'
+import { hasAreaAccess } from '../../utils/permissions'
+import { PROPERTY_DOCUMENT_ENTITY, decideDocumentAccess, type DocumentViewer } from '../../utils/properties/documents'
 import { findMediaAssetByKey } from '../../utils/mediaAssets'
 import { isPrivateMediaKey, legacyVisibilityFor, ownsMediaObject as legacyOwnsMediaObject } from '../../utils/mediaAccess'
 import { logMediaAccess } from '../../utils/mediaAccessLog'
@@ -25,6 +27,14 @@ import { logMediaAccess } from '../../utils/mediaAccessLog'
  *    existed. Known-sensitive legacy prefixes still get the old per-table
  *    ownership check (`server/utils/mediaAccess.ts`) as a safety net;
  *    everything else is legacy public content, served as it always was.
+ *  - Documento de una propiedad (`entityType = property_documents`, FASE 6):
+ *    no decide el `visibility` del fichero sino el del DOCUMENTO
+ *    (`decideDocumentAccess`): el equipo de la agencia con lectura de
+ *    propiedades; los propietarios y los compradores autorizados desde «Mi
+ *    cuenta» (sesión de cliente, reconocidos por su email); el público sólo
+ *    si el documento es público y la propiedad está publicada y viva. Un
+ *    documento en la papelera o de otra agencia es 404. Cada intento con
+ *    sesión queda en `media_access_log`, concedido o no.
  */
 export default defineEventHandler(async (event) => {
   const key = getRouterParam(event, 'key')
@@ -37,6 +47,26 @@ export default defineEventHandler(async (event) => {
 
   if (asset) {
     if (asset.deletedAt) throw createError({ statusCode: 404, statusMessage: 'Not found' })
+
+    if (asset.entityType === PROPERTY_DOCUMENT_ENTITY) {
+      const viewer = await resolveDocumentViewer(event, db)
+      const decision = await decideDocumentAccess(db, asset, viewer)
+      if (viewer.kind !== 'anonymous') {
+        await logMediaAccess(db, event, {
+          organizationId: viewer.orgId,
+          userId: viewer.userId,
+          userEmail: viewer.email,
+          mediaAssetId: asset.id,
+          r2Key: key,
+          action: decision.allowed ? 'download' : 'denied',
+          visibility: asset.visibility,
+        })
+      } else if (decision.allowed) {
+        await logMediaAccess(db, event, { organizationId: asset.organizationId, mediaAssetId: asset.id, r2Key: key, action: 'download', visibility: 'public' })
+      }
+      if (!decision.allowed) throw createError({ statusCode: 404, statusMessage: 'Not found' })
+      return serveObject(event, key, asset.mimeType, { cacheable: false, restricted: true, noStore: true, fileName: asset.originalFilename })
+    }
 
     if (asset.visibility === 'public') {
       return serveObject(event, key, asset.mimeType, { cacheable: true, restricted: false })
@@ -83,11 +113,35 @@ export default defineEventHandler(async (event) => {
   return serveObject(event, key, undefined, { cacheable: true, restricted: false })
 })
 
+/**
+ * Quién pide un documento de propiedad: nadie (público), alguien del panel
+ * (con su organización activa y si puede leer propiedades) o un cliente de
+ * «Mi cuenta». Nunca lanza: sin sesión es simplemente anónimo.
+ */
+async function resolveDocumentViewer(event: H3Event, db: any): Promise<DocumentViewer> {
+  const user = await getSessionUser(event).catch(() => null)
+  if (!user) return { kind: 'anonymous' }
+  if (user.role === 'admin' || user.role === 'super_admin') {
+    const orgId = await resolveActiveOrgId(event, user, db).catch(() => null)
+    if (!orgId) return { kind: 'anonymous' }
+    return { kind: 'staff', orgId, userId: user.id, email: user.email, canReadProperties: hasAreaAccess(user, 'web', 'read') }
+  }
+  if (user.organizationId && user.email) return { kind: 'client', orgId: user.organizationId, userId: user.id, email: user.email }
+  return { kind: 'anonymous' }
+}
+
+/** Nombre de descarga seguro (sin comillas ni saltos de línea) para Content-Disposition. */
+function dispositionFileName(name: string | null | undefined): string | null {
+  if (!name) return null
+  const clean = String(name).replace(/[^\w.\- ()]+/g, '_').slice(0, 150)
+  return clean || null
+}
+
 async function serveObject(
   event: H3Event,
   key: string,
   knownMimeType: string | undefined,
-  opts: { cacheable: boolean; restricted: boolean; noStore?: boolean },
+  opts: { cacheable: boolean; restricted: boolean; noStore?: boolean; fileName?: string | null },
 ) {
   // Range support matters most for video: without it, browsers can't seek
   // (scrub the timeline) and some refuse to start playback of a large file
@@ -112,7 +166,10 @@ async function serveObject(
   } else {
     setHeader(event, 'Cache-Control', opts.noStore ? 'no-store' : 'private, no-store')
   }
-  if (opts.restricted) setHeader(event, 'Content-Disposition', 'attachment')
+  if (opts.restricted) {
+    const fileName = dispositionFileName(opts.fileName)
+    setHeader(event, 'Content-Disposition', fileName ? `attachment; filename="${fileName}"` : 'attachment')
+  }
   if (obj.httpEtag) setHeader(event, 'ETag', obj.httpEtag)
 
   if (range && 'size' in obj) {

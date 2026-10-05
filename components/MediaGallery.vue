@@ -17,11 +17,11 @@
     <!-- FOTOS: mosaic -->
     <div v-show="tab === 'fotos'" class="grid gap-2 lg:grid-cols-5">
       <button class="relative col-span-3 block aspect-[4/3] w-full overflow-hidden rounded-l-2xl bg-stone-100 lg:aspect-auto lg:h-[540px]" @click="openFull('photo', 0)">
-        <img :src="photos[0]" :alt="name" class="h-full w-full object-cover transition duration-700 hover:scale-105" >
+        <img :src="photos[0]" :alt="altFor(0)" class="h-full w-full object-cover transition duration-700 hover:scale-105" >
       </button>
       <div v-if="photos.length > 1" class="col-span-2 hidden grid-cols-2 grid-rows-2 gap-2 lg:grid">
         <button v-for="(p, i) in photos.slice(1, 5)" :key="i" class="relative block h-[266px] overflow-hidden bg-stone-100" :class="{ 'rounded-tr-2xl': i === 1, 'rounded-br-2xl': i === 3 }" @click="openFull('photo', i + 1)">
-          <img :src="p" :alt="`${name} ${i + 2}`" class="h-full w-full object-cover transition duration-700 hover:scale-105" loading="lazy" >
+          <img :src="p" :alt="altFor(i + 1)" class="h-full w-full object-cover transition duration-700 hover:scale-105" loading="lazy" >
           <span v-if="i === 3 && photos.length > 5" class="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-semibold uppercase tracking-widest2 text-white">
             +{{ photos.length - 5 }} {{ t('mediaGallery.photos.more', 'fotos') }}
           </span>
@@ -43,22 +43,44 @@
       </div>
     </div>
 
-    <!-- 360 -->
-    <div v-show="tab === '360'" class="relative h-[540px] overflow-hidden rounded-2xl bg-ink">
-      <div
-        ref="pano"
-        class="h-full w-[300%] cursor-grab bg-cover bg-center active:cursor-grabbing"
-        :style="{ backgroundImage: `url(${photos[0]})`, transform: `translateX(${panoX}px)` }"
-        @pointerdown="startPan"
-      />
-      <div class="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-4 py-2 text-[11px] uppercase tracking-widest2 text-white backdrop-blur">
-        ◐ {{ t('mediaGallery.tour360.hint', 'Arrastra para mirar alrededor') }}
+    <!-- 360: sólo con un tour virtual o una foto 360 reales (FASE 7). Antes
+         simulaba el tour arrastrando la primera foto aunque no hubiera ninguno. -->
+    <div v-if="hasReal360" v-show="tab === '360'" class="relative h-[540px] overflow-hidden rounded-2xl bg-ink" data-testid="gallery-360">
+      <template v-if="panoramas.length">
+        <div
+          ref="pano"
+          class="h-full w-[300%] cursor-grab bg-cover bg-center active:cursor-grabbing"
+          role="img"
+          :aria-label="panoramas[panoIndex].alt || panoramas[panoIndex].title || `${name} 360°`"
+          :style="{ backgroundImage: `url(${panoramas[panoIndex].url})`, transform: `translateX(${panoX}px)` }"
+          @pointerdown="startPan"
+        />
+        <div class="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-4 py-2 text-[11px] uppercase tracking-widest2 text-white backdrop-blur">
+          ◐ {{ t('mediaGallery.tour360.hint', 'Arrastra para mirar alrededor') }}
+        </div>
+        <div v-if="panoramas.length > 1" class="absolute left-4 top-4 flex gap-1.5">
+          <button v-for="(p, i) in panoramas" :key="p.url" type="button" class="rounded-full px-3 py-1 text-[11px] font-semibold" :class="i === panoIndex ? 'bg-white text-ink' : 'bg-black/50 text-white'" @click="panoIndex = i; panoX = 0">{{ p.title || `360° ${i + 1}` }}</button>
+        </div>
+      </template>
+      <div v-if="tours.length" class="flex flex-wrap gap-2" :class="panoramas.length ? 'absolute right-4 top-4' : 'h-full items-center justify-center'">
+        <a v-for="tour in tours" :key="tour.url" :href="tour.url" target="_blank" rel="noopener" class="inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">
+          {{ tour.title || t('mediaGallery.tour360.open', 'Abrir el tour virtual') }} ↗
+        </a>
       </div>
     </div>
 
-    <!-- Vídeo -->
-    <div v-show="tab === 'video'" class="flex h-[540px] items-center justify-center rounded-2xl bg-ink text-center">
-      <video v-if="videoUrl" :src="videoUrl" controls class="h-full w-full rounded-2xl object-cover" />
+    <!-- Vídeo: todos los publicables (FASE 7). Un enlace externo (YouTube,
+         Vimeo…) se abre aparte; un vídeo subido se reproduce aquí. -->
+    <div v-show="tab === 'video'" class="flex h-[540px] flex-col items-center justify-center gap-3 rounded-2xl bg-ink text-center" data-testid="gallery-videos">
+      <template v-if="videos.length">
+        <video v-if="!isExternal(videos[videoIndex].url)" :key="videos[videoIndex].url" :src="videos[videoIndex].url" controls class="min-h-0 w-full flex-1 rounded-2xl object-cover" />
+        <div v-else class="flex flex-1 items-center justify-center">
+          <a :href="videos[videoIndex].url" target="_blank" rel="noopener" class="inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ videos[videoIndex].title || t('mediaGallery.video.open', 'Ver el vídeo') }} ↗</a>
+        </div>
+        <div v-if="videos.length > 1" class="flex flex-wrap justify-center gap-1.5 pb-3">
+          <button v-for="(v, i) in videos" :key="v.url" type="button" class="rounded-full px-3 py-1 text-[11px] font-semibold" :class="i === videoIndex ? 'bg-white text-ink' : 'bg-white/20 text-white'" @click="videoIndex = i">{{ v.title || `${t('mediaGallery.tabs.video', 'Vídeo')} ${i + 1}` }}</button>
+        </div>
+      </template>
       <div v-else class="max-w-sm px-6 text-white/80">
         <p class="font-serif text-2xl text-white">{{ t('mediaGallery.video.title', 'Vídeo profesional') }}</p>
         <p class="mt-2 text-sm">{{ t('mediaGallery.video.desc', 'Solicita el vídeo tour de esta propiedad y te lo enviamos en menos de 24 h.') }}</p>
@@ -66,9 +88,23 @@
       </div>
     </div>
 
+    <!-- Renders (FASE 7) -->
+    <div v-if="renders.length" v-show="tab === 'renders'" class="grid h-[540px] grid-cols-2 gap-2 overflow-y-auto rounded-2xl lg:grid-cols-3" data-testid="gallery-renders">
+      <figure v-for="r in renders" :key="r.url" class="relative overflow-hidden rounded-xl bg-stone-100">
+        <img :src="r.url" :alt="r.alt || r.title || name" class="h-full w-full object-cover" loading="lazy" >
+        <figcaption v-if="r.caption || r.title" class="absolute inset-x-0 bottom-0 bg-black/50 px-3 py-1.5 text-[11px] text-white">{{ r.caption || r.title }}</figcaption>
+      </figure>
+    </div>
+
     <!-- Drone -->
     <div v-show="tab === 'drone'" class="relative flex h-[540px] items-center justify-center overflow-hidden rounded-2xl bg-ink text-center">
-      <img v-if="dronePhoto" :src="dronePhoto" :alt="`${name} ${t('mediaGallery.drone.alt', 'vista aérea')}`" class="h-full w-full cursor-zoom-in object-cover" @click="openFull('drone')" >
+      <template v-if="drones.length">
+        <video v-if="drones[droneIndex].isVideo" :key="drones[droneIndex].url" :src="drones[droneIndex].url" controls class="h-full w-full object-cover" />
+        <img v-else :src="drones[droneIndex].url" :alt="drones[droneIndex].alt || `${name} ${t('mediaGallery.drone.alt', 'vista aérea')}`" class="h-full w-full cursor-zoom-in object-cover" @click="openFull('drone')" >
+        <div v-if="drones.length > 1" class="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-1.5">
+          <button v-for="(d, i) in drones" :key="d.url" type="button" class="h-2.5 w-2.5 rounded-full" :class="i === droneIndex ? 'bg-white' : 'bg-white/40'" :aria-label="`Toma aérea ${i + 1}`" @click="droneIndex = i" />
+        </div>
+      </template>
       <div v-else class="max-w-sm px-6 text-white/80">
         <p class="font-serif text-2xl text-white">{{ t('mediaGallery.drone.title', 'Vista aérea con drone') }}</p>
         <p class="mt-2 text-sm">{{ t('mediaGallery.drone.desc', 'Solicita una toma aérea profesional de esta propiedad y su entorno.') }}</p>
@@ -148,9 +184,23 @@
 </template>
 
 <script setup lang="ts">
+interface PublicMediaItem {
+  id?: number
+  mediaType: string
+  url: string
+  isFile?: boolean
+  title?: string | null
+  alt?: string | null
+  caption?: string | null
+  isMain?: boolean
+}
+
 const props = defineProps<{
   photos: string[]
+  /** Texto alternativo de cada foto (mismo orden que `photos`). */
+  photoAlts?: string[]
   name: string
+  /** Ya no decide nada: el 360 sólo aparece con un tour o una foto 360 reales. Se conserva por compatibilidad. */
   hasTour?: boolean
   masterPlan?: string | null
   videoUrl?: string | null
@@ -160,7 +210,42 @@ const props = defineProps<{
   afterPhoto?: string | null
   aiStagedPhoto?: string | null
   socialMedia?: { platform: 'instagram' | 'tiktok'; url: string; caption?: string | null }[]
+  /** Multimedia publicable de la propiedad (FASE 7): vídeos, tours, renders, drone y 360. */
+  media?: PublicMediaItem[]
+  /** Enlace del tour virtual de la ficha ampliada (si lo hay). */
+  virtualTourUrl?: string | null
 }>()
+
+function isExternal(url: string) {
+  return /^https?:\/\//i.test(url)
+}
+function altFor(i: number) {
+  return props.photoAlts?.[i] || (i === 0 ? props.name : `${props.name} ${i + 1}`)
+}
+const byType = (type: string) => (props.media || []).filter((m) => m.mediaType === type).sort((a, b) => Number(!!b.isMain) - Number(!!a.isMain))
+const videos = computed(() => {
+  const list: { url: string; title?: string | null }[] = []
+  if (props.videoUrl) list.push({ url: isExternal(props.videoUrl) ? props.videoUrl : mediaUrl(props.videoUrl), title: null })
+  for (const v of byType('video')) if (!list.some((x) => x.url === v.url)) list.push({ url: v.url, title: v.title })
+  return list
+})
+const videoIndex = ref(0)
+const tours = computed(() => {
+  const list: { url: string; title?: string | null }[] = byType('virtual_tour').map((m) => ({ url: m.url, title: m.title }))
+  if (props.virtualTourUrl && !list.some((x) => x.url === props.virtualTourUrl)) list.push({ url: props.virtualTourUrl, title: null })
+  return list
+})
+const panoramas = computed(() => byType('pano360').map((m) => ({ url: m.url, title: m.title, alt: m.alt })))
+const panoIndex = ref(0)
+const hasReal360 = computed(() => panoramas.value.length > 0 || tours.value.length > 0)
+const renders = computed(() => byType('render').map((m) => ({ url: m.url, title: m.title, alt: m.alt, caption: m.caption })))
+const drones = computed(() => {
+  const list: { url: string; alt?: string | null; isVideo: boolean }[] = []
+  if (props.dronePhoto) list.push({ url: props.dronePhoto, alt: null, isVideo: false })
+  for (const d of byType('drone')) list.push({ url: d.url, alt: d.alt, isVideo: /\.(mp4|webm)$/i.test(d.url) })
+  return list
+})
+const droneIndex = ref(0)
 
 const { t } = useI18n()
 
@@ -169,8 +254,9 @@ const tabs = computed(() => {
     { key: 'fotos', label: t('mediaGallery.tabs.photos', 'Fotos'), icon: ic('grid') },
   ]
   tb.push({ key: 'redes', label: t('mediaGallery.tabs.social', 'Redes'), icon: ic('social') })
-  tb.push({ key: 'video', label: t('mediaGallery.tabs.video', 'Vídeo'), icon: ic('play') })
-  if (props.hasTour) tb.push({ key: '360', label: t('mediaGallery.tabs.tour360', '360°'), icon: ic('globe') })
+  tb.push({ key: 'video', label: videos.value.length > 1 ? `${t('mediaGallery.tabs.videos', 'Vídeos')} (${videos.value.length})` : t('mediaGallery.tabs.video', 'Vídeo'), icon: ic('play') })
+  if (hasReal360.value) tb.push({ key: '360', label: t('mediaGallery.tabs.tour360', '360°'), icon: ic('globe') })
+  if (renders.value.length) tb.push({ key: 'renders', label: t('mediaGallery.tabs.renders', 'Renders'), icon: ic('sparkle') })
   tb.push({ key: 'drone', label: t('mediaGallery.tabs.drone', 'Drone'), icon: ic('drone') })
   tb.push({ key: 'noche', label: t('mediaGallery.tabs.night', 'Noche'), icon: ic('night') })
   if (props.beforePhoto && props.afterPhoto) tb.push({ key: 'antes-despues', label: t('mediaGallery.tabs.beforeAfter', 'Antes / Después'), icon: ic('compare') })
@@ -248,7 +334,7 @@ const fullSrc = computed(() => {
     case 'night':
       return props.nightPhoto || ''
     case 'drone':
-      return props.dronePhoto || ''
+      return drones.value[droneIndex.value]?.url || props.dronePhoto || ''
     default:
       return ''
   }

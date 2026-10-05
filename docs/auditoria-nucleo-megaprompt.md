@@ -28,15 +28,15 @@ Ambas tienen columnas **tipadas**, no JSON, para que se puedan filtrar y buscar,
 ### FASE 0: dominio
 
 - **OK:** Property, Contact, Lead, Appointment (tabla `visits`), PropertyMatch, Deal (`deal_operations`), Activity y Task.
+- **OK (bloque N7b):** CustomFieldDefinition y CustomFieldValue — definiciones por agencia en CRM → Campos personalizados (alta, edición, archivar, papelera, orden, sección, obligatorio, opciones, ayuda, público) y valores validados por tipo en las fichas de propiedad (los dos catálogos), contacto, lead, cita y operación; los públicos salen en la ficha pública de obra nueva; filtro en el listado de propiedades. Ver `docs/campos-personalizados-y-etiquetas.md`.
 - **FALTA:**
   - Note como entidad (hoy solo hay columnas `notes`).
-  - CustomFieldDefinition y CustomFieldValue.
   - Entidades Oficina y Equipo (hoy son texto libre en `team_members`).
   - `officeId` en todas las entidades.
   - `createdBy` en propiedades, leads y citas.
   - `deletedAt` en propiedades, leads, citas, tareas y operaciones: **las propiedades se borran físicamente**.
   - Vínculo entre usuario y comercial (`users` ↔ `team_members`).
-- **PARCIAL:** Tag. Solo se escribe con la acción masiva: no se ve, no se filtra y los contactos no se pueden etiquetar.
+- **OK (bloque N7b):** Tag. Se ve en listados y fichas (propiedades, leads, contactos), se añade y se quita a mano, se filtra por él, y los contactos se pueden etiquetar.
 
 ### FASE 1: identificación de la propiedad
 
@@ -57,11 +57,10 @@ Ambas tienen columnas **tipadas**, no JSON, para que se puedan filtrar y buscar,
 - **FALTA:** comunidad/región, provincia, tipo de vía, escalera.
 - **PARCIAL:** municipio (comparte columna con localidad) y barrio (comparte columna con urbanización).
 - **PARCIAL:** radio de privacidad (se guarda pero no tiene efecto).
-- **FALTA (búsqueda):** por radio, por bounding box y por coordenadas.
+- **OK (búsqueda, bloque N7b):** por radio, por bounding box (zona visible del mapa) y por coordenadas, en el listado del panel de los dos catálogos con mapa (`docs/property-search.md`); barrio y municipio filtran en el panel y en la API pública.
 - **PARCIAL (búsqueda):**
-  - Mapa: solo en la web, solo obra nueva, máximo 48 resultados y sin buscar por la zona visible.
-  - Barrio: sin filtro.
-  - Municipio en la web pública.
+  - Mapa público: ya busca por la zona visible y llega a 300 resultados, pero sigue siendo sólo obra nueva (2ª mano no tiene web pública).
+  - Municipio y barrio en la web pública: el API los acepta; el buscador público aún no los ofrece.
 
 ### FASE 3: superficies y distribución
 
@@ -103,19 +102,27 @@ Ambas tienen columnas **tipadas**, no JSON, para que se puedan filtrar y buscar,
 
 ### FASE 6: legal y documental
 
-- **FALTA:** todo salvo la letra energética. No hay gestor de documentos por propiedad ni permisos por rol (interno, propietario, comprador autorizado, público).
+Estado tras el bloque N7a (2026-10-05). Detalle en [documentos-y-multimedia.md](documentos-y-multimedia.md).
+
+- **OK:**
+  - Gestor de documentos por propiedad en los dos catálogos (paso «Documentos»): subir PDF o imagen validados con las utilidades de siempre a R2 bajo la organización (`confidential`), listar, editar tipo, título, emisión, caducidad, notas y visibilidad, papelera, restaurar y borrar definitivamente.
+  - Permisos por rol en la descarga (`/api/media`, decidida por el documento): interno (equipo con lectura de propiedades), propietario (propietarios y copropietarios de esa propiedad), comprador autorizado (contactos con acceso concedido, que se concede y revoca desde el panel) y público (sólo con la propiedad publicada y viva). Propietarios y compradores descargan desde «Mi cuenta». Ajeno = 404; nada en la papelera se sirve.
+  - Avisos de documentos caducados y a punto de caducar (30 días) en el paso y en el resumen de la ficha.
+  - Pestaña «Documentos» del contacto: lo que esa persona ve y por qué (antes listaba todos los de sus propiedades sin mirar la visibilidad).
+- **Pendiente:** firma electrónica de documentos y versiones de un mismo documento (no se piden en N7a).
 
 ### FASE 7: multimedia
 
+Estado tras el bloque N7a (2026-10-05). Detalle en [documentos-y-multimedia.md](documentos-y-multimedia.md).
+
 - **OK:** fotos, planos, orden, portada, reordenar y eliminar.
-  - Fallo al eliminar: deja huérfanos el objeto en R2 y su registro.
-- **FALTA:** renders, PDF y 360.
-  - Por recurso: tipo, título, alt, pie, publicable, privado e idioma.
-  - Acciones: selección múltiple, ocultar y descargar.
-- **PARCIAL:**
-  - Vídeo: uno solo.
-  - Tour virtual: solo una marca. El 360 público simula el tour con la primera foto.
-  - Drone: un hueco.
+  - Eliminar ya no deja huérfanos: el fichero se libera con el mecanismo de borrado de activos (`softDeleteMediaAsset` + purga del cron) cuando ninguna otra ficha de la agencia lo usa (copias duplicadas, portada, planos). También al sustituir una imagen y al borrar definitivamente la propiedad.
+- **OK:** renders, PDF, 360, drone (varios) y vídeos (varios), en `property_media`, en los dos catálogos.
+  - Por recurso: tipo, título, alt, pie, idioma, principal, publicable, privado y oculto (también en cada foto de galería).
+  - Acciones: selección múltiple, ocultar/mostrar, privado, publicable, descargar y eliminar.
+  - Lo publicable, no privado y no oculto es lo único que sale en la web, en las tarjetas, en la API v1, en el widget y en lo que se entrega a un portal; «privado» deja además de servir el fichero sin sesión.
+  - Tour virtual: enlaces reales (`property_media` o el enlace de la ficha ampliada). El 360 público sólo aparece con un tour o una foto 360 reales: ya no simula el tour con la primera foto.
+- **Pendiente:** visor 360 esférico (la foto 360 se recorre en horizontal) e incrustar YouTube/Vimeo en la web pública (la CSP no lo permite; se abren aparte).
 
 ### FASE 8: contactos y propietarios
 
@@ -271,32 +278,38 @@ Estado tras el bloque N5 (2026-10-05). Detalle en [citas-y-visitas.md](citas-y-v
 
 ### FASE 25: UX de la ficha de propiedad
 
-- **OK:** Ubicación, Características, Precio, Media, autoguardado (al editar) y estado fijo en cabecera.
-- **FALTA:** secciones Propietario, Documentos, Portales y Actividad; búsqueda de campos; secciones colapsables.
-- **PARCIAL:** Resumen, defaults inteligentes, campos condicionales (solo 2ª mano), edición inline y validación inmediata por campo.
+Estado tras el bloque N7a (2026-10-05).
+
+- **OK:** Ubicación, Características, Precio, Media, autoguardado (al editar), estado fijo en cabecera, búsqueda de campos y grupos plegables (N1), Propietarios (N2) y Actividad (N6).
+- **OK (N7a):**
+  - Resumen en la cabecera de la ficha: estado, precio, canales donde está publicada, propietarios, compradores compatibles, ofertas, documentos caducados o a punto de caducar, multimedia publicable y qué falta para publicar.
+  - Secciones «Documentos» y «Portales» (la web propia y cada canal de la publicación multicanal con el estado de su último trabajo; sin inventar integraciones: ninguna es real hoy y se dice).
+  - Defaults inteligentes al crear: operación, privacidad, país y localidad habituales de la agencia y el comercial vinculado a la cuenta (con su oficina y equipo).
+  - Campos condicionales en los dos catálogos (el registro también filtra obra nueva).
+  - Validación inmediata por campo (obligatorio, rangos, enteros, https, fechas).
+- **PARCIAL:** edición inline fuera del editor (en listados).
 
 ### FASE 26: PropertySchemaRegistry
 
-- **OK:** los 7 esquemas.
-- **PARCIAL:**
-  - `publicFields` y `portalFields` no se usan.
-  - La interfaz solo usa el registro en 2ª mano.
+Estado tras el bloque N7a (2026-10-05).
+
+- **OK:** los 7 esquemas, más las variantes de obra nueva para suelo, local/oficina, nave y garaje.
+- **OK (N7a):** `publicFields` en la proyección pública (`toPublicProperty`, `toPublicSheet`) y `portalFields` en lo que se entrega a un portal (`buildPortalListing`, `PublishContext.listing`).
+- **OK (N7a):** el editor de los dos catálogos usa el registro.
+- **Pendiente:** ningún portal tiene adaptador real, así que `portalFields` todavía no llega a ningún proveedor.
 
 ### FASE 27: búsqueda
 
 - **OK:** la mayoría de filtros; guardar, compartir, columnas, exportar y acciones masivas.
-- **FALTA:** subtipo, agente, oficina, propietario y portales.
-- **PARCIAL:**
-  - Operación: solo en 2ª mano.
-  - Características: solo desde las tools.
+- **OK (bloque N7b):** subtipo, comercial, oficina, propietario, operación y características en los dos catálogos; etiquetas y campos personalizados.
+- **PARCIAL:** portales — el filtro existe, pero la publicación multicanal sólo programa obra nueva, así que en 2ª mano no hay nada por lo que filtrar.
 
 ### FASE 28: acciones masivas
 
 - **OK:** casi todas.
-- **PARCIAL:**
-  - Publicar, retirar y catálogo: solo en obra nueva.
-  - Precio: fija un valor, no aplica porcentaje.
-  - Exportar leads: tope de 200 filas.
+- **OK (verificado en N7b):** publicar y retirar en los dos catálogos; precio fijo o por porcentaje (bloque N1).
+- **OK (bloque N7b):** leads con la Tabla paginada, exportación completa del filtro por lotes (sin tope) y «seleccionar todos los filtrados».
+- **PARCIAL:** crear catálogo, sólo en obra nueva (Asset Export Studio sólo compone fichas de obra nueva).
 
 ### FASE 29: comunicaciones
 
@@ -315,7 +328,7 @@ Estado tras el bloque N5 (2026-10-05). Detalle en [citas-y-visitas.md](citas-y-v
 ### FASE 31: tools
 
 - **OK:** las 14.
-- **Fallo:** el filtro por comercial excluye obra nueva.
+- **Corregido (bloque N7b):** el filtro por comercial de `search_properties` ya busca también en obra nueva.
 
 ### FASE 32: lead score
 

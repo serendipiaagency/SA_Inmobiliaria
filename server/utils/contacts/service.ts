@@ -165,12 +165,18 @@ export async function findDuplicateContacts(
  * Busca contactos del tenant por nombre, email o teléfono — la búsqueda de la
  * lista de Contactos, compartida con la Domain Tool find_contacts (FASE 31).
  */
-export async function searchContacts(db: any, orgId: number, search: string, limit = 100, opts: { role?: string | null } = {}) {
+export async function searchContacts(db: any, orgId: number, search: string, limit = 100, opts: { role?: string | null; tagIds?: number[] } = {}) {
   const conditions = [eq(schema.contacts.organizationId, orgId), isNull(schema.contacts.deletedAt)]
   // Filtro por rol (FASE 8): sólo los contactos que tienen ese rol en contact_roles.
   if (opts.role) {
     conditions.push(
       sql`exists (select 1 from contact_roles cr where cr.contact_id = ${schema.contacts.id} and cr.organization_id = ${orgId} and cr.role = ${opts.role})`,
+    )
+  }
+  // Filtro por etiquetas (FASE 0, bloque N7b): tiene TODAS las indicadas, de esta agencia.
+  for (const tagId of opts.tagIds || []) {
+    conditions.push(
+      sql`exists (select 1 from tag_links tl where tl.organization_id = ${orgId} and tl.entity_type = 'contact' and tl.entity_id = ${schema.contacts.id} and tl.tag_id = ${tagId})`,
     )
   }
   const term = search.trim()

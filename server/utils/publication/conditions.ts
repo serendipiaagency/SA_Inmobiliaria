@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 
 /**
@@ -16,7 +16,12 @@ export async function evaluateCondition(db: any, developerPropertyId: number, co
   }
 
   if (condition.type === 'min_photos') {
-    const rows = await db.select({ id: schema.images.id }).from(schema.images).where(eq(schema.images.developerPropertyId, developerPropertyId))
+    // Sólo cuentan las fotos que de verdad saldrían en el canal: publicables,
+    // no privadas y no ocultas (FASE 7, bloque N7a).
+    const rows = await db
+      .select({ id: schema.images.id })
+      .from(schema.images)
+      .where(and(eq(schema.images.developerPropertyId, developerPropertyId), eq(schema.images.isPublishable, 1), eq(schema.images.isPrivate, 0), eq(schema.images.isHidden, 0)))
     const count = rows.length
     return count >= condition.value ? { met: true } : { met: false, reason: `Requiere ${condition.value} fotos, hay ${count}.` }
   }
