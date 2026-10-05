@@ -297,7 +297,7 @@
 
         <!-- Deduplicación (FASE 14): sólo detecta y ofrece fusionar — nunca automático. -->
         <AdminPanel title="Posibles duplicados" class="mt-4">
-          <button v-if="!dupChecked" type="button" class="dash-btn-primary" :disabled="dupLoading" @click="checkDuplicates">
+          <button v-if="!dupChecked" type="button" class="dash-btn-primary" :disabled="dupLoading" data-testid="dup-check" @click="checkDuplicates">
             {{ dupLoading ? 'Buscando…' : 'Buscar duplicados' }}
           </button>
           <template v-else>
@@ -308,7 +308,7 @@
                   <p class="font-medium">{{ c.name }}</p>
                   <p class="text-xs text-stone-400">{{ c.email || c.phone || '—' }} · coincide por {{ c.matchedOn }} ({{ c.level === 'exact' ? 'exacto' : 'posible' }})</p>
                 </div>
-                <button type="button" class="shrink-0 font-medium text-ink hover:underline" @click="openMergePreview(c.contactId)">Revisar y fusionar</button>
+                <button type="button" class="shrink-0 font-medium text-ink hover:underline" :data-testid="`dup-merge-${c.contactId}`" @click="openMergePreview(c.contactId)">Revisar y fusionar</button>
               </li>
             </ul>
           </template>
@@ -316,10 +316,14 @@
           <!-- Preview de fusión: nunca se fusiona sin ver antes qué se pierde/gana. -->
           <div v-if="mergePreview" class="mt-4 rounded-xl border border-line bg-stone-50 p-4">
             <p class="text-sm font-medium">Fusionar «{{ mergePreview.duplicate.name }}» en «{{ mergePreview.master.name }}»</p>
-            <p class="mt-1 text-xs text-stone-500">
-              Se moverán {{ mergePreview.relations.buyerRequirements }} necesidad(es), {{ mergePreview.relations.leads }} lead(s) y
-              {{ mergePreview.relations.clients }} ficha(s) de cliente. «{{ mergePreview.duplicate.name }}» quedará archivado, nunca borrado.
+            <p class="mt-1 text-xs text-stone-500" data-testid="merge-relations">
+              <template v-if="describeMergeRelations(mergePreview.relations)">Pasarán a este contacto: {{ describeMergeRelations(mergePreview.relations) }}.</template>
+              <template v-else>«{{ mergePreview.duplicate.name }}» no tiene nada vinculado que mover.</template>
+              Su historial de actividad se verá aquí y «{{ mergePreview.duplicate.name }}» quedará archivado, nunca borrado.
             </p>
+            <ul v-if="mergePreview.blockers?.length" class="mt-2 space-y-1 rounded-lg border border-red-200 bg-red-50 p-2 text-xs text-red-700" data-testid="merge-blockers">
+              <li v-for="b in mergePreview.blockers" :key="b">{{ b }}</li>
+            </ul>
             <div v-if="mergePreview.conflicts.length" class="mt-3 space-y-2">
               <p class="text-xs font-medium text-stone-600">Estos campos no coinciden — elige cuál se queda:</p>
               <div v-for="conflict in mergePreview.conflicts" :key="conflict.field" class="text-xs">
@@ -333,7 +337,7 @@
               </div>
             </div>
             <div class="mt-3 flex items-center gap-2">
-              <button type="button" class="dash-btn-primary" :disabled="merging" @click="confirmMerge">{{ merging ? 'Fusionando…' : 'Confirmar fusión' }}</button>
+              <button type="button" class="dash-btn-primary" :disabled="merging || !!mergePreview.blockers?.length" data-testid="merge-confirm" @click="confirmMerge">{{ merging ? 'Fusionando…' : 'Confirmar fusión' }}</button>
               <button type="button" class="text-xs font-medium text-stone-500 hover:underline" @click="mergePreview = null">Cancelar</button>
             </div>
           </div>
@@ -354,6 +358,7 @@ import {
   PROPERTY_CONTACT_ROLE_LABELS,
   type ContactRole,
   type PropertyContactRole,
+  describeMergeRelations,
 } from '~/utils/crmCatalog'
 import { propertyTypeLabel } from '~/utils/propertySheet'
 import { formatDateTime } from '~/composables/useClientConfig'

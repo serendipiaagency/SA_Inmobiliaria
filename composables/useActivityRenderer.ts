@@ -78,6 +78,8 @@ export function renderActivity(row: ActivityRow): { title: string; detail: strin
       return { title, detail: meta.kind ? `${DEAL_RECORD_KIND_LABELS[meta.kind] || meta.kind} #${meta.recordId}` : null }
     case 'PROPERTY_SHARE_OPENED':
       return { title, detail: 'Lectura confirmada por WhatsApp' }
+    case 'CONTACT_MERGED':
+      return { title, detail: meta.mergedName ? `Se unificó «${meta.mergedName}» en este contacto; su historial aparece aquí` : null }
     default:
       return { title, detail: null }
   }

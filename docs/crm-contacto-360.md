@@ -62,11 +62,46 @@ contacto.
 - **Notas**: `components/admin/notes/NotesPanel.vue`, reutilizable en
   cualquier entidad.
 
+## Unificar duplicados
+
+«Ficha y duplicados» → «Buscar duplicados» → «Revisar y fusionar»
+(`server/utils/contacts/merge.ts`, endpoints `saas/contacts/merge-preview` y
+`saas/contacts/merge`). Nunca automático, nunca un `DELETE` del contacto: el
+duplicado se archiva (`status: 'archived'`, `deletedAt`) y todo lo que
+colgaba de él pasa al que se conserva, siempre con `organization_id` de la
+agencia:
+
+| Qué | Cómo se mueve |
+| --- | --- |
+| Necesidades, leads, clientes, tareas, citas, selecciones de propiedades | `contactId` → superviviente |
+| Compatibilidades (matches de los dos catálogos) | `contactId` → superviviente (es la copia del de su necesidad); estado y puntuación no cambian |
+| Ofertas y operaciones como comprador | `buyerContactId` → superviviente |
+| Vendedor de una oferta u operación | se mueve; si el superviviente ya vende en esa misma, se borra la fila repetida (índice único) |
+| Propietario / inquilino de una propiedad (`property_contacts`) | se mueve; si el superviviente ya tiene **el mismo papel en la misma propiedad**, queda una sola fila: la suya, con el % de las dos sumado (la suma de la propiedad no cambia, así que no puede pasar del 100 %), principal si lo era cualquiera y las notas de ambas; la del duplicado va a la papelera y se queda en él. Las que ya estaban en la papelera se mueven tal cual |
+| Roles | se mueven; un rol que el superviviente ya tiene se borra (índice único) |
+| Accesos a documentos (`property_document_access`) | se mueven; si el superviviente ya tenía acceso a ese documento, se borra la fila repetida. Así un propietario o comprador unificado no pierde sus documentos en «Mi cuenta» ni en la pestaña «Documentos» |
+| Notas | las de la persona (`entityType: contact`) y la columna `contactId` de las que cuelgan de sus leads |
+| Etiquetas | se mueven; una que el superviviente ya tiene se borra (índice único) |
+| Campos personalizados | sólo los que el superviviente no tiene; un valor distinto del duplicado se queda en él (archivado), nunca pisa el suyo |
+| Cabecera | idioma, país, origen, oficina, comercial y próxima acción se heredan sólo si el superviviente los tiene vacíos; «último contacto» es el más reciente de los dos; las notas libres se juntan |
+| Actividad | **no se reescribe** (`activities` es append-only). Se registra `CONTACT_MERGED` en el superviviente con `mergedContactIds`, y su cronología (`listActivity` → `contactActivityCond`) incluye la de esos contactos; en cadena (A → B → C) C ve la de los tres |
+
+**Bloqueos.** Si uno es comprador y el otro vendedor en la misma oferta u
+operación, no son la misma persona: la vista previa lo explica, el botón
+«Confirmar fusión» queda desactivado y el servidor responde 422 sin mover
+nada (no se «arregla» quitando a uno de los dos lados).
+
+Las comunicaciones (WhatsApp, llamadas) cuelgan del lead o del cliente, así
+que siguen a la persona al moverse estos.
+
 ## Pruebas
 
 - `test/unit/contactsCrm.test.ts`: validación de cabecera y roles, edición
   con 409 por duplicado, aislamiento entre agencias, suma de % de
-  propietarios, listados de los dos catálogos, notas y su desnormalización.
+  propietarios, listados de los dos catálogos, notas y su desnormalización;
+  unificar duplicados (cada vínculo pasa al superviviente, choques de
+  índices únicos, % sumado sin pasar del 100 %, bloqueo comprador/vendedor,
+  cronología en cadena y nada de otra agencia se toca).
 - `tests/e2e/nucleo-n2.spec.ts`: API completa (alta, edición, 409, filtro por
   rol, propietarios con %, notas, aislamiento) y navegador (cabecera,
   «Editar», pestañas, notas, tareas, paso «Propietarios»).

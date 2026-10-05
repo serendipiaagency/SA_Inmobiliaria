@@ -88,3 +88,35 @@ export const LANGUAGE_LABELS: Record<string, string> = {
 /** Entidades a las que se puede colgar una nota (Note, FASE 0). */
 export const NOTE_ENTITY_TYPES = ['contact', 'lead', 'property', 'appointment', 'deal'] as const
 export type NoteEntityType = (typeof NOTE_ENTITY_TYPES)[number]
+
+/**
+ * Lo que se mueve al unificar dos contactos (server/utils/contacts/merge.ts),
+ * en el orden y con el nombre que ve quien va a confirmar la fusión.
+ */
+export const MERGE_RELATION_LABELS: { key: string; one: string; many: string }[] = [
+  { key: 'leads', one: 'lead', many: 'leads' },
+  { key: 'buyerRequirements', one: 'necesidad', many: 'necesidades' },
+  { key: 'matches', one: 'compatibilidad', many: 'compatibilidades' },
+  { key: 'clients', one: 'ficha de cliente', many: 'fichas de cliente' },
+  { key: 'propertyContacts', one: 'vínculo con una propiedad (propietario, inquilino…)', many: 'vínculos con propiedades (propietario, inquilino…)' },
+  { key: 'roles', one: 'rol', many: 'roles' },
+  { key: 'offers', one: 'oferta', many: 'ofertas' },
+  { key: 'dealOperations', one: 'operación', many: 'operaciones' },
+  { key: 'visits', one: 'cita', many: 'citas' },
+  { key: 'tasks', one: 'tarea', many: 'tareas' },
+  { key: 'notes', one: 'nota', many: 'notas' },
+  { key: 'selections', one: 'selección de propiedades', many: 'selecciones de propiedades' },
+  { key: 'documentAccess', one: 'acceso a un documento', many: 'accesos a documentos' },
+  { key: 'tags', one: 'etiqueta', many: 'etiquetas' },
+  { key: 'customFields', one: 'campo personalizado', many: 'campos personalizados' },
+]
+
+/** «2 leads, 1 necesidad y 3 notas» — sólo lo que de verdad hay que mover. */
+export function describeMergeRelations(relations: Record<string, number> | null | undefined): string {
+  const parts = MERGE_RELATION_LABELS.filter((r) => Number(relations?.[r.key]) > 0).map((r) => {
+    const n = Number(relations![r.key])
+    return `${n} ${n === 1 ? r.one : r.many}`
+  })
+  if (!parts.length) return ''
+  return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}`
+}
