@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
     await raw
       .prepare(
         `SELECT id, reference, client_name AS clientName, property_name AS propertyName, amount, deposit,
-                status, reserved_at AS reservedAt
+                status, reserved_at AS reservedAt, deal_operation_id AS dealOperationId
          FROM reservations ${clause} ORDER BY reserved_at DESC LIMIT 200`,
       )
       .bind(...binds)

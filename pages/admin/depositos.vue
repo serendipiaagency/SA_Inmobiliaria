@@ -50,7 +50,10 @@
           </thead>
           <tbody>
             <tr v-for="d in deposits" :key="d.id" class="border-b border-line/60 last:border-0 hover:bg-stone-50">
-              <td class="px-4 py-3 font-medium">{{ d.contractTitle || '—' }}</td>
+              <td class="px-4 py-3 font-medium">
+                {{ d.contractTitle || '—' }}
+                <NuxtLink v-if="d.dealOperationId" :to="`/admin/deal-operations/${d.dealOperationId}`" class="block text-[11px] font-normal text-emerald-700 hover:underline">Operación #{{ d.dealOperationId }}</NuxtLink>
+              </td>
               <td class="px-4 py-3 text-right tabular-nums">{{ dt.money(d.amount) }}</td>
               <td class="px-4 py-3">
                 <span class="rounded-full px-2 py-0.5 text-[11px] font-medium" :class="statusClass(d.status)">{{ statusLabel(d.status) }}</span>

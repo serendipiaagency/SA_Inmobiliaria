@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNotNull, lte, ne, or, sql, type SQL } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL } from 'drizzle-orm'
 import { createError } from 'h3'
 import { schema, now } from '../db'
 
@@ -263,6 +263,7 @@ export async function getCommercialDashboard(db: any, orgId: number, s: Dashboar
     T,
     and(
       eq(T.organizationId, orgId),
+      isNull(T.deletedAt),
       inArray(T.status, ['open', 'in_progress']),
       isNotNull(T.dueAt),
       sql`${T.dueAt} < ${nowTs}`,

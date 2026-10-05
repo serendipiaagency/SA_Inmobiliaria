@@ -55,6 +55,12 @@ const PROPERTY_TRASH_HELP_STEPS: string[] = [
   'Cada agencia sólo ve y restaura su propia Papelera: una propiedad borrada de otra inmobiliaria no aparece nunca, ni se puede restaurar ni eliminar desde otra cuenta.',
 ]
 
+/** Ofertas y actividad en la ficha de la propiedad (bloque N6), igual en los dos catálogos. */
+const PROPERTY_CRM_HELP_STEPS: string[] = [
+  'Debajo del editor, una vez creada la propiedad, el panel «Ofertas» lista todas las ofertas sobre ella (comprador, importe actual, financiación, vencimiento y estado). «+ Nueva oferta» la crea ya con este inmueble: comprador, vendedor(es), comercial, importe, condiciones, financiación y fecha de vencimiento. Pulsa una oferta para negociarla y ver su historial completo. Si la propiedad está en la Papelera, sus ofertas se siguen viendo pero no se pueden crear nuevas.',
+  'El panel «Actividad» es la cronología de la propiedad: ofertas, citas y visitas, tareas, fichas enviadas por WhatsApp (y si el cliente las abrió), llamadas, coincidencias… con quién lo hizo y cuándo. Los botones de arriba filtran por tipo y «Ver más antigua» carga lo anterior.',
+]
+
 /** Paso «Propietarios» del editor (PropertyContact), igual en los dos catálogos. */
 const PROPERTY_OWNERS_HELP_STEPS: string[] = [
   'El paso «Propietarios» (aparece una vez creada la propiedad) lista quién es quién: propietario, copropietario, apoderado, inquilino o contacto. Busca a la persona entre tus contactos o créala ahí mismo; a propietarios y copropietarios se les puede dar su % de propiedad — la suma nunca puede pasar del 100 % (el editor avisa si no llega al 100 %). Marca uno como «Principal» si quieres destacarlo. «Quitar» lo desvincula sin borrar el contacto.',
@@ -112,6 +118,7 @@ export function useHelpContent() {
         'Roles: una persona puede ser a la vez comprador, vendedor, propietario, arrendador, inquilino, inversor, colaborador, proveedor u otro. Se marcan en «Editar» y el listado de Contactos se puede filtrar por rol. Al vincular a alguien como propietario de una propiedad, recibe el rol «Propietario» automáticamente.',
         'Pestañas: Resumen, Necesidades, Propiedades (en las que figura y con qué papel; «Vincular a una propiedad» lo añade), Leads, Visitas, Ofertas (como comprador o como vendedor), Comunicaciones (los tres canales juntos) y por separado Emails, WhatsApp y Llamadas, Tareas (con alta rápida), Documentos (los de sus propiedades y los que se le han concedido), Notas, Actividad y «Ficha y duplicados».',
         'Notas: escribe notas internas sobre la persona; se pueden fijar arriba, editar y eliminar (van a la papelera). Nunca se envían al cliente.',
+        'Actividad: la cronología completa de la persona — leads, necesidades, coincidencias, citas y visitas, tareas, ofertas (también contraofertas y nuevas ofertas), operaciones, fichas enviadas y abiertas, llamadas —, con quién lo hizo y un enlace a cada cosa. Los botones de arriba filtran por tipo; «Ver más antigua» carga lo anterior.',
       ],
     },
     {
@@ -230,7 +237,7 @@ export function useHelpContent() {
         'El primer contacto y la primera respuesta humana se rellenan solos con lo que de verdad pasa: un WhatsApp enviado desde Comunicaciones, una llamada contestada o anotada, o pasar el lead a «Contactado» o más allá. La primera cita, al crear una cita o un tour para el lead desde el panel o al reservarla el cliente.',
         'Cada tarjeta (y cada fila de la vista Tabla) tiene un desplegable con el comercial asignado — cámbialo ahí mismo para reasignar el lead a otra persona, o a "Sin asignar", sin salir del listado. Queda registrado quién lo tenía, a quién pasó y cuándo en su historial de asignaciones.',
         'Los leads se crean solos desde el formulario público, las reservas de visita y el programa de referidos — no hace falta darlos de alta a mano salvo excepción. Si el email o el teléfono coincide con un contacto que ya existe en tu agencia, el lead se enlaza automáticamente a esa ficha en vez de crear una persona duplicada. Si tienes reglas de enrutado configuradas (CRM → Enrutamiento y SLA), el comercial se asigna solo al crearse — salvo que ya llegue con uno explícito, como una reserva de cita con un comercial concreto.',
-        '"Próxima acción" (debajo de la tarjeta, cuando la hay) es la tarea abierta o la cita futura más próxima de ese lead — nunca algo que se escriba a mano, se recalcula solo. El botón "+ Tarea" de cada tarjeta crea una tarea suelta (llamada, WhatsApp, seguimiento…) ligada a ese lead, visible también en CRM → Tareas.',
+        '"Próxima acción" (debajo de la tarjeta y en la columna del mismo nombre de la vista Tabla) dice qué toca y cuándo — p. ej. «Tarea · Llamada · mañana» o «Cita · Visita a inmueble · en 3 d» — y sale en rojo si ya pasó. Es la tarea abierta o la cita futura más próxima de ese lead: nunca algo que se escriba a mano, se recalcula sola. En la ficha del lead aparece en «Tiempos (SLA)» con su tipo. El botón "+ Tarea" de cada tarjeta crea una tarea ligada a ese lead, visible también en CRM → Tareas.',
         'En la vista Tabla, marca la casilla de una o varias filas (o la de la cabecera, para marcarlas todas) para actuar sobre varios leads a la vez: cambiar el comercial, cambiar la fase, añadir una etiqueta, o crear una tarea idéntica para cada uno. Aparece un botón "Aplicar" que pide confirmación con el número exacto de leads afectados y muestra el progreso mientras corre; si algo falla en una fila concreta (por ejemplo, una fase inválida), el resto de la selección sigue procesándose igual. "Exportar seleccionados" descarga un CSV sólo con esos leads.',
         'El número de cada lead es su Lead Score (0-100): una puntuación por reglas fijas de tu agencia sobre señales reales — presupuesto validado, compra prevista pronto, si ha respondido en las últimas horas, si tiene una visita pedida, si su financiación está validada y cuántas fichas enviadas por WhatsApp ha abierto. Haz clic en el número para ver "¿Por qué?": qué criterios suman, cuáles no y con qué dato, más su historial. Los filtros "Puntuación ≥" y "Mayor puntuación primero" ordenan y filtran por él.',
         'Un número con asterisco (*) es una puntuación del sistema anterior, que sumaba puntos fijos cada vez que alguien volvía a escribir y no se puede explicar. Pulsa "Recalcular con las señales actuales" en su detalle, o selecciónalos en la vista Tabla y usa la acción "Recalcular puntuación". El Lead Score no es la compatibilidad con un inmueble (eso es Compatibilidades/Matching), no reparte leads y no sustituye al SLA.',
@@ -327,12 +334,44 @@ export function useHelpContent() {
       group: 'CRM',
       title: 'Tareas',
       route: '/admin/tareas',
-      summary: 'Trabajo pendiente de toda la agencia: llamadas, WhatsApp, seguimientos… — distinto de las citas (tiempo reservado) y de la Actividad (lo que ya ocurrió).',
+      summary: 'Trabajo pendiente de toda la agencia: llamadas, WhatsApp, documentos, seguimientos… — distinto de las citas (tiempo reservado) y de la Actividad (lo que ya ocurrió).',
       steps: [
-        'El filtro superior organiza la vista — Abiertas, Vencidas, Vencen hoy, Completadas o Todas, por comercial, tipo y prioridad — pero no restringe qué ves: cualquiera con acceso a CRM ve las tareas de toda la agencia, igual que en Calendario.',
-        '"+ Nueva tarea" desde aquí crea una tarea suelta, sin relación con ningún contacto, lead o cita. Una tarea ligada a una persona o a una cita concreta se crea desde su origen: el botón "+ Tarea" de cada tarjeta en Leads, la pestaña "Tareas" de la ficha de Cliente, o "Crear tarea de seguimiento" al anotar el resultado de una visita.',
-        '"Completar" fija cuándo y queda registrado en la Actividad del contacto o lead relacionado, si lo hay. Una tarea vencida (abierta y con fecha ya pasada) se marca en rojo.',
-        'La "próxima acción" que ves en la tarjeta de un lead (Leads) es siempre la tarea abierta o la cita futura más próxima de ese lead concreto — se recalcula sola cada vez que creas, completas o cancelas una tarea o una cita, nunca se edita a mano.',
+        'El primer filtro elige qué ver: Pendientes (abiertas y en curso, la vista por defecto), Abiertas, En curso, Vencidas, Vencen hoy, Completadas, Canceladas o Todas; los demás filtran por comercial, tipo y prioridad. Organizan la vista, no la restringen: cualquiera con acceso a CRM ve las tareas de toda la agencia, igual que en Calendario.',
+        '"+ Nueva tarea" pide tipo, título, responsable, fecha y hora, prioridad, estado (Abierta o En curso) y, si quieres, con qué está relacionada: un contacto, un lead, una propiedad, una cita y/o una operación. Cada uno se busca escribiendo; sólo aparecen los de tu agencia y nunca una propiedad de la Papelera.',
+        '"Editar" abre la misma ventana con todos los campos — también puedes cambiar o quitar («Quitar») cualquiera de sus relaciones. El desplegable de la columna Estado cambia el estado al momento: Abierta, En curso, Completada o Cancelada; "Empezar" la pasa a En curso y "Completar" la cierra.',
+        'La columna "Relacionada con" enseña los nombres reales (contacto, lead, inmueble, cita, operación) con un enlace a cada ficha. Una tarea vencida (pendiente y con la fecha ya pasada) se marca en rojo.',
+        '"Borrar" pide confirmación y manda la tarea a la papelera: desaparece de todos los listados, de la ficha de su operación y de la próxima acción de su lead, pero lo que ya ocurrió (que se creó, que se completó) se conserva en la Actividad.',
+        'Completar o cancelar queda registrado en la Actividad del contacto, lead o propiedad relacionados. La "próxima acción" de un lead es siempre su tarea pendiente con fecha (o su cita futura) más próxima: se recalcula sola cada vez que creas, editas, completas, cancelas o borras una tarea, o mueves una cita.',
+      ],
+    },
+    {
+      key: 'ofertas',
+      group: 'CRM',
+      title: 'Ofertas',
+      route: '/admin/ofertas',
+      summary: 'Todas las ofertas de la agencia en un listado, con la negociación completa de cada una: oferta, contraoferta, nueva oferta, aceptada o rechazada — sin perder nunca un importe anterior.',
+      steps: [
+        'Filtra por estado (Abiertas reúne borrador, enviada y contraoferta), por catálogo (obra nueva o 2ª mano), por comercial, por inmueble, por comprador o por vendedor. Cada fila enseña el inmueble, comprador, vendedor(es), importe actual, financiación, vencimiento (en rojo si ya venció) y estado; si de la oferta ya nació una operación, un enlace lleva a ella.',
+        '"+ Nueva oferta" pide inmueble, comprador, vendedor(es) —puedes añadir varios—, comercial, importe, condiciones, financiación (al contado, sujeta a hipoteca, hipoteca preaprobada o aprobada, u otra) y fecha de vencimiento. Se crea en borrador: pulsa la oferta y "Enviar oferta" cuando el comprador la confirme.',
+        'Al pulsar una oferta se abre su detalle con las acciones que tocan según su estado. Enviada: "Contraoferta del vendedor", "El vendedor acepta" o "El vendedor rechaza". Con contraoferta: "Nueva oferta del comprador", otra contraoferta, aceptarla o rechazarla. Contraoferta y nueva oferta llevan los mismos términos que la oferta: importe, condiciones, financiación y vencimiento.',
+        'El "Historial de la negociación" lista cada movimiento con sus términos completos, quién lo hizo y cuándo. Es inmutable: una contraoferta nunca sobrescribe la oferta anterior, se añade debajo.',
+        'Si mientras miras una oferta otra persona registra un movimiento, "Aceptar" no acepta lo que ya no está vigente: avisa y recarga el detalle para que veas los términos actuales.',
+        'Una oferta aceptada tiene el botón "Crear operación", que abre su seguimiento en CRM → Operaciones. Las ofertas también se ven y se crean desde la ficha de la propiedad (panel «Ofertas»), desde la ficha del cliente y desde Compatibilidades o el resultado de una visita.',
+      ],
+    },
+    {
+      key: 'deal-operations',
+      group: 'CRM',
+      title: 'Operaciones',
+      route: '/admin/deal-operations',
+      summary: 'El seguimiento de cada operación desde la oferta aceptada hasta la firma, en un Kanban por etapas: oferta aceptada, reserva, arras, financiación, documentación, notaría, firma y cerrada.',
+      steps: [
+        'Cada columna del Kanban es una etapa. Arrastra una tarjeta a otra columna (o usa su desplegable «Mover a…») para cambiar de etapa: queda en el historial de la operación con quién la movió y cuándo. Soltarla en «Cerrada» pide confirmación y cierra la operación de verdad.',
+        'Los filtros muestran las operaciones activas (por defecto), cerradas, canceladas o todas, por oficina, por comercial y por catálogo. «Lista» enseña lo mismo en tabla.',
+        'Una operación nace siempre de una oferta aceptada ("Crear operación" en el detalle de la oferta). En su ficha: la etapa (con un motivo opcional que queda en el historial), el historial de etapas, la oferta aceptada con toda su negociación, las partes, y la oficina y el comercial, que se pueden cambiar ahí mismo (sólo oficinas de tu agencia).',
+        '«Reserva, arras y contratos» vincula a la operación lo que ya existe en Reservas, Depósitos y Contratos: elige uno del desplegable y pulsa "Vincular"; "Desvincular" lo suelta sin borrarlo. Sólo se ofrecen los de tu agencia que aún no pertenecen a otra operación. Arras y contratos son de Finanzas: sin permiso de Finanzas no se ven ni se vinculan.',
+        'La ficha tiene también sus tareas (créalas con "+ Nueva tarea": la operación, el comprador y el inmueble vienen ya puestos), sus citas de notaría o firma (aparecen en el Calendario) y la «Actividad»: todo lo ocurrido en la operación, en su oferta, en sus tareas y en sus citas.',
+        'Cerrar crea solo su apunte en Finanzas → «Cierres y comisiones» (con la comisión a 0 para que pongas el % real) y, en 2ª mano en venta, marca el inmueble como vendido. Cancelar pide un motivo y no borra nada.',
       ],
     },
     {
@@ -349,7 +388,7 @@ export function useHelpContent() {
       title: 'Reservas',
       route: '/admin/reservas',
       summary: 'Reservas de unidades sobre plano hechas por clientes desde la web pública.',
-      steps: [],
+      steps: ['Una reserva se vincula a su operación desde la ficha de la operación (CRM → Operaciones → «Reserva, arras y contratos»). En esta lista aparece entonces «Operación #…» bajo la referencia, con el enlace.'],
     },
     {
       key: 'referidos',
@@ -409,6 +448,7 @@ export function useHelpContent() {
         ...PROPERTY_TRASH_HELP_STEPS,
         ...PROPERTY_OWNERS_HELP_STEPS,
         ...PROPERTY_BUYER_MATCHES_HELP_STEPS,
+        ...PROPERTY_CRM_HELP_STEPS,
       ],
     },
     {
@@ -477,6 +517,7 @@ export function useHelpContent() {
         ...PROPERTY_TRASH_HELP_STEPS,
         ...PROPERTY_OWNERS_HELP_STEPS,
         ...PROPERTY_BUYER_MATCHES_HELP_STEPS,
+        ...PROPERTY_CRM_HELP_STEPS,
       ],
     },
     {
@@ -574,14 +615,15 @@ export function useHelpContent() {
     {
       key: 'operaciones',
       group: 'Finanzas & Growth',
-      title: 'Operaciones',
+      title: 'Cierres y comisiones',
       route: '/admin/operaciones',
-      summary: 'Registro de ventas y alquileres cerrados, con cálculo automático de comisión por comercial.',
+      summary: 'Registro de ventas y alquileres ya cerrados, con el cálculo de la comisión de cada comercial. (Antes se llamaba «Operaciones»; el seguimiento de una operación en marcha está en CRM → Operaciones.)',
       steps: [
-        'Pulsa "Registrar operación", indica cliente, tipo (venta/alquiler), valor y porcentaje de comisión.',
+        'Pulsa "Registrar operación", indica cliente, tipo (venta/alquiler), valor y porcentaje de comisión, para dar de alta un cierre que no pasó por el pipeline.',
         'La comisión se calcula sola; márcala como "pagada" cuando la liquides con el comercial.',
         'Estos datos alimentan directamente el panel de Ingresos.',
-        'Cerrar una operación desde la ficha de un cliente (CRM → Clientes → pestaña "Operaciones") crea aquí su fila automáticamente, con la comisión en 0 — complétala tú con el % real. No hace falta registrarla dos veces.',
+        'Cerrar una operación en CRM → Operaciones crea aquí su fila automáticamente, con la comisión en 0 — complétala tú con el % real. No hace falta registrarla dos veces.',
+        'Los enlaces antiguos a esta pantalla (/admin/operaciones) siguen funcionando: sólo ha cambiado su nombre en el menú.',
       ],
     },
     {
@@ -604,6 +646,7 @@ export function useHelpContent() {
         'Pulsa "Enviar" para generar el enlace de aceptación y cópialo para el cliente.',
         'El cliente lee el contrato en su enlace propio y lo acepta con su nombre, un aviso legal y un clic — queda registrada su IP y la fecha/hora. Es una firma electrónica simple, no cualificada.',
         'Al aceptarse, se genera un PDF final con el sello de aceptación, descargable desde esta página o desde el portal del propio cliente.',
+        'Un contrato se vincula a su operación desde la ficha de la operación (CRM → Operaciones → «Reserva, arras y contratos»). Aquí, debajo del título, aparece «Operación #…» con el enlace.',
       ],
     },
     {
@@ -618,6 +661,7 @@ export function useHelpContent() {
         'El estado pasa a "Pagado" solo (automáticamente) en cuanto Stripe confirma el pago por webhook — nunca porque el cliente haya vuelto a la página de éxito, que no es una prueba de pago.',
         '"Comprobar estado" fuerza una consulta manual a Stripe, por si quieres verificar antes de que llegue el webhook o la reconciliación horaria.',
         'El historial de eventos de Stripe, debajo de la lista de depósitos, muestra cada notificación recibida y qué se hizo con ella — útil si un cliente dice haber pagado y no se refleja.',
+        'Unas arras se vinculan a su operación desde la ficha de la operación (CRM → Operaciones → «Reserva, arras y contratos»); aquí aparece entonces «Operación #…» bajo el contrato.',
       ],
     },
     {
@@ -1106,17 +1150,31 @@ export function useHelpContent() {
       tags: ['tareas', 'leads', 'crm', 'next action'],
     },
     {
+      id: 'faq-tarea-borrada',
+      question: 'He borrado una tarea por error, ¿se ha perdido?',
+      answer:
+        'No se borra de verdad: va a la papelera. Deja de verse en los listados, en la ficha de su operación y en la próxima acción de su lead, pero la fila se conserva y lo que ya ocurrió (que se creó, que se completó) sigue en la Actividad. Hoy no hay botón para restaurarla desde el panel: si la necesitas, créala de nuevo.',
+      tags: ['tareas', 'papelera', 'crm'],
+    },
+    {
+      id: 'faq-cliente-abrio-ficha',
+      question: '¿Cómo sé si el cliente abrió la ficha que le envié?',
+      answer:
+        'Si se la enviaste por WhatsApp desde Comunicaciones y WhatsApp confirma la lectura, en la Actividad del contacto, del lead y de la propiedad aparece «El cliente abrió la ficha enviada». Es la única señal fiable que existe: las visitas a la web pública no se asocian a ninguna persona, así que no se registran. Por el mismo motivo no hay un evento «match encontrado»: las compatibilidades se calculan al momento y sólo queda constancia cuando alguien selecciona, descarta o envía una.',
+      tags: ['actividad', 'whatsapp', 'crm', 'matching'],
+    },
+    {
       id: 'faq-oferta-historial',
       question: 'Al registrar una contraoferta, ¿se pierde el importe anterior?',
       answer:
-        'No, nunca. Cada envío, contraoferta o decisión queda como una fila propia en el histórico de la oferta — no se sobrescribe nada. Lo que ves como "importe actual" es sólo la última; toda la negociación completa (quién ofreció qué y cuándo) sigue disponible.',
+        'No, nunca. Cada envío, contraoferta, nueva oferta o decisión queda como una fila propia en el historial de la oferta, con su importe, condiciones, financiación y vencimiento — no se sobrescribe nada. Lo que ves como "importe actual" es sólo la última; la negociación completa (quién ofreció qué y cuándo) está en el detalle de la oferta (CRM → Ofertas, o el panel «Ofertas» de la propiedad), en «Historial de la negociación».',
       tags: ['ofertas', 'negociación', 'crm'],
     },
     {
       id: 'faq-operacion-vs-operaciones-cerradas',
       question: '¿Por qué hay dos sitios que hablan de "operaciones"?',
       answer:
-        'Son dos cosas distintas. La pestaña "Operaciones" en la ficha del cliente es el seguimiento de una operación mientras está en marcha: etapas desde la oferta aceptada hasta el cierre, con sus tareas y citas propias. "Operaciones" en Finanzas & Growth es el registro plano de ventas/alquileres ya cerrados, para calcular comisiones — existía antes y sigue siendo la fuente de Ingresos. Al cerrar una operación desde la ficha del cliente, se crea sola su fila ahí (con comisión en 0, a completar), así que no hay que registrarla dos veces.',
+        'Son dos cosas distintas. CRM → Operaciones es el seguimiento de una operación mientras está en marcha: el Kanban por etapas desde la oferta aceptada hasta la firma, con su historial, tareas, citas, reserva, arras y contratos. Finanzas → «Cierres y comisiones» (la antigua pantalla «Operaciones», en la misma dirección de siempre) es el registro plano de ventas/alquileres ya cerrados, para calcular comisiones — y la fuente de Ingresos. Al cerrar una operación en CRM se crea sola su fila en «Cierres y comisiones» (con comisión en 0, a completar), así que no hay que registrarla dos veces.',
       tags: ['operaciones', 'deal', 'comisiones', 'crm'],
     },
     {

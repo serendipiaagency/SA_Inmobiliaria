@@ -384,6 +384,23 @@ export async function applyMessageStatus(db: any, event: MessageStatusEvent): Pr
   if (event.status === 'read' && !row.readAt && row.type === 'property_share') {
     const [conv] = await db.select({ contactId: schema.commsConversations.contactId }).from(schema.commsConversations).where(eq(schema.commsConversations.id, row.conversationId)).limit(1)
     if (conv) await recomputeLeadScoreForCommsContact(db, row.organizationId, conv.contactId)
+    // Bloque N6 (FASE 21) — «el cliente abrió la ficha»: esta lectura
+    // confirmada por el proveedor es la única señal real de que la abrió
+    // (la web pública no asocia visitas a un contacto). Una sola vez por
+    // mensaje: un `read` repetido no pasa del `next <= current` de arriba.
+    if (conv && row.propertyId) {
+      const { contactId, leadId } = await resolveActivityContact(db, conv.contactId)
+      await recordActivity(db, row.organizationId, {
+        eventType: 'PROPERTY_SHARE_OPENED',
+        entityType: 'comms_message',
+        entityId: row.id,
+        contactId,
+        leadId,
+        propertyId: row.propertyId,
+        propertyKind: row.propertyKind === 'agent' ? 'agent' : 'developer',
+        actorType: 'contact',
+      })
+    }
   }
   return { updated: true }
 }

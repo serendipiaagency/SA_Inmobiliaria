@@ -1,4 +1,4 @@
-import { and, asc, eq, gt, isNotNull, ne } from 'drizzle-orm'
+import { and, asc, eq, gt, isNotNull, isNull, ne } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { now } from '../db'
 import { recomputeLeadScore } from './score'
@@ -8,6 +8,8 @@ import { recomputeLeadScore } from './score'
  * PROYECCIÓN sincronizada, nunca una segunda fuente de verdad: nada las
  * escribe a mano, sólo `syncLeadNextAction()`, y sólo a partir de datos
  * reales (Task abierta con `dueAt`, o Appointment futura) de ese lead.
+ *
+ * Las tareas de la papelera (`deletedAt`, bloque N6) nunca cuentan.
  *
  * Sólo entran en el cálculo las Task con `dueAt` — una tarea "algún día" sin
  * fecha no tiene con qué competir por "la próxima acción" ni se puede
@@ -25,7 +27,7 @@ export async function syncLeadNextAction(db: any, orgId: number, leadId: number)
     const [nextTask] = await db
       .select({ type: schema.tasks.type, dueAt: schema.tasks.dueAt })
       .from(schema.tasks)
-      .where(and(eq(schema.tasks.organizationId, orgId), eq(schema.tasks.leadId, leadId), ne(schema.tasks.status, 'completed'), ne(schema.tasks.status, 'cancelled'), isNotNull(schema.tasks.dueAt)))
+      .where(and(eq(schema.tasks.organizationId, orgId), eq(schema.tasks.leadId, leadId), isNull(schema.tasks.deletedAt), ne(schema.tasks.status, 'completed'), ne(schema.tasks.status, 'cancelled'), isNotNull(schema.tasks.dueAt)))
       .orderBy(asc(schema.tasks.dueAt))
       .limit(1)
 

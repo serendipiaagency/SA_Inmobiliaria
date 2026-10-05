@@ -269,6 +269,7 @@
 
         <PropertyPriceHistory v-if="!isNew && recordId" :rows="priceHistory" />
         <PropertyCommunications v-if="!isNew && recordId" :property-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" />
+        <PropertyCrmPanels v-if="!isNew && recordId" :property-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" :name="previewTitle" :trashed="!!trashedAt" />
       </div>
     </template>
   </div>
@@ -294,6 +295,7 @@ import PropertyContactsManager from './PropertyContactsManager.vue'
 import PropertyBuyerMatches from './PropertyBuyerMatches.vue'
 import PropertyCommunications from './PropertyCommunications.vue'
 import PropertyPriceHistory from './PropertyPriceHistory.vue'
+import PropertyCrmPanels from '~/components/admin/property/PropertyCrmPanels.vue'
 
 /**
  * El Property Editor: **uno solo** para los cuatro recorridos — alta y

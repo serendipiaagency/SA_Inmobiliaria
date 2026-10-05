@@ -1,10 +1,13 @@
-import { and, asc, desc, eq, gt, isNotNull, ne } from 'drizzle-orm'
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, ne } from 'drizzle-orm'
 import { createError } from 'h3'
 import * as schema from '../../db/schema'
 import { now } from '../db'
 import { recordActivity } from '../activity/service'
 import type { PropertyKind } from '../matching/service'
 import { assertLiveProperty } from '../properties/trash'
+import { contactNames, officeNames, propertyNameOf, propertyNames, teamMemberNames, userNames } from '../crm/labels'
+import { selectInChunks } from '../sqlChunks'
+import { DEAL_RECORD_KINDS, DEAL_STAGES, DEAL_STATUSES } from '../../../utils/pipelineCatalog'
 
 /**
  * DealService (FASE 24) — el único sitio que crea o transiciona un Deal
@@ -19,11 +22,11 @@ import { assertLiveProperty } from '../properties/trash'
  * `deal_operations_accepted_offer`).
  */
 
-export const DEAL_STAGES = ['accepted_offer', 'reservation', 'deposit_contract', 'financing', 'documentation', 'notary', 'signature', 'closed'] as const
+// Los valores válidos (y su etiqueta) viven en el catálogo compartido con el panel.
+export { DEAL_RECORD_KINDS, DEAL_STAGES, DEAL_STATUSES }
 export type DealStage = (typeof DEAL_STAGES)[number]
-
-export const DEAL_STATUSES = ['active', 'closed', 'cancelled'] as const
 export type DealStatus = (typeof DEAL_STATUSES)[number]
+export type DealRecordKind = (typeof DEAL_RECORD_KINDS)[number]
 
 export interface DealRow {
   id: number
@@ -45,6 +48,9 @@ export interface DealRow {
   cancelReason: string | null
   legacyDealId: number | null
   createdBy: number | null
+  /** Migración 0086 — oficina (entidad Oficinas) y borrado lógico. */
+  officeId?: number | null
+  deletedAt?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -70,7 +76,11 @@ async function recordDealActivity(db: any, orgId: number, deal: DealRow, eventTy
 }
 
 async function getDealOrThrow(db: any, orgId: number, dealId: number): Promise<DealRow> {
-  const rows = await db.select().from(schema.dealOperations).where(and(eq(schema.dealOperations.id, dealId), eq(schema.dealOperations.organizationId, orgId))).limit(1)
+  const rows = await db
+    .select()
+    .from(schema.dealOperations)
+    .where(and(eq(schema.dealOperations.id, dealId), eq(schema.dealOperations.organizationId, orgId), isNull(schema.dealOperations.deletedAt)))
+    .limit(1)
   if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Operación no encontrada' })
   return rows[0]
 }
@@ -264,6 +274,93 @@ export async function cancelDeal(db: any, orgId: number, dealId: number, opts: A
   return updated
 }
 
+/**
+ * Oficina y comercial de una operación (bloque N6). La oficina es la
+ * entidad Oficinas (`offices`, viva y de esta organización) y el comercial
+ * un `team_members` de esta organización: cualquier otra cosa es 404 — nunca
+ * se guarda un id ajeno. `null` los quita. Se puede corregir en cualquier
+ * estado de la operación: es organización interna, no un hito del proceso.
+ */
+export async function updateDeal(db: any, orgId: number, dealId: number, input: { officeId?: number | null; commercialId?: number | null }): Promise<DealRow> {
+  const deal = await getDealOrThrow(db, orgId, dealId)
+  const patch: Record<string, any> = {}
+  if (input.officeId !== undefined) {
+    if (input.officeId !== null) {
+      const [office] = await db
+        .select({ id: schema.offices.id })
+        .from(schema.offices)
+        .where(and(eq(schema.offices.id, input.officeId), eq(schema.offices.organizationId, orgId), isNull(schema.offices.deletedAt)))
+        .limit(1)
+      if (!office) throw createError({ statusCode: 404, statusMessage: 'Oficina no encontrada en esta organización' })
+    }
+    patch.officeId = input.officeId
+  }
+  if (input.commercialId !== undefined) {
+    if (input.commercialId !== null) {
+      const [member] = await db
+        .select({ id: schema.teamMembers.id })
+        .from(schema.teamMembers)
+        .where(and(eq(schema.teamMembers.id, input.commercialId), eq(schema.teamMembers.organizationId, orgId)))
+        .limit(1)
+      if (!member) throw createError({ statusCode: 404, statusMessage: 'Comercial no encontrado en esta organización' })
+    }
+    patch.commercialId = input.commercialId
+  }
+  if (!Object.keys(patch).length) return deal
+  const nowTs = now()
+  patch.updatedAt = nowTs
+  await db.update(schema.dealOperations).set(patch).where(and(eq(schema.dealOperations.id, dealId), eq(schema.dealOperations.organizationId, orgId)))
+  return { ...deal, ...patch }
+}
+
+/** La tabla real de cada cosa que se puede vincular a una operación (columna `deal_operation_id`, migración 0086). */
+function recordTable(kind: DealRecordKind) {
+  if (kind === 'reservation') return schema.reservations
+  if (kind === 'deposit') return schema.depositPayments
+  return schema.contracts
+}
+
+/**
+ * Vincula una reserva, unas arras (depósito) o un contrato a la operación.
+ * La operación y el registro tienen que ser de esta organización (404 si
+ * no — una reserva de otra agencia no existe para esta). Un registro ya
+ * vinculado a OTRA operación no se roba en silencio: 409, primero se
+ * desvincula de aquélla. Vincularlo dos veces a la misma es idempotente.
+ */
+export async function linkDealRecord(db: any, orgId: number, dealId: number, kind: DealRecordKind, recordId: number, actor: ActorOpts): Promise<{ kind: DealRecordKind; id: number; dealOperationId: number }> {
+  if (!(DEAL_RECORD_KINDS as readonly string[]).includes(kind)) throw createError({ statusCode: 422, statusMessage: 'Tipo de documento no reconocido' })
+  const deal = await getDealOrThrow(db, orgId, dealId)
+  const t = recordTable(kind)
+  const [record] = await db
+    .select({ id: t.id, dealOperationId: t.dealOperationId })
+    .from(t)
+    .where(and(eq(t.id, recordId), eq(t.organizationId, orgId)))
+    .limit(1)
+  if (!record) throw createError({ statusCode: 404, statusMessage: 'No encontrado en esta organización' })
+  if (record.dealOperationId === dealId) return { kind, id: recordId, dealOperationId: dealId }
+  if (record.dealOperationId) throw createError({ statusCode: 409, statusMessage: `Ya está vinculado a la operación #${record.dealOperationId}: desvincúlalo de ella primero` })
+
+  await db.update(t).set({ dealOperationId: dealId }).where(and(eq(t.id, recordId), eq(t.organizationId, orgId)))
+  await recordDealActivity(db, orgId, deal, 'DEAL_RECORD_LINKED', actor, { kind, recordId })
+  return { kind, id: recordId, dealOperationId: dealId }
+}
+
+/** Quita el vínculo — sólo si el registro está vinculado a ESTA operación (404 si no). No borra el registro. */
+export async function unlinkDealRecord(db: any, orgId: number, dealId: number, kind: DealRecordKind, recordId: number, actor: ActorOpts): Promise<{ kind: DealRecordKind; id: number; dealOperationId: null }> {
+  if (!(DEAL_RECORD_KINDS as readonly string[]).includes(kind)) throw createError({ statusCode: 422, statusMessage: 'Tipo de documento no reconocido' })
+  const deal = await getDealOrThrow(db, orgId, dealId)
+  const t = recordTable(kind)
+  const [record] = await db
+    .select({ id: t.id })
+    .from(t)
+    .where(and(eq(t.id, recordId), eq(t.organizationId, orgId), eq(t.dealOperationId, dealId)))
+    .limit(1)
+  if (!record) throw createError({ statusCode: 404, statusMessage: 'No está vinculado a esta operación' })
+  await db.update(t).set({ dealOperationId: null }).where(and(eq(t.id, recordId), eq(t.organizationId, orgId)))
+  await recordDealActivity(db, orgId, deal, 'DEAL_RECORD_UNLINKED', actor, { kind, recordId })
+  return { kind, id: recordId, dealOperationId: null }
+}
+
 export interface ListDealsFilter {
   propertyId?: number
   propertyKind?: PropertyKind
@@ -271,12 +368,14 @@ export interface ListDealsFilter {
   sellerContactId?: number
   leadId?: number
   commercialId?: number
+  officeId?: number
   status?: DealStatus
   stage?: DealStage
 }
 
+/** Operaciones de la organización (nunca las borradas), más recientes primero. */
 export async function listDeals(db: any, orgId: number, filter: ListDealsFilter = {}): Promise<DealRow[]> {
-  const conditions = [eq(schema.dealOperations.organizationId, orgId)]
+  const conditions = [eq(schema.dealOperations.organizationId, orgId), isNull(schema.dealOperations.deletedAt)]
   if (filter.propertyId) {
     conditions.push(eq(schema.dealOperations.propertyId, filter.propertyId))
     if (filter.propertyKind) conditions.push(eq(schema.dealOperations.propertyKind, filter.propertyKind))
@@ -284,6 +383,7 @@ export async function listDeals(db: any, orgId: number, filter: ListDealsFilter 
   if (filter.buyerContactId) conditions.push(eq(schema.dealOperations.buyerContactId, filter.buyerContactId))
   if (filter.leadId) conditions.push(eq(schema.dealOperations.leadId, filter.leadId))
   if (filter.commercialId) conditions.push(eq(schema.dealOperations.commercialId, filter.commercialId))
+  if (filter.officeId) conditions.push(eq(schema.dealOperations.officeId, filter.officeId))
   if (filter.status) conditions.push(eq(schema.dealOperations.status, filter.status))
   if (filter.stage) conditions.push(eq(schema.dealOperations.stage, filter.stage))
 
@@ -306,38 +406,141 @@ export async function listDeals(db: any, orgId: number, filter: ListDealsFilter 
     .orderBy(desc(schema.dealOperations.id))
 }
 
+/** Una operación con los nombres de comprador, inmueble, comercial y oficina ya resueltos (sólo lectura, para el panel). */
+export interface DealWithLabels extends DealRow {
+  buyerName: string | null
+  propertyName: string | null
+  commercialName: string | null
+  officeName: string | null
+}
+
+export async function withDealLabels(db: any, orgId: number, rows: DealRow[]): Promise<DealWithLabels[]> {
+  const [buyers, properties, commercials, offices] = await Promise.all([
+    contactNames(db, orgId, rows.map((r) => r.buyerContactId)),
+    propertyNames(db, orgId, rows.map((r) => ({ id: r.propertyId, kind: r.propertyKind }))),
+    teamMemberNames(db, orgId, rows.map((r) => r.commercialId)),
+    officeNames(db, orgId, rows.map((r) => r.officeId)),
+  ])
+  return rows.map((r) => ({
+    ...r,
+    buyerName: buyers.get(r.buyerContactId) ?? null,
+    propertyName: propertyNameOf(properties, r.propertyId, r.propertyKind),
+    commercialName: r.commercialId ? (commercials.get(r.commercialId) ?? null) : null,
+    officeName: r.officeId ? (offices.get(r.officeId) ?? null) : null,
+  }))
+}
+
 /**
- * Ficha de la operación: histórico de etapa, vendedores, y su próxima
- * acción derivada de sus Tasks/Appointments — sin ningún sistema de
- * seguimiento nuevo (§122), la misma tabla `tasks`/`visits` que ya
- * consume Lead (FASE 22), filtrada por `dealId`.
+ * Reservas, arras y contratos vinculados a la operación, y los candidatos a
+ * vincular (de esta organización y sin operación). Arras y contratos son del
+ * área Finanzas: sólo se leen si quien pregunta puede leerla
+ * (`includeFinance`), igual que sus propias pantallas.
  */
-export async function getDealDetail(db: any, orgId: number, dealId: number) {
+async function dealRecords(db: any, orgId: number, dealId: number, includeFinance: boolean) {
+  const R = schema.reservations
+  const D = schema.depositPayments
+  const C = schema.contracts
+  const reservationCols = { id: R.id, reference: R.reference, clientName: R.clientName, propertyName: R.propertyName, amount: R.amount, deposit: R.deposit, status: R.status, reservedAt: R.reservedAt, dealOperationId: R.dealOperationId }
+  const depositCols = { id: D.id, contractId: D.contractId, amount: D.amount, currency: D.currency, status: D.status, createdAt: D.createdAt, paidAt: D.paidAt, dealOperationId: D.dealOperationId }
+  const contractCols = { id: C.id, title: C.title, clientName: C.clientName, status: C.status, createdAt: C.createdAt, acceptedAt: C.acceptedAt, dealOperationId: C.dealOperationId }
+  // Lo vinculado se lee entero; los candidatos (sin operación), los 100 más recientes.
+  const read = (t: any, cols: any) =>
+    Promise.all([
+      db.select(cols).from(t).where(and(eq(t.organizationId, orgId), eq(t.dealOperationId, dealId))).orderBy(desc(t.id)),
+      db.select(cols).from(t).where(and(eq(t.organizationId, orgId), isNull(t.dealOperationId))).orderBy(desc(t.id)).limit(100),
+    ]).then(([linked, candidates]) => ({ linked, candidates }))
+  const empty = Promise.resolve({ linked: [], candidates: [] })
+  const [reservations, deposits, contracts] = await Promise.all([
+    read(R, reservationCols),
+    includeFinance ? read(D, depositCols) : empty,
+    includeFinance ? read(C, contractCols) : empty,
+  ])
+  return { reservations, deposits, contracts, financeVisible: includeFinance }
+}
+
+/**
+ * Ficha de la operación: histórico de etapa (con quién lo movió), vendedores,
+ * su próxima acción derivada de sus Tasks/Appointments — sin ningún sistema
+ * de seguimiento nuevo (§122), la misma tabla `tasks`/`visits` que ya
+ * consume Lead (FASE 22), filtrada por `dealId` — y (bloque N6) la oferta
+ * aceptada con su historial, la oficina, y las reservas, arras y contratos
+ * vinculados.
+ */
+export async function getDealDetail(db: any, orgId: number, dealId: number, opts: { includeFinance?: boolean } = {}) {
   const deal = await getDealOrThrow(db, orgId, dealId)
 
-  const [sellerRows, stageHistory, appointments, tasks] = await Promise.all([
+  const liveDealTasks = and(eq(schema.tasks.organizationId, orgId), eq(schema.tasks.dealId, dealId), isNull(schema.tasks.deletedAt))
+  const [sellerRows, stageHistory, appointments, tasks, offerRows] = await Promise.all([
     db.select({ contactId: schema.dealOperationSellers.contactId }).from(schema.dealOperationSellers).where(eq(schema.dealOperationSellers.dealOperationId, dealId)),
-    db.select().from(schema.dealOperationStageHistory).where(eq(schema.dealOperationStageHistory.dealOperationId, dealId)).orderBy(schema.dealOperationStageHistory.createdAt),
-    db.select().from(schema.visits).where(eq(schema.visits.dealId, dealId)).orderBy(desc(schema.visits.scheduledAt)),
-    db.select().from(schema.tasks).where(eq(schema.tasks.dealId, dealId)).orderBy(desc(schema.tasks.id)),
+    db
+      .select()
+      .from(schema.dealOperationStageHistory)
+      .where(and(eq(schema.dealOperationStageHistory.dealOperationId, dealId), eq(schema.dealOperationStageHistory.organizationId, orgId)))
+      .orderBy(schema.dealOperationStageHistory.id),
+    db
+      .select()
+      .from(schema.visits)
+      .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.dealId, dealId)))
+      .orderBy(desc(schema.visits.scheduledAt)),
+    db.select().from(schema.tasks).where(liveDealTasks).orderBy(desc(schema.tasks.id)),
+    db
+      .select({ id: schema.offers.id, currentAmount: schema.offers.currentAmount, currency: schema.offers.currency, currentConditions: schema.offers.currentConditions, currentFinanceCondition: schema.offers.currentFinanceCondition, expiration: schema.offers.expiration, status: schema.offers.status })
+      .from(schema.offers)
+      .where(and(eq(schema.offers.id, deal.acceptedOfferId), eq(schema.offers.organizationId, orgId)))
+      .limit(1),
   ])
 
   const nowTs = now()
   const [nextTask] = await db
     .select({ type: schema.tasks.type, dueAt: schema.tasks.dueAt })
     .from(schema.tasks)
-    .where(and(eq(schema.tasks.dealId, dealId), ne(schema.tasks.status, 'completed'), ne(schema.tasks.status, 'cancelled'), isNotNull(schema.tasks.dueAt)))
+    .where(and(liveDealTasks, ne(schema.tasks.status, 'completed'), ne(schema.tasks.status, 'cancelled'), isNotNull(schema.tasks.dueAt)))
     .orderBy(asc(schema.tasks.dueAt))
     .limit(1)
   const [nextVisit] = await db
     .select({ type: schema.visits.type, scheduledAt: schema.visits.scheduledAt })
     .from(schema.visits)
-    .where(and(eq(schema.visits.dealId, dealId), eq(schema.visits.status, 'scheduled'), gt(schema.visits.scheduledAt, nowTs)))
+    .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.dealId, dealId), eq(schema.visits.status, 'scheduled'), gt(schema.visits.scheduledAt, nowTs)))
     .orderBy(asc(schema.visits.scheduledAt))
     .limit(1)
   let nextAction: { type: string; at: string } | null = null
   if (nextTask && (!nextVisit || nextTask.dueAt <= nextVisit.scheduledAt)) nextAction = { type: `task:${nextTask.type}`, at: nextTask.dueAt }
   else if (nextVisit) nextAction = { type: `appointment:${nextVisit.type}`, at: nextVisit.scheduledAt }
 
-  return { deal, sellerContactIds: sellerRows.map((r: any) => r.contactId), stageHistory, appointments, tasks, nextAction }
+  const sellerContactIds: number[] = sellerRows.map((r: any) => r.contactId)
+  const [[labeled], sellerNames, actorNames, records] = await Promise.all([
+    withDealLabels(db, orgId, [deal]),
+    contactNames(db, orgId, sellerContactIds),
+    userNames(db, orgId, (stageHistory as any[]).filter((h) => h.actorType === 'user').map((h) => h.actorId)),
+    dealRecords(db, orgId, dealId, !!opts.includeFinance),
+  ])
+
+  return {
+    deal: labeled,
+    sellerContactIds,
+    sellers: sellerContactIds.map((id) => ({ id, name: sellerNames.get(id) ?? null })),
+    stageHistory: (stageHistory as any[]).map((h) => ({ ...h, actorName: h.actorType === 'user' && h.actorId ? (actorNames.get(h.actorId) ?? null) : null })),
+    appointments,
+    tasks,
+    nextAction,
+    acceptedOffer: offerRows[0] ?? null,
+    records,
+  }
+}
+
+/** Para el Kanban: cuántas reservas/arras/contratos tiene vinculados cada operación (troceado: D1 admite 100 parámetros por consulta). */
+export async function countDealRecords(db: any, orgId: number, dealIds: number[], includeFinance: boolean): Promise<Map<number, number>> {
+  const out = new Map<number, number>()
+  if (!dealIds.length) return out
+  const tables: any[] = includeFinance ? [schema.reservations, schema.depositPayments, schema.contracts] : [schema.reservations]
+  for (const t of tables) {
+    const rows = await selectInChunks(dealIds, (part) =>
+      db
+        .select({ dealOperationId: t.dealOperationId })
+        .from(t)
+        .where(and(eq(t.organizationId, orgId), inArray(t.dealOperationId, part))),
+    )
+    for (const r of rows as any[]) out.set(r.dealOperationId, (out.get(r.dealOperationId) || 0) + 1)
+  }
+  return out
 }

@@ -245,36 +245,29 @@ Estado tras el bloque N5 (2026-10-05). Detalle en [citas-y-visitas.md](citas-y-v
 ### FASE 21: activity
 
 - **OK:** entidad y eventos.
-- **PARCIAL:**
-  - Timeline solo en la ficha antigua de Cliente, filtrada a 6 tipos de evento.
-  - Sin timeline de lead, propiedad ni operación.
-- **FALTA:** eventos «match encontrado» automático y «cliente abrió ficha».
+- **OK (N6):** cronología reutilizable (`ActivityTimeline`) con todos los tipos de evento, quién lo hizo, enlace al origen, filtros por grupo y paginación, en las fichas de Contacto, Lead, Propiedad (los dos catálogos) y Operación (`?dealId=`: sus eventos, los de su oferta, sus tareas y sus citas).
+- **OK (N6):** «cliente abrió ficha» = `PROPERTY_SHARE_OPENED`, con la única señal real que existe: la primera lectura confirmada por WhatsApp de una ficha enviada.
+- **No se registra, a propósito:** «match encontrado» automático. Las compatibilidades se calculan al vuelo y sólo se persisten cuando alguien decide o envía; no hay un hecho real que fechar. Tampoco «abrió la ficha» desde la web pública (no asocia visitas a personas).
+- **Sin cambios:** la ficha antigua de Cliente conserva su cronología mezclada con 6 tipos de `activities`.
 
 ### FASE 22: tareas
 
 - **OK:** tipo, título, responsable, fecha, prioridad, enlaces a contacto, lead y deal, y próxima acción del lead.
-- **PARCIAL:**
-  - Sin edición.
-  - «En curso» no se puede seleccionar.
-  - Propiedad y cita solo se rellenan automáticamente.
-  - El tipo de próxima acción no aparece en el tablero.
+- **OK (N6):** edición de todos los campos; «En curso» seleccionable (y filtro «Pendientes» = abiertas + en curso); propiedad, cita, contacto, lead y operación elegibles con buscador y validados en la organización (ajena = 404; propiedad nueva en la papelera = 422); borrar = papelera (`deletedAt`), fuera de listados, de la ficha de la operación y de la próxima acción; `TASK_CANCELLED`.
+- **OK (N6):** el tipo de próxima acción (`nextActionType` + `nextActionAt`) se ve en el tablero y la tabla de Leads, en la ficha del lead y en la de la operación.
+- **PARCIAL:** no hay «restaurar» una tarea borrada desde el panel.
 
 ### FASE 23: ofertas
 
 - **OK:** base de datos y API completas, historial inmutable incluido.
-- **PARCIAL:**
-  - Vendedor, financiación y vencimiento sin interfaz.
-  - La contraoferta solo lleva importe.
-  - El historial no se ve.
-  - No hay listado global ni vista por propiedad.
+- **OK (N6):** vendedor(es), financiación (catálogo) y vencimiento con interfaz; contraoferta y nueva oferta (`new_offer`, `countered` → `submitted`) con términos completos; historial visible (oferta, contraoferta, nueva oferta, aceptada, rechazada…) con quién y cuándo; página global CRM → Ofertas con filtros y panel de ofertas en la ficha de propiedad; referencias opcionales (lead, necesidad, match, comercial) validadas en la organización.
 
 ### FASE 24: operación
 
 - **OK:** entidad, las 8 etapas, historial y ficha.
-- **PARCIAL:**
-  - Sin listado ni Kanban.
-  - El menú «Operaciones» lleva a la pantalla antigua.
-- **FALTA:** vínculo con reservas, arras y contratos.
+- **OK (N6):** listado y Kanban por las 8 etapas (mover con historial: quién y motivo); el menú «Operaciones» (CRM) lleva al pipeline nuevo y la pantalla antigua sigue en `/admin/operaciones` como «Cierres y comisiones» (Finanzas); oficina (entidad Oficinas) editable y filtrable.
+- **OK (N6):** vínculo con reservas, arras y contratos (`deal_operation_id`) desde la ficha, validado en la organización (ajeno = 404, de otra operación = 409); arras y contratos sólo con permiso de Finanzas.
+- **PARCIAL:** sin acción de borrar operaciones en el panel (la papelera `deletedAt` ya se respeta en listado y ficha).
 
 ### FASE 25: UX de la ficha de propiedad
 
