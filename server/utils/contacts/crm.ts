@@ -5,6 +5,7 @@ import type { SessionUser } from '../auth'
 import { logAdminAction } from '../audit'
 import { createContact, findDuplicateContacts, orgDefaultCountryPrefix, updateContact, type ContactInput } from './service'
 import { assertLiveProperty } from '../properties/trash'
+import { selectInChunks } from '../sqlChunks'
 import {
   CONTACT_ROLES,
   CONTACT_SOURCES,
@@ -316,10 +317,12 @@ export async function listContactProperties(db: any, orgId: number, contactId: n
     const ids = links.filter((l: any) => l.propertyKind === kind).map((l: any) => l.propertyId)
     if (!ids.length) continue
     const t = propertyTable(kind) as any
-    const rows = await db
-      .select({ id: t.id, reference: t.reference, propertyType: t.propertyType, price: t.price, city: t.city, status: t.status, title: kind === 'developer' ? t.name : t.slug, deletedAt: t.deletedAt })
-      .from(t)
-      .where(and(eq(t.organizationId, orgId), inArray(t.id, ids)))
+    const rows = await selectInChunks(ids, (part) =>
+      db
+        .select({ id: t.id, reference: t.reference, propertyType: t.propertyType, price: t.price, city: t.city, status: t.status, title: kind === 'developer' ? t.name : t.slug, deletedAt: t.deletedAt })
+        .from(t)
+        .where(and(eq(t.organizationId, orgId), inArray(t.id, part))),
+    )
     const byId = new Map<number, any>(rows.map((r: any) => [r.id, r]))
     for (const l of links.filter((x: any) => x.propertyKind === kind)) {
       const p = byId.get(l.propertyId)

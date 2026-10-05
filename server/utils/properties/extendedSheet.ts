@@ -1,6 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm'
 import { createError } from 'h3'
 import { now, schema } from '../db'
+import { selectInChunks } from '../sqlChunks'
 import { assertOwnedReference } from '../tenantPolicy'
 import { PROPERTY_SHEET_FIELDS, PROPERTY_SUBTYPES, PROPERTY_TYPES, PROPERTY_TYPE_LABELS, type SheetField } from '../../../utils/propertySheet'
 
@@ -162,20 +163,24 @@ export async function loadPropertySheets(db: any, orgId: number, kind: PropertyK
   const out = new Map<number, Record<string, unknown>>()
   if (!propertyIds.length) return out
   const ids = [...new Set(propertyIds)]
-  const detailRows = await db
-    .select()
-    .from(schema.propertyDetails)
-    .where(and(eq(schema.propertyDetails.organizationId, orgId), eq(schema.propertyDetails.propertyKind, kind), inArray(schema.propertyDetails.propertyId, ids)))
-  const legalRows = await db
-    .select()
-    .from(schema.propertyLegalEconomics)
-    .where(
-      and(
-        eq(schema.propertyLegalEconomics.organizationId, orgId),
-        eq(schema.propertyLegalEconomics.propertyKind, kind),
-        inArray(schema.propertyLegalEconomics.propertyId, ids),
+  const detailRows = await selectInChunks(ids, (part) =>
+    db
+      .select()
+      .from(schema.propertyDetails)
+      .where(and(eq(schema.propertyDetails.organizationId, orgId), eq(schema.propertyDetails.propertyKind, kind), inArray(schema.propertyDetails.propertyId, part))),
+  )
+  const legalRows = await selectInChunks(ids, (part) =>
+    db
+      .select()
+      .from(schema.propertyLegalEconomics)
+      .where(
+        and(
+          eq(schema.propertyLegalEconomics.organizationId, orgId),
+          eq(schema.propertyLegalEconomics.propertyKind, kind),
+          inArray(schema.propertyLegalEconomics.propertyId, part),
+        ),
       ),
-    )
+  )
   const byDetails = new Map<number, any>(detailRows.map((r: any) => [r.propertyId, r]))
   const byLegal = new Map<number, any>(legalRows.map((r: any) => [r.propertyId, r]))
   for (const id of ids) out.set(id, { ...pick(byDetails.get(id), DETAIL_KEYS), ...pick(byLegal.get(id), LEGAL_KEYS) })

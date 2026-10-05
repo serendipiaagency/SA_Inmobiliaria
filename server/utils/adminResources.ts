@@ -13,6 +13,7 @@ import {
 } from './tenantPolicy'
 import type { AdminArea } from '../../utils/adminAreas'
 import { getRequestId } from './requestId'
+import { selectInChunks } from './sqlChunks'
 import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '../../utils/propertySheet'
 import {
   CONTACT_SOURCES,
@@ -1129,10 +1130,12 @@ export const adminResources: Record<string, ResourceDef> = {
     decorateRows: async (db, orgId, rows) => {
       const ids = [...new Set(rows.map((r) => r.contactId))]
       if (!ids.length) return rows
-      const contacts = await db
-        .select({ id: schema.contacts.id, name: schema.contacts.name, email: schema.contacts.email, phone: schema.contacts.phone })
-        .from(schema.contacts)
-        .where(and(eq(schema.contacts.organizationId, orgId), inArray(schema.contacts.id, ids)))
+      const contacts = await selectInChunks(ids, (part) =>
+        db
+          .select({ id: schema.contacts.id, name: schema.contacts.name, email: schema.contacts.email, phone: schema.contacts.phone })
+          .from(schema.contacts)
+          .where(and(eq(schema.contacts.organizationId, orgId), inArray(schema.contacts.id, part))),
+      )
       const byId = new Map<number, any>(contacts.map((c: any) => [c.id, c]))
       return rows.map((r) => ({ ...r, contact: byId.get(r.contactId) || null }))
     },
@@ -1160,10 +1163,12 @@ export const adminResources: Record<string, ResourceDef> = {
     decorateRows: async (db, orgId, rows) => {
       const ids = [...new Set(rows.map((r) => r.createdBy).filter(Boolean))]
       if (!ids.length) return rows
-      const users = await db
-        .select({ id: schema.users.id, name: schema.users.name })
-        .from(schema.users)
-        .where(and(inArray(schema.users.id, ids), or(eq(schema.users.organizationId, orgId), eq(schema.users.role, 'super_admin'))))
+      const users = await selectInChunks(ids, (part) =>
+        db
+          .select({ id: schema.users.id, name: schema.users.name })
+          .from(schema.users)
+          .where(and(inArray(schema.users.id, part), or(eq(schema.users.organizationId, orgId), eq(schema.users.role, 'super_admin')))),
+      )
       const byId = new Map<number, string>(users.map((u: any) => [u.id, u.name]))
       return rows.map((r) => ({ ...r, authorName: byId.get(r.createdBy) || null }))
     },

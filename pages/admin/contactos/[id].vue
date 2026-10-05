@@ -425,16 +425,16 @@
       </section>
 
       <!-- COMUNICACIONES (FASE 29 §140) — de todos sus leads y clientes, por canal -->
-      <section v-show="tab === 'comunicaciones'" data-testid="contact-comunicaciones">
+      <section v-if="tab === 'comunicaciones'" data-testid="contact-comunicaciones">
         <AdminCommsRelatedCommunications :conversations="data.communications?.conversations" :calls="data.communications?.calls" :emails="data.communications?.emails" />
       </section>
-      <section v-show="tab === 'emails'" data-testid="contact-emails">
+      <section v-else-if="tab === 'emails'" data-testid="contact-emails">
         <AdminCommsRelatedCommunications :emails="data.communications?.emails" />
       </section>
-      <section v-show="tab === 'whatsapp'" data-testid="contact-whatsapp">
+      <section v-else-if="tab === 'whatsapp'" data-testid="contact-whatsapp">
         <AdminCommsRelatedCommunications :conversations="data.communications?.conversations" />
       </section>
-      <section v-show="tab === 'llamadas'" data-testid="contact-llamadas">
+      <section v-else-if="tab === 'llamadas'" data-testid="contact-llamadas">
         <AdminCommsRelatedCommunications :calls="data.communications?.calls" />
       </section>
 
