@@ -3,7 +3,7 @@ import { createError } from 'h3'
 import { now, schema } from '../db'
 import { propertyState, trashedPropertyMessage } from '../properties/trash'
 import { selectInChunks } from '../sqlChunks'
-import { tablesFor, type PropertyKind } from '../matching/service'
+import type { PropertyKind } from '../matching/service'
 
 /**
  * Selección de propiedades para una persona (FASE 31 §44-45, migración
