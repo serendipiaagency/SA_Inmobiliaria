@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { useDb, schema, cfEnv } from '../../../../utils/db'
+import { useDb, schema, cfEnv, now } from '../../../../utils/db'
 import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { rateLimit } from '../../../../utils/rateLimit'
 import { getRequestId } from '../../../../utils/requestId'
@@ -19,7 +19,9 @@ export default defineEventHandler(async (event) => {
   if (!visit) throw createError({ statusCode: 404, statusMessage: 'Cita no encontrada' })
   if (visit.status !== 'scheduled') throw createError({ statusCode: 422, statusMessage: 'Esta cita ya no está activa' })
 
-  await db.update(schema.visits).set({ status: 'cancelled' }).where(eq(schema.visits.id, visit.id))
+  // Toda cancelación lleva su motivo y su fecha (FASE 17): aquí, que la canceló el propio cliente.
+  const ts = now()
+  await db.update(schema.visits).set({ status: 'cancelled', cancellationReason: 'Cancelada por el cliente desde su enlace', cancelledAt: ts, updatedAt: ts }).where(eq(schema.visits.id, visit.id))
 
   try {
     await notifyAppointment(db, cfEnv(event), {

@@ -191,44 +191,56 @@ La ficha es `contactos/[id]` y hoy tiene Necesidades, Leads y Comunicaciones. **
 
 ### FASE 17: citas
 
-- **OK:** entidad, estado, inicio y resultado.
-- **FALTA:**
-  - Tipos: reunión, tasación, captación, firma (solo existe desde la operación) y open house.
-  - Campos: contactId, officeId, timezone, meetingPoint, internalNotes, cancellationReason.
+Estado tras el bloque N5 (2026-10-05). Detalle en [citas-y-visitas.md](citas-y-visitas.md).
+
+- **OK:**
+  - Entidad, estado, inicio, fin y resultado.
+  - Tipos con etiqueta en castellano en `utils/appointmentCatalog.ts`: visita a inmueble, llamada, videollamada, reunión, tasación, captación, firma, notaría (la de la operación), open house y otro.
+  - Campos contactId, officeId, timezone, meetingPoint, notes, internalNotes y cancellationReason. Se rellenan en el alta y en la edición.
+  - Propiedad (de los dos catálogos), lead, contacto, agente y oficina editables en una cita existente. Validados en la agencia (404 si son ajenos); la propiedad nueva, también contra la papelera (422).
+  - Inicio y fin libres, validados (de 5 min a 12 h). Solapes contra la agenda real, también a través de la medianoche.
+  - Zona horaria IANA validada.
+  - Motivo de cancelación obligatorio al cancelar desde el panel, desde las tools y desde el enlace del cliente.
+  - Confirmación interna (agencia) además de la del cliente. Mover la cita invalida las dos.
+  - Estado del recordatorio visible en la ficha. Lo escribe el envío de recordatorios.
+  - Notas desde el panel.
 - **PARCIAL:**
-  - Propiedad, lead y agente no se pueden editar.
-  - endAt solo con ±15 min.
-  - Confirmación solo la del cliente.
-  - Recordatorios sin interfaz.
-  - Notas solo desde la reserva pública.
+  - Los recordatorios y los huecos libres comparan la hora local con el reloj UTC. El aviso sale desplazado tantas horas como el desfase de la zona. Documentado como pendiente.
 
 ### FASE 18: visitas multi-inmueble
 
-- **OK:** tour con paradas.
-- **PARCIAL:**
-  - Duración fija por parada: el ejemplo 10:00 / 10:45 falla.
-  - Solo obra nueva.
-  - Lead y notas sin interfaz.
-- **FALTA:** interfaz para optimizar la ruta.
-- **Fallo:** las paradas se guardan sin el tipo de propiedad. Por eso no se puede ofertar ni filtrar.
+- **OK:**
+  - Tour con paradas.
+  - Hora y duración (o fin) propias de cada parada: el ejemplo 10:00 / 10:45 funciona.
+  - Los dos catálogos: cada parada guarda `propertyKind`, se valida en su catálogo y contra la papelera, y se puede ofertar desde ella.
+  - Lead, contacto y notas del tour con interfaz, al crear y al editar. Se propagan a las paradas.
+  - Reordenar paradas y recalcular horas con un margen de desplazamiento: en el alta y en un tour ya creado, con comprobación de agenda, Activity y aviso al cliente.
+- **FALTA:**
+  - Optimización automática de la ruta. Sin proveedor de rutas no se inventan distancias. El punto de extensión está documentado (`RouteOptimizer` en `utils/tourPlanning.ts`).
+  - Añadir o quitar paradas de un tour ya creado.
 
 ### FASE 19: resultado de visita
 
-- **OK:** realizada y seguimiento.
-- **FALTA:** interés 1-5; percepción de precio, ubicación, estado y distribución; segunda visita; descartar explícito.
-- **PARCIAL:**
-  - Qué le gustó / qué no: texto libre.
-  - Oferta: solo importe, oculta en la vista Lista y rota en tours.
+- **OK:**
+  - Realizada y seguimiento.
+  - Interés 1-5.
+  - Qué le gustó y qué no, por separado (`outcomeLiked` y `outcomeDisliked`).
+  - Percepción de precio.
+  - Valoraciones 1-5 de ubicación, estado y distribución.
+  - Segunda visita: la marca y, si se pide, la cita real ya agendada.
+  - Descartar explícito: el PropertyMatch pasa a descartado.
+  - Oferta real con el OfferService (importe, condiciones, financiación y vencimiento):
+    - desde la Lista, desde los Tours y desde la ficha de la cita;
+    - visible en las tres vistas, con enlace a la pestaña Ofertas del contacto;
+    - si la cita no tenía comprador, se vincula su contacto.
 
 ### FASE 20: calendario
 
-- **OK:** las cuatro vistas y los filtros de agente, estado y propiedad.
-- **PARCIAL:**
-  - Oficina: filtra por texto.
-  - Tipo: sin firma.
-  - Cliente: solo a través del lead.
-  - Google/Outlook: interfaz sin implementar.
-- **Fallo:** el iCal marca la hora local como UTC.
+- **OK:**
+  - Las cuatro vistas.
+  - Filtros de agente, estado, propiedad, oficina (entidad `officeId`, la de la cita o la de su comercial), tipo (todos los tipos nuevos) y cliente (contacto de la cita o de su lead).
+  - El iCal emite el instante real en UTC, convertido con la zona de la cita, su oficina o la agencia. Tiene test.
+- **FALTA:** Google y Outlook. No hay integración y no se simula: el panel muestra «No conectado · próximamente». La interfaz del proveedor y las columnas de sincronización existen, pero nada las escribe. Hoy sólo hay suscripción iCal de solo lectura.
 
 ### FASE 21: activity
 

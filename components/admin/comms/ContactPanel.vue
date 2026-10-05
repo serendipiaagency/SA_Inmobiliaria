@@ -140,6 +140,7 @@
 
 <script setup lang="ts">
 import { mediaUrl } from '~/composables/useMedia'
+import { APPOINTMENT_TYPE_LABELS } from '~/utils/appointmentCatalog'
 
 /** La columna de contexto del hilo: quién es, qué se puede hacer, cómo está la conversación, consentimiento y llamadas. */
 const props = withDefaults(
@@ -182,7 +183,6 @@ const consentHint = computed(() => {
 
 const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19)
 const TASK_TYPE_LABELS: Record<string, string> = { call: 'Llamada', whatsapp: 'WhatsApp', email: 'Email', follow_up: 'Seguimiento', viewing: 'Visita', other: 'Tarea' }
-const APPOINTMENT_TYPE_LABELS: Record<string, string> = { property_viewing: 'Visita a inmueble', call: 'Llamada', other: 'Cita' }
 /** `leads.nextActionType` es `task:<tipo>` o `appointment:<tipo de cita>` — ver server/utils/leads/nextAction.ts. */
 function nextActionTypeLabel(t: string | null) {
   const [kind, sub] = String(t || '').split(':')

@@ -57,7 +57,8 @@ export default defineTask<{ skipped: true; reason: string } | { sent24h: number;
         })
         sent24h++
       }
-      await db.update(schema.visits).set({ reminder24hSentAt: fmt(now) }).where(eq(schema.visits.id, visit.id))
+      // reminderStatus es lo que el panel enseña (FASE 17): enviado, o sin recordatorio si no hay a quién avisar.
+      await db.update(schema.visits).set({ reminder24hSentAt: fmt(now), reminderStatus: visit.clientEmail || visit.clientPhone ? 'sent' : 'not_applicable' }).where(eq(schema.visits.id, visit.id))
     }
 
     const due1h = await db
@@ -90,7 +91,7 @@ export default defineTask<{ skipped: true; reason: string } | { sent24h: number;
         })
         sent1h++
       }
-      await db.update(schema.visits).set({ reminder1hSentAt: fmt(now) }).where(eq(schema.visits.id, visit.id))
+      await db.update(schema.visits).set({ reminder1hSentAt: fmt(now), reminderStatus: visit.clientEmail || visit.clientPhone ? 'sent' : 'not_applicable' }).where(eq(schema.visits.id, visit.id))
     }
 
     return { result: { sent24h, sent1h } }

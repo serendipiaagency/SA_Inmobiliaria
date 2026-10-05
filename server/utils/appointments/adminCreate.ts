@@ -1,147 +1,183 @@
 import { createError } from 'h3'
 import * as schema from '../../db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
-import { now } from '../db'
-import { hasOverlappingVisit, shiftDateTime } from './availability'
+import { now, isUniqueConstraintError } from '../db'
+import { hasOverlappingVisit } from './availability'
 import { generateManagementToken } from './managementToken'
+import { generateVideoLink } from './videoLink'
 import type { PropertyKind } from '../matching/service'
-import { assertLiveProperty } from '../properties/trash'
 import { recordActivity } from '../activity/service'
 import { syncLeadNextAction } from '../leads/nextAction'
 import { markFirstAppointment } from '../leads/sla'
-
-const DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
-const VALID_CHANNELS = ['in_person', 'video', 'phone'] as const
-/** FASE 24: 'notary' cubre tanto la cita de notaría como la de firma (§109/§110) — en la práctica son el mismo evento. */
-const VALID_TYPES = ['property_viewing', 'call', 'notary', 'other'] as const
+import { CLIENT_FACING_TYPES, INTERNAL_CONFIRMATION_STATUSES } from '../../../utils/appointmentCatalog'
+import {
+  assertDealInOrg,
+  fail,
+  initialReminderStatus,
+  loadAgent,
+  loadContact,
+  loadLead,
+  loadOffice,
+  normalizeDateTime,
+  optionalText,
+  parseAppointmentType,
+  parsePropertyKind,
+  parseTimezone,
+  resolveChannel,
+  resolveEnd,
+  resolveLiveProperty,
+  type ContactRef,
+  type LeadRef,
+} from './fields'
 
 export interface CreateAdminAppointmentInput {
-  clientName: string
+  /** Nombre del cliente (o título de la cita). Sin él, el del contacto o el del lead. */
+  clientName?: string | null
   clientEmail?: string | null
   clientPhone?: string | null
   agentId: number
   propertyId?: number | null
   propertyKind?: PropertyKind | null
   scheduledAt: string
+  /** Fin libre; si no, `durationMinutes`; si no, la franja del comercial. */
+  endsAt?: string | null
+  durationMinutes?: number | null
   channel?: string
   type?: string
   leadId?: number | null
+  contactId?: number | null
+  officeId?: number | null
+  timezone?: string | null
+  meetingPoint?: string | null
+  notes?: string | null
+  internalNotes?: string | null
+  /** Sólo la confirmación interna (`confirmed_internal`) o `pending`: la del cliente la da él. */
+  confirmationStatus?: string | null
   /** FASE 24: cuando esta cita es de un Deal (notaría/firma) — aparece en Calendar automáticamente, sin mecanismo aparte. */
   dealId?: number | null
-  /**
-   * Núcleo N4: la persona (Contact) de la cita cuando se crea desde una
-   * compatibilidad. Tiene que ser de esta organización; queda en
-   * `visits.contact_id`, que es lo que lee la pestaña «Visitas» de su ficha.
-   */
-  contactId?: number | null
+  createdBy?: number | null
 }
 
 /**
- * Crea una única cita desde el panel (Calendar "crear desde hueco", FASE 20)
- * — no un tour de una sola parada. Misma validación que `createTour()` para
- * cada parada (comercial real, inmueble real si lo hay, solape contra la
- * agenda real), pero sin cabecera de tour: es exactamente lo que ya hacía
- * POST /api/public/agents/:slug/book, sólo que iniciado por un admin en vez
- * de por el propio cliente, así que también admite `agentId` explícito y
- * cualquiera de los dos catálogos de inmueble.
+ * Lead y contacto de una cita, coherentes entre sí: si el lead ya tiene a su
+ * persona identificada y se elige otro contacto distinto, es un error (la
+ * cita quedaría colgando de dos personas). Sin contacto explícito, la cita
+ * hereda el del lead.
+ */
+export async function resolveLeadAndContact(db: any, orgId: number, leadId: number | null | undefined, contactId: number | null | undefined): Promise<{ lead: LeadRef | null; contact: ContactRef | null }> {
+  const lead = leadId ? await loadLead(db, orgId, leadId) : null
+  if (lead?.contactId && contactId && lead.contactId !== contactId) fail(422, 'El contacto no coincide con la persona del lead elegido')
+  const contact = contactId ? await loadContact(db, orgId, contactId) : lead?.contactId ? await loadContact(db, orgId, lead.contactId).catch(() => null) : null
+  return { lead, contact }
+}
+
+/**
+ * Crea una única cita desde el panel (Calendar "crear desde hueco", FASE 20;
+ * todos los tipos y campos de FASE 17) — no un tour de una sola parada.
+ * Comercial, lead, contacto, oficina, operación e inmueble se buscan dentro
+ * de la agencia (404 si son ajenos); el inmueble, en su catálogo y fuera de
+ * la papelera; y la franja se comprueba contra la agenda real del comercial.
  */
 export async function createAdminAppointment(db: any, orgId: number, input: CreateAdminAppointmentInput) {
-  const clientName = input.clientName.trim()
-  if (!clientName) throw createError({ statusCode: 422, statusMessage: 'clientName es obligatorio' })
-  if (!input.clientEmail && !input.clientPhone) throw createError({ statusCode: 422, statusMessage: 'email o teléfono es obligatorio' })
-  if (!DATETIME_RE.test(input.scheduledAt)) throw createError({ statusCode: 422, statusMessage: 'scheduledAt no válido (YYYY-MM-DD HH:MM:SS)' })
+  const type = input.type === undefined || input.type === null || input.type === '' ? 'property_viewing' : parseAppointmentType(input.type)
+  const channel = resolveChannel(type, input.channel)
+  const scheduledAt = normalizeDateTime(input.scheduledAt, 'Inicio')
 
-  const agentRows = await db
-    .select({ id: schema.teamMembers.id, name: schema.teamMembers.name, slotDurationMinutes: schema.teamMembers.slotDurationMinutes })
-    .from(schema.teamMembers)
-    .where(and(eq(schema.teamMembers.id, input.agentId), eq(schema.teamMembers.organizationId, orgId)))
-    .limit(1)
-  const agent = agentRows[0]
-  if (!agent) throw createError({ statusCode: 404, statusMessage: 'Comercial no encontrado' })
-  // El lead tiene que ser de esta agencia: un id ajeno dejaría la cita
-  // colgando de un lead que nadie de aquí puede ver.
-  if (input.leadId) await assertLeadInOrg(db, orgId, input.leadId)
-  if (input.contactId) await assertContactInOrg(db, orgId, input.contactId)
+  const agent = await loadAgent(db, orgId, input.agentId)
+  const { lead, contact } = await resolveLeadAndContact(db, orgId, input.leadId, input.contactId)
+  if (input.dealId) await assertDealInOrg(db, orgId, input.dealId)
+
+  const clientName = String(input.clientName || '').trim() || contact?.name || lead?.name || ''
+  if (!clientName) fail(422, 'El nombre del cliente es obligatorio (clientName)')
+  const clientEmail = String(input.clientEmail || '').trim() || contact?.email || lead?.email || null
+  const clientPhone = String(input.clientPhone || '').trim() || contact?.phone || lead?.phone || null
+  if (CLIENT_FACING_TYPES.includes(type) && !clientEmail && !clientPhone) fail(422, 'email o teléfono es obligatorio para avisar al cliente')
+
+  const officeId = input.officeId ?? agent.officeId ?? null
+  const office = officeId ? await loadOffice(db, orgId, officeId) : null
+  const tz = parseTimezone(input.timezone)
+  const timezone = tz ?? office?.timezone ?? null
 
   let propertyName: string | null = null
-  const propertyKind: PropertyKind | null = input.propertyId ? input.propertyKind || 'developer' : null
+  let propertyKind: PropertyKind | null = null
   if (input.propertyId) {
+    propertyKind = parsePropertyKind(input.propertyKind || 'developer')
     // Una cita nueva no se programa sobre una propiedad en la papelera.
-    await assertLiveProperty(db, orgId, propertyKind!, input.propertyId, { action: 'programar una cita', notFoundMessage: 'Inmueble no encontrado' })
-    if (propertyKind === 'agent') {
-      const propRows = await db
-        .select({ reference: schema.agentProperties.reference, street: schema.agentProperties.street, streetNumber: schema.agentProperties.streetNumber })
-        .from(schema.agentProperties)
-        .where(and(eq(schema.agentProperties.id, input.propertyId), eq(schema.agentProperties.organizationId, orgId)))
-        .limit(1)
-      if (!propRows[0]) throw createError({ statusCode: 404, statusMessage: 'Inmueble no encontrado' })
-      propertyName = propRows[0].reference || [propRows[0].street, propRows[0].streetNumber].filter(Boolean).join(' ') || null
-    } else {
-      const propRows = await db
-        .select({ name: schema.developerProperties.name })
-        .from(schema.developerProperties)
-        .where(and(eq(schema.developerProperties.id, input.propertyId), eq(schema.developerProperties.organizationId, orgId)))
-        .limit(1)
-      if (!propRows[0]) throw createError({ statusCode: 404, statusMessage: 'Inmueble no encontrado' })
-      propertyName = propRows[0].name
-    }
+    propertyName = await resolveLiveProperty(db, orgId, propertyKind, input.propertyId)
   }
 
-  const channel = (VALID_CHANNELS as readonly string[]).includes(String(input.channel)) ? input.channel! : 'in_person'
-  const type = (VALID_TYPES as readonly string[]).includes(String(input.type)) ? input.type! : 'property_viewing'
-  const endsAt = shiftDateTime(input.scheduledAt, agent.slotDurationMinutes)
+  const confirmation = input.confirmationStatus || 'pending'
+  if (!INTERNAL_CONFIRMATION_STATUSES.includes(confirmation)) fail(422, 'La confirmación del cliente sólo la puede dar el cliente desde su enlace')
 
-  if (await hasOverlappingVisit(db, orgId, agent.id, input.scheduledAt, endsAt)) {
+  const meetingPoint = optionalText(input.meetingPoint, 'Punto de encuentro', 300) ?? null
+  const notes = optionalText(input.notes, 'Notas') ?? null
+  const internalNotes = optionalText(input.internalNotes, 'Notas internas') ?? null
+
+  const { endsAt, durationMinutes } = resolveEnd(scheduledAt, input, agent.slotDurationMinutes)
+  if (await hasOverlappingVisit(db, orgId, agent.id, scheduledAt, endsAt)) {
     throw createError({ statusCode: 409, statusMessage: `${agent.name} ya tiene otra cita a esa hora` })
   }
 
   const nowTs = now()
-  const [visit] = await db
-    .insert(schema.visits)
-    .values({
-      organizationId: orgId,
-      clientName,
-      clientEmail: input.clientEmail || null,
-      clientPhone: input.clientPhone || null,
-      propertyId: input.propertyId || null,
-      propertyName,
-      propertyKind,
-      agentId: agent.id,
-      agentName: agent.name,
-      scheduledAt: input.scheduledAt,
-      durationMinutes: agent.slotDurationMinutes,
-      endsAt,
-      status: 'scheduled',
-      channel,
-      type,
-      leadId: input.leadId || null,
-      dealId: input.dealId || null,
-      contactId: input.contactId || null,
-      managementToken: generateManagementToken(),
-      createdAt: nowTs,
-    })
-    .returning()
-
-  let contactId: number | null = input.contactId || null
-  if (!contactId && input.leadId) {
-    const leadRows = await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(and(eq(schema.leads.id, input.leadId), eq(schema.leads.organizationId, orgId))).limit(1)
-    contactId = leadRows[0]?.contactId ?? null
+  let visit: any
+  try {
+    ;[visit] = await db
+      .insert(schema.visits)
+      .values({
+        organizationId: orgId,
+        clientName,
+        clientEmail,
+        clientPhone,
+        propertyId: input.propertyId || null,
+        propertyName,
+        propertyKind,
+        agentId: agent.id,
+        agentName: agent.name,
+        scheduledAt,
+        durationMinutes,
+        endsAt,
+        status: 'scheduled',
+        channel,
+        type,
+        confirmationStatus: confirmation,
+        confirmedAt: confirmation === 'confirmed_internal' ? nowTs : null,
+        leadId: lead?.id ?? null,
+        contactId: contact?.id ?? null,
+        officeId,
+        timezone,
+        meetingPoint,
+        notes,
+        internalNotes,
+        reminderStatus: initialReminderStatus(clientEmail, clientPhone),
+        videoLink: channel === 'video' ? generateVideoLink() : null,
+        dealId: input.dealId || null,
+        managementToken: generateManagementToken(),
+        createdBy: input.createdBy ?? null,
+        createdAt: nowTs,
+        updatedAt: nowTs,
+      })
+      .returning()
+  } catch (e: any) {
+    // visits_agent_slot_unique (migración 0050): dos altas simultáneas en el mismo hueco.
+    if (isUniqueConstraintError(e)) throw createError({ statusCode: 409, statusMessage: `${agent.name} ya tiene otra cita a esa hora` })
+    throw e
   }
+
   await recordActivity(db, orgId, {
     eventType: 'APPOINTMENT_CREATED',
     entityType: 'visit',
     entityId: visit.id,
     appointmentId: visit.id,
-    leadId: input.leadId || null,
-    contactId,
+    leadId: lead?.id ?? null,
+    contactId: contact?.id ?? lead?.contactId ?? null,
     propertyId: input.propertyId || null,
     propertyKind,
     actorType: 'user',
+    actorId: input.createdBy ?? null,
     metadata: { channel, type },
   })
-  if (input.leadId) {
-    await syncLeadNextAction(db, orgId, input.leadId)
-    await markFirstAppointment(db, orgId, input.leadId)
+  if (lead) {
+    await syncLeadNextAction(db, orgId, lead.id)
+    await markFirstAppointment(db, orgId, lead.id)
   }
 
   return visit
@@ -149,16 +185,5 @@ export async function createAdminAppointment(db: any, orgId: number, input: Crea
 
 /** 404 si el lead no existe en esta agencia — mismo trato que cualquier referencia ajena. */
 export async function assertLeadInOrg(db: any, orgId: number, leadId: number) {
-  const rows = await db.select({ id: schema.leads.id }).from(schema.leads).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId))).limit(1)
-  if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Lead no encontrado' })
-}
-
-/** 404 si el contacto no existe (o está archivado por una fusión) en esta agencia. */
-export async function assertContactInOrg(db: any, orgId: number, contactId: number) {
-  const rows = await db
-    .select({ id: schema.contacts.id })
-    .from(schema.contacts)
-    .where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.organizationId, orgId), isNull(schema.contacts.deletedAt)))
-    .limit(1)
-  if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Contacto no encontrado' })
+  await loadLead(db, orgId, leadId)
 }

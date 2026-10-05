@@ -1,34 +1,77 @@
 import { and, eq } from 'drizzle-orm'
 import { createError } from 'h3'
-import { schema, isUniqueConstraintError } from '../db'
-import { hasOverlappingVisit, shiftDateTime } from './availability'
+import { schema, isUniqueConstraintError, now } from '../db'
+import { hasOverlappingVisit } from './availability'
 import { notifyAppointment } from './notifications'
 import { recordActivity } from '../activity/service'
 import { syncLeadNextAction } from '../leads/nextAction'
+import { generateVideoLink } from './videoLink'
+import { CLIENT_FACING_TYPES, INTERNAL_CONFIRMATION_STATUSES } from '../../../utils/appointmentCatalog'
+import {
+  fail,
+  initialReminderStatus,
+  loadAgent,
+  loadContact,
+  loadLead,
+  loadOffice,
+  minutesBetween,
+  normalizeDateTime,
+  optionalId,
+  optionalText,
+  parseAppointmentStatus,
+  parseAppointmentType,
+  parsePropertyKind,
+  parseTimezone,
+  resolveChannel,
+  resolveEnd,
+  resolveLiveProperty,
+} from './fields'
 
 /**
- * Cambiar una cita existente — confirmar, cancelar, marcar realizada o no
- * presentada, reprogramar, reasignar, reclasificar o cambiar la duración —
- * con la comprobación real de solapes, Activity, próxima acción del lead y
- * aviso al cliente. Antes vivía dentro de la ruta del panel
- * (`saas/visits/[id].patch.ts`); se extrae aquí (FASE 31) para que las
- * Domain Tools (`reschedule_viewing`, `cancel_viewing`) usen exactamente las
- * mismas reglas en vez de una copia. La identidad y el historial de la cita
- * se conservan: reprogramar mueve la misma fila, cancelar cambia el estado
- * (nunca se borra).
+ * Cambiar una cita existente (FASES 17 y 20): confirmar, cancelar (con
+ * motivo), marcar realizada o no presentada, reprogramar con inicio y fin
+ * libres, reasignar, reclasificar, y editar TODOS sus campos — inmueble (de
+ * los dos catálogos), lead, contacto, oficina, zona horaria, punto de
+ * encuentro, notas, notas internas, datos del cliente y la confirmación
+ * interna — con la comprobación real de solapes, Activity, próxima acción
+ * del lead y aviso al cliente.
+ *
+ * Vive aquí (FASE 31) para que las Domain Tools (`reschedule_viewing`,
+ * `cancel_viewing`) usen exactamente las mismas reglas que el panel. La
+ * identidad y el historial de la cita se conservan: reprogramar mueve la
+ * misma fila, cancelar cambia el estado (nunca se borra).
+ *
+ * Cada referencia nueva se busca dentro de la agencia (404 si es ajena); un
+ * inmueble nuevo, además, fuera de la papelera (422). Conservar el inmueble
+ * que ya tenía no se revalida: la cita es historia.
  */
-const VALID_STATUSES = ['scheduled', 'completed', 'cancelled', 'no_show'] as const
-const VALID_TYPES = ['property_viewing', 'call', 'notary', 'other'] as const
-const DATETIME_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
-
 export interface UpdateAppointmentInput {
   status?: string
+  /** Obligatorio al cancelar. */
+  cancellationReason?: string | null
   scheduledAt?: string
+  /** Fin libre; alternativa a `durationMinutes`. */
+  endsAt?: string | null
   agentId?: number | null
   /** FASE 17, migración 0072: reclasificar una cita mal etiquetada. */
   type?: string
+  channel?: string
   /** FASE 20: "resize" en Calendar — cambiar la duración sin mover la hora de inicio ni el comercial. */
   durationMinutes?: number
+  propertyId?: number | null
+  propertyKind?: string | null
+  leadId?: number | null
+  contactId?: number | null
+  officeId?: number | null
+  timezone?: string | null
+  meetingPoint?: string | null
+  notes?: string | null
+  internalNotes?: string | null
+  /** Sólo `pending` o `confirmed_internal`: la confirmación del cliente la da él desde su enlace. */
+  confirmationStatus?: string
+  clientName?: string
+  clientEmail?: string | null
+  clientPhone?: string | null
 }
 
 export interface UpdateAppointmentContext {
@@ -41,72 +84,202 @@ export interface UpdateAppointmentContext {
 
 export async function updateAppointment(db: any, orgId: number, visitId: number, body: UpdateAppointmentInput, ctx: UpdateAppointmentContext) {
   if (!Number.isFinite(visitId)) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
+  body = body || {}
   const rows = await db.select().from(schema.visits).where(and(eq(schema.visits.id, visitId), eq(schema.visits.organizationId, orgId))).limit(1)
   const visit = rows[0]
   if (!visit) throw createError({ statusCode: 404, statusMessage: 'Visita no encontrada' })
 
   const patch: Record<string, any> = {}
+  const nowTs = now()
 
-  if (body?.status !== undefined) {
-    if (!(VALID_STATUSES as readonly string[]).includes(body.status)) throw createError({ statusCode: 422, statusMessage: 'Estado inválido' })
-    patch.status = body.status
+  // --- Tipo y canal ---------------------------------------------------------
+  const nextType = body.type !== undefined ? parseAppointmentType(body.type) : visit.type
+  if (nextType !== visit.type) patch.type = nextType
+  if (body.channel !== undefined || (patch.type && nextType === 'video_call' && visit.channel !== 'video')) {
+    const channel = resolveChannel(nextType, body.channel !== undefined ? body.channel : nextType === 'video_call' ? 'video' : visit.channel)
+    if (channel !== visit.channel) patch.channel = channel
+  } else if (patch.type) {
+    resolveChannel(nextType, visit.channel)
+  }
+  const finalChannel = patch.channel ?? visit.channel
+  if (finalChannel === 'video' && !visit.videoLink) patch.videoLink = generateVideoLink()
+
+  // --- Estado y motivo de cancelación --------------------------------------
+  const nextStatus = body.status !== undefined ? parseAppointmentStatus(body.status) : visit.status
+  if (nextStatus !== visit.status) patch.status = nextStatus
+  const reason = optionalText(body.cancellationReason, 'Motivo de cancelación', 500)
+  if (nextStatus === 'cancelled') {
+    if (visit.status !== 'cancelled') {
+      if (!reason) fail(422, 'Indica el motivo de la cancelación')
+      patch.cancellationReason = reason
+      patch.cancelledAt = nowTs
+    } else if (reason) {
+      patch.cancellationReason = reason
+    }
+  } else {
+    if (reason) fail(422, 'El motivo de cancelación sólo se guarda al cancelar la cita')
+    if (visit.status === 'cancelled') {
+      // Reactivar una cita cancelada: deja de tener motivo de cancelación.
+      patch.cancellationReason = null
+      patch.cancelledAt = null
+    }
   }
 
-  if (body?.type !== undefined) {
-    if (!(VALID_TYPES as readonly string[]).includes(body.type)) throw createError({ statusCode: 422, statusMessage: 'Tipo inválido' })
-    patch.type = body.type
+  // --- Cliente --------------------------------------------------------------
+  if (body.clientName !== undefined) {
+    const name = String(body.clientName || '').trim()
+    if (!name) fail(422, 'El nombre del cliente es obligatorio')
+    if (name !== visit.clientName) patch.clientName = name
+  }
+  const email = optionalText(body.clientEmail, 'Email', 200)
+  if (email !== undefined && email !== visit.clientEmail) {
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail(422, 'El email no tiene un formato válido')
+    patch.clientEmail = email
+  }
+  const phone = optionalText(body.clientPhone, 'Teléfono', 50)
+  if (phone !== undefined && phone !== visit.clientPhone) patch.clientPhone = phone
+
+  // --- Lead y contacto ------------------------------------------------------
+  const leadId = optionalId(body.leadId, 'Lead')
+  const contactId = optionalId(body.contactId, 'Contacto')
+  let leadContactId: number | null | undefined
+  if (leadId !== undefined && leadId !== visit.leadId) {
+    if (leadId) {
+      const lead = await loadLead(db, orgId, leadId)
+      leadContactId = lead.contactId
+      if (contactId === undefined && lead.contactId) patch.contactId = lead.contactId
+    }
+    patch.leadId = leadId
+  }
+  if (contactId !== undefined && contactId !== visit.contactId) {
+    if (contactId) await loadContact(db, orgId, contactId)
+    patch.contactId = contactId
+  }
+  const finalLeadId = patch.leadId !== undefined ? patch.leadId : visit.leadId
+  const finalContactId = patch.contactId !== undefined ? patch.contactId : visit.contactId
+  if (finalLeadId && finalContactId && (patch.leadId !== undefined || patch.contactId !== undefined)) {
+    if (leadContactId === undefined) leadContactId = (await loadLead(db, orgId, finalLeadId).catch(() => null))?.contactId ?? null
+    if (leadContactId && leadContactId !== finalContactId) fail(422, 'El contacto no coincide con la persona del lead elegido')
   }
 
-  const nextAgentId = body?.agentId !== undefined ? body.agentId : visit.agentId
-  const nextScheduledAt = body?.scheduledAt !== undefined ? body.scheduledAt : visit.scheduledAt
-  const durationChanged = body?.durationMinutes !== undefined && body.durationMinutes !== visit.durationMinutes
-  const agentOrTimeChanged = (body?.agentId !== undefined && body.agentId !== visit.agentId) || (body?.scheduledAt !== undefined && body.scheduledAt !== visit.scheduledAt)
-
-  if (durationChanged && (!Number.isInteger(body!.durationMinutes) || body!.durationMinutes! < 5 || body!.durationMinutes! > 480)) {
-    throw createError({ statusCode: 422, statusMessage: 'durationMinutes debe ser un entero entre 5 y 480' })
+  // --- Oficina y zona horaria -----------------------------------------------
+  const officeId = optionalId(body.officeId, 'Oficina')
+  if (officeId !== undefined && officeId !== visit.officeId) {
+    if (officeId) await loadOffice(db, orgId, officeId)
+    patch.officeId = officeId
   }
+  const timezone = parseTimezone(body.timezone)
+  if (timezone !== undefined && timezone !== visit.timezone) patch.timezone = timezone
 
-  if (agentOrTimeChanged || durationChanged) {
-    if (!nextScheduledAt || !DATETIME_RE.test(nextScheduledAt)) throw createError({ statusCode: 422, statusMessage: 'scheduledAt inválido' })
-    if (nextAgentId) {
-      let durationMinutes = durationChanged ? body!.durationMinutes! : visit.durationMinutes
-      if (body?.agentId !== undefined && body.agentId !== visit.agentId) {
-        const agentRows = await db
-          .select({ id: schema.teamMembers.id, name: schema.teamMembers.name, slotDurationMinutes: schema.teamMembers.slotDurationMinutes })
-          .from(schema.teamMembers)
-          .where(and(eq(schema.teamMembers.id, nextAgentId), eq(schema.teamMembers.organizationId, orgId)))
-          .limit(1)
-        if (!agentRows[0]) throw createError({ statusCode: 404, statusMessage: 'Agente no encontrado' })
-        // Cambiar de comercial reasigna a su duración por defecto, salvo que este mismo PATCH también fije una duración explícita ("resize" combinado con reasignar).
-        durationMinutes = durationChanged ? body!.durationMinutes! : agentRows[0].slotDurationMinutes
-        patch.agentId = agentRows[0].id
-        patch.agentName = agentRows[0].name
-      }
-      const endsAt = shiftDateTime(nextScheduledAt, durationMinutes)
-      const conflict = await hasOverlappingVisit(db, orgId, nextAgentId, nextScheduledAt, endsAt, visitId)
-      if (conflict) throw createError({ statusCode: 409, statusMessage: 'Ese agente ya tiene otra cita en ese horario.' })
-      patch.scheduledAt = nextScheduledAt
-      patch.durationMinutes = durationMinutes
-      patch.endsAt = endsAt
+  // --- Inmueble (los dos catálogos) -----------------------------------------
+  if (body.propertyId !== undefined || body.propertyKind !== undefined) {
+    const nextPropertyId = body.propertyId !== undefined ? optionalId(body.propertyId, 'Inmueble') : visit.propertyId
+    if (!nextPropertyId) {
+      if (visit.propertyId) Object.assign(patch, { propertyId: null, propertyKind: null, propertyName: null })
     } else {
-      patch.scheduledAt = nextScheduledAt
-    }
-    // Un cambio de hora, de duración o de comercial invalida la confirmación
-    // que el cliente ya hubiera dado — igual que se resetean los recordatorios al reprogramar.
-    if (visit.confirmationStatus === 'confirmed') {
-      patch.confirmationStatus = 'pending'
-      patch.confirmedAt = null
+      const nextKind = parsePropertyKind(body.propertyKind ?? visit.propertyKind ?? 'developer')
+      if (nextPropertyId !== visit.propertyId || nextKind !== visit.propertyKind) {
+        patch.propertyName = await resolveLiveProperty(db, orgId, nextKind, nextPropertyId)
+        patch.propertyId = nextPropertyId
+        patch.propertyKind = nextKind
+      }
     }
   }
 
-  if (!Object.keys(patch).length) throw createError({ statusCode: 422, statusMessage: 'Nada que actualizar' })
+  // --- Textos ---------------------------------------------------------------
+  for (const [key, label, max] of [
+    ['meetingPoint', 'Punto de encuentro', 300],
+    ['notes', 'Notas', 5000],
+    ['internalNotes', 'Notas internas', 5000],
+  ] as const) {
+    const value = optionalText((body as any)[key], label, max)
+    if (value !== undefined && value !== visit[key]) patch[key] = value
+  }
+
+  // --- Confirmación interna -------------------------------------------------
+  if (body.confirmationStatus !== undefined) {
+    if (!INTERNAL_CONFIRMATION_STATUSES.includes(String(body.confirmationStatus))) fail(422, 'La confirmación del cliente sólo la puede dar el cliente desde su enlace')
+    if (body.confirmationStatus !== visit.confirmationStatus) {
+      patch.confirmationStatus = body.confirmationStatus
+      patch.confirmedAt = body.confirmationStatus === 'confirmed_internal' ? nowTs : null
+    }
+  }
+
+  // --- Hora, duración y comercial -------------------------------------------
+  const nextScheduledAt = body.scheduledAt !== undefined ? normalizeDateTime(body.scheduledAt, 'Inicio') : visit.scheduledAt
+  const startChanged = nextScheduledAt !== visit.scheduledAt
+  const agentChanged = body.agentId !== undefined && (body.agentId || null) !== visit.agentId
+  const endGiven = body.endsAt !== undefined && body.endsAt !== null && body.endsAt !== ''
+  const durationGiven = body.durationMinutes !== undefined && body.durationMinutes !== null
+  const currentDuration = visit.endsAt ? minutesBetween(visit.scheduledAt, visit.endsAt) : visit.durationMinutes
+  let nextAgentId = visit.agentId as number | null
+  let fallbackDuration = currentDuration
+  if (agentChanged) {
+    if (body.agentId) {
+      const agent = await loadAgent(db, orgId, Number(body.agentId), 'Agente no encontrado')
+      patch.agentId = agent.id
+      patch.agentName = agent.name
+      nextAgentId = agent.id
+      // Cambiar de comercial reasigna a su duración por defecto, salvo que este mismo cambio fije un fin o una duración explícitos.
+      fallbackDuration = agent.slotDurationMinutes
+    } else {
+      patch.agentId = null
+      patch.agentName = null
+      nextAgentId = null
+    }
+  }
+  const timing = startChanged || agentChanged || endGiven || durationGiven
+  if (timing) {
+    const { endsAt, durationMinutes } = resolveEnd(nextScheduledAt, { endsAt: body.endsAt, durationMinutes: body.durationMinutes }, fallbackDuration)
+    const timeChanged = startChanged || endsAt !== visit.endsAt || durationMinutes !== visit.durationMinutes
+    if (timeChanged || agentChanged) {
+      patch.scheduledAt = nextScheduledAt
+      patch.endsAt = endsAt
+      patch.durationMinutes = durationMinutes
+      // Un cambio de hora, de duración o de comercial invalida la confirmación
+      // que ya hubiera (del cliente o de la agencia), salvo que este mismo
+      // cambio la vuelva a dar, y al mover el inicio los recordatorios vuelven a empezar.
+      if (visit.confirmationStatus !== 'pending' && body.confirmationStatus === undefined) {
+        patch.confirmationStatus = 'pending'
+        patch.confirmedAt = null
+      }
+    }
+    if (startChanged) {
+      patch.reminder24hSentAt = null
+      patch.reminder1hSentAt = null
+    }
+  }
+
+  // Solapes: si cambia la franja o el comercial, o si se reactiva una cita cancelada.
+  const finalStatus = patch.status ?? visit.status
+  const finalStart = patch.scheduledAt ?? visit.scheduledAt
+  const finalEnd = patch.endsAt ?? visit.endsAt ?? visit.scheduledAt
+  const reactivated = visit.status === 'cancelled' && finalStatus !== 'cancelled'
+  if (nextAgentId && finalStatus !== 'cancelled' && (patch.scheduledAt !== undefined || reactivated)) {
+    if (await hasOverlappingVisit(db, orgId, nextAgentId, finalStart, finalEnd, visitId)) fail(409, 'Ese agente ya tiene otra cita en ese horario.')
+  }
+
+  // Recordatorio: sin email ni teléfono no hay a quién recordar; al mover el inicio, vuelve a estar pendiente.
+  const finalEmail = patch.clientEmail !== undefined ? patch.clientEmail : visit.clientEmail
+  const finalPhone = patch.clientPhone !== undefined ? patch.clientPhone : visit.clientPhone
+  if (CLIENT_FACING_TYPES.includes(nextType) && !finalEmail && !finalPhone && (patch.clientEmail !== undefined || patch.clientPhone !== undefined || patch.type)) {
+    fail(422, 'email o teléfono es obligatorio para avisar al cliente')
+  }
+  if (startChanged || patch.clientEmail !== undefined || patch.clientPhone !== undefined) {
+    const sent = !startChanged && (visit.reminder24hSentAt || visit.reminder1hSentAt)
+    const nextReminder = sent ? visit.reminderStatus : initialReminderStatus(finalEmail, finalPhone)
+    if (nextReminder !== visit.reminderStatus) patch.reminderStatus = nextReminder
+  }
+
+  if (!Object.keys(patch).filter((k) => k !== 'videoLink').length) throw createError({ statusCode: 422, statusMessage: 'Nada que actualizar' })
+  patch.updatedAt = nowTs
 
   // hasOverlappingVisit() above is a read-then-write check, same shape as
   // the public booking endpoint's — the real guard against two admins
   // reassigning into the same slot concurrently is visits_agent_slot_unique
   // (migration 0050), whose violation is translated into the same 409.
   try {
-    await db.update(schema.visits).set(patch).where(eq(schema.visits.id, visitId))
+    await db.update(schema.visits).set(patch).where(and(eq(schema.visits.id, visitId), eq(schema.visits.organizationId, orgId)))
   } catch (e: any) {
     if (isUniqueConstraintError(e)) {
       throw createError({ statusCode: 409, statusMessage: 'Ese agente ya tiene otra cita en ese horario.' })
@@ -114,20 +287,37 @@ export async function updateAppointment(db: any, orgId: number, visitId: number,
     throw e
   }
 
-  const activityContactId = visit.leadId ? ((await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(eq(schema.leads.id, visit.leadId)).limit(1))[0]?.contactId ?? null) : null
-  const activityBase = { entityType: 'visit' as const, entityId: visitId, appointmentId: visitId, leadId: visit.leadId, contactId: activityContactId, propertyId: visit.propertyId, propertyKind: visit.propertyKind as any, actorType: ctx.actorType ?? ('user' as const), actorId: ctx.userId }
+  const activityLeadId = finalLeadId
+  const activityContactId =
+    finalContactId ?? (activityLeadId ? ((await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(and(eq(schema.leads.id, activityLeadId), eq(schema.leads.organizationId, orgId))).limit(1))[0]?.contactId ?? null) : null)
+  const activityBase = {
+    entityType: 'visit' as const,
+    entityId: visitId,
+    appointmentId: visitId,
+    leadId: activityLeadId,
+    contactId: activityContactId,
+    propertyId: patch.propertyId !== undefined ? patch.propertyId : visit.propertyId,
+    propertyKind: (patch.propertyKind !== undefined ? patch.propertyKind : visit.propertyKind) as any,
+    actorType: ctx.actorType ?? ('user' as const),
+    actorId: ctx.userId,
+  }
   if (patch.status === 'cancelled') {
-    await recordActivity(db, orgId, { ...activityBase, eventType: 'APPOINTMENT_CANCELLED' })
-  } else if (patch.status === 'completed' && visit.type === 'property_viewing') {
+    await recordActivity(db, orgId, { ...activityBase, eventType: 'APPOINTMENT_CANCELLED', metadata: { reason: patch.cancellationReason ?? null } })
+  } else if (patch.status === 'completed' && nextType === 'property_viewing') {
     await recordActivity(db, orgId, { ...activityBase, eventType: 'VIEWING_COMPLETED' })
-  } else if (patch.status === 'no_show' && visit.type === 'property_viewing') {
+  } else if (patch.status === 'no_show' && nextType === 'property_viewing') {
     await recordActivity(db, orgId, { ...activityBase, eventType: 'VIEWING_NO_SHOW' })
   }
-  if (patch.scheduledAt && patch.scheduledAt !== visit.scheduledAt && patch.status !== 'cancelled') {
+  if (patch.scheduledAt && patch.scheduledAt !== visit.scheduledAt && finalStatus !== 'cancelled') {
     await recordActivity(db, orgId, { ...activityBase, eventType: 'APPOINTMENT_RESCHEDULED', metadata: { from: visit.scheduledAt, to: patch.scheduledAt } })
   }
-  // Cancelar, completar o mover la cita puede cambiar cuál es la próxima acción del lead (FASE 22).
-  if (visit.leadId && (patch.status !== undefined || patch.scheduledAt !== undefined)) await syncLeadNextAction(db, orgId, visit.leadId)
+  // Cancelar, completar, mover o cambiar de lead la cita puede cambiar cuál es la próxima acción del lead (FASE 22).
+  const leadsToSync = new Set<number>()
+  if (patch.status !== undefined || patch.scheduledAt !== undefined || patch.type !== undefined || patch.leadId !== undefined) {
+    if (visit.leadId) leadsToSync.add(visit.leadId)
+    if (finalLeadId) leadsToSync.add(finalLeadId)
+  }
+  for (const id of leadsToSync) await syncLeadNextAction(db, orgId, id)
 
   try {
     if (patch.status === 'cancelled') {
@@ -135,21 +325,21 @@ export async function updateAppointment(db: any, orgId: number, visitId: number,
         organizationId: orgId,
         visitId,
         type: 'cancelled',
-        recipientEmail: visit.clientEmail,
-        recipientPhone: visit.clientPhone,
+        recipientEmail: finalEmail,
+        recipientPhone: finalPhone,
         message: `Tu cita del ${visit.scheduledAt} con ${visit.agentName || 'tu agente'} ha sido cancelada.`,
         scheduledAt: visit.scheduledAt,
         agentName: visit.agentName,
         requestId: ctx.requestId ?? null,
         publicOrigin: ctx.publicOrigin ?? null,
       })
-    } else if (patch.scheduledAt && patch.scheduledAt !== visit.scheduledAt) {
+    } else if (patch.scheduledAt && patch.scheduledAt !== visit.scheduledAt && finalStatus === 'scheduled') {
       await notifyAppointment(db, ctx.env, {
         organizationId: orgId,
         visitId,
         type: 'rescheduled',
-        recipientEmail: visit.clientEmail,
-        recipientPhone: visit.clientPhone,
+        recipientEmail: finalEmail,
+        recipientPhone: finalPhone,
         message: `Tu cita ha sido reprogramada al ${patch.scheduledAt} con ${patch.agentName || visit.agentName || 'tu agente'}.`,
         scheduledAt: patch.scheduledAt,
         agentName: patch.agentName || visit.agentName,

@@ -1,6 +1,7 @@
-import { and, eq, gte, lte, ne } from 'drizzle-orm'
+import { and, eq, gte, lt, lte, ne } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { now } from '../db'
+import { APPOINTMENT_MAX_MINUTES } from '../../../utils/appointmentCatalog'
 
 export interface Slot {
   start: string
@@ -128,11 +129,14 @@ export async function isSlotAvailable(
  * by working-hours rules or time-off (staff may legitimately need to book
  * outside the usual window), only by "is this agent already committed to
  * another client at that time". `excludeVisitId` lets a reschedule check
- * against every OTHER visit without flagging itself as a conflict.
+ * against every OTHER visit without flagging itself as a conflict (a list
+ * of ids: the stops of a tour being reordered all move at once).
+ *
+ * Busca hacia atrás tanto como puede durar una cita (12 h): una cita que
+ * empezó la víspera y sigue pasada la medianoche también ocupa la agenda.
  */
-export async function hasOverlappingVisit(db: any, orgId: number, agentId: number, startAt: string, endAt: string, excludeVisitId?: number): Promise<boolean> {
-  const dayStart = `${startAt.slice(0, 10)} 00:00:00`
-  const dayEnd = `${startAt.slice(0, 10)} 23:59:59`
+export async function hasOverlappingVisit(db: any, orgId: number, agentId: number, startAt: string, endAt: string, excludeVisitId?: number | number[]): Promise<boolean> {
+  const excluded = new Set(Array.isArray(excludeVisitId) ? excludeVisitId : excludeVisitId ? [excludeVisitId] : [])
   const rows = await db
     .select({ id: schema.visits.id, scheduledAt: schema.visits.scheduledAt, endsAt: schema.visits.endsAt })
     .from(schema.visits)
@@ -141,9 +145,9 @@ export async function hasOverlappingVisit(db: any, orgId: number, agentId: numbe
         eq(schema.visits.organizationId, orgId),
         eq(schema.visits.agentId, agentId),
         ne(schema.visits.status, 'cancelled'),
-        gte(schema.visits.scheduledAt, dayStart),
-        lte(schema.visits.scheduledAt, dayEnd),
+        gte(schema.visits.scheduledAt, shiftDateTime(startAt, -APPOINTMENT_MAX_MINUTES)),
+        lt(schema.visits.scheduledAt, endAt),
       ),
     )
-  return rows.some((r: any) => r.id !== excludeVisitId && overlaps(startAt, endAt, r.scheduledAt, r.endsAt || r.scheduledAt))
+  return rows.some((r: any) => !excluded.has(r.id) && overlaps(startAt, endAt, r.scheduledAt, r.endsAt || r.scheduledAt))
 }

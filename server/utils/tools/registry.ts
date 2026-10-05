@@ -584,17 +584,19 @@ const rescheduleViewing: DomainTool = {
 
 const cancelViewing: DomainTool = {
   name: 'cancel_viewing',
-  description: 'Cancela una cita: queda como «cancelled» con su historial (nunca se borra) y se avisa al cliente.',
+  description: 'Cancela una cita: queda como «cancelled» con su historial y el motivo (nunca se borra) y se avisa al cliente.',
   kind: 'write',
   area: 'crm',
   action: 'write',
   requiresConfirmation: true,
-  inputSchema: schemaOf({ appointmentId: { type: 'integer' } }, ['appointmentId']),
-  parse: (o) => ({ appointmentId: v.int(o, 'appointmentId', { required: true, min: 1 })! }),
+  inputSchema: schemaOf({ appointmentId: { type: 'integer' }, reason: { type: 'string', description: 'Motivo de la cancelación.' } }, ['appointmentId']),
+  parse: (o) => ({ appointmentId: v.int(o, 'appointmentId', { required: true, min: 1 })!, reason: v.str(o, 'reason', { max: 300 }) }),
   async run(ctx, input) {
     const before = await loadOwnedAppointment(ctx.db, ctx.orgId, input.appointmentId)
     if (before.status === 'cancelled') return { output: { appointmentId: before.id, status: 'cancelled', alreadyCancelled: true }, target: { type: 'appointment', id: before.id } }
-    await updateAppointment(ctx.db, ctx.orgId, input.appointmentId, { status: 'cancelled' }, { userId: ctx.user.id, actorType: ctx.source === 'inmo' ? 'ai' : 'user', env: ctx.env })
+    // Cancelar una cita exige un motivo (FASE 17); sin uno explícito queda dicho desde dónde se canceló.
+    const cancellationReason = input.reason || (ctx.source === 'inmo' ? 'Cancelada desde el asistente INMO' : 'Cancelada con la herramienta cancel_viewing')
+    await updateAppointment(ctx.db, ctx.orgId, input.appointmentId, { status: 'cancelled', cancellationReason }, { userId: ctx.user.id, actorType: ctx.source === 'inmo' ? 'ai' : 'user', env: ctx.env })
     return { output: { appointmentId: before.id, status: 'cancelled' }, target: { type: 'appointment', id: before.id } }
   },
 }

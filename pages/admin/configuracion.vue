@@ -31,7 +31,8 @@
           <label class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Zona horaria</span>
             <select v-model="form.timezone" class="cfg-input">
-              <option>Asia/Dubai</option><option>Europe/Madrid</option><option>Europe/London</option>
+              <option v-for="tz in COMMON_TIMEZONES" :key="tz" :value="tz">{{ tz }}</option>
+              <option v-if="form.timezone && !COMMON_TIMEZONES.includes(form.timezone)" :value="form.timezone">{{ form.timezone }}</option>
             </select>
           </label>
           <label class="block">
@@ -69,12 +70,13 @@
 </template>
 
 <script setup lang="ts">
+import { COMMON_TIMEZONES, DEFAULT_AGENCY_TIMEZONE } from '~/utils/appointmentCatalog'
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Configuración — M&M Real Estate' })
 
 const { data } = await useFetch<Record<string, string>>('/api/admin/saas/settings')
 const form = reactive({
-  company_name: '', notify_email: '', currency: 'AED', locale: 'es', timezone: 'Asia/Dubai', brand_color: '#16150f', weekly_report: 'on',
+  company_name: '', notify_email: '', currency: 'AED', locale: 'es', timezone: DEFAULT_AGENCY_TIMEZONE, brand_color: '#16150f', weekly_report: 'on',
 })
 watch(data, (d) => { if (d) Object.assign(form, d) }, { immediate: true })
 
