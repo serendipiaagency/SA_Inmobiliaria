@@ -354,9 +354,12 @@ test.describe('E2E principal FASES 25-29', () => {
       await expect(row).toBeVisible()
       await expect(row).toContainText(buyerName)
       await row.getByTestId('match-select').click()
-      await expect(row.getByTestId('match-select')).toHaveText('Seleccionado')
+      await expect(row.getByTestId('match-status')).toHaveText('Seleccionado')
+      // «Enviar propiedad» abre la confirmación del envío por WhatsApp (N4): el
+      // match sólo pasa a «Enviado» cuando el proveedor acepta el mensaje.
       await row.getByTestId('match-send-property').click()
-      await expect(row.getByTestId('match-send-property')).toHaveText('Propiedad enviada')
+      await page.getByTestId('match-send-confirm').click()
+      await expect(row.getByTestId('match-status')).toHaveText('Enviado')
 
       // --- 19-20. el hilo en Comunicaciones, con su Contact/Lead ----------------
       const conversations = await (await a.get('/api/admin/comms/conversations', { params: { q: waId, status: 'all' } })).json()

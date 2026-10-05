@@ -15,6 +15,8 @@ const DISTRICT = `N4-${RUN}`
 const visible = (page: import('@playwright/test').Page, testId: string) => page.locator(`[data-testid="${testId}"]:visible`)
 
 test.describe('N4 — necesidades del comprador y matching con acciones', () => {
+  // Los tests comparten la necesidad y la propiedad creadas en los primeros.
+  test.describe.configure({ mode: 'serial' })
   test.use({ storageState: STATE_A })
 
   let a: APIRequestContext
@@ -181,13 +183,17 @@ test.describe('N4 — necesidades del comprador y matching con acciones', () => 
     await expect(card).toContainText('Aire acondicionado imprescindible')
     await expect(card).toContainText('Para reformar')
 
-    // Editar la misma necesidad.
+    // Editar la misma necesidad. En modo edición la tarjeta enseña el
+    // formulario (el título pasa a ser el valor de un campo), así que se
+    // localiza por su id y no por el texto.
+    const cardTestId = (await card.getAttribute('data-testid'))!
     await card.locator('[data-testid^="requirement-edit-"]').click()
-    const edit = card.locator('[data-testid="requirement-editor"][data-mode="edit"]')
+    const sameCard = page.getByTestId(cardTestId)
+    const edit = sameCard.locator('[data-testid="requirement-editor"][data-mode="edit"]')
     await expect(edit.getByTestId('req-title')).toHaveValue(`Inversión N4 ${RUN}`)
     await edit.getByTestId('req-price-max').fill('450000')
     await edit.getByTestId('req-save').click()
-    await expect(card).toContainText('450.000')
+    await expect(sameCard).toContainText('450.000')
   })
 
   test('ficha de propiedad: paso «Compradores compatibles» con el desglose y descartar con motivo', async ({ page }) => {
