@@ -78,8 +78,10 @@ test.describe('Unificar contactos duplicados', () => {
     const ficha = await (await a.get(`/api/admin/saas/contacts/${master}`)).json()
     expect(JSON.stringify(ficha)).toContain(`"id":${offerId}`)
 
-    // El duplicado ya no está activo; su cronología (la oferta creada) se ve en el superviviente.
-    expect((await a.get(`/api/admin/contacts/${dup}`)).status()).toBe(404)
+    // El duplicado queda archivado (nunca borrado); su cronología (la oferta creada) se ve en el superviviente.
+    const dupRow = (await (await a.get(`/api/admin/contacts/${dup}`)).json()).row
+    expect(dupRow.status).toBe('archived')
+    expect(dupRow.deletedAt).toBeTruthy()
     const activity = await (await a.get('/api/admin/saas/activity', { params: { contactId: String(master) } })).json()
     const types = (activity.rows as any[]).map((r) => r.eventType)
     expect(types).toContain('CONTACT_MERGED')
@@ -115,7 +117,7 @@ test.describe('Unificar contactos duplicados', () => {
     await expect(page.getByTestId('merge-relations')).toHaveCount(0)
     await expect(page.getByTestId('dup-check')).toBeVisible()
 
-    expect((await a.get(`/api/admin/contacts/${dup}`)).status()).toBe(404)
+    expect((await (await a.get(`/api/admin/contacts/${dup}`)).json()).row.deletedAt).toBeTruthy()
     const notes = (await (await a.get('/api/admin/notes', { params: { entityType: 'contact', entityId: master } })).json()).rows
     expect(notes.map((n: any) => n.body)).toContain('Prefiere WhatsApp')
   })
