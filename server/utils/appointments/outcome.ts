@@ -8,6 +8,7 @@ import { createOffer } from '../offers/service'
 import { advancePropertyMatches } from '../matching/service'
 import { assertLiveProperty } from '../properties/trash'
 import { PRICE_PERCEPTIONS, VISIT_OUTCOMES } from '../../../utils/appointmentCatalog'
+import { OFFER_FINANCE_CONDITIONS } from '../../../utils/pipelineCatalog'
 import { createAdminAppointment } from './adminCreate'
 import { fail, loadContact, normalizeDateTime, optionalId, optionalText } from './fields'
 
@@ -140,6 +141,9 @@ export async function recordVisitOutcome(db: any, orgId: number, visitId: number
       // Una fecha sola vence al final de ese día.
       expiration: exp ? normalizeDateTime(/^\d{4}-\d{2}-\d{2}$/.test(exp) ? `${exp} 23:59:59` : exp, 'Vencimiento de la oferta') : null,
     }
+    // Mismo catálogo que la oferta: se comprueba aquí, antes de anotar nada,
+    // para que un valor fuera de lista no deje el resultado guardado a medias.
+    if (offerTerms.financeCondition && !(OFFER_FINANCE_CONDITIONS as readonly string[]).includes(offerTerms.financeCondition)) fail(422, 'Condición de financiación no válida')
     if (!contactId) fail(422, 'No se puede crear una oferta sin un comprador identificado (esta visita no tiene un contacto vinculado)')
     if (!visit.propertyId || !visit.propertyKind) fail(422, 'No se puede crear una oferta sin inmueble')
     // Una oferta nueva sobre una propiedad que ya está en la papelera se

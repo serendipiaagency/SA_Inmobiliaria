@@ -1,10 +1,13 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import { createError } from 'h3'
 import * as schema from '../../db/schema'
 import { now } from '../db'
 import { recordActivity } from '../activity/service'
-import { advancePropertyMatches, type PropertyKind } from '../matching/service'
+import { advancePropertyMatches, tablesFor, type PropertyKind } from '../matching/service'
 import { assertLiveProperty } from '../properties/trash'
+import { contactNames, propertyNameOf, propertyNames, teamMemberNames, userNames } from '../crm/labels'
+import { selectInChunks } from '../sqlChunks'
+import { OFFER_FINANCE_CONDITIONS, OFFER_OPEN_STATUSES, OFFER_STATUSES } from '../../../utils/pipelineCatalog'
 
 /**
  * OfferService (FASE 23) — el único sitio que crea o transiciona una Offer.
@@ -15,7 +18,8 @@ import { assertLiveProperty } from '../properties/trash'
  * antes de actualizar la proyección `offers.current*`.
  */
 
-export const OFFER_STATUSES = ['draft', 'submitted', 'countered', 'accepted', 'rejected', 'withdrawn', 'expired'] as const
+// Los valores válidos (y su etiqueta) viven en el catálogo compartido con el panel.
+export { OFFER_STATUSES }
 export type OfferStatus = (typeof OFFER_STATUSES)[number]
 
 export const OFFER_ACTOR_TYPES = ['buyer', 'seller', 'user', 'system'] as const
@@ -69,10 +73,52 @@ interface TermsInput {
   expiration?: string | null
 }
 
+/**
+ * Normaliza los términos que llegan del panel (bloque N6, FASE 23): la
+ * condición de financiación es del catálogo (`OFFER_FINANCE_CONDITIONS`) y
+ * la fecha de vencimiento tiene el formato de fecha del proyecto — una fecha
+ * sola (`2026-11-30`) vence al final de ese día. `undefined` = no tocar;
+ * `null`/'' = vaciar. 422 con un mensaje claro si algo no cuadra: nunca se
+ * guarda a medias.
+ */
+export function normalizeOfferTerms<T extends TermsInput>(terms: T): T {
+  const out: T = { ...terms }
+  if (out.conditions !== undefined) {
+    const v = out.conditions == null ? '' : String(out.conditions).trim()
+    if (v.length > 4000) throw createError({ statusCode: 422, statusMessage: 'Las condiciones admiten como máximo 4000 caracteres' })
+    out.conditions = v || null
+  }
+  if (out.financeCondition !== undefined) {
+    const v = out.financeCondition == null ? '' : String(out.financeCondition).trim()
+    if (v && !(OFFER_FINANCE_CONDITIONS as readonly string[]).includes(v)) throw createError({ statusCode: 422, statusMessage: 'Condición de financiación no válida' })
+    out.financeCondition = v || null
+  }
+  if (out.expiration !== undefined) {
+    const v = out.expiration == null ? '' : String(out.expiration).trim().replace('T', ' ')
+    if (v && !/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?$/.test(v)) throw createError({ statusCode: 422, statusMessage: 'Fecha de vencimiento no válida (usa AAAA-MM-DD)' })
+    out.expiration = !v ? null : v.length === 10 ? `${v} 23:59:59` : v.length === 16 ? `${v}:00` : v
+  }
+  return out
+}
+
 
 async function assertContactExists(db: any, orgId: number, contactId: number, label: string) {
   const rows = await db.select({ id: schema.contacts.id }).from(schema.contacts).where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.organizationId, orgId))).limit(1)
   if (!rows[0]) throw createError({ statusCode: 404, statusMessage: `${label} no encontrado` })
+}
+
+async function inOrg(db: any, table: any, id: number, orgId: number): Promise<boolean> {
+  const rows = await db.select({ id: table.id }).from(table).where(and(eq(table.id, id), eq(table.organizationId, orgId))).limit(1)
+  return rows.length > 0
+}
+
+/** Lead, necesidad, match y comercial de una oferta: si vienen, tienen que ser de esta organización (404 si no). */
+async function assertOfferReferences(db: any, orgId: number, input: Pick<CreateOfferInput, 'leadId' | 'buyerRequirementId' | 'matchId' | 'commercialId' | 'propertyKind'>) {
+  const missing = (what: string) => createError({ statusCode: 404, statusMessage: `${what} no encontrado en esta organización` })
+  if (input.leadId && !(await inOrg(db, schema.leads, input.leadId, orgId))) throw missing('Lead')
+  if (input.buyerRequirementId && !(await inOrg(db, schema.buyerRequirements, input.buyerRequirementId, orgId))) throw missing('Necesidad')
+  if (input.commercialId && !(await inOrg(db, schema.teamMembers, input.commercialId, orgId))) throw missing('Comercial')
+  if (input.matchId && !(await inOrg(db, tablesFor(input.propertyKind).match, input.matchId, orgId))) throw missing('Match')
 }
 
 async function insertRevision(db: any, orgId: number, offerId: number, type: string, terms: { amount: number; currency: string; conditions: string | null; financeCondition: string | null; expiration: string | null }, actor: ActorOpts) {
@@ -133,14 +179,19 @@ export interface CreateOfferInput {
 }
 
 /** Crea una Offer en borrador (`draft`), con su primera revisión ("created"). */
-export async function createOffer(db: any, orgId: number, input: CreateOfferInput, opts: { createdBy?: number | null } = {}): Promise<OfferRow> {
+export async function createOffer(db: any, orgId: number, rawInput: CreateOfferInput, opts: { createdBy?: number | null } = {}): Promise<OfferRow> {
+  const input = normalizeOfferTerms(rawInput)
   if (!(input.amount > 0)) throw createError({ statusCode: 422, statusMessage: 'El importe debe ser mayor que cero' })
+  if (input.propertyKind !== 'agent' && input.propertyKind !== 'developer') throw createError({ statusCode: 422, statusMessage: 'Catálogo de inmueble no válido' })
   // Una oferta nueva necesita una propiedad de esta agencia y fuera de la papelera.
   // Las ofertas que ya existían sobre una propiedad borrada siguen su curso (historia).
   await assertLiveProperty(db, orgId, input.propertyKind, input.propertyId, { action: 'crear una oferta', notFoundMessage: 'Inmueble no encontrado' })
   await assertContactExists(db, orgId, input.buyerContactId, 'Comprador')
   const sellerIds = [...new Set(input.sellerContactIds || [])]
+  if (sellerIds.includes(input.buyerContactId)) throw createError({ statusCode: 422, statusMessage: 'El comprador no puede ser también vendedor de su propia oferta' })
   for (const id of sellerIds) await assertContactExists(db, orgId, id, 'Vendedor')
+  // Bloque N6: cada referencia opcional también es de esta agencia (404 si no).
+  await assertOfferReferences(db, orgId, input)
 
   const nowTs = now()
   const currency = input.currency || 'eur'
@@ -189,6 +240,8 @@ export async function createOffer(db: any, orgId: number, input: CreateOfferInpu
 }
 
 async function transition(db: any, orgId: number, offerId: number, opts: { from: OfferStatus[]; to: OfferStatus; type: string; terms?: TermsInput; actor: ActorOpts; expectedRevisionId?: number; activityEvent: string }): Promise<OfferRow> {
+  if (opts.terms) opts = { ...opts, terms: normalizeOfferTerms(opts.terms) }
+  if (!(OFFER_ACTOR_TYPES as readonly string[]).includes(opts.actor.actorType)) throw createError({ statusCode: 422, statusMessage: 'Quién hace el movimiento: comprador, vendedor, comercial o sistema' })
   const offer = await getOfferOrThrow(db, orgId, offerId)
   if (!(opts.from as string[]).includes(offer.status)) {
     throw createError({ statusCode: 422, statusMessage: `No se puede pasar de "${offer.status}" a "${opts.to}"` })
@@ -215,7 +268,7 @@ async function transition(db: any, orgId: number, offerId: number, opts: { from:
     .where(eq(schema.offers.id, offerId))
 
   const updated: OfferRow = { ...offer, status: opts.to, currentAmount: terms.amount, currentConditions: terms.conditions, currentFinanceCondition: terms.financeCondition, expiration: terms.expiration, currentRevisionId: revision.id, updatedAt: nowTs }
-  await recordOfferActivity(db, orgId, updated, opts.activityEvent, opts.actor, opts.type === 'countered' ? { amount: terms.amount } : undefined)
+  await recordOfferActivity(db, orgId, updated, opts.activityEvent, opts.actor, opts.type === 'countered' || opts.type === 'new_offer' ? { amount: terms.amount, by: opts.actor.actorType } : undefined)
   return updated
 }
 
@@ -227,6 +280,17 @@ export async function submitOffer(db: any, orgId: number, offerId: number, terms
 /** `submitted`/`countered` → `countered`, con un importe nuevo — nunca sobrescribe el anterior, queda en `offer_revisions`. */
 export async function counterOffer(db: any, orgId: number, offerId: number, terms: Required<Pick<TermsInput, 'amount'>> & TermsInput, actor: ActorOpts): Promise<OfferRow> {
   return transition(db, orgId, offerId, { from: ['submitted', 'countered'], to: 'countered', type: 'countered', terms, actor, activityEvent: 'OFFER_COUNTERED' })
+}
+
+/**
+ * Nueva oferta (bloque N6, FASE 23): la respuesta del comprador a una
+ * contraoferta, con sus términos completos (importe, condiciones,
+ * financiación, vencimiento). `countered` → `submitted` — la pelota vuelve
+ * al vendedor —, y queda como revisión `new_offer` en el historial, distinta
+ * de la oferta inicial y de la contraoferta. Nunca sobrescribe nada.
+ */
+export async function newOffer(db: any, orgId: number, offerId: number, terms: Required<Pick<TermsInput, 'amount'>> & TermsInput, actor: ActorOpts): Promise<OfferRow> {
+  return transition(db, orgId, offerId, { from: ['countered'], to: 'submitted', type: 'new_offer', terms, actor, activityEvent: 'OFFER_RESUBMITTED' })
 }
 
 /** `submitted`/`countered` → `accepted`, sobre los términos ACTUALES — `expectedRevisionId` evita aceptar una revisión que ya quedó obsoleta por una contraoferta más reciente (§85). */
@@ -254,6 +318,9 @@ export function isOfferExpired(offer: Pick<OfferRow, 'status' | 'expiration'>, n
   return (offer.status === 'submitted' || offer.status === 'countered') && !!offer.expiration && offer.expiration < nowTs
 }
 
+/** `open` = negociación viva (borrador, enviada o contraoferta). */
+export type OfferStatusFilter = OfferStatus | 'open'
+
 export interface ListOffersFilter {
   propertyId?: number
   propertyKind?: PropertyKind
@@ -261,7 +328,7 @@ export interface ListOffersFilter {
   sellerContactId?: number
   leadId?: number
   commercialId?: number
-  status?: OfferStatus
+  status?: OfferStatusFilter
 }
 
 export async function listOffers(db: any, orgId: number, filter: ListOffersFilter = {}): Promise<OfferRow[]> {
@@ -269,11 +336,14 @@ export async function listOffers(db: any, orgId: number, filter: ListOffersFilte
   if (filter.propertyId) {
     conditions.push(eq(schema.offers.propertyId, filter.propertyId))
     if (filter.propertyKind) conditions.push(eq(schema.offers.propertyKind, filter.propertyKind))
+  } else if (filter.propertyKind) {
+    conditions.push(eq(schema.offers.propertyKind, filter.propertyKind))
   }
   if (filter.buyerContactId) conditions.push(eq(schema.offers.buyerContactId, filter.buyerContactId))
   if (filter.leadId) conditions.push(eq(schema.offers.leadId, filter.leadId))
   if (filter.commercialId) conditions.push(eq(schema.offers.commercialId, filter.commercialId))
-  if (filter.status) conditions.push(eq(schema.offers.status, filter.status))
+  if (filter.status === 'open') conditions.push(inArray(schema.offers.status, [...OFFER_OPEN_STATUSES]))
+  else if (filter.status) conditions.push(eq(schema.offers.status, filter.status))
 
   if (filter.sellerContactId) {
     const sellerRows = await db.select({ offerId: schema.offerSellers.offerId }).from(schema.offerSellers).where(eq(schema.offerSellers.contactId, filter.sellerContactId))
@@ -300,11 +370,79 @@ export async function getOfferSellers(db: any, offerId: number): Promise<number[
   return rows.map((r: any) => r.contactId)
 }
 
-export async function getOfferWithRevisions(db: any, orgId: number, offerId: number): Promise<{ offer: OfferRow; sellerContactIds: number[]; revisions: OfferRevisionRow[] }> {
-  const offer = await getOfferOrThrow(db, orgId, offerId)
-  const [sellerContactIds, revisions] = await Promise.all([
-    getOfferSellers(db, offerId),
-    db.select().from(schema.offerRevisions).where(eq(schema.offerRevisions.offerId, offerId)).orderBy(schema.offerRevisions.createdAt),
+/** Una oferta con los nombres de sus partes ya resueltos (sólo lectura, para el panel). */
+export interface OfferWithLabels extends OfferRow {
+  buyerName: string | null
+  sellerContactIds: number[]
+  sellers: { id: number; name: string | null }[]
+  propertyName: string | null
+  commercialName: string | null
+  /** La operación que nació de esta oferta, si ya existe. */
+  dealId: number | null
+  /** Derivado (`isOfferExpired`): activa pero con el vencimiento ya pasado, aunque el cron horario aún no la haya marcado. */
+  isExpired: boolean
+}
+
+/**
+ * Añade a cada oferta comprador, vendedores, inmueble, comercial y su
+ * operación — todo resuelto dentro de la organización (los vendedores se
+ * leen por `offer_sellers` de ofertas que ya están acotadas a ella).
+ */
+export async function withOfferLabels(db: any, orgId: number, rows: OfferRow[]): Promise<OfferWithLabels[]> {
+  if (!rows.length) return []
+  const ids = rows.map((r) => r.id)
+  // Troceado: D1 no admite más de 100 parámetros por consulta y el listado global no pagina.
+  const [sellerRows, dealRows]: [any[], any[]] = await Promise.all([
+    selectInChunks(ids, (part) => db.select({ offerId: schema.offerSellers.offerId, contactId: schema.offerSellers.contactId }).from(schema.offerSellers).where(inArray(schema.offerSellers.offerId, part))),
+    selectInChunks(ids, (part) =>
+      db
+        .select({ id: schema.dealOperations.id, acceptedOfferId: schema.dealOperations.acceptedOfferId })
+        .from(schema.dealOperations)
+        .where(and(eq(schema.dealOperations.organizationId, orgId), inArray(schema.dealOperations.acceptedOfferId, part))),
+    ),
   ])
-  return { offer, sellerContactIds, revisions }
+  const sellersByOffer = new Map<number, number[]>()
+  for (const r of sellerRows) sellersByOffer.set(r.offerId, [...(sellersByOffer.get(r.offerId) || []), r.contactId])
+  const dealByOffer = new Map<number, number>(dealRows.map((r: any) => [r.acceptedOfferId, r.id]))
+
+  const [contacts, properties, commercials] = await Promise.all([
+    contactNames(db, orgId, [...rows.map((r) => r.buyerContactId), ...sellerRows.map((r: any) => r.contactId)]),
+    propertyNames(db, orgId, rows.map((r) => ({ id: r.propertyId, kind: r.propertyKind }))),
+    teamMemberNames(db, orgId, rows.map((r) => r.commercialId)),
+  ])
+  const nowTs = now()
+  return rows.map((r) => {
+    const sellerIds = sellersByOffer.get(r.id) || []
+    return {
+      ...r,
+      buyerName: contacts.get(r.buyerContactId) ?? null,
+      sellerContactIds: sellerIds,
+      sellers: sellerIds.map((id) => ({ id, name: contacts.get(id) ?? null })),
+      propertyName: propertyNameOf(properties, r.propertyId, r.propertyKind),
+      commercialName: r.commercialId ? (commercials.get(r.commercialId) ?? null) : null,
+      dealId: dealByOffer.get(r.id) ?? null,
+      isExpired: isOfferExpired(r, nowTs),
+    }
+  })
+}
+
+export interface OfferRevisionWithActor extends OfferRevisionRow {
+  /** Nombre del usuario del panel que la registró (sólo `actorType: 'user'`). */
+  actorName: string | null
+}
+
+/**
+ * La oferta con su historial completo. Las revisiones salen en orden de
+ * inserción (id), que es el orden real en que ocurrieron — dos movimientos en
+ * el mismo segundo no se reordenan.
+ */
+export async function getOfferWithRevisions(db: any, orgId: number, offerId: number): Promise<{ offer: OfferWithLabels; sellerContactIds: number[]; revisions: OfferRevisionWithActor[] }> {
+  const offerRow = await getOfferOrThrow(db, orgId, offerId)
+  const [[offer], revisionRows] = await Promise.all([
+    withOfferLabels(db, orgId, [offerRow]),
+    db.select().from(schema.offerRevisions).where(and(eq(schema.offerRevisions.offerId, offerId), eq(schema.offerRevisions.organizationId, orgId))).orderBy(schema.offerRevisions.id),
+  ])
+  const users = await userNames(db, orgId, (revisionRows as OfferRevisionRow[]).filter((r) => r.actorType === 'user').map((r) => r.actorId))
+  const revisions = (revisionRows as OfferRevisionRow[]).map((r) => ({ ...r, actorName: r.actorType === 'user' && r.actorId ? (users.get(r.actorId) ?? null) : null }))
+  return { offer, sellerContactIds: offer.sellerContactIds, revisions }
 }

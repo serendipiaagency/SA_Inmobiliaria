@@ -247,15 +247,7 @@
 
       <!-- ACTIVIDAD -->
       <section v-show="tab === 'actividad'" data-testid="contact-actividad">
-        <p v-if="!activity.length" class="rounded-xl border border-dashed border-line px-6 py-10 text-center text-sm text-stone-500">Sin actividad registrada.</p>
-        <ol v-else class="relative space-y-3 border-l border-line pl-4">
-          <li v-for="a in activity" :key="a.id" class="text-sm">
-            <span class="absolute -left-1 mt-1.5 h-2 w-2 rounded-full bg-stone-300" />
-            <p class="font-medium">{{ renderActivity(a).title }}</p>
-            <p v-if="renderActivity(a).detail" class="text-stone-600">{{ renderActivity(a).detail }}</p>
-            <p class="text-[11px] text-stone-400">{{ formatDateTime(a.createdAt) }}</p>
-          </li>
-        </ol>
+        <ActivityTimeline :filter="{ contactId }" :refresh-key="activity.length" />
       </section>
 
       <!-- LEADS -->
@@ -365,7 +357,7 @@ import {
 } from '~/utils/crmCatalog'
 import { propertyTypeLabel } from '~/utils/propertySheet'
 import { formatDateTime } from '~/composables/useClientConfig'
-import { renderActivity } from '~/composables/useActivityRenderer'
+import ActivityTimeline from '~/components/admin/activity/ActivityTimeline.vue'
 import NotesPanel from '~/components/admin/notes/NotesPanel.vue'
 import ContactEditModal from '~/components/admin/contacts/ContactEditModal.vue'
 import RequirementEditor from '~/components/admin/requirements/RequirementEditor.vue'

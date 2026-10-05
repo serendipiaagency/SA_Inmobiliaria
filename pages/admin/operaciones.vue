@@ -2,8 +2,12 @@
   <div class="max-w-5xl">
     <div class="mb-6 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Operaciones cerradas</h1>
+        <h1 class="text-2xl font-semibold tracking-tight">Cierres y comisiones</h1>
         <p class="mt-1 text-sm text-stone-500">Ventas y alquileres cerrados, con seguimiento real de comisiones por comercial.</p>
+        <p class="mt-1 text-[12px] text-stone-400" data-testid="legacy-deals-pipeline-link">
+          El seguimiento de una operación en marcha (de la oferta aceptada a la firma) está en
+          <NuxtLink to="/admin/deal-operations" class="underline hover:text-ink">CRM → Operaciones</NuxtLink>; al cerrarla allí, aparece aquí sola.
+        </p>
       </div>
       <button type="button" class="dash-btn-primary" @click="showCreate = !showCreate">{{ showCreate ? 'Cancelar' : 'Registrar operación' }}</button>
     </div>
@@ -93,7 +97,7 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin' })
-useHead({ title: 'Operaciones cerradas — M&M Real Estate' })
+useHead({ title: 'Cierres y comisiones — M&M Real Estate' })
 const dt = useDash()
 const toast = useToast()
 

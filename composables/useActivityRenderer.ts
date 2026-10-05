@@ -1,9 +1,17 @@
 /**
  * ActivityRenderer (FASE 21) — convierte una fila de `activities` en texto
  * legible, en un único sitio. Sin esto cada pantalla que muestre actividad
- * (Cliente, y en el futuro Property/Lead) inventaría su propio texto para el
- * mismo `eventType`, y acabarían diciendo cosas distintas del mismo hecho.
+ * (Contacto, Lead, Propiedad, Operación, la ficha antigua de Cliente)
+ * inventaría su propio texto para el mismo `eventType`, y acabarían diciendo
+ * cosas distintas del mismo hecho.
+ *
+ * Bloque N6: cubre TODOS los tipos de evento (las etiquetas viven en
+ * `utils/pipelineCatalog.ts`, compartido con el servidor), con el detalle
+ * que cada uno lleva en `metadata` y un enlace a la entidad que lo originó.
+ * Nunca enseña datos privados (texto de notas, contenido de mensajes): la
+ * actividad sólo guarda referencias.
  */
+import { ACTIVITY_EVENT_LABELS, DEAL_RECORD_KIND_LABELS, DEAL_STAGE_LABELS, formatAmount } from '~/utils/pipelineCatalog'
 
 export interface ActivityRow {
   id: number
@@ -11,23 +19,15 @@ export interface ActivityRow {
   createdAt: string
   metadataJson?: string | null
   actorType: string
-}
-
-const LABELS: Record<string, string> = {
-  LEAD_CREATED: 'Lead recibido',
-  LEAD_ASSIGNED: 'Lead asignado',
-  LEAD_REASSIGNED: 'Lead reasignado',
-  LEAD_QUALIFIED: 'Lead cualificado',
-  BUYER_REQUIREMENT_CREATED: 'Necesidad registrada',
-  MATCH_SELECTED: 'Coincidencia seleccionada',
-  MATCH_DISCARDED: 'Coincidencia descartada',
-  PROPERTY_SELECTION_CREATED: 'Selección de propiedades',
-  APPOINTMENT_CREATED: 'Cita agendada',
-  APPOINTMENT_RESCHEDULED: 'Cita reprogramada',
-  APPOINTMENT_CANCELLED: 'Cita cancelada',
-  VIEWING_COMPLETED: 'Visita completada',
-  VIEWING_NO_SHOW: 'El cliente no se presentó a la visita',
-  VISIT_OUTCOME_RECORDED: 'Resultado de visita anotado',
+  actorId?: number | null
+  actorName?: string | null
+  entityType?: string
+  entityId?: number
+  contactId?: number | null
+  leadId?: number | null
+  propertyId?: number | null
+  propertyKind?: string | null
+  appointmentId?: number | null
 }
 
 function metadata(row: ActivityRow): Record<string, any> {
@@ -39,21 +39,74 @@ function metadata(row: ActivityRow): Record<string, any> {
   }
 }
 
+const OUTCOME_LABELS: Record<string, string> = { interested: 'Interesado', wants_to_think: 'Se lo piensa', not_interested: 'No le convenció' }
+const OFFER_BY_LABELS: Record<string, string> = { buyer: 'del comprador', seller: 'del vendedor', user: 'registrada por el comercial' }
+
 /** Texto para mostrar en una cronología — nunca incluye datos privados (notas, contenido de mensajes). */
 export function renderActivity(row: ActivityRow): { title: string; detail: string | null } {
-  const title = LABELS[row.eventType] || row.eventType
+  const title = ACTIVITY_EVENT_LABELS[row.eventType] || row.eventType
   const meta = metadata(row)
 
-  if (row.eventType === 'MATCH_DISCARDED' && meta.reason) return { title, detail: meta.reason }
-  if (row.eventType === 'PROPERTY_SELECTION_CREATED' && meta.title) {
-    const added = Number(meta.added) || 0
-    const verb = meta.created ? 'Creada' : 'Ampliada'
-    return { title, detail: `${verb}: «${meta.title}» (${added} ${added === 1 ? 'propiedad' : 'propiedades'})` }
+  switch (row.eventType) {
+    case 'MATCH_DISCARDED':
+      return { title, detail: meta.reason || null }
+    case 'PROPERTY_SELECTION_CREATED': {
+      if (!meta.title) return { title, detail: null }
+      const added = Number(meta.added) || 0
+      return { title, detail: `${meta.created ? 'Creada' : 'Ampliada'}: «${meta.title}» (${added} ${added === 1 ? 'propiedad' : 'propiedades'})` }
+    }
+    case 'VISIT_OUTCOME_RECORDED':
+      return { title, detail: meta.outcome ? OUTCOME_LABELS[meta.outcome] || meta.outcome : null }
+    case 'APPOINTMENT_RESCHEDULED':
+      return { title, detail: meta.to ? `Nueva fecha: ${meta.to}` : null }
+    case 'LEAD_CREATED':
+      return { title, detail: meta.source ? `Origen: ${meta.source}` : null }
+    case 'LEAD_ASSIGNED':
+    case 'LEAD_REASSIGNED':
+      return { title, detail: meta.reason || null }
+    case 'BUYER_REQUIREMENT_CREATED':
+      return { title, detail: meta.title || null }
+    case 'OFFER_COUNTERED':
+    case 'OFFER_RESUBMITTED':
+      return { title, detail: meta.amount != null ? `${formatAmount(meta.amount)}${meta.by && OFFER_BY_LABELS[meta.by] ? ` · ${OFFER_BY_LABELS[meta.by]}` : ''}` : null }
+    case 'DEAL_STAGE_CHANGED':
+      return { title, detail: meta.toStage ? `${DEAL_STAGE_LABELS[meta.fromStage] || meta.fromStage || '—'} → ${DEAL_STAGE_LABELS[meta.toStage] || meta.toStage}` : null }
+    case 'DEAL_CANCELLED':
+      return { title, detail: meta.reason || null }
+    case 'DEAL_RECORD_LINKED':
+    case 'DEAL_RECORD_UNLINKED':
+      return { title, detail: meta.kind ? `${DEAL_RECORD_KIND_LABELS[meta.kind] || meta.kind} #${meta.recordId}` : null }
+    case 'PROPERTY_SHARE_OPENED':
+      return { title, detail: 'Lectura confirmada por WhatsApp' }
+    default:
+      return { title, detail: null }
   }
-  if (row.eventType === 'VISIT_OUTCOME_RECORDED' && meta.outcome) {
-    const outcomeLabel: Record<string, string> = { interested: 'Interesado', wants_to_think: 'Se lo piensa', not_interested: 'No le convenció' }
-    return { title, detail: outcomeLabel[meta.outcome] || meta.outcome }
+}
+
+/** Quién lo hizo: el usuario del panel por su nombre; si no, el cliente, el sistema o la IA. */
+export function activityActor(row: ActivityRow): string | null {
+  if (row.actorType === 'user') return row.actorName || 'Usuario del panel'
+  if (row.actorType === 'contact') return 'El cliente'
+  if (row.actorType === 'ai') return 'INMO (IA)'
+  if (row.actorType === 'system') return 'Automático'
+  return null
+}
+
+/** Enlace a la pantalla de la entidad que originó el evento, cuando existe una. */
+export function activityLink(row: ActivityRow): { to: string; label: string } | null {
+  switch (row.entityType) {
+    case 'deal':
+      return row.entityId ? { to: `/admin/deal-operations/${row.entityId}`, label: 'Ver operación' } : null
+    case 'offer':
+      return row.entityId ? { to: `/admin/ofertas?offer=${row.entityId}`, label: 'Ver oferta' } : null
+    case 'lead':
+      return row.entityId ? { to: `/admin/leads/${row.entityId}`, label: 'Ver lead' } : null
+    case 'task':
+      return { to: '/admin/tareas', label: 'Ver tareas' }
+    case 'comms_message':
+    case 'comms_call':
+      return { to: '/admin/comunicaciones', label: 'Ver comunicaciones' }
+    default:
+      return row.appointmentId ? { to: '/admin/visitas', label: 'Ver citas' } : null
   }
-  if (row.eventType === 'APPOINTMENT_RESCHEDULED' && meta.to) return { title, detail: `Nueva fecha: ${meta.to}` }
-  return { title, detail: null }
 }

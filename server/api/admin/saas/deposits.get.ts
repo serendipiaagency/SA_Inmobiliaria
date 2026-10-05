@@ -16,6 +16,8 @@ export default defineEventHandler(async (event) => {
       errorMessage: schema.depositPayments.errorMessage,
       createdAt: schema.depositPayments.createdAt,
       paidAt: schema.depositPayments.paidAt,
+      // Bloque N6 — la operación a la que están vinculadas estas arras (se vinculan desde la ficha de la operación).
+      dealOperationId: schema.depositPayments.dealOperationId,
     })
     .from(schema.depositPayments)
     .leftJoin(schema.contracts, eq(schema.contracts.id, schema.depositPayments.contractId))

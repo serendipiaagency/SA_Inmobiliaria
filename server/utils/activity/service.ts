@@ -1,4 +1,4 @@
-import { and, desc, eq, lt } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, lt, or, type SQL } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { now } from '../db'
 import type { PropertyKind } from '../matching/service'
@@ -23,6 +23,22 @@ import type { PropertyKind } from '../matching/service'
  * llamada termina con evidencia real de que se contestó). Ninguno de los
  * dos vuelca el cuerpo del mensaje ni notas en `metadata` — sólo referencia
  * a la fila real (`entityType`/`entityId`), que es la fuente de verdad.
+ *
+ * Bloque N6 (FASES 21-24):
+ *  - PROPERTY_SHARE_OPENED — «el cliente abrió la ficha»: la ÚNICA señal real
+ *    que existe es la confirmación de lectura de WhatsApp de una ficha que
+ *    se le envió (`comms/inbox.ts#applyMessageStatus`, la primera vez que un
+ *    `property_share` pasa a `read`; la misma señal que usa el Lead Score).
+ *    La web pública no asocia sus visitas a un contacto, así que no se
+ *    registra nada por ahí.
+ *  - «Match encontrado» automático NO se registra: el motor de matching
+ *    calcula las compatibilidades al vuelo y sólo persiste una fila cuando
+ *    una persona decide (seleccionar/descartar/enviar). No hay ningún
+ *    momento real en el que «se encuentre» un match que se pueda fechar.
+ *  - OFFER_RESUBMITTED (nueva oferta del comprador tras una contraoferta),
+ *    TASK_CANCELLED y DEAL_RECORD_LINKED/UNLINKED (reserva, arras o
+ *    contrato vinculados a una operación) salen de acciones reales de sus
+ *    servicios.
  */
 
 export const ACTIVITY_EVENT_TYPES = [
@@ -43,9 +59,11 @@ export const ACTIVITY_EVENT_TYPES = [
   'VISIT_OUTCOME_RECORDED',
   'TASK_CREATED',
   'TASK_COMPLETED',
+  'TASK_CANCELLED',
   'OFFER_CREATED',
   'OFFER_SUBMITTED',
   'OFFER_COUNTERED',
+  'OFFER_RESUBMITTED',
   'OFFER_ACCEPTED',
   'OFFER_REJECTED',
   'OFFER_WITHDRAWN',
@@ -54,7 +72,10 @@ export const ACTIVITY_EVENT_TYPES = [
   'DEAL_STAGE_CHANGED',
   'DEAL_CLOSED',
   'DEAL_CANCELLED',
+  'DEAL_RECORD_LINKED',
+  'DEAL_RECORD_UNLINKED',
   'PROPERTY_SENT',
+  'PROPERTY_SHARE_OPENED',
   'CALL_COMPLETED',
 ] as const
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number]
@@ -125,6 +146,39 @@ export interface ListActivityFilter {
   propertyId?: number
   propertyKind?: PropertyKind
   appointmentId?: number
+  /**
+   * La cronología de una operación (deal_operations): sus propios eventos,
+   * los de la oferta que la originó, los de sus tareas y los de sus citas.
+   * `activities` no tiene columna de operación (y no se añade ninguna), así
+   * que se reconstruye a partir de las relaciones reales de la operación.
+   */
+  dealId?: number
+  /** Sólo estos tipos de evento (filtro de la cronología). */
+  eventTypes?: string[]
+}
+
+/**
+ * Condición «actividad de esta operación». La operación se lee acotada a la
+ * organización: una de otra agencia (o borrada) no devuelve nada — nunca la
+ * cronología de otro.
+ */
+async function dealActivityCond(db: any, orgId: number, dealId: number): Promise<SQL | null> {
+  const [deal] = await db
+    .select({ id: schema.dealOperations.id, acceptedOfferId: schema.dealOperations.acceptedOfferId })
+    .from(schema.dealOperations)
+    .where(and(eq(schema.dealOperations.id, dealId), eq(schema.dealOperations.organizationId, orgId), isNull(schema.dealOperations.deletedAt)))
+    .limit(1)
+  if (!deal) return null
+  // Subconsultas, no listas de ids: una operación con muchas tareas o citas
+  // no puede hacer crecer el número de parámetros (D1 admite 100 por consulta).
+  const dealTaskIds = db.select({ id: schema.tasks.id }).from(schema.tasks).where(and(eq(schema.tasks.organizationId, orgId), eq(schema.tasks.dealId, dealId)))
+  const dealVisitIds = db.select({ id: schema.visits.id }).from(schema.visits).where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.dealId, dealId)))
+  return or(
+    and(eq(schema.activities.entityType, 'deal'), eq(schema.activities.entityId, deal.id)),
+    and(eq(schema.activities.entityType, 'offer'), eq(schema.activities.entityId, deal.acceptedOfferId)),
+    and(eq(schema.activities.entityType, 'task'), inArray(schema.activities.entityId, dealTaskIds)),
+    inArray(schema.activities.appointmentId, dealVisitIds),
+  ) as SQL
 }
 
 /**
@@ -143,7 +197,13 @@ export async function listActivity(db: any, orgId: number, filter: ListActivityF
     if (filter.propertyKind) conditions.push(eq(schema.activities.propertyKind, filter.propertyKind))
   }
   if (filter.appointmentId) conditions.push(eq(schema.activities.appointmentId, filter.appointmentId))
+  if (filter.dealId) {
+    const cond = await dealActivityCond(db, orgId, filter.dealId)
+    if (!cond) return { rows: [], nextBefore: null }
+    conditions.push(cond)
+  }
   if (conditions.length === 1) throw new Error('listActivity requiere al menos un filtro de entidad')
+  if (filter.eventTypes?.length) conditions.push(inArray(schema.activities.eventType, filter.eventTypes))
   if (opts.before) conditions.push(lt(schema.activities.id, opts.before))
 
   const rows = await db

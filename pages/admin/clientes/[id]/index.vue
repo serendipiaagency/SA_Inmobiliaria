@@ -224,18 +224,14 @@
             <div class="mt-2 flex flex-wrap items-center gap-1.5">
               <button v-if="o.status === 'draft'" type="button" class="btn-quiet !px-2 !py-1 text-[11px]" @click="offerAction(o, 'submit')">Enviar</button>
               <template v-if="o.status === 'submitted' || o.status === 'countered'">
-                <button type="button" class="btn-quiet !px-2 !py-1 text-[11px]" @click="openCounter(o)">Contraoferta</button>
+                <button type="button" class="btn-quiet !px-2 !py-1 text-[11px]" @click="openOfferId = o.id">{{ o.status === 'countered' ? 'Nueva oferta / contraoferta' : 'Contraoferta' }}</button>
                 <button type="button" class="btn-quiet !px-2 !py-1 text-[11px] text-emerald-600" @click="offerAction(o, 'accept')">Aceptar</button>
                 <button type="button" class="btn-quiet !px-2 !py-1 text-[11px] text-red-600" @click="offerAction(o, 'reject')">Rechazar</button>
               </template>
               <button v-if="o.status === 'draft' || o.status === 'submitted' || o.status === 'countered'" type="button" class="btn-quiet !px-2 !py-1 text-[11px] text-stone-400" @click="offerAction(o, 'withdraw')">Retirar</button>
               <button v-if="o.status === 'accepted' && !dealExistsForOffer(o.id)" type="button" class="btn-primary !px-2.5 !py-1 text-[11px]" @click="createDealFromOffer(o)">Crear operación</button>
               <NuxtLink v-else-if="o.status === 'accepted'" :to="`/admin/deal-operations/${dealExistsForOffer(o.id)}`" class="btn-quiet !px-2 !py-1 text-[11px] text-emerald-600">Ver operación →</NuxtLink>
-            </div>
-            <div v-if="counterFor === o.id" class="mt-2 flex items-center gap-2">
-              <input v-model.number="counterAmount" type="number" min="1" step="1" class="input !py-1 !text-xs" placeholder="Nuevo importe (€)" >
-              <button type="button" class="btn-primary shrink-0 !px-2.5 !py-1 text-xs" :disabled="!(counterAmount! > 0)" @click="submitCounter(o)">Enviar</button>
-              <button type="button" class="btn-secondary shrink-0 !px-2.5 !py-1 text-xs" @click="counterFor = null">Cancelar</button>
+              <button type="button" class="btn-quiet !px-2 !py-1 text-[11px] text-stone-500" @click="openOfferId = o.id">Historial</button>
             </div>
           </li>
         </ul>
@@ -291,32 +287,9 @@
       </div>
     </div>
 
-    <!-- Nueva oferta -->
-    <div v-if="newOffer" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="newOffer = false">
-      <div class="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
-        <h3 class="mb-4 text-sm font-semibold">Nueva oferta</h3>
-        <div class="space-y-3">
-          <div class="relative">
-            <input v-model="offerPropertyQuery" type="search" class="input" placeholder="Buscar inmueble por nombre/zona…" @input="searchOfferProperty">
-            <ul v-if="offerPropertyResults.length && !offerForm.propertyId" class="absolute z-10 mt-1 w-full rounded-lg border border-line bg-white shadow-lg">
-              <li v-for="p in offerPropertyResults" :key="`${p.kind}-${p.id}`">
-                <button type="button" class="block w-full px-3 py-2 text-left text-xs hover:bg-stone-50" @click="pickOfferProperty(p)">
-                  {{ p.name }} <span class="text-stone-400">({{ p.kind === 'developer' ? 'obra nueva' : '2ª mano' }})</span>
-                </button>
-              </li>
-            </ul>
-          </div>
-          <p v-if="offerForm.propertyId" class="text-xs text-stone-500">Inmueble elegido: #{{ offerForm.propertyId }} ({{ offerForm.propertyKind === 'developer' ? 'obra nueva' : '2ª mano' }}) <button type="button" class="ml-1 text-ink underline" @click="offerForm.propertyId = null">cambiar</button></p>
-          <input v-model.number="offerForm.amount" type="number" min="1" step="1" class="input" placeholder="Importe (€)" >
-          <textarea v-model="offerForm.conditions" rows="2" class="input" placeholder="Condiciones (opcional)" />
-        </div>
-        <p v-if="offerError" class="mt-3 text-sm font-medium text-red-600">{{ offerError }}</p>
-        <div class="mt-4 flex justify-end gap-2">
-          <button class="btn-secondary" @click="newOffer = false">Cancelar</button>
-          <button class="btn-primary" :disabled="!offerForm.propertyId || !(offerForm.amount! > 0) || savingOffer" @click="submitNewOffer">{{ savingOffer ? 'Guardando…' : 'Crear oferta' }}</button>
-        </div>
-      </div>
-    </div>
+    <!-- Ofertas (bloque N6): alta con vendedor, financiación y vencimiento; contraoferta/nueva oferta con términos completos e historial. -->
+    <OfferFormModal v-if="newOffer && related?.contactId" :fixed-buyer="{ id: related.contactId, label: client?.name || `Contacto #${related.contactId}` }" @close="newOffer = false" @saved="onOfferCreated" />
+    <OfferDetailModal v-if="openOfferId" :offer-id="openOfferId" @close="openOfferId = null" @changed="refreshRelated" />
   </div>
 
   <div v-else class="card px-4 py-20 text-center text-sm text-stone-400">Cargando…</div>
@@ -328,6 +301,8 @@ import ClientField from '~/components/client-builder/ClientField.vue'
 import ClientPropertyCard from '~/components/client-builder/ClientPropertyCard.vue'
 import ClientRowMenu from '~/components/client-builder/ClientRowMenu.vue'
 import ClientTimeline from '~/components/client-builder/ClientTimeline.vue'
+import OfferFormModal from '~/components/admin/offers/OfferFormModal.vue'
+import OfferDetailModal from '~/components/admin/offers/OfferDetailModal.vue'
 import { buildClientTimeline } from '~/composables/useClientTimeline'
 import { clientOption, formatDate, formatDateTime, formatRelative, initials } from '~/composables/useClientConfig'
 
@@ -448,80 +423,17 @@ async function offerAction(o: any, action: 'submit' | 'accept' | 'reject' | 'wit
   }
 }
 
-const counterFor = ref<number | null>(null)
-const counterAmount = ref<number | null>(null)
-function openCounter(o: any) {
-  counterFor.value = o.id
-  counterAmount.value = o.currentAmount
-}
-async function submitCounter(o: any) {
-  if (!(counterAmount.value! > 0)) return
-  try {
-    const updated = await $fetch<any>(`/api/admin/saas/offers/${o.id}/counter`, { method: 'POST', body: { amount: counterAmount.value } })
-    Object.assign(o, updated)
-    counterFor.value = null
-    toast.success('Contraoferta registrada')
-  } catch (e: any) {
-    toast.error(e?.data?.statusMessage || 'No se pudo registrar la contraoferta')
-  }
-}
-
+// Contraoferta, nueva oferta e historial: el detalle compartido (components/admin/offers), con los términos completos.
+const openOfferId = ref<number | null>(null)
 const newOffer = ref(false)
-const offerForm = reactive<{ propertyId: number | null; propertyKind: 'agent' | 'developer' | null; amount: number | null; conditions: string }>({ propertyId: null, propertyKind: null, amount: null, conditions: '' })
-const offerPropertyQuery = ref('')
-const offerPropertyResults = ref<any[]>([])
-const offerError = ref('')
-const savingOffer = ref(false)
-let offerSearchTimer: ReturnType<typeof setTimeout> | null = null
-function searchOfferProperty() {
-  if (offerSearchTimer) clearTimeout(offerSearchTimer)
-  offerSearchTimer = setTimeout(async () => {
-    if (!offerPropertyQuery.value.trim()) {
-      offerPropertyResults.value = []
-      return
-    }
-    offerPropertyResults.value = (await $fetch<any>('/api/admin/saas/properties/search', { query: { q: offerPropertyQuery.value } })).rows || []
-  }, 250)
-}
-function pickOfferProperty(p: any) {
-  offerForm.propertyId = p.id
-  offerForm.propertyKind = p.kind
-  offerPropertyQuery.value = p.name
-  offerPropertyResults.value = []
-}
 function openNewOffer() {
   newOffer.value = true
-  offerForm.propertyId = null
-  offerForm.propertyKind = null
-  offerForm.amount = null
-  offerForm.conditions = ''
-  offerPropertyQuery.value = ''
-  offerPropertyResults.value = []
-  offerError.value = ''
 }
-async function submitNewOffer() {
-  if (!offerForm.propertyId || !offerForm.propertyKind || !(offerForm.amount! > 0) || !related.value?.contactId) return
-  savingOffer.value = true
-  offerError.value = ''
-  try {
-    await $fetch('/api/admin/saas/offers', {
-      method: 'POST',
-      body: {
-        propertyId: offerForm.propertyId,
-        propertyKind: offerForm.propertyKind,
-        buyerContactId: related.value.contactId,
-        amount: offerForm.amount,
-        conditions: offerForm.conditions || null,
-      },
-    })
-    newOffer.value = false
-    await refreshRelated()
-    toast.success('Oferta creada en borrador')
-  } catch (e: any) {
-    offerError.value = e?.data?.statusMessage || 'No se pudo crear la oferta'
-  } finally {
-    savingOffer.value = false
-  }
+async function onOfferCreated(offer: any) {
+  newOffer.value = false
+  await refreshRelated()
+  toast.success('Oferta creada en borrador')
+  openOfferId.value = offer.id
 }
 
 // --- Operaciones (FASE 24) ---------------------------------------------------

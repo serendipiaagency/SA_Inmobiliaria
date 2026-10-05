@@ -88,7 +88,7 @@
             </div>
             <p v-if="col.key === 'lost' && l.lostReason" class="mt-1 text-[11px] text-stone-400">{{ lostReasonLabel(l.lostReason) }}</p>
             <p v-if="l.nextActionAt" class="mt-1.5 text-[11px]" :class="isNextActionOverdue(l) ? 'font-medium text-red-600' : 'text-stone-400'">
-              Próxima acción: {{ formatRelative(l.nextActionAt) }}
+              Próxima acción: {{ nextActionLabel(l.nextActionType) }} · {{ dt.relative(l.nextActionAt) }}
             </p>
             <div class="mt-2 flex items-center gap-1.5 border-t border-line pt-2 text-[11px] text-stone-500">
               <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-stone-100 text-[9px] font-semibold text-stone-600">{{ dt.initials(l.agentName) }}</span>
@@ -172,6 +172,7 @@
                 <th class="px-4 py-2.5 text-right font-semibold">Presupuesto</th>
                 <th class="px-4 py-2.5 font-semibold">Comercial</th>
                 <th class="px-4 py-2.5 font-semibold">Últ. contacto</th>
+                <th class="px-4 py-2.5 font-semibold">Próxima acción</th>
                 <th class="px-2 py-2.5 font-semibold"><span class="sr-only">Contactar</span></th>
               </tr>
             </thead>
@@ -194,6 +195,10 @@
                   </select>
                 </td>
                 <td class="px-4 py-3 text-stone-500">{{ dt.relative(l.lastContactAt) }}</td>
+                <td class="px-4 py-3 text-xs" :class="isNextActionOverdue(l) ? 'font-medium text-red-600' : 'text-stone-500'">
+                  <template v-if="l.nextActionAt">{{ nextActionLabel(l.nextActionType) }} · {{ dt.relative(l.nextActionAt) }}</template>
+                  <span v-else class="text-stone-300">—</span>
+                </td>
                 <td class="px-2 py-3"><AdminCommsContactActions v-if="l.phone" :lead-id="l.id" :phone="l.phone" :name="l.name" compact /></td>
               </tr>
             </tbody>
@@ -237,8 +242,8 @@
 </template>
 
 <script setup lang="ts">
-import { formatRelative } from '~/composables/useClientConfig'
 import { LEAD_LOST_REASON_LABELS, LEAD_PRIORITIES, LEAD_PRIORITY_LABELS, LEAD_SOURCES, LEAD_SOURCE_LABELS, leadSourceLabel } from '~/utils/leadCatalog'
+import { nextActionLabel } from '~/utils/pipelineCatalog'
 import { loadRelationOptions, type RelationOption } from '~/composables/useRelationOptions'
 import LeadFormModal from '~/components/admin/leads/LeadFormModal.vue'
 import LeadLostModal from '~/components/admin/leads/LeadLostModal.vue'

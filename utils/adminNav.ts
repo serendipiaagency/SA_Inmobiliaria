@@ -62,6 +62,10 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: 'Comunicaciones', to: '/admin/comunicaciones', icon: 'chat' },
       { label: 'Visitas', to: '/admin/visitas', icon: 'calendar' },
       { label: 'Tareas', to: '/admin/tareas', icon: 'checklist' },
+      // Bloque N6 (FASES 23-24): las ofertas de toda la agencia y el pipeline
+      // de operaciones (Kanban por etapas). Área CRM, como su API.
+      { label: 'Ofertas', to: '/admin/ofertas', icon: 'badge' },
+      { label: 'Operaciones', to: '/admin/deal-operations', icon: 'layers' },
       { label: 'Analítica de citas', to: '/admin/citas-analytics', icon: 'chart' },
       { label: 'Reservas', to: '/admin/reservas', icon: 'bookmark' },
       { label: 'Referidos', to: '/admin/referidos', icon: 'sparkles' },
@@ -89,7 +93,10 @@ export const ADMIN_NAV: NavGroup[] = [
     area: 'finance',
     items: [
       { label: 'Facturación', to: '/admin/facturacion', icon: 'invoice' },
-      { label: 'Operaciones', to: '/admin/operaciones', icon: 'invoice' },
+      // La pantalla antigua (tabla legacy `deals`: cierres ya hechos y su
+      // comisión). Mantiene su URL para no romper enlaces; «Operaciones» en
+      // CRM es ahora el pipeline completo (/admin/deal-operations).
+      { label: 'Cierres y comisiones', to: '/admin/operaciones', icon: 'invoice' },
       { label: 'Ingresos', to: '/admin/ingresos', icon: 'chart' },
       { label: 'Contratos', to: '/admin/contratos', icon: 'doc' },
       { label: 'Depósitos', to: '/admin/depositos', icon: 'key' },

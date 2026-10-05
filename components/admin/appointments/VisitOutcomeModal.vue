@@ -71,7 +71,7 @@
             <label class="block"><span class="vo-label">Importe <span class="text-red-500">*</span></span><input v-model.number="form.offerAmount" type="number" min="1" step="1" class="vo-input" data-testid="visit-outcome-offer-amount"></label>
             <label class="block"><span class="vo-label">Vence el</span><input v-model="form.offerExpiration" type="date" class="vo-input"></label>
             <label class="block"><span class="vo-label">Condiciones</span><input v-model="form.offerConditions" class="vo-input" placeholder="Ej. sujeta a tasación"></label>
-            <label class="block"><span class="vo-label">Financiación</span><input v-model="form.offerFinance" class="vo-input" placeholder="Ej. hipoteca del 80 %"></label>
+            <label class="block"><span class="vo-label">Financiación</span><select v-model="form.offerFinance" class="vo-input" data-testid="visit-outcome-offer-finance"><option value="">Sin indicar</option><option v-for="f in OFFER_FINANCE_CONDITIONS" :key="f" :value="f">{{ OFFER_FINANCE_LABELS[f] }}</option></select></label>
             <div v-if="!visit.contactId" class="sm:col-span-2">
               <span class="vo-label">Comprador <span class="text-red-500">*</span></span>
               <EntityPicker v-model="buyer" kind="contact" placeholder="Buscar el contacto del comprador…" test-id="visit-outcome-buyer" />
@@ -95,6 +95,7 @@
 import CommsModal from '~/components/admin/comms/Modal.vue'
 import EntityPicker from '~/components/admin/appointments/EntityPicker.vue'
 import { PRICE_PERCEPTIONS, PRICE_PERCEPTION_LABELS, VISIT_OUTCOMES, VISIT_OUTCOME_LABELS, VISIT_RATINGS, type PickedEntity } from '~/utils/appointmentCatalog'
+import { OFFER_FINANCE_CONDITIONS, OFFER_FINANCE_LABELS } from '~/utils/pipelineCatalog'
 
 /**
  * Resultado estructurado de una visita realizada (FASE 19) —
@@ -188,7 +189,7 @@ async function save() {
         followUp: form.followUp ? { dueAt: toServer(form.followUpDueAt) } : null,
         secondVisit: form.scheduleSecond ? { scheduledAt: toServer(form.secondAt), durationMinutes: form.secondDuration } : null,
         createOffer: form.createOffer
-          ? { amount: Number(form.offerAmount), conditions: form.offerConditions.trim() || null, financeCondition: form.offerFinance.trim() || null, expiration: form.offerExpiration || null }
+          ? { amount: Number(form.offerAmount), conditions: form.offerConditions.trim() || null, financeCondition: form.offerFinance || null, expiration: form.offerExpiration || null }
           : null,
       },
     })

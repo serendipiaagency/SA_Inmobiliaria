@@ -32,7 +32,10 @@ encargo lo prohíbe explícitamente ("no modificar status/amount directamente
 desde UI") — sólo funciones con nombre, una por transición real:
 
 `createOffer()` (→ `draft`) · `submitOffer()` (`draft` → `submitted`) ·
-`counterOffer()` (`submitted`/`countered` → `countered`, importe nuevo) ·
+`counterOffer()` (`submitted`/`countered` → `countered`, términos nuevos) ·
+`newOffer()` (bloque N6: `countered` → `submitted`, la nueva oferta del
+comprador en respuesta a una contraoferta; revisión `new_offer`,
+`OFFER_RESUBMITTED` en Activity) ·
 `acceptOffer()` (`submitted`/`countered` → `accepted`) · `rejectOffer()`
 (→ `rejected`) · `withdrawOffer()` (`draft`/`submitted`/`countered` →
 `withdrawn`) · `expireOffer()` (`submitted`/`countered` con `expiration`
@@ -62,39 +65,81 @@ revisión y su `OFFER_EXPIRED` en Activity, igual que cualquier otra
 transición real. `isOfferExpired()` es el mismo cálculo en lectura, para que
 un badge en la UI no tenga que esperar hasta una hora a que pase el cron.
 
+## Términos y referencias (bloque N6)
+
+Oferta, contraoferta y nueva oferta llevan **los mismos términos**:
+importe, condiciones, condición de financiación y vencimiento
+(`normalizeOfferTerms()`):
+
+- `financeCondition` es del catálogo `OFFER_FINANCE_CONDITIONS`
+  (`utils/pipelineCatalog.ts`): `cash`, `mortgage_subject`,
+  `mortgage_preapproved`, `mortgage_approved`, `other`. Otro valor = 422.
+  Los textos libres que ya hubiera guardados se siguen mostrando tal cual.
+- `expiration` en formato de fecha del proyecto; una fecha sola
+  (`2026-11-30`) vence al final del día (`23:59:59`). Mal formada = 422.
+- `actorType` sólo `buyer | seller | user | system` (422 si no).
+- Al crear, `leadId`, `buyerRequirementId`, `matchId` (de la tabla de
+  matches de su catálogo) y `commercialId` tienen que ser de la
+  organización (404 si no), además del inmueble (vivo), comprador y
+  vendedores. El comprador no puede ser también vendedor (422).
+
+El historial (`offer_revisions`) se lee en orden de inserción; cada
+revisión trae `actorName` cuando la registró un usuario del panel.
+
+### API (sin rutas nuevas)
+
+- `GET /api/admin/saas/offers` — filtros `propertyId`(+`propertyKind`) o
+  sólo `propertyKind`, `buyerContactId`, `sellerContactId`, `leadId`,
+  `commercialId` y `status` (un estado u `open` = borrador/enviada/
+  contraoferta). Cada fila trae `buyerName`, `sellers`, `propertyName`,
+  `commercialName`, `dealId` (su operación, si existe) e `isExpired`.
+- `GET /api/admin/saas/offers/:id` — `{ offer, sellerContactIds, revisions }`
+  con la oferta ya etiquetada.
+- `POST /api/admin/saas/offers/:id/counter` — `kind: 'counter'` (por
+  defecto) o `kind: 'new_offer'`, con `amount`, `conditions`,
+  `financeCondition`, `expiration` y `actorType`.
+
 ## Dónde se crea una oferta
 
 Sólo desde disparadores reales — nada se inventa para completar la lista
 del encargo:
 
+- **CRM → Ofertas** (`/admin/ofertas`, bloque N6) — «+ Nueva oferta» con
+  inmueble, comprador, vendedor(es), comercial, importe, condiciones,
+  financiación y vencimiento (`components/admin/offers/OfferFormModal.vue`).
+- **Ficha de la propiedad** (los dos catálogos, panel «Ofertas») — la misma
+  ventana con el inmueble ya puesto.
 - **Resultado de visita** (§86) — "Crear oferta" en el modal de
-  `/admin/visitas`, junto a "Crear tarea de seguimiento" (FASE 22). Crea un
-  borrador con el inmueble y comprador de la visita.
-- **Compatibilidades** (§87) — "Crear oferta" en un match ya **seleccionado**
-  (no tiene sentido ofertar sobre uno descartado). Trae `buyerRequirementId`
-  y `matchId` (`property_matches.id`) de serie.
-- **Ficha de Cliente → "Ofertas" → "+ Nueva oferta"** (§88) — con un buscador
-  de inmueble sobre los dos catálogos (`GET /api/admin/saas/properties/search`,
-  FASE 20).
+  `/admin/visitas`.
+- **Compatibilidades** (§87) — "Crear oferta" en un match ya **seleccionado**.
+- **Ficha de Cliente → "Ofertas" → "+ Nueva oferta"** (§88) — ahora con la
+  misma ventana completa, con el comprador fijado.
 
-Las tres crean un **borrador** (`draft`), nunca lo envían solas: el
-comercial revisa y pulsa "Enviar" desde la pestaña "Ofertas".
+Todas crean un **borrador** (`draft`), nunca lo envían solas.
 
 ## Activity
 
-`OFFER_CREATED` / `OFFER_SUBMITTED` / `OFFER_COUNTERED` / `OFFER_ACCEPTED` /
-`OFFER_REJECTED` / `OFFER_WITHDRAWN` / `OFFER_EXPIRED` — una por cada
-transición real, incluida la automática del cron. `contactId` en el evento
-es siempre `buyerContactId`: un vendedor no ve todavía sus ofertas en su
-propia cronología (ver más abajo).
+`OFFER_CREATED` / `OFFER_SUBMITTED` / `OFFER_COUNTERED` /
+`OFFER_RESUBMITTED` / `OFFER_ACCEPTED` / `OFFER_REJECTED` /
+`OFFER_WITHDRAWN` / `OFFER_EXPIRED` — una por cada transición real, incluida
+la automática del cron. `contactId` en el evento es siempre
+`buyerContactId`.
 
 ## Dónde se ve
 
-**Ficha de Cliente → pestaña "Ofertas"** — las ofertas donde esa persona es
-compradora o vendedora, con sus acciones (Enviar / Contraoferta / Aceptar /
-Rechazar / Retirar) según el estado. Property no tiene todavía una ficha
-360º propia (mismo límite que Activity/Task en FASE 21-22) — el backend
-(`GET /api/admin/saas/offers?propertyId=`) ya está listo para cuando exista.
+- **CRM → Ofertas** — listado global con filtros (estado, catálogo,
+  comercial, inmueble, comprador, vendedor). Una fila abre
+  `components/admin/offers/OfferDetailModal.vue`: partes, términos actuales,
+  acciones según estado (enviar; contraoferta del vendedor; nueva oferta del
+  comprador; aceptar —con la revisión vista, 409 si quedó obsoleta—;
+  rechazar; retirar; crear operación) y el **historial inmutable**.
+  `?offer=<id>` la abre directamente (enlaces de la cronología).
+- **Ficha de la propiedad** — panel «Ofertas» con el mismo detalle.
+- **Ficha de Contacto / Lead / Cliente → pestaña "Ofertas"**; en la de
+  Cliente, «Contraoferta» e «Historial» abren el mismo detalle (ya no hay
+  contraoferta de sólo importe).
+- **Ficha de la operación** — «Oferta aceptada» con sus términos y «Ver la
+  negociación».
 
 ## Privado (§92)
 
@@ -104,16 +149,11 @@ Constructor Web ni en la web pública — todo vive bajo
 panel. Ningún código de este proyecto que sirve páginas públicas importa
 `server/utils/offers/service.ts`.
 
-## Lo que esta FASE no hace (a propósito)
+## Lo que no hace (a propósito)
 
-- No hay ficha 360º de Property donde listar sus ofertas — no existe esa
-  vista de detalle en el producto todavía (mismo límite documentado en
-  FASE 21/22 para Activity y Task).
-- `actorType: 'buyer'`/`'seller'` en las acciones (contraofertar, aceptar…)
-  deja que el comercial registre un movimiento que le llegó por teléfono o
-  en persona — no hay un portal público donde comprador/vendedor actúen
-  ellos mismos sobre su oferta. No se inventa esa superficie sin que el
-  encargo la pida.
-- `currency` es de la oferta, no de la organización: no existe una
-  configuración de moneda por agencia en este proyecto, así que cada oferta
-  guarda la suya (por defecto `eur`).
+- `actorType: 'buyer'`/`'seller'` deja que el comercial registre un
+  movimiento que le llegó por teléfono o en persona — no hay un portal donde
+  comprador/vendedor actúen ellos mismos.
+- `currency` es de la oferta, no de la organización (por defecto `eur`).
+- Una oferta no se edita ni se borra: se retira, y la siguiente negociación
+  es otra oferta.

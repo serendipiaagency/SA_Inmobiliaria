@@ -100,7 +100,10 @@
           </thead>
           <tbody>
             <tr v-for="c in contracts" :key="c.id" class="border-b border-line/60 last:border-0 hover:bg-stone-50">
-              <td class="px-4 py-3 font-medium">{{ c.title }}</td>
+              <td class="px-4 py-3 font-medium">
+                {{ c.title }}
+                <NuxtLink v-if="c.dealOperationId" :to="`/admin/deal-operations/${c.dealOperationId}`" class="block text-[11px] font-normal text-emerald-700 hover:underline">Operación #{{ c.dealOperationId }}</NuxtLink>
+              </td>
               <td class="px-4 py-3 text-stone-600">{{ c.clientName }} <span class="text-xs text-stone-400">{{ c.clientEmail }}</span></td>
               <td class="px-4 py-3"><span class="rounded-full px-2 py-0.5 text-[11px] font-medium" :class="statusClass(c.status)">{{ statusLabel(c.status) }}</span></td>
               <td class="px-4 py-3">

@@ -84,6 +84,7 @@
         <div v-for="m in milestones" :key="m.key" :data-testid="`lead-milestone-${m.key}`">
           <dt class="text-[11px] uppercase tracking-wide text-stone-400">{{ m.label }}</dt>
           <dd :class="m.value ? 'font-medium' : 'text-stone-400'">{{ m.value ? formatDateTime(m.value) : '—' }}</dd>
+          <dd v-if="m.key === 'next-action' && lead.nextActionType" class="text-[12px] text-stone-500" data-testid="lead-next-action-type">{{ nextActionLabel(lead.nextActionType) }}</dd>
         </div>
       </dl>
     </AdminPanel>
@@ -192,15 +193,7 @@
 
     <!-- ACTIVIDAD -->
     <section v-show="tab === 'actividad'" data-testid="lead-actividad">
-      <p v-if="!activity.length" class="rounded-xl border border-dashed border-line px-6 py-10 text-center text-sm text-stone-500">Sin actividad registrada.</p>
-      <ol v-else class="relative space-y-3 border-l border-line pl-4">
-        <li v-for="a in activity" :key="a.id" class="text-sm">
-          <span class="absolute -left-1 mt-1.5 h-2 w-2 rounded-full bg-stone-300" />
-          <p class="font-medium">{{ renderActivity(a).title }}</p>
-          <p v-if="renderActivity(a).detail" class="text-stone-600">{{ renderActivity(a).detail }}</p>
-          <p class="text-[11px] text-stone-400">{{ formatDateTime(a.createdAt) }}</p>
-        </li>
-      </ol>
+      <ActivityTimeline :filter="{ leadId }" :refresh-key="activityKey" />
     </section>
 
     <!-- VISITAS -->
@@ -263,7 +256,8 @@ import { LEAD_LOST_REASON_LABELS, LEAD_PRIORITY_LABELS, LEAD_STAGES, LEAD_STAGE_
 import { LANGUAGE_LABELS } from '~/utils/crmCatalog'
 import { appointmentTypeLabel, visitOutcomeLabel } from '~/utils/appointmentCatalog'
 import { formatDateTime } from '~/composables/useClientConfig'
-import { renderActivity } from '~/composables/useActivityRenderer'
+import { nextActionLabel } from '~/utils/pipelineCatalog'
+import ActivityTimeline from '~/components/admin/activity/ActivityTimeline.vue'
 import { loadRelationOptions, type RelationOption } from '~/composables/useRelationOptions'
 import NotesPanel from '~/components/admin/notes/NotesPanel.vue'
 import LeadFormModal from '~/components/admin/leads/LeadFormModal.vue'
@@ -294,7 +288,7 @@ const tab = ref<string>(typeof route.query.tab === 'string' ? route.query.tab : 
 const notesCount = ref(0)
 const tasks = ref<any[]>([])
 const offers = ref<any[]>([])
-const activity = ref<any[]>([])
+const activityKey = ref(0)
 const tabs = computed(() => [
   { key: 'datos', label: 'Datos' },
   { key: 'historial', label: 'Historial de fases', count: data.value?.stageHistory?.length },
@@ -345,15 +339,17 @@ function money(n: number) {
 }
 
 async function loadRelated() {
-  const [taskRes, offerRes, act] = await Promise.all([
+  const [taskRes, offerRes] = await Promise.all([
     $fetch<{ rows: any[] }>('/api/admin/saas/tasks', { query: { leadId } }).catch(() => ({ rows: [] })),
     $fetch<{ rows: any[] }>('/api/admin/saas/offers', { query: { leadId } }).catch(() => ({ rows: [] })),
-    $fetch<any>('/api/admin/saas/activity', { query: { leadId } }).catch(() => ({ rows: [] })),
   ])
   tasks.value = taskRes.rows
   offers.value = offerRes.rows
-  activity.value = Array.isArray(act) ? act : act?.rows || act?.items || []
+  // La cronología se carga sola al montarse; tras una acción en la ficha, se recarga.
+  if (relatedLoaded) activityKey.value++
+  relatedLoaded = true
 }
+let relatedLoaded = false
 onMounted(loadRelated)
 
 // --- Fase ---------------------------------------------------------------

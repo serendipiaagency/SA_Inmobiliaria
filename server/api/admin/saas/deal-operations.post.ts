@@ -1,21 +1,41 @@
 import { requireOrgScope } from '../../../utils/auth'
 import { useDb } from '../../../utils/db'
-import { createDeal, transitionDealStage, closeDeal, cancelDeal, type DealStage } from '../../../utils/deals/service'
+import { hasAreaAccess } from '../../../utils/permissions'
+import { createDeal, transitionDealStage, closeDeal, cancelDeal, updateDeal, linkDealRecord, unlinkDealRecord, DEAL_RECORD_KINDS, type DealStage, type DealRecordKind } from '../../../utils/deals/service'
 import { logAdminAction } from '../../../utils/audit'
 
 interface DealOperationPostBody {
   /** Sin `action`: "Crear operación" — única forma de nacer un Deal, siempre sobre una Offer ya `accepted` (§94, nunca automático). */
   acceptedOfferId?: number
-  /** Con `action`: transición sobre una operación ya existente. */
-  action?: 'stage' | 'close' | 'cancel'
+  /** Con `action`: transición o cambio sobre una operación ya existente. */
+  action?: 'stage' | 'close' | 'cancel' | 'update' | 'link' | 'unlink'
   id?: number
   toStage?: string
   reason?: string
+  /** `action: 'update'` — oficina (entidad Oficinas) y comercial; `null` los quita. */
+  officeId?: number | null
+  commercialId?: number | null
+  /** `action: 'link'|'unlink'` — qué se vincula: reserva, arras (depósito) o contrato, y su id. */
+  kind?: string
+  recordId?: number
+}
+
+function optionalId(v: unknown): number | null | undefined {
+  if (v === undefined) return undefined
+  if (v === null || v === '') return null
+  const n = Number(v)
+  if (!Number.isInteger(n) || n <= 0) throw createError({ statusCode: 422, statusMessage: 'Identificador no válido' })
+  return n
 }
 
 /**
  * POST /api/admin/saas/deal-operations — crea la operación (sin `action`) o
- * transiciona una existente (`action: 'stage'|'close'|'cancel'` + `id`).
+ * actúa sobre una existente (`id` + `action`):
+ *  - `stage` (`toStage`, `reason` opcional) — mover de etapa, queda en el historial;
+ *  - `close` / `cancel` (`reason` obligatorio al cancelar);
+ *  - `update` (`officeId`, `commercialId`) — bloque N6;
+ *  - `link` / `unlink` (`kind`: reservation|deposit|contract, `recordId`) —
+ *    bloque N6: reservas, arras y contratos de la operación.
  *
  * Todo bajo una única clave de ruta a propósito — ver el comentario en
  * `deal-operations.get.ts` sobre el margen agotado de `npm run typecheck`
@@ -38,7 +58,7 @@ export default defineEventHandler(async (event) => {
 
   if (body.action === 'stage') {
     if (!body.toStage) throw createError({ statusCode: 422, statusMessage: 'Falta la etapa destino' })
-    const deal = await transitionDealStage(db, orgId, dealId, body.toStage as DealStage, { actorType: 'user', actorId: user.id, reason: body.reason })
+    const deal = await transitionDealStage(db, orgId, dealId, body.toStage as DealStage, { actorType: 'user', actorId: user.id, reason: body.reason?.trim() || null })
     await logAdminAction(event, { user, orgId, action: 'update', resource: 'deal', resourceId: dealId, detail: `stage:${body.toStage}` })
     return deal
   }
@@ -54,6 +74,25 @@ export default defineEventHandler(async (event) => {
     const deal = await cancelDeal(db, orgId, dealId, { actorType: 'user', actorId: user.id, reason: body.reason.trim() })
     await logAdminAction(event, { user, orgId, action: 'update', resource: 'deal', resourceId: dealId, detail: 'cancelled' })
     return deal
+  }
+
+  if (body.action === 'update') {
+    const deal = await updateDeal(db, orgId, dealId, { officeId: optionalId(body.officeId), commercialId: optionalId(body.commercialId) })
+    await logAdminAction(event, { user, orgId, action: 'update', resource: 'deal', resourceId: dealId, detail: 'office/commercial' })
+    return deal
+  }
+
+  if (body.action === 'link' || body.action === 'unlink') {
+    if (!(DEAL_RECORD_KINDS as readonly string[]).includes(String(body.kind))) throw createError({ statusCode: 422, statusMessage: 'Indica qué vincular: reserva, arras o contrato' })
+    const kind = body.kind as DealRecordKind
+    const recordId = optionalId(body.recordId)
+    if (!recordId) throw createError({ statusCode: 422, statusMessage: 'Falta el documento a vincular' })
+    // Arras y contratos son del área Finanzas: tocarlos exige poder escribir en ella (la reserva es CRM, como esta ruta).
+    if (kind !== 'reservation' && !hasAreaAccess(user, 'finance', 'write')) throw createError({ statusCode: 403, statusMessage: 'No tienes permiso para vincular arras o contratos (área Finanzas).' })
+    const actor = { actorType: 'user' as const, actorId: user.id }
+    const result = body.action === 'link' ? await linkDealRecord(db, orgId, dealId, kind, recordId, actor) : await unlinkDealRecord(db, orgId, dealId, kind, recordId, actor)
+    await logAdminAction(event, { user, orgId, action: 'update', resource: 'deal', resourceId: dealId, detail: `${body.action}:${kind}:${recordId}` })
+    return result
   }
 
   throw createError({ statusCode: 422, statusMessage: 'Acción no reconocida' })

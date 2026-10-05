@@ -164,27 +164,80 @@ entre la primera Task abierta con `dueAt` y la primera Appointment
 `scheduled` futura, ambas filtradas por `dealId` — sin ningún sistema de
 seguimiento nuevo.
 
+## Oficina, Kanban y documentos vinculados (bloque N6)
+
+- **Oficina** — `deal_operations.office_id` (migración 0086) es la entidad
+  Oficinas: `updateDeal()` sólo acepta una oficina viva de la organización
+  (ajena o borrada = 404) y, junto con ella, el comercial
+  (`team_members` de la organización). Se edita en la ficha y se filtra en el
+  listado/Kanban (`officeId`).
+- **Kanban** — `/admin/deal-operations`: una columna por cada una de las 8
+  etapas. Mover una tarjeta (arrastrar o «Mover a…») llama a
+  `transitionDealStage()`, que deja la fila append-only en
+  `deal_operation_stage_history` (con `actorId` y `reason` opcional) y
+  `DEAL_STAGE_CHANGED` en Activity; soltar en «Cerrada» pide confirmación y
+  llama a `closeDeal()`. El historial de la ficha enseña quién movió cada
+  etapa y el motivo.
+- **Reserva, arras y contratos** — las columnas `deal_operation_id` de
+  `reservations`, `deposit_payments` y `contracts` (migración 0086).
+  `linkDealRecord()`/`unlinkDealRecord()`: registro de otra agencia = 404;
+  ya vinculado a OTRA operación = 409 (primero se desvincula de aquélla);
+  desvincular algo que no es de esta operación = 404; vincular dos veces lo
+  mismo es idempotente. Nada se borra. Cada movimiento deja
+  `DEAL_RECORD_LINKED`/`DEAL_RECORD_UNLINKED` en Activity. Arras y contratos
+  son del área **Finanzas**: la ficha sólo los lee si el usuario puede leer
+  Finanzas, y vincularlos exige poder escribir en Finanzas (403 si no); la
+  reserva basta con CRM, como esta ruta. Reservas, Depósitos y Contratos
+  enseñan «Operación #…» bajo cada fila vinculada.
+- **Papelera** — una operación con `deleted_at` no sale en el listado y su
+  ficha es 404 (tampoco se le cuelgan tareas nuevas). No hay todavía una
+  acción de borrar operaciones en el panel.
+
+### API (las dos rutas de siempre)
+
+- `GET /api/admin/saas/deal-operations` — filtros `propertyId`(+`propertyKind`),
+  `buyerContactId`, `sellerContactId`, `leadId`, `commercialId`,
+  `officeId`, `status`, `stage`. Cada fila trae `buyerName`,
+  `propertyName`, `commercialName`, `officeName` y `linkedRecords`. Con
+  `?id=` devuelve la ficha: `deal` (etiquetada), `sellers`, `stageHistory`
+  (con `actorName`), `appointments`, `tasks` (sin las de la papelera),
+  `nextAction`, `acceptedOffer` y `records` (`reservations`, `deposits`,
+  `contracts`, cada uno con `linked` y `candidates`, y `financeVisible`).
+- `POST /api/admin/saas/deal-operations` — además de crear/`stage`/`close`/
+  `cancel`: `action: 'update'` (`officeId`, `commercialId`) y
+  `action: 'link' | 'unlink'` (`kind`: `reservation | deposit | contract`,
+  `recordId`).
+
+## El menú: «Operaciones» y la pantalla antigua
+
+- **CRM → Operaciones** lleva ahora a `/admin/deal-operations` (Kanban y
+  lista de este pipeline).
+- La pantalla antigua `/admin/operaciones` (tabla legacy `deals`) **sigue en
+  la misma URL** — ningún enlace se rompe — y en el menú pasa a llamarse
+  **Finanzas → «Cierres y comisiones»**, que es lo que es: el registro plano
+  de cierres para comisiones e Ingresos. Enlaza al pipeline, y el pipeline
+  enlaza a ella.
+
 ## Dónde se ve
 
-- **Ficha de Cliente → pestaña "Ofertas"** — botón "Crear operación" sobre
-  una oferta `accepted` sin operación todavía; "Ver operación →" si ya
-  existe.
-- **Ficha de Cliente → pestaña "Operaciones"** — las operaciones donde esa
-  persona es compradora o vendedora.
-- **`/admin/deal-operations/:id`** — la ficha 360º de la operación: Resumen,
-  control de etapa, Timeline, Tareas, Citas, Partes.
+- **CRM → Operaciones** (`/admin/deal-operations`) — Kanban por etapas y
+  lista, con filtros por estado, oficina, comercial y catálogo.
+- **`/admin/deal-operations/:id`** — la ficha: etapa (con motivo), historial
+  de etapas, «Reserva, arras y contratos», tareas (crear y editar), citas,
+  partes con oficina y comercial editables, la oferta aceptada con su
+  negociación completa, la cronología de **Actividad** y las comunicaciones
+  con el comprador.
+- **Detalle de una oferta aceptada** — «Crear operación» o «Ver operación».
+- **Ficha de Cliente → pestañas "Ofertas" y "Operaciones"**.
 
-## Lo que esta FASE no hace (a propósito)
+## Lo que no hace (a propósito)
 
-- **No hay pestañas de Documentos ni Notas** en la ficha de la operación
-  (§116 prohíbe explícitamente las "tabs falsas"): este proyecto no tiene
-  una infraestructura transversal de Document/Note que reutilizar —
-  auditado, no existe en ninguna FASE anterior. Inventar una sólo para esta
-  ficha habría sido justo eso.
-- **No hay vista de pipeline/kanban** de operaciones — el encargo la marca
-  como opcional (§118) y no había una necesidad real que la pidiera para
-  esta FASE; el backend (`listDeals` con filtro por `status`/`stage`) ya
-  deja la puerta abierta para añadirla sin cambios de modelo.
+- **No hay pestañas de Documentos ni Notas** en la ficha de la operación:
+  las reservas, arras y contratos reales se vinculan (arriba), pero no hay
+  un gestor documental propio de la operación.
 - La tabla legacy `deals` **no se toca, no se migra, no se renombra**. Sigue
   siendo la fuente para todo lo que ya la usaba, y el puente sólo añade
   filas — nunca lee, nunca actualiza una fila existente.
+- No se vincula una operación a una reserva por el inmueble de forma
+  automática: `reservations.property_id` no lleva catálogo y adivinarlo
+  podría unir cosas que no son. Se vincula a mano desde la ficha.
