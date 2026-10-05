@@ -128,6 +128,42 @@ describe('alta manual de un lead', () => {
   })
 })
 
+describe('papelera y referencias ajenas fuera del lead', () => {
+  it('una propiedad de la papelera no se pone como propiedad de interés (422)', async () => {
+    const { db } = createTestDb()
+    const a = await seedTenant(db, 'LeadTrash')
+    await db.update(schema.agentProperties).set({ deletedAt: ts }).where(eq(schema.agentProperties.id, a.propertyId))
+    const { createLeadFromAdmin } = await import('../../server/utils/leads/admin')
+    await expect(createLeadFromAdmin(ev(db), a.orgId, user(a.userId), { name: 'X', email: 'trash@example.com', source: 'web', propertyId: a.propertyId, propertyKind: 'agent' })).rejects.toMatchObject({
+      statusCode: 422,
+      statusMessage: expect.stringMatching(/papelera/),
+    })
+  })
+
+  it('los comparables de mercado sólo salen de la propia agencia', async () => {
+    const { db } = createTestDb()
+    const a = await seedTenant(db, 'MarketA')
+    const b = await seedTenant(db, 'MarketB')
+    // Misma comunidad en las dos agencias: B no puede alimentar las cifras públicas de A.
+    await db.update(schema.developerProperties).set({ community: 'Bahía' }).where(eq(schema.developerProperties.id, a.projectId))
+    await db.update(schema.developerProperties).set({ community: 'Bahía', price: 900000, area: 100 }).where(eq(schema.developerProperties.id, b.projectId))
+    const { getMarketStats } = await import('../../server/utils/market')
+    const [project] = await db.select().from(schema.developerProperties).where(eq(schema.developerProperties.id, a.projectId))
+    expect((await getMarketStats(db, project)).comparableCount).toBe(0)
+  })
+
+  it('un contrato no puede apuntar a la propiedad de otra agencia (404)', async () => {
+    const { db } = createTestDb()
+    const a = await seedTenant(db, 'ContractA')
+    const b = await seedTenant(db, 'ContractB')
+    const { resolveContractBindings } = await import('../../server/utils/contracts/bindings')
+    await expect(resolveContractBindings(ev(db), a.orgId, { clientName: 'X', assetKind: 'property', assetId: b.projectId })).rejects.toMatchObject({ statusCode: 404 })
+    await expect(resolveContractBindings(ev(db), a.orgId, { clientName: 'X', assetKind: 'otro', assetId: a.projectId })).rejects.toMatchObject({ statusCode: 422 })
+    const ok = await resolveContractBindings(ev(db), a.orgId, { clientName: 'X', assetKind: 'property', assetId: a.projectId })
+    expect(ok['property.name']).toBe('ContractA Tower')
+  })
+})
+
 describe('deduplicación antes de crear (FASE 14)', () => {
   it('mismo email, mismo teléfono (vía contacto) o mismo id externo del mismo origen → 409 con los candidatos', async () => {
     const { db } = createTestDb()

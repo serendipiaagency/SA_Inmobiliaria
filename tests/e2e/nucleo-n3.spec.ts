@@ -83,6 +83,30 @@ test.describe('N3 — leads: alta, ficha, historial y enrutado', () => {
     cleanup.push(() => a.delete(`/api/admin/lead-routing-rules/${ruleId}`))
   })
 
+  test('una llamada anotada como contestada fija el primer contacto del lead; propiedad o comercial de otra agencia → 404', async () => {
+    const created = await a.post('/api/admin/leads', { data: { name: `Llamada N3 ${RUN}`, phone: `+34 655 ${String(Date.now()).slice(-6)}`, source: 'call' } })
+    expect(created.ok(), await created.text()).toBeTruthy()
+    const leadId = (await created.json()).id
+    const cc = await a.post('/api/admin/comms/contacts', { data: { leadId } })
+    expect(cc.ok(), await cc.text()).toBeTruthy()
+    const contactId = (await cc.json()).contact.id
+
+    const foreignProp = await b.post('/api/admin/properties', { data: { slug: `n3-ajena-${RUN}`, propertyType: 'Apartment', price: 1 } })
+    const foreignPropId = (await foreignProp.json()).id
+    cleanup.push(() => b.delete(`/api/admin/properties/${foreignPropId}?hard=1`))
+    const bTeam = await (await b.get('/api/admin/team')).json()
+    const foreignAgentId = bTeam.rows?.[0]?.id
+
+    expect((await a.post('/api/admin/comms/calls/log', { data: { contactId, direction: 'outbound', outcome: 'answered', propertyId: foreignPropId, propertyKind: 'agent' } })).status()).toBe(404)
+    if (foreignAgentId) expect((await a.post('/api/admin/comms/calls/log', { data: { contactId, direction: 'outbound', outcome: 'answered', agentId: foreignAgentId } })).status()).toBe(404)
+
+    const logged = await a.post('/api/admin/comms/calls/log', { data: { contactId, direction: 'outbound', outcome: 'answered', durationSeconds: 90 } })
+    expect(logged.ok(), await logged.text()).toBeTruthy()
+    const detail = await (await a.get(`/api/admin/leads/${leadId}`)).json()
+    expect(detail.row.firstContactAt).toBeTruthy()
+    expect(detail.row.firstResponseAt).toBeTruthy()
+  })
+
   test('panel: «Nuevo lead» abre su ficha; cambiar fase con motivo y perderlo con motivo quedan en el historial', async ({ page }) => {
     await page.goto('/admin/leads')
     await page.getByTestId('lead-new').click()

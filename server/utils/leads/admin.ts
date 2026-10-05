@@ -5,6 +5,7 @@ import type { SessionUser } from '../auth'
 import { logAdminAction } from '../audit'
 import { findDuplicateContacts, orgDefaultCountryPrefix, resolveContact } from '../contacts/service'
 import { assertOwnedRef } from '../contacts/crm'
+import { assertLiveProperty } from '../properties/trash'
 import { insertLead, type UpsertLeadInput } from '../leads'
 import { assignLead } from './routing'
 import { recomputeLeadScore } from './score'
@@ -143,7 +144,11 @@ export function leadInputFromBody(body: Record<string, any>): LeadAdminInput {
   return out
 }
 
-/** Valida que oficina, equipo, comercial, contacto y propiedad son de esta agencia, y devuelve el nombre de la propiedad. */
+/**
+ * Valida que oficina, equipo, comercial, contacto y propiedad son de esta
+ * agencia, y devuelve el nombre de la propiedad. Una propiedad de la papelera
+ * no se puede poner como propiedad de interés (422 que dice qué hacer).
+ */
 async function assertLeadRefs(db: any, orgId: number, input: LeadAdminInput): Promise<{ propertyName?: string | null }> {
   await assertOwnedRef(db, schema.offices, input.officeId, orgId, 'Oficina')
   await assertOwnedRef(db, schema.teams, input.teamId, orgId, 'Equipo')
@@ -155,6 +160,7 @@ async function assertLeadRefs(db: any, orgId: number, input: LeadAdminInput): Pr
   }
   if (input.propertyId === undefined) return {}
   if (input.propertyId === null) return { propertyName: null }
+  await assertLiveProperty(db, orgId, input.propertyKind === 'agent' ? 'agent' : 'developer', input.propertyId, { action: 'ponerla como propiedad de interés de un lead' })
   if (input.propertyKind === 'agent') {
     const [p] = await db
       .select({ reference: schema.agentProperties.reference, street: schema.agentProperties.street, streetNumber: schema.agentProperties.streetNumber })

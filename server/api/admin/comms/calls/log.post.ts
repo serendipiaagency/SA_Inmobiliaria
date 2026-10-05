@@ -1,5 +1,7 @@
+import { and, eq } from 'drizzle-orm'
 import { requireOrgScope } from '../../../../utils/auth'
-import { useDb } from '../../../../utils/db'
+import { schema, useDb } from '../../../../utils/db'
+import { propertyState } from '../../../../utils/properties/trash'
 import { loadContactForOrg, loadConversationForOrg, serializeCall } from '../../../../utils/comms/admin'
 import { isCallOutcome, logManualCall } from '../../../../utils/comms/calls'
 import { logAdminAction } from '../../../../utils/audit'
@@ -39,6 +41,17 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 422, statusMessage: 'Indica conversationId o contactId.' })
   }
 
+  // La propiedad y el comercial que llegan en el cuerpo se comprueban dentro
+  // de la agencia (404 si no), igual que cualquier otra referencia del panel.
+  if (body.propertyId && propertyId && propertyKind && (await propertyState(db, orgId, propertyKind, propertyId)) === 'missing') {
+    throw createError({ statusCode: 404, statusMessage: 'Propiedad no encontrada' })
+  }
+  const agentId = body.agentId ? Number(body.agentId) : null
+  if (agentId) {
+    const [tm] = await db.select({ id: schema.teamMembers.id }).from(schema.teamMembers).where(and(eq(schema.teamMembers.id, agentId), eq(schema.teamMembers.organizationId, orgId))).limit(1)
+    if (!tm) throw createError({ statusCode: 404, statusMessage: 'Comercial no encontrado' })
+  }
+
   const call = await logManualCall(db, {
     orgId,
     contactId,
@@ -48,7 +61,7 @@ export default defineEventHandler(async (event) => {
     notes: body.notes ? String(body.notes).slice(0, 4000) : null,
     durationSeconds: body.durationSeconds ? Math.max(0, Math.round(Number(body.durationSeconds))) : null,
     userId: user.id,
-    agentId: body.agentId ? Number(body.agentId) : null,
+    agentId,
     propertyId,
     propertyKind,
   })

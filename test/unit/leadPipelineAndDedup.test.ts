@@ -201,11 +201,16 @@ describe('FASE 13 — Pipeline de Leads: stage y status como dimensiones distint
     expect(lost.stage).toBe('negotiation') // nunca stage=won/status=lost ni se pierde en qué punto se cayó
 
     const historyAfterLoss = await db.select().from(schema.leadStageHistory).where(eq(schema.leadStageHistory.leadId, lead.id))
-    expect(historyAfterLoss).toHaveLength(1) // perder no es un movimiento de stage: no añade historial
+    // Perder no mueve el stage, pero sí queda en el historial (núcleo inmobiliario, FASE 13):
+    // to_stage 'lost', desde la fase en la que estaba, con el motivo legible.
+    expect(historyAfterLoss).toHaveLength(2)
+    expect(historyAfterLoss.find((h: any) => h.toStage === 'lost')).toMatchObject({ fromStage: 'negotiation', reason: 'No interesado' })
 
     const reactivated = await setLeadOutcome(ev(db), fixture.orgId, lead.id, { lost: false })
     expect(reactivated.lostReason).toBeNull()
     expect(reactivated.stage).toBe('negotiation')
+    const historyAfterReactivation = await db.select().from(schema.leadStageHistory).where(eq(schema.leadStageHistory.leadId, lead.id))
+    expect(historyAfterReactivation.find((h: any) => h.toStage === 'reactivated')).toMatchObject({ fromStage: 'negotiation' })
     // Reactivar vuelve al status que corresponde al stage actual, no a 'new' a secas.
     expect(reactivated.status).toBe('proposal')
   })
