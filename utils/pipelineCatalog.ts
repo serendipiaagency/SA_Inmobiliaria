@@ -174,7 +174,7 @@ export const ACTIVITY_EVENT_LABELS: Record<string, string> = {
 /** Grupos para filtrar una cronología (chips del componente ActivityTimeline). */
 export const ACTIVITY_GROUPS: { key: string; label: string; types: string[] }[] = [
   { key: 'leads', label: 'Leads', types: ['LEAD_CREATED', 'LEAD_ASSIGNED', 'LEAD_REASSIGNED', 'LEAD_QUALIFIED'] },
-  { key: 'matching', label: 'Necesidades y matching', types: ['BUYER_REQUIREMENT_CREATED', 'MATCH_SELECTED', 'MATCH_DISCARDED'] },
+  { key: 'matching', label: 'Necesidades y matching', types: ['BUYER_REQUIREMENT_CREATED', 'MATCH_SELECTED', 'MATCH_DISCARDED', 'PROPERTY_SELECTION_CREATED'] },
   { key: 'citas', label: 'Citas y visitas', types: ['APPOINTMENT_CREATED', 'APPOINTMENT_RESCHEDULED', 'APPOINTMENT_CANCELLED', 'VIEWING_COMPLETED', 'VIEWING_NO_SHOW', 'VISIT_OUTCOME_RECORDED'] },
   { key: 'tareas', label: 'Tareas', types: ['TASK_CREATED', 'TASK_COMPLETED', 'TASK_CANCELLED'] },
   { key: 'ofertas', label: 'Ofertas', types: ['OFFER_CREATED', 'OFFER_SUBMITTED', 'OFFER_COUNTERED', 'OFFER_RESUBMITTED', 'OFFER_ACCEPTED', 'OFFER_REJECTED', 'OFFER_WITHDRAWN', 'OFFER_EXPIRED'] },

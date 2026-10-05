@@ -523,11 +523,14 @@ describe('FASE 19 — resultado estructurado de la visita', () => {
     // Comprador de otra agencia: 404.
     await expect(recordVisitOutcome(db, t.orgId, v.id, { outcome: 'interested', contactId: (await contact(db, b.orgId)).id, createOffer: { amount: 250000 } })).rejects.toMatchObject({ statusCode: 404 })
 
-    const res = await recordVisitOutcome(db, t.orgId, v.id, { outcome: 'interested', interestLevel: 5, contactId: c.id, createOffer: { amount: 250000, conditions: 'Sujeta a hipoteca', financeCondition: 'Hipoteca 80 %', expiration: '2026-08-15' } })
+    // Financiación fuera del catálogo de la oferta: 422 antes de anotar nada.
+    await expect(recordVisitOutcome(db, t.orgId, v.id, { outcome: 'interested', contactId: c.id, createOffer: { amount: 250000, financeCondition: 'Hipoteca 80 %' } })).rejects.toThrow(/financiación/)
+    expect((await visitRow(db, v.id)).outcome).toBeNull()
+    const res = await recordVisitOutcome(db, t.orgId, v.id, { outcome: 'interested', interestLevel: 5, contactId: c.id, createOffer: { amount: 250000, conditions: 'Sujeta a hipoteca', financeCondition: 'mortgage_subject', expiration: '2026-08-15' } })
     expect(res.offerId).toBeTruthy()
     expect(res.wantsToOffer).toBe(1)
     const [offer] = await db.select().from(schema.offers).where(eq(schema.offers.id, res.offerId!))
-    expect(offer).toMatchObject({ organizationId: t.orgId, propertyId: t.propertyId, propertyKind: 'agent', buyerContactId: c.id, currentAmount: 250000, status: 'draft', currentConditions: 'Sujeta a hipoteca', currentFinanceCondition: 'Hipoteca 80 %', expiration: '2026-08-15 23:59:59' })
+    expect(offer).toMatchObject({ organizationId: t.orgId, propertyId: t.propertyId, propertyKind: 'agent', buyerContactId: c.id, currentAmount: 250000, status: 'draft', currentConditions: 'Sujeta a hipoteca', currentFinanceCondition: 'mortgage_subject', expiration: '2026-08-15 23:59:59' })
     expect((await visitRow(db, v.id)).contactId).toBe(c.id)
 
     const { listAppointments } = await import('../../server/utils/appointments/query')
