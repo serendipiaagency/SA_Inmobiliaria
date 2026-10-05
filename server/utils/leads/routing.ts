@@ -355,7 +355,7 @@ export async function assignLead(event: H3Event, orgId: number, leadId: number, 
   // La oficina y el equipo del lead siguen al comercial cuando el lead no
   // tenía (migración 0086): así filtran y segmentan por oficina sin un paso más.
   const [lead] = await db.select({ officeId: schema.leads.officeId, teamId: schema.leads.teamId }).from(schema.leads).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId))).limit(1)
-  let inherit: Record<string, number> = {}
+  const inherit: Record<string, number> = {}
   if (decision.commercialId && (!lead?.officeId || !lead?.teamId)) {
     const [tm] = await db
       .select({ officeId: schema.teamMembers.officeId, teamId: schema.teamMembers.teamId })
