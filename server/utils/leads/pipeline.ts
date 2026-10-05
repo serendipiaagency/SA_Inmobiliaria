@@ -34,6 +34,8 @@ const STATUS_FOR_STAGE: Record<Stage, string> = {
 
 export class LeadPipelineError extends Error {}
 
+const LOST_REASON_TEXT: Record<string, string> = { no_response: 'No responde', not_interested: 'No interesado', duplicate: 'Duplicado', other: 'Otro motivo' }
+
 /**
  * Mueve un lead a un stage nuevo (drag&drop del Kanban o un cambio manual).
  * Escribe `lead_stage_history` siempre — es la única forma de que exista
@@ -67,6 +69,9 @@ export async function transitionLeadStage(
       status: STATUS_FOR_STAGE[toStage],
       updatedAt: nowTs,
       ...(opts.userId && !existing.firstResponseAt && existing.stage !== toStage ? { firstResponseAt: nowTs } : {}),
+      // Quien lo pasa a «Contactado» o más allá declara que hubo contacto
+      // (una llamada desde su móvil no deja rastro en Comunicaciones).
+      ...(opts.userId && !existing.firstContactAt && toStage !== 'new' ? { firstContactAt: nowTs } : {}),
       ...(toStage === 'qualified' && !existing.qualifiedAt ? { qualifiedAt: nowTs } : {}),
     })
     .where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId)))
@@ -101,13 +106,17 @@ export async function transitionLeadStage(
  * Marca un lead como perdido (o lo reactiva). Es la dimensión de OUTCOME, no
  * de stage (FASE 13 §85: "no mantener stage=WON status=LOST sin reglas") —
  * el stage se queda donde estaba, para saber en qué punto del pipeline se
- * perdió. No escribe lead_stage_history: no es un movimiento de stage.
+ * perdió. Sí queda en lead_stage_history (núcleo inmobiliario, FASE 13:
+ * «cada cambio registra usuario, fecha, fase anterior, fase nueva y
+ * motivo»): `to_stage` es 'lost' o 'reactivated' — no son etapas, son los dos
+ * movimientos de resultado — y `from_stage` la etapa en la que estaba.
  */
 export async function setLeadOutcome(
   event: H3Event,
   orgId: number,
   leadId: number,
-  input: { lost: boolean; lostReason?: string | null },
+  input: { lost: boolean; lostReason?: string | null; note?: string | null },
+  opts: { userId?: number | null } = {},
 ) {
   const db = useDb(event)
   const existing = (await db.select().from(schema.leads).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId))).limit(1))[0]
@@ -117,16 +126,34 @@ export async function setLeadOutcome(
     throw new LeadPipelineError(`Motivo de pérdida no reconocido: ${input.lostReason}`)
   }
 
+  const nowTs = now()
+  const wasLost = existing.status === 'lost'
+  const lostReason = input.lost ? input.lostReason || 'other' : null
   await db
     .update(schema.leads)
     .set({
       // Reactivar vuelve al status que corresponde al stage actual — nunca a
       // 'new' a secas, que perdería en qué punto del pipeline estaba.
       status: input.lost ? 'lost' : STATUS_FOR_STAGE[(existing.stage as Stage) || 'new'],
-      lostReason: input.lost ? input.lostReason || 'other' : null,
-      updatedAt: now(),
+      lostReason,
+      updatedAt: nowTs,
     })
     .where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId)))
+
+  // Sólo un cambio real de resultado deja fila (perder uno ya perdido con otro
+  // motivo también: el motivo es parte de la decisión).
+  if (input.lost || wasLost) {
+    const reasonText = [lostReason ? LOST_REASON_TEXT[lostReason] || lostReason : null, input.note?.trim() || null].filter(Boolean).join(' — ') || null
+    await db.insert(schema.leadStageHistory).values({
+      organizationId: orgId,
+      leadId,
+      userId: opts.userId ?? null,
+      fromStage: existing.stage,
+      toStage: input.lost ? 'lost' : 'reactivated',
+      reason: reasonText,
+      createdAt: nowTs,
+    })
+  }
 
   return (await db.select().from(schema.leads).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId))).limit(1))[0]
 }

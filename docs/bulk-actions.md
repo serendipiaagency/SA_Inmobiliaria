@@ -199,7 +199,7 @@ siendo válida en TypeScript.
 
 ### Sin "todos los filtrados"
 
-A diferencia de `PropertyList.vue`, `pages/admin/leads.vue` no pagina: la
+A diferencia de `PropertyList.vue`, `pages/admin/leads/index.vue` no pagina: la
 vista Tabla carga un único listado con tope de 200 filas (mismo límite de
 siempre en `leads.get.ts`). Eso colapsa dos de los tres niveles de
 selección del encargo (§84) en uno solo — lo que ya está cargado en

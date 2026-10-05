@@ -354,3 +354,15 @@ Las columnas nuevas se despliegan en dos pasos (lección del 2026-09-15):
 | N6 | Activity en todas las fichas, tareas editables, ofertas visibles con historial, operaciones con listado y Kanban, vínculo con reservas y contratos. |
 | N7 | Documentos legales con permisos, media completo, búsqueda (mapa, radio, bbox y todos los filtros), acciones masivas completas, campos personalizados. |
 | N8 | Comunicaciones (formularios, widget), dashboard por comercial, automatizaciones reales, capas de INMO Intelligence, correcciones de documentación. |
+
+## Seguimiento del cierre
+
+| Bloque | Estado | Dónde |
+|---|---|---|
+| N0 | Hecho. Migración 0086 aplicada en producción (con el arreglo de `leads.converted_contact_id`, que ya existía allí). | PR #128, #129 |
+| N1 | Hecho: oficinas y equipos, vínculo usuario ↔ comercial, ficha ampliada (`property_details` / `property_legal_economics`), tipos y subtipos comunes, histórico de precios con precio anterior, usuario y motivo, y papelera de propiedades en los dos catálogos. | PR #130, `docs/ficha-ampliada-propiedad.md` |
+| N2 | Hecho: edición del contacto con deduplicación, 9 roles por persona, propietarios con % (PropertyContact), cabecera completa, 15 pestañas, notas como entidad. | `docs/crm-contacto-360.md` |
+| N3 | Hecho: ficha y alta manual del lead con todos los campos, deduplicación por email/teléfono/WhatsApp/id externo con unificar o crear igualmente, historial de fases con usuario, fecha, fase anterior, nueva y motivo (incluidos perdido y reactivado), enrutado por oficina, equipo y horario, idioma rellenado, `firstContactAt` y primera respuesta humana desde los contactos salientes reales, primera cita desde el panel. Además cierra tres referencias entre agencias que no se validaban (comparables de mercado, activo de un contrato, llamada anotada). | `docs/leads-ficha-y-enrutado.md` |
+| N4-N8 | En curso, en este orden. | — |
+
+Al terminar N8 se repite esta auditoría punto por punto contra el megaprompt, y lo que quede abierto se lista aquí con su motivo.

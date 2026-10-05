@@ -28,6 +28,7 @@ import {
   PROPERTY_CONTACT_ROLES,
   PROPERTY_CONTACT_ROLE_LABELS,
 } from '../../utils/crmCatalog'
+import { LEAD_PRIORITIES, LEAD_PRIORITY_LABELS, LEAD_SOURCES, LEAD_SOURCE_LABELS, ROUTING_SCOPES, ROUTING_SCOPE_LABELS } from '../../utils/leadCatalog'
 
 /** Oficinas y equipos: nombre con contenido, email con forma de email y zona horaria IANA real. */
 function validateOfficeOrTeam(data: Record<string, any>): Record<string, any> {
@@ -960,19 +961,21 @@ export const adminResources: Record<string, ResourceDef> = {
     fields: {
       name: { type: 'text', label: 'Nombre', required: true },
       priority: { type: 'number', label: 'Prioridad (menor = antes)' },
-      scope: { type: 'select', label: 'Ámbito', required: true, options: ['property', 'zone', 'language', 'property_type', 'new_build', 'department'] },
-      matchValue: { type: 'text', label: 'Valor a comparar (zona/idioma/tipo/depto.)' },
-      targetCommercialId: { type: 'number', label: 'Comercial fijo (ID, opcional)' },
+      scope: { type: 'select', label: 'Ámbito', required: true, options: [...ROUTING_SCOPES], optionLabels: ROUTING_SCOPE_LABELS },
+      matchValue: { type: 'text', label: 'Valor a comparar (zona, idioma, tipo; id de la oficina o del equipo)' },
+      targetCommercialId: { type: 'number', label: 'Comercial fijo (opcional)', relation: { resource: 'team', labelField: 'name' } },
+      targetOfficeId: { type: 'number', label: 'Repartir dentro de la oficina', relation: { resource: 'offices', labelField: 'name' } },
       targetDepartment: { type: 'text', label: 'Departamento destino (reparto)' },
-      strategy: { type: 'select', label: 'Reparto', options: ['round_robin', 'workload'] },
+      strategy: { type: 'select', label: 'Reparto', options: ['round_robin', 'workload'], optionLabels: { round_robin: 'Por turnos (round robin)', workload: 'Por carga de trabajo' } },
+      scheduleJson: { type: 'json', label: 'Horario (JSON: {"days":[1,2,3,4,5],"from":"09:00","to":"18:00","timezone":"Europe/Madrid"})' },
       enabled: { type: 'number', label: 'Activa (1/0)' },
     },
-    listFields: ['id', 'name', 'priority', 'scope', 'matchValue', 'targetDepartment', 'strategy', 'enabled'],
+    listFields: ['id', 'name', 'priority', 'scope', 'matchValue', 'targetOfficeId', 'targetDepartment', 'strategy', 'enabled'],
     searchFields: ['name', 'scope', 'matchValue', 'targetDepartment'],
     hasTimestamps: true,
     hasUpdatedAt: true,
     tenantPolicy: { type: 'direct' },
-    relations: { targetCommercialId: { table: schema.teamMembers, label: 'Comercial' } },
+    relations: { targetCommercialId: { table: schema.teamMembers, label: 'Comercial' }, targetOfficeId: { table: schema.offices, label: 'Oficina' } },
   },
 
   team: {
@@ -1098,6 +1101,44 @@ export const adminResources: Record<string, ResourceDef> = {
     tenantPolicy: { type: 'direct' },
     relations: { assignedCommercialId: { table: schema.teamMembers, label: 'Comercial' }, officeId: { table: schema.offices, label: 'Oficina' } },
     softDelete: true,
+  },
+
+  /**
+   * Leads (FASES 12-16). El alta, la edición y la ficha pasan por
+   * server/utils/leads/admin.ts (deduplicación, enrutado, historiales); la
+   * etapa, el resultado y el comercial se cambian por sus propias rutas
+   * (saas/leads/:id y /reassign), que son las que dejan historial. Un lead no
+   * se borra desde aquí: se marca como perdido.
+   */
+  leads: {
+    area: 'crm',
+    table: schema.leads,
+    label: 'Leads',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      email: { type: 'text', label: 'Email' },
+      phone: { type: 'text', label: 'Teléfono' },
+      whatsapp: { type: 'text', label: 'WhatsApp' },
+      source: { type: 'select', label: 'Origen', required: true, options: [...LEAD_SOURCES], optionLabels: LEAD_SOURCE_LABELS },
+      sourceDetail: { type: 'text', label: 'Detalle del origen' },
+      priority: { type: 'select', label: 'Prioridad', options: [...LEAD_PRIORITIES], optionLabels: LEAD_PRIORITY_LABELS },
+      language: { type: 'select', label: 'Idioma', options: [...LANGUAGE_OPTIONS], optionLabels: LANGUAGE_LABELS },
+      budget: { type: 'number', label: 'Presupuesto' },
+      officeId: { type: 'number', label: 'Oficina', relation: { resource: 'offices', labelField: 'name' } },
+      teamId: { type: 'number', label: 'Equipo', relation: { resource: 'teams', labelField: 'name' } },
+      notes: { type: 'textarea', label: 'Notas' },
+    },
+    listFields: ['id', 'name', 'email', 'phone', 'source', 'stage', 'agentName'],
+    searchFields: ['name', 'email', 'phone', 'propertyName'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    relations: {
+      officeId: { table: schema.offices, label: 'Oficina' },
+      teamId: { table: schema.teams, label: 'Equipo' },
+      agentId: { table: schema.teamMembers, label: 'Comercial' },
+      contactId: { table: schema.contacts, label: 'Contacto' },
+    },
   },
 
   /**

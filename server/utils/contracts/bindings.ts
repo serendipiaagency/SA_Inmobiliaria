@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { createError, type H3Event } from 'h3'
 import { useDb, schema } from '../db'
 import { trashedPropertyMessage } from '../properties/trash'
@@ -28,16 +28,18 @@ export async function resolveContractBindings(
   const org = (await db.select().from(schema.organizations).where(eq(schema.organizations.id, orgId)).limit(1))[0]
   values['org.name'] = org?.name || ''
 
+  // Un activo sólo puede ser una propiedad (web) de esta agencia: un id ajeno
+  // o inexistente es 404, nunca un contrato guardado apuntando a otra agencia.
+  if (opts.assetId && opts.assetKind !== 'property') throw createError({ statusCode: 422, statusMessage: 'El activo de un contrato sólo puede ser una propiedad' })
   if (opts.assetKind === 'property' && opts.assetId) {
-    const property = (await db.select().from(schema.developerProperties).where(eq(schema.developerProperties.id, opts.assetId)).limit(1))[0]
-    if (property && property.organizationId === orgId) {
-      // Un contrato NUEVO sobre una propiedad de la papelera, no (los ya
-      // generados conservan su texto: aquí sólo se pasa al crear uno).
-      if (property.deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('generar un contrato') })
-      values['property.name'] = property.name
-      values['property.community'] = property.community || ''
-      values['property.price'] = property.price != null ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(property.price) : ''
-    }
+    const property = (await db.select().from(schema.developerProperties).where(and(eq(schema.developerProperties.id, opts.assetId), eq(schema.developerProperties.organizationId, orgId))).limit(1))[0]
+    if (!property) throw createError({ statusCode: 404, statusMessage: 'Propiedad no encontrada' })
+    // Un contrato NUEVO sobre una propiedad de la papelera, no (los ya
+    // generados conservan su texto: aquí sólo se pasa al crear uno).
+    if (property.deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('generar un contrato') })
+    values['property.name'] = property.name
+    values['property.community'] = property.community || ''
+    values['property.price'] = property.price != null ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(property.price) : ''
   }
 
   return values

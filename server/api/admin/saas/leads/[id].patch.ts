@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   const { user, orgId } = await requireOrgScope(event)
   const id = parseInt(String(getRouterParam(event, 'id')), 10)
   if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
-  const body = await readBody<{ stage?: string; status?: string; reason?: string; lost?: boolean; lostReason?: string; score?: 'recalculate' }>(event)
+  const body = await readBody<{ stage?: string; status?: string; reason?: string; lost?: boolean; lostReason?: string; note?: string; score?: 'recalculate' }>(event)
 
   // FASE 32 — «Recalcular» del Lead Score explicable, como rama de esta ruta
   // y no como una nueva (margen de claves de ruta = 0, ver
@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     if (body?.lost !== undefined) {
-      const updated = await setLeadOutcome(event, orgId, id, { lost: !!body.lost, lostReason: body.lostReason })
+      const updated = await setLeadOutcome(event, orgId, id, { lost: !!body.lost, lostReason: body.lostReason, note: body.note }, { userId: user.id })
       await logAdminAction(event, { user, orgId, action: 'update', resource: 'lead', resourceId: id, detail: body.lost ? `perdido: ${updated.lostReason}` : 'reactivado' })
       return { ok: true, id, status: updated.status, stage: updated.stage, lostReason: updated.lostReason }
     }

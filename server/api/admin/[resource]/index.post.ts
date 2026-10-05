@@ -13,6 +13,8 @@ import { executeTool } from '../../../utils/tools/execute'
 import { InmoError, runInmoTurn } from '../../../utils/inmo/orchestrator'
 import { createOrganizationFromAdmin, resendAdminInvite } from '../../../utils/organizations/lifecycle'
 import { createContactFromAdmin, ensureContactRole, validateNotePayload, validatePropertyContact } from '../../../utils/contacts/crm'
+import { createLeadFromAdmin } from '../../../utils/leads/admin'
+import { validateRoutingRule } from '../../../utils/leads/routing'
 import {
   assertSheetReferences,
   assertSubtypeMatchesType,
@@ -98,7 +100,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Bulk Actions sobre Leads (FASE 28 incremento 3) — sin "todos los
-  // filtrados": pages/admin/leads.vue no pagina (un único listado con tope
+  // filtrados": pages/admin/leads/index.vue no pagina (un único listado con tope
   // de 200 filas, ver leads.get.ts), así que lo que ya está cargado en
   // pantalla ES la selección filtrada completa — nunca hace falta
   // resolverla otra vez del lado servidor como sí hace Properties.
@@ -123,6 +125,10 @@ export default defineEventHandler(async (event) => {
   // Contactos (FASES 8-9): alta con normalización, deduplicación (409 con
   // candidatos salvo force) y roles — el mismo camino que Contactos → Nuevo.
   if (key === 'contacts') return createContactFromAdmin(event, orgId!, user, body || {})
+  // Leads (FASES 12-16): alta manual con deduplicación (409 con candidatos,
+  // `mergeIntoLeadId` para unificar o `force` para crear igualmente) y
+  // enrutado — el mismo `insertLead()` que la captación pública.
+  if (key === 'leads') return createLeadFromAdmin(event, orgId!, user, body || {})
 
   const data = await buildPayload(def, body || {}, true, event)
   // Tenant ownership is always server-resolved, never taken from client input —
@@ -182,6 +188,7 @@ export default defineEventHandler(async (event) => {
     await validateNotePayload(db, orgId!, data, null)
     data.createdBy = user.id
   }
+  if (key === 'lead-routing-rules') await validateRoutingRule(db, orgId!, data, null)
   const inserted = await db.insert(def.table).values(data).returning({ id: def.table.id }).catch(rethrowUniqueViolation)
   const id = inserted[0]?.id
   if (propertyKind && sheet && hasSheetChanges(sheet)) await savePropertySheet(db, orgId!, propertyKind, id, sheet, user.id)

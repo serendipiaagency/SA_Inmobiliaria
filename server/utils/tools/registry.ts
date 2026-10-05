@@ -361,7 +361,7 @@ const updateLeadTool: DomainTool = {
     await loadOwnedLead(ctx.db, ctx.orgId, input.leadId)
     if (input.commercialId !== undefined) await reassignLead(ctx.event, ctx.orgId, input.leadId, input.commercialId, { userId: ctx.user.id, reason: input.reason ?? 'INMO' })
     if (input.stage) await transitionLeadStage(ctx.event, ctx.orgId, input.leadId, { toStage: input.stage, reason: input.reason }, { userId: ctx.user.id })
-    if (input.lost !== undefined) await setLeadOutcome(ctx.event, ctx.orgId, input.leadId, { lost: input.lost, lostReason: input.lostReason })
+    if (input.lost !== undefined) await setLeadOutcome(ctx.event, ctx.orgId, input.leadId, { lost: input.lost, lostReason: input.lostReason, note: input.reason }, { userId: ctx.user.id })
     const lead = await loadOwnedLead(ctx.db, ctx.orgId, input.leadId)
     return { output: { leadId: lead.id, stage: lead.stage, status: lead.status, commercialId: lead.agentId }, target: { type: 'lead', id: lead.id } }
   },

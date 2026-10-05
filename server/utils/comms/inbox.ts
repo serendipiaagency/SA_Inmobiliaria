@@ -4,6 +4,7 @@ import { isUniqueConstraintError, now } from '../db'
 import { sendInternalNotification } from '../email/send'
 import { recordActivity } from '../activity/service'
 import { recomputeLeadScoreForCommsContact } from '../leads/score'
+import { markLeadContacted } from '../leads/sla'
 import type { PropertyKind } from '../matching/service'
 import { formatPhone, normalizePhone } from './phone'
 import { matchCrmByPhone } from './matching'
@@ -556,6 +557,14 @@ export async function sendOutbound(db: any, input: SendOutboundInput): Promise<S
       actorType: 'user',
       actorId: input.userId,
     })
+  }
+
+  // FASE 16 — un envío aceptado por el proveedor es un contacto saliente real
+  // de una persona (`userId`): primer contacto, primera respuesta humana y
+  // último contacto del lead (o de los leads abiertos de ese contacto).
+  if (result.ok) {
+    const { contactId, leadId } = await resolveActivityContact(db, contact.id)
+    if (leadId || contactId) await markLeadContacted(db, channel.organizationId, { leadId, contactId }, { human: true, at: nowTs })
   }
 
   // FASE 32 — nuestro último saliente es la referencia de la penalización

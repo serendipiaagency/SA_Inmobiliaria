@@ -163,12 +163,17 @@ historial de un lead es siempre reconstruible tal como ocurrió.
 
 "Perdido" es una dimensión de **resultado**, no de fase:
 `setLeadOutcome({ lost, lostReason })` pone `status: 'lost'` +
-`lostReason`, pero **no toca `stage`** ni escribe en el historial — la fase
+`lostReason`, pero **no toca `stage`** — la fase
 se queda congelada donde estaba cuando se perdió, evitando la inconsistencia
 que la fase explícitamente prohíbe (`stage='won'` + `status='lost'` sin que
 quede constancia de qué pasó). Reactivar (`lost: false`) vuelve al `status`
 que le corresponde a la fase actual — nunca a `'new'` a secas, que borraría
 en qué punto del proceso estaba.
+
+> Actualización (núcleo inmobiliario, N3): perder y reactivar sí quedan en
+> `lead_stage_history` (`to_stage` = `lost` / `reactivated`, con el motivo
+> del catálogo y el comentario), y la deduplicación del lead mira también
+> teléfono, WhatsApp e id externo. Ver `docs/leads-ficha-y-enrutado.md`.
 
 ## Deduplicación de Contact: nunca automática, nunca destructiva
 
