@@ -75,8 +75,9 @@ test.describe('Unificar contactos duplicados', () => {
     expect(notes.map((n: any) => n.body)).toContain(`Nota del duplicado ${RUN}`)
     const tasks = await (await a.get('/api/admin/saas/tasks', { params: { contactId: String(master) } })).json()
     expect(JSON.stringify(tasks)).toContain(`Llamar ${RUN}`)
-    const ficha = await (await a.get(`/api/admin/saas/contacts/${master}`)).json()
-    expect(JSON.stringify(ficha)).toContain(`"id":${offerId}`)
+    // La ficha pide las ofertas aparte (pestaña Ofertas → saas/offers?buyerContactId=).
+    const offers = (await (await a.get('/api/admin/saas/offers', { params: { buyerContactId: String(master) } })).json()).rows as any[]
+    expect(offers.map((o) => o.id)).toContain(offerId)
 
     // El duplicado queda archivado (nunca borrado); su cronología (la oferta creada) se ve en el superviviente.
     const dupRow = (await (await a.get(`/api/admin/contacts/${dup}`)).json()).row
