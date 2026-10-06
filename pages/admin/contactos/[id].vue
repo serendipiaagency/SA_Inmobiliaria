@@ -285,7 +285,7 @@
 
       <!-- COMUNICACIONES (FASE 29 §140) — de todos sus leads y clientes, por canal -->
       <section v-if="tab === 'comunicaciones'" data-testid="contact-comunicaciones">
-        <AdminCommsRelatedCommunications :conversations="data.communications?.conversations" :calls="data.communications?.calls" :emails="data.communications?.emails" />
+        <AdminCommsRelatedCommunications :conversations="data.communications?.conversations" :calls="data.communications?.calls" :emails="data.communications?.emails" :web-threads="data.communications?.webThreads || []" />
       </section>
       <section v-else-if="tab === 'emails'" data-testid="contact-emails">
         <AdminCommsRelatedCommunications :emails="data.communications?.emails" />

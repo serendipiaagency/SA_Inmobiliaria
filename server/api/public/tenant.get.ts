@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
+import { getCommsSettings } from '../../utils/comms/inbox'
 
 /**
  * Public branding for the resolved tenant — consumed by useTenant() to
@@ -34,7 +35,11 @@ export default defineEventHandler(async (event) => {
     .from(schema.organizations)
     .where(eq(schema.organizations.id, orgId))
     .limit(1)
+  // Núcleo N8a: si la agencia activó el chat de su web (Comunicaciones →
+  // Configuración). Sólo el interruptor y el saludo, que son públicos.
+  const chat = await getCommsSettings(db, orgId).catch(() => null)
   return {
+    webChat: { enabled: Boolean(chat?.webChatEnabled), greeting: chat?.webChatGreeting ?? null },
     ...(rows[0] || {
       id: 1,
       name: 'M&M Real Estate',

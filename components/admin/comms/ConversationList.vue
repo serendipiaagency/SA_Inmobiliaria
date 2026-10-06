@@ -18,6 +18,13 @@
           <option v-for="c in channels" :key="c.id" :value="String(c.id)">{{ c.label }}</option>
         </select>
       </div>
+      <!-- Núcleo N8a: canal — WhatsApp, formularios de la web o chat de la web -->
+      <select v-model="source" class="w-full rounded-lg border border-line bg-white px-2 py-1.5 text-[12px] text-stone-600 focus:border-ink" data-testid="comms-filter-source">
+        <option value="all">Todos los canales</option>
+        <option value="whatsapp">WhatsApp</option>
+        <option value="web_form">Formulario web</option>
+        <option value="web_chat">Chat web</option>
+      </select>
       <div class="flex items-center justify-between gap-2">
         <label class="flex items-center gap-1.5 text-[12px] text-stone-600">
           <input v-model="unreadOnly" type="checkbox" class="rounded border-line" data-testid="comms-filter-unread">
@@ -36,14 +43,14 @@
       <p v-if="pending && !rows.length" class="py-10 text-center text-xs text-stone-400">Cargando…</p>
       <div v-else-if="!rows.length" class="px-6 py-12 text-center" data-testid="comms-list-empty">
         <p class="text-sm font-medium text-stone-600">Sin conversaciones</p>
-        <p class="mt-1 text-xs text-stone-400">{{ search ? 'Nada coincide con la búsqueda.' : 'Aparecerán aquí en cuanto alguien escriba al número de la agencia, o cuando abras un hilo desde una ficha.' }}</p>
+        <p class="mt-1 text-xs text-stone-400">{{ search ? 'Nada coincide con la búsqueda.' : 'Aparecerán aquí en cuanto alguien escriba al número de la agencia, envíe un formulario o el chat de la web, o cuando abras un hilo desde una ficha.' }}</p>
       </div>
       <button
         v-for="c in rows"
         :key="c.id"
         type="button"
         class="flex w-full items-start gap-3 border-b border-line/60 px-3 py-3 text-left transition hover:bg-stone-50"
-        :class="c.id === selectedId ? 'bg-stone-100' : ''"
+        :class="String(c.id) === String(selectedId) ? 'bg-stone-100' : ''"
         :data-testid="`comms-conversation-${c.id}`"
         @click="emit('select', c.id)"
       >
@@ -58,10 +65,11 @@
             <span v-if="c.unreadCount" class="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 px-1 text-[10px] font-bold text-white" :data-testid="`comms-unread-${c.id}`">{{ c.unreadCount }}</span>
           </span>
           <span class="mt-1 flex flex-wrap items-center gap-1 text-[10px] text-stone-400">
-            <span v-if="!c.contact.known" class="rounded bg-amber-50 px-1 py-px font-semibold text-amber-700">Desconocido</span>
+            <span v-if="c.source && c.source !== 'whatsapp'" class="rounded bg-sky-50 px-1 py-px font-semibold text-sky-700" :data-testid="`comms-source-${c.id}`">{{ c.channel?.label }}</span>
+            <span v-if="!c.contact.known" class="rounded bg-amber-50 px-1 py-px font-semibold text-amber-700">{{ c.source && c.source !== 'whatsapp' ? 'Sin lead' : 'Desconocido' }}</span>
             <span v-if="c.assignedAgentName" class="truncate">{{ c.assignedAgentName }}</span>
             <span v-if="c.status !== 'open'" class="rounded bg-stone-100 px-1 py-px">{{ c.status === 'pending' ? 'Pendiente' : 'Cerrada' }}</span>
-            <span v-if="!c.window.open" class="rounded bg-stone-100 px-1 py-px" title="Fuera de la ventana de 24 h: sólo plantillas">24 h</span>
+            <span v-if="c.window && !c.window.open" class="rounded bg-stone-100 px-1 py-px" title="Fuera de la ventana de 24 h: sólo plantillas">24 h</span>
           </span>
         </span>
       </button>
@@ -71,8 +79,8 @@
 </template>
 
 <script setup lang="ts">
-const props = withDefaults(defineProps<{ selectedId: number | null; team: { id: number; name: string }[]; channels?: { id: number; label: string }[]; refreshKey: number }>(), { channels: () => [] })
-const emit = defineEmits<{ select: [id: number]; loaded: [rows: any[]] }>()
+const props = withDefaults(defineProps<{ selectedId: number | string | null; team: { id: number; name: string }[]; channels?: { id: number; label: string }[]; refreshKey: number }>(), { channels: () => [] })
+const emit = defineEmits<{ select: [id: number | string]; loaded: [rows: any[]] }>()
 const dt = useDash()
 
 const STATUSES = [
@@ -84,6 +92,8 @@ const STATUSES = [
 const status = ref('open')
 const assigned = ref('all')
 const channel = ref('all')
+/** Núcleo N8a: all | whatsapp | web_form | web_chat (los hilos web tienen id `w<n>`). */
+const source = ref('all')
 const unreadOnly = ref(false)
 const propertyPickerOpen = ref(false)
 const propertyFilter = ref<{ id: number; kind: 'agent' | 'developer'; name: string } | null>(null)
@@ -112,6 +122,7 @@ async function load(append = false) {
         status: status.value,
         assigned: assigned.value,
         channel: channel.value !== 'all' ? channel.value : undefined,
+        source: source.value !== 'all' ? source.value : undefined,
         unread: unreadOnly.value ? '1' : undefined,
         propertyId: propertyFilter.value?.id,
         propertyKind: propertyFilter.value?.kind,
@@ -132,7 +143,7 @@ async function load(append = false) {
 function loadMore() {
   load(true)
 }
-watch([status, assigned, channel, unreadOnly, propertyFilter, debounced], () => load(), { immediate: true })
+watch([status, assigned, channel, source, unreadOnly, propertyFilter, debounced], () => load(), { immediate: true })
 watch(
   () => props.refreshKey,
   () => load(),
@@ -148,6 +159,7 @@ function upsert(conv: any) {
     (status.value === 'all' || conv.status === status.value) &&
     (assigned.value === 'all' || (assigned.value === 'unassigned' ? !conv.assignedAgentId : String(conv.assignedAgentId) === assigned.value)) &&
     (channel.value === 'all' || String(conv.channel?.id) === channel.value) &&
+    (source.value === 'all' || (conv.source || 'whatsapp') === source.value) &&
     (!unreadOnly.value || conv.unreadCount > 0) &&
     matchesProperty
   if (!matchesFilter) {

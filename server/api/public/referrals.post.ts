@@ -3,6 +3,8 @@ import { useDb, schema, now } from '../../utils/db'
 import { upsertLead } from '../../utils/leads'
 import { rateLimit } from '../../utils/rateLimit'
 import { readFirstTouch } from '../../utils/firstTouch'
+import { recordWebFormSubmission } from '../../utils/comms/web'
+import { samePagePath } from '../../utils/comms/webPublic'
 
 interface Body {
   code?: string
@@ -35,7 +37,7 @@ export default defineEventHandler(async (event) => {
     })
     .returning()
 
-  await upsertLead(event, {
+  const lead = await upsertLead(event, {
     organizationId: link.organizationId,
     name: body.name.trim(),
     email: body.email || null,
@@ -45,6 +47,24 @@ export default defineEventHandler(async (event) => {
     notes: `Referido por ${link.referrerName}`,
     ...readFirstTouch(event),
   })
+
+  // Núcleo N8a (FASE 29): el referido también es un hilo «Formulario web» de
+  // la bandeja de la agencia del enlace (nunca de otra), con su lead y Contact.
+  try {
+    await recordWebFormSubmission(db, {
+      orgId: link.organizationId,
+      formType: 'referral',
+      leadId: lead?.id ?? null,
+      name: body.name.trim(),
+      email: body.email || null,
+      phone: body.phone || null,
+      message: `Llega recomendado por ${link.referrerName} (enlace de referidos).`,
+      fields: { referrer: link.referrerName },
+      pageUrl: samePagePath(event),
+    })
+  } catch {
+    // El referido y su lead ya están guardados: el hilo nunca los bloquea.
+  }
 
   return { ok: true, id: referral.id, referrerName: link.referrerName }
 })

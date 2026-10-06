@@ -34,7 +34,7 @@ de tabla o de columna (§25). Cada una autoriza, valida y delega.
 | `search_properties` | lectura | web:read | — | — | `buildPropertyFilterConds` (PropertySearchService) + PropertySchemaRegistry |
 | `get_property` | lectura | web:read | — | — | `toPublicProperty` (vista `public`) / ficha interna compacta (`internal`) |
 | `find_contacts` | lectura | crm:read | — | — | `searchContacts` (la búsqueda de Contactos) |
-| `find_matches` | lectura | crm:read | — | — | Motor de Matching (`findPropertiesForRequirement`) |
+| `find_matches` | lectura | crm:read | — | — | Motor de Matching: `findPropertiesForRequirement` (necesidad guardada) o `findPropertiesForCriteria` (exploratoria, sin persistir) |
 | `create_lead` | escritura | crm:write | — | sí | `upsertLead` (Contact + dedup + routing + SLA + Activity) |
 | `update_lead` | escritura | crm:write | — | — | `transitionLeadStage`, `reassignLead`, `setLeadOutcome` |
 | `create_contact` | escritura | crm:write | — | sí | `resolveContact` (nunca fusiona dudosos: los devuelve) |
@@ -46,6 +46,17 @@ de tabla o de columna (§25). Cada una autoriza, valida y delega.
 | `send_property` | escritura | crm:write | **sí** | sí | `openConversation` + `sharePropertyInConversation` (Centro de Comunicaciones) |
 | `create_property_selection` | escritura | crm:write | — | sí | `createPropertySelection` |
 | `create_offer` | escritura | crm:write | **sí** | sí | `createOffer` (oferta + revisión inicial + Activity) |
+
+`find_matches` admite, desde el núcleo N8a (FASE 30), **una necesidad no
+guardada**: `{ criteria: { operation, propertyTypes, desiredZones, priceMin,
+priceMax, areaMin, bedroomsMin, bathroomsMin } }` en lugar de
+`buyerRequirementId` (uno u otro, nunca los dos; tipos del catálogo común,
+operación sale/rent, al menos un criterio). Se evalúa con el MISMO prefiltro y
+el MISMO motor que una necesidad guardada (importancias por defecto del
+catálogo) y no escribe nada: ni necesidad, ni matches, ni actividad. La salida
+lleva `exploratory: true`, `saved: false`, los criterios usados y
+`suggestion` — ofrecer guardarla con `update_buyer_requirements` para una
+persona concreta —, y `target: null` (no hay entidad).
 
 `find_contacts` no estaba en la lista inicial del encargo (§23): se añadió
 para la desambiguación de §17 («hay 3 María García»). Es de lectura, devuelve

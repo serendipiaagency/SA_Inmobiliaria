@@ -1,6 +1,7 @@
 import { and, eq, gte, inArray, isNotNull, isNull, lte, ne, or, sql, type SQL } from 'drizzle-orm'
 import { createError } from 'h3'
 import { schema, now } from '../db'
+import { parsePermissionsConfig } from '../permissions'
 
 /**
  * Dashboard comercial (FASE 33). Un único servicio de agregación — los KPIs
@@ -25,10 +26,17 @@ import { schema, now } from '../db'
  * cancelada, oferta, operación no cancelada) — nunca se mezclan periodos.
  *
  * Segmentación (§93-100), combinable: comercial (leads.agent_id), oficina
- * (team_members.office_name del comercial — no existe una entidad Office),
- * origen, portal, campaña (campaign o utm_campaign) e inmueble
- * (leads.property_id). Visitas, ofertas y operaciones se acotan por el mismo
- * scope a través de su comercial y de su lead.
+ * (núcleo N8a: la ENTIDAD Oficina, `officeId` — la del propio registro si la
+ * tiene, si no la de su comercial; `office` con el texto antiguo
+ * `team_members.office_name` sigue aceptándose para enlaces viejos), origen,
+ * portal, campaña (campaign o utm_campaign) e inmueble (leads.property_id).
+ * Visitas, ofertas y operaciones se acotan por el mismo scope a través de su
+ * comercial y de su lead.
+ *
+ * Visibilidad (núcleo N8a, `dashboardVisibilityFor`): un administrador o
+ * gerente ve toda la agencia; un comercial (usuario restringido vinculado a
+ * su ficha, `team_members.user_id`) sólo lo suyo — el servidor fuerza su
+ * `commercialId` —; un usuario restringido sin ficha no ve el dashboard.
  *
  * Fechas en UTC (todas las marcas de tiempo del proyecto lo son).
  */
@@ -37,6 +45,9 @@ export interface DashboardScope {
   from: string // YYYY-MM-DD, inclusive
   to: string // YYYY-MM-DD, inclusive
   commercialId?: number | null
+  /** Núcleo N8a: la entidad Oficina. */
+  officeId?: number | null
+  /** Texto heredado (`team_members.office_name`), sólo para enlaces anteriores a la entidad. */
   office?: string | null
   source?: string | null
   portal?: string | null
@@ -61,6 +72,7 @@ export function parseDashboardScope(q: Record<string, any>, nowMs = Date.now()):
     from,
     to,
     commercialId: int(q.commercialId),
+    officeId: int(q.officeId),
     office: str(q.office),
     source: str(q.source),
     portal: str(q.portal),
@@ -70,6 +82,50 @@ export function parseDashboardScope(q: Record<string, any>, nowMs = Date.now()):
   }
 }
 
+// --- visibilidad por comercial (núcleo N8a) ---------------------------------------
+
+export type DashboardVisibility = { mode: 'all' } | { mode: 'own'; commercialId: number; commercialName: string } | { mode: 'none'; reason: string }
+
+/**
+ * Quién ve qué en el dashboard comercial, con los permisos que ya existen
+ * (server/utils/permissions.ts) y el vínculo usuario ↔ comercial
+ * (`team_members.user_id`, migración 0086):
+ *
+ *   - **Toda la agencia** (y puede filtrar por cualquier comercial u
+ *     oficina): `super_admin`; un administrador sin restricciones
+ *     (`users.permissions` NULL), que es el administrador de la agencia; y
+ *     una cuenta restringida con escritura en Sistema (`system:write`), que
+ *     gestiona usuarios y permisos — restringirle la vista no protegería
+ *     nada, porque podría quitarse la restricción él mismo. Ése es el
+ *     «gerente».
+ *   - **Sólo lo suyo**: cualquier otra cuenta (restringida, sin
+ *     `system:write`) vinculada a su ficha de comercial. El servidor fuerza
+ *     su `commercialId` en todos los KPIs, el embudo, la tabla y las
+ *     opciones de filtro; lo que pida el navegador no lo cambia.
+ *   - **Nada** (403): una cuenta restringida sin ficha vinculada. Falla
+ *     cerrada: sin vínculo no se sabe qué es «lo suyo».
+ */
+export async function dashboardVisibilityFor(db: any, orgId: number, user: { id: number; role: string; permissions?: string | null }): Promise<DashboardVisibility> {
+  if (user.role === 'super_admin') return { mode: 'all' }
+  const cfg = parsePermissionsConfig(user.permissions)
+  if (cfg.kind === 'unrestricted') return { mode: 'all' }
+  if (cfg.kind === 'restricted' && cfg.granted.has('system:write')) return { mode: 'all' }
+  const [member] = await db
+    .select({ id: schema.teamMembers.id, name: schema.teamMembers.name })
+    .from(schema.teamMembers)
+    .where(and(eq(schema.teamMembers.organizationId, orgId), eq(schema.teamMembers.userId, user.id)))
+    .limit(1)
+  if (member) return { mode: 'own', commercialId: member.id, commercialName: member.name }
+  return { mode: 'none', reason: 'Tu usuario no está vinculado a ninguna ficha de comercial, así que no hay datos «tuyos» que enseñar. Pide a un administrador que lo vincule en la ficha del comercial (campo «Usuario del panel»).' }
+}
+
+/** El scope que de verdad se calcula: con «sólo lo suyo», su comercial siempre, pida lo que pida el navegador. */
+export function applyDashboardVisibility(s: DashboardScope, visibility: DashboardVisibility): DashboardScope {
+  if (visibility.mode === 'own') return { ...s, commercialId: visibility.commercialId }
+  if (visibility.mode === 'none') throw createError({ statusCode: 403, statusMessage: visibility.reason })
+  return s
+}
+
 const start = (d: string) => `${d} 00:00:00`
 const end = (d: string) => `${d} 23:59:59`
 
@@ -77,11 +133,27 @@ function hasLeadFilters(s: DashboardScope) {
   return Boolean(s.source || s.portal || s.campaign || s.propertyId)
 }
 
+/** Los comerciales de una oficina (entidad) como subconsulta. */
+function teamInOffice(orgId: number, officeId: number): SQL {
+  return sql`(SELECT id FROM team_members WHERE organization_id = ${orgId} AND office_id = ${officeId})`
+}
+
+/**
+ * Oficina de un registro: la suya (`officeCol`) si la tiene; si no, la de su
+ * comercial. Ofertas y tareas no tienen oficina propia: sólo la del comercial.
+ */
+function officeCond(orgId: number, officeId: number, commercialCol: any, officeCol?: any): SQL {
+  return officeCol
+    ? sql`(${officeCol} = ${officeId} OR (${officeCol} IS NULL AND ${commercialCol} IN ${teamInOffice(orgId, officeId)}))`
+    : sql`${commercialCol} IN ${teamInOffice(orgId, officeId)}`
+}
+
 /** Condiciones sobre `leads` para el scope (sin periodo). */
 function leadScopeConds(orgId: number, s: DashboardScope): SQL[] {
   const L = schema.leads
   const conds: SQL[] = [eq(L.organizationId, orgId)]
   if (s.commercialId) conds.push(eq(L.agentId, s.commercialId))
+  if (s.officeId) conds.push(officeCond(orgId, s.officeId, L.agentId, L.officeId))
   if (s.office) conds.push(sql`${L.agentId} IN (SELECT id FROM team_members WHERE organization_id = ${orgId} AND office_name = ${s.office})`)
   if (s.source) conds.push(eq(L.source, s.source))
   if (s.portal) conds.push(eq(L.portal, s.portal))
@@ -94,6 +166,7 @@ function leadScopeConds(orgId: number, s: DashboardScope): SQL[] {
 function scopedLeadIdsSql(orgId: number, s: DashboardScope): SQL {
   const parts: SQL[] = [sql`organization_id = ${orgId}`]
   if (s.commercialId) parts.push(sql`agent_id = ${s.commercialId}`)
+  if (s.officeId) parts.push(sql`(office_id = ${s.officeId} OR (office_id IS NULL AND agent_id IN ${teamInOffice(orgId, s.officeId)}))`)
   if (s.office) parts.push(sql`agent_id IN (SELECT id FROM team_members WHERE organization_id = ${orgId} AND office_name = ${s.office})`)
   if (s.source) parts.push(sql`source = ${s.source}`)
   if (s.portal) parts.push(sql`portal = ${s.portal}`)
@@ -102,10 +175,11 @@ function scopedLeadIdsSql(orgId: number, s: DashboardScope): SQL {
   return sql`(SELECT id FROM leads WHERE ${sql.join(parts, sql` AND `)})`
 }
 
-/** Condición de comercial/oficina sobre una columna de comercial (visitas.agent_id, offers.commercial_id…). */
-function commercialConds(orgId: number, s: DashboardScope, col: any): SQL[] {
+/** Condición de comercial/oficina sobre una columna de comercial (visitas.agent_id, offers.commercial_id…) y, si la tiene, la oficina propia del registro. */
+function commercialConds(orgId: number, s: DashboardScope, col: any, officeCol?: any): SQL[] {
   const conds: SQL[] = []
   if (s.commercialId) conds.push(eq(col, s.commercialId))
+  if (s.officeId) conds.push(officeCond(orgId, s.officeId, col, officeCol))
   if (s.office) conds.push(sql`${col} IN (SELECT id FROM team_members WHERE organization_id = ${orgId} AND office_name = ${s.office})`)
   return conds
 }
@@ -156,7 +230,7 @@ async function periodKpis(db: any, orgId: number, s: DashboardScope, nowTs: stri
     .filter((m: number | null): m is number => m !== null)
 
   const visitScope = (extra: SQL[]) => {
-    const conds: SQL[] = [eq(V.organizationId, orgId), eq(V.type, 'property_viewing'), ...commercialConds(orgId, s, V.agentId), ...extra]
+    const conds: SQL[] = [eq(V.organizationId, orgId), eq(V.type, 'property_viewing'), ...commercialConds(orgId, s, V.agentId, V.officeId), ...extra]
     if (leadFiltered) conds.push(sql`${V.leadId} IN ${scopedLeads}`)
     return and(...conds)!
   }
@@ -170,7 +244,7 @@ async function periodKpis(db: any, orgId: number, s: DashboardScope, nowTs: stri
   const offers = await count(db, O, offerScope([inPeriod(O.createdAt)]))
 
   const dealScope = (extra: SQL[]) => {
-    const conds: SQL[] = [eq(D.organizationId, orgId), ...commercialConds(orgId, s, D.commercialId), ...extra]
+    const conds: SQL[] = [eq(D.organizationId, orgId), ...commercialConds(orgId, s, D.commercialId, D.officeId), ...extra]
     if (leadFiltered) conds.push(sql`${D.leadId} IN ${scopedLeads}`)
     return and(...conds)!
   }
@@ -234,6 +308,8 @@ function previousPeriod(s: DashboardScope): DashboardScope {
 function leadsLink(s: DashboardScope, extra: Record<string, string>) {
   const p = new URLSearchParams()
   if (s.commercialId) p.set('agentId', String(s.commercialId))
+  // La misma regla de oficina que el dashboard (la del lead o, sin ella, la de su comercial).
+  if (s.officeId) p.set('officeScope', String(s.officeId))
   if (s.office) p.set('office', s.office)
   if (s.source) p.set('source', s.source)
   if (s.portal) p.set('portal', s.portal)
@@ -303,13 +379,18 @@ export async function getCommercialDashboard(db: any, orgId: number, s: Dashboar
     .from(L)
     .where(and(...leadScopeConds(orgId, s), gte(L.createdAt, start(s.from)), lte(L.createdAt, end(s.to)))!)
     .groupBy(L.agentId)
-  const team = await db.select({ id: schema.teamMembers.id, name: schema.teamMembers.name, officeName: schema.teamMembers.officeName }).from(schema.teamMembers).where(eq(schema.teamMembers.organizationId, orgId))
+  const team = await db
+    .select({ id: schema.teamMembers.id, name: schema.teamMembers.name, officeName: schema.teamMembers.officeName, officeId: schema.teamMembers.officeId })
+    .from(schema.teamMembers)
+    .where(eq(schema.teamMembers.organizationId, orgId))
   const teamById = new Map<number, any>(team.map((t: any) => [t.id, t]))
+  const officeNames = await officeNamesFor(db, orgId)
   const byCommercial = byCommercialRows
     .map((r: any) => ({
       commercialId: r.commercialId,
       name: r.commercialId ? (teamById.get(r.commercialId)?.name ?? `#${r.commercialId}`) : 'Sin asignar',
-      office: r.commercialId ? (teamById.get(r.commercialId)?.officeName ?? null) : null,
+      // La oficina como entidad; el texto antiguo sólo si la ficha todavía no tiene una.
+      office: r.commercialId ? (officeNames.get(teamById.get(r.commercialId)?.officeId) ?? teamById.get(r.commercialId)?.officeName ?? null) : null,
       leads: Number(r.leads ?? 0),
       qualified: Number(r.qualified ?? 0),
       closed: Number(r.closed ?? 0),
@@ -332,7 +413,7 @@ export async function getCommercialDashboard(db: any, orgId: number, s: Dashboar
   }
 
   return {
-    scope: { from: s.from, to: s.to, commercialId: s.commercialId, office: s.office, source: s.source, portal: s.portal, campaign: s.campaign, propertyId: s.propertyId },
+    scope: { from: s.from, to: s.to, commercialId: s.commercialId, officeId: s.officeId ?? null, office: s.office, source: s.source, portal: s.portal, campaign: s.campaign, propertyId: s.propertyId },
     generatedAt: nowTs,
     timezone: 'UTC',
     kpis,
@@ -352,25 +433,43 @@ export async function getCommercialDashboard(db: any, orgId: number, s: Dashboar
   }
 }
 
-/** Opciones reales de los filtros (§93): sólo valores que existen en la agencia. */
-export async function dashboardFilterOptions(db: any, orgId: number) {
+async function officeNamesFor(db: any, orgId: number): Promise<Map<number, string>> {
+  const rows = await db
+    .select({ id: schema.offices.id, name: schema.offices.name })
+    .from(schema.offices)
+    .where(and(eq(schema.offices.organizationId, orgId), isNull(schema.offices.deletedAt)))
+  return new Map(rows.map((o: any) => [o.id, o.name]))
+}
+
+/** Opciones reales de los filtros (§93): sólo valores que existen en la agencia. Con visibilidad «sólo lo suyo», sólo su ficha y su oficina. */
+export async function dashboardFilterOptions(db: any, orgId: number, visibility: DashboardVisibility = { mode: 'all' }) {
   const L = schema.leads
   const team = await db
-    .select({ id: schema.teamMembers.id, name: schema.teamMembers.name, officeName: schema.teamMembers.officeName })
+    .select({ id: schema.teamMembers.id, name: schema.teamMembers.name, officeName: schema.teamMembers.officeName, officeId: schema.teamMembers.officeId })
     .from(schema.teamMembers)
     .where(eq(schema.teamMembers.organizationId, orgId))
     .orderBy(schema.teamMembers.name)
+  const officeNames = await officeNamesFor(db, orgId)
+  const visibleTeam = visibility.mode === 'own' ? team.filter((t: any) => t.id === visibility.commercialId) : team
+  // «Sólo lo suyo»: las opciones salen únicamente de sus leads (ni campañas ni inmuebles de los demás).
+  const own = visibility.mode === 'own' ? [eq(L.agentId, visibility.commercialId)] : []
   const distinct = async (col: any) =>
-    (await db.selectDistinct({ v: col }).from(L).where(and(eq(L.organizationId, orgId), isNotNull(col), ne(col, ''))!).limit(100)).map((r: any) => r.v).sort()
+    (await db.selectDistinct({ v: col }).from(L).where(and(eq(L.organizationId, orgId), ...own, isNotNull(col), ne(col, ''))!).limit(100)).map((r: any) => r.v).sort()
   const campaigns = [...new Set([...(await distinct(L.campaign)), ...(await distinct(L.utmCampaign))])].sort()
   const properties = await db
     .selectDistinct({ id: L.propertyId, name: L.propertyName })
     .from(L)
-    .where(and(eq(L.organizationId, orgId), isNotNull(L.propertyId))!)
+    .where(and(eq(L.organizationId, orgId), ...own, isNotNull(L.propertyId))!)
     .limit(100)
+  const offices =
+    visibility.mode === 'own'
+      ? visibleTeam.filter((t: any) => t.officeId && officeNames.has(t.officeId)).map((t: any) => ({ id: t.officeId, name: officeNames.get(t.officeId)! }))
+      : [...officeNames.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name, 'es'))
   return {
-    commercials: team.map((t: any) => ({ id: t.id, name: t.name })),
-    offices: [...new Set(team.map((t: any) => t.officeName).filter(Boolean))].sort(),
+    visibility,
+    commercials: visibleTeam.map((t: any) => ({ id: t.id, name: t.name })),
+    /** Núcleo N8a: la entidad Oficina ({ id, name }), ya no el texto de la ficha. */
+    offices,
     sources: await distinct(L.source),
     portals: await distinct(L.portal),
     campaigns,

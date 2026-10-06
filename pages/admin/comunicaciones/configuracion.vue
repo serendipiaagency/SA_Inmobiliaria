@@ -3,7 +3,7 @@
     <div class="mb-6">
       <NuxtLink to="/admin/comunicaciones" class="text-xs font-medium text-stone-400 hover:text-ink">← Comunicaciones</NuxtLink>
       <h1 class="mt-2 text-2xl font-semibold tracking-tight">Configuración de Comunicaciones</h1>
-      <p class="mt-1 text-sm text-stone-500">Números de WhatsApp conectados, llamadas, plantillas y ajustes de la bandeja.</p>
+      <p class="mt-1 text-sm text-stone-500">Números de WhatsApp conectados, llamadas, plantillas, ajustes de la bandeja y el chat de la web.</p>
     </div>
 
     <div v-if="!canWrite('system')" class="card p-6 text-sm text-stone-500">Esta pantalla es de Sistema: tu cuenta no tiene permiso para cambiar la configuración.</div>
@@ -200,6 +200,21 @@
             Avisar por email al equipo cuando alguien escribe por primera vez
           </label>
         </div>
+        <!-- Núcleo N8a: chat de la web pública, activable por agencia -->
+        <div class="mt-5 rounded-xl border border-line bg-stone-50 p-4" data-testid="settings-webchat">
+          <label class="flex items-center gap-2 text-[13px] font-medium">
+            <input v-model="settings.webChatEnabled" type="checkbox" class="h-4 w-4 rounded border-line" data-testid="settings-webchat-enabled">
+            Activar el chat en la web pública de la agencia
+          </label>
+          <p class="mt-1 text-[11px] leading-relaxed text-stone-500">
+            Aparece un botón «Chatea con nosotros» en todas las páginas de la web (no en el panel). Cada conversación llega aquí, a la bandeja, como hilo «Chat web»;
+            se responde desde Comunicaciones y el visitante ve la respuesta en la web. Si deja email o teléfono se crea su lead. Sin cookies: la sesión del visitante es un token en su navegador.
+          </p>
+          <label class="mt-3 block">
+            <span class="label">Saludo del chat (opcional)</span>
+            <input v-model="settings.webChatGreeting" class="input rounded-lg bg-white" maxlength="200" placeholder="¡Hola! ¿En qué podemos ayudarte?" data-testid="settings-webchat-greeting">
+          </label>
+        </div>
         <div class="mt-4 flex items-center gap-3">
           <button type="button" class="btn-primary !px-5 !py-2" :disabled="saving" data-testid="settings-save" @click="saveSettings">Guardar ajustes</button>
           <span v-if="settingsSaved" class="text-sm font-medium text-emerald-600">✓ Guardado</span>
@@ -248,8 +263,8 @@ const { data, refresh } = await useFetch<any>('/api/admin/comms/channels', { def
 const rows = computed<any[]>(() => data.value?.rows || [])
 const { data: tplData, refresh: refreshTemplates } = await useFetch<{ rows: any[] }>('/api/admin/comms/templates', { default: () => ({ rows: [] }) })
 const { data: settingsData } = await useFetch<any>('/api/admin/comms/settings', { default: () => null })
-const settings = reactive({ defaultCountryPrefix: '', unknownContactPolicy: 'ask', notifyInternal: true })
-watch(settingsData, (s) => { if (s) Object.assign(settings, { defaultCountryPrefix: s.defaultCountryPrefix || '', unknownContactPolicy: s.unknownContactPolicy, notifyInternal: s.notifyInternal }) }, { immediate: true })
+const settings = reactive({ defaultCountryPrefix: '', unknownContactPolicy: 'ask', notifyInternal: true, webChatEnabled: false, webChatGreeting: '' })
+watch(settingsData, (s) => { if (s) Object.assign(settings, { defaultCountryPrefix: s.defaultCountryPrefix || '', unknownContactPolicy: s.unknownContactPolicy, notifyInternal: s.notifyInternal, webChatEnabled: Boolean(s.webChatEnabled), webChatGreeting: s.webChatGreeting || '' }) }, { immediate: true })
 
 const formOpen = ref(false)
 const saving = ref(false)

@@ -312,7 +312,8 @@ const sort = ref('')
 // (FASE 30) para abrir el lead concreto del que se está hablando.
 const route = useRoute()
 const router = useRouter()
-const DRILL_KEYS = ['ids', 'createdFrom', 'createdTo', 'qualifiedFrom', 'qualifiedTo', 'agentId', 'office', 'portal', 'campaign', 'propertyId', 'unattended'] as const
+// `officeScope` (núcleo N8a): oficina como entidad con la regla del dashboard (la del lead o, sin ella, la de su comercial).
+const DRILL_KEYS = ['ids', 'createdFrom', 'createdTo', 'qualifiedFrom', 'qualifiedTo', 'agentId', 'office', 'officeScope', 'portal', 'campaign', 'propertyId', 'unattended'] as const
 const drill = computed<Record<string, string>>(() => {
   const out: Record<string, string> = {}
   for (const k of DRILL_KEYS) if (typeof route.query[k] === 'string' && route.query[k]) out[k] = route.query[k] as string

@@ -77,7 +77,10 @@ export function renderActivity(row: ActivityRow): { title: string; detail: strin
     case 'DEAL_RECORD_UNLINKED':
       return { title, detail: meta.kind ? `${DEAL_RECORD_KIND_LABELS[meta.kind] || meta.kind} #${meta.recordId}` : null }
     case 'PROPERTY_SHARE_OPENED':
-      return { title, detail: 'Lectura confirmada por WhatsApp' }
+      // Núcleo N8a: también la apertura de su enlace personal (email o chat web).
+      return { title, detail: meta.via === 'link' ? `Abrió su enlace personal (${meta.channel === 'chat' ? 'chat web' : 'email'})` : 'Lectura confirmada por WhatsApp' }
+    case 'PROPERTY_SENT':
+      return { title, detail: meta.channel === 'email' ? 'Por email' : meta.channel === 'chat' ? 'Por el chat web' : null }
     case 'CONTACT_MERGED':
       return { title, detail: meta.mergedName ? `Se unificó «${meta.mergedName}» en este contacto; su historial aparece aquí` : null }
     default:
@@ -107,6 +110,8 @@ export function activityLink(row: ActivityRow): { to: string; label: string } | 
       return { to: '/admin/tareas', label: 'Ver tareas' }
     case 'comms_message':
     case 'comms_call':
+    case 'comms_web_message':
+    case 'property_share_link':
       return { to: '/admin/comunicaciones', label: 'Ver comunicaciones' }
     default:
       return row.appointmentId ? { to: '/admin/visitas', label: 'Ver citas' } : null

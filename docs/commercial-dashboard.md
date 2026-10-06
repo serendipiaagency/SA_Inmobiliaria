@@ -46,9 +46,9 @@ Los filtros se combinan y **todos** los KPIs, el embudo y la tabla usan el
 mismo scope:
 
 - **Comercial**: `leads.agent_id`. Las visitas, ofertas, operaciones y tareas se acotan por su propio comercial.
-- **Oficina**: `team_members.office_name` del comercial. No existe una entidad Office; es el dato real que hay.
+- **Oficina** (núcleo N8a): la **entidad** Oficina (`officeId`, CRM → Oficinas). Cuenta lo que tiene esa oficina asignada — `leads.office_id`, `visits.office_id`, `deal_operations.office_id` — y, si el registro no tiene oficina propia, la de su comercial (`team_members.office_id`). Ofertas y tareas no tienen oficina propia: sólo la de su comercial. Antes era el texto `team_members.office_name`; el parámetro `office` (texto) se sigue aceptando para enlaces antiguos, pero el panel ya no lo ofrece. La tabla «Por comercial» enseña el nombre de la entidad (o el texto antiguo si la ficha aún no tiene oficina).
 - **Origen**: `leads.source`.
-- **Portal**: `leads.portal`. Hoy ninguna entrada lo rellena, así que el filtro sólo aparece cuando existan valores.
+- **Portal**: `leads.portal`. Los formularios de la web nunca lo rellenan, porque quien escribe en la web de la agencia no viene de un portal, y la plataforma no tiene integración directa con ningún portal (ver Marketplace). Desde el núcleo N8a lo rellena la captación real: `POST /api/v1/leads` con `source: 'portal'` y `portal` (obligatorio en ese caso; opcional `externalId`, que deduplica un reenvío del mismo lead), y el alta manual del lead (N3). El filtro sólo aparece cuando existen valores.
 - **Campaña**: `leads.campaign` o `utm_campaign`.
 - **Inmueble**: `leads.property_id`.
 
@@ -61,8 +61,9 @@ Las opciones de cada filtro son sólo valores que existen en la agencia.
 
 «Leads nuevos», «Leads cualificados» y «Leads sin atender» abren
 `/admin/leads` con el mismo scope en la URL: `createdFrom/To`,
-`qualifiedFrom/To`, `agentId`, `office`, `portal`, `campaign`,
-`propertyId` y `unattended=1`. `leads.get.ts` los acepta y la página
+`qualifiedFrom/To`, `agentId`, `officeScope` (la oficina con la misma regla que
+el dashboard: la del lead o, sin ella, la de su comercial), `office` (texto,
+enlaces antiguos), `portal`, `campaign`, `propertyId` y `unattended=1`. `leads.get.ts` los acepta y la página
 enseña «Filtrado desde el dashboard · quitar». Las demás tarjetas llevan a
 Visitas, Tareas, Compatibilidades u Operaciones.
 
@@ -70,18 +71,31 @@ Visitas, Tareas, Compatibilidades u Operaciones.
 
 - Exige lectura de **CRM** (además del área de la ruta).
 - Sin importes: el dashboard cuenta, no suma dinero (§106).
-- **Visibilidad por comercial: no existe en el RBAC actual.** Los usuarios
-  tienen roles (`super_admin`, `admin`, `user`) y permisos por área, pero
-  ningún vínculo con su ficha de comercial. Por eso cualquier lector del
-  CRM ve las cifras de toda la agencia, igual que hoy ve todos los leads.
-  Restringirlo a «sus métricas» exige primero ese vínculo y aplicarlo
-  también a Leads, Visitas y Ofertas. Es una decisión transversal que no se
-  ha improvisado aquí; mientras tanto, se filtra por comercial.
+- **Cada comercial ve sólo lo suyo** (núcleo N8a, `dashboardVisibilityFor()`
+  en `server/utils/dashboard/commercial.ts`), con los permisos que ya existen
+  (`server/utils/permissions.ts`) y el vínculo usuario ↔ comercial de la
+  migración 0086 (`team_members.user_id`, campo «Usuario del panel» de la
+  ficha del comercial):
+
+  | Cuenta | Ve |
+  | --- | --- |
+  | `super_admin` | Toda la agencia activa |
+  | Administrador sin restricciones (`users.permissions` NULL) | Toda la agencia (es el administrador de la agencia) |
+  | Restringida con `system:write` | Toda la agencia: gestiona usuarios y permisos, así que restringirle la vista no protegería nada (podría quitarse la restricción) — es el «gerente» |
+  | Restringida, sin `system:write`, vinculada a su ficha | **Sólo lo suyo**: el servidor fuerza `commercialId` = su ficha en KPIs, embudo, tabla y opciones de filtro (sus oficinas, sus campañas, sus inmuebles); lo que pida el navegador no lo cambia |
+  | Restringida, sin `system:write`, sin ficha vinculada | Nada: 403 con el motivo (falla cerrada — sin vínculo no se sabe qué es «lo suyo») |
+
+  La respuesta lleva `visibility` (`all` | `own`) y el panel lo dice con un
+  aviso. **Alcance:** la regla se aplica al dashboard comercial. Los listados
+  de Leads, Visitas y Ofertas siguen enseñando la agencia entera a cualquier
+  lector del CRM (el detalle de una tarjeta abre Leads filtrado por su
+  comercial, pero no le impide quitar el filtro): restringirlos es el
+  siguiente paso, transversal, y no se ha hecho aquí.
 
 ## API (sin rutas nuevas)
 
-- `GET /api/admin/saas/overview?view=commercial&from=AAAA-MM-DD&to=AAAA-MM-DD[&compare=1][&commercialId=&office=&source=&portal=&campaign=&propertyId=]`
-- `GET /api/admin/saas/overview?view=commercial-options`: opciones de los filtros.
+- `GET /api/admin/saas/overview?view=commercial&from=AAAA-MM-DD&to=AAAA-MM-DD[&compare=1][&commercialId=&officeId=&office=&source=&portal=&campaign=&propertyId=]` — devuelve además `visibility`.
+- `GET /api/admin/saas/overview?view=commercial-options`: opciones de los filtros (`offices` como `{ id, name }` de la entidad) y `visibility`.
 
 ## Pruebas
 
@@ -90,5 +104,10 @@ Visitas, Tareas, Compatibilidades u Operaciones.
 - §137: un dataset de 1320 → 680 → 390 → 212 → 62 → 28 reproduce exactamente ese embudo.
 - §138: oficina, comercial, origen, campaña y periodo combinados se aplican igual a todos los KPIs.
 - Comparación, aislamiento entre agencias y validación del periodo.
+
+`test/unit/nucleoN8a.test.ts` (núcleo N8a): la regla de visibilidad con cada
+tipo de cuenta, el comercial forzado aunque se pida otro, las opciones
+acotadas, y el filtro por la entidad Oficina (oficina propia del registro o
+la de su comercial).
 
 Hay además un e2e del recorrido en `tests/e2e/commercial-dashboard.spec.ts`.

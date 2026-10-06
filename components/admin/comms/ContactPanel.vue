@@ -21,7 +21,11 @@
           Cliente: <NuxtLink :to="`/admin/clientes/${contact.client.id}`" class="font-medium text-ink hover:underline" data-testid="contact-client-link">{{ contact.client.name }}</NuxtLink>
         </p>
         <p v-if="contact.lead">
-          Lead: <NuxtLink to="/admin/leads" class="font-medium text-ink hover:underline">{{ contact.lead.name }}</NuxtLink> <span class="text-stone-400">({{ contact.lead.status }})</span>
+          Lead: <NuxtLink :to="`/admin/leads/${contact.lead.id}`" class="font-medium text-ink hover:underline">{{ contact.lead.name }}</NuxtLink> <span class="text-stone-400">({{ contact.lead.status }})</span>
+        </p>
+        <!-- Núcleo N8a: el Contact guardado en el hilo -->
+        <p v-if="crmContact">
+          Contacto: <NuxtLink :to="`/admin/contactos/${crmContact.id}`" class="font-medium text-ink hover:underline" data-testid="contact-crm-link">{{ crmContact.name }}</NuxtLink>
         </p>
         <button type="button" class="text-[11px] text-stone-400 hover:text-ink hover:underline" @click="linkOpen = true">Cambiar vínculo</button>
       </div>
@@ -152,10 +156,11 @@ const props = withDefaults(
     property: any | null
     capabilities: { calling: boolean; callPermissions: boolean }
     lead?: any | null
+    crmContact?: { id: number; name: string } | null
     buyerRequirements?: any[]
     appointments?: any[]
   }>(),
-  { lead: null, buyerRequirements: () => [], appointments: () => [] },
+  { lead: null, crmContact: null, buyerRequirements: () => [], appointments: () => [] },
 )
 const emit = defineEmits<{ changed: []; 'share-property': []; 'pick-property': [] }>()
 const dt = useDash()

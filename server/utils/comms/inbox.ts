@@ -110,7 +110,12 @@ export interface CommsSettingsView {
   defaultCountryPrefix: string | null
   unknownContactPolicy: 'ask' | 'lead'
   notifyInternal: boolean
+  /** Núcleo N8a (migración 0087): el chat de la web pública está activo. Apagado por defecto. */
+  webChatEnabled: boolean
+  webChatGreeting: string | null
 }
+
+export const WEB_CHAT_GREETING_MAX = 200
 
 export async function getCommsSettings(db: any, orgId: number): Promise<CommsSettingsView> {
   const rows = await db.select().from(schema.commsSettings).where(eq(schema.commsSettings.organizationId, orgId)).limit(1)
@@ -119,6 +124,8 @@ export async function getCommsSettings(db: any, orgId: number): Promise<CommsSet
     defaultCountryPrefix: row?.defaultCountryPrefix ?? null,
     unknownContactPolicy: row?.unknownContactPolicy === 'lead' ? 'lead' : 'ask',
     notifyInternal: row ? row.notifyInternal === 1 : true,
+    webChatEnabled: row?.webChatEnabled === 1,
+    webChatGreeting: row?.webChatGreeting ?? null,
   }
 }
 
@@ -220,9 +227,11 @@ export async function findOrCreateConversation(db: any, orgId: number, channelId
   if (rows[0]) return { ...rows[0], created: false }
   const nowTs = now()
   try {
+    // Núcleo N8a: el Contact del hilo se guarda desde el principio si ya se conoce.
+    const { contactId: crmContactId } = await resolveActivityContact(db, contactId)
     const [row] = await db
       .insert(schema.commsConversations)
-      .values({ organizationId: orgId, channelId, contactId, status: 'open', unreadCount: 0, createdAt: nowTs, updatedAt: nowTs })
+      .values({ organizationId: orgId, channelId, contactId, status: 'open', unreadCount: 0, crmContactId, createdAt: nowTs, updatedAt: nowTs })
       .returning()
     return { ...row, created: true }
   } catch (e: any) {
@@ -489,6 +498,25 @@ export async function resolveActivityContact(db: any, commsContactId: number): P
     return { contactId: clientRows[0]?.contactId ?? null, leadId: null }
   }
   return { contactId: null, leadId: null }
+}
+
+/**
+ * Núcleo N8a (FASE 29, «el contacto se deduce en vez de guardarse»): guarda
+ * en los hilos de este contacto de WhatsApp el Contact (`contacts.id`) que
+ * hoy se conoce por su vínculo (lead o cliente). Se llama al abrir el hilo y
+ * cada vez que cambia el vínculo. Sin vínculo no borra lo guardado, salvo
+ * con `clear` (al desvincular a mano). Devuelve lo resuelto.
+ */
+export async function syncConversationCrmContact(db: any, orgId: number, commsContactId: number, opts: { clear?: boolean } = {}): Promise<{ contactId: number | null; leadId: number | null }> {
+  const resolved = await resolveActivityContact(db, commsContactId)
+  if (resolved.contactId || opts.clear) {
+    const C = schema.commsConversations
+    await db
+      .update(C)
+      .set({ crmContactId: resolved.contactId })
+      .where(and(eq(C.organizationId, orgId), eq(C.contactId, commsContactId), sql`${C.crmContactId} IS NOT ${resolved.contactId}`))
+  }
+  return resolved
 }
 
 export interface SendOutboundResult {

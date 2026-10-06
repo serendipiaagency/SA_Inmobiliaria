@@ -14,15 +14,17 @@ import { schema, now } from '../db'
  *   responded_recently   mensaje de WhatsApp entrante (o llamada entrante contestada) en las últimas N horas
  *   viewing_requested    una visita a inmueble del lead que no está cancelada
  *   financing_validated  BuyerRequirement: mortgage_status estructurado (aprobada, preaprobada, sin hipoteca)
- *   opened_listings      fichas enviadas por WhatsApp con confirmación de lectura del proveedor
+ *   opened_listings      fichas enviadas con apertura confirmada: lectura de WhatsApp confirmada por el
+ *                        proveedor, o (núcleo N8a) apertura del enlace personal enviado por email o chat web
  *   no_response          penalización (desactivada por defecto): N días sin respuesta tras nuestro último mensaje
  *
  * Lo que NO hace, a propósito:
  *   - Nunca mira `leads.updatedAt` ni infiere nada del texto libre (§61/§59).
- *   - "Abrió fichas" sólo cuenta lecturas confirmadas por WhatsApp de una
- *     ficha que se le envió: la web no asocia sus visitas a un lead (sólo a
- *     una cookie anónima) y enlazarlas sería perfilado sin consentimiento —
- *     no se hace (§64).
+ *   - "Abrió fichas" sólo cuenta aperturas verificables de una ficha que se
+ *     le ENVIÓ: la lectura confirmada por WhatsApp, o (núcleo N8a) que abra
+ *     SU enlace personal (property_share_links, comms/shareLinks.ts). La web
+ *     no asocia sus visitas anónimas a un lead (sólo a una cookie) y
+ *     enlazarlas sería perfilado sin consentimiento — no se hace (§64).
  *   - No es el Match Score (compatibilidad necesidad ↔ inmueble, matching/).
  *   - No cambia el routing ni sustituye al SLA (§75/§76).
  *
@@ -90,7 +92,7 @@ export const LEAD_SCORE_CATALOG: Record<LeadScoreCriterion, CriterionMeta> = {
   },
   opened_listings: {
     label: 'Abrió fichas enviadas',
-    source: 'Fichas enviadas por WhatsApp con confirmación de lectura del proveedor (distintas).',
+    source: 'Fichas enviadas con apertura confirmada (distintas): lectura confirmada por WhatsApp, o apertura de su enlace personal enviado por email o por el chat web.',
     defaults: { points: 4, enabled: true, priority: 60, config: { min: 3 } },
   },
   no_response: {
@@ -113,7 +115,10 @@ export interface LeadScoreSignals {
   lastInboundKind: 'whatsapp' | 'call' | null
   lastOutboundAt: string | null
   viewings: Array<{ id: number; status: string; scheduledAt: string }>
+  /** Fichas DISTINTAS enviadas con apertura confirmada (WhatsApp leído ∪ enlace personal abierto). */
   readPropertyShares: number
+  /** De ellas, cuántas se abrieron por el enlace personal (email o chat web). Sólo para el desglose. */
+  openedLinkShares?: number
 }
 
 export interface LeadScoreBreakdownItem {
@@ -218,7 +223,10 @@ export function evaluateLeadScore(signals: LeadScoreSignals, rules: LeadScoreRul
       case 'opened_listings': {
         const min = Number(rule.config.min) || 3
         applied = signals.readPropertyShares >= min
-        detail = `${signals.readPropertyShares} ficha(s) enviada(s) por WhatsApp con lectura confirmada (mínimo ${min}).`
+        const viaLink = signals.openedLinkShares ?? 0
+        detail = viaLink
+          ? `${signals.readPropertyShares} ficha(s) enviada(s) con apertura confirmada, ${viaLink} por su enlace personal (mínimo ${min}).`
+          : `${signals.readPropertyShares} ficha(s) enviada(s) por WhatsApp con lectura confirmada (mínimo ${min}).`
         break
       }
       case 'no_response': {
@@ -279,7 +287,7 @@ export async function collectLeadScoreSignals(db: any, orgId: number, lead: { id
   let lastInboundAt: string | null = null
   let lastInboundKind: 'whatsapp' | 'call' | null = null
   let lastOutboundAt: string | null = null
-  let readPropertyShares = 0
+  const openedShares = new Set<string>()
   if (commsContactIds.length) {
     const conversationIds: number[] = (
       await db
@@ -317,7 +325,7 @@ export async function collectLeadScoreSignals(db: any, orgId: number, lead: { id
             isNotNull(schema.commsMessages.readAt),
           ),
         )
-      readPropertyShares = new Set(reads.map((r: any) => `${r.propertyKind === 'agent' ? 'agent' : 'developer'}:${r.propertyId}`)).size
+      for (const r of reads) openedShares.add(`${r.propertyKind === 'agent' ? 'agent' : 'developer'}:${r.propertyId}`)
     }
     // Llamadas entrantes contestadas: las de WhatsApp Calling traen
     // answered_at del proveedor; las anotadas a mano con un resultado de
@@ -344,7 +352,22 @@ export async function collectLeadScoreSignals(db: any, orgId: number, lead: { id
     }
   }
 
-  return { requirements, lastInboundAt, lastInboundKind, lastOutboundAt, viewings, readPropertyShares }
+  // Núcleo N8a — aperturas de su enlace personal (email o chat web): sólo las
+  // de un enlace enviado a ESTE lead o a su Contact, y sólo si se abrió de verdad.
+  const L = schema.propertyShareLinks
+  const owners = [eq(L.leadId, lead.id), ...(lead.contactId ? [eq(L.contactId, lead.contactId)] : [])]
+  const linkOpens = await db
+    .select({ propertyId: L.propertyId, propertyKind: L.propertyKind })
+    .from(L)
+    .where(and(eq(L.organizationId, orgId), isNotNull(L.firstOpenedAt), or(...owners)))
+  const viaLink = new Set<string>()
+  for (const r of linkOpens) {
+    const key = `${r.propertyKind === 'agent' ? 'agent' : 'developer'}:${r.propertyId}`
+    viaLink.add(key)
+    openedShares.add(key)
+  }
+
+  return { requirements, lastInboundAt, lastInboundKind, lastOutboundAt, viewings, readPropertyShares: openedShares.size, openedLinkShares: viaLink.size }
 }
 
 // --- reglas por agencia --------------------------------------------------------

@@ -90,7 +90,9 @@ enabled = true
 #                 appointment reminders, same per-minute tick) and
 #                 server/tasks/system/check-custom-domains.ts (every 10th
 #                 minute: verifies each custom domain still routes to its
-#                 organization, alerts on state changes — see that file)
+#                 organization, alerts on state changes — see that file) and
+#                 server/tasks/automations/run.ts (automatizaciones activas de
+#                 cada agencia sobre sus eventos nuevos — bloque N8b)
 # "30 3 * * *" -> server/tasks/system/backup-d1.ts (daily JSON snapshot of
 #                 every D1 table to R2, kept 14 days — see that file for why)
 # "0 5 * * *"  -> server/tasks/system/media-lifecycle.ts (daily, purges media

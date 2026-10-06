@@ -34,6 +34,10 @@ import { documentUpdateFromBody, grantDocumentAccess, revokeDocumentAccess } fro
 import { PROPERTY_FILE_COLUMNS, enforceSingleMainMedia, releaseMediaKeyIfUnreferenced, syncMediaKeyVisibility, validatePropertyMedia } from '../../../utils/properties/media'
 import { isCustomFieldValueResource, validateCustomFieldDefinition } from '../../../utils/customFields/service'
 import { isTagLinkResource } from '../../../utils/tags/service'
+import { updateAutomation } from '../../../utils/automations/service'
+import { runAutomationsForOrg } from '../../../utils/automations/engine'
+import { prepareKnowledgeDocument } from '../../../utils/knowledge/documents'
+import { prepareBrainSettings } from '../../../utils/inmo/brainCatalog'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -84,6 +88,20 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody<Record<string, any>>(event)
+  // Automatizaciones (bloque N8b): editar/activar/desactivar con el permiso
+  // de quien lo hace, o «Procesar ahora» ({ action: 'run' }) — el mismo motor
+  // que el cron, sólo para esta automatización de esta agencia.
+  if (key === 'automations') {
+    if (body?.action === 'run') {
+      if ((existing as any).engine !== 'v1') throw createError({ statusCode: 422, statusMessage: 'Una regla de demostración heredada no se ejecuta' })
+      if (!(existing as any).enabled) throw createError({ statusCode: 422, statusMessage: 'Está desactivada: actívala para que procese eventos' })
+      const summary = await runAutomationsForOrg(db, orgId!, { event, env: (event.context as any).cloudflare?.env || {}, automationId: id })
+      return { ok: true, id, summary }
+    }
+    const row = await updateAutomation(db, orgId!, user, existing, body || {})
+    await logAdminAction(event, { user, orgId, action: 'update', resource: key, resourceId: id, detail: row.enabled ? 'activa' : 'desactivada' })
+    return { ok: true, id, enabled: Boolean(row.enabled) }
+  }
   // Contactos (FASES 8-9): edición con normalización, deduplicación frente a
   // otras personas de la agencia (409 salvo force) y roles.
   if (key === 'contacts') return updateContactFromAdmin(event, orgId!, user, id, body || {})
@@ -158,6 +176,13 @@ export default defineEventHandler(async (event) => {
   if (key === 'lead-routing-rules') await validateRoutingRule(db, orgId!, data, existing as any)
   if (key === 'property-media') await validatePropertyMedia(db, orgId!, data, existing as any)
   if (key === 'custom-fields') await validateCustomFieldDefinition(db, orgId!, data, existing as any)
+  // Bloque N8b: se validan con la fila existente (search_text necesita el
+  // documento entero; un ajuste de cerebro, saber de qué perfil es).
+  if (key === 'knowledge-documents') prepareKnowledgeDocument(data, false, existing as any)
+  if (key === 'inmo-brains') {
+    prepareBrainSettings(data, false, existing as any)
+    data.updatedBy = user.id
+  }
 
   const tenantWhere = buildTenantWhere(db, def.table, def.tenantPolicy, orgId)
   const idCond = eq(def.table.id, id)

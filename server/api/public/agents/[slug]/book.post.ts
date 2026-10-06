@@ -14,6 +14,8 @@ import { isValidEmail, isValidPhone } from '../../../../utils/validate'
 import { recordActivity } from '../../../../utils/activity/service'
 import { syncLeadNextAction } from '../../../../utils/leads/nextAction'
 import { livePropertyCond } from '../../../../utils/properties/trash'
+import { recordWebFormSubmission } from '../../../../utils/comms/web'
+import { samePagePath } from '../../../../utils/comms/webPublic'
 
 const VALID_CHANNELS = ['in_person', 'video', 'phone'] as const
 const SLOT_START_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
@@ -173,6 +175,27 @@ export default defineEventHandler(async (event) => {
     metadata: { channel },
   })
   if (bookedLeadId) await syncLeadNextAction(db, orgId, bookedLeadId)
+
+  // Núcleo N8a (FASE 29): la solicitud de visita también es un hilo
+  // «Formulario web» de la bandeja, con su lead, su Contact y la propiedad.
+  try {
+    const channelLabel = channel === 'video' ? 'videollamada' : channel === 'phone' ? 'teléfono' : 'presencial'
+    await recordWebFormSubmission(db, {
+      orgId,
+      formType: 'visit_request',
+      leadId: bookedLeadId,
+      name,
+      email: body.email || null,
+      phone: body.phone || null,
+      message: [`Solicitud de visita con ${agent.name} el ${body.startAt} (${channelLabel})${propertyName ? ` · ${propertyName}` : ''}.`, clientInterest ? `Interés: ${clientInterest}` : null, body.notes ? String(body.notes).slice(0, 2000) : null].filter(Boolean).join('\n'),
+      fields: { startAt: body.startAt, channel, budget: clientBudget },
+      propertyId,
+      propertyKind: propertyId ? 'developer' : null,
+      pageUrl: samePagePath(event),
+    })
+  } catch {
+    // La cita ya quedó guardada: el hilo de la bandeja nunca la bloquea.
+  }
 
   const manageUrl = `${getRequestURL(event).origin}/citas/${managementToken}`
   try {

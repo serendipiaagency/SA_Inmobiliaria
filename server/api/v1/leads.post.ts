@@ -11,6 +11,10 @@ interface CreateLeadBody {
   email?: string
   phone?: string
   source?: string
+  /** Núcleo N8a: con `source: 'portal'`, el portal del que llega (p. ej. «Idealista»). Obligatorio en ese caso. */
+  portal?: string
+  /** Id del lead en el sistema de origen (el portal): deduplica un reenvío del mismo lead. */
+  externalId?: string
   propertyId?: number
   budget?: number
   notes?: string
@@ -26,6 +30,14 @@ interface CreateLeadBody {
  * internal notification) instead of its own INSERT. Like every other
  * intake, an email that already has a lead in this org refreshes that lead
  * instead of duplicating it — `created: false` says so.
+ *
+ * Núcleo N8a (FASE 33, «portal nunca se rellena»): una integración que trae
+ * leads de un portal envía `source: 'portal'` + `portal` (y, si lo tiene,
+ * `externalId`): el lead queda con origen «Portal inmobiliario», su portal
+ * rellenado de verdad y deduplicado por (origen, id externo). Cualquier otro
+ * `source` sigue guardándose como «api», como hasta ahora. La plataforma no
+ * tiene integración directa con ningún portal: este es el único camino por
+ * el que llega ese dato, y sólo si quien llama lo dice.
  */
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireApiKey(event, 'write')
@@ -37,6 +49,10 @@ export default defineEventHandler(async (event) => {
   if (!body?.email && !body?.phone) throw createError({ statusCode: 422, statusMessage: 'email or phone is required' })
   if (body.email && !isValidEmail(body.email)) throw createError({ statusCode: 422, statusMessage: 'Invalid email' })
   if (body.phone && !isValidPhone(body.phone)) throw createError({ statusCode: 422, statusMessage: 'Invalid phone' })
+  const fromPortal = body.source === 'portal'
+  const portal = typeof body.portal === 'string' ? body.portal.trim().slice(0, 100) : ''
+  if (fromPortal && !portal) throw createError({ statusCode: 422, statusMessage: 'portal is required when source is "portal"' })
+  const externalId = typeof body.externalId === 'string' || typeof body.externalId === 'number' ? String(body.externalId).trim().slice(0, 120) || null : null
 
   const db = useDb(event)
   let propertyName: string | null = null
@@ -57,7 +73,9 @@ export default defineEventHandler(async (event) => {
     name: name.slice(0, 200),
     email: body.email?.trim() || null,
     phone: body.phone?.trim() || null,
-    source: 'api',
+    source: fromPortal ? 'portal' : 'api',
+    ...(fromPortal ? { portal, sourceDetail: portal } : {}),
+    externalId,
     budget: body.budget || null,
     propertyId: body.propertyId || null,
     propertyName,

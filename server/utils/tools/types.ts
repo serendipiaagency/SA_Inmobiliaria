@@ -42,8 +42,12 @@ export interface ToolContext {
   env: Record<string, any>
   orgId: number
   user: SessionUser
-  /** Quién origina la llamada: la API directa o el asistente INMO. */
-  source: 'api' | 'inmo'
+  /**
+   * Quién origina la llamada: la API directa, el asistente INMO (también sus
+   * workflows guiados) o una automatización (server/utils/automations), que
+   * se ejecuta con el usuario que la configuró.
+   */
+  source: 'api' | 'inmo' | 'automation'
 }
 
 /** JSON Schema mínimo (lo que entiende la API de herramientas de los modelos), sin dependencias. */

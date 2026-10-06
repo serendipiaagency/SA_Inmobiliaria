@@ -52,6 +52,8 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       { label: 'Rendimiento', to: '/admin/rendimiento', icon: 'chart' },
       { label: 'INMO', to: '/admin/inmo', icon: 'chat' },
+      // Bloque N8b: base de conocimiento, memoria y cerebros de INMO.
+      { label: 'INMO: conocimiento', to: '/admin/inmo-ajustes', icon: 'doc' },
       { label: 'Contactos', to: '/admin/contactos', icon: 'users' },
       { label: 'Compatibilidades', to: '/admin/compatibilidades', icon: 'sparkles' },
       { label: 'Leads', to: '/admin/leads', icon: 'contact' },
@@ -65,6 +67,9 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: 'Comunicaciones', to: '/admin/comunicaciones', icon: 'chat' },
       { label: 'Visitas', to: '/admin/visitas', icon: 'calendar' },
       { label: 'Tareas', to: '/admin/tareas', icon: 'checklist' },
+      // Bloque N8b: automatizaciones reales sobre eventos de CRM (antes, una
+      // demo en Finanzas que no ejecutaba nada).
+      { label: 'Automatizaciones', to: '/admin/automatizaciones', icon: 'bolt' },
       // Bloque N6 (FASES 23-24): las ofertas de toda la agencia y el pipeline
       // de operaciones (Kanban por etapas). Área CRM, como su API.
       { label: 'Ofertas', to: '/admin/ofertas', icon: 'badge' },
@@ -104,7 +109,6 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: 'Contratos', to: '/admin/contratos', icon: 'doc' },
       { label: 'Depósitos', to: '/admin/depositos', icon: 'key' },
       { label: 'Tasador (AVM)', to: '/admin/tasador', icon: 'badge' },
-      { label: 'Automatizaciones', to: '/admin/automatizaciones', icon: 'bolt' },
       { label: 'AI Studio', to: '/admin/ai', icon: 'sparkles' },
       { label: 'Widgets', to: '/admin/widgets', icon: 'widget' },
       { label: 'Marketplace', to: '/admin/marketplace', icon: 'store' },

@@ -57,6 +57,8 @@ export default defineEventHandler(async (event) => {
   const communications = await listPersonCommunications(db, orgId, {
     leadIds: leads.map((l) => l.id),
     clientIds: clients.map((c) => c.id),
+    // Núcleo N8a: los hilos (WhatsApp y web) que tienen guardado este Contact.
+    contactIds: [id],
     emails: [contact.email, ...leads.map((l) => l.email), ...clients.map((c) => c.email)],
   })
 

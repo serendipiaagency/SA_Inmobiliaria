@@ -79,6 +79,10 @@ const RESOURCE_ROWS: Record<string, (f: TenantFixture, tag: string) => Record<st
   'custom-field-values': (f) => ({ organizationId: f.orgId, definitionId: ids['custom-fields'][side(f)], entityType: 'lead', entityKind: 'lead', entityId: f.leadId, valueText: 'x' }),
   'property-tags': (f) => ({ organizationId: f.orgId, tagId: tagIdBy[f.orgId], entityType: 'agent', entityId: f.propertyId }),
   'crm-tags': (f) => ({ organizationId: f.orgId, tagId: tagIdBy[f.orgId], entityType: 'lead', entityId: f.leadId }),
+  // Bloque N8b (migración 0088).
+  automations: (f, tag) => ({ organizationId: f.orgId, name: `${tag} automatización`, trigger: 'lead.created', action: 'notify_team', engine: 'v1', actionConfigJson: JSON.stringify({ message: tag }), createdBy: f.userId }),
+  'knowledge-documents': (f, tag) => ({ organizationId: f.orgId, title: `${tag} documento`, body: `${tag} texto`, searchText: `${tag} texto` }),
+  'inmo-brains': (f) => ({ organizationId: f.orgId, brainKey: 'captacion', enabled: 1 }),
 }
 
 /** Qué agencia es (para referenciar la fila que la misma agencia acaba de crear en otro recurso). */

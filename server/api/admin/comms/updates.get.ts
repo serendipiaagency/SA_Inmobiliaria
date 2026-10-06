@@ -2,6 +2,7 @@ import { and, desc, eq, gt, inArray } from 'drizzle-orm'
 import { requireOrgScope } from '../../../utils/auth'
 import { now, schema, useDb } from '../../../utils/db'
 import { agentNames, crmNamesFor, serializeCall, serializeConversation, unreadTotal } from '../../../utils/comms/admin'
+import { listWebThreads, serializeWebThreads } from '../../../utils/comms/web'
 
 /**
  * GET /api/admin/comms/updates?since=YYYY-MM-DD HH:MM:SS — el "tiempo real"
@@ -44,9 +45,11 @@ export default defineEventHandler(async (event) => {
     : []
   const channelById = new Map(channels.map((c: any) => [c.id, c]))
 
-  const conversations = conversationRows
+  const conversations: any[] = conversationRows
     .filter((c: any) => contactById.has(c.contactId))
-    .map((c: any) => serializeConversation(c, contactById.get(c.contactId)!, crm, channelById.get(c.channelId) ?? null, c.assignedAgentId ? (agents.get(c.assignedAgentId) ?? null) : null))
+    .map((c: any) => ({ ...serializeConversation(c, contactById.get(c.contactId)!, crm, channelById.get(c.channelId) ?? null, c.assignedAgentId ? (agents.get(c.assignedAgentId) ?? null) : null), source: 'whatsapp' }))
+  // Núcleo N8a: los hilos web (formularios y chat) tocados desde `since`, con su clave `w<n>`.
+  if (since) conversations.push(...(await serializeWebThreads(db, orgId, await listWebThreads(db, orgId, { since }, 50))))
 
   const callRows = since
     ? await db

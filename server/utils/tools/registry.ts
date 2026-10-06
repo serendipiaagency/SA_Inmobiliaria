@@ -10,7 +10,8 @@ import { LOST_REASONS, setLeadOutcome, STAGES, transitionLeadStage } from '../le
 import { reassignLead } from '../leads/routing'
 import { orgDefaultCountryPrefix, resolveContact, searchContacts } from '../contacts/service'
 import { createBuyerRequirement, MORTGAGE_STATUSES, OPERATIONS, updateBuyerRequirement } from '../buyerRequirements/service'
-import { findPropertiesForRequirement, PROPERTY_KINDS, type PropertyKind } from '../matching/service'
+import { findPropertiesForCriteria, findPropertiesForRequirement, PROPERTY_KINDS, type ExploratoryCriteria, type PropertyKind } from '../matching/service'
+import { PROPERTY_TYPES } from '../../../utils/propertySheet'
 import { createAdminAppointment } from '../appointments/adminCreate'
 import { updateAppointment } from '../appointments/update'
 import { createTask, TASK_TYPES } from '../tasks/service'
@@ -360,9 +361,12 @@ const updateLeadTool: DomainTool = {
   },
   async run(ctx, input) {
     await loadOwnedLead(ctx.db, ctx.orgId, input.leadId)
-    if (input.commercialId !== undefined) await reassignLead(ctx.event, ctx.orgId, input.leadId, input.commercialId, { userId: ctx.user.id, reason: input.reason ?? 'INMO' })
-    if (input.stage) await transitionLeadStage(ctx.event, ctx.orgId, input.leadId, { toStage: input.stage, reason: input.reason }, { userId: ctx.user.id })
-    if (input.lost !== undefined) await setLeadOutcome(ctx.event, ctx.orgId, input.leadId, { lost: input.lost, lostReason: input.lostReason, note: input.reason }, { userId: ctx.user.id })
+    // Una automatización no es una persona: su cambio queda como «Sistema»
+    // (con el motivo) y no cuenta como primera respuesta humana del SLA.
+    const actorId = ctx.source === 'automation' ? null : ctx.user.id
+    if (input.commercialId !== undefined) await reassignLead(ctx.event, ctx.orgId, input.leadId, input.commercialId, { userId: actorId, reason: input.reason ?? 'INMO' })
+    if (input.stage) await transitionLeadStage(ctx.event, ctx.orgId, input.leadId, { toStage: input.stage, reason: input.reason }, { userId: actorId })
+    if (input.lost !== undefined) await setLeadOutcome(ctx.event, ctx.orgId, input.leadId, { lost: input.lost, lostReason: input.lostReason, note: input.reason }, { userId: actorId })
     const lead = await loadOwnedLead(ctx.db, ctx.orgId, input.leadId)
     return { output: { leadId: lead.id, stage: lead.stage, status: lead.status, commercialId: lead.agentId }, target: { type: 'lead', id: lead.id } }
   },
@@ -488,32 +492,94 @@ const updateBuyerRequirementsTool: DomainTool = {
   },
 }
 
+/**
+ * Criterios en memoria de una búsqueda exploratoria (FASE 30, núcleo N8a):
+ * los mismos campos que `update_buyer_requirements`, validados igual — tipos
+ * del catálogo común y operación sale/rent —, sin persona ni id.
+ */
+function parseExploratoryCriteria(raw: unknown): ExploratoryCriteria {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail('«criteria» debe ser un objeto con los criterios de la búsqueda.')
+  const o = raw as Record<string, unknown>
+  const criteria: ExploratoryCriteria = {
+    operation: v.oneOf(o, 'operation', OPERATIONS) ?? 'sale',
+    propertyTypes: v.strArray(o, 'propertyTypes', { max: 10, values: PROPERTY_TYPES }),
+    // Una zona en texto libre se compara (igual que una guardada) con distrito, ciudad y urbanización.
+    desiredZones: v.strArray(o, 'desiredZones', { max: 10 })?.map((label) => ({ label })),
+    priceMin: v.num(o, 'priceMin', { min: 0 }),
+    priceMax: v.num(o, 'priceMax', { min: 0 }),
+    areaMin: v.num(o, 'areaMin', { min: 0 }),
+    bedroomsMin: v.int(o, 'bedroomsMin', { min: 0, max: 20 }),
+    bathroomsMin: v.int(o, 'bathroomsMin', { min: 0, max: 20 }),
+  }
+  if (criteria.priceMin != null && criteria.priceMax != null && criteria.priceMin > criteria.priceMax) fail('«priceMin» no puede ser mayor que «priceMax».')
+  const given = Object.entries(criteria).filter(([k, val]) => k !== 'operation' && val !== undefined)
+  if (!given.length) fail('Indica al menos un criterio (tipo, zona, precio, superficie, dormitorios o baños).')
+  return criteria
+}
+
 const findMatches: DomainTool = {
   name: 'find_matches',
-  description: 'Propiedades compatibles con una necesidad de compra, calculadas por el motor de Matching (score 0-100 con su desglose). No puntúes tú: usa este resultado.',
+  description:
+    'Propiedades compatibles, calculadas por el motor de Matching (score 0-100 con su desglose). Con buyerRequirementId, para una necesidad guardada. Con criteria, para una búsqueda exploratoria NO guardada (mismo motor; no guarda nada): después ofrece guardarla como necesidad de una persona con update_buyer_requirements. No puntúes tú: usa este resultado.',
   kind: 'read',
   area: 'crm',
   action: 'read',
-  inputSchema: schemaOf({ buyerRequirementId: { type: 'integer' }, limit: { type: 'integer', minimum: 1, maximum: 20 } }, ['buyerRequirementId']),
-  parse: (o) => ({ buyerRequirementId: v.int(o, 'buyerRequirementId', { required: true, min: 1 })!, limit: v.int(o, 'limit', { min: 1, max: 20 }) ?? 10 }),
-  async run(ctx, input) {
-    const found = await findPropertiesForRequirement(ctx.event, ctx.orgId, input.buyerRequirementId, { limit: input.limit })
-    if (!found) throw new ToolError('NOT_FOUND', 'Necesidad no encontrada.')
-    return {
-      output: {
-        buyerRequirementId: input.buyerRequirementId,
-        scanned: found.scanned,
-        results: found.results.map((m: any) => ({
-          property: { id: m.property.id, kind: m.propertyKind, title: m.property.name || m.property.location || `Inmueble #${m.property.id}`, price: m.property.price ?? null },
-          score: m.result.score,
-          eligibility: m.result.eligibility,
-          matched: m.result.matched.map((c: any) => c.label),
-          partial: m.result.partial.map((c: any) => `${c.label}: ${c.detail}`),
-          hardFailures: m.result.failed.map((c: any) => `${c.label}: ${c.detail}`),
-          persistedStatus: m.persisted?.status ?? null,
-        })),
+  inputSchema: schemaOf({
+    buyerRequirementId: { type: 'integer', description: 'Necesidad guardada.' },
+    criteria: {
+      type: 'object',
+      description: 'Necesidad exploratoria sin guardar. Sólo lo que el usuario dijo.',
+      properties: {
+        operation: { type: 'string', enum: [...OPERATIONS] },
+        propertyTypes: { type: 'array', items: { type: 'string', enum: [...PROPERTY_TYPES] } },
+        desiredZones: { type: 'array', items: { type: 'string' }, description: 'Ciudades, distritos o urbanizaciones.' },
+        priceMin: { type: 'number' },
+        priceMax: { type: 'number' },
+        areaMin: { type: 'number' },
+        bedroomsMin: { type: 'integer' },
+        bathroomsMin: { type: 'integer' },
       },
-      target: { type: 'buyer_requirement', id: input.buyerRequirementId },
+      additionalProperties: false,
+    },
+    limit: { type: 'integer', minimum: 1, maximum: 20 },
+  }),
+  parse: (o) => {
+    const buyerRequirementId = v.int(o, 'buyerRequirementId', { min: 1 })
+    const hasCriteria = o.criteria !== undefined && o.criteria !== null
+    if (buyerRequirementId && hasCriteria) fail('Usa buyerRequirementId (necesidad guardada) o criteria (exploratoria), no los dos.')
+    if (!buyerRequirementId && !hasCriteria) fail('Indica buyerRequirementId (necesidad guardada) o criteria (búsqueda exploratoria).')
+    return { buyerRequirementId, criteria: hasCriteria ? parseExploratoryCriteria(o.criteria) : undefined, limit: v.int(o, 'limit', { min: 1, max: 20 }) ?? 10 }
+  },
+  async run(ctx, input) {
+    const exploratory = !input.buyerRequirementId
+    const found = exploratory ? await findPropertiesForCriteria(ctx.event, ctx.orgId, input.criteria!, { limit: input.limit }) : await findPropertiesForRequirement(ctx.event, ctx.orgId, input.buyerRequirementId!, { limit: input.limit })
+    if (!found) throw new ToolError('NOT_FOUND', 'Necesidad no encontrada.')
+    const results = found.results.map((m: any) => ({
+      property: { id: m.property.id, kind: m.propertyKind, title: m.property.name || m.property.location || `Inmueble #${m.property.id}`, price: m.property.price ?? null },
+      score: m.result.score,
+      eligibility: m.result.eligibility,
+      matched: m.result.matched.map((c: any) => c.label),
+      partial: m.result.partial.map((c: any) => `${c.label}: ${c.detail}`),
+      hardFailures: m.result.failed.map((c: any) => `${c.label}: ${c.detail}`),
+      persistedStatus: m.persisted?.status ?? null,
+    }))
+    if (exploratory) {
+      return {
+        output: {
+          exploratory: true,
+          saved: false,
+          criteria: input.criteria,
+          scanned: found.scanned,
+          results,
+          // Lo que el asistente debe ofrecer: la búsqueda no queda guardada en ninguna parte.
+          suggestion: 'Esta búsqueda no se ha guardado. Si es la necesidad de una persona concreta, ofrece guardarla con update_buyer_requirements (contactId + estos mismos criterios).',
+        },
+        target: null,
+      }
+    }
+    return {
+      output: { buyerRequirementId: input.buyerRequirementId, scanned: found.scanned, results },
+      target: { type: 'buyer_requirement', id: input.buyerRequirementId! },
     }
   },
 }

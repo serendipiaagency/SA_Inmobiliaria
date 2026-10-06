@@ -313,17 +313,23 @@ Estado tras el bloque N7a (2026-10-05).
 
 ### FASE 29: comunicaciones
 
+> Actualizado tras el bloque N8a (2026-10-05). Detalle en [communications.md](communications.md), «Formularios y chat web».
+
 - **OK:** WhatsApp, vínculo con lead y con propiedad.
+- **OK (N8a):** formularios como conversación. Contacto, captación del Constructor Web, solicitud de visita, verificación de visitante y referidos crean un hilo «Formulario web» en la bandeja. Cada hilo guarda su Contact, su Lead y su Property; los envíos de la misma persona se juntan. Se responde sólo por un canal real: email transaccional, chat o abrir su hilo de WhatsApp. Sin canal, se dice.
+- **OK (N8a):** widget de chat en la web pública, activable por agencia (Comunicaciones → Configuración). Cada conversación es un hilo «Chat web»: el comercial responde desde la bandeja y el visitante lo ve por sondeo.
+  - Sesión con token opaco (sólo se guarda su hash) y sin cookies.
+  - Aislado por agencia y por hilo.
+  - Límite de tasa por IP y acción, campo trampa y tope de mensajes sin respuesta.
+- **OK (N8a):** el Contact se guarda en el hilo de WhatsApp (`crm_contact_id`) al crearlo, al vincularlo y al abrirlo; la deducción queda como respaldo para las filas antiguas.
 - **PARCIAL:**
-  - Email: solo salida.
-  - Llamadas: sin validar con una llamada real.
-  - El contacto se deduce en vez de guardarse.
-- **FALTA:** formularios como conversación y widget de chat.
+  - Email: sólo salida. No hay proveedor de entrada, así que no hay bandeja de email entrante. No se simula: una respuesta del cliente llega al buzón de «Responder a» de la agencia, fuera de la plataforma.
+  - Llamadas: sin validar con una llamada real (no hay número de Meta con Calling activo). No se puede validar desde aquí.
 
 ### FASE 30: INMO sobre datos estructurados
 
 - **OK.**
-- **PARCIAL:** el matching de una búsqueda exploratoria solo funciona si se guarda una necesidad.
+- **OK (N8a):** matching de una búsqueda exploratoria sin guardarla. `find_matches` acepta `criteria` en memoria y los evalúa con el mismo prefiltro y el mismo motor que una necesidad guardada. No persiste nada; la salida dice `saved: false` y propone guardarla con `update_buyer_requirements`, que INMO ofrece sin hacerlo hasta que se le pida.
 
 ### FASE 31: tools
 
@@ -333,27 +339,37 @@ Estado tras el bloque N7a (2026-10-05).
 ### FASE 32: lead score
 
 - **OK.**
-- **PARCIAL:** «abrió fichas» solo cuenta WhatsApp.
+- **OK (N8a):** «abrió fichas» cuenta también las aperturas por email y por el chat web.
+  - Una ficha de obra nueva enviada desde un hilo web a una persona conocida lleva un enlace personal (`property_share_links`).
+  - Cuenta sólo si la página la abre en un navegador con el token de esa agencia y esa propiedad.
+  - Se suma a las lecturas confirmadas de WhatsApp sin duplicar propiedades.
+  - Las selecciones de propiedades no tienen página pública ni registro de aperturas, así que no cuentan.
+- **Límite honesto:** sin acuse de lectura del proveedor, un escáner de enlaces que ejecute JavaScript podría contar como apertura.
 
 ### FASE 33: dashboard
 
 - **OK:** KPIs, segmentos y embudo.
-- **PARCIAL:**
-  - Oficina: por texto.
-  - Portal: nunca se rellena.
-- **FALTA:** que cada comercial vea solo lo suyo.
+- **OK (N8a):** oficina como entidad (`officeId`): la del registro (lead, visita, operación) o, si no tiene, la de su comercial. El detalle en Leads usa la misma regla (`officeScope`).
+- **OK (N8a):** portal rellenado en la captación real. `POST /api/v1/leads` con `source: 'portal'` + `portal` (+ `externalId` para deduplicar), y el alta manual. Los formularios de la web no lo rellenan, porque no vienen de un portal, y no hay integración directa con ningún portal.
+- **OK (N8a):** cada comercial ve sólo lo suyo en el dashboard comercial:
+  - Ven toda la agencia: `super_admin`, el administrador sin restricciones y la cuenta restringida con `system:write`.
+  - Una cuenta restringida vinculada a su ficha (`team_members.user_id`) ve sólo lo suyo; el servidor fuerza su comercial.
+  - Una cuenta restringida sin ficha recibe 403.
+- **PARCIAL:** los listados de Leads, Visitas y Ofertas siguen sin esa restricción.
 
 ### FASE 34: módulos posteriores
 
 - No se desarrollan en paralelo.
-- **Ficticio:** `/admin/automatizaciones`, con datos de demo que nada ejecuta.
-- **Desactualizado:** el marketplace.
+- **OK (N8b):** `/admin/automatizaciones` ya no es una demo: motor real con 7 disparadores de hechos registrados, condiciones, 5 acciones que son Domain Tools (sin envíos a clientes), registro de ejecuciones, una ejecución por evento, freno contra bucles y permisos de quien la configura. Las filas de demostración heredadas quedan marcadas `legacy` por el valor por defecto de la columna nueva y nunca se ejecutan. Ver `docs/automatizaciones.md`.
+- **OK (N8a):** el marketplace refleja lo que existe hoy. Cada integración disponible enlaza a la pantalla donde se configura y dice su requisito: WhatsApp, chat y formularios web, email transaccional, Stripe, API v1, webhooks, iCal, widgets e INMO. Portales, MLS, firma electrónica, Google/Outlook, email entrante, redes sociales, conectores de marketing y optimización de rutas aparecen como «Próximamente», sin botones.
 
 ### Arquitectura INMO INTELLIGENCE
 
 - **OK:** Tools.
-- **PARCIAL:** Memoria (solo la conversación en curso).
-- **FALTA:** Brains, RAG y Workflows.
+- **OK (N8b):** Memoria — conversaciones persistentes por usuario y agencia, y hechos confirmados guardados como notas de la ficha, visibles y borrables.
+- **OK (N8b):** Brains — cinco perfiles con sus instrucciones y herramientas; la agencia sólo puede recortarlas.
+- **OK (N8b):** RAG — recuperación léxica con fuentes citadas (ayuda, base de conocimiento de la agencia, notas y fichas); sin fuente, lo dice. Sin vectores ni FTS5 (rompería el export de D1 del pipeline).
+- **OK (N8b):** Workflows — tres secuencias guiadas paso a paso con confirmación, y automatizaciones reales sobre el mismo motor de herramientas.
 
 ## Plan de cierre
 

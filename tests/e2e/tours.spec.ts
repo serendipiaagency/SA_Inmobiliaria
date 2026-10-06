@@ -55,19 +55,26 @@ test.describe('Tours — visitas multi-inmueble', () => {
   })
 
   test('crea un tour con varias paradas de una vez, cada una como cita real e independiente', async () => {
-    const stop1 = randomFutureSlot()
-    const stop2 = shift(stop1, 120) // 2h después, sin solape
-
-    const res = await a.post('/api/admin/saas/tours', {
-      data: {
-        clientName: `Tour E2E ${Date.now()}`,
-        clientEmail: `tour-e2e-${Date.now()}@example.com`,
-        stops: [
-          { agentId, scheduledAt: stop1 },
-          { agentId, scheduledAt: stop2 },
-        ],
-      },
-    })
+    // Otras suites también reservan a este comercial a horas al azar: si el
+    // hueco elegido ya está ocupado (409 de agenda), se prueba con otro.
+    let res!: Awaited<ReturnType<APIRequestContext['post']>>
+    let stop1 = ''
+    let stop2 = ''
+    for (let attempt = 0; attempt < 5; attempt++) {
+      stop1 = randomFutureSlot()
+      stop2 = shift(stop1, 120) // 2h después, sin solape
+      res = await a.post('/api/admin/saas/tours', {
+        data: {
+          clientName: `Tour E2E ${Date.now()}`,
+          clientEmail: `tour-e2e-${Date.now()}@example.com`,
+          stops: [
+            { agentId, scheduledAt: stop1 },
+            { agentId, scheduledAt: stop2 },
+          ],
+        },
+      })
+      if (res.status() !== 409) break
+    }
     expect(res.ok(), await res.text()).toBeTruthy()
     const { id, stopIds } = await res.json()
     expect(stopIds).toHaveLength(2)

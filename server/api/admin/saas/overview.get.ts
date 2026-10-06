@@ -1,6 +1,6 @@
 import { requireOrgScope } from '../../../utils/auth'
 import { useDb } from '../../../utils/db'
-import { dashboardFilterOptions, getCommercialDashboard, parseDashboardScope } from '../../../utils/dashboard/commercial'
+import { applyDashboardVisibility, dashboardFilterOptions, dashboardVisibilityFor, getCommercialDashboard, parseDashboardScope } from '../../../utils/dashboard/commercial'
 
 /**
  * Dashboard overview: KPI cards with month-over-month deltas, a revenue/visitor
@@ -14,12 +14,20 @@ export default defineEventHandler(async (event) => {
   // FASE 33 — Dashboard comercial sobre datos reales (server/utils/dashboard/commercial.ts),
   // como rama de esta ruta y no como una nueva (margen de claves de ruta = 0).
   // Son datos de CRM: además del área de esta ruta, exige lectura de CRM.
+  // Núcleo N8a: cada comercial ve sólo lo suyo (dashboardVisibilityFor —
+  // administrador/gerente: todo; usuario restringido con ficha: su comercial,
+  // forzado en el servidor; restringido sin ficha: 403).
   const view = getQuery(event).view
   if (view === 'commercial' || view === 'commercial-options') {
-    const { orgId } = await requireOrgScope(event, 'crm', 'read')
+    const { user, orgId } = await requireOrgScope(event, 'crm', 'read')
     const db = useDb(event)
-    if (view === 'commercial-options') return dashboardFilterOptions(db, orgId)
-    return getCommercialDashboard(db, orgId, parseDashboardScope(getQuery(event)))
+    const visibility = await dashboardVisibilityFor(db, orgId, user)
+    if (view === 'commercial-options') {
+      if (visibility.mode === 'none') throw createError({ statusCode: 403, statusMessage: visibility.reason })
+      return dashboardFilterOptions(db, orgId, visibility)
+    }
+    const dashboard = await getCommercialDashboard(db, orgId, applyDashboardVisibility(parseDashboardScope(getQuery(event)), visibility))
+    return { ...dashboard, visibility }
   }
 
   const { orgId } = await requireOrgScope(event)

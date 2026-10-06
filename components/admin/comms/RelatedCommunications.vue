@@ -22,6 +22,18 @@
         </li>
       </ul>
     </AdminPanel>
+    <AdminPanel v-if="webThreads" title="Web (formularios y chat)" sub="Lo que escribió por la web, con el hilo de la bandeja." data-testid="related-web-threads">
+      <p v-if="!webThreads.length" class="py-6 text-center text-sm text-stone-400">Ninguno todavía.</p>
+      <ul v-else class="divide-y divide-line">
+        <li v-for="w in webThreads" :key="w.id" class="py-2.5">
+          <NuxtLink :to="`/admin/comunicaciones?conversation=${w.id}`" class="block hover:underline" :data-testid="`related-web-thread-${w.id}`">
+            <span class="text-[11px] font-semibold uppercase tracking-wide text-sky-700">{{ w.channelLabel }}<template v-if="w.formTypeLabel"> · {{ w.formTypeLabel }}</template></span>
+            <span class="block text-[13px] font-medium text-ink">{{ w.lastMessagePreview || 'Conversación' }}</span>
+            <span class="text-[11px] text-stone-400">{{ formatRelative(w.lastMessageAt) }} · {{ CONVERSATION_STATUS[w.status] || w.status }}<span v-if="w.unreadCount"> · {{ w.unreadCount }} sin leer</span></span>
+          </NuxtLink>
+        </li>
+      </ul>
+    </AdminPanel>
     <AdminPanel title="Emails enviados" sub="Sólo salientes: la plataforma envía correo pero no recibe respuestas.">
       <p v-if="!emails.length" class="py-6 text-center text-sm text-stone-400">Ninguno enviado a sus direcciones.</p>
       <ul v-else class="divide-y divide-line" data-testid="related-emails">
@@ -39,10 +51,11 @@
 import { formatDateTime, formatRelative } from '~/composables/useClientConfig'
 
 /**
- * WhatsApp, llamadas y emails enviados de una persona (FASE 29 §139-142) —
+ * WhatsApp, llamadas, hilos web (formularios y chat, núcleo N8a) y emails enviados de una persona (FASE 29 §139-142) —
  * los datos salen de `listPersonCommunications()` (server/utils/comms/related.ts).
  */
-withDefaults(defineProps<{ conversations?: any[]; calls?: any[]; emails?: any[] }>(), { conversations: () => [], calls: () => [], emails: () => [] })
+// `webThreads` (núcleo N8a): sin pasarlo, el panel web no se pinta (la ficha de cliente no lo pide).
+withDefaults(defineProps<{ conversations?: any[]; calls?: any[]; emails?: any[]; webThreads?: any[] }>(), { conversations: () => [], calls: () => [], emails: () => [], webThreads: undefined })
 
 const CONVERSATION_STATUS: Record<string, string> = { open: 'abierta', pending: 'pendiente', closed: 'cerrada' }
 const EMAIL_STATUS: Record<string, { label: string; cls: string }> = {

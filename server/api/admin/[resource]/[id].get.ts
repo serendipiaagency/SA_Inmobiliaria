@@ -11,6 +11,7 @@ import { decorateDocumentRows } from '../../../utils/properties/documents'
 import { buildPropertySummary } from '../../../utils/properties/summary'
 import { assertCustomFieldValueScope } from '../../../utils/customFields/service'
 import { assertTagLinkScope } from '../../../utils/tags/service'
+import { automationDetail } from '../../../utils/automations/service'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -84,6 +85,8 @@ export default defineEventHandler(async (event) => {
     const [decorated] = await decorateDocumentRows(db, orgId!, [row])
     return { row: decorated, translations }
   }
+  // Automatización (bloque N8b): su configuración legible y su registro de ejecuciones.
+  if (key === 'automations') return { ...(await automationDetail(db, orgId!, row)), translations }
   if (key === 'organizations') {
     return { row, translations, overview: await organizationOverview(db, id) }
   }

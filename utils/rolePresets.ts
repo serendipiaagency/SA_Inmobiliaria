@@ -47,7 +47,7 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     key: 'comercial',
     label: 'Comercial',
-    description: 'Lleva el CRM entero (leads, clientes, visitas, reservas, referidos) y consulta el catálogo y la bandeja. No ve facturación, contratos, RGPD ni usuarios.',
+    description: 'Lleva el CRM entero (leads, clientes, visitas, reservas, referidos, automatizaciones e INMO) y consulta el catálogo y la bandeja. No ve facturación, contratos, RGPD ni usuarios.',
     permissions: [read('general'), write('crm'), read('web'), read('inbox')],
   },
   {
@@ -59,7 +59,7 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     key: 'finanzas',
     label: 'Facturación y operaciones',
-    description: 'Facturación, operaciones, ingresos, contratos, depósitos, automatizaciones y claves de API. Consulta el CRM. No ve RGPD ni usuarios.',
+    description: 'Facturación, operaciones, ingresos, contratos, depósitos y claves de API. Consulta el CRM (también las automatizaciones, sin poder cambiarlas). No ve RGPD ni usuarios.',
     permissions: [read('general'), write('finance'), read('crm')],
   },
   {

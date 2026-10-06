@@ -2,6 +2,7 @@ import { AI_MODEL_DEFAULT } from '../ai'
 import { loopbackOrigin } from '../loopback'
 import { executeTool, getTool, toolCatalogFor } from '../tools/execute'
 import type { ToolContext } from '../tools/types'
+import { DEFAULT_BRAIN, getBrainDefinition } from './brainCatalog'
 
 /**
  * INMO sobre datos estructurados (FASE 30). INMO no tiene acceso propio a
@@ -21,6 +22,17 @@ import type { ToolContext } from '../tools/types'
  * en el turno en que el modelo la pide. Se devuelve como `pending`; sólo
  * cuando la persona pulsa «Confirmar» se ejecuta, con `confirmed` y la clave
  * de idempotencia `inmo:<tool_use_id>` — un doble clic no agenda dos visitas.
+ *
+ * Bloque N8b (INMO Intelligence):
+ *  - Cerebro (`deps.brain`): perfil por tarea con sus instrucciones y su
+ *    subconjunto de herramientas. El modelo sólo recibe esas (∩ RBAC) y el
+ *    ejecutor deniega cualquier otra (`allowedTools`).
+ *  - Fuentes (`citations`): lo que devolvió search_knowledge en este turno,
+ *    con referencias F1, F2… únicas en el turno. Una referencia citada en la
+ *    respuesta que no corresponde a ninguna fuente se devuelve en
+ *    `unknownRefs` para que el panel lo avise.
+ *  - Memoria entre conversaciones: la persistencia vive en conversations.ts;
+ *    este módulo sigue recibiendo el historial ya cargado.
  */
 
 export const INMO_MAX_STEPS = 6
@@ -51,6 +63,23 @@ export interface InmoProvenance {
   results?: number
 }
 
+/** Una fuente citable de esta respuesta (search_knowledge). */
+export interface InmoCitation {
+  ref: string
+  sourceType: string
+  sourceId: string | number
+  title: string
+  url: string | null
+}
+
+/** El cerebro con el que trabaja el turno, ya resuelto (perfil ∩ ajustes de la agencia ∩ RBAC). */
+export interface InmoBrainContext {
+  key: string
+  label: string
+  instructions: string
+  tools: readonly string[]
+}
+
 export interface InmoPendingAction {
   toolUseId: string
   tool: string
@@ -72,6 +101,10 @@ export interface InmoTurnResult {
   pending: InmoPendingAction | null
   provenance: InmoProvenance[]
   entities: InmoEntityRef[]
+  citations: InmoCitation[]
+  /** Referencias [Fn] de la respuesta que no salen de ninguna fuente de este turno. */
+  unknownRefs: string[]
+  brain: string | null
 }
 
 export class InmoError extends Error {
@@ -88,6 +121,8 @@ export interface InmoDeps {
   fetch: typeof fetch
   now?: () => Date
   orgName?: string | null
+  /** Sin cerebro: las herramientas del perfil General (∩ RBAC). Nunca create_note ni notify_team: INMO no escribe sin confirmación fuera de su perfil. */
+  brain?: InmoBrainContext | null
 }
 
 // --- saneado del historial que manda el cliente ----------------------------------
@@ -148,8 +183,9 @@ function labelFor(output: any): string | null {
 
 // --- prompt ---------------------------------------------------------------------
 
-export function inmoSystemPrompt(opts: { orgName?: string | null; nowIso: string; entities: InmoEntityRef[] }) {
+export function inmoSystemPrompt(opts: { orgName?: string | null; nowIso: string; entities: InmoEntityRef[]; brain?: InmoBrainContext | null }) {
   const ctx = opts.entities.length ? opts.entities.map((e) => `- ${e.type} #${e.id}${e.label ? ` (${e.label})` : ''}`).join('\n') : '- (ninguna todavía)'
+  const profile = opts.brain && opts.brain.instructions ? ['', `PERFIL «${opts.brain.label}»: ${opts.brain.instructions}`] : []
   return [
     `Eres INMO, el asistente operativo de ${opts.orgName || 'la agencia'} dentro de su panel inmobiliario. Respondes siempre en español, breve y concreto.`,
     '',
@@ -159,18 +195,21 @@ export function inmoSystemPrompt(opts: { orgName?: string | null; nowIso: string
     '',
     'BUSCAR ≠ GUARDAR: una búsqueda exploratoria no crea nada. Sólo usa update_buyer_requirements si el usuario pide guardar la necesidad de una persona concreta.',
     '',
-    'COMPATIBILIDAD: la compatibilidad entre una necesidad y una propiedad la calcula el motor de Matching (find_matches). Nunca calcules ni estimes tú un porcentaje.',
+    'COMPATIBILIDAD: la compatibilidad entre una necesidad y una propiedad la calcula el motor de Matching (find_matches). Nunca calcules ni estimes tú un porcentaje. Para una búsqueda exploratoria sin necesidad guardada, llama a find_matches con criteria (los criterios que el usuario dijo): no guarda nada; después ofrece guardarla como necesidad de una persona con update_buyer_requirements, sin hacerlo hasta que lo pida.',
     '',
     'PERSONAS: para actuar sobre alguien, resuelve antes su id con find_contacts. Si hay varias coincidencias, pregunta cuál es; nunca elijas tú.',
     '',
     'ACCIONES: enviar una propiedad, agendar, mover o cancelar una visita y crear una oferta necesitan que el usuario las confirme: el panel le enseñará un botón. No digas que algo está hecho hasta recibir el resultado de la herramienta. Si el resultado es un error, explícalo con sus palabras.',
     '',
-    'DOCUMENTACIÓN: esta plataforma todavía no tiene una base documental indexada (manuales, procedimientos, políticas). Si te preguntan por eso, dilo claramente; si das orientación general, márcala como conocimiento general y sepárala de los datos de la agencia.',
+    'CONOCIMIENTO: para procedimientos, políticas, «cómo se hace en el panel» o lo anotado sobre alguien, usa search_knowledge (ayuda del panel, documentos de la agencia, notas y fichas). Cita cada dato con su referencia entre corchetes, p. ej. [F1]; no cites referencias que no te haya devuelto. Si no devuelve fuentes, dilo claramente («no tengo ninguna fuente sobre esto»); si das orientación general, márcala como conocimiento general y sepárala de los datos de la agencia.',
+    '',
+    'MEMORIA: lo que la agencia sabe de un contacto, lead, propiedad, cita u operación está en sus notas (recall_memory). Si la persona te pide recordar algo o confirma un dato relevante y duradero, propón guardarlo con remember_fact (se le pedirá confirmación). Nunca guardes contraseñas, claves, tokens ni datos de pago.',
     '',
     `Fecha y hora actuales (UTC): ${opts.nowIso}. Las horas de citas y tareas son la hora local de la agencia tal como se ve en su calendario, con el formato «AAAA-MM-DD HH:MM»: «mañana a las 17:00» es el día de mañana a las 17:00, sin convertir de zona.`,
     '',
     'Entidades ya resueltas en esta conversación (úsalas por id en vez de volver a buscarlas):',
     ctx,
+    ...profile,
   ].join('\n')
 }
 
@@ -180,8 +219,15 @@ function anthropicBase(env: Record<string, any>): string {
   return loopbackOrigin(env.AI_BASE_URL) ?? 'https://api.anthropic.com'
 }
 
+/** Las herramientas que puede usar este turno: las del cerebro, o las del perfil General si no llega ninguno. */
+function brainTools(deps: InmoDeps): readonly string[] {
+  return deps.brain?.tools ?? getBrainDefinition(DEFAULT_BRAIN)!.tools
+}
+
 async function callModel(ctx: ToolContext, deps: InmoDeps, system: string, messages: InmoMessage[]) {
-  const tools = toolCatalogFor(ctx.user).map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema }))
+  const allowed = brainTools(deps)
+  const offered = toolCatalogFor(ctx.user).filter((t) => allowed.includes(t.name))
+  const tools = offered.map((t) => ({ name: t.name, description: t.description, input_schema: t.inputSchema }))
   let res: Response
   try {
     res = await deps.fetch(`${anthropicBase(ctx.env)}/v1/messages`, {
@@ -228,9 +274,22 @@ export async function runInmoTurn(ctx: ToolContext, input: InmoTurnInput, deps: 
   const messages = sanitizeHistory(input.messages)
   const entities = sanitizeEntities(input.entities)
   const provenance: InmoProvenance[] = []
+  const citations: InmoCitation[] = []
 
   const execute = async (toolUseId: string, name: string, toolInput: unknown, confirmed: boolean) => {
-    const r = await executeTool(inmoCtx, name, toolInput, { confirmed, idempotencyKey: `inmo:${toolUseId}` })
+    const r = await executeTool(inmoCtx, name, toolInput, { confirmed, idempotencyKey: `inmo:${toolUseId}`, allowedTools: brainTools(deps) })
+    if (r.ok && name === 'search_knowledge') {
+      // Referencias únicas en todo el turno (F1…Fn aunque haya varias búsquedas):
+      // lo que ve el modelo y lo que enseña el panel son las mismas.
+      const out: any = r.output
+      if (Array.isArray(out?.results)) {
+        out.results = out.results.map((x: any) => {
+          const ref = `F${citations.length + 1}`
+          citations.push({ ref, sourceType: x.sourceType, sourceId: x.sourceId, title: x.title, url: x.url ?? null })
+          return { ...x, ref }
+        })
+      }
+    }
     if (r.ok) {
       const out: any = r.output
       provenance.push({ tool: name, ok: true, target: r.target, ...(Array.isArray(out?.results) ? { results: out.results.length } : {}) })
@@ -264,7 +323,7 @@ export async function runInmoTurn(ctx: ToolContext, input: InmoTurnInput, deps: 
     messages.push({ role: 'user', content: text })
   }
 
-  const system = inmoSystemPrompt({ orgName: deps.orgName, nowIso: (deps.now?.() ?? new Date()).toISOString().slice(0, 16).replace('T', ' '), entities })
+  const system = inmoSystemPrompt({ orgName: deps.orgName, nowIso: (deps.now?.() ?? new Date()).toISOString().slice(0, 16).replace('T', ' '), entities, brain: deps.brain })
   let reply: string | null = null
   let pending: InmoPendingAction | null = null
 
@@ -293,5 +352,7 @@ export async function runInmoTurn(ctx: ToolContext, input: InmoTurnInput, deps: 
     if (step === INMO_MAX_STEPS - 1) reply = 'He llegado al límite de pasos de esta respuesta. Concreta un poco más la petición y sigo.'
   }
 
-  return { ok: true, messages, reply, pending, provenance, entities }
+  const known = new Set(citations.map((c) => c.ref))
+  const unknownRefs = [...new Set([...(reply ?? '').matchAll(/\[(F\d+)\]/g)].map((m) => m[1]))].filter((ref) => !known.has(ref))
+  return { ok: true, messages, reply, pending, provenance, entities, citations, unknownRefs, brain: deps.brain?.key ?? null }
 }

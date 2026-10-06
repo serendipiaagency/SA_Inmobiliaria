@@ -1,4 +1,8 @@
-# Centro de Comunicaciones (WhatsApp Business + llamadas)
+# Centro de Comunicaciones (WhatsApp Business, formularios y chat web, llamadas)
+
+> Núcleo N8a (2026-10-05): la bandeja recibe también los **formularios de la
+> web** y el **chat de la web** como hilos, cada uno con su Contact, Lead y
+> Property guardados. Ver «Formularios y chat web» más abajo.
 
 Bandeja de WhatsApp por agencia dentro del panel (`/admin/comunicaciones`):
 recibir y responder mensajes, compartir propiedades de los dos catálogos
@@ -376,6 +380,154 @@ Objects). El panel sondea `GET /api/admin/comms/updates?since=` cada 10 s
 sitio lo que cambió: conversaciones tocadas, llamadas que cambiaron de
 estado y llamadas entrantes sonando. El contador del menú sale de ahí.
 
+## Formularios y chat web (núcleo N8a, FASE 29)
+
+Migración `0087_comunicaciones_web_y_aperturas.sql`. Un hilo web no es un hilo
+de WhatsApp: no hay número de la agencia (`comms_channels`) ni teléfono
+obligatorio (`comms_contacts`, que exige E.164 único por agencia), así que vive
+en su propia tabla y la bandeja lista los dos juntos.
+
+- `comms_web_threads`: `kind` (`form` | `chat`), estado, comercial asignado,
+  **Contact (`contact_id`), Lead (`lead_id`) y Property (`property_id` +
+  `property_kind`) guardados al crearse**, datos que dejó el visitante, último
+  formulario (`form_type`), página desde la que escribió (sólo la ruta, y sólo
+  si es de la misma web), no leídos y, en el chat, el SHA-256 del token de
+  sesión y su caducidad.
+- `comms_web_messages`: `direction` (`in` | `out` | `note`), `via` (`form` |
+  `chat` | `email` | `note`), cuerpo, campos de texto del formulario (nunca
+  ficheros), ficha compartida, estado y, si salió por email, su fila de
+  `email_log` (el estado que se enseña es el de esa fila: entregado o rebotado
+  lo escribe el webhook de Resend).
+
+Lógica en `server/utils/comms/web.ts` (sin H3, como `inbox.ts`), lado público en
+`server/utils/comms/webPublic.ts`, enlaces personales en
+`server/utils/comms/shareLinks.ts`.
+
+### Formularios → hilo «Formulario web»
+
+Las rutas públicas que crean leads llaman a `recordWebFormSubmission()`
+DESPUÉS de guardar lo suyo y dentro de un `try/catch` (el formulario nunca
+falla por esto):
+
+| Formulario | Ruta | `form_type` | Propiedad |
+| --- | --- | --- | --- |
+| Contacto (`/contacto`, portada) | `POST /api/public/contact` | `contact` | con `propertySlug` (obra nueva, viva, de la agencia) |
+| Formulario de captación del Constructor Web | `POST /api/public/contact` (`form: 'lead_form'`) | `lead_form` | igual |
+| Solicitud de visita (reserva con un comercial) | `POST /api/public/agents/:slug/book` | `visit_request` | la de la cita |
+| Verificación de visitante | `POST /api/public/visitor` | `visitor` | — (los PDF KYC no se copian: sólo se dice cuántos hay) |
+| Referidos | `POST /api/public/referrals` | `referral` | — (agencia = la del enlace) |
+
+Las reclamaciones (`type: complaint`) no son hilos: no crean lead. El lead lo
+crea `upsertLead()` como siempre; el hilo guarda ese lead, el Contact de ese
+lead (`leads.contact_id`) y su comercial como asignado. Los envíos de la misma
+persona (mismo lead → mismo Contact → mismo email) se acumulan en el mismo
+hilo, que se reabre. Un `leadId` de otra agencia se ignora (no se vincula).
+
+### Chat de la web
+
+Activable por agencia (`comms_settings.web_chat_enabled`, apagado por defecto,
+y `web_chat_greeting`) en Configuración → Comunicaciones. `GET
+/api/public/tenant` devuelve `webChat: { enabled, greeting }` y el componente
+`components/WebChatWidget.vue` (en `layouts/default.vue` y en la rama de
+portal de `layouts/root.vue`, o sea, en toda la web pública) sólo aparece si
+está activo. Es un **ajuste por agencia**, no un bloque del Constructor Web:
+así está en todas las páginas, no sólo en la portada.
+
+API — una rama del endpoint de contacto, no una ruta nueva (presupuesto de
+rutas = 0): `POST /api/public/contact?channel=chat&action=…`
+
+| `action` | Cuerpo | Respuesta |
+| --- | --- | --- |
+| `start` | `{ name, email?, phone?, message, propertySlug?, website (trampa), token? }` | `{ token, expiresAt, status, messages }` |
+| `send` | `{ token, message }` | `{ message }` |
+| `poll` | `{ token, after }` | `{ status, messages }` |
+
+Protección:
+
+- La agencia la decide el host (`resolvePublicOrgId`), nunca el cuerpo. Con el
+  chat apagado: 404.
+- Límite de tasa por IP y acción **antes de leer el cuerpo**
+  (`server/utils/rateLimit.ts`): `start` 5 / 10 min, `send` 30 / 5 min, `poll`
+  120 / 10 min. Además, 15 mensajes seguidos del visitante sin respuesta del
+  equipo → 429 («espera a que te respondan»).
+- Campo trampa `website` (400 si llega relleno); nombre ≤ 120, email y
+  teléfono validados, mensaje 1-2000 caracteres sin caracteres de control y
+  con como mucho 3 enlaces.
+- El token es la única credencial: 32 bytes aleatorios en base64url; se guarda
+  sólo su SHA-256 (índice único parcial). Sólo da acceso a SU hilo en ESA
+  agencia (otra agencia, token inventado o caducado → 404). El sondeo nunca
+  devuelve notas internas, ni quién del equipo respondió, ni ids de otros
+  hilos. La sesión dura 30 días desde el último mensaje del visitante.
+- Sin cookies: el widget guarda el token en `localStorage` de la web de la
+  agencia (primera parte). Sin CORS: otra web no puede leer las respuestas.
+- Con email o teléfono se crea/reutiliza su lead por `upsertLead()` (origen
+  `web`, detalle «Chat web», mensaje original y primer contacto de la web). Sin
+  ellos es un visitante anónimo al que sólo se le responde por el chat.
+- El sondeo del widget: cada 6 s con el chat abierto y la pestaña visible, cada
+  30 s cerrado, nunca con la pestaña oculta. Una respuesta del equipo que
+  llega al navegador pasa a `delivered` (es lo único que se sabe: no si la leyó).
+
+No se envía aviso interno por email de un chat anónimo nuevo (sí el de «lead
+nuevo» cuando deja email o teléfono): la bandeja lo cuenta en no leídos.
+
+### La bandeja con hilos web
+
+Sin rutas nuevas: los mismos endpoints de `/api/admin/comms/conversations`
+aceptan la clave `w<n>`:
+
+| Endpoint | Con `:id = w<n>` |
+| --- | --- |
+| `GET /conversations?source=all\|whatsapp\|web_form\|web_chat` | Mezcla WhatsApp y web por `lastMessageAt`; cada fila lleva `source`. Un número de WhatsApp concreto (`channel`) deja fuera los web. `counts` suma los dos. |
+| `GET /conversations/:id` | `kind: 'web'`, mensajes, contexto (lead, necesidades, citas, propiedad, Contact) y `reply` (canales reales con su motivo). |
+| `PATCH /conversations/:id` | estado, comercial (de la agencia, si no 404) y propiedad (viva, de la agencia). |
+| `POST /conversations/:id/messages` | `{ type: 'text', via: 'chat'\|'email', body }` o `{ type: 'property', via, propertyId, propertyKind }`. |
+| `POST /conversations/:id/notes` · `/read` | nota interna (el visitante nunca la ve) · no leídos a cero. |
+| `GET /updates` | incluye los hilos web tocados desde `since`; `unread` los suma. |
+
+**Responder sólo por un canal real** (`webReplyOptions()`): chat si es un hilo
+de chat con la sesión viva; email si dejó email **y** la plataforma tiene
+`RESEND_API_KEY` (plantilla `web_thread_reply`, el texto se escapa entero, sale
+con la identidad de la agencia y deja su fila en `email_log`); WhatsApp si dejó
+un teléfono normalizable y hay un número conectado — la interfaz abre (o
+encuentra) su hilo real de WhatsApp con `POST /api/admin/comms/conversations`,
+donde sigue aplicando la ventana de 24 h. Si no hay canal: 409 con el motivo, y
+la interfaz sólo deja nota interna. Una respuesta aceptada marca el primer
+contacto / primera respuesta humana del lead (`markLeadContacted`) y una ficha
+enviada deja `PROPERTY_SENT` (`entityType: comms_web_message`).
+
+**Enlace personal (FASE 32).** Una ficha de obra nueva compartida por email o
+chat con una persona conocida (el hilo tiene Contact o Lead) lleva
+`/propiedades/<slug>?f=<token>` (`property_share_links`, sólo el hash). La
+página de la propiedad lo registra al pintarse
+(`POST /api/public/properties/:slug/view` con `{ f }`); el servidor sólo lo
+cuenta si el token es de esa agencia y esa propiedad. La primera apertura deja
+`PROPERTY_SHARE_OPENED` con `metadata.via = 'link'` y recalcula el Lead Score
+(ver docs/lead-score.md). 2ª mano no tiene página pública: va sin enlace.
+
+### El Contact se guarda en el hilo de WhatsApp
+
+Antes el Contact de una conversación de WhatsApp se deducía en cada lectura
+(`comms_contacts.lead_id/client_id` → `leads/clients.contact_id`). Ahora
+`comms_conversations.crm_contact_id` lo **guarda** cuando se conoce: al crear
+el hilo (`findOrCreateConversation`), al vincular el contacto
+(`contacts/:id/link`, `contacts` y `openConversation`, que llaman a
+`syncConversationCrmContact`; desvincular lo borra) y al abrir el hilo (se
+rellena si faltaba). Las filas anteriores quedan a NULL hasta su próxima
+apertura o vínculo; mientras, el código sigue deduciéndolo como respaldo. La
+ficha del Contact encuentra sus hilos por ese vínculo guardado
+(`listPersonCommunications({ contactIds })`) y el panel del hilo enlaza a su
+ficha.
+
+### Lo que sigue sin existir (y no se simula)
+
+- **Email entrante.** Resend no recibe correo en este proyecto: no hay bandeja
+  de email entrante ni hilos de email iniciados por el cliente. Una respuesta
+  del cliente a un email nuestro llega al buzón del «Responder a» de la agencia,
+  fuera de la plataforma. Hace falta un proveedor de entrada (p. ej. el inbound
+  de un proveedor de email con su webhook) para cerrarlo.
+- **Llamadas.** Siguen sin validarse con una llamada real (ver «Estado real de
+  las llamadas»): no hay número de Meta con Calling activo en esta plataforma.
+
 ## Permisos y aislamiento
 
 - **Bandeja, hilos, contactos, llamadas, plantillas (lectura)**: área
@@ -409,6 +561,13 @@ Migración `0065_communications_center.sql` — aditiva, sólo tablas nuevas:
 `comms_settings`, `comms_channels`, `comms_contacts`, `comms_conversations`,
 `comms_messages`, `comms_calls`, `comms_templates`, `comms_webhook_events`.
 Ninguna fila existente cambia. Esquema en `server/db/schema.ts`.
+
+Migración `0087_comunicaciones_web_y_aperturas.sql` (núcleo N8a, aditiva) —
+tablas nuevas `comms_web_threads`, `comms_web_messages` y
+`property_share_links`; columnas `comms_conversations.crm_contact_id` (NULL en
+las filas existentes), `comms_settings.web_chat_enabled` (0: el chat queda
+apagado en todas las agencias) y `comms_settings.web_chat_greeting`. Ninguna
+fila existente se reescribe.
 
 Migración `0082_comms_property_kind_and_message_timestamps.sql` (FASE 29,
 aditiva) — añade `property_kind` (`TEXT`, `'agent' | 'developer'`) a
@@ -459,7 +618,8 @@ agencia/externas) sale en el mensaje (§125).
 | Webhooks | `server/api/comms/webhooks/{meta.get,meta.post}.ts`, `twilio/{inbound,status}.post.ts` |
 | API del panel | `server/api/admin/comms/**` |
 | Interfaz | `pages/admin/comunicaciones/{index,configuracion}.vue`, `components/admin/comms/*`, `composables/{useComms,useVoiceManager}.ts` |
-| Pruebas | `test/unit/comms.*.test.ts`, `tests/e2e/comms.spec.ts`, `tests/e2e/principal-flow-fase25-29.spec.ts` (+ simulador `scripts/e2e-provider-mock.mjs`) |
+| Formularios y chat web (hilos, respuesta, enlaces personales) | `server/utils/comms/{web,webPublic,shareLinks}.ts`, `components/admin/comms/{WebComposer,WebMessageBubble,WebThreadPanel}.vue`, `components/WebChatWidget.vue` |
+| Pruebas | `test/unit/comms.*.test.ts`, `test/unit/nucleoN8a.test.ts`, `tests/e2e/comms.spec.ts`, `tests/e2e/nucleo-n8a.spec.ts`, `tests/e2e/principal-flow-fase25-29.spec.ts` (+ simulador `scripts/e2e-provider-mock.mjs`) |
 | Ayuda in-app | `/admin/ayuda` → CRM → Comunicaciones |
 
 ## Qué falta para tenerlo del todo en producción
@@ -472,3 +632,6 @@ agencia/externas) sale en el mensaje (§125).
    Comunicaciones, con su webhook registrado.
 4. Para llamadas: un número de Meta con Calling activo; la primera llamada
    real es la validación pendiente.
+5. Para formularios y chat web (núcleo N8a): la migración `0087` aplicada; el
+   chat se activa por agencia en Configuración → Comunicaciones; responder por
+   email exige `RESEND_API_KEY` (sin él, el redactor lo dice y no envía).
