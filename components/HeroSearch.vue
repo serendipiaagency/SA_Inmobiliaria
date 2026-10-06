@@ -18,7 +18,7 @@
     <!-- Content -->
     <div class="relative z-10 mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-6 lg:px-10">
       <div class="flex flex-1 flex-col justify-center pb-4 pt-24 md:pt-28" :class="contentAlign === 'center' ? 'items-center text-center' : ''">
-        <SbText tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="rise eyebrow !text-white/70" :style="delay(0)" :text="heroEyebrow" />
+        <SbText tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="rise eyebrow w-fit bg-white/15 !text-white/90 backdrop-blur-sm" :style="delay(0)" :text="heroEyebrow" />
         <h1
           class="rise mt-7 max-w-4xl font-serif text-[clamp(3rem,7.5vw,6.75rem)] font-medium leading-[1.01] tracking-[-0.01em] text-white"
           :style="delay(1)"

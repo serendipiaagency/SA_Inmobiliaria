@@ -2,6 +2,16 @@
   <AdminCommsModal title="Editar contacto" sub="Cabecera del contacto: datos de contacto, roles y seguimiento." wide test-id="contact-edit-modal" @close="emit('close')">
     <form class="space-y-4" @submit.prevent="save()">
       <div class="grid gap-3 sm:grid-cols-2">
+        <!-- Foto del contacto (migración 0090): la misma subida que el resto del panel. -->
+        <div class="flex items-center gap-3 sm:col-span-2" data-testid="contact-edit-photo">
+          <AdminPersonAvatar :photo="form.photo" :name="form.name" size="lg" />
+          <label class="cursor-pointer rounded-lg border border-line px-3 py-1.5 text-[12px] font-medium hover:bg-stone-50">
+            {{ form.photo ? 'Cambiar foto' : 'Añadir foto' }}
+            <input type="file" accept="image/*" class="hidden" @change="uploadPhoto" >
+          </label>
+          <button v-if="form.photo" type="button" class="text-[12px] text-red-600 hover:underline" @click="form.photo = ''">Quitar</button>
+          <span v-if="uploadingPhoto" class="text-[12px] text-stone-400">Subiendo…</span>
+        </div>
         <label class="block sm:col-span-2">
           <span class="ce-label">Nombre <span class="text-red-500">*</span></span>
           <input v-model="form.name" class="ce-input" data-testid="contact-edit-name" required >
@@ -175,7 +185,25 @@ const form = reactive({
   nextActionAt: props.contact.nextActionAt ? String(props.contact.nextActionAt).replace(' ', 'T').slice(0, 16) : '',
   notes: props.contact.notes || '',
   roles: [...(props.contact.roles || [])] as string[],
+  photo: props.contact.photo || '',
 })
+
+const uploadingPhoto = ref(false)
+async function uploadPhoto(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  uploadingPhoto.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('folder', 'contacts')
+    form.photo = (await $fetch<{ key: string }>('/api/admin/upload', { method: 'POST', body: fd })).key
+  } catch (err: any) {
+    error.value = err?.data?.statusMessage || 'No se ha podido subir la foto'
+  } finally {
+    uploadingPhoto.value = false
+  }
+}
 
 const commercials = ref<RelationOption[]>([])
 const offices = ref<RelationOption[]>([])

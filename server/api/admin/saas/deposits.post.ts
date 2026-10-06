@@ -3,6 +3,7 @@ import { requireOrgScope } from '../../../utils/auth'
 import { useDb, schema, cfEnv, now, isUniqueConstraintError } from '../../../utils/db'
 import { logAdminAction } from '../../../utils/audit'
 import { createDepositCheckout } from '../../../utils/stripe'
+import { assertNotDemoExternal } from '../../../utils/demo/tenant'
 
 interface Body {
   contractId?: number
@@ -19,6 +20,8 @@ export default defineEventHandler(async (event) => {
   if (!body?.amount || body.amount <= 0) throw createError({ statusCode: 422, statusMessage: 'amount must be greater than 0' })
 
   const db = useDb(event)
+  // Cuenta demo: no se crea ningún cobro (ni sesión de Stripe) desde aquí.
+  await assertNotDemoExternal(db, orgId)
   const contract = (await db.select().from(schema.contracts).where(eq(schema.contracts.id, body.contractId)).limit(1))[0]
   if (!contract || contract.organizationId !== orgId) throw createError({ statusCode: 404, statusMessage: 'Contract not found' })
 

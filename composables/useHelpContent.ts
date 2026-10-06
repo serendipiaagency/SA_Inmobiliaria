@@ -180,6 +180,7 @@ export function useHelpContent() {
         'Actividad: la cronología completa de la persona — leads, necesidades, coincidencias, citas y visitas, tareas, ofertas (también contraofertas y nuevas ofertas), operaciones, fichas enviadas y abiertas, llamadas —, con quién lo hizo y un enlace a cada cosa. Los botones de arriba filtran por tipo; «Ver más antigua» carga lo anterior.',
         'Etiquetas: los contactos ya se pueden etiquetar. En la cabecera de la ficha, escribe una etiqueta en «+ Etiqueta» y pulsa «Añadir» (si ya existe en tu agencia, se reutiliza); la × la quita. Se ven en el listado de Contactos, que se puede filtrar por etiqueta con el desplegable «Todas las etiquetas».',
         'Campos personalizados: en la pestaña «Ficha y duplicados», el panel «Campos personalizados» enseña los campos que tu agencia haya creado para contactos (CRM → Campos personalizados). Rellénalos y pulsa «Guardar campos»; un campo obligatorio vacío no deja guardar y te dice cuál falta.',
+        'Foto: en «Editar», «Añadir foto» sube un retrato de la persona (se guarda en la biblioteca de medios de tu agencia); se ve en la cabecera de la ficha y en el listado. Sin foto se muestran sus iniciales. «Quitar» la elimina de la ficha. Las oficinas también tienen foto (CRM → Oficinas).',
       ],
     },
     {
@@ -634,7 +635,7 @@ export function useHelpContent() {
         'Deshacer/Rehacer (las flechas junto al selector de zoom, o Ctrl/Cmd+Z y Ctrl/Cmd+Mayús+Z) solo cubren la sesión actual del editor.',
         'Cada vez que publicas se guarda una copia de la página. El icono del reloj ("Historial de versiones publicadas", en la barra superior) las lista de la más reciente a la más antigua, con la fecha, quién publicó, cuántas secciones tenía y cuál es la que está ahora mismo en la web. Pulsa "Restaurar" en cualquiera de ellas para recuperarla.',
         'Restaurar una versión NO la publica: la copia sobre tu borrador para que la revises primero, y la web pública sigue mostrando lo mismo que antes hasta que pulses "Publicar cambios". Ojo: al restaurar, el borrador actual se sustituye — si tenías cambios sin publicar los pierdes, aunque puedes recuperarlos con Deshacer (Ctrl/Cmd+Z) sin salir del editor.',
-        'El icono "Abrir sitio publicado" de la barra superior lleva al dominio propio de tu organización — si todavía no tienes uno asignado en Empresas (Sistema → Empresas), el icono aparece deshabilitado hasta que lo configures.',
+        'El icono "Abrir sitio publicado" de la barra superior lleva al dominio propio de tu organización. Si todavía no tienes uno, abre una vista previa de tu web en el dominio de la plataforma que sólo ve quien tiene sesión en tu empresa (con una franja arriba para salir); nadie más la ve ni la indexan los buscadores. Lo mismo hace "Vista previa del sitio" al pie del menú lateral.',
       ],
     },
     {
@@ -1142,6 +1143,9 @@ export function useHelpContent() {
         'Estado: "Suspendida" bloquea el acceso de todo su equipo al momento, incluidas las sesiones abiertas, sin borrar datos ni cuentas; "Activa" lo devuelve tal cual. Ambos cambios piden confirmación, constan en la auditoría y avisan por email a los administradores de la empresa y al super admin.',
         'La columna "Origen" del listado dice cómo se dio de alta cada empresa: desde este panel o desde el registro web público (Landing → "Registro empresa"). Las del registro web entran con acceso inmediato y su administrador es quien se registró.',
         'Usuarios: la ficha lista las cuentas de la empresa. Para añadir o editar usuarios, "Gestionar usuarios" cambia la organización activa a esa empresa y abre Usuarios.',
+        'Cuenta demo comercial: el recuadro de arriba del listado gestiona «Norte Astur Inmobiliaria», una inmobiliaria ficticia de Asturias con seis meses de actividad (propiedades con fotos, contactos, leads, visitas, ofertas, operaciones, facturas, web y blog) para enseñar la plataforma. Se genera por tramos con los mismos servicios que usa el panel (tarda unos minutos; avanza sola con el cron y más rápido con esta pantalla abierta) y su gerente entra con demo@portalinmo, con rol de administradora de esa empresa, nunca de super admin.',
+        'La cuenta demo está marcada como demo: no envía emails, WhatsApp ni webhooks, no llama, no cobra y no publica en portales; lo que intentaría enviar queda registrado como «no enviado». En el navegador, los enlaces de llamar, WhatsApp y email de sus fichas no hacen nada. Su panel lo indica bajo el nombre de la empresa («Cuenta demo · sin envíos reales»).',
+        '"Restablecer la demo…" borra todo lo de la empresa demo —también lo que se haya tocado en una presentación— y la vuelve a generar con la historia anclada a hoy, así nunca parece abandonada. Pide escribir su identificador para confirmar, queda en la auditoría y sólo afecta a esa empresa: el borrado comprueba antes que es la cuenta demo. Ver docs/demo.md.',
       ],
     },
   ]

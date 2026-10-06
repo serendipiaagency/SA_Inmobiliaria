@@ -434,7 +434,8 @@ test.describe('Property Editor — permisos', () => {
       await expect(page.getByRole('link', { name: 'Generar contenido' })).toHaveCount(0)
       await expect(page.getByRole('button', { name: 'Dossier y creatividades' })).toHaveCount(0)
       // …pero «Vista previa» sí, porque sólo abre la ficha pública.
-      await expect(page.getByRole('link', { name: 'Vista previa' })).toBeVisible()
+      // `exact`: el menú lateral también tiene «Vista previa del sitio».
+      await expect(page.getByRole('link', { name: 'Vista previa', exact: true })).toBeVisible()
       await step(page, 'commercial').click()
       await expect(page.getByTestId('property-editor-finish')).toHaveCount(0)
 

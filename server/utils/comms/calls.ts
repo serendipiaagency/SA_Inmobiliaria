@@ -8,6 +8,7 @@ import { findOrCreateConversation, isoToDbTs, resolveActivityContact, upsertCont
 import { metaCallAction } from './providers/metaCloud'
 import type { CallEvent, LoadedChannel } from './types'
 import type { PropertyKind } from '../matching/service'
+import { DEMO_BLOCKED_MESSAGE, isDemoOrg } from '../demo/tenant'
 
 /**
  * Llamadas: las de WhatsApp Calling (Meta) que llegan y salen por WebRTC
@@ -196,6 +197,8 @@ export async function startOutboundCall(
   input: { channel: LoadedChannel; contactId: number; conversationId: number | null; userId: number; sdpOffer: string; propertyId?: number | null; propertyKind?: PropertyKind | null; fetchImpl?: typeof fetch },
 ): Promise<{ ok: boolean; code: CallErrorCode | null; error: string | null; call: CallRow | null }> {
   const { channel } = input
+  // Cuenta demo: no se llama a nadie. Sin fila de llamada: no se intentó.
+  if (await isDemoOrg(db, channel.organizationId)) return { ok: false, code: 'calling_unavailable', error: DEMO_BLOCKED_MESSAGE, call: null }
   if (channel.provider !== 'meta_cloud' || channel.callingStatus !== 'enabled') {
     return { ok: false, code: 'calling_unavailable', error: 'Las llamadas por WhatsApp no están activas en este número (Configuración → Comunicaciones → Llamadas).', call: null }
   }
@@ -257,6 +260,7 @@ export async function callAction(
   input: { channel: LoadedChannel; call: CallRow; action: 'pre_accept' | 'accept' | 'reject' | 'terminate'; sdpAnswer?: string | null; fetchImpl?: typeof fetch },
 ): Promise<{ ok: boolean; error: string | null; call: CallRow | null }> {
   const { channel, call, action } = input
+  if (await isDemoOrg(db, channel.organizationId)) return { ok: false, error: DEMO_BLOCKED_MESSAGE, call: null }
   if (!call.externalId) return { ok: false, error: 'La llamada no tiene id del proveedor.', call: null }
   if (['completed', 'failed', 'rejected', 'missed', 'cancelled'].includes(call.status)) return { ok: false, error: 'La llamada ya terminó.', call: null }
   let r: { ok: boolean; error: string | null }

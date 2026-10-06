@@ -113,6 +113,8 @@ echo "==> Starting wrangler dev on port ${PORT}"
 # server/utils/email/resendClient.ts) y RESEND_API_KEY es un marcador: los
 # emails «se envían» al simulador y tests/e2e/empresas.spec.ts lee el cuerpo
 # exacto que habría recibido Resend. Ninguno sale de la máquina.
+# DEMO_ADMIN_PASSWORD_HASH: la gerente de la cuenta demo entra en el e2e con
+# una contraseña de prueba propia (tests/e2e/demo.spec.ts), no con la real.
 npx wrangler dev --local --port "${PORT}" \
   --var STRIPE_WEBHOOK_SECRET:whsec_e2e_test_placeholder \
   --var RESEND_WEBHOOK_SECRET:whsec_ZTJlX3Rlc3RfcGxhY2Vob2xkZXJfMzJieXRlcw== \
@@ -123,6 +125,7 @@ npx wrangler dev --local --port "${PORT}" \
   --var AI_API_KEY:e2e_ai_key_placeholder \
   --var "RESEND_BASE_URL:${MOCK_URL}" \
   --var RESEND_API_KEY:e2e_resend_key_placeholder \
+  --var 'DEMO_ADMIN_PASSWORD_HASH:pbkdf2$100000$9dTMU/ZZ+Y02mnOruChwjA==$s/rZWZVMWDEHSRt9LVuxtEKDi3/szaoU2Iadwlf3+LU=' \
   >"${LOG_FILE}" 2>&1 &
 PID=$!
 
@@ -141,4 +144,5 @@ if ! curl -sf "${BASE_URL}/" >/dev/null 2>&1; then
 fi
 
 echo "==> Running Playwright"
-E2E_BASE_URL="${BASE_URL}" E2E_PROVIDER_MOCK_URL="${MOCK_URL}" npx playwright test
+# Los argumentos pasan a Playwright: `npm run test:e2e -- tests/e2e/demo.spec.ts` corre sólo ese fichero.
+E2E_BASE_URL="${BASE_URL}" E2E_PROVIDER_MOCK_URL="${MOCK_URL}" npx playwright test "$@"

@@ -6,6 +6,7 @@ import { channelView, encryptChannelCredentials, isCommsEncryptionAvailable } fr
 import { normalizePhone } from '../../../../utils/comms/phone'
 import { isProviderKey } from '../../../../utils/comms/providers/registry'
 import type { ChannelCredentials } from '../../../../utils/comms/types'
+import { assertNotDemoExternal } from '../../../../utils/demo/tenant'
 
 /**
  * POST /api/admin/comms/channels — conecta un número.
@@ -18,6 +19,8 @@ import type { ChannelCredentials } from '../../../../utils/comms/types'
  */
 export default defineEventHandler(async (event) => {
   const { user, orgId } = await requireOrgScope(event, 'system', 'write')
+  // Cuenta demo: no se conecta ningún número real de WhatsApp.
+  await assertNotDemoExternal(useDb(event), orgId)
   const env = cfEnv(event) as Record<string, any>
   if (!isCommsEncryptionAvailable(env)) {
     throw createError({ statusCode: 503, statusMessage: 'Este Worker no tiene COMMS_CREDENTIALS_ENCRYPTION_KEY: no se pueden guardar credenciales. Configúralo con wrangler secret put (docs/communications.md).' })

@@ -1,5 +1,6 @@
 <template>
   <div v-if="tenant?.isCustomDomain" class="flex min-h-screen flex-col bg-paper text-ink">
+    <SitePreviewBar />
     <SiteHeader />
     <main class="flex-1">
       <slot />

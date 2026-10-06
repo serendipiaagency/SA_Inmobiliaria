@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { useDb, schema, cfEnv } from '../utils/db'
 import { normalizeHost, isPrimaryHost } from '../utils/domain'
+import { applySitePreview } from '../utils/sitePreview'
 
 /**
  * Domain-based tenant resolution — runs before everything else (filename
@@ -67,7 +68,22 @@ export default defineEventHandler(async (event) => {
   } catch {
     // No Cloudflare bindings (shouldn't happen outside tests) — treat as unset.
   }
-  if (isPrimaryHost(host, primaryDomain)) return
+  if (isPrimaryHost(host, primaryDomain)) {
+    // Vista previa de la web de una empresa sin dominio, sólo para sus usuarios
+    // (server/utils/sitePreview.ts). El panel y su API no cambian de empresa por esto.
+    if (!ADMIN_BYPASS_PREFIXES.some((p) => requestUrl.pathname.startsWith(p))) {
+      let redirect: string | null = null
+      try {
+        const preview = await applySitePreview(event)
+        if (preview.org) (event.context as any).org = preview.org
+        redirect = preview.redirect
+      } catch {
+        // La vista previa nunca rompe la web del dominio principal.
+      }
+      if (redirect) return sendRedirect(event, redirect, 302)
+    }
+    return
+  }
 
   if (ADMIN_BYPASS_PREFIXES.some((p) => requestUrl.pathname.startsWith(p))) return
 

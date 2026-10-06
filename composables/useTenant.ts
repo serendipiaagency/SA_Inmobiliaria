@@ -18,6 +18,10 @@ export interface TenantBranding {
   webChat?: { enabled: boolean; greeting: string | null }
   /** Moneda de la agencia (Configuración → Moneda): la base en la que están los precios — ver utils/currency.ts. */
   currency?: string
+  /** Vista previa de una empresa sin dominio, sólo para su equipo (server/utils/sitePreview.ts). */
+  preview?: boolean
+  /** Cuenta demo: sin llamadas ni mensajes reales (plugins/demo-links.client.ts). */
+  isDemo?: boolean
 }
 
 /** Domain-resolved branding for the public site (see server/middleware/00.tenant.ts). */

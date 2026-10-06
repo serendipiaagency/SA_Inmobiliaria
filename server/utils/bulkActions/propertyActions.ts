@@ -152,7 +152,7 @@ async function withdrawProperty(event: H3Event, orgId: number, kind: PropertyKin
  * developer-properties). `agent_property_price_history` (migración 0081)
  * escribe aquí por primera vez desde que la tabla existe.
  */
-async function updatePrice(
+export async function updatePropertyPrice(
   event: H3Event,
   orgId: number,
   kind: PropertyKind,
@@ -199,6 +199,6 @@ export function propertyBulkHandlers(kind: PropertyKind): Record<string, BulkAct
     add_tag: (event, orgId, id, params) => addTag(event, orgId, kind, id, params),
     publish: (event, orgId, id) => publishProperty(event, orgId, kind, id),
     withdraw: (event, orgId, id) => withdrawProperty(event, orgId, kind, id),
-    update_price: (event, orgId, id, params, requestedBy) => updatePrice(event, orgId, kind, id, params, requestedBy),
+    update_price: (event, orgId, id, params, requestedBy) => updatePropertyPrice(event, orgId, kind, id, params, requestedBy),
   }
 }

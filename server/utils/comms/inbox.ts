@@ -11,6 +11,7 @@ import { matchCrmByPhone } from './matching'
 import { metaMarkRead, metaSendMessage } from './providers/metaCloud'
 import { twilioSendMessage } from './providers/twilio'
 import { PROVIDERS } from './providers/registry'
+import { DEMO_BLOCKED_MESSAGE, isDemoOrg } from '../demo/tenant'
 import type { CallPermissionEvent, InboundMessageEvent, LoadedChannel, MessageStatusEvent, OutboundMessage, SendResult } from './types'
 
 /**
@@ -549,7 +550,9 @@ export async function sendOutbound(db: any, input: SendOutboundInput): Promise<S
 
   const fetchImpl = input.fetchImpl ?? fetch
   let result: SendResult
-  if (channel.provider === 'meta_cloud') result = await metaSendMessage(channel, input.env, contact.phoneE164, message, fetchImpl)
+  // Cuenta demo: el mensaje queda en el hilo como NO enviado, con el motivo.
+  if (await isDemoOrg(db, channel.organizationId)) result = { ok: false, externalId: null, status: null, errorCode: 'demo_tenant', error: DEMO_BLOCKED_MESSAGE }
+  else if (channel.provider === 'meta_cloud') result = await metaSendMessage(channel, input.env, contact.phoneE164, message, fetchImpl)
   else result = await twilioSendMessage(channel, contact.phoneE164, message, input.statusCallbackUrl ?? null, fetchImpl)
 
   const nowTs = now()
@@ -633,6 +636,7 @@ export async function addInternalNote(db: any, input: { orgId: number; conversat
 export async function markConversationRead(db: any, env: Record<string, any>, channel: LoadedChannel, conversation: ConversationRow, fetchImpl: typeof fetch = fetch): Promise<void> {
   if (conversation.unreadCount > 0) await touchConversation(db, conversation.id, { unreadCount: 0 })
   if (channel.provider !== 'meta_cloud') return
+  if (await isDemoOrg(db, channel.organizationId)) return
   const rows = await db
     .select({ externalId: schema.commsMessages.externalId })
     .from(schema.commsMessages)

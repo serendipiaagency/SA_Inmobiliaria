@@ -4,6 +4,7 @@ import { useDb, schema } from '../db'
 import { trashedPropertyMessage } from '../properties/trash'
 import { organizationCurrency } from '../currency'
 import { formatMoney } from '../../../utils/currency'
+import { clockNow } from '../clock'
 
 const TOKEN_RE = /\{\{([a-zA-Z0-9_.]+)\}\}/g
 
@@ -23,7 +24,7 @@ export async function resolveContractBindings(
   const values: Record<string, string> = {
     'client.name': opts.clientName,
     'client.email': opts.clientEmail || '',
-    'contract.date': new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }),
+    'contract.date': clockNow().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }),
     ...(opts.variables || {}),
   }
 

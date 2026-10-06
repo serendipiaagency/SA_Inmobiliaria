@@ -203,23 +203,48 @@ async function resolvePropertyNameAndType(db: any, orgId: number, propertyId: nu
 }
 
 /**
+ * La comisión pactada en la ficha aplicada al importe de la operación:
+ * porcentaje (3 → el 3 %) o importe fijo. Sin dato válido, 0 (lo de antes).
+ */
+export function commissionFromSheet(agreedAmount: number, sheet: { commissionType?: string | null; commissionValue?: number | null } | null | undefined): { rate: number; amount: number } {
+  const value = Number(sheet?.commissionValue)
+  if (!sheet?.commissionType || !Number.isFinite(value) || value <= 0 || !Number.isFinite(agreedAmount) || agreedAmount <= 0) return { rate: 0, amount: 0 }
+  if (sheet.commissionType === 'percentage') return { rate: value, amount: Math.round(agreedAmount * value) / 100 }
+  if (sheet.commissionType === 'fixed') return { rate: Math.round((value / agreedAmount) * 10_000) / 100, amount: value }
+  return { rate: 0, amount: 0 }
+}
+
+/**
  * Puente al cierre, una sola dirección (ver comentario junto a
  * `dealOperations` en schema.ts y docs/deals.md): crea un apunte en la
  * tabla legacy `deals` para que los informes de comisiones ya existentes
  * (`deals-revenue.get.ts`, `pages/admin/operaciones.vue`) vean también lo
  * cerrado por este pipeline nuevo, sin tocar su esquema ni sus
  * consumidores. Este pipeline nunca lee de vuelta esa tabla.
- * `commissionRate`/`commissionAmount` nacen en 0 — el admin los rellena
- * luego con el PATCH legacy ya existente, igual que con un cierre manual.
+ * La comisión sale de la ficha de la propiedad (`property_legal_economics`:
+ * «Comisión» en porcentaje o importe fijo) aplicada al importe pactado. Sin
+ * comisión en la ficha, nace en 0, como antes.
  */
 async function bridgeToLegacyDeal(db: any, orgId: number, deal: DealRow): Promise<number | null> {
-  const [buyerRows, agentRows, propertyInfo] = await Promise.all([
+  const [buyerRows, agentRows, propertyInfo, economicsRows] = await Promise.all([
     db.select({ name: schema.contacts.name }).from(schema.contacts).where(eq(schema.contacts.id, deal.buyerContactId)).limit(1),
     deal.commercialId
       ? db.select({ name: schema.teamMembers.name }).from(schema.teamMembers).where(eq(schema.teamMembers.id, deal.commercialId)).limit(1)
       : Promise.resolve([] as { name: string }[]),
     resolvePropertyNameAndType(db, orgId, deal.propertyId, deal.propertyKind),
+    db
+      .select({ commissionType: schema.propertyLegalEconomics.commissionType, commissionValue: schema.propertyLegalEconomics.commissionValue })
+      .from(schema.propertyLegalEconomics)
+      .where(
+        and(
+          eq(schema.propertyLegalEconomics.organizationId, orgId),
+          eq(schema.propertyLegalEconomics.propertyKind, deal.propertyKind),
+          eq(schema.propertyLegalEconomics.propertyId, deal.propertyId),
+        ),
+      )
+      .limit(1),
   ])
+  const commission = commissionFromSheet(deal.agreedAmount, economicsRows[0])
 
   const clientName = buyerRows[0]?.name || 'Comprador'
   const agentName = agentRows[0]?.name ?? null
@@ -238,8 +263,8 @@ async function bridgeToLegacyDeal(db: any, orgId: number, deal: DealRow): Promis
       agentName,
       dealType,
       dealValue: deal.agreedAmount,
-      commissionRate: 0,
-      commissionAmount: 0,
+      commissionRate: commission.rate,
+      commissionAmount: commission.amount,
       closedAt: (deal.closedAt || nowTs).slice(0, 10),
       createdBy: deal.createdBy,
       createdAt: nowTs,

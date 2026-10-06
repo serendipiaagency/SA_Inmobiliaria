@@ -10,7 +10,8 @@
         <Logo variant="mark" size="sm" :company-name="orgInfo?.companyName" :logo-url="mediaUrl(orgInfo?.logo)" />
         <div class="min-w-0 leading-tight">
           <p class="truncate text-sm font-semibold">{{ orgInfo?.companyName || orgInfo?.name || 'M&M Real Estate' }}</p>
-          <p class="truncate text-[11px] text-stone-450">Workspace</p>
+          <p v-if="orgInfo?.isDemo" class="truncate text-[11px] font-medium text-amber-700" title="Cuenta de demostración: datos ficticios; no se envía nada fuera de la plataforma" data-testid="demo-badge">Cuenta demo · sin envíos reales</p>
+          <p v-else class="truncate text-[11px] text-stone-450">Workspace</p>
         </div>
       </div>
 
@@ -69,9 +70,11 @@
           target="_blank"
           rel="noopener"
           class="mt-1 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-stone-500 transition hover:bg-stone-100 hover:text-ink"
+          :title="orgInfo?.domain ? undefined : 'Sin dominio propio: se abre una vista previa que sólo ve tu equipo'"
+          data-testid="ver-sitio-publico"
         >
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3" /></svg>
-          Ver sitio público
+          {{ orgInfo?.domain ? 'Ver sitio público' : 'Vista previa del sitio' }}
         </a>
         <span
           v-else
@@ -253,10 +256,14 @@ const { data: orgInfo } = await useFetch<any>('/api/admin/active-org-info')
 // formateen igual. Ver utils/currency.ts.
 const agencyCurrency = useAgencyCurrency()
 watch(orgInfo, (info) => agencyCurrency.set(info?.currency ?? null, info?.recordCurrency ?? null), { immediate: true })
+// Cuenta demo: los enlaces tel:/mailto:/WhatsApp no salen (plugins/demo-links.client.ts).
+const demoOrg = useState<boolean>('demo-org', () => false)
+watch(orgInfo, (info) => (demoOrg.value = Boolean(info?.isDemo)), { immediate: true })
 // Org's own custom domain (server/utils/domain.ts) is where "/" resolves to
-// its real-estate portal home (see server/api/public/tenant.get.ts) — with
-// no domain configured there's no public URL to preview.
-const publicSiteUrl = computed(() => (orgInfo.value?.domain ? `https://${orgInfo.value.domain}/` : null))
+// its real-estate portal home (see server/api/public/tenant.get.ts). Sin
+// dominio, la vista previa del dominio principal (server/utils/sitePreview.ts),
+// que sólo ve quien tiene sesión en esta empresa.
+const publicSiteUrl = computed(() => (orgInfo.value?.domain ? `https://${orgInfo.value.domain}/` : orgInfo.value?.id ? `/?vista_previa=${orgInfo.value.id}` : null))
 
 async function switchOrg() {
   if (!activeOrgId.value) return

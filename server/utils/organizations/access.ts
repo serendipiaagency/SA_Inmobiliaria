@@ -7,7 +7,7 @@
  *   status              operativo, lo decide el super admin: active | suspended
  *   approval_status     aprobación del alta: approved | pending | rejected
  *   billing_status      pago/suscripción: not_required | pending | active | past_due
- *   registration_source cómo se dio de alta: admin | self_service (no decide
+ *   registration_source cómo se dio de alta: admin | self_service | demo (no decide
  *                       por sí mismo; decide qué valores iniciales recibe)
  *
  * Se aplica en dos puntos: al iniciar sesión (server/api/auth/login.post.ts)
@@ -26,7 +26,8 @@ import { ORGANIZATION_STATUS_LABELS } from '../../../utils/organizationLabels'
 export const ORGANIZATION_STATUSES = ['active', 'suspended'] as const
 export const APPROVAL_STATUSES = ['approved', 'pending', 'rejected'] as const
 export const BILLING_STATUSES = ['not_required', 'pending', 'active', 'past_due'] as const
-export const REGISTRATION_SOURCES = ['admin', 'self_service'] as const
+// 'demo': la cuenta demo comercial que aprovisiona la propia plataforma (server/demo/).
+export const REGISTRATION_SOURCES = ['admin', 'self_service', 'demo'] as const
 
 export type OrganizationStatus = (typeof ORGANIZATION_STATUSES)[number]
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number]

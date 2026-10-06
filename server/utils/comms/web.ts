@@ -1,4 +1,5 @@
 import { and, desc, eq, gt, inArray, isNotNull, isNull, like, lt, ne, or, sql, type SQL } from 'drizzle-orm'
+import { clockNow } from '../clock'
 import { createError } from 'h3'
 import * as schema from '../../db/schema'
 import { now } from '../db'
@@ -85,7 +86,7 @@ export function parseWebThreadKey(raw: unknown): number | null {
 }
 
 function addDays(days: number): string {
-  return new Date(Date.now() + days * 86_400_000).toISOString().replace('T', ' ').slice(0, 19)
+  return new Date(clockNow().getTime() + days * 86_400_000).toISOString().replace('T', ' ').slice(0, 19)
 }
 
 function preview(text: string | null | undefined): string {

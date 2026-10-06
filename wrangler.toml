@@ -66,6 +66,12 @@ SESSION_TTL_DAYS = "7"
 # el email de un hilo web sale con un Reply-To firmado de ese hilo y la
 # respuesta del cliente vuelve a él. Sin los dos, nada cambia.
 # INBOUND_EMAIL_DOMAIN = "respuestas.serendipiaagency.com"
+#
+# Cuenta demo comercial «Norte Astur Inmobiliaria» (docs/demo.md): con "1", la
+# tarea de cada minuto demo:provision la crea sola la primera vez que no
+# existe (empresa aislada, marcada como demo, sin envíos reales). Nunca la
+# borra ni la restablece por su cuenta: eso se pide en Sistemas > Empresas.
+DEMO_TENANT_AUTOPROVISION = "1"
 
 [observability]
 enabled = true
@@ -101,6 +107,8 @@ enabled = true
 #                 organization, alerts on state changes — see that file) and
 #                 server/tasks/automations/run.ts (automatizaciones activas de
 #                 cada agencia sobre sus eventos nuevos — bloque N8b)
+#                 and server/tasks/demo/provision.ts (genera la cuenta demo por
+#                 tramos mientras haya una generación en curso — docs/demo.md)
 # "30 3 * * *" -> server/tasks/system/backup-d1.ts (daily JSON snapshot of
 #                 every D1 table to R2, kept 14 days — see that file for why)
 # "0 5 * * *"  -> server/tasks/system/media-lifecycle.ts (daily, purges media
@@ -137,6 +145,7 @@ bucket_name = "sa-inmobiliaria-media-staging"
 
 [env.staging.vars]
 SESSION_TTL_DAYS = "7"
+DEMO_TENANT_AUTOPROVISION = "1"
 # Email entrante en staging: OTRO dominio/subdominio y otro INBOUND_EMAIL_SECRET
 # (`wrangler secret put INBOUND_EMAIL_SECRET --env staging`).
 # INBOUND_EMAIL_DOMAIN = "respuestas-staging.serendipiaagency.com"

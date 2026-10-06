@@ -466,8 +466,9 @@ const publishing = ref(false)
 // server/api/public/tenant.get.ts) — without one there's no public URL to
 // open a preview of.
 const { data: orgInfo } = await useFetch<any>('/api/admin/active-org-info')
+// Sin dominio propio, la vista previa del dominio principal (server/utils/sitePreview.ts), sólo para tu equipo.
 const publishedSiteUrl = computed(() =>
-  orgInfo.value?.domain ? `https://${orgInfo.value.domain}/?preview=${pageVersion.value}` : null,
+  orgInfo.value?.domain ? `https://${orgInfo.value.domain}/?preview=${pageVersion.value}` : orgInfo.value?.id ? `/?vista_previa=${orgInfo.value.id}` : null,
 )
 
 const selectedBlock = computed(() => blocks.value.find((b) => b.id === selectedBlockId.value) || null)

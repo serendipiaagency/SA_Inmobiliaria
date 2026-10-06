@@ -5,6 +5,7 @@ import { TEMPLATES, type TemplateKey } from './templates'
 import { callResendApi } from './resendClient'
 import { SYSTEM_SENDER_TEMPLATES, resolveEffectiveOrgSender } from './orgSender'
 import { platformEmailConfig } from './platformConfig'
+import { DEMO_BLOCKED_MESSAGE, isDemoOrg } from '../demo/tenant'
 
 /** Retry backoff schedule in minutes — 5 attempts total, then permanently 'failed' ("reintentos limitados"). */
 export const MAX_EMAIL_ATTEMPTS = 5
@@ -174,6 +175,18 @@ export async function attemptSend(db: any, env: Record<string, any>, logId: numb
   const [row] = await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, logId)).limit(1)
   if (!row) return { status: 'failed', ok: false, connected: false, message: 'email_log row not found' }
   const attempts = (row.attempts ?? 0) + 1
+
+  // Cuenta demo: el email queda registrado como NO enviado, con el motivo, y
+  // sin reintentos. Ni se llama a Resend ni se finge el envío.
+  if (await isDemoOrg(db, row.organizationId)) {
+    await db
+      .update(schema.emailLog)
+      // provider 'none': nunca se le entregó a Resend, así que tampoco cuenta
+      // en la salud del correo de la plataforma (Sistema → Estado).
+      .set({ status: 'failed', provider: 'none', attempts, errorMessage: DEMO_BLOCKED_MESSAGE, nextRetryAt: null })
+      .where(eq(schema.emailLog.id, logId))
+    return { status: 'failed', ok: false, connected: true, message: DEMO_BLOCKED_MESSAGE }
+  }
 
   const result = await callResendApi(env, { from: row.fromHeader, replyTo: row.replyTo, to: row.recipient, subject: row.subject, html: row.html, text: htmlToText(row.html) })
 

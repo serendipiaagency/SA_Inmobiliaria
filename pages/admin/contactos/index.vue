@@ -117,10 +117,15 @@
           <tbody>
             <tr v-for="c in contacts" :key="c.id" class="border-b border-line/60 last:border-0 hover:bg-stone-50">
               <td class="px-4 py-3">
-                <NuxtLink :to="`/admin/contactos/${c.id}`" class="font-medium hover:underline">{{ c.name }}</NuxtLink>
-                <span v-if="c.kind === 'company'" class="ml-2 rounded bg-stone-100 px-1.5 py-0.5 text-[10px] uppercase text-stone-500">Empresa</span>
-                <span v-if="c.roles?.length" class="mt-0.5 block text-[11px] text-stone-400" data-testid="contact-row-roles">{{ c.roles.map((r: string) => CONTACT_ROLE_LABELS[r as ContactRole] || r).join(' · ') }}</span>
-                <TagChips v-if="c.tags?.length" class="mt-1" :tags="c.tags" />
+                <div class="flex items-start gap-3">
+                  <AdminPersonAvatar :photo="c.photo" :name="c.name" />
+                  <div class="min-w-0">
+                    <NuxtLink :to="`/admin/contactos/${c.id}`" class="font-medium hover:underline">{{ c.name }}</NuxtLink>
+                    <span v-if="c.kind === 'company'" class="ml-2 rounded bg-stone-100 px-1.5 py-0.5 text-[10px] uppercase text-stone-500">Empresa</span>
+                    <span v-if="c.roles?.length" class="mt-0.5 block text-[11px] text-stone-400" data-testid="contact-row-roles">{{ c.roles.map((r: string) => CONTACT_ROLE_LABELS[r as ContactRole] || r).join(' · ') }}</span>
+                    <TagChips v-if="c.tags?.length" class="mt-1" :tags="c.tags" />
+                  </div>
+                </div>
               </td>
               <td class="px-4 py-3 text-stone-600">
                 <span v-if="c.email">{{ c.email }}</span>
