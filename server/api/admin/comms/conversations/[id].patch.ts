@@ -5,11 +5,22 @@ import { logAdminAction } from '../../../../utils/audit'
 import { loadConversationForOrg } from '../../../../utils/comms/admin'
 import { PROPERTY_KINDS } from '../../../../utils/matching/service'
 import { assertLiveProperty } from '../../../../utils/properties/trash'
+import { loadWebThreadForOrg, parseWebThreadKey, patchWebThread } from '../../../../utils/comms/web'
 
-/** PATCH /api/admin/comms/conversations/:id — estado (open|pending|closed), comercial asignado, propiedad de contexto. */
+/**
+ * PATCH /api/admin/comms/conversations/:id — estado (open|pending|closed), comercial asignado, propiedad de contexto.
+ * Núcleo N8a: con `:id = w<n>`, lo mismo sobre un hilo web (formulario o chat), validado igual en la organización.
+ */
 export default defineEventHandler(async (event) => {
   const { user, orgId } = await requireOrgScope(event, 'crm', 'write')
   const db = useDb(event)
+  const webId = parseWebThreadKey(getRouterParam(event, 'id'))
+  if (webId) {
+    const thread = await loadWebThreadForOrg(db, orgId, webId)
+    const changed = await patchWebThread(db, thread, (await readBody(event)) || {})
+    await logAdminAction(event, { user, orgId, action: 'update', resource: 'comms-web-thread', resourceId: thread.id, detail: changed.join(',') })
+    return { ok: true }
+  }
   const id = Number(getRouterParam(event, 'id'))
   const { conversation } = await loadConversationForOrg(db, orgId, id)
   const body = (await readBody(event)) || {}

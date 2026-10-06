@@ -10,7 +10,11 @@ import { getPropertySchemaFor, validateAgainstSchema } from '../../../utils/prop
 import { createBulkActionJob } from '../../../utils/bulkActions/service'
 import { resolveFilteredPropertyIds } from '../../../utils/bulkActions/propertyActions'
 import { executeTool } from '../../../utils/tools/execute'
-import { InmoError, runInmoTurn } from '../../../utils/inmo/orchestrator'
+import { InmoError } from '../../../utils/inmo/orchestrator'
+import { deleteConversation, renameConversation, runPersistentInmoTurn } from '../../../utils/inmo/conversations'
+import { advanceWorkflow, startWorkflow } from '../../../utils/inmo/workflows'
+import { assertNoBrainSettings } from '../../../utils/inmo/brains'
+import { createAutomation } from '../../../utils/automations/service'
 import { createOrganizationFromAdmin, resendAdminInvite } from '../../../utils/organizations/lifecycle'
 import { createContactFromAdmin, ensureContactRole, validateNotePayload, validatePropertyContact } from '../../../utils/contacts/crm'
 import { createLeadFromAdmin } from '../../../utils/leads/admin'
@@ -42,15 +46,34 @@ export default defineEventHandler(async (event) => {
     const body = (await readBody<Record<string, any>>(event)) || {}
     const toolCtx = { event, db: useDb(event), env: cfEnv(event) as Record<string, any>, orgId, user, source: 'api' as const }
     // INMO (FASE 30) es un cliente más de esta misma API: mismo usuario, mismo RBAC, misma organización.
+    // Bloque N8b: con memoria (la conversación la guarda el servidor, de este
+    // usuario en esta agencia: `conversationId`) y con cerebro (`brain`).
     if (body.mode === 'inmo') {
       const [org] = await toolCtx.db.select({ name: schema.organizations.name }).from(schema.organizations).where(eq(schema.organizations.id, orgId)).limit(1)
       try {
-        return await runInmoTurn(toolCtx, { messages: body.messages, userMessage: body.message, resolve: body.resolve, entities: body.entities }, { fetch: (input, init) => fetch(input, init), orgName: org?.name ?? null })
+        return await runPersistentInmoTurn(
+          toolCtx,
+          { conversationId: body.conversationId, brain: body.brain, messages: body.messages, userMessage: body.message, resolve: body.resolve, entities: body.entities },
+          { fetch: (input, init) => fetch(input, init), orgName: org?.name ?? null },
+        )
       } catch (e) {
         if (!(e instanceof InmoError)) throw e
         setResponseStatus(event, e.code === 'AI_NOT_CONFIGURED' ? 503 : e.code === 'PROVIDER_ERROR' ? 502 : 422)
         return { ok: false, error: { code: e.code, message: e.message } }
       }
+    }
+    // Conversaciones de INMO: sólo las propias (otra persona u otra agencia → 404).
+    if (body.mode === 'inmo-conversation') {
+      const id = Number(body.id)
+      if (body.action === 'delete') return deleteConversation(toolCtx.db, orgId, user.id, id)
+      if (body.action === 'rename') return renameConversation(toolCtx.db, orgId, user.id, id, body.title)
+      throw createError({ statusCode: 422, statusMessage: 'Acción no válida (delete o rename)' })
+    }
+    // Workflows guiados de INMO: cada paso, una Domain Tool tras «Ejecutar paso».
+    if (body.mode === 'workflow') {
+      const wfCtx = { ...toolCtx, source: 'inmo' as const }
+      if (body.action === 'start') return startWorkflow(wfCtx, body.workflow, body.entityId)
+      return advanceWorkflow(wfCtx, Number(body.runId), { action: body.action, step: body.step, params: body.params })
     }
     const result = await executeTool(toolCtx, String(body.tool || ''), body.input ?? {}, {
       idempotencyKey: body.idempotencyKey ? String(body.idempotencyKey) : null,
@@ -131,6 +154,15 @@ export default defineEventHandler(async (event) => {
     const job = await createBulkActionJob(event, orgId!, user.id, { entityType: 'lead', action: body.action, params: body.params || {}, ids })
     await logAdminAction(event, { user, orgId, action: 'create', resource: key, resourceId: job.id, detail: `${job.action} × ${job.totalCount}` })
     return { ok: true, id: job.id, job }
+  }
+
+  // Automatizaciones (bloque N8b): disparador, condiciones y acción del
+  // catálogo, validados, con el permiso de quien la configura (403 si no
+  // podría ejecutar la acción) y el cursor en «ahora».
+  if (key === 'automations') {
+    const row = await createAutomation(db, orgId!, user, body || {})
+    await logAdminAction(event, { user, orgId, action: 'create', resource: key, resourceId: row.id, detail: `${row.trigger} → ${row.action}` })
+    return { ok: true, id: row.id }
   }
 
   // Contactos (FASES 8-9): alta con normalización, deduplicación (409 con
@@ -227,6 +259,12 @@ export default defineEventHandler(async (event) => {
   if (key === 'custom-fields') {
     await validateCustomFieldDefinition(db, orgId!, data, null)
     data.createdBy = user.id
+  }
+  // Bloque N8b: el autor del documento y de los ajustes de un cerebro es siempre la sesión.
+  if (key === 'knowledge-documents') data.createdBy = user.id
+  if (key === 'inmo-brains') {
+    await assertNoBrainSettings(db, orgId!, data.brainKey)
+    data.updatedBy = user.id
   }
   const inserted = await db.insert(def.table).values(data).returning({ id: def.table.id }).catch(rethrowUniqueViolation)
   const id = inserted[0]?.id

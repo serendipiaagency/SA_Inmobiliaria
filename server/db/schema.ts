@@ -1592,18 +1592,116 @@ export const invoices = sqliteTable(
   ],
 )
 
+/**
+ * Automatizaciones. Las filas `engine = 'legacy'` son las de demostración que
+ * sembró 0009_seed_saas.sql (contadores inventados, acciones que no existen):
+ * nunca se ejecutan ni se pueden activar. Las `engine = 'v1'` las crea el panel
+ * y las ejecuta server/utils/automations/engine.ts (migración 0088).
+ */
 export const automations = sqliteTable('automations', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   organizationId: integer('organization_id').notNull(),
   name: text('name').notNull(),
   description: text('description'),
-  trigger: text('trigger').notNull(), // lead.created | visit.completed | reservation.confirmed | ...
-  action: text('action').notNull(), // send_email | assign_agent | create_task | notify_slack | ...
+  trigger: text('trigger').notNull(), // lead.created | lead.unattended | lead.stage_changed | visit.completed | offer.accepted | deal.stage_changed | task.overdue
+  action: text('action').notNull(), // create_task | assign_lead | change_lead_stage | create_note | notify_team
   enabled: integer('enabled').notNull().default(1),
   runsCount: integer('runs_count').notNull().default(0),
   lastRunAt: text('last_run_at'),
   createdAt: text('created_at').notNull().default(''),
+  /** Migración 0088. */
+  engine: text('engine').notNull().default('legacy'), // legacy | v1
+  conditionsJson: text('conditions_json'),
+  actionConfigJson: text('action_config_json'),
+  createdBy: integer('created_by'), // users.id — las acciones se ejecutan con sus permisos
+  cursorId: integer('cursor_id').notNull().default(0),
+  activeSince: text('active_since'),
+  errorCount: integer('error_count').notNull().default(0),
+  lastError: text('last_error'),
+  updatedAt: text('updated_at'),
+  deletedAt: text('deleted_at'),
 })
+
+/** Registro de ejecuciones de automatizaciones y de workflows guiados de INMO (migración 0088). */
+export const workflowRuns = sqliteTable(
+  'workflow_runs',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    kind: text('kind').notNull(), // automation | inmo_workflow
+    automationId: integer('automation_id'),
+    workflowKey: text('workflow_key'),
+    trigger: text('trigger'),
+    eventKey: text('event_key'),
+    entityType: text('entity_type'),
+    entityId: integer('entity_id'),
+    executedAs: integer('executed_as'),
+    status: text('status').notNull(), // running | waiting | ok | error | skipped | cancelled
+    currentStep: integer('current_step').notNull().default(0),
+    stateJson: text('state_json'),
+    stepsJson: text('steps_json'),
+    errorCode: text('error_code'),
+    message: text('message'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+    finishedAt: text('finished_at'),
+  },
+  (t) => [index('workflow_runs_org').on(t.organizationId, t.kind, t.id), index('workflow_runs_automation').on(t.automationId, t.id)],
+)
+
+/** Conversaciones persistentes de INMO: de un usuario, dentro de su agencia (migración 0088). */
+export const inmoConversations = sqliteTable(
+  'inmo_conversations',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    userId: integer('user_id').notNull(),
+    title: text('title').notNull(),
+    brainKey: text('brain_key'),
+    messagesJson: text('messages_json').notNull().default('[]'),
+    stateJson: text('state_json').notNull().default('{}'),
+    turnsJson: text('turns_json').notNull().default('[]'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [index('inmo_conversations_user').on(t.organizationId, t.userId, t.updatedAt)],
+)
+
+/** Ajustes de cada agencia sobre los cerebros de INMO del código (migración 0088). */
+export const inmoBrainSettings = sqliteTable(
+  'inmo_brain_settings',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    brainKey: text('brain_key').notNull(),
+    enabled: integer('enabled').notNull().default(1),
+    instructions: text('instructions'),
+    toolsJson: text('tools_json'),
+    updatedBy: integer('updated_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [uniqueIndex('inmo_brain_settings_org_key').on(t.organizationId, t.brainKey)],
+)
+
+/** Base de conocimiento de cada agencia: documentos de texto que INMO cita (migración 0088). */
+export const knowledgeDocuments = sqliteTable(
+  'knowledge_documents',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    tags: text('tags'),
+    status: text('status').notNull().default('active'), // active | archived
+    searchText: text('search_text').notNull().default(''),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [index('knowledge_documents_org').on(t.organizationId, t.status)],
+)
 
 export const apiKeys = sqliteTable('api_keys', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -3199,6 +3297,10 @@ export const commsSettings = sqliteTable('comms_settings', {
   /** ask = el contacto desconocido se queda como tal hasta que alguien lo vincule; lead = se crea un lead automáticamente. */
   unknownContactPolicy: text('unknown_contact_policy').notNull().default('ask'),
   notifyInternal: integer('notify_internal').notNull().default(1),
+  /** Núcleo N8a (migración 0087): el chat de la web pública, activable por agencia. Apagado por defecto. */
+  webChatEnabled: integer('web_chat_enabled').notNull().default(0),
+  /** Saludo del chat web; NULL = el texto por defecto. */
+  webChatGreeting: text('web_chat_greeting'),
   createdAt: text('created_at').notNull().default(''),
   updatedAt: text('updated_at').notNull().default(''),
 })
@@ -3282,6 +3384,13 @@ export const commsConversations = sqliteTable(
     lastMessagePreview: text('last_message_preview'),
     lastInboundAt: text('last_inbound_at'),
     unreadCount: integer('unread_count').notNull().default(0),
+    /**
+     * Núcleo N8a (migración 0087): el Contact (`contacts.id`) de este hilo,
+     * GUARDADO cuando se conoce (al abrir o vincular el hilo) en vez de
+     * deducirse en cada lectura. NULL = todavía no se conoce o fila anterior
+     * a la 0087; el código sigue deduciéndolo como respaldo.
+     */
+    crmContactId: integer('crm_contact_id'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
   },
@@ -3289,6 +3398,7 @@ export const commsConversations = sqliteTable(
     uniqueIndex('comms_conversations_channel_contact').on(t.channelId, t.contactId),
     index('comms_conversations_org_last').on(t.organizationId, t.status, t.lastMessageAt),
     index('comms_conversations_contact').on(t.contactId),
+    index('comms_conversations_crm_contact').on(t.organizationId, t.crmContactId),
   ],
 )
 
@@ -3410,6 +3520,109 @@ export const commsWebhookEvents = sqliteTable(
     receivedAt: text('received_at').notNull().default(''),
   },
   (t) => [uniqueIndex('comms_webhook_events_key').on(t.provider, t.eventKey), index('comms_webhook_events_org').on(t.organizationId, t.receivedAt)],
+)
+
+// ---------------------------------------------------------------------------
+// Núcleo N8a (migración 0087) — formularios y chat web como hilos de la bandeja
+// ---------------------------------------------------------------------------
+
+/**
+ * Un hilo web: un envío de formulario público (`kind = form`) o una
+ * conversación del chat de la web (`kind = chat`). No es un hilo de WhatsApp —
+ * no hay número de la agencia ni teléfono obligatorio — y por eso vive aparte;
+ * la bandeja de Comunicaciones lista los dos juntos
+ * (server/utils/comms/web.ts). Contact, Lead y Property se GUARDAN al crearlo.
+ * El chat se identifica por un token opaco del visitante del que sólo se
+ * guarda el SHA-256 (`sessionTokenHash`).
+ */
+export const commsWebThreads = sqliteTable(
+  'comms_web_threads',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    kind: text('kind').notNull(), // form | chat
+    status: text('status').notNull().default('open'), // open | pending | closed
+    assignedAgentId: integer('assigned_agent_id'), // team_members.id
+    contactId: integer('contact_id'), // contacts.id
+    leadId: integer('lead_id'),
+    propertyId: integer('property_id'),
+    propertyKind: text('property_kind'), // agent | developer
+    visitorName: text('visitor_name'),
+    visitorEmail: text('visitor_email'),
+    visitorPhone: text('visitor_phone'),
+    formType: text('form_type'), // contact | lead_form | visit_request | visitor | referral
+    pageUrl: text('page_url'),
+    sessionTokenHash: text('session_token_hash'),
+    sessionExpiresAt: text('session_expires_at'),
+    lastMessageAt: text('last_message_at'),
+    lastMessagePreview: text('last_message_preview'),
+    lastInboundAt: text('last_inbound_at'),
+    unreadCount: integer('unread_count').notNull().default(0),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [
+    index('comms_web_threads_org_last').on(t.organizationId, t.status, t.lastMessageAt),
+    index('comms_web_threads_org_updated').on(t.organizationId, t.updatedAt),
+    index('comms_web_threads_contact').on(t.organizationId, t.contactId),
+    index('comms_web_threads_lead').on(t.organizationId, t.leadId),
+    // En la migración es UNIQUE y parcial (WHERE session_token_hash IS NOT NULL).
+    index('comms_web_threads_session').on(t.sessionTokenHash),
+  ],
+)
+
+/** Cada mensaje de un hilo web: lo que llegó por el formulario o el chat, lo que respondió el equipo (chat o email) y las notas internas. */
+export const commsWebMessages = sqliteTable(
+  'comms_web_messages',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    threadId: integer('thread_id').notNull(),
+    direction: text('direction').notNull(), // in | out | note
+    via: text('via').notNull(), // form | chat | email | note
+    body: text('body'),
+    fieldsJson: text('fields_json'),
+    propertyId: integer('property_id'),
+    propertyKind: text('property_kind'),
+    status: text('status').notNull().default('received'), // received | sent | queued | failed
+    errorMessage: text('error_message'),
+    emailLogId: integer('email_log_id'),
+    sentByUserId: integer('sent_by_user_id'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('comms_web_messages_thread').on(t.threadId, t.id), index('comms_web_messages_org').on(t.organizationId, t.createdAt)],
+)
+
+/**
+ * FASE 32 — enlace personal a una ficha (`/propiedades/<slug>?f=<token>`)
+ * enviado por email o por el chat web a una persona concreta. La apertura la
+ * registra el navegador al mostrar la ficha (server/utils/comms/shareLinks.ts);
+ * es la señal «abrió fichas» del Lead Score para los canales sin confirmación
+ * de lectura. Se guarda el hash del token, nunca el token.
+ */
+export const propertyShareLinks = sqliteTable(
+  'property_share_links',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    propertyKind: text('property_kind').notNull(),
+    propertyId: integer('property_id').notNull(),
+    contactId: integer('contact_id'),
+    leadId: integer('lead_id'),
+    channel: text('channel').notNull(), // email | chat
+    webMessageId: integer('web_message_id'),
+    createdBy: integer('created_by'),
+    openCount: integer('open_count').notNull().default(0),
+    firstOpenedAt: text('first_opened_at'),
+    lastOpenedAt: text('last_opened_at'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [
+    uniqueIndex('property_share_links_token').on(t.tokenHash),
+    index('property_share_links_lead').on(t.organizationId, t.leadId),
+    index('property_share_links_contact').on(t.organizationId, t.contactId),
+  ],
 )
 
 // ---------------------------------------------------------------------------
@@ -3976,6 +4189,8 @@ export const notes = sqliteTable(
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
     deletedAt: text('deleted_at'),
+    /** Migración 0088 — origen: NULL = panel | inmo (hecho confirmado en INMO) | automation. */
+    source: text('source'),
   },
   (t) => [index('notes_entity').on(t.organizationId, t.entityType, t.entityId), index('notes_contact').on(t.organizationId, t.contactId)],
 )

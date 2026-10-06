@@ -47,7 +47,7 @@ describe('listPersonCommunications — FASE 29 §139-142', () => {
     expect(r.conversations.map((c) => c.id)).toEqual([viaLead.conversation.id])
     expect(r.calls.map((c) => c.id)).toEqual([viaLead.call.id])
 
-    expect(await listPersonCommunications(db, a.orgId, {})).toEqual({ conversations: [], calls: [], emails: [] })
+    expect(await listPersonCommunications(db, a.orgId, {})).toEqual({ conversations: [], calls: [], emails: [], webThreads: [] })
   })
 
   it('emails: sólo salientes, por dirección exacta sin distinguir mayúsculas ni espacios, y nunca el HTML', async () => {
@@ -71,6 +71,6 @@ describe('listPersonCommunications — FASE 29 §139-142', () => {
     await seedEmail(db, b.orgId, 'compartido@example.com', 'De la agencia B')
 
     const r = await listPersonCommunications(db, a.orgId, { leadIds: [b.leadId], emails: ['compartido@example.com'] })
-    expect(r).toEqual({ conversations: [], calls: [], emails: [] })
+    expect(r).toEqual({ conversations: [], calls: [], emails: [], webThreads: [] })
   })
 })

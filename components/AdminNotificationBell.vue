@@ -59,7 +59,8 @@ async function markAllRead() {
   unreadCount.value = 0
 }
 function typeDot(type: string) {
-  return { job_success: 'bg-emerald-500', job_retrying: 'bg-amber-500', job_failed: 'bg-red-500' }[type] || 'bg-stone-400'
+  // `automation`: avisos internos de las automatizaciones (acción «Avisar al equipo», bloque N8b).
+  return { job_success: 'bg-emerald-500', job_retrying: 'bg-amber-500', job_failed: 'bg-red-500', automation: 'bg-blue-500' }[type] || 'bg-stone-400'
 }
 
 onMounted(load)

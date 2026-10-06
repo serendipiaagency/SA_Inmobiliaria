@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm'
 import { createError, getRequestURL, type H3Event } from 'h3'
 import * as schema from '../../db/schema'
 import { isUniqueConstraintError, now } from '../db'
@@ -128,6 +128,8 @@ export function serializeConversation(row: ConversationRow, contact: ContactRow,
     assignedAgentName: agentName ?? null,
     propertyId: row.propertyId,
     propertyKind: row.propertyId ? (row.propertyKind ?? 'developer') : null,
+    /** Núcleo N8a: el Contact guardado en el hilo (NULL = todavía no se conoce). */
+    crmContactId: row.crmContactId ?? null,
     lastMessageAt: row.lastMessageAt,
     lastMessagePreview: row.lastMessagePreview,
     lastInboundAt: row.lastInboundAt,
@@ -216,6 +218,91 @@ export function serializeCall(row: CallRow, opts: { includeSession?: boolean } =
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   }
+}
+
+export interface ContextProperty {
+  id: number
+  name: string
+  slug: string | null
+  coverImage: string | null
+  kind: 'agent' | 'developer'
+  deletedAt: string | null
+}
+
+/**
+ * La propiedad de contexto de un hilo (de WhatsApp o web), en su catálogo y
+ * dentro de la organización. Se sigue enseñando aunque esté en la papelera
+ * (el hilo ya hablaba de ella); `deletedAt` deja que el panel lo diga.
+ */
+export async function contextPropertyFor(db: any, orgId: number, propertyId: number | null | undefined, propertyKind: string | null | undefined): Promise<ContextProperty | null> {
+  if (!propertyId) return null
+  const kind = propertyKind === 'agent' ? 'agent' : 'developer'
+  if (kind === 'developer') {
+    const rows = await db
+      .select({ id: schema.developerProperties.id, name: schema.developerProperties.name, slug: schema.developerProperties.slug, coverImage: schema.developerProperties.coverImage, deletedAt: schema.developerProperties.deletedAt })
+      .from(schema.developerProperties)
+      .where(and(eq(schema.developerProperties.id, propertyId), eq(schema.developerProperties.organizationId, orgId)))
+      .limit(1)
+    return rows[0] ? { ...rows[0], kind } : null
+  }
+  const rows = await db
+    .select({ id: schema.agentProperties.id, street: schema.agentProperties.street, city: schema.agentProperties.city, mainImage: schema.agentProperties.mainImage, deletedAt: schema.agentProperties.deletedAt })
+    .from(schema.agentProperties)
+    .where(and(eq(schema.agentProperties.id, propertyId), eq(schema.agentProperties.organizationId, orgId)))
+    .limit(1)
+  return rows[0] ? { id: rows[0].id, name: rows[0].street || rows[0].city || `Inmueble #${rows[0].id}`, slug: null, coverImage: rows[0].mainImage, kind, deletedAt: rows[0].deletedAt } : null
+}
+
+/**
+ * Contexto de la persona detrás de un hilo (FASE 29 §123): su lead (etapa y
+ * próxima acción), las necesidades activas de su Contact y las próximas
+ * citas del lead — resuelto en vivo cada vez que se abre el hilo, nunca
+ * copiado dentro de él.
+ */
+export async function personContextFor(db: any, orgId: number, person: { contactId: number | null; leadId: number | null }) {
+  const nowTs = now()
+  const [lead, buyerRequirements, appointments] = await Promise.all([
+    person.leadId
+      ? db
+          .select({ id: schema.leads.id, name: schema.leads.name, stage: schema.leads.stage, status: schema.leads.status, nextActionAt: schema.leads.nextActionAt, nextActionType: schema.leads.nextActionType })
+          .from(schema.leads)
+          .where(and(eq(schema.leads.id, person.leadId), eq(schema.leads.organizationId, orgId)))
+          .limit(1)
+          .then((r: any[]) => r[0] ?? null)
+      : null,
+    person.contactId
+      ? db
+          .select({ id: schema.buyerRequirements.id, title: schema.buyerRequirements.title, status: schema.buyerRequirements.status, operation: schema.buyerRequirements.operation, priceMin: schema.buyerRequirements.priceMin, priceMax: schema.buyerRequirements.priceMax, updatedAt: schema.buyerRequirements.updatedAt })
+          .from(schema.buyerRequirements)
+          .where(and(eq(schema.buyerRequirements.organizationId, orgId), eq(schema.buyerRequirements.contactId, person.contactId), eq(schema.buyerRequirements.status, 'active'), sql`${schema.buyerRequirements.deletedAt} is null`))
+          .orderBy(desc(schema.buyerRequirements.updatedAt))
+          .limit(5)
+      : [],
+    person.leadId
+      ? db
+          .select({ id: schema.visits.id, scheduledAt: schema.visits.scheduledAt, status: schema.visits.status, type: schema.visits.type, channel: schema.visits.channel, propertyName: schema.visits.propertyName })
+          .from(schema.visits)
+          .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.leadId, person.leadId), eq(schema.visits.status, 'scheduled'), gte(schema.visits.scheduledAt, nowTs)))
+          .orderBy(asc(schema.visits.scheduledAt))
+          .limit(5)
+      : [],
+  ])
+  return {
+    lead: lead ? { id: lead.id, name: lead.name, stage: lead.stage, status: lead.status, nextActionAt: lead.nextActionAt, nextActionType: lead.nextActionType } : null,
+    buyerRequirements,
+    appointments,
+  }
+}
+
+/** El Contact (`contacts.id`) con su nombre, sólo si es de esta organización. */
+export async function crmContactRef(db: any, orgId: number, contactId: number | null | undefined): Promise<{ id: number; name: string } | null> {
+  if (!contactId) return null
+  const [row] = await db
+    .select({ id: schema.contacts.id, name: schema.contacts.name })
+    .from(schema.contacts)
+    .where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.organizationId, orgId)))
+    .limit(1)
+  return row ?? null
 }
 
 /** Origen público de la web de la agencia: su dominio propio si lo tiene, si no el de la petición (el *.workers.dev del inquilino por defecto). */
@@ -480,13 +567,18 @@ export async function createFollowUpVisit(db: any, input: FollowUpInput): Promis
   }
 }
 
-/** Ids de las conversaciones abiertas con no leídos, para el contador global. */
+/** No leídos de toda la bandeja (WhatsApp + hilos web de formularios y chat), para el contador global. */
 export async function unreadTotal(db: any, orgId: number): Promise<number> {
   const rows = await db
     .select({ unread: schema.commsConversations.unreadCount })
     .from(schema.commsConversations)
     .where(and(eq(schema.commsConversations.organizationId, orgId), isNotNull(schema.commsConversations.lastMessageAt)))
-  return rows.reduce((sum: number, r: any) => sum + (r.unread || 0), 0)
+  const whatsapp = rows.reduce((sum: number, r: any) => sum + (r.unread || 0), 0)
+  const [web] = await db
+    .select({ n: sql<number>`coalesce(sum(${schema.commsWebThreads.unreadCount}), 0)` })
+    .from(schema.commsWebThreads)
+    .where(and(eq(schema.commsWebThreads.organizationId, orgId), isNotNull(schema.commsWebThreads.lastMessageAt)))
+  return whatsapp + Number(web?.n ?? 0)
 }
 
 export async function agentNames(db: any, orgId: number, ids: (number | null)[]): Promise<Map<number, string>> {

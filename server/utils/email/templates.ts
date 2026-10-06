@@ -1,4 +1,4 @@
-import { emailButton, emailHeading, emailInfoTable, emailParagraph, type EmailLocale } from './layout'
+import { emailButton, emailHeading, emailInfoTable, emailParagraph, escapeHtml, type EmailLocale } from './layout'
 
 export type TemplateKey =
   | 'lead_created'
@@ -19,6 +19,8 @@ export type TemplateKey =
   | 'domain_check_failed'
   | 'domain_check_recovered'
   | 'whatsapp_message_received'
+  // Núcleo N8a: respuesta del equipo a un hilo web (formulario o chat) desde Comunicaciones.
+  | 'web_thread_reply'
   // Email de plataforma (server/utils/email/platform.ts): salen siempre con el
   // remitente corporativo central, nunca con la identidad de una empresa.
   | 'company_registration_welcome'
@@ -285,6 +287,19 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
       ]) +
       emailParagraph(d.preview || '') +
       (d.inboxUrl ? emailButton(l === 'en' ? 'Open in Communications' : 'Abrir en Comunicaciones', d.inboxUrl) : ''),
+  },
+
+  // Núcleo N8a — el comercial responde por email a quien escribió por un
+  // formulario o por el chat de la web (server/utils/comms/web.ts). El texto
+  // lo escribe una persona del equipo: se escapa entero, nunca se interpreta
+  // como HTML. Con una ficha compartida, el botón lleva el enlace personal.
+  web_thread_reply: {
+    kind: 'transactional',
+    audience: 'client',
+    subject: (d, l) => String(d.subject || (l === 'en' ? 'Reply to your enquiry' : 'Respuesta a tu consulta')),
+    body: (d, l) =>
+      emailParagraph(escapeHtml(String(d.body || '')).replace(/\r?\n/g, '<br>')) +
+      (d.propertyUrl ? emailButton(d.propertyName ? `${l === 'en' ? 'View' : 'Ver'} ${d.propertyName}` : l === 'en' ? 'View property' : 'Ver la propiedad', d.propertyUrl) : ''),
   },
 
   // --- Email de plataforma (alta y estado de empresas) ----------------------

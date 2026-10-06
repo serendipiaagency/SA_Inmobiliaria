@@ -7,6 +7,11 @@ import { buildPropertyFilterConds, parsePropertyFilters, DEVELOPER_PROPERTY_SORT
 import { savedViewVisibilityCond } from '../../../utils/properties/savedViews'
 import { livePropertyCond } from '../../../utils/properties/trash'
 import { toolCatalogFor } from '../../../utils/tools/execute'
+import { brainToolsFor, effectiveBrains } from '../../../utils/inmo/brains'
+import { getConversation, listConversations } from '../../../utils/inmo/conversations'
+import { getWorkflowRun, listWorkflowRuns, workflowCatalog } from '../../../utils/inmo/workflows'
+import { automationSummary } from '../../../utils/automations/service'
+import { AUTOMATION_ACTIONS, AUTOMATION_ACTION_LABELS, AUTOMATION_TRIGGERS, AUTOMATION_TRIGGER_HELP, AUTOMATION_TRIGGER_LABELS } from '../../../../utils/automationCatalog'
 import { checkDomainAvailability } from '../../../utils/organizations/provisioning'
 import { propertyDefaults } from '../../../utils/properties/summary'
 import { squaredDistanceSql } from '../../../utils/properties/geoSearch'
@@ -34,6 +39,24 @@ export default defineEventHandler(async (event) => {
     const { user } = await requireOrgScope(event)
     return { tools: toolCatalogFor(user) }
   }
+  // INMO Intelligence (bloque N8b) — vistas de la sesión, nunca de otra persona:
+  //   ?view=brains         cerebros de la agencia con las herramientas que ESTE usuario puede usar en cada uno
+  //   ?view=conversations  sus conversaciones; ?view=conversation&id=  una (otra persona u otra agencia → 404)
+  //   ?view=workflows      catálogo de workflows guiados y sus ejecuciones; ?view=workflow-run&id=  una
+  const inmoView = key === 'domain-tools' ? String(getQuery(event).view || '') : ''
+  if (['brains', 'conversations', 'conversation', 'workflows', 'workflow-run'].includes(inmoView)) {
+    const { user, orgId } = await requireOrgScope(event)
+    const db = useDb(event)
+    if (inmoView === 'brains') {
+      const brains = await effectiveBrains(db, orgId)
+      return { brains: brains.map((b) => ({ ...b, availableTools: brainToolsFor(b, user) })) }
+    }
+    if (inmoView === 'conversations') return { rows: await listConversations(db, orgId, user.id) }
+    if (inmoView === 'conversation') return getConversation(db, orgId, user.id, Number(getQuery(event).id))
+    const wfCtx = { event, db, env: (event.context as any).cloudflare?.env || {}, orgId, user, source: 'inmo' as const }
+    if (inmoView === 'workflows') return { workflows: workflowCatalog(), runs: await listWorkflowRuns(wfCtx) }
+    return getWorkflowRun(wfCtx, Number(getQuery(event).id))
+  }
   let orgId: number | null = null
   let user: SessionUser
   if (def.superAdminOnly) {
@@ -43,6 +66,15 @@ export default defineEventHandler(async (event) => {
   }
   const db = useDb(event)
   const query = getQuery(event)
+  // Automatizaciones (bloque N8b): el catálogo y el resumen para la cabecera
+  // de la página — sólo cuentan las reales; las demo heredadas, aparte.
+  if (key === 'automations' && query.view === 'catalog') {
+    return {
+      triggers: AUTOMATION_TRIGGERS.map((k) => ({ key: k, label: AUTOMATION_TRIGGER_LABELS[k], help: AUTOMATION_TRIGGER_HELP[k] })),
+      actions: AUTOMATION_ACTIONS.map((k) => ({ key: k, label: AUTOMATION_ACTION_LABELS[k] })),
+      summary: await automationSummary(db, orgId!),
+    }
+  }
   // Sistemas > Empresas: comprobación inmediata de un dominio en el asistente
   // de alta y en la ficha (?domainAvailable=…&excludeId=…). La autoridad
   // final sigue siendo el índice único al guardar.

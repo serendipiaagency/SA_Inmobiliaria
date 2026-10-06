@@ -27,7 +27,7 @@ export interface CommsOverview {
   channels: any[]
   defaultChannelId: number | null
   capabilities: CommsCapabilities
-  settings: { defaultCountryPrefix: string | null; unknownContactPolicy: 'ask' | 'lead'; notifyInternal: boolean }
+  settings: { defaultCountryPrefix: string | null; unknownContactPolicy: 'ask' | 'lead'; notifyInternal: boolean; webChatEnabled: boolean; webChatGreeting: string | null }
   unread: number
   providers: any[]
 }

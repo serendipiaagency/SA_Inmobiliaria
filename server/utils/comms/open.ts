@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { createError } from 'h3'
 import { now, schema } from '../db'
 import { defaultChannel, loadChannel } from './credentials'
-import { findOrCreateConversation, getCommsSettings, upsertContact, type CreateLeadFn } from './inbox'
+import { findOrCreateConversation, getCommsSettings, syncConversationCrmContact, upsertContact, type CreateLeadFn } from './inbox'
 import { normalizePhone, whatsappClickToChatUrl } from './phone'
 
 /**
@@ -76,5 +76,7 @@ export async function openConversation(
   if (Object.keys(link).length) await db.update(schema.commsContacts).set({ ...link, updatedAt: now() }).where(eq(schema.commsContacts.id, contact.id))
 
   const conversation = await findOrCreateConversation(db, orgId, channel.id, contact.id)
+  // Núcleo N8a: con el vínculo recién hecho, el Contact queda guardado en el hilo.
+  if (Object.keys(link).length) await syncConversationCrmContact(db, orgId, contact.id)
   return { id: conversation.id, contactId: contact.id, channelId: channel.id, created: conversation.created, name, phone }
 }

@@ -7,6 +7,7 @@ import { loadChannel } from '../../../../../utils/comms/credentials'
 import { renderTemplateBody, sendOutbound, templateParamCount, type SendOutboundResult } from '../../../../../utils/comms/inbox'
 import { findOwnedMediaAsset } from '../../../../../utils/mediaAssets'
 import type { OutboundMessage } from '../../../../../utils/comms/types'
+import { loadWebThreadForOrg, parseWebThreadKey, replyToWebThread } from '../../../../../utils/comms/web'
 
 /**
  * POST /api/admin/comms/conversations/:id/messages — enviar por el canal del hilo.
@@ -23,11 +24,50 @@ import type { OutboundMessage } from '../../../../../utils/comms/types'
  *
  * La ventana de 24 h y el consentimiento se comprueban en sendOutbound()
  * ANTES de llamar al proveedor; un rechazo llega como 422 con `code`.
+ *
+ * Núcleo N8a — hilos web (`:id = w<n>`, formulario o chat):
+ *   { type: 'text', via: 'chat' | 'email', body, subject? }
+ *   { type: 'property', via: 'chat' | 'email', propertyId, propertyKind, body? }
+ * Sólo por un canal real (server/utils/comms/web.ts#webReplyOptions): sin
+ * sesión de chat, sin email o sin email conectado → 409 con el motivo, nunca
+ * un envío simulado. Una ficha de obra nueva a una persona conocida sale con
+ * su enlace personal (aperturas del Lead Score). El envío real por email
+ * pasa por email_log; un fallo del proveedor deja el mensaje como fallido (502).
  */
 export default defineEventHandler(async (event) => {
   const { user, orgId } = await requireOrgScope(event, 'crm', 'write')
   const db = useDb(event)
   const env = cfEnv(event) as Record<string, any>
+  const webId = parseWebThreadKey(getRouterParam(event, 'id'))
+  if (webId) {
+    const thread = await loadWebThreadForOrg(db, orgId, webId)
+    const body = (await readBody(event)) || {}
+    const type = String(body.type || 'text')
+    if (type !== 'text' && type !== 'property') throw createError({ statusCode: 422, statusMessage: 'Tipo de mensaje no admitido en un hilo web (text o property).' })
+    let property: { id: number; kind: 'agent' | 'developer' } | null = null
+    if (type === 'property') {
+      const propertyId = Number(body.propertyId)
+      if (!Number.isInteger(propertyId) || propertyId <= 0) throw createError({ statusCode: 422, statusMessage: 'Elige una propiedad.' })
+      property = { id: propertyId, kind: body.propertyKind === 'agent' ? 'agent' : 'developer' }
+    }
+    const result = await replyToWebThread(db, env, {
+      orgId,
+      thread,
+      userId: user.id,
+      // replyToWebThread rechaza (422) cualquier canal que no sea chat o email.
+      via: String(body.via || '') as 'email' | 'chat',
+      body: body.body ? String(body.body) : null,
+      property,
+      origin: await publicSiteOrigin(db, orgId, event),
+      emailConnected: Boolean(env.RESEND_API_KEY),
+      subject: body.subject ? String(body.subject).slice(0, 200) : null,
+    })
+    if (!result.ok) {
+      setResponseStatus(event, 502)
+      return { ok: false, code: 'provider', error: result.error, message: result.message }
+    }
+    return { ok: true, message: result.message }
+  }
   const id = Number(getRouterParam(event, 'id'))
   const { conversation, contact, channelRow } = await loadConversationForOrg(db, orgId, id)
   if (channelRow.status !== 'active') throw createError({ statusCode: 409, statusMessage: 'El número de este hilo está desactivado.' })

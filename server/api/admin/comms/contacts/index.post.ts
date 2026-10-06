@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { requireOrgScope } from '../../../../utils/auth'
 import { now, schema, useDb } from '../../../../utils/db'
 import { crmNamesFor, serializeContact } from '../../../../utils/comms/admin'
-import { getCommsSettings, upsertContact } from '../../../../utils/comms/inbox'
+import { getCommsSettings, syncConversationCrmContact, upsertContact } from '../../../../utils/comms/inbox'
 import { normalizePhone } from '../../../../utils/comms/phone'
 import { upsertLead } from '../../../../utils/leads'
 
@@ -54,7 +54,11 @@ export default defineEventHandler(async (event) => {
   const link: Record<string, any> = {}
   if (clientId && !contact.clientId) link.clientId = clientId
   if (leadId && !contact.leadId) link.leadId = leadId
-  if (Object.keys(link).length) await db.update(schema.commsContacts).set({ ...link, updatedAt: now() }).where(eq(schema.commsContacts.id, contact.id))
+  if (Object.keys(link).length) {
+    await db.update(schema.commsContacts).set({ ...link, updatedAt: now() }).where(eq(schema.commsContacts.id, contact.id))
+    // Núcleo N8a: el Contact queda guardado en los hilos de este número.
+    await syncConversationCrmContact(db, orgId, contact.id)
+  }
   const rows = await db.select().from(schema.commsContacts).where(eq(schema.commsContacts.id, contact.id)).limit(1)
   return { ok: true, contact: serializeContact(rows[0], await crmNamesFor(db, orgId, [rows[0]])) }
 })

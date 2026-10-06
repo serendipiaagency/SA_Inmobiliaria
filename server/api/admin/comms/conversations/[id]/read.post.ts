@@ -4,11 +4,20 @@ import { cfEnv, now, schema, useDb } from '../../../../../utils/db'
 import { loadConversationForOrg } from '../../../../../utils/comms/admin'
 import { loadChannel } from '../../../../../utils/comms/credentials'
 import { markConversationRead } from '../../../../../utils/comms/inbox'
+import { loadWebThreadForOrg, markWebThreadRead, parseWebThreadKey } from '../../../../../utils/comms/web'
 
-/** POST /api/admin/comms/conversations/:id/read — a cero los no leídos (y "leído" en el WhatsApp del cliente si el proveedor lo permite). */
+/**
+ * POST /api/admin/comms/conversations/:id/read — a cero los no leídos (y "leído" en el WhatsApp del cliente si el proveedor lo permite).
+ * Núcleo N8a: con `:id = w<n>`, los no leídos de un hilo web (no hay nada que avisar al visitante).
+ */
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireOrgScope(event, 'crm', 'read')
   const db = useDb(event)
+  const webId = parseWebThreadKey(getRouterParam(event, 'id'))
+  if (webId) {
+    await markWebThreadRead(db, await loadWebThreadForOrg(db, orgId, webId))
+    return { ok: true }
+  }
   const env = cfEnv(event) as Record<string, any>
   const id = Number(getRouterParam(event, 'id'))
   const { conversation, channelRow } = await loadConversationForOrg(db, orgId, id)

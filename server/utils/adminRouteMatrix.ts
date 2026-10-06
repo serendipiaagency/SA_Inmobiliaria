@@ -160,6 +160,12 @@ const RULES: Rule[] = [
   { pattern: /^scheduler(?:\/|$)/, resolve: area('web') }, // Publicación multicanal
   { pattern: /^asset-export(?:\/|$)/, resolve: area('web') }, // Brand Kit, plantillas, piezas, catálogos
 
+  // Automatizaciones (bloque N8b): sus disparadores y acciones son de CRM, y
+  // la página pasó al grupo CRM. Antes estaba en Finanzas, cuando la pantalla
+  // era una demo que no ejecutaba nada. La ruta nueva es el recurso genérico
+  // `automations` (área crm en adminResources.ts); ésta es la compatible.
+  { pattern: /^saas\/automations(?:\/|$)/, resolve: area('crm') },
+
   // --- Finanzas & Growth --------------------------------------------------
   { pattern: /^saas\/invoices(?:\/|$)/, resolve: area('finance') },
   { pattern: /^saas\/deals-revenue$/, resolve: area('finance') }, // pages/admin/ingresos.vue
@@ -169,7 +175,6 @@ const RULES: Rule[] = [
   { pattern: /^saas\/deposits(?:\/|$)/, resolve: area('finance') },
   { pattern: /^saas\/stripe-events$/, resolve: area('finance') }, // pages/admin/depositos.vue
   { pattern: /^saas\/valuations(?:\/|$)/, resolve: area('finance') }, // Tasador (AVM)
-  { pattern: /^saas\/automations(?:\/|$)/, resolve: area('finance') },
   { pattern: /^saas\/apikeys(?:\/|$)/, resolve: area('finance') }, // pages/admin/api.vue
   { pattern: /^ai\/generate$/, resolve: area('finance') }, // AI Studio
 

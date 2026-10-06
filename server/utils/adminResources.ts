@@ -34,6 +34,8 @@ import { normalizeMediaMetadata } from './properties/media'
 import { decorateDocumentRows } from './properties/documents'
 import { CUSTOM_FIELD_ENTITY_LABELS, CUSTOM_FIELD_ENTITY_TYPES, CUSTOM_FIELD_TYPES, CUSTOM_FIELD_TYPE_LABELS } from '../../utils/customFieldCatalog'
 import { countValuesByDefinition } from './customFields/service'
+import { prepareKnowledgeDocument } from './knowledge/documents'
+import { INMO_BRAINS, prepareBrainSettings } from './inmo/brainCatalog'
 
 /** Oficinas y equipos: nombre con contenido, email con forma de email y zona horaria IANA real. */
 function validateOfficeOrTeam(data: Record<string, any>): Record<string, any> {
@@ -1290,7 +1292,8 @@ export const adminResources: Record<string, ResourceDef> = {
     hasUpdatedAt: true,
     tenantPolicy: { type: 'direct' },
     softDelete: true,
-    filterFields: ['entityType', 'entityId', 'propertyKind', 'contactId', 'leadId', 'propertyId', 'appointmentId', 'dealOperationId'],
+    // `source` (migración 0088): la «Memoria» de INMO lista las notas con source = inmo.
+    filterFields: ['entityType', 'entityId', 'propertyKind', 'contactId', 'leadId', 'propertyId', 'appointmentId', 'dealOperationId', 'source'],
     decorateRows: async (db, orgId, rows) => {
       const ids = [...new Set(rows.map((r) => r.createdBy).filter(Boolean))]
       if (!ids.length) return rows
@@ -1402,6 +1405,80 @@ export const adminResources: Record<string, ResourceDef> = {
     searchFields: [],
     hasTimestamps: true,
     tenantPolicy: { type: 'direct' },
+  },
+
+  /**
+   * Automatizaciones (bloque N8b, migración 0088): reglas reales «cuando pase
+   * X, si se cumple Y, haz Z» que ejecuta server/utils/automations/engine.ts.
+   * Alta y edición tienen forma propia (disparador, condiciones, acción y su
+   * configuración, validadas y con el permiso de quien la configura): las
+   * interceptan [resource]/index.post.ts y [id].put.ts antes de buildPayload,
+   * por eso `fields` está vacío. La ficha (GET /:id) trae su registro de
+   * ejecuciones. Borrar = borrado lógico (deja de ejecutarse). Área CRM: sus
+   * disparadores y acciones son de CRM.
+   */
+  automations: {
+    area: 'crm',
+    table: schema.automations,
+    label: 'Automatizaciones',
+    fields: {},
+    listFields: ['id', 'name', 'trigger', 'action', 'enabled', 'runsCount', 'lastRunAt'],
+    searchFields: ['name', 'description'],
+    tenantPolicy: { type: 'direct' },
+    softDelete: true,
+    filterFields: ['engine', 'trigger', 'enabled'],
+    decorateRows: async (db, orgId, rows) => (await import('./automations/service')).decorateAutomations(db, orgId, rows),
+  },
+
+  /**
+   * Base de conocimiento de INMO (bloque N8b, migración 0088): documentos de
+   * texto de la agencia que INMO consulta y cita (search_knowledge). Por
+   * agencia, con borrado lógico. `search_text` lo calcula el servidor.
+   */
+  'knowledge-documents': {
+    area: 'crm',
+    table: schema.knowledgeDocuments,
+    label: 'Base de conocimiento',
+    fields: {
+      title: { type: 'text', label: 'Título', required: true },
+      body: { type: 'textarea', label: 'Texto', required: true },
+      tags: { type: 'text', label: 'Etiquetas (separadas por comas)' },
+      status: { type: 'select', label: 'Estado', options: ['active', 'archived'], optionLabels: { active: 'Activo (INMO lo consulta)', archived: 'Archivado (INMO no lo consulta)' } },
+    },
+    listFields: ['id', 'title', 'tags', 'status', 'updatedAt'],
+    searchFields: ['title', 'tags'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    softDelete: true,
+    filterFields: ['status'],
+    // En la edición la valida [id].put.ts con la fila existente (search_text necesita el documento entero).
+    prepare: async (data, isCreate) => (isCreate ? prepareKnowledgeDocument(data, true) : data),
+  },
+
+  /**
+   * Ajustes de la agencia sobre los cerebros de INMO (bloque N8b, migración
+   * 0088): activar/desactivar, indicaciones propias y RECORTAR herramientas —
+   * nunca añadir ninguna que el perfil no tenga (422). Área Sistema: cambia
+   * cómo trabaja INMO para toda la agencia. Leer los cerebros efectivos
+   * (para elegir uno en INMO) va por GET /api/admin/domain-tools?view=brains.
+   */
+  'inmo-brains': {
+    area: 'system',
+    table: schema.inmoBrainSettings,
+    label: 'Cerebros de INMO',
+    fields: {
+      brainKey: { type: 'select', label: 'Perfil', required: true, options: INMO_BRAINS.map((b) => b.key), optionLabels: Object.fromEntries(INMO_BRAINS.map((b) => [b.key, b.label])) },
+      enabled: { type: 'number', label: 'Activo' },
+      instructions: { type: 'textarea', label: 'Indicaciones de la agencia' },
+      toolsJson: { type: 'json', label: 'Herramientas permitidas (subconjunto del perfil)' },
+    },
+    listFields: ['id', 'brainKey', 'enabled', 'updatedAt'],
+    searchFields: ['brainKey'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    prepare: async (data, isCreate) => (isCreate ? prepareBrainSettings(data, true) : data),
   },
 
   /** Equipos comerciales (migración 0086), opcionalmente dentro de una oficina. */

@@ -5,8 +5,25 @@ import { requireValidEmail } from '../../utils/validate'
 import { sendInternalNotification } from '../../utils/email/send'
 import { getRequestId } from '../../utils/requestId'
 import { readFirstTouch } from '../../utils/firstTouch'
+import { recordWebFormSubmission } from '../../utils/comms/web'
+import { handlePublicWebChat, publicPropertyBySlug, samePagePath } from '../../utils/comms/webPublic'
 
+/**
+ * POST /api/public/contact — formulario de contacto (y de captación del
+ * Constructor Web) y reclamaciones.
+ *
+ * Núcleo N8a (FASE 29):
+ *   - Cada envío de contacto queda además como hilo «Formulario web» en la
+ *     bandeja de Comunicaciones, vinculado a su lead, a su Contact y, con
+ *     `propertySlug`, a la propiedad (server/utils/comms/web.ts).
+ *   - `?channel=chat&action=start|send|poll` es el chat de la web pública
+ *     (server/utils/comms/webPublic.ts): una rama de este endpoint y no una
+ *     ruta nueva (presupuesto de rutas de Nitro = 0). Su límite de tasa se
+ *     aplica antes de leer el cuerpo, igual que el del formulario.
+ */
 export default defineEventHandler(async (event) => {
+  if (getQuery(event).channel === 'chat') return handlePublicWebChat(event)
+
   await rateLimit(event, 'contact', { limit: 5, windowSeconds: 600 })
 
   const body = await readBody<Record<string, any>>(event)
@@ -33,9 +50,12 @@ export default defineEventHandler(async (event) => {
   // notification, see server/utils/leads.ts); complaints are support issues,
   // not prospects, so they get their own internal notification here instead.
   if (type === 'contact') {
+    // Una propiedad sólo se vincula si es de esta agencia, pública y no está en la papelera.
+    const property = await publicPropertyBySlug(db, orgId, body.propertySlug).catch(() => null)
+    let leadId: number | null = null
     try {
       const firstTouch = readFirstTouch(event)
-      await upsertLead(event, {
+      const lead = await upsertLead(event, {
         organizationId: orgId,
         name: String(name).slice(0, 200),
         email: String(email).slice(0, 200),
@@ -43,10 +63,29 @@ export default defineEventHandler(async (event) => {
         source: 'web',
         notes: body.subject ? String(body.subject).slice(0, 300) : null,
         originalMessage: String(message).slice(0, 5000),
+        ...(property ? { propertyId: property.id, propertyName: property.name } : {}),
         ...firstTouch,
       })
+      leadId = lead?.id ?? null
     } catch {
       // Lead pipeline must never block the visitor's message from being saved.
+    }
+    try {
+      await recordWebFormSubmission(db, {
+        orgId,
+        formType: body.form === 'lead_form' ? 'lead_form' : 'contact',
+        leadId,
+        name: String(name),
+        email,
+        phone: body.phone ? String(body.phone) : null,
+        message: String(message),
+        fields: { subject: body.subject ? String(body.subject).slice(0, 300) : null },
+        propertyId: property?.id ?? null,
+        propertyKind: property ? 'developer' : null,
+        pageUrl: samePagePath(event),
+      })
+    } catch {
+      // El hilo de la bandeja es un extra: el mensaje y el lead ya están guardados.
     }
     try {
       await sendInternalNotification(db, cfEnv(event), orgId, 'contact_message', { name, email, phone: body.phone, subject: body.subject, message }, getRequestId(event))

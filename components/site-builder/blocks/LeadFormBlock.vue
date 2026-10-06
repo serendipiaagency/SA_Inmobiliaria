@@ -115,6 +115,8 @@ async function submit() {
       body: {
         ...form,
         type: 'contact',
+        // En la bandeja de Comunicaciones el hilo se etiqueta «Formulario de captación» (núcleo N8a).
+        form: 'lead_form',
         subject: props.content.subject || 'Formulario de captación',
       },
     })

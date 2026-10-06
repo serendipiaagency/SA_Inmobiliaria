@@ -11,6 +11,8 @@
     <SiteFooter />
 
     <CookieConsent />
+    <!-- Núcleo N8a: chat de la web, sólo si la agencia lo activó -->
+    <ClientOnly><WebChatWidget /></ClientOnly>
   </div>
 </template>
 

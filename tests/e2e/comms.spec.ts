@@ -399,7 +399,7 @@ test.describe('Centro de Comunicaciones', () => {
     const contactId = (await created.json()).id
 
     const detail = await (await a.get(`/api/admin/saas/contacts/${contactId}`)).json()
-    expect(detail.communications).toEqual({ conversations: [], calls: [], emails: [] })
+    expect(detail.communications).toEqual({ conversations: [], calls: [], emails: [], webThreads: [] })
     expect((await b.get(`/api/admin/saas/contacts/${contactId}`)).status()).toBe(404)
 
     await page.goto(`/admin/contactos/${contactId}?tab=comunicaciones`)

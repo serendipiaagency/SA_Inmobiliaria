@@ -216,14 +216,29 @@ export async function findPropertiesForRequirement(
 
   const criteriaMap = await criteriaFor(event, orgId, [requirementId])
   const matchable = toMatchable(requirement, criteriaMap.get(requirementId) || [])
+  return scoreAcrossCatalogs(event, orgId, matchable, requirementId, opts)
+}
 
+/**
+ * El recorrido común de Necesidad → inmuebles: prefiltro SQL en cada
+ * catálogo, el MISMO motor (`evaluateMatch`) y orden por score. Con
+ * `requirementId` adjunta lo ya decidido sobre cada par; sin él (búsqueda
+ * exploratoria) no lee ni escribe ningún match.
+ */
+async function scoreAcrossCatalogs(
+  event: H3Event,
+  orgId: number,
+  matchable: MatchableRequirement,
+  requirementId: number | null,
+  opts: { includeIneligible?: boolean; limit?: number },
+): Promise<{ requirement: MatchableRequirement; results: ScoredProperty[]; scanned: number }> {
   const results: ScoredProperty[] = []
   let scanned = 0
 
   for (const kind of PROPERTY_KINDS) {
     const candidates = await candidatesInCatalog(event, orgId, kind, matchable)
     scanned += candidates.length
-    const byProperty = await persistedMatchesForRequirement(event, orgId, kind, requirementId)
+    const byProperty = requirementId ? await persistedMatchesForRequirement(event, orgId, kind, requirementId) : new Map<number, any>()
 
     for (const property of candidates) {
       const result = evaluateMatch(property, matchable)
@@ -240,6 +255,55 @@ export async function findPropertiesForRequirement(
 
   sortByScore(results)
   return { requirement: matchable, results: results.slice(0, opts.limit ?? 50), scanned }
+}
+
+/** Criterios de una búsqueda exploratoria: los mismos campos que una necesidad guardada, sin persona ni id. */
+export interface ExploratoryCriteria {
+  operation: string
+  propertyTypes?: string[]
+  priceMin?: number | null
+  priceMax?: number | null
+  areaMin?: number | null
+  areaMax?: number | null
+  bedroomsMin?: number | null
+  bathroomsMin?: number | null
+  desiredZones?: ZoneRef[]
+}
+
+/**
+ * FASE 30 (núcleo N8a): compatibilidad de una necesidad NO guardada — los
+ * criterios de una búsqueda exploratoria de INMO o de la tool `find_matches`
+ * —, evaluada con el mismo motor y el mismo prefiltro que una necesidad
+ * guardada. No persiste NADA: ni necesidad, ni matches, ni actividad. Las
+ * importancias son las del catálogo por defecto (el tipo imprescindible, el
+ * resto preferible), igual que una necesidad recién creada sin tocar.
+ */
+export async function findPropertiesForCriteria(
+  event: H3Event,
+  orgId: number,
+  criteria: ExploratoryCriteria,
+  opts: { includeIneligible?: boolean; limit?: number } = {},
+): Promise<{ requirement: MatchableRequirement; results: ScoredProperty[]; scanned: number }> {
+  const matchable: MatchableRequirement = {
+    id: 0,
+    operation: criteria.operation,
+    propertyTypes: criteria.propertyTypes ?? [],
+    priceMin: criteria.priceMin ?? null,
+    priceMax: criteria.priceMax ?? null,
+    areaMin: criteria.areaMin ?? null,
+    areaMax: criteria.areaMax ?? null,
+    bedroomsMin: criteria.bedroomsMin ?? null,
+    bathroomsMin: criteria.bathroomsMin ?? null,
+    desiredZones: criteria.desiredZones ?? [],
+    excludedZones: [],
+    centerLat: null,
+    centerLng: null,
+    radiusKm: null,
+    conditionPref: null,
+    buildPref: null,
+    criteria: [],
+  }
+  return scoreAcrossCatalogs(event, orgId, matchable, null, opts)
 }
 
 export interface ScoredRequirement {

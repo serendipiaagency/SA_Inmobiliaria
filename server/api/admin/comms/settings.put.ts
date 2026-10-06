@@ -2,9 +2,9 @@ import { eq } from 'drizzle-orm'
 import { requireOrgScope } from '../../../utils/auth'
 import { now, schema, useDb } from '../../../utils/db'
 import { logAdminAction } from '../../../utils/audit'
-import { getCommsSettings } from '../../../utils/comms/inbox'
+import { getCommsSettings, WEB_CHAT_GREETING_MAX } from '../../../utils/comms/inbox'
 
-/** PUT /api/admin/comms/settings — prefijo por defecto, política con desconocidos, avisos internos. */
+/** PUT /api/admin/comms/settings — prefijo por defecto, política con desconocidos, avisos internos y chat de la web (activo + saludo). */
 export default defineEventHandler(async (event) => {
   const { user, orgId } = await requireOrgScope(event, 'system', 'write')
   const body = (await readBody(event)) || {}
@@ -20,6 +20,13 @@ export default defineEventHandler(async (event) => {
     patch.unknownContactPolicy = String(body.unknownContactPolicy)
   }
   if ('notifyInternal' in body) patch.notifyInternal = body.notifyInternal ? 1 : 0
+  // Núcleo N8a: el chat de la web pública, activable por agencia, y su saludo.
+  if ('webChatEnabled' in body) patch.webChatEnabled = body.webChatEnabled ? 1 : 0
+  if ('webChatGreeting' in body) {
+    const greeting = String(body.webChatGreeting ?? '').trim()
+    if (greeting.length > WEB_CHAT_GREETING_MAX) throw createError({ statusCode: 422, statusMessage: `El saludo del chat admite como máximo ${WEB_CHAT_GREETING_MAX} caracteres.` })
+    patch.webChatGreeting = greeting || null
+  }
 
   const db = useDb(event)
   const existing = await db.select({ organizationId: schema.commsSettings.organizationId }).from(schema.commsSettings).where(eq(schema.commsSettings.organizationId, orgId)).limit(1)

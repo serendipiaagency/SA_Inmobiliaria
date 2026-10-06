@@ -30,15 +30,20 @@
       </div>
     </header>
 
+    <!-- Núcleo N8a: cada comercial ve sólo lo suyo (regla en server/utils/dashboard/commercial.ts) -->
+    <p v-if="ownView" class="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900" data-testid="dash-own-view">
+      Estás viendo sólo tus datos como comercial ({{ ownView.commercialName }}): tus leads, visitas, ofertas, operaciones y tareas. La agencia completa la ven los administradores y gerentes.
+    </p>
+
     <!-- Filtros combinables (§100) -->
     <div class="mb-5 flex flex-wrap gap-2" data-testid="dash-filters">
-      <select v-model="scope.commercialId" class="cfg-input !w-44" data-testid="dash-commercial">
+      <select v-if="!ownView" v-model="scope.commercialId" class="cfg-input !w-44" data-testid="dash-commercial">
         <option value="">Todo el equipo</option>
         <option v-for="c in options?.commercials || []" :key="c.id" :value="String(c.id)">{{ c.name }}</option>
       </select>
-      <select v-if="options?.offices?.length" v-model="scope.office" class="cfg-input !w-40">
+      <select v-if="options?.offices?.length" v-model="scope.officeId" class="cfg-input !w-40" data-testid="dash-office">
         <option value="">Todas las oficinas</option>
-        <option v-for="o in options.offices" :key="o" :value="o">{{ o }}</option>
+        <option v-for="o in options.offices" :key="o.id" :value="String(o.id)">{{ o.name }}</option>
       </select>
       <select v-model="scope.source" class="cfg-input !w-40" data-testid="dash-source">
         <option value="">Todos los orígenes</option>
@@ -142,7 +147,7 @@ const today = () => new Date().toISOString().slice(0, 10)
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10)
 
 const preset = ref('30d')
-const scope = reactive({ from: daysAgo(29), to: today(), compare: false, commercialId: '', office: '', source: '', portal: '', campaign: '', propertyId: '' })
+const scope = reactive({ from: daysAgo(29), to: today(), compare: false, commercialId: '', officeId: '', source: '', portal: '', campaign: '', propertyId: '' })
 
 function applyPreset() {
   const d = new Date()
@@ -159,6 +164,8 @@ const { data, pending, error: fetchError } = await useFetch<any>('/api/admin/saa
   query: computed(() => ({ view: 'commercial', ...scope, compare: scope.compare ? '1' : '' })),
 })
 const error = computed(() => (fetchError.value ? (fetchError.value as any)?.data?.statusMessage || 'No se pudo cargar el dashboard' : ''))
+/** «Sólo lo suyo»: lo decide el servidor; aquí sólo se explica y se oculta el selector de comercial. */
+const ownView = computed(() => (data.value?.visibility?.mode === 'own' ? data.value.visibility : null))
 
 function formatMinutes(m: number | null) {
   if (m === null || m === undefined) return '—'

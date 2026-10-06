@@ -4,6 +4,7 @@ import { now, schema, useDb } from '../../../../../utils/db'
 import { logAdminAction } from '../../../../../utils/audit'
 import { crmNamesFor, loadContactForOrg, serializeContact } from '../../../../../utils/comms/admin'
 import { formatPhone } from '../../../../../utils/comms/phone'
+import { syncConversationCrmContact } from '../../../../../utils/comms/inbox'
 import { upsertLead } from '../../../../../utils/leads'
 
 /**
@@ -65,6 +66,8 @@ export default defineEventHandler(async (event) => {
   }
 
   await db.update(schema.commsContacts).set(patch).where(eq(schema.commsContacts.id, contact.id))
+  // Núcleo N8a: el Contact de la persona vinculada queda guardado en sus hilos (y se quita al desvincular).
+  await syncConversationCrmContact(db, orgId, contact.id, { clear: Boolean(body.unlink) })
   await logAdminAction(event, { user, orgId, action: 'update', resource: 'comms-contact', resourceId: contact.id, detail })
   const updated = await loadContactForOrg(db, orgId, contact.id)
   return { ok: true, contact: serializeContact(updated, await crmNamesFor(db, orgId, [updated])) }

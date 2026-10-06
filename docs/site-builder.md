@@ -70,7 +70,13 @@ dos tenants reales.
 
 `hero`, `map-teaser`, `properties` (con `layout: row | dark-grid | ai-grid`),
 `communities`, `property-types`, `mortgage-calculator`, `blog-list`, `team`
-(con `layout: cards | compact`), `lead-form`, `book-visit`, `text`, `cta`. El
+(con `layout: cards | compact`), `lead-form`, `book-visit`, `text`, `cta`.
+
+El **chat de la web** (núcleo N8a) no es un bloque: es un ajuste por agencia
+(Comunicaciones → Configuración) y aparece en todas las páginas de la web
+pública, no sólo en la portada (`components/WebChatWidget.vue`, ver
+docs/communications.md). El bloque `lead-form` envía `form: 'lead_form'` para
+que su hilo de la bandeja se etiquete «Formulario de captación». El
 catálogo — con su icono de categoría y su contenido por defecto — vive en
 `composables/useSiteBuilderRegistry.ts` (`BLOCK_PRESETS`).
 

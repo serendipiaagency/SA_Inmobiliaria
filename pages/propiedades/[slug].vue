@@ -358,6 +358,14 @@ const { format: formatPrice } = useCurrency()
 const { isFavorite, toggle: toggleFav, load: loadFav } = useFavorites()
 const { has: hasCompare, toggle: toggleCompare, load: loadCompare } = useCompare()
 onMounted(() => { loadFav(); loadCompare() })
+// Núcleo N8a (FASE 32): una ficha abierta desde el enlace personal que se le
+// envió a alguien por email o por el chat (`?f=<token>`) lo registra al
+// pintarse en el navegador; el servidor sólo lo cuenta si el token es de esta
+// agencia y de esta propiedad. Sin `f`, nada cambia.
+onMounted(() => {
+  const f = typeof route.query.f === 'string' ? route.query.f : ''
+  if (f) $fetch(`/api/public/properties/${encodeURIComponent(String(route.params.slug))}/view`, { method: 'POST', body: { f } }).catch(() => {})
+})
 const fav = computed(() => isFavorite(data.value!.project.id))
 const inCompare = computed(() => hasCompare(data.value!.project.id))
 function doCompare() {

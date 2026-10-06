@@ -5,6 +5,8 @@ import { upsertLead } from '../../utils/leads'
 import { rateLimit } from '../../utils/rateLimit'
 import { isValidEmail } from '../../utils/validate'
 import { readFirstTouch } from '../../utils/firstTouch'
+import { recordWebFormSubmission } from '../../utils/comms/web'
+import { samePagePath } from '../../utils/comms/webPublic'
 
 const PDF_FIELDS = [
   'passport_pdf',
@@ -93,8 +95,9 @@ export default defineEventHandler(async (event) => {
     await db.update(schema.mediaAssets).set({ entityId: submission.id }).where(eq(schema.mediaAssets.id, mediaAssetId))
   }
 
+  let leadId: number | null = null
   try {
-    await upsertLead(event, {
+    const lead = await upsertLead(event, {
       organizationId: orgId,
       name: text.name,
       email: text.email,
@@ -103,8 +106,36 @@ export default defineEventHandler(async (event) => {
       notes: [text.property_type, text.preferred_location, text.budget_range].filter(Boolean).join(' · ') || null,
       ...readFirstTouch(event),
     })
+    leadId = lead?.id ?? null
   } catch {
     // Lead pipeline must never block the visitor form from being saved.
+  }
+
+  // Núcleo N8a (FASE 29): el envío también es un hilo «Formulario web» de la
+  // bandeja. Sólo los campos de texto: los documentos KYC son confidenciales
+  // y se quedan en Bandeja → Solicitudes; aquí sólo se dice cuántos hay.
+  try {
+    const docs = Object.keys(files).length
+    await recordWebFormSubmission(db, {
+      orgId,
+      formType: 'visitor',
+      leadId,
+      name: text.name,
+      email: text.email,
+      phone: text.phone_number,
+      message: [text.specifications || 'Formulario de verificación de visitante.', docs ? `Adjuntó ${docs} documento${docs === 1 ? '' : 's'} confidencial${docs === 1 ? '' : 'es'} (en Bandeja → Solicitudes).` : null].filter(Boolean).join('\n'),
+      fields: {
+        nationality: text.nationality,
+        propertyType: text.property_type,
+        preferredLocation: text.preferred_location,
+        budgetRange: text.budget_range,
+        paymentForRent: text.payment_for_rent,
+        familyMembers: text.number_of_family_members,
+      },
+      pageUrl: samePagePath(event),
+    })
+  } catch {
+    // El envío ya está guardado: el hilo de la bandeja nunca lo bloquea.
   }
 
   return { ok: true }

@@ -64,6 +64,7 @@ sólo puede hacer lo mismo que una llamada directa a la API con ese usuario.
 | §8 no inventar criterios | lo no dicho no se envía | el validador sólo filtra lo que llega |
 | §9 superficie según schema | «parcela» → `plotAreaMin` | `search_properties` aplica el PropertySchemaRegistry |
 | §11 sin «91 %» intuitivo | usa `find_matches` | el % sólo existe en la salida del motor de Matching |
+| FASE 30: compatibilidad de una búsqueda no guardada | `find_matches` con `criteria`, y después ofrecer guardarla | `findPropertiesForCriteria` usa el mismo motor y no persiste nada (núcleo N8a) |
 | §12 sólo propiedades reales | nunca menciones nada no devuelto | el modelo no recibe otras propiedades |
 | §17 desambiguación | pregunta si hay varias | `find_contacts` marca `ambiguous` |
 | §18 buscar ≠ guardar | sólo guarda si se pide | ninguna herramienta de lectura escribe |
@@ -78,6 +79,45 @@ en la columna de la derecha.
 Las citas y tareas se guardan con la hora local de la agencia tal como se
 ve en el calendario (sin zona). INMO recibe la fecha actual y la instrucción
 de escribir «mañana a las 17:00» como `AAAA-MM-DD 17:00`, sin convertir.
+
+## INMO Intelligence (bloque N8b)
+
+Las capas que pedía la arquitectura «INMO INTELLIGENCE (Brains, RAG,
+Memoria, Tools, Workflows)», sobre la misma Domain Tools API:
+
+- **Memoria.** Las conversaciones se guardan en el servidor
+  (`inmo_conversations`, migración 0088), de cada usuario en su agencia:
+  listar, reanudar, renombrar y borrar (`server/utils/inmo/conversations.ts`;
+  otra persona u otra agencia → 404). Los **hechos** sobre una entidad se
+  guardan como notas (`notes.source = 'inmo'`) con `remember_fact`, que
+  exige «Confirmar»; `recall_memory` los consulta. Nunca se guardan secretos
+  (`secretKindIn`).
+- **Cerebros.** Perfiles en código (`server/utils/inmo/brainCatalog.ts`):
+  General, Comercial y captación, Cualificación de compradores, Seguimiento
+  de operaciones y Redacción de comunicaciones, cada uno con sus
+  instrucciones y su subconjunto de herramientas. La agencia puede
+  desactivarlos, añadir indicaciones y **quitar** herramientas
+  (`inmo_brain_settings`, área Sistema); añadir una que el perfil no tenga
+  es 422. Cada herramienta sigue pasando por el RBAC de quien usa INMO.
+- **RAG.** `search_knowledge` (`server/utils/knowledge/search.ts`) busca en la
+  ayuda del panel, en la base de conocimiento de la agencia
+  (`knowledge_documents`), en las notas y en las fichas, y devuelve fuentes
+  citables `F1…F8` con enlace. Cada fuente con datos de la agencia exige su
+  propia área de permisos. Es **léxica** (términos normalizados sin tildes
+  sobre `search_text`): no hay vectores disponibles, y una tabla virtual
+  FTS5 rompería `wrangler d1 export`, que el pipeline ejecuta antes de cada
+  migración en producción. Si no hay resultados, INMO lo dice.
+- **Workflows.** Secuencias guiadas (`server/utils/inmo/workflows.ts`): «Lead
+  nuevo → cualificar → compatibles → proponer visita», «Oferta aceptada →
+  negociación → tarea de documentación» y «Visita realizada → seguimiento →
+  anotar lo aprendido». Cada paso es una Domain Tool que se ejecuta sólo
+  tras «Ejecutar paso»; el estado vive en `workflow_runs`.
+- **Automatizaciones** reales, con el mismo motor de herramientas: ver
+  `docs/automatizaciones.md`.
+
+Pantallas: `/admin/inmo` (conversaciones, perfil, citas de fuentes y
+workflows) y `/admin/inmo-ajustes` (base de conocimiento con «Probar
+búsqueda», memoria y perfiles).
 
 ## Configuración
 
@@ -97,6 +137,11 @@ de escribir «mañana a las 17:00» como `AAAA-MM-DD 17:00`, sin convertir.
   confirmación (pendiente → confirmar una vez aunque se pulse dos; cancelar),
   desambiguación y contexto de entidades, sin clave, proveedor caído,
   `AI_BASE_URL` sólo loopback y saneado del historial.
+- `test/unit/inmoIntelligence.test.ts`: memoria acotada por agencia y usuario
+  (y su borrado), cerebros que sólo recortan herramientas, recuperación con
+  y sin fuentes y workflows guiados.
+- `tests/e2e/nucleo-n8b.spec.ts`: base de conocimiento con su fuente y sin
+  fugas a otra agencia, y perfiles que no admiten herramientas nuevas.
 - `tests/e2e/inmo.spec.ts`: en el panel real, con la Messages API guionizada
   de `scripts/e2e-provider-mock.mjs`: buscar → refinar → agendar con
   «Confirmar», procedencia, contexto y traza.

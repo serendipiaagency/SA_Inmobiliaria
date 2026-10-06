@@ -12,6 +12,8 @@ export interface TenantBranding {
   legalAddress: string | null
   legalEmail: string | null
   legalPhone: string | null
+  /** Núcleo N8a: el chat de la web pública, si la agencia lo activó (Comunicaciones → Configuración). */
+  webChat?: { enabled: boolean; greeting: string | null }
 }
 
 /** Domain-resolved branding for the public site (see server/middleware/00.tenant.ts). */
@@ -36,6 +38,7 @@ export function useTenant() {
         legalAddress: null,
         legalEmail: null,
         legalPhone: null,
+        webChat: { enabled: false, greeting: null },
       }
     }
   }

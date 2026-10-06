@@ -77,6 +77,10 @@ export function buildLeadListWhere(orgId: number, q: Record<string, any>): { cla
   // Oficina y equipo como entidades (migración 0086): los del propio lead.
   const officeId = posInt(q.officeId)
   if (officeId) { where.push('office_id = ?'); binds.push(officeId) }
+  // Núcleo N8a — el detalle del dashboard comercial por oficina usa su misma
+  // regla: la oficina del lead o, si no tiene, la de su comercial.
+  const officeScope = posInt(q.officeScope)
+  if (officeScope) { where.push('(office_id = ? OR (office_id IS NULL AND agent_id IN (SELECT id FROM team_members WHERE organization_id = ? AND office_id = ?)))'); binds.push(officeScope, orgId, officeScope) }
   const teamId = posInt(q.teamId)
   if (teamId) { where.push('team_id = ?'); binds.push(teamId) }
   if (q.priority) { where.push('priority = ?'); binds.push(String(q.priority)) }
