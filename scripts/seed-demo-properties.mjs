@@ -35,9 +35,11 @@
  *
  * ## Precios
  *
- * Se guardan en AED, que es lo que espera `useCurrency()` para convertir a la
- * moneda elegida. Los importes de aquí equivalen a precios de mercado en
- * euros (AED ≈ 0,2532 €).
+ * Se guardan en AED, la moneda por defecto de una agencia que no ha elegido
+ * otra en Configuración (`utils/currency.ts`): la web los toma como base y el
+ * visitante los ve convertidos a la moneda que elija. Los importes de aquí
+ * equivalen a precios de mercado en euros (AED ≈ 0,2532 €). Si la agencia de
+ * la demo elige EUR, estos importes se leerían como euros: no se convierten.
  *
  * Uso:
  *   node scripts/seed-demo-properties.mjs --org 1

@@ -77,6 +77,8 @@ const ENDPOINT = '/api/public/contact'
 
 const { tenant, load: loadTenant } = useTenant()
 const { hasActiveBar } = useBottomBar()
+// Cierre del núcleo (FASE 15): el lead del chat llega con el idioma de quien escribe.
+const visitorLanguage = useVisitorLanguage()
 const route = useRoute()
 const mounted = ref(false)
 const enabled = computed(() => mounted.value && Boolean(tenant.value?.webChat?.enabled) && !route.path.startsWith('/admin'))
@@ -152,7 +154,7 @@ async function start() {
     const r = await $fetch<{ token: string; expiresAt: string; messages: ChatMessage[] }>(ENDPOINT, {
       method: 'POST',
       query: { channel: 'chat', action: 'start' },
-      body: { ...form, propertySlug: propertySlug() },
+      body: { ...form, propertySlug: propertySlug(), language: visitorLanguage() },
     })
     messages.value = r.messages
     session.value = { token: r.token, expiresAt: r.expiresAt, lastSeenId: r.messages.at(-1)?.id ?? 0 }

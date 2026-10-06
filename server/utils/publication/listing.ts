@@ -53,7 +53,7 @@ export async function buildPortalListing(db: any, orgId: number, kind: PropertyC
   const sheet = await loadPropertySheet(db, orgId, kind, propertyId)
   const sch = getPropertySchemaFor(kind, row.propertyType ?? null)
   const merged = { ...row, ...sheet }
-  const projected = redactLocation(projectWithFields(merged, kind, portalFields(sch), { onlyDeclared: true }) as Record<string, unknown>, row.locationPrivacy)
+  const projected = redactLocation(projectWithFields(merged, kind, portalFields(sch), { onlyDeclared: true }) as Record<string, unknown>, row.locationPrivacy, row.locationPrivacyRadius)
   // Sólo lo que tiene valor: un portal no necesita saber qué campos están vacíos.
   const fields = Object.fromEntries(Object.entries(projected).filter(([, v]) => v !== null && v !== undefined && v !== ''))
 

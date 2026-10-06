@@ -23,9 +23,46 @@
 
           <!-- Body -->
           <div class="flex-1 space-y-8 overflow-y-auto px-6 py-6">
+            <!-- Ubicación: municipio, barrio y código postal (FASE 2). El API
+                 busca en la localidad/comunidad de la ficha y en el
+                 municipio/barrio de la ficha ampliada, y el CP por prefijo;
+                 las sugerencias son las zonas de la agencia. -->
+            <section>
+              <h3 class="filter-title">{{ t('filters.location', 'Ubicación') }}</h3>
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <label class="ff">{{ t('filters.municipality', 'Municipio') }}
+                  <input v-model.trim="f.municipality" class="fs" list="filters-municipalities" autocomplete="off" data-testid="public-filter-municipality" :placeholder="t('filters.municipalityPlaceholder', 'Cualquiera')" >
+                </label>
+                <label class="ff">{{ t('filters.neighborhood', 'Barrio o zona') }}
+                  <input v-model.trim="f.neighborhood" class="fs" list="filters-neighborhoods" autocomplete="off" data-testid="public-filter-neighborhood" :placeholder="t('filters.neighborhoodPlaceholder', 'Cualquiera')" >
+                </label>
+                <label class="ff">{{ t('filters.postalCode', 'Código postal') }}
+                  <input v-model.trim="f.postalCode" class="fs" inputmode="text" autocomplete="postal-code" maxlength="10" data-testid="public-filter-postal-code" :placeholder="t('filters.postalCodePlaceholder', 'p. ej. 28010')" >
+                </label>
+              </div>
+              <!-- Cerca de un punto (radio): se fija en el mapa con «Buscar
+                   cerca de aquí»; aquí se ve, se cambia el radio o se quita. -->
+              <div v-if="hasNearby" class="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-line px-4 py-3" data-testid="public-filter-nearby">
+                <span class="text-sm text-ink">{{ t('filters.nearby', 'Cerca de un punto') }}</span>
+                <label class="flex items-center gap-2 text-[12px] text-stone-500">{{ t('filters.nearbyRadius', 'Radio') }}
+                  <select v-model.number="f.radiusKm" class="fs !py-1.5" data-testid="public-filter-nearby-radius">
+                    <option v-for="km in radiusOptions" :key="km" :value="km">{{ km }} km</option>
+                  </select>
+                </label>
+                <button type="button" class="ml-auto text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-ink" data-testid="public-filter-nearby-remove" @click="clearNearby">{{ t('filters.nearbyRemove', 'Quitar') }}</button>
+              </div>
+              <p v-else class="mt-2 text-[12px] text-stone-400">{{ t('filters.nearbyHint', 'Se fija desde el mapa con «Buscar cerca de aquí».') }}</p>
+              <datalist id="filters-municipalities">
+                <option v-for="m in municipalityOptions" :key="m" :value="m" />
+              </datalist>
+              <datalist id="filters-neighborhoods">
+                <option v-for="n in neighborhoodOptions" :key="n" :value="n" />
+              </datalist>
+            </section>
+
             <!-- Precio -->
             <section>
-              <h3 class="filter-title">{{ t('hero.price', 'Precio') }} (AED)</h3>
+              <h3 class="filter-title">{{ t('hero.price', 'Precio') }} ({{ currency.symbol }})</h3>
               <div class="grid grid-cols-2 gap-3">
                 <label class="ff">{{ t('filters.min', 'Mínimo') }}
                   <select v-model.number="f.minPrice" class="fs">
@@ -81,7 +118,7 @@
             <section>
               <h3 class="filter-title">{{ t('filters.propertyType', 'Tipo de propiedad') }}</h3>
               <div class="flex flex-wrap gap-2">
-                <button v-for="ty in types" :key="ty" type="button" class="pill" :class="{ 'pill-on': f.type === ty }" @click="f.type = f.type === ty ? '' : ty">{{ typeLabel(ty) }}</button>
+                <button v-for="ty in types" :key="ty" type="button" class="pill" :class="{ 'pill-on': f.type === ty }" :data-testid="`public-filter-type-${ty}`" @click="f.type = f.type === ty ? '' : ty">{{ typeLabel(ty) }}</button>
               </div>
             </section>
 
@@ -140,7 +177,7 @@
             <button type="button" class="text-sm font-semibold uppercase tracking-widest text-stone-500 underline-offset-4 hover:text-ink hover:underline" @click="clearAll">
               {{ t('filters.clearAll', 'Limpiar todo') }}
             </button>
-            <button type="button" class="btn-primary min-w-[11rem]" @click="apply">
+            <button type="button" class="btn-primary min-w-[11rem]" data-testid="public-filters-apply" @click="apply">
               <span v-if="counting" class="count-dot" /> {{ t('filters.viewResultsPrefix', 'Ver') }} {{ count }} {{ count === 1 ? t('filters.result', 'resultado') : t('filters.results', 'resultados') }}
             </button>
           </div>
@@ -151,11 +188,20 @@
 </template>
 
 <script setup lang="ts">
+import { PROPERTY_TYPES } from '~/utils/propertySheet'
+import { DEFAULT_NEARBY_RADIUS_KM, NEARBY_RADIUS_OPTIONS, nearbyQuery, normalizePostalCode } from '~/utils/publicSearch'
+
 const { t } = useI18n()
+// Los precios del API están en la moneda de la agencia; los pasos se enseñan
+// en la que ve el visitante (utils/currency.ts) — antes «AED» fijo.
+const { format: money, current: currency } = useCurrency()
 const props = defineProps<{ open: boolean; modelValue: Record<string, any>; q?: string }>()
 const emit = defineEmits<{ close: []; apply: [Record<string, any>] }>()
 
 const blank = () => ({
+  municipality: '', neighborhood: '', postalCode: '',
+  // «Cerca de un punto»: lo pone el mapa; aquí se puede cambiar el radio o quitar.
+  lat: null as number | null, lng: null as number | null, radiusKm: DEFAULT_NEARBY_RADIUS_KM,
   minPrice: 0, maxPrice: 0, minArea: 0, maxArea: 0, bedrooms: 0, bathrooms: 0,
   type: '', status: '', orientation: '', minYear: 0, energy: '',
   elevator: false, pool: false, garage: false, terrace: false, garden: false, pets: false, accessible: false,
@@ -169,12 +215,50 @@ watch(
   },
 )
 
+// Sugerencias de zona (las localizaciones y comunidades que la agencia
+// publica) y tipos publicados por la agencia. Se piden una vez, al abrir el
+// modal; si fallan, los campos siguen siendo libres y se ofrece el catálogo entero.
+const municipalityOptions = ref<string[]>([])
+const neighborhoodOptions = ref<string[]>([])
+const publishedTypes = ref<string[] | null>(null)
+let optionsLoaded = false
+async function loadOptions() {
+  if (optionsLoaded) return
+  optionsLoaded = true
+  const names = (r: { rows?: { name?: string | null }[] } | null) =>
+    [...new Set((r?.rows || []).map((x) => String(x.name || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'))
+  const [locs, comms, facets] = await Promise.all([
+    $fetch<{ rows: { name: string }[] }>('/api/public/locations').catch(() => null),
+    $fetch<{ rows: { name: string }[] }>('/api/public/communities').catch(() => null),
+    $fetch<{ facets?: { types: string[] } }>('/api/public/properties', { query: { countOnly: '1', facets: 'types' } }).catch(() => null),
+  ])
+  municipalityOptions.value = names(locs)
+  neighborhoodOptions.value = names(comms)
+  publishedTypes.value = facets?.facets?.types?.length ? facets.facets.types : null
+}
+
 const priceSteps = [250000, 500000, 750000, 1000000, 1500000, 2000000, 3000000, 5000000, 8000000]
 const areaSteps = [50, 75, 100, 150, 200, 300, 500, 800]
 const bedOpts = computed(() => [
   { v: 0, l: t('hero.any', 'Cualquiera') }, { v: 1, l: '1+' }, { v: 2, l: '2+' }, { v: 3, l: '3+' }, { v: 4, l: '4+' }, { v: 5, l: '5+' },
 ])
-const types = ['Apartment', 'Villa', 'Townhouse', 'Penthouse', 'Studio']
+// Tipos (FASE 1): el catálogo común (utils/propertySheet.ts), reducido a los
+// que la agencia tiene publicados; el que venga en la URL se conserva aunque
+// ya no quede ninguno, para poder quitarlo.
+const types = computed(() => {
+  const base: string[] = publishedTypes.value || [...PROPERTY_TYPES]
+  return f.type && !base.includes(f.type) ? [...base, f.type] : base
+})
+const radiusOptions = computed(() => {
+  const opts: number[] = [...NEARBY_RADIUS_OPTIONS]
+  return opts.includes(Number(f.radiusKm)) ? opts : [...opts, Number(f.radiusKm)].sort((a, b) => a - b)
+})
+const hasNearby = computed(() => typeof f.lat === 'number' && typeof f.lng === 'number')
+function clearNearby() {
+  f.lat = null
+  f.lng = null
+  f.radiusKm = DEFAULT_NEARBY_RADIUS_KM
+}
 const statuses = computed(() => [
   { v: 'new', l: t('filters.status.new', 'Obra nueva') },
   { v: 'under_construction', l: t('filters.status.underConstruction', 'En construcción') },
@@ -192,23 +276,18 @@ const orientations = computed(() => [
 const energies = ['A', 'B', 'C', 'D', 'E']
 const years = [2020, 2022, 2024, 2025, 2026, 2027, 2028]
 
-function typeLabel(ty: string) {
-  return {
-    Apartment: t('filters.type.apartment', 'Apartamento'),
-    Villa: t('filters.type.villa', 'Villa'),
-    Townhouse: t('filters.type.townhouse', 'Adosado'),
-    Penthouse: t('filters.type.penthouse', 'Ático'),
-    Studio: t('card.studio', 'Estudio'),
-  }[ty] || ty
-}
-function money(v: number) {
-  return `AED ${new Intl.NumberFormat('en-US').format(v)}`
-}
+/** Rótulo del tipo en el idioma del visitante; en castellano, el del catálogo común. */
+const typeLabel = usePropertyTypeLabel()
 
 // Build query for count / apply
 function toQuery() {
   const q: Record<string, string> = {}
   if (props.q) q.q = props.q
+  if (f.municipality) q.municipality = f.municipality
+  if (f.neighborhood) q.neighborhood = f.neighborhood
+  const postalCode = normalizePostalCode(f.postalCode)
+  if (postalCode) q.postalCode = postalCode
+  if (hasNearby.value) Object.assign(q, nearbyQuery(f.lat, f.lng, Number(f.radiusKm) || DEFAULT_NEARBY_RADIUS_KM))
   if (f.minPrice) q.minPrice = String(f.minPrice)
   if (f.maxPrice) q.maxPrice = String(f.maxPrice)
   if (f.minArea) q.minArea = String(f.minArea)
@@ -271,7 +350,11 @@ watch(
     debounceTimer = setTimeout(refreshCount, 220)
   },
 )
-watch(() => props.open, (o) => { if (o) refreshCount() })
+watch(() => props.open, (o) => {
+  if (!o) return
+  refreshCount()
+  loadOptions()
+})
 
 function clearAll() {
   Object.assign(f, blank())

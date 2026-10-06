@@ -1,12 +1,13 @@
-import { and, desc, eq, inArray, isNotNull, isNull, lt, ne } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, isNull, lt, ne, or, sql } from 'drizzle-orm'
 import { createError } from 'h3'
 import * as schema from '../../db/schema'
 import { now } from '../db'
+import { selectInChunks } from '../sqlChunks'
 import { recordActivity } from '../activity/service'
 import { syncLeadNextAction } from '../leads/nextAction'
 import type { PropertyKind } from '../matching/service'
 import { propertyState, trashedPropertyMessage, type PropertyState } from '../properties/trash'
-import { contactNames, leadNames, propertyNameOf, propertyNames, teamMemberNames, visitLabels } from '../crm/labels'
+import { contactNames, creatorNames, leadNames, officeNames, propertyNameOf, propertyNames, teamMemberNames, visitLabels } from '../crm/labels'
 import { TASK_PRIORITIES, TASK_STATUSES, TASK_TYPES } from '../../../utils/pipelineCatalog'
 
 /**
@@ -39,6 +40,12 @@ export interface CreateTaskInput {
   propertyKind?: PropertyKind | null
   appointmentId?: number | null
   dealId?: number | null
+  /**
+   * Migración 0089 (cierre D3a): la oficina de la tarea. `null`/sin él = la
+   * de su responsable (se calcula al leer, no se copia: si cambia el
+   * responsable o su oficina, la tarea le sigue).
+   */
+  officeId?: number | null
 }
 
 export interface TaskRow {
@@ -56,6 +63,7 @@ export interface TaskRow {
   propertyKind: string | null
   appointmentId: number | null
   dealId: number | null
+  officeId?: number | null
   createdBy: number | null
   createdAt: string
   updatedAt: string
@@ -70,6 +78,13 @@ export interface TaskWithLabels extends TaskRow {
   leadName: string | null
   propertyName: string | null
   appointmentLabel: string | null
+  /** Cierre D3a: la oficina efectiva (la de la tarea o, si no tiene, la de su responsable) y de dónde sale. */
+  effectiveOfficeId: number | null
+  officeName: string | null
+  officeFromAssignee: boolean
+  /** Quién la creó: nombre del usuario de la agencia; `createdByDeleted` si ya no existe. */
+  createdByName: string | null
+  createdByDeleted: boolean
 }
 
 function validate(input: CreateTaskInput) {
@@ -102,7 +117,7 @@ async function liveInOrg(db: any, table: any, id: number, orgId: number): Promis
 export async function assertTaskReferences(
   db: any,
   orgId: number,
-  refs: Pick<CreateTaskInput, 'assigneeId' | 'contactId' | 'leadId' | 'propertyId' | 'propertyKind' | 'appointmentId' | 'dealId'>,
+  refs: Pick<CreateTaskInput, 'assigneeId' | 'contactId' | 'leadId' | 'propertyId' | 'propertyKind' | 'appointmentId' | 'dealId' | 'officeId'>,
   opts: { allowTrashedProperty?: boolean } = {},
 ) {
   const missing = (what: string) => createError({ statusCode: 404, statusMessage: `${what} no encontrado en esta organización` })
@@ -111,6 +126,8 @@ export async function assertTaskReferences(
   if (refs.leadId && !(await belongsToOrg(db, schema.leads, refs.leadId, orgId))) throw missing('Lead')
   if (refs.appointmentId && !(await liveInOrg(db, schema.visits, refs.appointmentId, orgId))) throw missing('Cita')
   if (refs.dealId && !(await liveInOrg(db, schema.dealOperations, refs.dealId, orgId))) throw missing('Operación')
+  // Cierre D3a: una oficina viva de esta agencia (de otra, inexistente o borrada = 404).
+  if (refs.officeId && !(await liveInOrg(db, schema.offices, refs.officeId, orgId))) throw createError({ statusCode: 404, statusMessage: 'Oficina no encontrada en esta organización' })
   if (refs.propertyId) {
     const kinds: PropertyKind[] = refs.propertyKind === 'agent' ? ['agent'] : refs.propertyKind === 'developer' ? ['developer'] : ['developer', 'agent']
     const states: PropertyState[] = []
@@ -145,6 +162,7 @@ export async function createTask(db: any, orgId: number, input: CreateTaskInput,
       propertyKind: input.propertyKind ?? null,
       appointmentId: input.appointmentId ?? null,
       dealId: input.dealId ?? null,
+      officeId: input.officeId ?? null,
       createdBy: opts.createdBy ?? null,
       createdAt: nowTs,
       updatedAt: nowTs,
@@ -182,6 +200,8 @@ export interface UpdateTaskInput {
   propertyKind?: PropertyKind | null
   appointmentId?: number | null
   dealId?: number | null
+  /** Cierre D3a: oficina de la tarea; `null` vuelve a «la de su responsable». */
+  officeId?: number | null
 }
 
 async function getLiveTaskOrThrow(db: any, orgId: number, taskId: number): Promise<TaskRow> {
@@ -223,6 +243,7 @@ export async function updateTask(db: any, orgId: number, taskId: number, input: 
   if (changed('leadId')) refs.leadId = input.leadId
   if (changed('appointmentId')) refs.appointmentId = input.appointmentId
   if (changed('dealId')) refs.dealId = input.dealId
+  if (changed('officeId')) refs.officeId = input.officeId
   const nextPropertyId = input.propertyId !== undefined ? input.propertyId : existing.propertyId
   const nextPropertyKind = input.propertyKind !== undefined ? input.propertyKind : (existing.propertyKind as PropertyKind | null)
   const propertyChanged = (nextPropertyId ?? null) !== (existing.propertyId ?? null) || (nextPropertyId != null && (nextPropertyKind ?? null) !== (existing.propertyKind ?? null))
@@ -243,6 +264,7 @@ export async function updateTask(db: any, orgId: number, taskId: number, input: 
   if (input.leadId !== undefined) patch.leadId = input.leadId
   if (input.appointmentId !== undefined) patch.appointmentId = input.appointmentId
   if (input.dealId !== undefined) patch.dealId = input.dealId
+  if (input.officeId !== undefined) patch.officeId = input.officeId
   if (input.propertyId !== undefined || input.propertyKind !== undefined) {
     patch.propertyId = nextPropertyId ?? null
     patch.propertyKind = nextPropertyId ? (nextPropertyKind ?? null) : null
@@ -281,19 +303,66 @@ export async function updateTask(db: any, orgId: number, taskId: number, input: 
   return row
 }
 
+/** El evento de una tarea con todas sus relaciones (las columnas propias de `activities`), para que salga en la cronología de cada una. */
+async function recordTaskActivity(db: any, orgId: number, row: TaskRow, eventType: 'TASK_TRASHED' | 'TASK_RESTORED', actorId: number | null | undefined) {
+  await recordActivity(db, orgId, {
+    eventType,
+    entityType: 'task',
+    entityId: row.id,
+    contactId: row.contactId,
+    leadId: row.leadId,
+    propertyId: row.propertyId,
+    propertyKind: row.propertyKind as PropertyKind | null,
+    appointmentId: row.appointmentId,
+    actorType: actorId ? 'user' : 'system',
+    actorId: actorId ?? null,
+  })
+}
+
 /**
  * Borra una Task a la papelera (`deletedAt`, migración 0086): desaparece de
  * los listados, de la ficha de la operación y del cálculo de la próxima
  * acción, pero la fila —y su Activity— se conservan. No se borra nada de
  * verdad: el TASK_CREATED/TASK_COMPLETED que ya ocurrió sigue en la
- * cronología.
+ * cronología, y se añade TASK_TRASHED (cierre C1) para que se sepa quién la
+ * quitó y cuándo.
  */
-export async function deleteTask(db: any, orgId: number, taskId: number): Promise<TaskRow> {
+export async function deleteTask(db: any, orgId: number, taskId: number, opts: { actorId?: number | null } = {}): Promise<TaskRow> {
   const existing = await getLiveTaskOrThrow(db, orgId, taskId)
   const nowTs = now()
   await db.update(schema.tasks).set({ deletedAt: nowTs, updatedAt: nowTs }).where(and(eq(schema.tasks.id, taskId), eq(schema.tasks.organizationId, orgId)))
   if (existing.leadId) await syncLeadNextAction(db, orgId, existing.leadId)
-  return { ...existing, deletedAt: nowTs, updatedAt: nowTs }
+  const row = { ...existing, deletedAt: nowTs, updatedAt: nowTs }
+  await recordTaskActivity(db, orgId, row, 'TASK_TRASHED', opts.actorId)
+  return row
+}
+
+/**
+ * Saca una Task de la papelera (cierre C1): vuelve tal cual estaba —mismo
+ * estado, fecha, responsable y relaciones— a los listados y, si sigue
+ * abierta, a la próxima acción de su lead. Registra TASK_RESTORED.
+ *
+ * Sus referencias no se vuelven a juzgar: igual que al editar
+ * (`updateTask` sólo valida lo que cambia), lo que ya tenía es historia
+ * aunque después se haya borrado. Una tarea de otra agencia, o que no
+ * existe, es 404; una que no está en la papelera se devuelve sin tocar
+ * (restaurar dos veces no deja dos eventos).
+ */
+export async function restoreTask(db: any, orgId: number, taskId: number, opts: { actorId?: number | null } = {}): Promise<TaskRow> {
+  const rows = await db
+    .select()
+    .from(schema.tasks)
+    .where(and(eq(schema.tasks.id, taskId), eq(schema.tasks.organizationId, orgId)))
+    .limit(1)
+  const existing: TaskRow | undefined = rows[0]
+  if (!existing) throw createError({ statusCode: 404, statusMessage: 'Tarea no encontrada' })
+  if (!existing.deletedAt) return existing
+  const nowTs = now()
+  await db.update(schema.tasks).set({ deletedAt: null, updatedAt: nowTs }).where(and(eq(schema.tasks.id, taskId), eq(schema.tasks.organizationId, orgId)))
+  if (existing.leadId) await syncLeadNextAction(db, orgId, existing.leadId)
+  const row = { ...existing, deletedAt: null, updatedAt: nowTs }
+  await recordTaskActivity(db, orgId, row, 'TASK_RESTORED', opts.actorId)
+  return row
 }
 
 /** `active` = abiertas o en curso: el trabajo que sigue pendiente. */
@@ -310,17 +379,30 @@ export interface ListTasksFilter {
   propertyKind?: PropertyKind
   appointmentId?: number
   dealId?: number
+  /**
+   * Cierre D3a: la oficina efectiva — la de la tarea (`tasks.office_id`) o,
+   * si no tiene, la de su responsable. La misma regla que el dashboard.
+   */
+  officeId?: number
   /** Abiertas/en curso con dueAt vencido. */
   overdue?: boolean
   /** dueAt dentro de hoy (00:00–23:59 UTC). */
   dueToday?: boolean
+  /** Cierre C1: sólo las de la papelera (la vista «Papelera» de Tareas). Sin él, nunca salen. */
+  trashed?: boolean
 }
 
-/** Lista tareas de la organización (nunca las de la papelera), más próximas primero (dueAt asc, nulls al final). Sin filtro alguno, lee todas las de la org — a propósito: es la vista "Tareas" del panel, no la cronología de una entidad. */
+/**
+ * Lista tareas de la organización (nunca las de la papelera, salvo que se
+ * pidan con `trashed`), más próximas primero (dueAt asc, nulls al final). Sin
+ * filtro alguno, lee todas las de la org — a propósito: es la vista "Tareas"
+ * del panel, no la cronología de una entidad. La papelera se ordena por
+ * cuándo se borró, lo último primero.
+ */
 export async function listTasks(db: any, orgId: number, filter: ListTasksFilter = {}): Promise<TaskRow[]> {
   const nowTs = now()
   const today = nowTs.slice(0, 10)
-  const conditions = [eq(schema.tasks.organizationId, orgId), isNull(schema.tasks.deletedAt)]
+  const conditions = [eq(schema.tasks.organizationId, orgId), filter.trashed ? isNotNull(schema.tasks.deletedAt) : isNull(schema.tasks.deletedAt)]
   if (filter.assigneeId) conditions.push(eq(schema.tasks.assigneeId, filter.assigneeId))
   if (filter.status === 'active') conditions.push(inArray(schema.tasks.status, ['open', 'in_progress']))
   else if (filter.status) conditions.push(eq(schema.tasks.status, filter.status))
@@ -334,6 +416,11 @@ export async function listTasks(db: any, orgId: number, filter: ListTasksFilter 
   }
   if (filter.appointmentId) conditions.push(eq(schema.tasks.appointmentId, filter.appointmentId))
   if (filter.dealId) conditions.push(eq(schema.tasks.dealId, filter.dealId))
+  if (filter.officeId) {
+    // Lista de comerciales de la oficina como subconsulta (no ids sueltos: el número de parámetros no crece).
+    const teamInOffice = sql`(SELECT id FROM team_members WHERE organization_id = ${orgId} AND office_id = ${filter.officeId})`
+    conditions.push(or(eq(schema.tasks.officeId, filter.officeId), and(isNull(schema.tasks.officeId), sql`${schema.tasks.assigneeId} IN ${teamInOffice}`))!)
+  }
   if (filter.overdue) {
     conditions.push(ne(schema.tasks.status, 'completed'), ne(schema.tasks.status, 'cancelled'), isNotNull(schema.tasks.dueAt), lt(schema.tasks.dueAt, nowTs))
   }
@@ -349,6 +436,7 @@ export async function listTasks(db: any, orgId: number, filter: ListTasksFilter 
     .orderBy(desc(schema.tasks.dueAt))
 
   const filtered = filter.dueToday ? rows.filter((r) => r.dueAt && r.dueAt.slice(0, 10) === today) : rows
+  if (filter.trashed) return [...filtered].sort((a, b) => (a.deletedAt === b.deletedAt ? b.id - a.id : String(b.deletedAt) < String(a.deletedAt) ? -1 : 1))
   // dueAt asc con NULLs al final: SQLite ordena NULL primero de forma nativa, así que se ordena aquí en vez de en SQL.
   return [...filtered].sort((a, b) => {
     if (a.dueAt === b.dueAt) return b.id - a.id
@@ -358,23 +446,52 @@ export async function listTasks(db: any, orgId: number, filter: ListTasksFilter 
   })
 }
 
-/** Añade a cada tarea el nombre de su responsable, contacto, lead, inmueble y cita — resueltos dentro de la organización. */
+/** La oficina de cada responsable (`team_members.office_id`), acotada a la organización y troceada. */
+async function assigneeOffices(db: any, orgId: number, ids: Array<number | null | undefined>): Promise<Map<number, number | null>> {
+  const list = [...new Set(ids.filter((v): v is number => typeof v === 'number' && v > 0))]
+  const out = new Map<number, number | null>()
+  if (!list.length) return out
+  const rows = await selectInChunks(list, (part) =>
+    db.select({ id: schema.teamMembers.id, officeId: schema.teamMembers.officeId }).from(schema.teamMembers).where(and(eq(schema.teamMembers.organizationId, orgId), inArray(schema.teamMembers.id, part))),
+  )
+  for (const r of rows as any[]) out.set(r.id, r.officeId ?? null)
+  return out
+}
+
+/**
+ * Añade a cada tarea el nombre de su responsable, contacto, lead, inmueble y
+ * cita — resueltos dentro de la organización —, su oficina efectiva (la suya
+ * o la de su responsable, cierre D3a) y quién la creó.
+ */
 export async function withTaskLabels(db: any, orgId: number, rows: TaskRow[]): Promise<TaskWithLabels[]> {
-  const [assignees, contacts, leads, properties, visits] = await Promise.all([
+  const [assignees, contacts, leads, properties, visits, offices, creators] = await Promise.all([
     teamMemberNames(db, orgId, rows.map((r) => r.assigneeId)),
     contactNames(db, orgId, rows.map((r) => r.contactId)),
     leadNames(db, orgId, rows.map((r) => r.leadId)),
     propertyNames(db, orgId, rows.map((r) => ({ id: r.propertyId, kind: r.propertyKind }))),
     visitLabels(db, orgId, rows.map((r) => r.appointmentId)),
+    assigneeOffices(db, orgId, rows.filter((r) => !r.officeId).map((r) => r.assigneeId)),
+    creatorNames(db, orgId, rows.map((r) => r.createdBy)),
   ])
-  return rows.map((r) => ({
-    ...r,
-    assigneeName: r.assigneeId ? (assignees.get(r.assigneeId) ?? null) : null,
-    contactName: r.contactId ? (contacts.get(r.contactId) ?? null) : null,
-    leadName: r.leadId ? (leads.get(r.leadId) ?? null) : null,
-    propertyName: propertyNameOf(properties, r.propertyId, r.propertyKind),
-    appointmentLabel: r.appointmentId ? (visits.get(r.appointmentId) ?? null) : null,
-  }))
+  const effective = (r: TaskRow) => r.officeId ?? (r.assigneeId ? (offices.get(r.assigneeId) ?? null) : null)
+  const officeLabels = await officeNames(db, orgId, rows.map(effective))
+  return rows.map((r) => {
+    const officeId = effective(r)
+    const createdByName = r.createdBy ? (creators.get(r.createdBy) ?? null) : null
+    return {
+      ...r,
+      assigneeName: r.assigneeId ? (assignees.get(r.assigneeId) ?? null) : null,
+      contactName: r.contactId ? (contacts.get(r.contactId) ?? null) : null,
+      leadName: r.leadId ? (leads.get(r.leadId) ?? null) : null,
+      propertyName: propertyNameOf(properties, r.propertyId, r.propertyKind),
+      appointmentLabel: r.appointmentId ? (visits.get(r.appointmentId) ?? null) : null,
+      effectiveOfficeId: officeId,
+      officeName: officeId ? (officeLabels.get(officeId) ?? null) : null,
+      officeFromAssignee: !r.officeId && !!officeId,
+      createdByName,
+      createdByDeleted: !!r.createdBy && !createdByName,
+    }
+  })
 }
 
 /** Derivado, nunca guardado: una Task vencida es open/in_progress con dueAt en el pasado. */

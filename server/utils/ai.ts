@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3'
 import type { MarketStats } from './market'
 import { loopbackOrigin } from './loopback'
+import { DEFAULT_AGENCY_CURRENCY, convertAmount, formatMoney } from '../../utils/currency'
 
 /**
  * AI content engine.
@@ -37,8 +38,20 @@ export const CONTENT_KINDS: { key: ContentKind; label: string }[] = [
   { key: 'email', label: 'Email' },
 ]
 
-function money(v: number | null | undefined) {
-  return v ? `AED ${new Intl.NumberFormat('en-US').format(v)}` : 'precio a consultar'
+/**
+ * Importe en la moneda de la agencia (utils/currency.ts): los precios se
+ * guardan en ella y el texto generado la cita tal cual — antes «AED» fijo.
+ * Cada función pública recibe la moneda de quien la llama; sin ella, la de
+ * por defecto.
+ */
+function money(v: number | null | undefined, currency: string = DEFAULT_AGENCY_CURRENCY) {
+  return v ? formatMoney(v, currency) : 'precio a consultar'
+}
+
+/** La horquilla orientativa de una actualización estética (400–700 AED/m²), en la moneda de la agencia y redondeada a la decena. */
+function refreshCostRange(currency: string): string {
+  const r = (aed: number) => Math.max(10, Math.round(convertAmount(aed, 'AED', currency) / 10) * 10)
+  return `${formatMoney(r(400), currency)}–${formatMoney(r(700), currency)}/m²`
 }
 
 function features(p: any): string[] {
@@ -59,10 +72,10 @@ function statusText(s: string) {
 
 // --- rules-based fallback ---------------------------------------------------
 
-function fallback(kind: ContentKind, p: any, orgName?: string): string {
+function fallback(kind: ContentKind, p: any, orgName?: string, currency: string = DEFAULT_AGENCY_CURRENCY): string {
   const brand = orgName || 'nuestra inmobiliaria'
   const name = p.name
-  const price = money(p.price)
+  const price = money(p.price, currency)
   const fx = features(p)
   const fxText = fx.length ? fx.join(', ') : 'acabados de calidad'
   const loc = p.community || 'una ubicación privilegiada'
@@ -125,7 +138,7 @@ function fallback(kind: ContentKind, p: any, orgName?: string): string {
 
 // --- buyer Q&A fallback -----------------------------------------------------
 
-export function fallbackAnswer(question: string, p: any): string {
+export function fallbackAnswer(question: string, p: any, currency: string = DEFAULT_AGENCY_CURRENCY): string {
   const q = question.toLowerCase()
   if (/(luz|luminos|sol)/.test(q)) {
     const sunny = ['S', 'SW', 'SE'].includes(p.orientation)
@@ -146,7 +159,7 @@ export function fallbackAnswer(question: string, p: any): string {
   }
   if (/(reform|renov|obra)/.test(q)) {
     return p.status === 'ready'
-      ? 'Está lista para entrar a vivir, por lo que normalmente no requiere reforma. Una actualización estética ligera rondaría 400–700 AED/m² según acabados.'
+      ? `Está lista para entrar a vivir, por lo que normalmente no requiere reforma. Una actualización estética ligera rondaría ${refreshCostRange(currency)} según acabados.`
       : `Al ser ${statusText(p.status)}, se entrega con acabados nuevos: no necesita reforma. Podrás personalizar materiales dentro de las opciones del promotor.`
   }
   if (/(colegio|escuela|educa)/.test(q)) {
@@ -212,12 +225,12 @@ export function hasAiKey(event: H3Event): boolean {
   return !!env.AI_API_KEY
 }
 
-function propContext(p: any): string {
+function propContext(p: any, currency: string = DEFAULT_AGENCY_CURRENCY): string {
   return [
     `Nombre: ${p.name}`,
     `Tipo: ${p.propertyType || '—'}`,
     `Estado: ${statusText(p.status)}`,
-    `Precio: ${money(p.price)}`,
+    `Precio: ${money(p.price, currency)}`,
     `Dormitorios: ${p.bedrooms ?? '—'}`,
     `Baños: ${p.bathrooms ?? '—'}`,
     `Superficie: ${p.area ? Math.round(p.area) + ' m²' : '—'}`,
@@ -242,27 +255,27 @@ const KIND_INSTRUCTIONS: Record<ContentKind, string> = {
   email: 'Redacta un email comercial con asunto y cuerpo, tono cercano y profesional.',
 }
 
-export async function generateContent(event: H3Event, kind: ContentKind, p: any, orgName?: string): Promise<{ text: string; engine: 'ai' | 'rules' }> {
+export async function generateContent(event: H3Event, kind: ContentKind, p: any, orgName?: string, currency: string = DEFAULT_AGENCY_CURRENCY): Promise<{ text: string; engine: 'ai' | 'rules' }> {
   const system =
     'Eres un copywriter inmobiliario experto en español. Escribes textos claros, atractivos y honestos, sin exagerar. Devuelve solo el texto pedido, sin comillas ni preámbulos.'
-  const user = `${KIND_INSTRUCTIONS[kind]}\n\nDatos de la propiedad:\n${propContext(p)}`
+  const user = `${KIND_INSTRUCTIONS[kind]}\n\nDatos de la propiedad:\n${propContext(p, currency)}`
   const ai = await callClaude(event, system, user)
   if (ai) return { text: ai, engine: 'ai' }
-  return { text: fallback(kind, p, orgName), engine: 'rules' }
+  return { text: fallback(kind, p, orgName, currency), engine: 'rules' }
 }
 
-export async function answerQuestion(event: H3Event, question: string, p: any): Promise<{ text: string; engine: 'ai' | 'rules' }> {
+export async function answerQuestion(event: H3Event, question: string, p: any, currency: string = DEFAULT_AGENCY_CURRENCY): Promise<{ text: string; engine: 'ai' | 'rules' }> {
   const system =
     'Eres un asesor inmobiliario honesto en español. Respondes de forma breve (2-4 frases) y útil, basándote solo en los datos disponibles de la propiedad. Si no hay dato, dilo y ofrece confirmarlo.'
-  const user = `Pregunta del comprador: "${question}"\n\nDatos de la propiedad:\n${propContext(p)}`
+  const user = `Pregunta del comprador: "${question}"\n\nDatos de la propiedad:\n${propContext(p, currency)}`
   const ai = await callClaude(event, system, user)
   if (ai) return { text: ai, engine: 'ai' }
-  return { text: fallbackAnswer(question, p), engine: 'rules' }
+  return { text: fallbackAnswer(question, p, currency), engine: 'rules' }
 }
 
 // --- investment analysis -----------------------------------------------------
 
-function fallbackAnalysis(p: any, m: MarketStats): string {
+function fallbackAnalysis(p: any, m: MarketStats, currency: string = DEFAULT_AGENCY_CURRENCY): string {
   const parts: string[] = []
   const pricePerM2 = p.price && p.area ? p.price / p.area : null
   const comparablesText = m.comparableCount === 1 ? '1 propiedad comparable' : `${m.comparableCount} propiedades comparables`
@@ -296,7 +309,7 @@ function fallbackAnalysis(p: any, m: MarketStats): string {
   }
 
   if (p.priceOld && p.price && p.priceOld > p.price) {
-    parts.push(`El precio ya ha bajado desde ${money(p.priceOld)}, lo que puede indicar margen de negociación adicional.`)
+    parts.push(`El precio ya ha bajado desde ${money(p.priceOld, currency)}, lo que puede indicar margen de negociación adicional.`)
   }
 
   parts.push(
@@ -308,18 +321,18 @@ function fallbackAnalysis(p: any, m: MarketStats): string {
   return parts.join(' ')
 }
 
-export async function analyzeInvestment(event: H3Event, p: any, market: MarketStats): Promise<{ text: string; engine: 'ai' | 'rules' }> {
+export async function analyzeInvestment(event: H3Event, p: any, market: MarketStats, currency: string = DEFAULT_AGENCY_CURRENCY): Promise<{ text: string; engine: 'ai' | 'rules' }> {
   const system =
     'Eres un analista de inversión inmobiliaria en español. Escribes un análisis breve (3-5 frases), honesto y basado exclusivamente en los datos y estadísticas de mercado proporcionados. No inventes cifras que no se te den. Si un dato falta, dilo explícitamente en vez de suponerlo.'
   const marketText = [
     `Propiedades comparables en la misma zona: ${market.comparableCount}`,
-    `Precio medio por m² comparable: ${market.avgPricePerM2 ? money(Math.round(market.avgPricePerM2)) : 'sin datos suficientes'}`,
+    `Precio medio por m² comparable: ${market.avgPricePerM2 ? money(Math.round(market.avgPricePerM2), currency) : 'sin datos suficientes'}`,
     `Rentabilidad media comparable: ${market.avgRentalYield ? market.avgRentalYield.toFixed(1) + '%' : 'sin datos suficientes'}`,
   ].join('\n')
-  const user = `Analiza esta propiedad como oportunidad de inversión.\n\nDatos de la propiedad:\n${propContext(p)}\n\nEstadísticas de mercado comparable:\n${marketText}`
+  const user = `Analiza esta propiedad como oportunidad de inversión.\n\nDatos de la propiedad:\n${propContext(p, currency)}\n\nEstadísticas de mercado comparable:\n${marketText}`
   const ai = await callClaude(event, system, user)
   if (ai) return { text: ai, engine: 'ai' }
-  return { text: fallbackAnalysis(p, market), engine: 'rules' }
+  return { text: fallbackAnalysis(p, market, currency), engine: 'rules' }
 }
 
 // --- similar properties -----------------------------------------------------

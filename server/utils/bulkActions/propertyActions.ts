@@ -1,8 +1,8 @@
-import { and, eq, like, or } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { createError, type H3Event } from 'h3'
 import { schema, useDb, now } from '../db'
 import { tablesFor, type PropertyKind } from '../matching/service'
-import { buildPropertyFilterConds, parsePropertyFilters } from '../properties/searchService'
+import { buildPropertyFilterConds, parsePropertyFilters, propertyTextSearchCond } from '../properties/searchService'
 import { assertSchemaValid } from '../properties/publication'
 import { fireAutomationRules } from '../publication/automations'
 import { adminResources } from '../adminResources'
@@ -10,6 +10,7 @@ import type { BulkActionItemHandler } from './service'
 import { MAX_BULK_ACTION_TARGETS } from './service'
 import { getOrCreateTag, linkTag } from '../tags/service'
 import { livePropertyCond, trashedPropertyMessage } from '../properties/trash'
+import { setPropertyCommercialStatus, syncCommercialStatusAfterAvailability } from '../properties/commercialStatus'
 
 function propertyTable(kind: PropertyKind) {
   return tablesFor(kind).property as any
@@ -31,9 +32,10 @@ export async function resolveFilteredPropertyIds(event: H3Event, orgId: number, 
 
   const q = typeof filters.q === 'string' ? filters.q.trim() : ''
   if (q) {
+    // La MISMA búsqueda de texto que el listado (cierre D1p: referencias,
+    // calle, código comercial e id), no una segunda interpretación.
     const resourceKey = kind === 'agent' ? 'properties' : 'developer-properties'
-    const searchFields = adminResources[resourceKey].searchFields
-    conds.push(or(...searchFields.map((f) => like(t[f], `%${q}%`)))!)
+    conds.push(propertyTextSearchCond(kind, q, adminResources[resourceKey].searchFields))
   }
 
   const rows = await db
@@ -76,14 +78,33 @@ async function changeCommercial(event: H3Event, orgId: number, kind: PropertyKin
 const AGENT_STATUSES = ['available', 'sold']
 const DEVELOPER_STATUSES = ['new', 'under_construction', 'ready']
 
-/** §88 — mismos valores de estado que ya usa el CRUD normal (server/utils/adminResources.ts): nunca un valor inventado que el resto del panel no entienda. */
-async function changeStatus(event: H3Event, orgId: number, kind: PropertyKind, propertyId: number, params: { status?: string }) {
+/**
+ * §88 — mismos valores de estado que ya usa el CRUD normal (server/utils/adminResources.ts): nunca un valor inventado que el resto del panel no entienda.
+ * Es el `status` propio del catálogo: «Estado de la obra» en obra nueva y
+ * «Disponibilidad» en 2ª mano (cierre D1p). En 2ª mano, una disponibilidad
+ * nueva ajusta un estado comercial que la contradiga, como el PUT.
+ */
+async function changeStatus(event: H3Event, orgId: number, kind: PropertyKind, propertyId: number, params: { status?: string }, requestedBy?: number | null) {
   const valid = kind === 'agent' ? AGENT_STATUSES : DEVELOPER_STATUSES
   if (!params.status || !valid.includes(params.status)) throw createError({ statusCode: 422, statusMessage: `Estado inválido para este catálogo: ${params.status}` })
-  await assertOwnedProperty(event, orgId, kind, propertyId)
+  const row = await assertOwnedProperty(event, orgId, kind, propertyId)
   const db = useDb(event)
   const t = propertyTable(kind)
   await db.update(t).set({ status: params.status, updatedAt: now() }).where(eq(t.id, propertyId))
+  if (kind === 'agent' && row.status !== params.status) await syncCommercialStatusAfterAvailability(db, orgId, propertyId, params.status, requestedBy ?? null)
+}
+
+/**
+ * Cierre D1p — «Cambiar estado comercial»: el estado común de los dos
+ * catálogos (ficha ampliada), con las mismas reglas que editarlo en la ficha
+ * o desde la fila (la casilla «Reservada» y, en 2ª mano, la disponibilidad,
+ * ver utils/propertyCommercialStatus.ts). Queda en la ficha ampliada quién lo
+ * cambió (`updated_by` = quien lanzó la acción) y en la auditoría el job.
+ */
+async function changeCommercialStatus(event: H3Event, orgId: number, kind: PropertyKind, propertyId: number, params: { commercialStatus?: string }, requestedBy?: number | null) {
+  if (!params.commercialStatus) throw createError({ statusCode: 422, statusMessage: 'Falta el estado comercial' })
+  const row = await assertOwnedProperty(event, orgId, kind, propertyId)
+  await setPropertyCommercialStatus(useDb(event), orgId, kind, row, params.commercialStatus, requestedBy ?? null)
 }
 
 /** §89 — Tag transversal (server/utils/tags/service.ts), nunca un "BulkTag" aparte. */
@@ -173,7 +194,8 @@ async function updatePrice(
 export function propertyBulkHandlers(kind: PropertyKind): Record<string, BulkActionItemHandler> {
   return {
     change_commercial: (event, orgId, id, params) => changeCommercial(event, orgId, kind, id, params),
-    change_status: (event, orgId, id, params) => changeStatus(event, orgId, kind, id, params),
+    change_status: (event, orgId, id, params, requestedBy) => changeStatus(event, orgId, kind, id, params, requestedBy),
+    change_commercial_status: (event, orgId, id, params, requestedBy) => changeCommercialStatus(event, orgId, kind, id, params, requestedBy),
     add_tag: (event, orgId, id, params) => addTag(event, orgId, kind, id, params),
     publish: (event, orgId, id) => publishProperty(event, orgId, kind, id),
     withdraw: (event, orgId, id) => withdrawProperty(event, orgId, kind, id),

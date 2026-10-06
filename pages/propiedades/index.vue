@@ -19,7 +19,7 @@
                 <path stroke-linecap="round" d="M3 5h18M6 12h12M10 19h4" />
               </svg>
               {{ t('filters.button', 'Filtros') }}
-              <span v-if="activeCount" class="badge">{{ activeCount }}</span>
+              <span v-if="activeCount" class="badge" data-testid="public-filters-badge">{{ activeCount }}</span>
             </button>
             <div class="relative">
               <button class="filters-btn" @click="savingSearch = !savingSearch">🔔 Avísame</button>
@@ -118,6 +118,8 @@
 </template>
 
 <script setup lang="ts">
+import { countActivePublicFilters, nearbyFromQuery } from '~/utils/publicSearch'
+
 const { t } = useI18n()
 const { tenant, load: loadTenant } = useTenant()
 await loadTenant()
@@ -169,20 +171,14 @@ const { data, pending } = await useFetch('/api/public/properties', {
 })
 const totalPages = computed(() => Math.ceil((data.value?.total || 0) / (data.value?.perPage || 12)))
 
-// Advanced filter keys that count toward the badge
-const ADV = ['minPrice','maxPrice','minArea','maxArea','bedrooms','bathrooms','type','status','orientation','minYear','energy','elevator','pool','garage','terrace','garden','pets','accessible']
-const activeCount = computed(() => ADV.filter((k) => route.query[k]).length)
+// Filtros activos de la insignia: los del modal (con el código postal) y el
+// radio «cerca de un punto», que cuenta como uno (utils/publicSearch.ts).
+const activeCount = computed(() => countActivePublicFilters(route.query))
 
 const searchIsSaved = computed(() => isSaved(route.query as Record<string, any>))
+const typeLabel = usePropertyTypeLabel()
 function searchLabel() {
-  const parts: string[] = []
-  if (q.value) parts.push(q.value)
-  if (route.query.bedrooms) parts.push(`${route.query.bedrooms}+ ${t('card.beds', 'hab.')}`)
-  if (route.query.minPrice || route.query.maxPrice) parts.push(t('search.label.budget', 'presupuesto'))
-  if (route.query.pool) parts.push(t('search.label.pool', 'piscina'))
-  if (route.query.status === 'new') parts.push(t('search.label.newBuild', 'obra nueva'))
-  if (!parts.length) parts.push(t('search.label.allProperties', 'Todas las propiedades'))
-  return parts.join(' · ')
+  return describePublicSearch({ ...route.query, q: q.value }, t, typeLabel)
 }
 function onSaveSearch() {
   if (searchIsSaved.value) return
@@ -195,9 +191,11 @@ const modalSeed = computed(() => {
   const s: Record<string, any> = {}
   for (const k of ['minPrice','maxPrice','minArea','maxArea','bedrooms','bathrooms','minYear'])
     if (route.query[k]) s[k] = Number(route.query[k])
-  for (const k of ['type','status','orientation','energy']) if (route.query[k]) s[k] = String(route.query[k])
+  for (const k of ['municipality','neighborhood','postalCode','type','status','orientation','energy']) if (route.query[k]) s[k] = String(route.query[k])
   for (const k of ['elevator','pool','garage','terrace','garden','pets','accessible'])
     if (route.query[k] === '1') s[k] = true
+  const nearby = nearbyFromQuery(route.query)
+  if (nearby) Object.assign(s, nearby)
   return s
 })
 

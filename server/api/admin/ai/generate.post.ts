@@ -3,6 +3,7 @@ import { useDb, schema } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
 import { generateContent, CONTENT_KINDS, type ContentKind } from '../../../utils/ai'
 import { rateLimit } from '../../../utils/rateLimit'
+import { organizationCurrency } from '../../../utils/currency'
 
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireOrgScope(event)
@@ -30,6 +31,7 @@ export default defineEventHandler(async (event) => {
   const orgRows = await db.select({ companyName: schema.organizations.companyName, name: schema.organizations.name }).from(schema.organizations).where(eq(schema.organizations.id, orgId)).limit(1)
   const orgName = orgRows[0]?.companyName || orgRows[0]?.name
 
-  const { text, engine } = await generateContent(event, kind, project, orgName)
+  // El texto cita el precio en la moneda de la agencia (utils/currency.ts).
+  const { text, engine } = await generateContent(event, kind, project, orgName, await organizationCurrency(db, orgId))
   return { text, engine, kind }
 })

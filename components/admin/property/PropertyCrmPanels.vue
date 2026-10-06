@@ -27,6 +27,14 @@
       </ul>
     </section>
 
+    <!-- Notas del equipo sobre la propiedad (Note, FASE 0, cierre D3a). En la
+         papelera también se pueden anotar: es historia interna, no trabajo nuevo. -->
+    <section class="pe-card mt-6 px-6 py-5 sm:px-8" data-testid="property-notes">
+      <h2 class="mb-1 text-[15px] font-medium text-ink">Notas</h2>
+      <p class="mb-3 text-[12px] text-stone-500">Internas: las ve tu equipo, nunca salen en la web ni se envían al cliente.</p>
+      <NotesPanel entity-type="property" :entity-id="propertyId" :property-kind="kind" :can-edit="canWrite('crm')" />
+    </section>
+
     <!-- Actividad de la propiedad (FASE 21, bloque N6) -->
     <section class="pe-card mt-6 px-6 py-5 sm:px-8" data-testid="property-activity">
       <h2 class="mb-3 text-[15px] font-medium text-ink">Actividad</h2>
@@ -41,6 +49,7 @@
 <script setup lang="ts">
 import { formatDate } from '~/composables/useClientConfig'
 import ActivityTimeline from '~/components/admin/activity/ActivityTimeline.vue'
+import NotesPanel from '~/components/admin/notes/NotesPanel.vue'
 import OfferFormModal from '~/components/admin/offers/OfferFormModal.vue'
 import OfferDetailModal from '~/components/admin/offers/OfferDetailModal.vue'
 import { OFFER_STATUS_LABELS, formatAmount, offerFinanceLabel, type PickedRecord } from '~/utils/pipelineCatalog'
@@ -50,8 +59,8 @@ import { OFFER_STATUS_LABELS, formatAmount, offerFinanceLabel, type PickedRecord
  * catálogos: el panel de ofertas (crear con vendedor, financiación y
  * vencimiento; abrir una para negociar y ver su historial) y la cronología
  * de actividad. Se monta con una sola línea en PropertyBuilder.vue para no
- * tocar el editor. Sólo para quien puede leer el CRM (las ofertas y la
- * actividad son de ese área).
+ * tocar el editor. Sólo para quien puede leer el CRM (las ofertas, las notas
+ * y la actividad son de ese área). Cierre D3a: las notas del equipo.
  */
 const props = withDefaults(defineProps<{ propertyId: number; kind: 'agent' | 'developer'; name?: string | null; trashed?: boolean }>(), { name: null, trashed: false })
 const { canRead, canWrite } = useAdminPermissions()

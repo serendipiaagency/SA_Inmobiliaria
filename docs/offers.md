@@ -154,6 +154,9 @@ panel. Ningún código de este proyecto que sirve páginas públicas importa
 - `actorType: 'buyer'`/`'seller'` deja que el comercial registre un
   movimiento que le llegó por teléfono o en persona — no hay un portal donde
   comprador/vendedor actúen ellos mismos.
-- `currency` es de la oferta, no de la organización (por defecto `eur`).
+- `currency` es de la oferta, no de la organización: se enseña siempre con
+  la suya. Una oferta nueva sin moneda explícita toma la que la agencia
+  eligió en Configuración; si nunca eligió, `eur` como antes
+  (`defaultRecordCurrency()`, regla en `utils/currency.ts`).
 - Una oferta no se edita ni se borra: se retira, y la siguiente negociación
   es otra oferta.

@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { createError } from 'h3'
 import * as schema from '../../db/schema'
 import { now } from '../db'
@@ -88,7 +88,8 @@ export async function recordVisitOutcome(db: any, orgId: number, visitId: number
   const rows = await db
     .select()
     .from(schema.visits)
-    .where(and(eq(schema.visits.id, visitId), eq(schema.visits.organizationId, orgId)))
+    // Cierre D3a: una cita de la papelera no admite resultado (404, como si no existiera).
+    .where(and(eq(schema.visits.id, visitId), eq(schema.visits.organizationId, orgId), isNull(schema.visits.deletedAt)))
     .limit(1)
   const visit = rows[0]
   if (!visit) throw createError({ statusCode: 404, statusMessage: 'Visita no encontrada' })

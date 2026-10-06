@@ -45,7 +45,7 @@ const SINGLE_ZOOM = 13
 
 const el = ref<HTMLElement | null>(null)
 const initialCenter: [number, number] = props.pins.length ? [props.pins[0].lat, props.pins[0].lng] : FALLBACK_CENTER
-const { map } = useLeafletMap(el, {
+const { map, onMapReady } = useLeafletMap(el, {
   zoomControl: true,
   scrollWheelZoom: false,
   center: initialCenter,
@@ -115,7 +115,7 @@ function render() {
   else map.value.setView(bounds[0], SINGLE_ZOOM)
 }
 
-onMounted(() => {
+onMapReady(() => {
   if (!map.value) return
   createTileLayer('light').addTo(map.value)
   render()

@@ -1,4 +1,4 @@
-import { and, eq, isNull, lt, ne, notInArray } from 'drizzle-orm'
+import { and, eq, isNull, lt, ne, notInArray, sql } from 'drizzle-orm'
 import { schema, now } from '../db'
 
 /**
@@ -69,6 +69,35 @@ export async function markFirstAppointment(db: any, orgId: number, leadId: numbe
   if (!lead || lead.firstAppointmentAt) return
   const nowTs = now()
   await db.update(schema.leads).set({ firstAppointmentAt: nowTs, updatedAt: nowTs }).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId)))
+}
+
+/**
+ * Cierre D3a — una cita mandada a la papelera (creada por error) no es una
+ * cita conseguida. Si el lead ya no tiene ninguna otra fuera de la papelera,
+ * «Primera cita» vuelve a vacío; si la eliminada era la primera, pasa a ser
+ * la siguiente más antigua (por su alta). Si la primera era otra, no cambia.
+ */
+export async function unmarkTrashedFirstAppointment(db: any, orgId: number, leadId: number) {
+  const [lead] = await db.select({ firstAppointmentAt: schema.leads.firstAppointmentAt }).from(schema.leads).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId))).limit(1)
+  if (!lead?.firstAppointmentAt) return
+  const [live] = await db
+    .select({ n: sql<number>`count(*)`, first: sql<string | null>`min(CASE WHEN ${schema.visits.createdAt} != '' THEN ${schema.visits.createdAt} END)` })
+    .from(schema.visits)
+    .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.leadId, leadId), isNull(schema.visits.deletedAt)))
+  let next: string | null | undefined
+  if (!Number(live?.n)) next = null
+  else if (live.first && lead.firstAppointmentAt < live.first) next = live.first
+  if (next === undefined) return
+  await db.update(schema.leads).set({ firstAppointmentAt: next, updatedAt: now() }).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId)))
+}
+
+/** Cierre D3a — al restaurar una cita de la papelera vuelve a contar: si es anterior a la «primera cita» que consta (o no consta ninguna), lo es ella. */
+export async function remarkRestoredFirstAppointment(db: any, orgId: number, leadId: number, visitCreatedAt: string | null | undefined) {
+  const [lead] = await db.select({ firstAppointmentAt: schema.leads.firstAppointmentAt }).from(schema.leads).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId))).limit(1)
+  if (!lead) return
+  const at = visitCreatedAt || now()
+  if (lead.firstAppointmentAt && lead.firstAppointmentAt <= at) return
+  await db.update(schema.leads).set({ firstAppointmentAt: at, updatedAt: now() }).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId)))
 }
 
 /**

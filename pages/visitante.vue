@@ -31,7 +31,7 @@
         </div>
         <div>
           <label class="label">{{ t('visitor.form.budgetRangeLabel', 'Rango de presupuesto') }}</label>
-          <input v-model="form.budget_range" class="input" :placeholder="t('visitor.form.budgetRangePlaceholder', 'p. ej. 800k – 1.2M AED')" >
+          <input v-model="form.budget_range" class="input" :placeholder="`${t('visitor.form.budgetRangePlaceholder', 'p. ej. 800k – 1.2M')} ${currencyCode}`" >
         </div>
         <div>
           <label class="label">{{ t('visitor.form.paymentForRentLabel', 'Alquiler pagado por') }}</label>
@@ -69,6 +69,10 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
+// Cierre del núcleo (FASE 15): el lead llega con el idioma de quien rellena el formulario.
+const visitorLanguage = useVisitorLanguage()
+// El ejemplo del rango, en la moneda que está viendo el visitante (utils/currency.ts).
+const { code: currencyCode } = useCurrency()
 useHead(
   seoHead({
     title: 'Visitor form — M&M Real Estate',
@@ -116,6 +120,8 @@ async function submit() {
     const fd = new FormData()
     for (const [k, v] of Object.entries(form)) fd.append(k, String(v ?? ''))
     for (const [k, f] of Object.entries(files)) fd.append(k, f)
+    const language = visitorLanguage()
+    if (language) fd.append('language', language)
     await $fetch('/api/public/visitor', { method: 'POST', body: fd })
     sent.value = true
   } catch (e: any) {

@@ -3,7 +3,7 @@ import { schema, useDb } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
 import { buildTenantWhere } from '../../../utils/tenantPolicy'
-import { buildPropertyFilterConds, parsePropertyFilters, DEVELOPER_PROPERTY_SORTS, PROPERTIES_SORTS, PROPERTY_EXPORT_MAX_ROWS, rowsToCsv } from '../../../utils/properties/searchService'
+import { buildPropertyFilterConds, parsePropertyFilters, propertyTextSearchCond, exportPropertyRows, commercialStatusColumnSql, DEVELOPER_PROPERTY_SORTS, PROPERTIES_SORTS, rowsToCsv } from '../../../utils/properties/searchService'
 import { savedViewVisibilityCond } from '../../../utils/properties/savedViews'
 import { livePropertyCond } from '../../../utils/properties/trash'
 import { toolCatalogFor } from '../../../utils/tools/execute'
@@ -106,9 +106,13 @@ export default defineEventHandler(async (event) => {
   const trashed = String(query.trashed || '') === '1'
 
   const conds: any[] = []
-  if (q && def.searchFields.length) {
-    const idMatch = key === 'developer-properties' && /^\d+$/.test(q) ? eq(def.table.id, parseInt(q, 10)) : null
-    conds.push(or(...def.searchFields.map((f) => like(def.table[f], `%${q}%`)), ...(idMatch ? [idMatch] : [])))
+  if (q && (key === 'developer-properties' || key === 'properties')) {
+    // Propiedades (cierre D1p): las columnas del recurso (referencias interna,
+    // externa y de agencia, calle…), el código comercial de la ficha ampliada
+    // y el id — la misma condición que «seleccionar todos los filtrados».
+    conds.push(propertyTextSearchCond(key === 'developer-properties' ? 'developer' : 'agent', q, def.searchFields))
+  } else if (q && def.searchFields.length) {
+    conds.push(or(...def.searchFields.map((f) => like(def.table[f], `%${q}%`))))
   }
   // Single source of truth for isolation — including child tables, which are
   // filtered by an EXISTS on their parent rather than listed platform-wide.
@@ -233,65 +237,14 @@ export default defineEventHandler(async (event) => {
   // Export CSV (§79) — mismas condiciones y las mismas columnas ya
   // autorizadas que el listado JSON de abajo, así que nunca puede exponer
   // un dato que el usuario no pudiera ya ver paginando (no hay precio
-  // mínimo, comisión ni dato de propietario en ninguna de las dos tablas
-  // hoy — nada que excluir a propósito porque no existe el campo). Sin
-  // paginar, con tope (PROPERTY_EXPORT_MAX_ROWS) en vez de página a página.
+  // mínimo, comisión ni dato de propietario en el CSV). Cierre D1p: TODO el
+  // filtro, por lotes (`exportPropertyRows`), sin el tope de 2.000 de antes.
   const wantsCsv = String(query.format || '') === 'csv'
-  if (isDeveloperProperties && wantsCsv) {
-    const t = schema.developerProperties
-    const sort = DEVELOPER_PROPERTY_SORTS[String(query.sort || 'newest')] || DEVELOPER_PROPERTY_SORTS.newest
-    const rows = await db
-      .select({
-        id: t.id,
-        name: t.name,
-        slug: t.slug,
-        status: t.status,
-        price: t.price,
-        propertyType: t.propertyType,
-        bedrooms: t.bedrooms,
-        bathrooms: t.bathrooms,
-        area: t.area,
-        community: t.community,
-        city: t.city,
-        country: t.country,
-        isExclusive: t.isExclusive,
-        publishedAt: t.publishedAt,
-        updatedAt: t.updatedAt,
-      })
-      .from(t)
-      .where(where as any)
-      .orderBy(sort)
-      .limit(PROPERTY_EXPORT_MAX_ROWS)
-    setHeader(event, 'Content-Type', 'text/csv; charset=utf-8')
-    setHeader(event, 'Content-Disposition', `attachment; filename="${key}.csv"`)
-    return rowsToCsv(rows)
-  }
-  if (isProperties && wantsCsv) {
-    const t = schema.agentProperties
-    const sort = PROPERTIES_SORTS[String(query.sort || 'newest')] || PROPERTIES_SORTS.newest
-    const rows = await db
-      .select({
-        id: t.id,
-        reference: t.reference,
-        slug: t.slug,
-        propertyType: t.propertyType,
-        transactionType: t.transactionType,
-        status: t.status,
-        price: t.price,
-        area: t.area,
-        bedrooms: t.bedrooms,
-        bathrooms: t.bathrooms,
-        city: t.city,
-        district: t.district,
-        country: t.country,
-        isExclusive: t.isExclusive,
-        publishedAt: t.publishedAt,
-        updatedAt: t.updatedAt,
-      })
-      .from(t)
-      .where(where as any)
-      .orderBy(sort)
-      .limit(PROPERTY_EXPORT_MAX_ROWS)
+  if ((isDeveloperProperties || isProperties) && wantsCsv) {
+    const sort = isDeveloperProperties
+      ? DEVELOPER_PROPERTY_SORTS[String(query.sort || 'newest')] || DEVELOPER_PROPERTY_SORTS.newest
+      : PROPERTIES_SORTS[String(query.sort || 'newest')] || PROPERTIES_SORTS.newest
+    const rows = await exportPropertyRows(db, isDeveloperProperties ? 'developer' : 'agent', where as any, sort)
     setHeader(event, 'Content-Type', 'text/csv; charset=utf-8')
     setHeader(event, 'Content-Disposition', `attachment; filename="${key}.csv"`)
     return rowsToCsv(rows)
@@ -338,6 +291,8 @@ export default defineEventHandler(async (event) => {
         agentId: t.agentId,
         isExclusive: t.isExclusive,
         isReserved: t.isReserved,
+        // Estado comercial común (cierre D1p): chip, columna y edición inline de la fila.
+        commercialStatus: commercialStatusColumnSql('developer'),
         publishedAt: t.publishedAt,
         updatedAt: t.updatedAt,
         // La vista Papelera enseña cuándo se borró.
@@ -379,6 +334,8 @@ export default defineEventHandler(async (event) => {
         mainImage: t.mainImage,
         agentId: t.agentId,
         isExclusive: t.isExclusive,
+        isReserved: t.isReserved,
+        commercialStatus: commercialStatusColumnSql('agent'),
         publishedAt: t.publishedAt,
         updatedAt: t.updatedAt,
         deletedAt: t.deletedAt,

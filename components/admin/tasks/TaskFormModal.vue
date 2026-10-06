@@ -30,10 +30,18 @@
           <span class="tf-label">Fecha y hora</span>
           <input v-model="form.dueAt" type="datetime-local" class="input" data-testid="task-form-due" >
         </label>
-        <label class="block sm:col-span-2">
+        <label class="block">
           <span class="tf-label">Estado</span>
           <select v-model="form.status" class="input" data-testid="task-form-status">
             <option v-for="st in statusOptions" :key="st" :value="st">{{ TASK_STATUS_LABELS[st] }}</option>
+          </select>
+        </label>
+        <!-- Cierre D3a (migración 0089): por defecto, la oficina de su responsable — se calcula al leer, así que sigue al responsable si cambia. -->
+        <label class="block">
+          <span class="tf-label">Oficina</span>
+          <select v-model="form.officeId" class="input" data-testid="task-form-office">
+            <option value="">{{ defaultOfficeLabel }}</option>
+            <option v-for="o in offices" :key="o.id" :value="o.id">{{ o.label }}</option>
           </select>
         </label>
       </div>
@@ -74,6 +82,7 @@
 
 <script setup lang="ts">
 import RecordPicker from '~/components/admin/pickers/RecordPicker.vue'
+import { loadRelationOptions, type RelationOption } from '~/composables/useRelationOptions'
 import { TASK_PRIORITIES, TASK_PRIORITY_LABELS, TASK_STATUSES, TASK_STATUS_LABELS, TASK_TYPES, TASK_TYPE_LABELS, type PickedRecord } from '~/utils/pipelineCatalog'
 
 /**
@@ -82,7 +91,8 @@ import { TASK_PRIORITIES, TASK_PRIORITY_LABELS, TASK_STATUSES, TASK_STATUS_LABEL
  * relaciones — contacto, lead, propiedad, cita y operación —, cada una
  * elegible y validada por el servidor dentro de la organización. Una
  * pantalla puede fijar relaciones (`locked`), p. ej. la operación desde su
- * propia ficha.
+ * propia ficha. Cierre D3a: la oficina de la tarea (vacía = la de su
+ * responsable), validada por el servidor en la agencia.
  */
 type RelKey = 'contact' | 'lead' | 'property' | 'appointment' | 'deal'
 
@@ -91,7 +101,7 @@ const props = withDefaults(
     task?: any | null
     defaults?: Partial<Record<RelKey, PickedRecord | null>> & { assigneeId?: number | null; type?: string; title?: string }
     locked?: RelKey[]
-    agents?: { id: number; name: string }[] | null
+    agents?: { id: number; name: string; officeId?: number | null }[] | null
   }>(),
   { task: null, defaults: () => ({}), locked: () => [], agents: null },
 )
@@ -118,6 +128,7 @@ const form = reactive({
   assigneeId: (t ? t.assigneeId : props.defaults.assigneeId) || ('' as number | ''),
   dueAt: toInput(t?.dueAt),
   status: t?.status || 'open',
+  officeId: (t?.officeId ?? '') as number | '',
 })
 const rel = reactive<Record<RelKey, PickedRecord | null>>({
   contact: t ? (t.contactId ? { id: t.contactId, label: t.contactName || `Contacto #${t.contactId}` } : null) : (props.defaults.contact ?? null),
@@ -127,11 +138,20 @@ const rel = reactive<Record<RelKey, PickedRecord | null>>({
   deal: t ? (t.dealId ? { id: t.dealId, label: `Operación #${t.dealId}` } : null) : (props.defaults.deal ?? null),
 })
 
-const agentOptions = ref<{ id: number; name: string }[]>(props.agents || [])
+const agentOptions = ref<{ id: number; name: string; officeId?: number | null }[]>(props.agents || [])
+const offices = ref<RelationOption[]>([])
 onMounted(async () => {
+  loadRelationOptions('offices').then((r) => (offices.value = r))
   if (props.agents) return
   const res = await $fetch<any>('/api/admin/saas/agents').catch(() => null)
   agentOptions.value = res?.rows || []
+})
+/** La opción vacía dice cuál es «la de su responsable» ahora mismo. */
+const defaultOfficeLabel = computed(() => {
+  if (!form.assigneeId) return 'Sin oficina propia (la de su responsable)'
+  const officeId = agentOptions.value.find((a) => a.id === Number(form.assigneeId))?.officeId
+  const name = officeId ? offices.value.find((o) => o.id === officeId)?.label : null
+  return name ? `La de su responsable (${name})` : 'La de su responsable (sin oficina)'
 })
 
 const saving = ref(false)
@@ -153,6 +173,7 @@ async function submit() {
     propertyKind: rel.property ? rel.property.kind || null : null,
     appointmentId: rel.appointment?.id ?? null,
     dealId: rel.deal?.id ?? null,
+    officeId: form.officeId || null,
   }
   try {
     const saved = isEdit.value

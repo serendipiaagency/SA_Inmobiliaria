@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, isNull, or, sql } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../../../utils/db'
 import { livePropertyCond } from '../../../../utils/properties/trash'
 
@@ -30,9 +30,13 @@ export default defineEventHandler(async (event) => {
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19)
 
   const [leadRows, weekViewRows, visitRows, history] = await Promise.all([
-    db.select({ count: sql<number>`count(*)` }).from(schema.leads).where(and(eq(schema.leads.propertyId, project.id), eq(schema.leads.organizationId, orgId))),
+    // Sólo los leads de ESTA propiedad de obra nueva (migración 0089): no los de un piso de 2ª mano con el mismo id. Los antiguos sin catálogo cuentan, como siempre.
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.leads)
+      .where(and(eq(schema.leads.propertyId, project.id), eq(schema.leads.organizationId, orgId), or(eq(schema.leads.propertyKind, 'developer'), isNull(schema.leads.propertyKind)))),
     db.select({ count: sql<number>`count(*)` }).from(schema.propertyViews).where(sql`${schema.propertyViews.developerPropertyId} = ${project.id} and ${schema.propertyViews.createdAt} >= ${weekAgo}`),
-    db.select({ count: sql<number>`count(*)` }).from(schema.visits).where(and(eq(schema.visits.propertyId, project.id), eq(schema.visits.organizationId, orgId))),
+    db.select({ count: sql<number>`count(*)` }).from(schema.visits).where(and(eq(schema.visits.propertyId, project.id), eq(schema.visits.organizationId, orgId), isNull(schema.visits.deletedAt))),
     db.select({ price: schema.priceHistory.price, recordedAt: schema.priceHistory.recordedAt }).from(schema.priceHistory).where(eq(schema.priceHistory.developerPropertyId, project.id)).orderBy(asc(schema.priceHistory.recordedAt)),
   ])
 

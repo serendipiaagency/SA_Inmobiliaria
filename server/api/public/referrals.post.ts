@@ -5,12 +5,15 @@ import { rateLimit } from '../../utils/rateLimit'
 import { readFirstTouch } from '../../utils/firstTouch'
 import { recordWebFormSubmission } from '../../utils/comms/web'
 import { samePagePath } from '../../utils/comms/webPublic'
+import { publicLeadLanguage } from '../../utils/leads/captureLanguage'
 
 interface Body {
   code?: string
   name?: string
   email?: string
   phone?: string
+  /** Idioma de quien se registra (selector de la web o navegador). */
+  language?: string
 }
 
 /** Captures a real referral submission — creates the referral record and a matching CRM lead (source: referral) in one write. */
@@ -45,6 +48,7 @@ export default defineEventHandler(async (event) => {
     source: 'referral',
     sourceDetail: link.referrerName,
     notes: `Referido por ${link.referrerName}`,
+    language: publicLeadLanguage(event, body.language),
     ...readFirstTouch(event),
   })
 

@@ -53,6 +53,12 @@ export interface DashboardScope {
   portal?: string | null
   campaign?: string | null
   propertyId?: number | null
+  /**
+   * Catálogo de `propertyId` (migración 0089): sin él, un id puede ser de los
+   * dos catálogos. Con él, cuentan los leads de ese catálogo y los antiguos
+   * sin catálogo (NULL), como hasta ahora.
+   */
+  propertyKind?: 'agent' | 'developer' | null
   /** Periodo comparativo explícito (§80): el inmediatamente anterior de la misma duración. */
   compare?: boolean
 }
@@ -78,6 +84,7 @@ export function parseDashboardScope(q: Record<string, any>, nowMs = Date.now()):
     portal: str(q.portal),
     campaign: str(q.campaign),
     propertyId: int(q.propertyId),
+    propertyKind: q.propertyKind === 'agent' || q.propertyKind === 'developer' ? q.propertyKind : null,
     compare: q.compare === '1' || q.compare === 'true' || q.compare === true,
   }
 }
@@ -140,7 +147,9 @@ function teamInOffice(orgId: number, officeId: number): SQL {
 
 /**
  * Oficina de un registro: la suya (`officeCol`) si la tiene; si no, la de su
- * comercial. Ofertas y tareas no tienen oficina propia: sólo la del comercial.
+ * comercial. Las ofertas no tienen oficina propia: sólo la del comercial. Las
+ * tareas sí desde la migración 0089 (`tasks.office_id`, cierre D3a): la suya
+ * o, si no tiene, la de su responsable.
  */
 function officeCond(orgId: number, officeId: number, commercialCol: any, officeCol?: any): SQL {
   return officeCol
@@ -159,6 +168,7 @@ function leadScopeConds(orgId: number, s: DashboardScope): SQL[] {
   if (s.portal) conds.push(eq(L.portal, s.portal))
   if (s.campaign) conds.push(or(eq(L.campaign, s.campaign), eq(L.utmCampaign, s.campaign))!)
   if (s.propertyId) conds.push(eq(L.propertyId, s.propertyId))
+  if (s.propertyId && s.propertyKind) conds.push(or(eq(L.propertyKind, s.propertyKind), isNull(L.propertyKind))!)
   return conds
 }
 
@@ -172,6 +182,7 @@ function scopedLeadIdsSql(orgId: number, s: DashboardScope): SQL {
   if (s.portal) parts.push(sql`portal = ${s.portal}`)
   if (s.campaign) parts.push(sql`(campaign = ${s.campaign} OR utm_campaign = ${s.campaign})`)
   if (s.propertyId) parts.push(sql`property_id = ${s.propertyId}`)
+  if (s.propertyId && s.propertyKind) parts.push(sql`(property_kind = ${s.propertyKind} OR property_kind IS NULL)`)
   return sql`(SELECT id FROM leads WHERE ${sql.join(parts, sql` AND `)})`
 }
 
@@ -230,7 +241,8 @@ async function periodKpis(db: any, orgId: number, s: DashboardScope, nowTs: stri
     .filter((m: number | null): m is number => m !== null)
 
   const visitScope = (extra: SQL[]) => {
-    const conds: SQL[] = [eq(V.organizationId, orgId), eq(V.type, 'property_viewing'), ...commercialConds(orgId, s, V.agentId, V.officeId), ...extra]
+    // Cierre D3a: las citas de la papelera no cuentan.
+    const conds: SQL[] = [eq(V.organizationId, orgId), isNull(V.deletedAt), eq(V.type, 'property_viewing'), ...commercialConds(orgId, s, V.agentId, V.officeId), ...extra]
     if (leadFiltered) conds.push(sql`${V.leadId} IN ${scopedLeads}`)
     return and(...conds)!
   }
@@ -284,7 +296,7 @@ async function cohortFunnel(db: any, orgId: number, s: DashboardScope) {
       leads: sql<number>`count(*)`,
       contacted: sql<number>`sum(CASE WHEN ${L.firstResponseAt} IS NOT NULL THEN 1 ELSE 0 END)`,
       qualified: sql<number>`sum(CASE WHEN ${L.qualifiedAt} IS NOT NULL THEN 1 ELSE 0 END)`,
-      viewings: sql<number>`sum(CASE WHEN EXISTS (SELECT 1 FROM visits v WHERE v.organization_id = ${orgId} AND v.lead_id = leads.id AND v.type = 'property_viewing' AND v.status != 'cancelled') THEN 1 ELSE 0 END)`,
+      viewings: sql<number>`sum(CASE WHEN EXISTS (SELECT 1 FROM visits v WHERE v.organization_id = ${orgId} AND v.lead_id = leads.id AND v.type = 'property_viewing' AND v.status != 'cancelled' AND v.deleted_at IS NULL) THEN 1 ELSE 0 END)`,
       offers: sql<number>`sum(CASE WHEN EXISTS (SELECT 1 FROM offers o WHERE o.organization_id = ${orgId} AND o.lead_id = leads.id) THEN 1 ELSE 0 END)`,
       deals: sql<number>`sum(CASE WHEN EXISTS (SELECT 1 FROM deal_operations d WHERE d.organization_id = ${orgId} AND d.lead_id = leads.id AND d.status != 'cancelled') THEN 1 ELSE 0 END)`,
       closed: sql<number>`sum(CASE WHEN EXISTS (SELECT 1 FROM deal_operations d WHERE d.organization_id = ${orgId} AND d.lead_id = leads.id AND d.status = 'closed') THEN 1 ELSE 0 END)`,
@@ -315,9 +327,18 @@ function leadsLink(s: DashboardScope, extra: Record<string, string>) {
   if (s.portal) p.set('portal', s.portal)
   if (s.campaign) p.set('campaign', s.campaign)
   if (s.propertyId) p.set('propertyId', String(s.propertyId))
+  if (s.propertyId && s.propertyKind) p.set('propertyKind', s.propertyKind)
   for (const [k, v] of Object.entries(extra)) p.set(k, v)
   p.set('view', 'table')
   return `/admin/leads?${p.toString()}`
+}
+
+/** CRM → Tareas con las vencidas y el mismo comercial u oficina que el dashboard (cierre D3a). */
+function tasksLink(s: DashboardScope) {
+  const p = new URLSearchParams({ bucket: 'overdue' })
+  if (s.commercialId) p.set('assigneeId', String(s.commercialId))
+  if (s.officeId) p.set('officeId', String(s.officeId))
+  return `/admin/tareas?${p.toString()}`
 }
 
 export async function getCommercialDashboard(db: any, orgId: number, s: DashboardScope) {
@@ -343,7 +364,8 @@ export async function getCommercialDashboard(db: any, orgId: number, s: Dashboar
       inArray(T.status, ['open', 'in_progress']),
       isNotNull(T.dueAt),
       sql`${T.dueAt} < ${nowTs}`,
-      ...commercialConds(orgId, s, T.assigneeId),
+      // La oficina de la tarea si la tiene; si no, la de su responsable (cierre D3a).
+      ...commercialConds(orgId, s, T.assigneeId, T.officeId),
       ...(hasLeadFilters(s) ? [sql`${T.leadId} IN ${scopedLeadIdsSql(orgId, s)}`] : []),
     )!,
   )
@@ -409,7 +431,7 @@ export async function getCommercialDashboard(db: any, orgId: number, s: Dashboar
     dealsCreated: { value: current.dealsCreated, definition: 'Operaciones abiertas en el periodo (oferta aceptada).', link: '/admin/deal-operations' },
     dealsClosed: { value: current.dealsClosed, definition: 'Operaciones cerradas en el periodo.', link: '/admin/deal-operations' },
     conversion: { value: conversion, definition: 'Leads creados en el periodo que ya tienen una operación cerrada ÷ leads creados en el periodo (misma cohorte; nunca se dividen periodos distintos).' },
-    overdueTasks: { value: overdueTasks, definition: 'Tareas abiertas con fecha límite ya pasada, ahora mismo.', link: '/admin/tareas' },
+    overdueTasks: { value: overdueTasks, definition: 'Tareas abiertas con fecha límite ya pasada, ahora mismo. Con oficina: la de la tarea o, si no tiene, la de su responsable.', link: tasksLink(s) },
   }
 
   return {
@@ -456,8 +478,9 @@ export async function dashboardFilterOptions(db: any, orgId: number, visibility:
   const distinct = async (col: any) =>
     (await db.selectDistinct({ v: col }).from(L).where(and(eq(L.organizationId, orgId), ...own, isNotNull(col), ne(col, ''))!).limit(100)).map((r: any) => r.v).sort()
   const campaigns = [...new Set([...(await distinct(L.campaign)), ...(await distinct(L.utmCampaign))])].sort()
+  // Con su catálogo (migración 0089): el mismo id en 2ª mano y en obra nueva son dos inmuebles.
   const properties = await db
-    .selectDistinct({ id: L.propertyId, name: L.propertyName })
+    .selectDistinct({ id: L.propertyId, kind: L.propertyKind, name: L.propertyName })
     .from(L)
     .where(and(eq(L.organizationId, orgId), ...own, isNotNull(L.propertyId))!)
     .limit(100)
@@ -473,6 +496,6 @@ export async function dashboardFilterOptions(db: any, orgId: number, visibility:
     sources: await distinct(L.source),
     portals: await distinct(L.portal),
     campaigns,
-    properties: properties.map((p: any) => ({ id: p.id, name: p.name || `Inmueble #${p.id}` })),
+    properties: properties.map((p: any) => ({ id: p.id, kind: p.kind ?? null, name: `${p.name || `Inmueble #${p.id}`}${p.kind === 'agent' ? ' (2ª mano)' : p.kind === 'developer' ? ' (obra nueva)' : ''}` })),
   }
 }

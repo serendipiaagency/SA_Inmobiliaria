@@ -1,6 +1,7 @@
 import { requireOrgScope } from '../../../utils/auth'
 import { now } from '../../../utils/db'
 import { handleOrgSenderWrite } from '../../../utils/email/orgSenderHttp'
+import { normalizeCurrency } from '../../../../utils/currency'
 
 const ALLOWED = ['company_name', 'currency', 'locale', 'timezone', 'brand_color', 'notify_email', 'weekly_report']
 
@@ -16,6 +17,13 @@ export default defineEventHandler(async (event) => {
   // clave/valor, va a sus columnas de `organizations` y a Resend.
   if (body?.section === 'email-sender') return handleOrgSenderWrite(event, body)
   const { orgId } = await requireOrgScope(event)
+  // La moneda es la de los importes de toda la agencia (utils/currency.ts):
+  // sólo un código que la plataforma sabe pintar y convertir, normalizado.
+  if (body && 'currency' in body) {
+    const currency = normalizeCurrency(body.currency)
+    if (!currency) throw createError({ statusCode: 422, statusMessage: 'Moneda no válida' })
+    body.currency = currency
+  }
   const raw = (event.context as any).cloudflare.env.DB as D1Database
   const ts = now()
   const stmts: D1PreparedStatement[] = []

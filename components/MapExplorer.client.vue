@@ -14,6 +14,27 @@
       {{ t('map.searchArea', 'Buscar en esta zona') }}
     </button>
 
+    <!-- Buscar cerca de aquí (FASE 2): un radio alrededor del centro del mapa
+         o, si el navegador lo permite, de la ubicación del visitante. Quien
+         usa el mapa decide qué hacer con el punto (lo pone en la URL). -->
+    <div
+      v-if="nearby"
+      class="absolute bottom-20 left-3 z-[500] flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 rounded-2xl border border-line bg-white/95 p-2 shadow-xl backdrop-blur lg:bottom-4"
+      data-testid="map-nearby"
+    >
+      <label class="sr-only" for="map-nearby-radius">{{ t('filters.nearbyRadius', 'Radio') }}</label>
+      <select id="map-nearby-radius" v-model.number="nearbyRadius" class="rounded-lg border border-line bg-white px-2 py-1.5 text-[12px] font-semibold text-ink" data-testid="map-nearby-radius">
+        <option v-for="km in NEARBY_RADIUS_OPTIONS" :key="km" :value="km">{{ km }} km</option>
+      </select>
+      <button type="button" class="rounded-full bg-ink px-3 py-1.5 text-[12px] font-semibold text-white hover:bg-black" data-testid="map-search-nearby" @click="searchNearby('center')">
+        {{ t('map.searchNearby', 'Buscar cerca de aquí') }}
+      </button>
+      <button v-if="canLocate" type="button" class="rounded-full border border-line px-3 py-1.5 text-[12px] font-semibold text-ink hover:border-ink disabled:opacity-50" :disabled="locating" data-testid="map-nearby-locate" @click="searchNearby('me')">
+        {{ locating ? t('map.nearbyLocating', 'Buscando tu ubicación…') : t('map.nearbyMyLocation', 'Mi ubicación') }}
+      </button>
+      <p v-if="nearbyNotice" class="w-full text-[11px] text-stone-500" data-testid="map-nearby-notice">{{ nearbyNotice }}</p>
+    </div>
+
     <!-- Layer / POI controls -->
     <div class="absolute right-3 top-3 z-[500] w-52 rounded-2xl border border-line bg-white/95 p-3 shadow-xl backdrop-blur">
       <p class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-stone-400">{{ t('map.layers.title', 'Vista') }}</p>
@@ -40,10 +61,84 @@ import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import { useLeafletMap, createTileLayer, type TileKey } from '~/composables/useLeafletMap'
 import { withValidCoords } from '~/utils/maps/coords'
+import { DEFAULT_NEARBY_RADIUS_KM, NEARBY_RADIUS_OPTIONS, roundSearchCoord } from '~/utils/publicSearch'
 
 const { t } = useI18n()
-const props = withDefaults(defineProps<{ items: any[]; activeId?: number | null; fitToItems?: boolean; searchArea?: boolean }>(), { activeId: null, fitToItems: true, searchArea: false })
-const emit = defineEmits<{ 'marker-click': [number]; 'marker-hover': [number | null]; 'search-area': [bounds: { north: number; south: number; east: number; west: number }] }>()
+const props = withDefaults(
+  defineProps<{
+    items: any[]
+    activeId?: number | null
+    fitToItems?: boolean
+    searchArea?: boolean
+    /** Enseña «Buscar cerca de aquí» (radio). */
+    nearby?: boolean
+    /** El radio activo, para dibujarlo. */
+    nearbyCircle?: { lat: number; lng: number; radiusKm: number } | null
+  }>(),
+  { activeId: null, fitToItems: true, searchArea: false, nearby: false, nearbyCircle: null },
+)
+const emit = defineEmits<{
+  'marker-click': [number]
+  'marker-hover': [number | null]
+  'search-area': [bounds: { north: number; south: number; east: number; west: number }]
+  'search-nearby': [point: { lat: number; lng: number; radiusKm: number }]
+}>()
+
+// --- Buscar cerca de aquí ---------------------------------------------------
+// «Mi ubicación» usa la geolocalización del navegador, que la cabecera
+// Permissions-Policy abre sólo para el propio origen en la web pública
+// (server/utils/permissionsPolicy.ts). Si el visitante la niega o no está
+// disponible, se busca desde el centro del mapa y se dice. La posición sale
+// redondeada a ~110 m (roundSearchCoord).
+const nearbyRadius = ref<number>(props.nearbyCircle?.radiusKm || DEFAULT_NEARBY_RADIUS_KM)
+const canLocate = ref(false)
+const locating = ref(false)
+const nearbyNotice = ref('')
+function emitNearby(lat: number, lng: number) {
+  emit('search-nearby', { lat: roundSearchCoord(lat), lng: roundSearchCoord(lng), radiusKm: nearbyRadius.value })
+}
+function searchNearby(from: 'center' | 'me') {
+  if (!map.value) return
+  nearbyNotice.value = ''
+  const c = map.value.getCenter()
+  if (from === 'center' || !canLocate.value) return emitNearby(c.lat, c.lng)
+  locating.value = true
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      locating.value = false
+      map.value?.setView([pos.coords.latitude, pos.coords.longitude], Math.max(map.value.getZoom(), 13))
+      emitNearby(pos.coords.latitude, pos.coords.longitude)
+    },
+    () => {
+      locating.value = false
+      nearbyNotice.value = t('map.nearbyDenied', 'No se pudo usar tu ubicación: se busca desde el centro del mapa.')
+      emitNearby(c.lat, c.lng)
+    },
+    { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 },
+  )
+}
+
+let nearbyLayer: L.Circle | null = null
+function drawNearby() {
+  if (!map.value) return
+  if (nearbyLayer) {
+    map.value.removeLayer(nearbyLayer)
+    nearbyLayer = null
+  }
+  const c = props.nearbyCircle
+  if (!c) return
+  nearbyLayer = L.circle([c.lat, c.lng], { radius: c.radiusKm * 1000, color: '#16150f', weight: 1.5, fillOpacity: 0.06, interactive: false }).addTo(map.value)
+}
+watch(() => props.nearbyCircle, drawNearby, { deep: true })
+// El desplegable sigue al radio de la URL sólo cuando ÉSTE cambia: dibujar el
+// círculo al terminar de cargar el mapa no puede pisar el radio que el
+// visitante ya haya elegido mientras cargaba.
+watch(
+  () => props.nearbyCircle?.radiusKm,
+  (r) => {
+    if (r) nearbyRadius.value = r
+  },
+)
 
 /** La zona visible, redondeada (5 decimales ≈ 1 m: de sobra para una búsqueda). */
 function emitArea() {
@@ -65,7 +160,7 @@ const ready = ref(false)
 
 const initialPts = withValidCoords(props.items)
 const initialCenter: [number, number] = initialPts.length ? [initialPts[0].lat, initialPts[0].lng] : FALLBACK_CENTER
-const { map } = useLeafletMap(el, { zoomControl: true, scrollWheelZoom: true, center: initialCenter, zoom: INITIAL_ZOOM })
+const { map, onMapReady } = useLeafletMap(el, { zoomControl: true, scrollWheelZoom: true, center: initialCenter, zoom: INITIAL_ZOOM })
 
 let cluster: any = null
 let baseLayers: Partial<Record<TileKey, L.TileLayer>> = {}
@@ -87,11 +182,9 @@ const poiTypes = computed(() => [
 ])
 const poiOn = reactive<Record<string, boolean>>({ transporte: false, colegios: false, hospitales: false, super: false, playas: false })
 
-function priceShort(v: number) {
-  if (!v) return '—'
-  if (v >= 1e6) return `${(v / 1e6).toFixed(v % 1e6 ? 1 : 0)}M`
-  return `${Math.round(v / 1000)}k`
-}
+// Precios en la moneda base de la agencia, convertidos a la que eligió el
+// visitante (utils/currency.ts) — antes «AED» fijo.
+const { format: formatPrice, compact: priceShort } = useCurrency()
 
 function setBase(key: TileKey) {
   if (!map.value) return
@@ -103,7 +196,7 @@ function setBase(key: TileKey) {
 function makeIcon(p: any, active = false) {
   return L.divIcon({
     className: '',
-    html: `<div class="map-pin${active ? ' map-pin-active' : ''}">AED ${priceShort(p.price)}</div>`,
+    html: `<div class="map-pin${active ? ' map-pin-active' : ''}">${p.price ? priceShort(p.price) : '—'}</div>`,
     iconSize: [64, 28],
     iconAnchor: [32, 28],
   })
@@ -174,7 +267,7 @@ function buildMarkers() {
         `<div class="map-card-body">` +
         `<a href="${href}" class="map-card-name">${p.name}</a>` +
         `<p class="map-card-loc">${p.community || ''}</p>` +
-        `<p class="map-card-price">AED ${new Intl.NumberFormat('en-US').format(p.price || 0)}</p>` +
+        `<p class="map-card-price">${formatPrice(p.price || 0)}</p>` +
         `<div class="map-card-links">` +
         `<a href="${href}">${t('map.popup.viewDetails', 'Ver ficha')}</a>` +
         `<a href="${sv}" target="_blank" rel="noopener">${t('map.popup.streetView', 'Street View')}</a></div></div></div>`,
@@ -191,7 +284,7 @@ function buildMarkers() {
   if (props.fitToItems && bounds.length > 1) map.value.fitBounds(bounds, { padding: [60, 60] })
 }
 
-onMounted(() => {
+onMapReady(() => {
   if (!map.value) return
   baseLayers = { light: createTileLayer('light'), satellite: createTileLayer('satellite'), dark: createTileLayer('dark') }
   baseLayers.light!.addTo(map.value)
@@ -203,6 +296,10 @@ onMounted(() => {
   cluster = (L as any).markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 48 })
   map.value.addLayer(cluster)
   buildMarkers()
+  canLocate.value = typeof navigator !== 'undefined' && 'geolocation' in navigator
+  drawNearby()
+  // Al abrir el mapa con un radio en la URL (enlace, búsqueda guardada), se ve el círculo entero.
+  if (nearbyLayer && !props.fitToItems) map.value.fitBounds(nearbyLayer.getBounds(), { padding: [40, 40] })
 })
 
 watch(() => props.items, buildMarkers)

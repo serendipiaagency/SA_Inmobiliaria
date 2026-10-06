@@ -35,6 +35,8 @@
 
 <script setup lang="ts">
 const { t } = useI18n()
+// Cierre del núcleo (FASE 15): el lead llega con el idioma de quien escribe, para el enrutado por idioma.
+const visitorLanguage = useVisitorLanguage()
 useHead(
   seoHead({
     title: 'Contact us — M&M Real Estate',
@@ -51,7 +53,7 @@ async function submit() {
   sent.value = false
   error.value = ''
   try {
-    await $fetch('/api/public/contact', { method: 'POST', body: { ...form, type: 'contact' } })
+    await $fetch('/api/public/contact', { method: 'POST', body: { ...form, type: 'contact', language: visitorLanguage() } })
     sent.value = true
     Object.assign(form, { name: '', email: '', phone: '', subject: '', message: '' })
   } catch (e: any) {

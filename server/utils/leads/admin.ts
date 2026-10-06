@@ -8,6 +8,7 @@ import { assertOwnedRef } from '../contacts/crm'
 import { assertLiveProperty } from '../properties/trash'
 import { insertLead, type UpsertLeadInput } from '../leads'
 import { assignLead } from './routing'
+import { leadPropertySummary, type LeadPropertyKind } from './property'
 import { recomputeLeadScore } from './score'
 import { LEAD_PRIORITIES, LEAD_SOURCES } from '../../../utils/leadCatalog'
 import { LANGUAGE_OPTIONS } from '../../../utils/crmCatalog'
@@ -30,8 +31,6 @@ import { LANGUAGE_OPTIONS } from '../../../utils/crmCatalog'
 function fail(statusCode: number, statusMessage: string, data?: unknown): never {
   throw createError({ statusCode, statusMessage, data })
 }
-
-type PropertyKind = 'agent' | 'developer'
 
 /** Lo que el panel puede escribir de un lead, ya validado y normalizado (sólo las claves presentes). */
 export interface LeadAdminInput {
@@ -60,7 +59,7 @@ export interface LeadAdminInput {
   teamId?: number | null
   agentId?: number | null
   propertyId?: number | null
-  propertyKind?: PropertyKind | null
+  propertyKind?: LeadPropertyKind | null
   contactId?: number | null
 }
 
@@ -137,46 +136,60 @@ export function leadInputFromBody(body: Record<string, any>): LeadAdminInput {
     if (!Number.isInteger(n) || n <= 0) fail(422, `${k}: identificador inválido`)
     out[k] = n
   }
-  if ('propertyKind' in body && body.propertyKind) {
-    if (body.propertyKind !== 'agent' && body.propertyKind !== 'developer') fail(422, 'propertyKind debe ser "agent" (2ª mano) o "developer" (web)')
-    out.propertyKind = body.propertyKind
+  if ('propertyKind' in body) {
+    if (body.propertyKind === null || body.propertyKind === undefined || body.propertyKind === '') out.propertyKind = null
+    else if (body.propertyKind !== 'agent' && body.propertyKind !== 'developer') fail(422, 'propertyKind debe ser "agent" (2ª mano) o "developer" (web)')
+    else out.propertyKind = body.propertyKind
   }
   return out
 }
 
 /**
- * Valida que oficina, equipo, comercial, contacto y propiedad son de esta
- * agencia, y devuelve el nombre de la propiedad. Una propiedad de la papelera
- * no se puede poner como propiedad de interés (422 que dice qué hacer).
+ * El contacto que se vincula al lead (selector «Contacto» del formulario):
+ * de esta agencia (404 si no) y vivo — uno archivado al unificar
+ * duplicados, o en la papelera, ya no es la persona (422). Si es el que el
+ * lead ya tenía, no se vuelve a juzgar.
  */
-async function assertLeadRefs(db: any, orgId: number, input: LeadAdminInput): Promise<{ propertyName?: string | null }> {
+async function assertLinkableContact(db: any, orgId: number, contactId: number | null | undefined, currentContactId?: number | null) {
+  if (contactId == null || contactId === currentContactId) return
+  const [row] = await db
+    .select({ id: schema.contacts.id, deletedAt: schema.contacts.deletedAt, status: schema.contacts.status })
+    .from(schema.contacts)
+    .where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.organizationId, orgId)))
+    .limit(1)
+  if (!row) fail(404, 'Contacto no encontrado')
+  if (row.deletedAt || row.status === 'archived') fail(422, 'Ese contacto está archivado (se unificó con otro o está en la papelera): elige el que sigue activo')
+}
+
+/**
+ * Valida que oficina, equipo, comercial, contacto y propiedad son de esta
+ * agencia, y devuelve el nombre y el catálogo de la propiedad (migración
+ * 0089: el lead guarda los dos). La propiedad se busca SÓLO en el catálogo
+ * indicado — nunca se adivina — y una de la papelera no se puede poner como
+ * propiedad de interés (422 que dice qué hacer).
+ */
+async function assertLeadRefs(
+  db: any,
+  orgId: number,
+  input: LeadAdminInput,
+  current: { contactId?: number | null } = {},
+): Promise<{ propertyName?: string | null; propertyKind?: LeadPropertyKind | null }> {
   await assertOwnedRef(db, schema.offices, input.officeId, orgId, 'Oficina')
   await assertOwnedRef(db, schema.teams, input.teamId, orgId, 'Equipo')
   await assertOwnedRef(db, schema.teamMembers, input.agentId, orgId, 'Comercial')
-  await assertOwnedRef(db, schema.contacts, input.contactId, orgId, 'Contacto')
+  await assertLinkableContact(db, orgId, input.contactId, current.contactId)
   if (input.teamId && input.officeId) {
     const [team] = await db.select({ officeId: schema.teams.officeId }).from(schema.teams).where(and(eq(schema.teams.id, input.teamId), eq(schema.teams.organizationId, orgId))).limit(1)
     if (team?.officeId && team.officeId !== input.officeId) fail(422, 'Ese equipo es de otra oficina')
   }
   if (input.propertyId === undefined) return {}
-  if (input.propertyId === null) return { propertyName: null }
-  await assertLiveProperty(db, orgId, input.propertyKind === 'agent' ? 'agent' : 'developer', input.propertyId, { action: 'ponerla como propiedad de interés de un lead' })
-  if (input.propertyKind === 'agent') {
-    const [p] = await db
-      .select({ reference: schema.agentProperties.reference, street: schema.agentProperties.street, streetNumber: schema.agentProperties.streetNumber })
-      .from(schema.agentProperties)
-      .where(and(eq(schema.agentProperties.id, input.propertyId), eq(schema.agentProperties.organizationId, orgId)))
-      .limit(1)
-    if (!p) fail(404, 'Propiedad no encontrada')
-    return { propertyName: p.reference || [p.street, p.streetNumber].filter(Boolean).join(' ') || null }
-  }
-  const [p] = await db
-    .select({ name: schema.developerProperties.name })
-    .from(schema.developerProperties)
-    .where(and(eq(schema.developerProperties.id, input.propertyId), eq(schema.developerProperties.organizationId, orgId)))
-    .limit(1)
-  if (!p) fail(404, 'Propiedad no encontrada')
-  return { propertyName: p.name }
+  if (input.propertyId === null) return { propertyName: null, propertyKind: null }
+  const kind = input.propertyKind
+  if (!kind) fail(422, 'Indica de qué catálogo es la propiedad (propertyKind: "agent" 2ª mano o "developer" obra nueva)')
+  await assertLiveProperty(db, orgId, kind, input.propertyId, { action: 'ponerla como propiedad de interés de un lead' })
+  const summary = await leadPropertySummary(db, orgId, { propertyId: input.propertyId, propertyKind: kind })
+  if (!summary) fail(404, 'Propiedad no encontrada')
+  return { propertyName: summary.name, propertyKind: kind }
 }
 
 export interface LeadDuplicate {
@@ -253,7 +266,7 @@ export async function findLeadDuplicates(
 }
 
 /** Completa un lead existente con lo que le falta (unificar): nunca pisa lo que ya tenía. */
-async function mergeIntoLead(event: H3Event, orgId: number, user: SessionUser, targetId: number, input: LeadAdminInput, propertyName: string | null | undefined) {
+async function mergeIntoLead(event: H3Event, orgId: number, user: SessionUser, targetId: number, input: LeadAdminInput, property: { propertyName?: string | null; propertyKind?: LeadPropertyKind | null }) {
   const db = useDb(event)
   const [target] = await db
     .select()
@@ -264,7 +277,7 @@ async function mergeIntoLead(event: H3Event, orgId: number, user: SessionUser, t
   const patch: Record<string, any> = {}
   const fillable = ['email', 'phone', 'whatsapp', 'sourceDetail', 'campaign', 'utmSource', 'utmMedium', 'utmCampaign', 'utmContent', 'utmTerm', 'portal', 'landingPage', 'referrer', 'originalMessage', 'priority', 'budget', 'language', 'externalId', 'officeId', 'teamId', 'contactId'] as const
   for (const k of fillable) if ((input as any)[k] != null && target[k] == null) patch[k] = (input as any)[k]
-  if (input.propertyId && !target.propertyId) Object.assign(patch, { propertyId: input.propertyId, propertyName: propertyName ?? null })
+  if (input.propertyId && !target.propertyId) Object.assign(patch, { propertyId: input.propertyId, propertyKind: property.propertyKind ?? null, propertyName: property.propertyName ?? null })
   // Las notas se suman, no se sustituyen: es lo que se habló en esta nueva entrada.
   if (input.notes) patch.notes = target.notes ? `${target.notes}\n\n${input.notes}` : input.notes
   if (patch.contactId && !target.convertedAt) patch.convertedAt = now()
@@ -298,10 +311,10 @@ export async function createLeadFromAdmin(event: H3Event, orgId: number, user: S
   if (!input.name) fail(422, 'El nombre es obligatorio')
   if (!input.source) fail(422, 'Indica el origen del lead')
   if (!input.email && !input.phone && !input.whatsapp && !input.contactId) fail(422, 'Indica al menos un email, un teléfono o un contacto existente')
-  const { propertyName } = await assertLeadRefs(db, orgId, input)
+  const { propertyName, propertyKind } = await assertLeadRefs(db, orgId, input)
 
   const mergeInto = Number(body.mergeIntoLeadId) || 0
-  if (mergeInto) return mergeIntoLead(event, orgId, user, mergeInto, input, propertyName)
+  if (mergeInto) return mergeIntoLead(event, orgId, user, mergeInto, input, { propertyName, propertyKind })
 
   const duplicates = await findLeadDuplicates(event, orgId, { ...input, source: input.source })
   if (duplicates.length && body.force !== true) fail(409, 'Puede que este lead ya exista', { duplicates })
@@ -341,6 +354,7 @@ export async function createLeadFromAdmin(event: H3Event, orgId: number, user: S
     officeId: input.officeId,
     teamId: input.teamId,
     propertyId: input.propertyId,
+    propertyKind,
     propertyName,
     createdBy: user.id,
   }
@@ -378,7 +392,15 @@ export async function updateLeadFromAdmin(event: H3Event, orgId: number, user: S
     .where(and(eq(schema.leads.id, id), eq(schema.leads.organizationId, orgId), isNull(schema.leads.deletedAt)))
     .limit(1)
   if (!existing) fail(404, 'Lead no encontrado')
-  const { propertyName } = await assertLeadRefs(db, orgId, input)
+  // El catálogo sólo viaja con un id: un `propertyKind` suelto no cambia nada.
+  if (!('propertyId' in input)) delete input.propertyKind
+  // La misma propiedad que ya tenía (id y catálogo) no se revalida: que
+  // después se mandara a la papelera no impide guardar el resto del lead.
+  else if (input.propertyId != null && input.propertyId === existing.propertyId && input.propertyKind === existing.propertyKind) {
+    delete input.propertyId
+    delete input.propertyKind
+  }
+  const { propertyName, propertyKind } = await assertLeadRefs(db, orgId, input, { contactId: existing.contactId })
 
   const identityChanged = (['email', 'phone', 'whatsapp', 'externalId', 'source'] as const).some((k) => k in input && (input as any)[k] !== existing[k])
   if (identityChanged && body.force !== true) {
@@ -397,8 +419,7 @@ export async function updateLeadFromAdmin(event: H3Event, orgId: number, user: S
   }
 
   const patch: Record<string, any> = { ...input }
-  delete patch.propertyKind
-  if ('propertyId' in input) patch.propertyName = propertyName ?? null
+  if ('propertyId' in input) Object.assign(patch, { propertyKind: propertyKind ?? null, propertyName: propertyName ?? null })
   // Enlazar el lead a un contacto es su conversión: se fecha la primera vez.
   if (input.contactId && !existing.convertedAt) patch.convertedAt = now()
   if (!Object.keys(patch).length) return { ok: true, id, lead: existing }
@@ -473,6 +494,10 @@ export async function getLeadDetail(event: H3Event, orgId: number, id: number) {
         .where(and(eq(schema.contacts.id, row.contactId), eq(schema.contacts.organizationId, orgId)))
         .limit(1)
     : []
+  // La propiedad de interés con su catálogo y el enlace a su ficha (sin
+  // catálogo en el lead —filas anteriores a la 0089— se resuelve como siempre
+  // y se dice que es una deducción).
+  const property = await leadPropertySummary(db, orgId, row)
   const [office] = row.officeId ? await db.select({ name: schema.offices.name }).from(schema.offices).where(and(eq(schema.offices.id, row.officeId), eq(schema.offices.organizationId, orgId))).limit(1) : []
   const [team] = row.teamId ? await db.select({ name: schema.teams.name }).from(schema.teams).where(and(eq(schema.teams.id, row.teamId), eq(schema.teams.organizationId, orgId))).limit(1) : []
 
@@ -493,7 +518,8 @@ export async function getLeadDetail(event: H3Event, orgId: number, id: number) {
       interestLevel: schema.visits.interestLevel,
     })
     .from(schema.visits)
-    .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.leadId, id)))
+    // Cierre D3a: la ficha del lead no enseña las citas de la papelera.
+    .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.leadId, id), isNull(schema.visits.deletedAt)))
     .orderBy(desc(schema.visits.scheduledAt))
     .limit(50)
 
@@ -513,9 +539,12 @@ export async function getLeadDetail(event: H3Event, orgId: number, id: number) {
   return {
     row,
     contact: contact || null,
+    property,
     officeName: office?.name ?? null,
     teamName: team?.name ?? null,
     createdByName: row.createdBy ? names.get(row.createdBy) ?? null : null,
+    // Cierre D3a: tenía autor pero ese usuario ya no existe («usuario eliminado»), igual que en el resto de fichas.
+    createdByDeleted: !!row.createdBy && !names.get(row.createdBy),
     stageHistory: stageRows.map((r: any) => ({ ...r, userName: r.userId ? names.get(r.userId) ?? null : null })),
     assignmentHistory: assignmentRows.map((r: any) => ({
       ...r,

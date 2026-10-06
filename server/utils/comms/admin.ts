@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, isNotNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, sql } from 'drizzle-orm'
 import { createError, getRequestURL, type H3Event } from 'h3'
 import * as schema from '../../db/schema'
 import { isUniqueConstraintError, now } from '../db'
@@ -13,6 +13,8 @@ import { previewOf, sendOutbound, serviceWindow, type SendOutboundResult } from 
 import { formatPhone, whatsappClickToChatUrl } from './phone'
 import { NO_CAPABILITIES, PROVIDERS } from './providers/registry'
 import type { ChannelView, LoadedChannel, OutboundMessage, ProviderCapabilities } from './types'
+import { organizationCurrency } from '../currency'
+import { formatMoney } from '../../../utils/currency'
 
 /**
  * Lo que comparten los endpoints de /api/admin/comms: cargar una
@@ -282,7 +284,7 @@ export async function personContextFor(db: any, orgId: number, person: { contact
       ? db
           .select({ id: schema.visits.id, scheduledAt: schema.visits.scheduledAt, status: schema.visits.status, type: schema.visits.type, channel: schema.visits.channel, propertyName: schema.visits.propertyName })
           .from(schema.visits)
-          .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.leadId, person.leadId), eq(schema.visits.status, 'scheduled'), gte(schema.visits.scheduledAt, nowTs)))
+          .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.leadId, person.leadId), eq(schema.visits.status, 'scheduled'), gte(schema.visits.scheduledAt, nowTs), isNull(schema.visits.deletedAt)))
           .orderBy(asc(schema.visits.scheduledAt))
           .limit(5)
       : [],
@@ -322,9 +324,10 @@ export interface PropertyShare {
   imageLink: string | null
 }
 
-function formatPriceEs(value: number | null | undefined): string | null {
+/** Precio en la moneda de la agencia, en la que se guarda (utils/currency.ts) — antes «€» fijo. */
+function formatPriceEs(value: number | null | undefined, currency: string): string | null {
   if (value == null) return null
-  return `${new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(value)} €`
+  return formatMoney(value, currency)
 }
 
 function toMediaLink(key: string, origin: string): string {
@@ -341,6 +344,7 @@ function toMediaLink(key: string, origin: string): string {
  * queda fuera aquí también sin tocar este archivo.
  */
 export async function buildPropertyShare(db: any, orgId: number, propertyId: number, kind: PropertyKind, origin: string, note?: string | null): Promise<PropertyShare> {
+  const currency = await organizationCurrency(db, orgId)
   if (kind === 'developer') {
     const rows = await db
       .select({
@@ -364,7 +368,7 @@ export async function buildPropertyShare(db: any, orgId: number, propertyId: num
     if (raw.deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('enviarla') })
     const p = toPublicProperty(raw)
     const url = `${origin.replace(/\/$/, '')}/propiedades/${p.slug || p.id}`
-    const facts = [formatPriceEs(p.price), p.bedrooms ? `${p.bedrooms} dorm.` : null, p.area ? `${Math.round(p.area)} m²` : null].filter(Boolean).join(' · ')
+    const facts = [formatPriceEs(p.price, currency), p.bedrooms ? `${p.bedrooms} dorm.` : null, p.area ? `${Math.round(p.area)} m²` : null].filter(Boolean).join(' · ')
     const lines = [`🏠 ${p.name}`, p.community || null, facts || null, note?.trim() || null, url].filter(Boolean)
     return { id: p.id, kind, name: p.name, url, text: lines.join('\n'), imageLink: p.coverImage ? toMediaLink(String(p.coverImage), origin) : null }
   }
@@ -392,7 +396,7 @@ export async function buildPropertyShare(db: any, orgId: number, propertyId: num
   if (raw.deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('enviarla') })
   const p = toPublicProperty(raw) as typeof raw
   const name = p.street || p.city || `Inmueble #${p.id}`
-  const facts = [formatPriceEs(p.price), p.bedrooms ? `${p.bedrooms} dorm.` : null, p.area ? `${Math.round(p.area)} m²` : null].filter(Boolean).join(' · ')
+  const facts = [formatPriceEs(p.price, currency), p.bedrooms ? `${p.bedrooms} dorm.` : null, p.area ? `${Math.round(p.area)} m²` : null].filter(Boolean).join(' · ')
   const lines = [`🏠 ${name}`, p.city || null, facts || null, note?.trim() || null].filter(Boolean)
   return { id: p.id, kind, name, url: null, text: lines.join('\n'), imageLink: p.mainImage ? toMediaLink(String(p.mainImage), origin) : null }
 }

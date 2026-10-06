@@ -30,7 +30,7 @@
           </select>
         </label>
         <label class="block">
-          <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Importe de recompensa (€)</span>
+          <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Importe de recompensa ({{ currencyLabel }})</span>
           <input v-model.number="form.rewardAmount" type="number" min="0" class="cfg-input" >
         </label>
       </div>
@@ -75,6 +75,8 @@
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Referidos — M&M Real Estate' })
 const dt = useDash()
+// Moneda de la agencia (utils/currency.ts).
+const { symbol: currencyLabel } = useAgencyCurrency()
 const toast = useToast()
 
 const { data: linksData, refresh: refreshLinks } = await useFetch<any[]>('/api/admin/saas/referral-links')

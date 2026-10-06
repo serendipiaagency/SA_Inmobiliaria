@@ -148,7 +148,7 @@
             </p>
 
             <template v-for="(s, i) in sections" :key="s.key">
-              <div v-show="activeKey === s.key">
+              <div v-show="activeKey === s.key" :data-testid="`property-editor-section-${s.key}`">
                 <PropertySectionHeader :index="i" :total="sections.length" :label="s.label" :description="s.description" :icon="ICONS[s.icon] || ICONS.doc" />
 
                 <!-- El `fieldset` envuelve sólo el cuerpo de la sección, no el
@@ -286,6 +286,7 @@
 import { PROPERTY_BUILDER_SECTIONS, groupFields, type BuilderSection, type FieldSpec, type FieldsSection, type LocationSection as LocationSectionSpec } from '~/composables/usePropertyBuilderConfig'
 import { usePropertySchemaRegistry } from '~/composables/usePropertySchemaRegistry'
 import { PROPERTY_SUBTYPES, propertyTypeLabel } from '~/utils/propertySheet'
+import { CATALOG_STATUS_TITLES, commercialStatusForAvailability, commercialStatusLabel, rowChangesForCommercialStatus } from '~/utils/propertyCommercialStatus'
 import PropertyBuilderField from './PropertyBuilderField.vue'
 import PropertyEditorHeader from './PropertyEditorHeader.vue'
 import PropertyEditorSteps from './PropertyEditorSteps.vue'
@@ -341,7 +342,8 @@ const props = withDefaults(
 
 const router = useRouter()
 const toast = useToast()
-const { format: formatCurrency } = useCurrency()
+// Panel: moneda de la agencia, sin convertir (utils/currency.ts) — no el selector del visitante de la web.
+const { format: formatCurrency } = useAgencyCurrency()
 
 const staticSections = PROPERTY_BUILDER_SECTIONS[props.resource] as BuilderSection[]
 const activeKey = ref(staticSections[0].key)
@@ -365,6 +367,11 @@ function filterFieldsForSchema(fields: FieldSpec[]): FieldSpec[] {
 
 /** Campos condicionales (FASE 25): p. ej. fianza y depósito sólo en alquiler. */
 function isShownByCondition(f: FieldSpec): boolean {
+  // Campo heredado (cierre D1p): sólo si la ficha lo traía relleno al abrirla.
+  if (f.legacyOnly) {
+    const v = loadedValues[f.key]
+    if (v === null || v === undefined || v === '' || v === 0 || v === false) return false
+  }
   if (!f.showWhen) return true
   const raw = form[f.showWhen.key]
   const value = raw === null || raw === undefined || raw === '' ? (f.showWhen.emptyAs ?? '') : String(raw)
@@ -373,8 +380,9 @@ function isShownByCondition(f: FieldSpec): boolean {
   return true
 }
 
-/** El subtipo ofrece sólo los subtipos del tipo elegido (utils/propertySheet.ts). */
-function withDynamicOptions(f: FieldSpec): FieldSpec {
+/** El subtipo ofrece sólo los subtipos del tipo elegido (utils/propertySheet.ts); un rótulo que depende de la ficha («Renta mensual» en alquiler) se resuelve aquí. */
+function withDynamicOptions(spec: FieldSpec): FieldSpec {
+  const f = spec.labelFor ? { ...spec, label: spec.labelFor(form) } : spec
   if (f.key !== 'subtype') return f
   const labels = PROPERTY_SUBTYPES[form.propertyType] || {}
   return { ...f, options: Object.keys(labels), optionLabels: labels, hint: form.propertyType ? f.hint : 'Elige primero el tipo de propiedad.' }
@@ -404,6 +412,8 @@ const recordId = ref<number | null>(isNew.value ? null : Number(props.id))
 const loading = ref(true)
 const loadError = ref('')
 const form = reactive<Record<string, any>>({})
+/** Los valores con los que se abrió la ficha: deciden si un campo heredado (`legacyOnly`) se enseña. */
+const loadedValues: Record<string, any> = {}
 const translations = ref([
   { locale: 'en', title: '', description: '' },
   { locale: 'ar', title: '', description: '' },
@@ -483,6 +493,8 @@ function snapshot() {
 // Marca cuándo la carga inicial (onMounted) ya rellenó `form` — antes de eso,
 // el watch de autoguardado no debe dispararse contra datos a medio cargar.
 let loaded = false
+/** Las reglas del estado comercial reaccionan sólo a cambios de quien edita, no a la carga (ver los `watch` de más abajo). */
+let mirrorArmed = false
 // FASE 28 §94 — histórico de precios de la ficha (ver PropertyPriceHistory.vue).
 type PriceHistoryRow = { price: number; previousPrice?: number | null; reason?: string | null; changedByName?: string | null; recordedAt: string }
 const priceHistory = ref<PriceHistoryRow[]>([])
@@ -494,6 +506,7 @@ onMounted(async () => {
     try {
       const res = await $fetch<{ row: Record<string, any>; translations: any[]; priceHistory?: PriceHistoryRow[] }>(`/api/admin/${props.resource}/${props.id}`)
       for (const key of Object.keys(res.row)) form[key] = res.row[key]
+      Object.assign(loadedValues, res.row)
       trashedAt.value = res.row.deletedAt ?? null
       priceHistory.value = res.priceHistory || []
       persistedPrice = typeof res.row.price === 'number' ? res.row.price : null
@@ -521,6 +534,9 @@ onMounted(async () => {
   snapshot()
   loading.value = false
   loaded = true
+  // Las reglas del estado comercial (abajo) sólo reaccionan a cambios de quien
+  // edita: los de la propia carga ya se han procesado cuando esto se cumple.
+  nextTick(() => (mirrorArmed = true))
 })
 
 /**
@@ -536,6 +552,29 @@ watch(
     scheduleAutosave()
   },
   { deep: true },
+)
+
+/**
+ * Estado comercial ↔ casilla «Reservada» y disponibilidad de 2ª mano (cierre
+ * D1p): las MISMAS reglas que aplica el servidor al guardar
+ * (utils/propertyCommercialStatus.ts), aplicadas también al formulario. Si
+ * no, el siguiente autoguardado reenviaría la disponibilidad o la casilla de
+ * antes y desharía lo que el servidor acababa de ajustar.
+ */
+watch(
+  () => form.commercialStatus,
+  (next, prev) => {
+    if (!mirrorArmed || next === prev) return
+    Object.assign(form, rowChangesForCommercialStatus(catalog, next || null))
+  },
+)
+watch(
+  () => form.status,
+  (next, prev) => {
+    if (!mirrorArmed || catalog !== 'agent' || next === prev) return
+    const derived = commercialStatusForAvailability(next, form.commercialStatus)
+    if (derived !== undefined) form.commercialStatus = derived
+  },
 )
 
 function scheduleAutosave() {
@@ -718,6 +757,8 @@ const previewImage = computed(() => form.coverImage || form.mainImage || null)
 
 const statusLabel = computed(() => {
   if (isNew.value) return 'Sin guardar'
+  // Cierre D1p: el estado comercial común si está indicado; si no, el del catálogo.
+  if (form.commercialStatus) return commercialStatusLabel(form.commercialStatus)
   return STATUS_LABELS[form.status] || form.status || 'Sin estado'
 })
 const statusTone = computed<'draft' | 'published' | 'neutral'>(() => {
@@ -734,13 +775,15 @@ const statusTone = computed<'draft' | 'published' | 'neutral'>(() => {
  */
 const previewRows = computed(() => {
   const rows: { label: string; value: string }[] = []
-  rows.push({ label: 'Estado', value: STATUS_LABELS[form.status] || form.status || '—' })
+  rows.push({ label: 'Estado comercial', value: commercialStatusLabel(form.commercialStatus) })
+  rows.push({ label: CATALOG_STATUS_TITLES[catalog], value: STATUS_LABELS[form.status] || form.status || '—' })
   if (isSecondHand.value) {
     rows.push({ label: 'Operación', value: TRANSACTION_LABELS[form.transactionType] || '—' })
   } else if (form.handoverDate) {
     rows.push({ label: 'Entrega', value: String(form.handoverDate) })
   }
-  rows.push({ label: 'Precio', value: typeof form.price === 'number' ? formatCurrency(form.price) : '—' })
+  const rent = form.transactionType === 'rent'
+  rows.push({ label: rent ? 'Renta mensual' : 'Precio', value: typeof form.price === 'number' ? `${formatCurrency(form.price)}${rent ? ' /mes' : ''}` : '—' })
   return rows
 })
 

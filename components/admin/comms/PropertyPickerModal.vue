@@ -35,7 +35,9 @@ watch(q, (v) => {
 })
 const { data, pending } = await useFetch<{ rows: any[] }>('/api/admin/comms/properties', { query: { q: debounced }, watch: [debounced] })
 const rows = computed(() => data.value?.rows || [])
+// Moneda de la agencia, sin convertir (utils/currency.ts) — antes «€» fijo.
+const { format: formatAgencyMoney } = useAgencyCurrency()
 function price(v: number) {
-  return `${new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(v)} €`
+  return formatAgencyMoney(v)
 }
 </script>

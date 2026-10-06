@@ -226,7 +226,8 @@ function openVisit(channel: 'in_person' | 'video') {
 }
 
 // --- PRECIO ---
-const pricePerM2 = computed(() => (project.value.price && project.value.area ? `AED ${new Intl.NumberFormat('en-US').format(Math.round(project.value.price / project.value.area))}` : ''))
+// En la moneda que ve el visitante, como el resto de importes de la ficha (utils/currency.ts).
+const pricePerM2 = computed(() => (project.value.price && project.value.area ? formatPrice(Math.round(project.value.price / project.value.area)) : ''))
 const priceVariation = computed(() => {
   const p = project.value
   if (!p.priceOld || p.priceOld === p.price) return null

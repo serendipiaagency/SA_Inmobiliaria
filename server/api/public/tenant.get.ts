@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { getCommsSettings } from '../../utils/comms/inbox'
+import { organizationCurrency } from '../../utils/currency'
 
 /**
  * Public branding for the resolved tenant — consumed by useTenant() to
@@ -38,8 +39,13 @@ export default defineEventHandler(async (event) => {
   // Núcleo N8a: si la agencia activó el chat de su web (Comunicaciones →
   // Configuración). Sólo el interruptor y el saludo, que son públicos.
   const chat = await getCommsSettings(db, orgId).catch(() => null)
+  // La moneda de la agencia es la BASE de los precios de su web: el selector
+  // del visitante convierte desde ella (utils/currency.ts). Es un ajuste
+  // público por naturaleza — cada precio publicado ya la lleva.
+  const currency = await organizationCurrency(db, orgId)
   return {
     webChat: { enabled: Boolean(chat?.webChatEnabled), greeting: chat?.webChatGreeting ?? null },
+    currency,
     ...(rows[0] || {
       id: 1,
       name: 'M&M Real Estate',

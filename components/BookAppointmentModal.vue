@@ -69,7 +69,7 @@
             </div>
             <div class="grid grid-cols-2 gap-3">
               <div>
-                <label class="label" for="book-appt-budget">{{ t('bookAppointment.budgetLabel', 'Presupuesto aprox. (AED)') }}</label>
+                <label class="label" for="book-appt-budget">{{ t('bookAppointment.budgetLabelNoCurrency', 'Presupuesto aprox.') }} ({{ currency.symbol }})</label>
                 <input id="book-appt-budget" v-model.number="form.budget" type="number" min="0" class="input" >
               </div>
               <div>
@@ -102,12 +102,22 @@
 </template>
 
 <script setup lang="ts">
+import { convertAmount } from '~/utils/currency'
 interface Slot { start: string; end: string }
 interface DaySlots { date: string; slots: Slot[] }
 
 const props = defineProps<{ open: boolean; agentSlug: string; agentName: string; propertyId?: number; propertyName?: string; channel?: 'in_person' | 'video' | 'phone' }>()
 const emit = defineEmits<{ close: [] }>()
 const { t } = useI18n()
+// Cierre del núcleo (FASE 15): el lead de la reserva llega con el idioma de quien reserva.
+const visitorLanguage = useVisitorLanguage()
+// El visitante escribe el presupuesto en la moneda que está viendo; se guarda
+// en la de la agencia, que es en la que están todos sus importes (utils/currency.ts).
+const { current: currency, code: displayCurrency, base: baseCurrency } = useCurrency()
+function budgetInBase(v: number | null): number | undefined {
+  if (!v || !(v > 0)) return undefined
+  return Math.round(convertAmount(v, displayCurrency.value, baseCurrency.value))
+}
 
 const step = ref<'slot' | 'details'>('slot')
 const loadingDays = ref(false)
@@ -180,7 +190,7 @@ async function submit() {
   try {
     const res = await $fetch<{ videoLink?: string; manageUrl?: string }>(`/api/public/agents/${props.agentSlug}/book`, {
       method: 'POST',
-      body: { ...form, budget: form.budget || undefined, startAt: selectedSlot.value.start, propertyId: props.propertyId, channel: props.channel },
+      body: { ...form, budget: budgetInBase(form.budget), startAt: selectedSlot.value.start, propertyId: props.propertyId, channel: props.channel, language: visitorLanguage() },
     })
     videoLink.value = res.videoLink || ''
     manageUrl.value = res.manageUrl || ''

@@ -23,15 +23,15 @@ function hasPin() {
 
 const el = ref<HTMLElement | null>(null)
 const start: [number, number] = hasPin() ? [props.lat as number, props.lng as number] : FALLBACK_CENTER
-// useLeafletMap crea el mapa en su propio onMounted, registrado antes que el
-// de aquí abajo — Vue dispara los hooks de un mismo componente en el orden
-// en que se registran, así que map.value ya existe cuando llega el nuestro.
+// useLeafletMap crea el mapa en cuanto existe su contenedor (también cuando
+// el componente se monta durante la hidratación, en la que el contenedor
+// llega un render más tarde), y onMapReady ejecuta lo nuestro justo después.
 // Corrige de raíz el mapa en gris/mal encajado que salía al montarse en la
 // pestaña "Ubicación" (oculta con v-show, no la primera del editor): antes
 // nada llamaba a invalidateSize() al mostrarla; ahora el ResizeObserver del
 // composable lo hace solo, para esta pestaña y para cualquier otro sitio
 // oculto donde se monte este picker en el futuro.
-const { map } = useLeafletMap(el, { zoomControl: true, scrollWheelZoom: true, center: start, zoom: hasPin() ? PIN_ZOOM : FALLBACK_ZOOM })
+const { map, onMapReady } = useLeafletMap(el, { zoomControl: true, scrollWheelZoom: true, center: start, zoom: hasPin() ? PIN_ZOOM : FALLBACK_ZOOM })
 
 let marker: L.Marker | null = null
 // Distinguishes a lat/lng prop change caused by this component's own
@@ -62,7 +62,7 @@ function placeMarker(latlng: L.LatLng) {
   emitPosition(latlng)
 }
 
-onMounted(() => {
+onMapReady(() => {
   if (!map.value) return
   createTileLayer('light').addTo(map.value)
   if (hasPin()) ensureMarker(L.latLng(start[0], start[1]))

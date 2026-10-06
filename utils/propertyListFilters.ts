@@ -10,8 +10,9 @@
  * exportación CSV, a «todos los filtrados» de las acciones masivas y a un
  * filtro o vista guardada, sin una traducción más que pueda divergir.
  */
-import { PROPERTY_SUBTYPES, propertySubtypeLabel } from './propertySheet'
+import { PROPERTY_AMENITY_GROUPS, PROPERTY_SHEET_FIELD_MAP, PROPERTY_SUBTYPES, propertySubtypeLabel } from './propertySheet'
 import { formatCustomFieldValue, type CustomFieldDefinitionDto } from './customFieldCatalog'
+import { COMMERCIAL_STATUS_NONE, commercialStatusLabel } from './propertyCommercialStatus'
 
 export const EXTRA_FILTER_KEYS = [
   'subtype',
@@ -31,6 +32,10 @@ export const EXTRA_FILTER_KEYS = [
   'lat',
   'lng',
   'radiusKm',
+  // Cierre D1p: estado comercial común, vencimiento de la exclusiva y «Más características».
+  'commercialStatus',
+  'exclusivity',
+  'amenities',
 ] as const
 
 export const BBOX_KEYS = ['north', 'south', 'east', 'west'] as const
@@ -40,24 +45,58 @@ export function isExtraFilterKey(key: string): boolean {
   return (EXTRA_FILTER_KEYS as readonly string[]).includes(key) || /^cf_\d+(_min|_max)?$/.test(key)
 }
 
-/** Sólo las claves de filtro extra (con valor) de una query cualquiera. */
-export function pickExtraFilters(query: Record<string, unknown>): Record<string, string> {
+/**
+ * Sólo las claves de filtro extra (con valor) de una query cualquiera.
+ * `allowPortal: false` (2ª mano, cierre D1p): el filtro «Portal» no existe en
+ * ese catálogo —la publicación multicanal sólo programa obra nueva— y no se
+ * arrastra desde un enlace o una vista guardada, donde dejaría el listado a
+ * cero sin que nada en pantalla lo explicara.
+ */
+export function pickExtraFilters(query: Record<string, unknown>, opts: { allowPortal?: boolean } = {}): Record<string, string> {
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(query)) {
     if (!isExtraFilterKey(k)) continue
+    if (k === 'portal' && opts.allowPortal === false) continue
     const s = Array.isArray(v) ? v.join(',') : v == null ? '' : String(v)
     if (s.trim() !== '') out[k] = s
   }
   return out
 }
 
-/** Las características con columna en los dos catálogos (mismas que entiende la Domain Tool search_properties). */
+/**
+ * Las características del filtro «Características»: las cinco con columna en
+ * los dos catálogos (las mismas que entiende la Domain Tool search_properties)
+ * y, desde el cierre D1p, piscina privada / comunitaria y jardín privado de la
+ * ficha ampliada. «Piscina» y «Jardín» a secas cuentan cualquiera de sus
+ * variantes (searchService.ts, `PROPERTY_FEATURE_DETAIL_ALTERNATIVES`).
+ */
 export const PROPERTY_FEATURE_LABELS: Record<string, string> = {
   terrace: 'Terraza',
   pool: 'Piscina',
+  privatePool: 'Piscina privada',
+  communityPool: 'Piscina comunitaria',
   garage: 'Garaje',
   elevator: 'Ascensor',
   garden: 'Jardín',
+  privateGarden: 'Jardín privado',
+}
+
+/** Las características de la ficha ampliada que ya están en «Características» no se repiten en «Más características». */
+const FEATURES_IN_MAIN_LIST = new Set(['hasPrivatePool', 'hasCommunityPool', 'hasPrivateGarden'])
+
+/** «Más características» (cierre D1p): las sí/no de la ficha ampliada por bloque, con su rótulo del catálogo. */
+export const PROPERTY_AMENITY_FILTER_GROUPS = PROPERTY_AMENITY_GROUPS.map((g) => ({ ...g, fields: g.fields.filter((f) => !FEATURES_IN_MAIN_LIST.has(f.key)) })).filter((g) => g.fields.length > 0)
+
+/** Opciones del filtro «Estado comercial» (con «Sin indicar»). */
+export const COMMERCIAL_STATUS_FILTER_OPTIONS: { value: string; label: string }[] = [
+  ...Object.keys(PROPERTY_SHEET_FIELD_MAP.commercialStatus?.optionLabels || {}).map((value) => ({ value, label: commercialStatusLabel(value) })),
+  { value: COMMERCIAL_STATUS_NONE, label: 'Sin indicar' },
+]
+
+/** Opciones del filtro «Vencimiento de la exclusiva». */
+export const EXCLUSIVITY_FILTER_LABELS: Record<string, string> = {
+  expired: 'Exclusiva caducada',
+  expiring: 'Exclusiva que caduca en 30 días',
 }
 
 export interface PropertyFilterOptions {
@@ -95,6 +134,15 @@ export function extraFilterChips(extra: Record<string, string>, options: Propert
     const labels = extra.features.split(',').map((f) => PROPERTY_FEATURE_LABELS[f] || f)
     chips.push({ key: 'features', label: `Con ${labels.join(', ').toLowerCase()}`, keys: ['features'] })
   }
+  if (extra.amenities) {
+    const labels = extra.amenities.split(',').map((k) => PROPERTY_SHEET_FIELD_MAP[k]?.label || k)
+    chips.push({ key: 'amenities', label: `Con ${labels.join(', ').toLowerCase()}`, keys: ['amenities'] })
+  }
+  if (extra.commercialStatus) {
+    const labels = extra.commercialStatus.split(',').map((v) => (v === COMMERCIAL_STATUS_NONE ? 'sin indicar' : commercialStatusLabel(v).toLowerCase()))
+    chips.push({ key: 'commercialStatus', label: `Estado comercial: ${labels.join(' o ')}`, keys: ['commercialStatus'] })
+  }
+  if (extra.exclusivity) chips.push({ key: 'exclusivity', label: EXCLUSIVITY_FILTER_LABELS[extra.exclusivity] || extra.exclusivity, keys: ['exclusivity'] })
   if (extra.neighborhood) chips.push({ key: 'neighborhood', label: `Barrio: ${extra.neighborhood}`, keys: ['neighborhood'] })
   if (extra.municipality) chips.push({ key: 'municipality', label: `Municipio: ${extra.municipality}`, keys: ['municipality'] })
   if (extra.tags) {

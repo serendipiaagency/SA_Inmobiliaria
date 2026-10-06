@@ -57,9 +57,10 @@
         <option value="">Todas las campañas</option>
         <option v-for="c in options.campaigns" :key="c" :value="c">{{ c }}</option>
       </select>
-      <select v-if="options?.properties?.length" v-model="scope.propertyId" class="cfg-input !w-52">
+      <!-- Inmueble con su catálogo (migración 0089): el mismo id puede ser de 2ª mano y de obra nueva. -->
+      <select v-if="options?.properties?.length" v-model="propertyChoice" class="cfg-input !w-52" data-testid="dashboard-property-filter">
         <option value="">Todos los inmuebles</option>
-        <option v-for="p in options.properties" :key="p.id" :value="String(p.id)">{{ p.name }}</option>
+        <option v-for="p in options.properties" :key="`${p.kind || ''}:${p.id}`" :value="`${p.kind || ''}:${p.id}`">{{ p.name }}</option>
       </select>
     </div>
 
@@ -147,7 +148,16 @@ const today = () => new Date().toISOString().slice(0, 10)
 const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10)
 
 const preset = ref('30d')
-const scope = reactive({ from: daysAgo(29), to: today(), compare: false, commercialId: '', officeId: '', source: '', portal: '', campaign: '', propertyId: '' })
+const scope = reactive({ from: daysAgo(29), to: today(), compare: false, commercialId: '', officeId: '', source: '', portal: '', campaign: '', propertyId: '', propertyKind: '' })
+/** «catálogo:id» del desplegable de inmueble → los dos campos del scope. */
+const propertyChoice = computed({
+  get: () => (scope.propertyId ? `${scope.propertyKind}:${scope.propertyId}` : ''),
+  set: (v: string) => {
+    const [kind, id] = v ? v.split(':') : ['', '']
+    scope.propertyKind = kind || ''
+    scope.propertyId = id || ''
+  },
+})
 
 function applyPreset() {
   const d = new Date()

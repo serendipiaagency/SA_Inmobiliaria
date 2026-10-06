@@ -7,8 +7,19 @@
         <span
           class="absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold"
           :class="property.status === 'sold' ? 'bg-stone-800 text-white' : 'bg-emerald-100 text-emerald-700'"
+          title="Disponibilidad"
         >
           {{ STATUS_LABELS[property.status] || property.status }}
+        </span>
+        <!-- Estado comercial común (cierre D1p), si está indicado. -->
+        <span
+          v-if="property.commercialStatus"
+          class="absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+          :class="LIST_CHIP_CLASSES[commercialStatusTone(property.commercialStatus)]"
+          title="Estado comercial"
+          :data-testid="`property-card-commercial-${property.id}`"
+        >
+          {{ commercialStatusLabel(property.commercialStatus) }}
         </span>
       </div>
       <div class="p-4">
@@ -27,7 +38,7 @@
           <p class="text-[11px] text-stone-400">{{ formatDate(property.updatedAt) }}</p>
         </div>
         <div class="mt-2 flex gap-3 text-[12px] text-stone-500">
-          <span v-if="property.bedrooms != null">🛏 {{ property.bedrooms }}</span>
+          <span v-if="property.bedrooms != null" title="Dormitorios" :aria-label="`${property.bedrooms} dormitorios`">🛏 {{ property.bedrooms }}</span>
           <span v-if="property.bathrooms != null">🛁 {{ property.bathrooms }}</span>
           <span v-if="property.area != null">📐 {{ property.area }} m²</span>
         </div>
@@ -53,7 +64,9 @@
 
 <script setup lang="ts">
 import TagChips from '~/components/admin/tags/TagChips.vue'
-import { propertyTypeLabel } from '~/utils/propertySheet'
+import { priceSuffixFor, propertyTypeLabel } from '~/utils/propertySheet'
+import { commercialStatusLabel, commercialStatusTone } from '~/utils/propertyCommercialStatus'
+import { LIST_CHIP_CLASSES } from '~/composables/usePropertyListConfig'
 const props = defineProps<{ property: Record<string, any> }>()
 const emit = defineEmits<{ 'toggle-sold': [id: number]; duplicate: [id: number]; delete: [id: number] }>()
 
@@ -73,8 +86,13 @@ function act(action: 'toggle-sold' | 'duplicate' | 'delete') {
   emit(action as any, props.property.id)
 }
 
+// Moneda de la agencia, sin convertir (utils/currency.ts) — antes «€» fijo.
+// En alquiler el precio es la renta de cada mes (cierre D1p): «1.200 € /mes».
+const { format: formatAgencyMoney } = useAgencyCurrency()
 function formatPrice(v: number | null | undefined) {
-  return typeof v === 'number' ? new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(v) + ' €' : '—'
+  if (typeof v !== 'number') return '—'
+  const suffix = priceSuffixFor(props.property.transactionType)
+  return `${formatAgencyMoney(v)}${suffix ? ` ${suffix}` : ''}`
 }
 function formatDate(v: string | null | undefined) {
   return v ? new Date(v).toLocaleDateString('es-ES') : '—'

@@ -15,7 +15,7 @@
         </label>
         <label class="block">
           <span class="pe-label">Importe o %</span>
-          <input v-model="row.value" class="pe-input" placeholder="Ej. 10% o 25.000 €" @input="emitUpdate" >
+          <input v-model="row.value" class="pe-input" placeholder="Ej. 10% o 25.000" @input="emitUpdate" >
         </label>
         <label class="block">
           <span class="pe-label">Descripción <em class="font-normal normal-case text-stone-400">opcional</em></span>

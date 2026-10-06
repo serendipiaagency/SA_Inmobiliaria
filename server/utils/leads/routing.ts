@@ -4,6 +4,8 @@ import { useDb, schema, now, isUniqueConstraintError } from '../db'
 import { recordActivity } from '../activity/service'
 import { livePropertyCond } from '../properties/trash'
 import { ROUTING_SCOPES } from '../../../utils/leadCatalog'
+import { LANGUAGE_LABELS, normalizeLanguage } from '../../../utils/crmCatalog'
+import { resolveLeadPropertyKind, type LeadPropertyKind } from './property'
 
 /**
  * Lead Routing (FASE 15, migración 0071).
@@ -19,6 +21,12 @@ export class LeadRoutingError extends Error {}
 
 export interface RoutingContext {
   propertyId?: number | null
+  /**
+   * Catálogo de `propertyId` (migración 0089): 'agent' (2ª mano) o
+   * 'developer' (obra nueva). Sin él, la regla «Propiedad» busca el
+   * comercial responsable como siempre, sólo en 2ª mano.
+   */
+  propertyKind?: LeadPropertyKind | null
   district?: string | null
   city?: string | null
   language?: string | null
@@ -88,6 +96,13 @@ export async function validateRoutingRule(db: any, orgId: number, data: Record<s
   const scheduleProblem = validateRoutingSchedule(merged.scheduleJson)
   if (scheduleProblem) throw createError({ statusCode: 422, statusMessage: scheduleProblem })
   const value = merged.matchValue == null || merged.matchValue === '' ? null : String(merged.matchValue).trim()
+  // Idioma: siempre el código del catálogo (el editor lo elige de una lista;
+  // «English» o «en-GB» que lleguen por la API se guardan como «en»).
+  if (merged.scope === 'language') {
+    const code = normalizeLanguage(value)
+    if (!code) throw createError({ statusCode: 422, statusMessage: 'Elige el idioma de la regla (es, en, fr…)' })
+    data.matchValue = code
+  }
   if (merged.scope === 'team' || (merged.scope === 'office' && value)) {
     const id = Number(value)
     if (!Number.isInteger(id) || id <= 0) throw createError({ statusCode: 422, statusMessage: merged.scope === 'team' ? 'Elige el equipo de la regla' : 'La oficina de la regla no es válida' })
@@ -127,44 +142,51 @@ function normalizeText(v: string | null | undefined): string {
 }
 
 /**
- * Contexto de enrutado a partir de una Property real, probando primero
- * agent_properties (2ª mano) y si no, developer_properties (obra nueva) —
- * mismo patrón dual-catálogo que server/utils/matching/service.ts. Sólo
- * agent_properties tiene un comercial responsable propio; developer_properties
- * no (no hay columna para ello), así que la regla 'property' nunca aplica a
- * un lead de obra nueva — es honesto, no un hueco por arreglar.
+ * Contexto de enrutado a partir de una Property real. Con el catálogo del
+ * lead (`propertyKind`, migración 0089) se lee SÓLO ese catálogo: antes se
+ * probaba primero agent_properties (2ª mano) y luego developer_properties
+ * (obra nueva), y con el mismo id en los dos un lead de obra nueva se
+ * enrutaba con la zona, el tipo y el comercial de un piso de 2ª mano que no
+ * tenía nada que ver. Esa resolución heredada se conserva sólo para los
+ * leads sin catálogo (NULL), vía `resolveLeadPropertyKind()`.
  *
  * Una propiedad en la papelera no aporta contexto (ni comercial
  * responsable): el lead se enruta como si no trajera propiedad.
  */
-export async function buildRoutingContextFromProperty(event: H3Event, orgId: number, propertyId: number | null | undefined): Promise<RoutingContext> {
+export async function buildRoutingContextFromProperty(
+  event: H3Event,
+  orgId: number,
+  propertyId: number | null | undefined,
+  propertyKind?: string | null,
+): Promise<RoutingContext> {
   if (!propertyId) return {}
   const db = useDb(event)
-
-  const agentRows = await db
-    .select({ district: schema.agentProperties.district, city: schema.agentProperties.city, propertyType: schema.agentProperties.propertyType })
-    .from(schema.agentProperties)
-    .where(and(eq(schema.agentProperties.id, propertyId), eq(schema.agentProperties.organizationId, orgId), livePropertyCond(schema.agentProperties)))
+  const kind = await resolveLeadPropertyKind(db, orgId, propertyId, propertyKind)
+  if (!kind) return {}
+  const t = (kind === 'agent' ? schema.agentProperties : schema.developerProperties) as any
+  const [row] = await db
+    .select({ district: t.district, city: t.city, propertyType: t.propertyType })
+    .from(t)
+    .where(and(eq(t.id, propertyId), eq(t.organizationId, orgId), livePropertyCond(t)))
     .limit(1)
-  if (agentRows[0]) return { propertyId, ...agentRows[0], isNewBuild: false }
-
-  const devRows = await db
-    .select({ district: schema.developerProperties.district, city: schema.developerProperties.city, propertyType: schema.developerProperties.propertyType })
-    .from(schema.developerProperties)
-    .where(and(eq(schema.developerProperties.id, propertyId), eq(schema.developerProperties.organizationId, orgId), livePropertyCond(schema.developerProperties)))
-    .limit(1)
-  if (devRows[0]) return { propertyId, ...devRows[0], isNewBuild: true }
-
-  return {}
+  if (!row) return {}
+  return { propertyId, propertyKind: kind, ...row, isNewBuild: kind === 'developer' }
 }
 
-async function resolvePropertyResponsible(event: H3Event, orgId: number, propertyId: number): Promise<number | null> {
+/**
+ * El comercial responsable de la propiedad (regla «Propiedad»): la columna
+ * `agent_id` de su catálogo — las dos tablas la tienen (la de obra nueva
+ * desde la migración 0047). Sin catálogo en el contexto (quien llama a
+ * `routeLead()` sólo con el id) se mira 2ª mano, como siempre.
+ */
+async function resolvePropertyResponsible(event: H3Event, orgId: number, propertyId: number, kind: LeadPropertyKind | null | undefined): Promise<number | null> {
   const db = useDb(event)
+  const t = (kind === 'developer' ? schema.developerProperties : schema.agentProperties) as any
   const row = (
     await db
-      .select({ agentId: schema.agentProperties.agentId })
-      .from(schema.agentProperties)
-      .where(and(eq(schema.agentProperties.id, propertyId), eq(schema.agentProperties.organizationId, orgId), livePropertyCond(schema.agentProperties)))
+      .select({ agentId: t.agentId })
+      .from(t)
+      .where(and(eq(t.id, propertyId), eq(t.organizationId, orgId), livePropertyCond(t)))
       .limit(1)
   )[0]
   return row?.agentId ?? null
@@ -282,7 +304,7 @@ export async function routeLead(event: H3Event, orgId: number, ctx: RoutingConte
 
     if (rule.scope === 'property') {
       if (ctx.propertyId) {
-        const responsible = await resolvePropertyResponsible(event, orgId, ctx.propertyId)
+        const responsible = await resolvePropertyResponsible(event, orgId, ctx.propertyId, ctx.propertyKind)
         if (responsible) return { commercialId: responsible, ruleId: rule.id, explanation: `${rule.name}: comercial responsable de la propiedad` }
       }
       continue
@@ -291,8 +313,13 @@ export async function routeLead(event: H3Event, orgId: number, ctx: RoutingConte
       matched = !!rule.matchValue && (normalizeText(ctx.district) === normalizeText(rule.matchValue) || normalizeText(ctx.city) === normalizeText(rule.matchValue))
       label = `Zona ${rule.matchValue}`
     } else if (rule.scope === 'language') {
-      matched = !!rule.matchValue && !!ctx.language && normalizeText(ctx.language) === normalizeText(rule.matchValue)
-      label = `Idioma ${rule.matchValue}`
+      // Los dos lados al catálogo de idiomas: el «en-GB» de un navegador y
+      // una regla antigua escrita «Inglés» son el mismo idioma. Lo que no es
+      // del catálogo se compara como texto, como antes.
+      const leadLang = normalizeLanguage(ctx.language) ?? normalizeText(ctx.language)
+      const ruleLang = normalizeLanguage(rule.matchValue) ?? normalizeText(rule.matchValue)
+      matched = !!rule.matchValue && !!ctx.language && leadLang === ruleLang
+      label = `Idioma ${LANGUAGE_LABELS[ruleLang] || rule.matchValue}`
     } else if (rule.scope === 'property_type') {
       matched = !!rule.matchValue && !!ctx.propertyType && normalizeText(ctx.propertyType) === normalizeText(rule.matchValue)
       label = `Tipo ${rule.matchValue}`

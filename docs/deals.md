@@ -190,23 +190,63 @@ seguimiento nuevo.
   reserva basta con CRM, como esta ruta. Reservas, Depósitos y Contratos
   enseñan «Operación #…» bajo cada fila vinculada.
 - **Papelera** — una operación con `deleted_at` no sale en el listado y su
-  ficha es 404 (tampoco se le cuelgan tareas nuevas). No hay todavía una
-  acción de borrar operaciones en el panel.
+  ficha es 404 (tampoco se le cuelgan tareas nuevas). Desde el cierre C1 se
+  manda ahí y se restaura desde el panel (abajo).
+
+## Papelera y restaurar (cierre C1)
+
+`trashDeal()` / `restoreDeal()` en `server/utils/deals/service.ts`, por
+`POST /api/admin/saas/deal-operations` con `action: 'trash' | 'restore'` (sin
+ruta nueva). Mandarla a la papelera pone `deleted_at`: sale del Kanban, de la
+lista y de los filtros, su ficha es 404 y su cronología (`?dealId=`) no se
+lee mientras esté allí. **No se borra nada**: historial de etapas,
+vendedores, tareas, citas y Activity se quedan como estaban, y su oferta
+aceptada sigue ocupada (índice único): «Crear operación» sobre esa oferta da
+409 diciendo que la operación está en la papelera, y el detalle de la oferta
+enseña «Operación #… en la papelera →» (`dealTrashed` en
+`withOfferLabels()`), que lleva a la vista Papelera.
+
+Qué la bloquea — **409** con el motivo, decidido así:
+
+| Caso | Por qué |
+|---|---|
+| `status = 'closed'` | `closeDeal()` ya tuvo efectos fuera de la operación: creó su apunte en la tabla legacy `deals` («Cierres y comisiones», Ingresos) y, en una venta de 2ª mano, marcó el inmueble como vendido. Esconderla dejaría un cierre y una comisión sin la operación que los explica. |
+| Reserva, arras o contrato vinculados (`deal_operation_id`) | Son documentos con valor legal o contable que siguen apuntando a la operación (Reservas, Depósitos y Contratos enseñan «Operación #…»). Se desvinculan antes, a propósito y con su propio `DEAL_RECORD_UNLINKED`. A quien no puede leer Finanzas no se le detallan arras ni contratos: sólo se le dice que hay documentos de Finanzas que debe desvincular alguien con ese acceso. |
+
+Una operación **activa o cancelada** sin documentos vinculados —la abierta
+por error, la que no salió— sí va a la papelera. Tareas y citas pendientes
+no la bloquean: siguen siendo trabajo real de la agencia (y del lead), con
+su `dealId` como historia.
+
+`restoreDeal()` la devuelve tal cual (misma etapa, estado, comercial y
+oficina). Su inmueble no se vuelve a juzgar: aunque esté en su papelera, la
+operación ya existía. Otra agencia = 404 en las dos acciones; restaurar algo
+que no está en la papelera no hace nada. Cada acción deja `DEAL_TRASHED` /
+`DEAL_RESTORED` en Activity (con comprador, lead e inmueble) y su línea en
+la auditoría.
+
+En el panel: «Mandar a la papelera» en la ficha y «Papelera» en cada fila
+de la vista Lista (no se ofrece en una cerrada), con confirmación; el botón
+«Papelera» de `/admin/deal-operations` (`?trashed=1` en la URL) lista las
+borradas con «Restaurar».
 
 ### API (las dos rutas de siempre)
 
 - `GET /api/admin/saas/deal-operations` — filtros `propertyId`(+`propertyKind`),
   `buyerContactId`, `sellerContactId`, `leadId`, `commercialId`,
-  `officeId`, `status`, `stage`. Cada fila trae `buyerName`,
+  `officeId`, `status`, `stage`. La ficha (`?id=`) trae en `deal`
+  `createdByName` / `createdByDeleted` (cierre D3a). Cada fila trae `buyerName`,
   `propertyName`, `commercialName`, `officeName` y `linkedRecords`. Con
   `?id=` devuelve la ficha: `deal` (etiquetada), `sellers`, `stageHistory`
   (con `actorName`), `appointments`, `tasks` (sin las de la papelera),
   `nextAction`, `acceptedOffer` y `records` (`reservations`, `deposits`,
   `contracts`, cada uno con `linked` y `candidates`, y `financeVisible`).
 - `POST /api/admin/saas/deal-operations` — además de crear/`stage`/`close`/
-  `cancel`: `action: 'update'` (`officeId`, `commercialId`) y
+  `cancel`: `action: 'update'` (`officeId`, `commercialId`),
   `action: 'link' | 'unlink'` (`kind`: `reservation | deposit | contract`,
-  `recordId`).
+  `recordId`) y `action: 'trash' | 'restore'` (cierre C1).
+- `GET /api/admin/saas/deal-operations?trashed=1` — sólo la papelera, con
+  los mismos filtros y las mismas columnas (cierre C1).
 
 ## El menú: «Operaciones» y la pantalla antigua
 
@@ -222,19 +262,22 @@ seguimiento nuevo.
 
 - **CRM → Operaciones** (`/admin/deal-operations`) — Kanban por etapas y
   lista, con filtros por estado, oficina, comercial y catálogo.
-- **`/admin/deal-operations/:id`** — la ficha: etapa (con motivo), historial
-  de etapas, «Reserva, arras y contratos», tareas (crear y editar), citas,
-  partes con oficina y comercial editables, la oferta aceptada con su
-  negociación completa, la cronología de **Actividad** y las comunicaciones
-  con el comprador.
+- **`/admin/deal-operations/:id`** — la ficha: quién la abrió («Creado por X
+  el Y», cierre D3a), etapa (con motivo), historial de etapas, «Reserva, arras
+  y contratos», tareas (crear y editar), citas (sin las de la papelera),
+  **Notas** del equipo (cierre D3a), partes con oficina y comercial
+  editables, la oferta aceptada con su negociación completa, la cronología de
+  **Actividad** y las comunicaciones con el comprador.
 - **Detalle de una oferta aceptada** — «Crear operación» o «Ver operación».
 - **Ficha de Cliente → pestañas "Ofertas" y "Operaciones"**.
 
 ## Lo que no hace (a propósito)
 
-- **No hay pestañas de Documentos ni Notas** en la ficha de la operación:
-  las reservas, arras y contratos reales se vinculan (arriba), pero no hay
-  un gestor documental propio de la operación.
+- **No hay pestaña de Documentos** en la ficha de la operación: las
+  reservas, arras y contratos reales se vinculan (arriba), pero no hay un
+  gestor documental propio de la operación. Las **Notas** sí (cierre D3a):
+  el panel `NotesPanel` con `entityType: 'deal'`, sobre el recurso `notes`,
+  que valida que la operación sea de la agencia (404 si no).
 - La tabla legacy `deals` **no se toca, no se migra, no se renombra**. Sigue
   siendo la fuente para todo lo que ya la usaba, y el puente sólo añade
   filas — nunca lee, nunca actualiza una fila existente.

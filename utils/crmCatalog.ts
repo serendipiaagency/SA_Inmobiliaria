@@ -84,6 +84,68 @@ export const LANGUAGE_LABELS: Record<string, string> = {
   eu: 'Euskera',
   gl: 'Gallego',
 }
+export type LanguageCode = (typeof LANGUAGE_OPTIONS)[number]
+
+/**
+ * Nombres con los que llega un idioma desde fuera (un formulario, la API v1,
+ * una integración): en castellano, en el propio idioma y en inglés, sin
+ * acentos ni mayúsculas. Lo que no está aquí ni es un código del catálogo no
+ * se adivina.
+ */
+const LANGUAGE_ALIASES: Record<string, LanguageCode> = {
+  espanol: 'es',
+  castellano: 'es',
+  spanish: 'es',
+  ingles: 'en',
+  english: 'en',
+  frances: 'fr',
+  francais: 'fr',
+  french: 'fr',
+  aleman: 'de',
+  deutsch: 'de',
+  german: 'de',
+  italiano: 'it',
+  italian: 'it',
+  portugues: 'pt',
+  portuguese: 'pt',
+  neerlandes: 'nl',
+  holandes: 'nl',
+  nederlands: 'nl',
+  dutch: 'nl',
+  ruso: 'ru',
+  russian: 'ru',
+  arabe: 'ar',
+  arabic: 'ar',
+  chino: 'zh',
+  chinese: 'zh',
+  catalan: 'ca',
+  catala: 'ca',
+  euskera: 'eu',
+  euskara: 'eu',
+  basque: 'eu',
+  gallego: 'gl',
+  galego: 'gl',
+  galician: 'gl',
+}
+
+/**
+ * Lleva un idioma tal cual llega (FASE 15: «es-ES», «pt_BR», «EN», «English»,
+ * «Español»…) al código del catálogo (`LANGUAGE_OPTIONS`), o `null` si no es
+ * uno de ellos. Lo usan la captación (web pública, API v1, INMO) y el
+ * enrutado, para que el «en-GB» del navegador y una regla «Inglés» coincidan.
+ */
+export function normalizeLanguage(raw: unknown): LanguageCode | null {
+  if (typeof raw !== 'string') return null
+  const v = raw
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+  if (!v || v.length > 40) return null
+  const primary = v.split(/[-_;,.\s]/)[0]
+  if ((LANGUAGE_OPTIONS as readonly string[]).includes(primary)) return primary as LanguageCode
+  return LANGUAGE_ALIASES[v] ?? LANGUAGE_ALIASES[primary] ?? null
+}
 
 /** Entidades a las que se puede colgar una nota (Note, FASE 0). */
 export const NOTE_ENTITY_TYPES = ['contact', 'lead', 'property', 'appointment', 'deal'] as const

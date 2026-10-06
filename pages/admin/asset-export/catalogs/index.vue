@@ -25,13 +25,34 @@
           </select>
         </label>
 
+        <!-- FASE 28: un catálogo es de obra nueva o de 2ª mano, nunca mezcla los dos. -->
+        <div class="mb-4">
+          <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Propiedades de</span>
+          <div class="inline-flex rounded-lg border border-line p-0.5 text-[13px]" role="radiogroup" data-testid="catalog-kind">
+            <button
+              v-for="k in KINDS"
+              :key="k.value"
+              type="button"
+              role="radio"
+              :aria-checked="form.propertyKind === k.value"
+              class="rounded-md px-3 py-1.5 font-medium transition"
+              :class="form.propertyKind === k.value ? 'bg-ink text-white' : 'text-stone-600 hover:text-ink'"
+              :data-testid="`catalog-kind-${k.value}`"
+              @click="setKind(k.value)"
+            >
+              {{ k.label }}
+            </button>
+          </div>
+          <p v-if="form.propertyKind === 'agent'" class="mt-1.5 text-[11px] text-stone-500">Sólo datos y fotos publicables, con la ubicación según la privacidad de cada ficha; sin QR, porque la 2ª mano no tiene página pública.</p>
+        </div>
+
         <label class="mb-2 block">
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Buscar activos</span>
-          <input v-model="query" class="cfg-input" placeholder="Nombre de la propiedad…" @input="search" >
+          <input v-model="query" class="cfg-input" :placeholder="form.propertyKind === 'agent' ? 'Referencia, calle o zona…' : 'Nombre de la propiedad…'" data-testid="catalog-asset-search" @input="search" >
         </label>
         <ul v-if="results.length" class="mb-3 max-h-40 divide-y divide-line overflow-y-auto rounded-lg border border-line">
           <li v-for="r in results" :key="r.id" class="flex items-center justify-between px-3 py-2 text-sm">
-            <span>{{ r.name }}</span>
+            <span>{{ assetLabel(r) }}</span>
             <button type="button" class="text-xs font-medium text-ink hover:underline" @click="addAsset(r)">Añadir</button>
           </li>
         </ul>
@@ -62,7 +83,7 @@
         <AdminPanel>
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-sm font-semibold">{{ c.name }}</p>
+              <p class="text-sm font-semibold">{{ c.name }} <span class="ml-1 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600" :data-testid="`catalog-${c.id}-kind`">{{ KIND_LABEL[c.propertyKind || 'developer'] }}</span></p>
               <p class="mt-1 text-xs text-stone-500">{{ c.completedCount }} de {{ c.totalCount }} secciones generadas{{ c.failedCount ? ` · ${c.failedCount} con error` : '' }}</p>
             </div>
             <span class="rounded-full px-2 py-0.5 text-[11px] font-medium" :class="statusClass(c.status)">{{ statusLabel(c.status) }}</span>
@@ -90,7 +111,14 @@ interface Catalog {
   totalCount: number
   completedCount: number
   failedCount: number
+  propertyKind?: 'developer' | 'agent'
 }
+type Kind = 'developer' | 'agent'
+const KINDS: { value: Kind; label: string }[] = [
+  { value: 'developer', label: 'Obra nueva' },
+  { value: 'agent', label: '2ª mano' },
+]
+const KIND_LABEL: Record<Kind, string> = { developer: 'Obra nueva', agent: '2ª mano' }
 
 const MAX_ASSETS = 30
 const RENDER_READY_FORMATS = ['pdf_a4_portrait', 'pdf_a4_landscape', 'pdf_a5_portrait', 'pdf_dossier', 'print_a3_portrait']
@@ -102,7 +130,7 @@ const { data: templatesData } = await useFetch<Template[]>('/api/admin/asset-exp
 const templates = computed(() => (templatesData.value || []).filter((t) => t.status === 'published' && RENDER_READY_FORMATS.includes(t.formatKey)))
 
 const showCreate = ref(false)
-const form = reactive<{ name: string; coverTitle: string; templateId: number | null }>({ name: '', coverTitle: '', templateId: null })
+const form = reactive<{ name: string; coverTitle: string; templateId: number | null; propertyKind: Kind }>({ name: '', coverTitle: '', templateId: null, propertyKind: 'developer' })
 watch(templates, (t) => { if (t.length && !form.templateId) form.templateId = t[0].id }, { immediate: true })
 
 const query = ref('')
@@ -112,15 +140,30 @@ function search() {
   clearTimeout(searchTimer)
   searchTimer = setTimeout(async () => {
     if (!query.value.trim()) return (results.value = [])
-    const r = await $fetch<any>('/api/admin/developer-properties', { query: { q: query.value, perPage: 8 } })
+    const r = await $fetch<any>(form.propertyKind === 'agent' ? '/api/admin/properties' : '/api/admin/developer-properties', { query: { q: query.value, perPage: 8 } })
     results.value = r.rows
   }, 250)
+}
+
+/** Cambiar de catálogo vacía la selección: un catálogo combinado nunca mezcla obra nueva y 2ª mano. */
+function setKind(kind: Kind) {
+  if (form.propertyKind === kind) return
+  form.propertyKind = kind
+  selected.splice(0, selected.length)
+  results.value = []
+  query.value = ''
+}
+
+/** Cómo se reconoce cada resultado: el nombre en obra nueva; en 2ª mano, referencia y dirección (es el panel: aquí sí). */
+function assetLabel(r: any): string {
+  if (form.propertyKind === 'developer') return r.name || `Activo #${r.id}`
+  return [r.reference || `Ref. #${r.id}`, r.street || r.location || r.city].filter(Boolean).join(' · ')
 }
 
 const selected = reactive<Array<{ id: number; name: string }>>([])
 function addAsset(r: any) {
   if (selected.length >= MAX_ASSETS) return
-  if (!selected.find((s) => s.id === r.id)) selected.push({ id: r.id, name: r.name })
+  if (!selected.find((s) => s.id === r.id)) selected.push({ id: r.id, name: assetLabel(r) })
 }
 function removeAsset(id: number) {
   const idx = selected.findIndex((s) => s.id === id)
@@ -136,7 +179,7 @@ async function create() {
   try {
     const catalog = await $fetch<Catalog>('/api/admin/asset-export/catalogs', {
       method: 'POST',
-      body: { name: form.name || undefined, coverTitle: form.coverTitle || undefined, templateId: form.templateId, assetIds: selected.map((s) => s.id) },
+      body: { name: form.name || undefined, coverTitle: form.coverTitle || undefined, templateId: form.templateId, assetIds: selected.map((s) => s.id), propertyKind: form.propertyKind },
     })
     await navigateTo(`/admin/asset-export/catalogs/${catalog.id}`)
   } catch (err: any) {

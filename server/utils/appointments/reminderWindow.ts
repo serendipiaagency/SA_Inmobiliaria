@@ -33,6 +33,8 @@ export async function dueReminderVisits(db: any, column: ReminderColumn, now: Da
     .where(
       and(
         eq(schema.visits.status, 'scheduled'),
+        // Cierre D3a: una cita de la papelera nunca recibe recordatorio.
+        isNull(schema.visits.deletedAt),
         isNull(sent),
         gte(schema.visits.scheduledAt, fmt(new Date(now.getTime() + fromMs - MAX_BEHIND_MS))),
         lte(schema.visits.scheduledAt, fmt(new Date(now.getTime() + toMs + MAX_AHEAD_MS))),

@@ -148,7 +148,7 @@ export async function applyStripeEvent(db: any, env: Record<string, any>, type: 
     if (!deposit.contractId) return
     try {
       const [contract] = await db.select({ clientEmail: schema.contracts.clientEmail }).from(schema.contracts).where(eq(schema.contracts.id, deposit.contractId)).limit(1)
-      if (contract?.clientEmail) await sendTransactionalEmail(db, env, { organizationId: deposit.organizationId, template, to: contract.clientEmail, data: { amount: deposit.amount }, requestId })
+      if (contract?.clientEmail) await sendTransactionalEmail(db, env, { organizationId: deposit.organizationId, template, to: contract.clientEmail, data: { amount: deposit.amount, currency: deposit.currency }, requestId })
     } catch {
       // The deposit's own status is already saved — a notification failure must never undo that.
     }

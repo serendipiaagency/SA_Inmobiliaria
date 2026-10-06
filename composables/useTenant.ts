@@ -1,3 +1,5 @@
+import { DEFAULT_AGENCY_CURRENCY } from '~/utils/currency'
+
 export interface TenantBranding {
   id: number
   name: string
@@ -14,6 +16,8 @@ export interface TenantBranding {
   legalPhone: string | null
   /** Núcleo N8a: el chat de la web pública, si la agencia lo activó (Comunicaciones → Configuración). */
   webChat?: { enabled: boolean; greeting: string | null }
+  /** Moneda de la agencia (Configuración → Moneda): la base en la que están los precios — ver utils/currency.ts. */
+  currency?: string
 }
 
 /** Domain-resolved branding for the public site (see server/middleware/00.tenant.ts). */
@@ -39,6 +43,7 @@ export function useTenant() {
         legalEmail: null,
         legalPhone: null,
         webChat: { enabled: false, greeting: null },
+        currency: DEFAULT_AGENCY_CURRENCY,
       }
     }
   }

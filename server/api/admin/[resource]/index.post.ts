@@ -9,6 +9,7 @@ import { describeUserCreation } from '../../../utils/sensitiveAudit'
 import { getPropertySchemaFor, validateAgainstSchema } from '../../../utils/propertySchema/registry'
 import { createBulkActionJob } from '../../../utils/bulkActions/service'
 import { resolveFilteredPropertyIds } from '../../../utils/bulkActions/propertyActions'
+import { validateLeadBulkParams } from '../../../utils/bulkActions/leadActions'
 import { executeTool } from '../../../utils/tools/execute'
 import { InmoError } from '../../../utils/inmo/orchestrator'
 import { deleteConversation, renameConversation, runPersistentInmoTurn } from '../../../utils/inmo/conversations'
@@ -33,6 +34,9 @@ import {
   savePropertySheet,
   type SheetPayload,
 } from '../../../utils/properties/extendedSheet'
+import { applyCommercialStatusRulesOnSave, assertPropertyDatesOnSave } from '../../../utils/properties/commercialStatus'
+import { isCommercialStatus } from '../../../../utils/propertyCommercialStatus'
+import { organizationCurrency } from '../../../utils/currency'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -54,7 +58,8 @@ export default defineEventHandler(async (event) => {
         return await runPersistentInmoTurn(
           toolCtx,
           { conversationId: body.conversationId, brain: body.brain, messages: body.messages, userMessage: body.message, resolve: body.resolve, entities: body.entities },
-          { fetch: (input, init) => fetch(input, init), orgName: org?.name ?? null },
+          // La moneda de la agencia, para que INMO cite los importes con ella (utils/currency.ts).
+          { fetch: (input, init) => fetch(input, init), orgName: org?.name ?? null, currency: await organizationCurrency(toolCtx.db, orgId) },
         )
       } catch (e) {
         if (!(e instanceof InmoError)) throw e
@@ -90,6 +95,10 @@ export default defineEventHandler(async (event) => {
     ;({ user, orgId } = await requireOrgScope(event, def.area, 'write'))
   }
   if (def.readonly) throw createError({ statusCode: 405, statusMessage: 'Resource is read-only' })
+  // Una selección se crea desde una compatibilidad («Crear selección») o con
+  // INMO, con su propia validación (server/utils/selections/service.ts); aquí
+  // sólo se ve, se reordena, se amplía o se recorta (PUT /:id con `action`).
+  if (key === 'property-selections') throw createError({ statusCode: 405, statusMessage: 'Las selecciones se crean desde una compatibilidad («Crear selección») o con INMO' })
   const db = useDb(event)
   const body = await readBody<Record<string, any>>(event)
 
@@ -113,6 +122,11 @@ export default defineEventHandler(async (event) => {
     if (typeof body?.action !== 'string' || !body.action) {
       throw createError({ statusCode: 422, statusMessage: 'Falta la acción' })
     }
+    // «Cambiar estado comercial» (cierre D1p): un valor fuera del vocabulario
+    // común se rechaza aquí, antes de crear un job que fallaría en cada fila.
+    if (body.action === 'change_commercial_status' && !isCommercialStatus(body.params?.commercialStatus)) {
+      throw createError({ statusCode: 422, statusMessage: 'Elige un estado comercial válido (disponible, reservada, vendida, alquilada, retirada o borrador)' })
+    }
     const ids = body.selectAllFiltered
       ? await resolveFilteredPropertyIds(event, orgId!, body.entityType, body.filters || {})
       : Array.isArray(body.ids)
@@ -135,6 +149,8 @@ export default defineEventHandler(async (event) => {
     if (typeof body?.action !== 'string' || !body.action) {
       throw createError({ statusCode: 422, statusMessage: 'Falta la acción' })
     }
+    // «Cambiar fase» en bloque exige su motivo (FASE 13), antes de crear nada.
+    const leadJobParams = validateLeadBulkParams(body.action, body.params || {})
     // Única excepción (FASE 32): «Recalcular Lead Score» para TODOS los leads
     // de la agencia tras cambiar sus reglas — no es una selección de pantalla
     // sino la organización entera, resuelta aquí y con el mismo tope de 2000.
@@ -151,7 +167,7 @@ export default defineEventHandler(async (event) => {
       if (rows.length > 2000) throw createError({ statusCode: 422, statusMessage: 'La agencia tiene más de 2000 leads — recalcula por partes desde el listado.' })
       ids = rows.map((r: { id: number }) => r.id)
     }
-    const job = await createBulkActionJob(event, orgId!, user.id, { entityType: 'lead', action: body.action, params: body.params || {}, ids })
+    const job = await createBulkActionJob(event, orgId!, user.id, { entityType: 'lead', action: body.action, params: leadJobParams, ids })
     await logAdminAction(event, { user, orgId, action: 'create', resource: key, resourceId: job.id, detail: `${job.action} × ${job.totalCount}` })
     return { ok: true, id: job.id, job }
   }
@@ -236,6 +252,9 @@ export default defineEventHandler(async (event) => {
     sheet = extractSheetPayload(body || {})
     assertSubtypeMatchesType(sheet.details.subtype, data.propertyType)
     await assertSheetReferences(db, sheet, orgId!)
+    // Cierre D1p: fechas de gestión en AAAA-MM-DD y estado comercial ↔ «Reservada» / disponibilidad.
+    assertPropertyDatesOnSave(data, null)
+    await applyCommercialStatusRulesOnSave(db, orgId!, propertyKind, null, data, sheet, null)
     // Quién dio de alta la propiedad: siempre la sesión, nunca el cliente.
     data.createdBy = user.id
   }

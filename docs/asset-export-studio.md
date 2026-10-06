@@ -29,7 +29,7 @@ describe planned or aspirational features.
 
 > **Actualización (19-09-2026): formatos de imagen vía Browser Rendering.** Los dos puntos de arriba describen el estado *sin* el binding `BROWSER`. `server/utils/assetExport/htmlRenderer.ts` convierte la misma estructura de plantilla en una página HTML del tamaño exacto del formato (texto con ajuste real, imágenes incrustadas, QR, formas, capas) y `socialRenderer.ts` la captura como PNG con Browser Rendering de Cloudflare (`@cloudflare/puppeteer`) cuando el Worker tiene el binding. Sin él, el render responde el mismo 422 de siempre pero diciendo qué falta, y Estado del sistema tiene fila propia. **Está sin verificar en un Worker real**: Browser Rendering no corre en `wrangler dev` ni en CI, así que el binding va comentado en `wrangler.toml` hasta que alguien con acceso a la cuenta lo active en staging, despliegue y genere una pieza. El HTML sí está probado (`test/unit/htmlRenderer.test.ts`). Los carruseles siguen fuera: son varias piezas de una sola imagen cada una, no una capacidad nueva de render.
 - **No Cloudflare Queues / Durable Objects.** Batches and catalogs use a client-driven "process one pending item per request" loop (`.../process-next`) instead — this project's `wrangler.toml` has no Queues binding. Each call stays comfortably inside a Worker's CPU/wall-clock budget; the tradeoff is that overall progress depends on the browser tab staying open and polling (it auto-resumes on page load if the batch/catalog is still running).
-- **Only `developer_property` assets.** There's a second listing table in this schema (`agent_properties`, "Property (secondary sale)") with an admin CRUD screen, but it has no public-facing page anywhere in the app. Wiring Asset Export to it would mean generating a QR/public URL that points nowhere real — extending this is blocked on building that public page first, not on Asset Export itself.
+- **Only `developer_property` assets — salvo en los catálogos combinados.** Piezas, lotes y la API v1 siguen aceptando sólo obra nueva. Desde el cierre D3b (FASE 28) un **catálogo combinado** puede ser de 2ª mano (`agent_properties`, `propertyKind: 'agent'` en `POST /api/admin/asset-export/catalogs`): `resolveAgentAssetBindings()` rellena las mismas claves `{{asset.*}}` (foto, título, precio, m², dormitorios, baños, zona, referencia) sólo con lo publicable — fila por `toPublicProperty()`, zona sin dirección, foto que la galería no marque como no publicable/privada/oculta — y deja vacíos `asset.publicUrl` y `asset.qrCode`, porque la 2ª mano sigue sin página pública: nunca un QR a ninguna parte. El catálogo de propiedades se guarda en `validation_json` (sin migración, `server/utils/assetExport/catalogKind.ts`). Ver `docs/bulk-actions.md`.
 - **Role granularity.** Permissions are `requireAdmin` (any `admin`/`super_admin`) — there's no finer split between "can generate a dossier" and "can edit the Brand Kit / publish a template." The schema only has three roles total (`super_admin` | `admin` | `user`); adding a fourth is a cross-cutting auth change, not scoped to this module.
 
 ## Architecture
@@ -54,7 +54,8 @@ Key modules (`server/utils/assetExport/`):
 
 | File | Responsibility |
 |---|---|
-| `bindings.ts` | Resolves every `{{asset.*}}` / `{{tenant.*}}` token against real DB rows. Empty data → empty string, never invented placeholder text. |
+| `bindings.ts` | Resolves every `{{asset.*}}` / `{{tenant.*}}` token against real DB rows. Empty data → empty string, never invented placeholder text. Precios en la moneda de la agencia (`utils/currency.ts`); 2ª mano en `resolveAgentAssetBindings()`. |
+| `catalogKind.ts` | Obra nueva o 2ª mano de un catálogo combinado (en `validation_json`, sin migración). |
 | `formats.ts` | Single source of truth for every export format, including which ones are actually render-ready. |
 | `types.ts` | The document schema (`TemplateStructure`/`TemplateElement`) + `validateStructure()`. |
 | `pdfRenderer.ts` | Turns a `TemplateStructure` into real PDF bytes with `pdf-lib`. Exports `resolveBindingText`/`BINDING_RE`, reused by the validator. |
@@ -83,5 +84,5 @@ Add an entry to `FORMATS` in `formats.ts` with `renderReady: true` only once `pd
 
 - Activar y verificar Browser Rendering (ver la actualización de arriba): descomentar `[env.staging.browser]` en `wrangler.toml`, desplegar staging, generar una pieza 1080×1080 desde Piezas generadas y comprobar el PNG; después lo mismo en producción. Si la captura sale bien, cambiar `renderReady` de los tres formatos sociales deja de ser necesario — `isFormatRenderable()` ya decide por el binding.
 - Carruseles: con el PNG resuelto son N piezas de una imagen; falta la UI que las agrupe y el ZIP.
-- Extending asset support to `agent_property` once (and only once) it has a real public page to point a QR at.
+- Extending piece/batch/API support to `agent_property` once (and only once) it has a real public page to point a QR at (the combined catalogs already accept it, without QR).
 - A finer-grained permission between "generate exports" and "edit Brand Kit / publish templates," if the product ever needs non-admin staff to use this module.

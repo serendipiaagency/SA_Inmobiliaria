@@ -29,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-/** Un mensaje de un hilo web (núcleo N8a): formulario, chat o email, con los campos del formulario y el estado real del envío. */
+/** Un mensaje de un hilo web (núcleo N8a): formulario, chat o email (también la respuesta del cliente por email, FASE 29), con sus campos y el estado real del envío. */
 const props = defineProps<{ m: any }>()
 const dt = useDash()
 const mine = computed(() => props.m.direction === 'out')
@@ -49,6 +49,10 @@ const FIELD_LABELS: Record<string, string> = {
   paymentForRent: 'Pago del alquiler',
   familyMembers: 'Miembros de la familia',
   referrer: 'Recomendado por',
+  // FASE 29 — respuesta del cliente por email (email entrante)
+  from: 'Remitente',
+  attachmentsIgnored: 'Adjuntos no guardados',
+  truncated: 'Recortado',
 }
 const fields = computed(() =>
   Object.entries(props.m.fields || {})

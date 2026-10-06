@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import { schema, useDb } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
 import { getResource } from '../../../../utils/adminResources'
@@ -86,7 +86,8 @@ export default defineEventHandler(async (event) => {
     db
       .select()
       .from(schema.visits)
-      .where(and(eq(schema.visits.organizationId, orgId), matches(schema.visits.clientName, schema.visits.clientEmail)))
+      // Cierre D3a: sin las citas de la papelera.
+      .where(and(eq(schema.visits.organizationId, orgId), isNull(schema.visits.deletedAt), matches(schema.visits.clientName, schema.visits.clientEmail)))
       .orderBy(desc(schema.visits.scheduledAt))
       .limit(50),
     db

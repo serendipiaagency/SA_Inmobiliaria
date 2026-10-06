@@ -2,6 +2,8 @@ import { and, eq } from 'drizzle-orm'
 import { createError, type H3Event } from 'h3'
 import { useDb, schema } from '../db'
 import { trashedPropertyMessage } from '../properties/trash'
+import { organizationCurrency } from '../currency'
+import { formatMoney } from '../../../utils/currency'
 
 const TOKEN_RE = /\{\{([a-zA-Z0-9_.]+)\}\}/g
 
@@ -39,7 +41,8 @@ export async function resolveContractBindings(
     if (property.deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('generar un contrato') })
     values['property.name'] = property.name
     values['property.community'] = property.community || ''
-    values['property.price'] = property.price != null ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(property.price) : ''
+    // En la moneda de la agencia, en la que está guardado el precio (utils/currency.ts) — antes «€» fijo.
+    values['property.price'] = property.price != null ? formatMoney(property.price, await organizationCurrency(db, orgId)) : ''
   }
 
   return values

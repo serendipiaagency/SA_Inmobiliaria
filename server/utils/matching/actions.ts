@@ -82,6 +82,19 @@ async function markSelectedIfNew(event: H3Event, orgId: number, input: { buyerRe
   return 'selected'
 }
 
+/**
+ * Lo mismo que hace «Crear selección» con cada propiedad elegida, para las
+ * que se AÑADEN desde la vista propia de una selección ligada a una
+ * necesidad (FASE 11, cierre C2): su compatibilidad pasa a «Seleccionado» si
+ * no había decisión. Lo que ya está guardado en la selección no se deshace
+ * si esto falla (p. ej. la necesidad se archivó o borró después).
+ */
+export async function markItemsSelectedForRequirement(event: H3Event, orgId: number, buyerRequirementId: number, items: SelectionItemInput[], userId: number | null) {
+  for (const item of items) {
+    await markSelectedIfNew(event, orgId, { buyerRequirementId, propertyId: item.propertyId, propertyKind: item.propertyKind }, userId).catch(() => null)
+  }
+}
+
 export interface SelectionFromMatchInput {
   buyerRequirementId: number
   items: SelectionItemInput[]

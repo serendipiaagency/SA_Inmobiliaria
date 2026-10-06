@@ -18,9 +18,9 @@ const props = defineProps<{ lat: number; lng: number; label?: string | null }>()
 
 const ZOOM = 15
 const el = ref<HTMLElement | null>(null)
-const { map } = useLeafletMap(el, { zoomControl: true, scrollWheelZoom: false, center: [props.lat, props.lng], zoom: ZOOM })
+const { map, onMapReady } = useLeafletMap(el, { zoomControl: true, scrollWheelZoom: false, center: [props.lat, props.lng], zoom: ZOOM })
 
-onMounted(() => {
+onMapReady(() => {
   if (!map.value) return
   createTileLayer('light').addTo(map.value)
   const marker = L.marker([props.lat, props.lng]).addTo(map.value)

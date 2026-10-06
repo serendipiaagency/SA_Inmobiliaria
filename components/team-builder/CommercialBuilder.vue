@@ -288,8 +288,8 @@
           <div class="card p-4"><p class="text-[11px] uppercase text-stone-400">Visitas totales</p><p class="mt-1 text-xl font-semibold">{{ performance.visitsTotal }}</p></div>
           <div class="card p-4"><p class="text-[11px] uppercase text-stone-400">Visitas completadas</p><p class="mt-1 text-xl font-semibold">{{ performance.visitsCompleted }}</p></div>
           <div class="card p-4"><p class="text-[11px] uppercase text-stone-400">Operaciones cerradas</p><p class="mt-1 text-xl font-semibold">{{ performance.dealsClosed }}</p></div>
-          <div class="card p-4"><p class="text-[11px] uppercase text-stone-400">Volumen comercial</p><p class="mt-1 text-xl font-semibold">{{ formatMoney(performance.commercialVolume) }}</p></div>
-          <div class="card p-4"><p class="text-[11px] uppercase text-stone-400">Comisión total</p><p class="mt-1 text-xl font-semibold">{{ formatMoney(performance.commissionTotal) }}</p></div>
+          <div class="card p-4"><p class="text-[11px] uppercase text-stone-400">Volumen comercial</p><p class="mt-1 text-xl font-semibold">{{ formatVolume(performance.commercialVolume) }}</p></div>
+          <div class="card p-4"><p class="text-[11px] uppercase text-stone-400">Comisión total</p><p class="mt-1 text-xl font-semibold">{{ formatVolume(performance.commissionTotal) }}</p></div>
           <div class="card p-4"><p class="text-[11px] uppercase text-stone-400">Propiedades asignadas</p><p class="mt-1 text-xl font-semibold">{{ performance.assignedProperties }}</p></div>
         </div>
       </div>
@@ -562,8 +562,10 @@ async function onUploadImage(e: Event) {
   }
 }
 
-function formatMoney(v: number) {
-  return new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(v || 0) + ' €'
+// Moneda de la agencia, sin convertir (utils/currency.ts) — antes «€» fijo.
+const { format: formatAgencyMoney } = useAgencyCurrency()
+function formatVolume(v: number) {
+  return formatAgencyMoney(v || 0)
 }
 
 onMounted(async () => {

@@ -1,7 +1,7 @@
 <template>
   <div class="grid gap-3 sm:grid-cols-2">
     <label class="block">
-      <span class="ot-label">Importe (€)</span>
+      <span class="ot-label">Importe ({{ currencyLabel }})</span>
       <input v-model.number="model.amount" type="number" min="1" step="1" class="input" placeholder="450000" :data-testid="`${testid}-amount`" >
     </label>
     <label class="block">
@@ -24,6 +24,7 @@
 
 <script setup lang="ts">
 import { OFFER_FINANCE_CONDITIONS, OFFER_FINANCE_LABELS, type OfferTerms } from '~/utils/pipelineCatalog'
+import { currencySymbol, normalizeCurrency } from '~/utils/currency'
 
 /**
  * Los términos de una oferta, iguales en la oferta, la contraoferta y la
@@ -32,7 +33,14 @@ import { OFFER_FINANCE_CONDITIONS, OFFER_FINANCE_LABELS, type OfferTerms } from 
  * final de ese día.
  */
 const model = defineModel<OfferTerms>({ required: true })
-withDefaults(defineProps<{ testid?: string }>(), { testid: 'offer-terms' })
+const props = withDefaults(defineProps<{ testid?: string; currency?: string | null }>(), { testid: 'offer-terms', currency: null })
+// La oferta lleva su propia moneda: la de la oferta que se mueve o, en una
+// nueva, la que le pondrá el servidor (la de la agencia si la eligió).
+const { recordCode } = useAgencyCurrency()
+const currencyLabel = computed(() => {
+  const code = props.currency || recordCode.value
+  return normalizeCurrency(code) ? currencySymbol(code) : String(code).toUpperCase()
+})
 </script>
 
 <style scoped>

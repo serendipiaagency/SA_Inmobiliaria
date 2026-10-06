@@ -6,6 +6,7 @@ import { rateLimit } from '../rateLimit'
 import { isValidEmail, isValidPhone } from '../validate'
 import { upsertLead } from '../leads'
 import { readFirstTouch } from '../firstTouch'
+import { publicLeadLanguage } from '../leads/captureLanguage'
 import { livePropertyCond } from '../properties/trash'
 import { getCommsSettings } from './inbox'
 import { pollWebChat, postWebChatMessage, startWebChat } from './web'
@@ -89,6 +90,7 @@ export async function handlePublicWebChat(event: H3Event) {
   if (phone && !isValidPhone(phone)) throw createError({ statusCode: 422, statusMessage: 'El teléfono no es válido.' })
   const property = await publicPropertyBySlug(db, orgId, body.propertySlug)
   const firstTouch = readFirstTouch(event)
+  const language = publicLeadLanguage(event, body.language)
   const result = await startWebChat(
     db,
     { orgId, name: String(body.name || ''), email: email || null, phone: phone || null, message: String(body.message ?? ''), propertyId: property?.id ?? null, propertyName: property?.name ?? null, pageUrl: samePagePath(event) },
@@ -105,7 +107,10 @@ export async function handlePublicWebChat(event: H3Event) {
           sourceDetail: 'Chat web',
           originalMessage: l.message,
           propertyId: l.propertyId,
+          // El chat sólo vincula propiedades públicas de obra nueva (publicPropertyBySlug).
+          propertyKind: l.propertyId ? 'developer' : null,
           propertyName: l.propertyName,
+          language,
           notes: 'Escribió por el chat de la web.',
           ...firstTouch,
         }),

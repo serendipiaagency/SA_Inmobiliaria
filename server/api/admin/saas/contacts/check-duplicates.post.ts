@@ -10,7 +10,8 @@ import { findDuplicateContacts, orgDefaultCountryPrefix, type ContactInput } fro
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireOrgScope(event)
   const body = await readBody<ContactInput & { excludeContactId?: number }>(event)
-  if (!body?.name && !body?.email && !body?.phone) return { duplicates: [] }
+  // WhatsApp e id externo (cierre del núcleo) también bastan para buscar.
+  if (!body?.name && !body?.email && !body?.phone && !body?.whatsapp && !body?.externalId) return { duplicates: [] }
 
   // Mismo prefijo que usa el alta: si la previsualización normalizara de otra
   // forma, avisaría de duplicados distintos de los que luego bloquean.

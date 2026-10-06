@@ -79,9 +79,12 @@ export default defineEventHandler(async (event) => {
     )
   }
   // La ficha ampliada (migración 0086) también se copia; el código comercial
-  // no, igual que la referencia: identifica un anuncio concreto.
+  // no, igual que la referencia: identifica un anuncio concreto. Tampoco el
+  // estado comercial (cierre D1p): la copia nace sin publicar y sin reservar
+  // (arriba), y una copia «Vendida» o «Reservada» sería falsa.
   const sheet = await loadPropertySheet(db, orgId, 'developer', id)
   sheet.commercialCode = null
+  sheet.commercialStatus = null
   const payload = { details: {} as Record<string, unknown>, legal: {} as Record<string, unknown> }
   for (const f of PROPERTY_SHEET_FIELDS) if (sheet[f.key] != null) (f.store === 'details' ? payload.details : payload.legal)[f.key] = sheet[f.key]
   await savePropertySheet(db, orgId, 'developer', newId, payload, user.id)

@@ -64,6 +64,10 @@ export function validatePropertyField(field: ValidatableField, value: unknown, t
     if (!/^https:\/\/[^\s]+$/i.test(String(value))) return 'El enlace tiene que empezar por https://'
   }
   if (field.type === 'date' || sheet?.type === 'date') {
+    // Una fecha antigua escrita a mano («15/03/2025») no es un error mientras
+    // nadie la toque: el campo avisa aparte y el servidor no la exige hasta
+    // que cambia (cierre D1p).
+    if (!touched) return ''
     const s = String(value).slice(0, 10)
     if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || Number.isNaN(Date.parse(`${s}T00:00:00Z`))) return 'Fecha no válida (AAAA-MM-DD).'
   }

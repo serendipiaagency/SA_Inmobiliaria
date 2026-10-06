@@ -355,7 +355,10 @@ export const adminResources: Record<string, ResourceDef> = {
       bathrooms: { type: 'number', label: 'Baños' },
       mainImage: { type: 'image', label: 'Imagen principal' },
       videoUrl: { type: 'text', label: 'URL del vídeo' },
-      status: { type: 'select', label: 'Estado', options: ['available', 'sold'], optionLabels: { available: 'Disponible', sold: 'Vendida' } },
+      // «Disponibilidad», no «Estado»: el estado comercial común (reservada,
+      // alquilada, retirada…) es otro dato, de la ficha ampliada (cierre D1p,
+      // utils/propertyCommercialStatus.ts).
+      status: { type: 'select', label: 'Disponibilidad', options: ['available', 'sold'], optionLabels: { available: 'Disponible', sold: 'Vendida' } },
       agentId: { type: 'number', label: 'Comercial', relation: { resource: 'team', labelField: 'name' } },
       // Parity with developer-properties (migration 0059) — see that
       // resource's fields above for the same `type: 'number'` boolean-coercion
@@ -413,7 +416,10 @@ export const adminResources: Record<string, ResourceDef> = {
       featuresReviewedBy: { type: 'number', label: 'Características repasadas por (ID)' },
     },
     listFields: ['id', 'reference', 'slug', 'location', 'city', 'propertyType', 'price', 'status'],
-    searchFields: ['reference', 'slug', 'location', 'city', 'district', 'postalCode', 'propertyType'],
+    // Texto libre del listado (y de «todos los filtrados»): las tres
+    // referencias y la calle (cierre D1p), más el código comercial de la
+    // ficha ampliada (`propertyTextSearchCond`, searchService.ts).
+    searchFields: ['reference', 'externalReference', 'agencyReference', 'slug', 'location', 'street', 'city', 'district', 'postalCode', 'propertyType'],
     hasTimestamps: true,
     hasUpdatedAt: true,
     tenantPolicy: { type: 'direct' },
@@ -433,7 +439,8 @@ export const adminResources: Record<string, ResourceDef> = {
       developerId: { type: 'number', label: 'Promotora (ID)', required: true },
       name: { type: 'text', label: 'Nombre', required: true },
       slug: { type: 'text', label: 'Slug' },
-      status: { type: 'select', label: 'Estado', options: ['new', 'under_construction', 'ready'], optionLabels: { new: 'Obra nueva', under_construction: 'En construcción', ready: 'Lista' } },
+      // «Estado de la obra»: la fase de construcción, no el estado comercial (cierre D1p).
+      status: { type: 'select', label: 'Estado de la obra', options: ['new', 'under_construction', 'ready'], optionLabels: { new: 'Obra nueva', under_construction: 'En construcción', ready: 'Lista' } },
       price: { type: 'number', label: 'Precio desde' },
       description: { type: 'textarea', label: 'Descripción' },
       keyHighlights: { type: 'textarea', label: 'Puntos destacados' },
@@ -535,7 +542,8 @@ export const adminResources: Record<string, ResourceDef> = {
       featuresReviewedBy: { type: 'number', label: 'Características repasadas por (ID)' },
     },
     listFields: ['id', 'reference', 'name', 'slug', 'community', 'price', 'status'],
-    searchFields: ['reference', 'name', 'slug', 'community', 'street', 'city', 'district', 'postalCode'],
+    // Ver `properties`: las tres referencias, más el código comercial (cierre D1p).
+    searchFields: ['reference', 'externalReference', 'agencyReference', 'name', 'slug', 'community', 'street', 'city', 'district', 'postalCode'],
     hasTimestamps: true,
     hasUpdatedAt: true,
     tenantPolicy: { type: 'direct' },
@@ -981,8 +989,13 @@ export const adminResources: Record<string, ResourceDef> = {
    * Reglas de Lead Routing (FASE 15, migración 0071). `priority` decide el
    * orden de evaluación (menor primero) — server/utils/leads/routing.ts es
    * quien las lee y decide, este CRUD sólo las mantiene. `targetDepartment`
-   * reutiliza `team_members.department` (texto libre ya existente): no hay
-   * entidad Team ni Office en el repositorio.
+   * reutiliza `team_members.department` (texto libre ya existente).
+   *
+   * Cierre del núcleo: el panel ya no usa el formulario genérico para este
+   * recurso sino components/admin/leads/RoutingRuleEditor.vue (desplegables
+   * de oficinas, equipos e idiomas y editor de horario). `matchValue` sigue
+   * siendo texto —el id de la oficina o del equipo, el código del idioma—, y
+   * `validateRoutingRule()` lo comprueba al guardar.
    */
   'lead-routing-rules': {
     area: 'crm',
@@ -992,12 +1005,12 @@ export const adminResources: Record<string, ResourceDef> = {
       name: { type: 'text', label: 'Nombre', required: true },
       priority: { type: 'number', label: 'Prioridad (menor = antes)' },
       scope: { type: 'select', label: 'Ámbito', required: true, options: [...ROUTING_SCOPES], optionLabels: ROUTING_SCOPE_LABELS },
-      matchValue: { type: 'text', label: 'Valor a comparar (zona, idioma, tipo; id de la oficina o del equipo)' },
+      matchValue: { type: 'text', label: 'Valor a comparar' },
       targetCommercialId: { type: 'number', label: 'Comercial fijo (opcional)', relation: { resource: 'team', labelField: 'name' } },
       targetOfficeId: { type: 'number', label: 'Repartir dentro de la oficina', relation: { resource: 'offices', labelField: 'name' } },
       targetDepartment: { type: 'text', label: 'Departamento destino (reparto)' },
       strategy: { type: 'select', label: 'Reparto', options: ['round_robin', 'workload'], optionLabels: { round_robin: 'Por turnos (round robin)', workload: 'Por carga de trabajo' } },
-      scheduleJson: { type: 'json', label: 'Horario (JSON: {"days":[1,2,3,4,5],"from":"09:00","to":"18:00","timezone":"Europe/Madrid"})' },
+      scheduleJson: { type: 'json', label: 'Horario' },
       enabled: { type: 'number', label: 'Activa (1/0)' },
     },
     listFields: ['id', 'name', 'priority', 'scope', 'matchValue', 'targetOfficeId', 'targetDepartment', 'strategy', 'enabled'],
@@ -1210,6 +1223,30 @@ export const adminResources: Record<string, ResourceDef> = {
       const byId = new Map<number, any>(contacts.map((c: any) => [c.id, c]))
       return rows.map((r) => ({ ...r, contact: byId.get(r.contactId) || null }))
     },
+  },
+
+  /**
+   * Selecciones de propiedades de una persona (FASE 11, cierre C2): la vista
+   * propia de una selección (pages/admin/contactos/selecciones/[id].vue) sin ruta
+   * nueva. `GET /:id` trae la selección con su contacto, su necesidad y sus
+   * propiedades de los dos catálogos (foto, precio, estado); `PUT /:id` con
+   * `{ action: 'reorder' | 'remove' | 'add' }` reordena, quita o añade
+   * (server/utils/selections/service.ts, mismas reglas que al crearla). Se
+   * crean desde una compatibilidad o con INMO, con su validación propia: el
+   * alta genérica responde 405 y por eso `fields` está vacío. Borrar una
+   * selección se lleva sus propiedades (FK en cascada). Área CRM.
+   */
+  'property-selections': {
+    area: 'crm',
+    table: schema.propertySelections,
+    label: 'Selecciones de propiedades',
+    fields: {},
+    listFields: ['id', 'title', 'contactId', 'updatedAt'],
+    searchFields: ['title'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    tenantPolicy: { type: 'direct' },
+    filterFields: ['contactId'],
   },
 
   /**

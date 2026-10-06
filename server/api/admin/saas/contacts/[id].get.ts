@@ -6,6 +6,8 @@ import { listPersonCommunications } from '../../../../utils/comms/related'
 import { listContactProperties, listContactRoles } from '../../../../utils/contacts/crm'
 import { listPropertySelectionsWithItems } from '../../../../utils/selections/service'
 import { listContactDocuments } from '../../../../utils/properties/documents'
+import { withCreatorNames } from '../../../../utils/crm/labels'
+import { organizationCurrency } from '../../../../utils/currency'
 
 /**
  * Ficha de un contacto: sus datos, sus necesidades, los leads/clientes que le
@@ -123,10 +125,16 @@ export default defineEventHandler(async (event) => {
   // Selecciones de propiedades preparadas para esta persona (INMO o
   // «Crear selección» desde una compatibilidad, núcleo N4).
   const selections = await listPropertySelectionsWithItems(db, orgId, id)
+  // El resumen de cada necesidad cita el precio en la moneda de la agencia (utils/currency.ts).
+  const currency = await organizationCurrency(db, orgId)
+
+  // Quién lo dio de alta (cierre D3a): el nombre del usuario de la agencia o,
+  // si ese usuario ya no existe, `createdByDeleted` («usuario eliminado»).
+  const [withCreator] = await withCreatorNames(db, orgId, [{ createdBy: contact.createdBy }])
 
   return {
-    contact: { ...contact, roles, commercialName: commercial?.name ?? null, officeName: office?.name ?? null, score, lastContactAt },
-    requirements: requirements.map((r) => ({ ...r, summary: summarizeRequirement(r) })),
+    contact: { ...contact, roles, commercialName: commercial?.name ?? null, officeName: office?.name ?? null, score, lastContactAt, createdByName: withCreator.createdByName, createdByDeleted: withCreator.createdByDeleted },
+    requirements: requirements.map((r) => ({ ...r, summary: summarizeRequirement(r, currency) })),
     leads,
     clients,
     communications,

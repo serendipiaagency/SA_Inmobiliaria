@@ -88,6 +88,8 @@ export function buildLeadListWhere(orgId: number, q: Record<string, any>): { cla
   if (q.campaign) { where.push('(campaign = ? OR utm_campaign = ?)'); binds.push(String(q.campaign), String(q.campaign)) }
   const propertyId = posInt(q.propertyId)
   if (propertyId) { where.push('property_id = ?'); binds.push(propertyId) }
+  // Con su catálogo (migración 0089): los de ese catálogo y los antiguos sin catálogo (NULL), como hasta ahora.
+  if (propertyId && (q.propertyKind === 'agent' || q.propertyKind === 'developer')) { where.push('(property_kind = ? OR property_kind IS NULL)'); binds.push(q.propertyKind) }
   if (q.unattended === '1' || q.unattended === 1) { where.push("id IN (SELECT lead_id FROM lead_sla_alerts WHERE organization_id = ? AND type = 'unattended' AND status = 'open')"); binds.push(orgId) }
   // FASE 32 §74 — filtrar por Lead Score.
   const scoreMin = q.scoreMin !== undefined && q.scoreMin !== null && q.scoreMin !== '' ? Number(q.scoreMin) : null

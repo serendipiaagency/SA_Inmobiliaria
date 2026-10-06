@@ -117,7 +117,8 @@ test.describe('N1 — oficinas, equipos y ficha ampliada', () => {
     await expect(page.locator('[data-field="ibiAnnual"] input')).toBeVisible()
 
     // Precio por m² calculado (400.000 / 100).
-    await expect(page.locator('[data-field="pricePerSquareMeter"] [data-computed]')).toHaveText('4000')
+    // Con su unidad en la moneda de la agencia (cierre D1p / D3b): «4000 AED/m²», «4000 €/m²»…
+    await expect(page.locator('[data-field="pricePerSquareMeter"] [data-computed]')).toHaveText(/^4000 \S+\/m²$/)
 
     // Venta: precio mínimo autorizado sí, fianza no. Alquiler: al revés.
     await expect(page.locator('[data-field="priceMinAuthorized"] input')).toBeVisible()

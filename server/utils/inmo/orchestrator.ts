@@ -121,6 +121,8 @@ export interface InmoDeps {
   fetch: typeof fetch
   now?: () => Date
   orgName?: string | null
+  /** Moneda de la agencia (utils/currency.ts): la de todos sus importes. Sin ella, no se le dice nada al modelo. */
+  currency?: string | null
   /** Sin cerebro: las herramientas del perfil General (∩ RBAC). Nunca create_note ni notify_team: INMO no escribe sin confirmación fuera de su perfil. */
   brain?: InmoBrainContext | null
 }
@@ -183,7 +185,7 @@ function labelFor(output: any): string | null {
 
 // --- prompt ---------------------------------------------------------------------
 
-export function inmoSystemPrompt(opts: { orgName?: string | null; nowIso: string; entities: InmoEntityRef[]; brain?: InmoBrainContext | null }) {
+export function inmoSystemPrompt(opts: { orgName?: string | null; nowIso: string; entities: InmoEntityRef[]; brain?: InmoBrainContext | null; currency?: string | null }) {
   const ctx = opts.entities.length ? opts.entities.map((e) => `- ${e.type} #${e.id}${e.label ? ` (${e.label})` : ''}`).join('\n') : '- (ninguna todavía)'
   const profile = opts.brain && opts.brain.instructions ? ['', `PERFIL «${opts.brain.label}»: ${opts.brain.instructions}`] : []
   return [
@@ -205,6 +207,7 @@ export function inmoSystemPrompt(opts: { orgName?: string | null; nowIso: string
     '',
     'MEMORIA: lo que la agencia sabe de un contacto, lead, propiedad, cita u operación está en sus notas (recall_memory). Si la persona te pide recordar algo o confirma un dato relevante y duradero, propón guardarlo con remember_fact (se le pedirá confirmación). Nunca guardes contraseñas, claves, tokens ni datos de pago.',
     '',
+    ...(opts.currency ? [`MONEDA: los importes de la agencia (precios, presupuestos, ofertas sin otra moneda) están en ${opts.currency}. Cítalos en esa moneda y sin convertir; nunca supongas otra.`, ''] : []),
     `Fecha y hora actuales (UTC): ${opts.nowIso}. Las horas de citas y tareas son la hora local de la agencia tal como se ve en su calendario, con el formato «AAAA-MM-DD HH:MM»: «mañana a las 17:00» es el día de mañana a las 17:00, sin convertir de zona.`,
     '',
     'Entidades ya resueltas en esta conversación (úsalas por id en vez de volver a buscarlas):',
@@ -323,7 +326,7 @@ export async function runInmoTurn(ctx: ToolContext, input: InmoTurnInput, deps: 
     messages.push({ role: 'user', content: text })
   }
 
-  const system = inmoSystemPrompt({ orgName: deps.orgName, nowIso: (deps.now?.() ?? new Date()).toISOString().slice(0, 16).replace('T', ' '), entities, brain: deps.brain })
+  const system = inmoSystemPrompt({ orgName: deps.orgName, nowIso: (deps.now?.() ?? new Date()).toISOString().slice(0, 16).replace('T', ' '), entities, brain: deps.brain, currency: deps.currency })
   let reply: string | null = null
   let pending: InmoPendingAction | null = null
 

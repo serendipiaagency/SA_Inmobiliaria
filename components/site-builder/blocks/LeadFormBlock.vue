@@ -98,6 +98,8 @@ const layout = computed(() => (props.content.layout === 'centered' ? 'centered' 
  * en el CRM de la inmobiliaria.
  */
 const locked = computed(() => props.mode !== 'production')
+// Cierre del núcleo (FASE 15): el lead llega con el idioma de quien escribe, para el enrutado por idioma.
+const visitorLanguage = useVisitorLanguage()
 
 const form = reactive({ name: '', email: '', phone: '', message: '' })
 const sending = ref(false)
@@ -118,6 +120,7 @@ async function submit() {
         // En la bandeja de Comunicaciones el hilo se etiqueta «Formulario de captación» (núcleo N8a).
         form: 'lead_form',
         subject: props.content.subject || 'Formulario de captación',
+        language: visitorLanguage(),
       },
     })
     sent.value = true

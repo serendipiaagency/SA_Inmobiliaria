@@ -89,12 +89,22 @@
     <VideoField v-else-if="spec.type === 'video'" :model-value="modelValue" :upload-folder="uploadFolder" @update:model-value="emitUpdate" />
 
     <input v-else-if="spec.type === 'number'" :value="modelValue ?? ''" type="number" step="any" :aria-label="spec.label" :class="inputCls" @input="emitUpdate(numOrNull(($event.target as HTMLInputElement).value))" >
-    <input v-else-if="spec.type === 'date'" :value="modelValue ? String(modelValue).slice(0, 10) : ''" type="date" :aria-label="spec.label" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value || null)" >
+    <input
+      v-else-if="spec.type === 'date'"
+      :value="dateInputValue"
+      type="date"
+      :aria-label="spec.label"
+      :class="inputCls"
+      :data-testid="`field-date-${spec.key}`"
+      @input="emitUpdate(($event.target as HTMLInputElement).value || null)"
+    >
     <!-- Valor calculado (precio por m²…): se enseña, nunca se edita ni se guarda. -->
     <p v-else-if="spec.type === 'computed'" class="pe-input bg-stone-50 text-stone-600" :aria-label="spec.label" data-computed="true">{{ modelValue }}</p>
     <input v-else-if="spec.type === 'url'" :value="modelValue ?? ''" type="url" placeholder="https://…" :aria-label="spec.label" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value)" >
     <input v-else :value="modelValue ?? ''" :aria-label="spec.label" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value)" >
 
+    <!-- Fecha escrita a mano antes de que fuera un selector (cierre D1p): se enseña tal cual estaba y cómo se entiende. -->
+    <span v-if="legacyDateNote" class="mt-1.5 block text-[11px] text-amber-700" :data-testid="`field-legacy-date-${spec.key}`">{{ legacyDateNote }}</span>
     <span v-if="fieldError" class="mt-1.5 block text-[11px] font-medium text-red-600" role="alert" :data-testid="`field-error-${spec.key}`">{{ fieldError }}</span>
     <span v-if="spec.hint" class="mt-1.5 block text-[11px] text-stone-450">{{ spec.hint }}</span>
   </div>
@@ -107,9 +117,26 @@ import VideoField from './VideoField.vue'
 import AgentPickerField from './AgentPickerField.vue'
 import StepperField from './StepperField.vue'
 import RichTextField from './RichTextField.client.vue'
+import { isStrictIsoDate, parsePropertyDate } from '~/utils/propertyDates'
 
 const props = defineProps<{ spec: FieldSpec; modelValue: any; uploadFolder: string }>()
 const emit = defineEmits<{ 'update:modelValue': [value: any] }>()
+
+/**
+ * Fechas (cierre D1p): el selector enseña la fecha guardada aunque se
+ * escribiera a mano en un formato antiguo («15/03/2025»), y avisa de que se
+ * guardará como AAAA-MM-DD en cuanto se elija. Sin tocarla, no se reescribe.
+ */
+const dateInputValue = computed(() => (props.spec.type === 'date' ? parsePropertyDate(props.modelValue) || '' : ''))
+const legacyDateNote = computed(() => {
+  if (props.spec.type !== 'date') return ''
+  const raw = props.modelValue
+  if (raw === null || raw === undefined || String(raw).trim() === '' || isStrictIsoDate(String(raw).trim())) return ''
+  const day = parsePropertyDate(raw)
+  if (!day) return `Guardada como «${raw}», que no se entiende como fecha: elige la fecha correcta.`
+  const [y, m, d] = day.split('-')
+  return `Guardada como «${raw}» (formato antiguo): se lee como ${d}/${m}/${y}. Elige la fecha para guardarla en el formato nuevo.`
+})
 
 /**
  * Validación inmediata por campo (FASE 25, bloque N7a): el mismo criterio

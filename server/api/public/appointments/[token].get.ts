@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { useDb, schema } from '../../../utils/db'
 import { rateLimit } from '../../../utils/rateLimit'
 
@@ -29,7 +29,8 @@ export default defineEventHandler(async (event) => {
     })
     .from(schema.visits)
     .leftJoin(schema.teamMembers, eq(schema.teamMembers.id, schema.visits.agentId))
-    .where(eq(schema.visits.managementToken, token))
+    // Cierre D3a: una cita de la papelera no existe para el cliente (404).
+    .where(and(eq(schema.visits.managementToken, token), isNull(schema.visits.deletedAt)))
     .limit(1)
 
   const visit = rows[0]
@@ -44,7 +45,7 @@ export default defineEventHandler(async (event) => {
     const siblings = await db
       .select({ propertyName: schema.visits.propertyName, scheduledAt: schema.visits.scheduledAt, status: schema.visits.status, tourStopOrder: schema.visits.tourStopOrder })
       .from(schema.visits)
-      .where(eq(schema.visits.tourId, visit.tourId))
+      .where(and(eq(schema.visits.tourId, visit.tourId), isNull(schema.visits.deletedAt)))
     tourStops = siblings.sort((a: any, b: any) => (a.tourStopOrder ?? 0) - (b.tourStopOrder ?? 0))
   }
 

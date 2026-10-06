@@ -205,6 +205,8 @@ useHead({
 const menuOpen = ref(false)
 const demoEmail = ref('')
 const demoSent = ref(false)
+// Cierre del núcleo (FASE 15): el lead llega con el idioma de quien escribe.
+const visitorLanguage = useVisitorLanguage()
 
 async function submitDemo() {
   if (!demoEmail.value) return
@@ -215,6 +217,7 @@ async function submitDemo() {
         name: 'Solicitud de demo (landing SaaS)',
         email: demoEmail.value,
         message: `Solicitud de demo del software desde /para-inmobiliarias. Email de contacto: ${demoEmail.value}`,
+        language: visitorLanguage(),
       },
     })
     demoSent.value = true

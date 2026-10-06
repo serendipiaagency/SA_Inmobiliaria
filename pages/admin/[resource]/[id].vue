@@ -11,6 +11,11 @@
   <OrganizationCreateWizard v-else-if="meta && isOrganization && isNew" />
   <OrganizationEditor v-else-if="meta && isOrganization" :id="id" :can-edit="canEdit" />
 
+  <!-- Reglas de enrutado de leads (cierre del núcleo, FASE 15): desplegables
+       de oficinas, equipos y comerciales y un editor de horario, en vez del
+       id en texto y el JSON a mano. Ver components/admin/leads/RoutingRuleEditor.vue. -->
+  <RoutingRuleEditor v-else-if="meta && isRoutingRule" :id="id" :can-edit="canEdit" />
+
   <div v-else-if="meta">
     <div class="mb-6 flex items-center justify-between">
       <h1 class="text-2xl font-bold">{{ isNew ? `Nuevo — ${meta.label}` : `Editar — ${meta.label} #${id}` }}</h1>
@@ -117,6 +122,7 @@
 import PropertyBuilder from '~/components/property-builder/PropertyBuilder.vue'
 import OrganizationCreateWizard from '~/components/admin/organizations/OrganizationCreateWizard.vue'
 import OrganizationEditor from '~/components/admin/organizations/OrganizationEditor.vue'
+import RoutingRuleEditor from '~/components/admin/leads/RoutingRuleEditor.vue'
 import { loadRelationOptions, invalidateRelationOptions, type RelationOption } from '~/composables/useRelationOptions'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
@@ -132,6 +138,7 @@ const isNew = computed(() => id.value === 'new')
 const isPropertyBuilderResource = computed(() => resource.value === 'developer-properties' || resource.value === 'properties')
 const propertyBuilderResource = computed(() => resource.value as 'developer-properties' | 'properties')
 const isOrganization = computed(() => resource.value === 'organizations')
+const isRoutingRule = computed(() => resource.value === 'lead-routing-rules')
 
 const { data: resources } = await useFetch<Record<string, any>>('/api/admin/resources')
 const meta = computed(() => resources.value?.[resource.value])
@@ -152,7 +159,7 @@ const translations = reactive([
 
 // PropertyBuilder (and the organizations editor) do their own data loading —
 // skip the generic form's fetch entirely rather than duplicating the request.
-if (!isNew.value && !isPropertyBuilderResource.value && !isOrganization.value) {
+if (!isNew.value && !isPropertyBuilderResource.value && !isOrganization.value && !isRoutingRule.value) {
   // `useRequestFetch()` y no `$fetch` a secas: en SSR, un `$fetch` suelto
   // arranca una petición nueva que no hereda nada del evento en curso — ni la
   // cookie de sesión ni los bindings de Cloudflare (D1, R2)—, así que esta

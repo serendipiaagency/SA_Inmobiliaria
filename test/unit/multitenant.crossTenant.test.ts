@@ -69,6 +69,8 @@ const RESOURCE_ROWS: Record<string, (f: TenantFixture, tag: string) => Record<st
   leads: (f, tag) => ({ organizationId: f.orgId, name: `${tag} lead`, source: 'web', status: 'new', stage: 'new' }),
   // El contacto de cada agencia lo acaba de crear la fila `contacts` (va antes en adminResources).
   'property-contacts': (f) => ({ organizationId: f.orgId, propertyKind: 'agent', propertyId: f.propertyId, contactId: ids.contacts[f.orgId === A.orgId ? 'a' : 'b'], role: 'owner' }),
+  // Cierre C2 (FASE 11): la vista propia de una selección va por el motor genérico.
+  'property-selections': (f, tag) => ({ organizationId: f.orgId, contactId: ids.contacts[side(f)], title: `${tag} selección` }),
   notes: (f, tag) => ({ organizationId: f.orgId, entityType: 'lead', entityId: f.leadId, leadId: f.leadId, body: `${tag} nota` }),
   // Bloque N7a: documentos y multimedia de una propiedad (FASES 6-7).
   'property-documents': (f, tag) => ({ organizationId: f.orgId, propertyKind: 'developer', propertyId: f.projectId, docType: 'deed', title: `${tag} escritura`, r2Key: `tenants/${f.orgId}/property-documents/${tag}.pdf`, visibility: 'internal' }),

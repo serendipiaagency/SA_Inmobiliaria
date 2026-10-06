@@ -33,6 +33,14 @@
               <option v-for="l in LANGUAGE_OPTIONS" :key="l" :value="l">{{ LANGUAGE_LABELS[l] }}</option>
             </select>
           </label>
+          <!-- Contacto existente (cierre del núcleo, FASE 12): opcional; sin él, el alta lo resuelve por email/teléfono o lo crea. -->
+          <div class="block sm:col-span-2">
+            <span class="lf-label">Contacto</span>
+            <EntityPicker v-model="pickedContact" kind="contact" placeholder="Buscar un contacto existente por nombre, email o teléfono…" test-id="lead-form-contact" />
+            <p class="mt-1 text-[11px] text-stone-400">
+              {{ lead ? 'La persona a la que pertenece este lead. Cambiarla no toca los datos de captación.' : 'Opcional. Si no eliges ninguno, se enlaza el contacto que coincida por email, teléfono o WhatsApp, o se crea uno nuevo.' }}
+            </p>
+          </div>
         </div>
       </section>
 
@@ -96,7 +104,7 @@
             </select>
           </label>
           <label class="block">
-            <span class="lf-label">Presupuesto (€)</span>
+            <span class="lf-label">Presupuesto ({{ currencyLabel }})</span>
             <input v-model="form.budget" type="number" min="0" step="1000" class="lf-input" data-testid="lead-form-budget" >
           </label>
           <label class="block">
@@ -120,16 +128,12 @@
               <option v-for="o in commercials" :key="o.id" :value="o.id">{{ o.label }}</option>
             </select>
           </label>
-          <label class="block">
-            <span class="lf-label">Propiedad de interés (id)</span>
-            <div class="flex gap-2">
-              <select v-model="form.propertyKind" class="lf-input !w-36">
-                <option value="developer">Web / obra nueva</option>
-                <option value="agent">2ª mano</option>
-              </select>
-              <input v-model="form.propertyId" type="number" min="1" class="lf-input" placeholder="Id de la propiedad" data-testid="lead-form-property-id" >
-            </div>
-          </label>
+          <!-- Propiedad de interés con su catálogo (migración 0089): se busca en obra nueva y 2ª mano a la vez; nunca se teclea un id. -->
+          <div class="block">
+            <span class="lf-label">Propiedad de interés</span>
+            <EntityPicker v-model="pickedProperty" kind="property" placeholder="Buscar en obra nueva y 2ª mano…" test-id="lead-form-property" />
+            <p v-if="initialProperty?.trashed && sameProperty" class="mt-1 text-[11px] text-amber-700">Está en la papelera: se conserva, pero no se podría volver a elegir.</p>
+          </div>
           <label class="block sm:col-span-2">
             <span class="lf-label">Notas internas</span>
             <textarea v-model="form.notes" class="lf-input" rows="2" />
@@ -169,16 +173,31 @@
 import { LEAD_PRIORITIES, LEAD_PRIORITY_LABELS, LEAD_SOURCES, LEAD_SOURCE_LABELS, LEAD_STAGE_LABELS } from '~/utils/leadCatalog'
 import { LANGUAGE_LABELS, LANGUAGE_OPTIONS } from '~/utils/crmCatalog'
 import { loadRelationOptions, type RelationOption } from '~/composables/useRelationOptions'
+import type { PickedEntity } from '~/utils/appointmentCatalog'
+import EntityPicker from '~/components/admin/appointments/EntityPicker.vue'
+
+// El presupuesto se guarda en la moneda de la agencia (utils/currency.ts).
+const { symbol: currencyLabel } = useAgencyCurrency()
 
 /**
  * Alta manual y edición de un lead (FASES 12 y 14). Crea con
  * POST /api/admin/leads y edita con PUT /api/admin/leads/:id; un 409 trae
  * los posibles duplicados, y desde aquí se elige unificar (alta) o seguir
  * igualmente. El servidor (server/utils/leads/admin.ts) vuelve a validar
- * todo: catálogos, y que oficina, equipo, comercial y propiedad son de la
- * agencia.
+ * todo: catálogos, y que oficina, equipo, comercial, contacto y propiedad
+ * son de la agencia.
+ *
+ * Cierre del núcleo: la propiedad de interés se elige con el buscador de los
+ * dos catálogos y se guarda con su catálogo (`propertyKind`), y el contacto
+ * se puede elegir de los existentes.
  */
-const props = defineProps<{ lead?: Record<string, any> | null }>()
+const props = defineProps<{
+  lead?: Record<string, any> | null
+  /** El contacto ya vinculado (ficha del lead), para enseñarlo en el selector. */
+  contact?: { id: number; name: string } | null
+  /** La propiedad de interés con su catálogo (ficha del lead: getLeadDetail → property). */
+  property?: { id: number; kind: 'agent' | 'developer'; name: string | null; trashed?: boolean } | null
+}>()
 const emit = defineEmits<{ close: []; saved: [id: number] }>()
 const toast = useToast()
 
@@ -208,10 +227,17 @@ const form = reactive({
   officeId: l.officeId ?? null,
   teamId: l.teamId ?? null,
   agentId: null as number | null,
-  propertyId: l.propertyId ?? '',
-  propertyKind: 'developer' as 'agent' | 'developer',
   notes: l.notes || '',
 })
+
+// Selectores de contacto y propiedad (el mismo buscador que citas y tours).
+// El servidor vuelve a comprobar que los dos son de la agencia, y la
+// propiedad, que no está en la papelera.
+const initialContact: PickedEntity | null = props.contact ? { id: props.contact.id, label: props.contact.name } : null
+const initialProperty = props.property ? { id: props.property.id, kind: props.property.kind, label: props.property.name || `#${props.property.id}`, trashed: !!props.property.trashed } : null
+const pickedContact = ref<PickedEntity | null>(initialContact)
+const pickedProperty = ref<PickedEntity | null>(initialProperty ? { id: initialProperty.id, kind: initialProperty.kind, label: initialProperty.label } : null)
+const sameProperty = computed(() => (pickedProperty.value?.id ?? null) === (initialProperty?.id ?? null) && (pickedProperty.value?.kind ?? null) === (initialProperty?.kind ?? null))
 
 const offices = ref<RelationOption[]>([])
 const teams = ref<RelationOption[]>([])
@@ -227,16 +253,18 @@ const error = ref('')
 const duplicates = ref<any[]>([])
 
 function payload() {
-  const body: Record<string, any> = { ...form, budget: form.budget === '' ? null : Number(form.budget), propertyId: form.propertyId === '' ? null : Number(form.propertyId) }
+  const body: Record<string, any> = { ...form, budget: form.budget === '' ? null : Number(form.budget) }
   if (props.lead) {
     delete body.originalMessage
     delete body.agentId
-    // Sin cambio de propiedad, ni se toca ni se revalida.
-    if (body.propertyId === (props.lead.propertyId ?? null)) {
-      delete body.propertyId
-      delete body.propertyKind
-    }
   }
+  // Propiedad: con su catálogo. En la edición, sin cambio ni se toca ni se revalida.
+  if (!props.lead || !sameProperty.value) {
+    body.propertyId = pickedProperty.value?.id ?? null
+    body.propertyKind = pickedProperty.value?.kind ?? null
+  }
+  // Contacto: en el alta sólo si se eligió (si no, lo resuelve el servidor); en la edición, sólo si cambió.
+  if (props.lead ? (pickedContact.value?.id ?? null) !== (initialContact?.id ?? null) : pickedContact.value) body.contactId = pickedContact.value?.id ?? null
   return body
 }
 

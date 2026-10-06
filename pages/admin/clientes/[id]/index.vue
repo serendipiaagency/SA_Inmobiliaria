@@ -214,7 +214,7 @@
                   Inmueble #{{ o.propertyId }} ({{ o.propertyKind === 'developer' ? 'obra nueva' : '2ª mano' }})
                 </NuxtLink>
                 <p class="text-[11px] text-stone-400">
-                  {{ money(o.currentAmount) }}
+                  {{ formatAmount(o.currentAmount, o.currency) }}
                   <template v-if="o.expiration"> · vence {{ formatRelative(o.expiration) }}</template>
                   <span v-if="isOfferExpired(o)" class="ml-1 font-medium text-red-600">vencida</span>
                 </p>
@@ -247,7 +247,7 @@
             <NuxtLink :to="`/admin/deal-operations/${d.id}`" class="flex items-center justify-between gap-3 hover:underline">
               <div class="min-w-0">
                 <p class="truncate text-[13px] font-medium text-ink">Inmueble #{{ d.propertyId }} ({{ d.propertyKind === 'developer' ? 'obra nueva' : '2ª mano' }})</p>
-                <p class="text-[11px] text-stone-400">{{ money(d.agreedAmount) }} · {{ dealStageLabel(d.stage) }}</p>
+                <p class="text-[11px] text-stone-400">{{ formatAmount(d.agreedAmount, d.currency) }} · {{ dealStageLabel(d.stage) }}</p>
               </div>
               <span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" :class="DEAL_STATUS_CLS[d.status] || 'bg-stone-100 text-stone-500'">{{ dealStatusLabel(d.status) }}</span>
             </NuxtLink>
@@ -304,6 +304,7 @@ import ClientTimeline from '~/components/client-builder/ClientTimeline.vue'
 import OfferFormModal from '~/components/admin/offers/OfferFormModal.vue'
 import OfferDetailModal from '~/components/admin/offers/OfferDetailModal.vue'
 import { buildClientTimeline } from '~/composables/useClientTimeline'
+import { formatAmount } from '~/utils/pipelineCatalog'
 import { clientOption, formatDate, formatDateTime, formatRelative, initials } from '~/composables/useClientConfig'
 
 /**
@@ -410,7 +411,6 @@ const OFFER_STATUS_CLS: Record<string, string> = {
   expired: 'bg-stone-100 text-stone-500',
 }
 function offerStatusLabel(s: string) { return OFFER_STATUS_LABELS[s] || s }
-function money(n: number) { return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n) }
 function isOfferExpired(o: any) { return (o.status === 'submitted' || o.status === 'countered') && o.expiration && o.expiration < new Date().toISOString().replace('T', ' ').slice(0, 19) }
 
 async function offerAction(o: any, action: 'submit' | 'accept' | 'reject' | 'withdraw') {

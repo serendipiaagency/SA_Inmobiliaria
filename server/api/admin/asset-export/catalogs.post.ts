@@ -4,12 +4,15 @@ import { useDb, schema, now } from '../../../utils/db'
 import { logAdminAction } from '../../../utils/audit'
 import { FORMAT_BY_KEY } from '../../../utils/assetExport/formats'
 import { livePropertyCond } from '../../../utils/properties/trash'
+import { parseCatalogPropertyKind, withCatalogKind } from '../../../utils/assetExport/catalogKind'
 
 interface CreateCatalogBody {
   name?: string
   coverTitle?: string
   templateId?: number
   assetIds?: number[]
+  /** De qué catálogo son los `assetIds`: `developer` (obra nueva, por defecto) o `agent` (2ª mano, FASE 28). */
+  propertyKind?: string
 }
 
 // Assembly (server/utils/assetExport/catalogRenderer.ts) happens in one
@@ -30,6 +33,8 @@ export default defineEventHandler(async (event) => {
   if (!body?.templateId) throw createError({ statusCode: 422, statusMessage: 'templateId is required' })
   if (!Array.isArray(body.assetIds) || body.assetIds.length === 0) throw createError({ statusCode: 422, statusMessage: 'assetIds must be a non-empty array' })
   if (body.assetIds.length > MAX_CATALOG_ASSETS) throw createError({ statusCode: 422, statusMessage: `Máximo ${MAX_CATALOG_ASSETS} activos por catálogo` })
+  const propertyKind = parseCatalogPropertyKind(body.propertyKind)
+  if (!propertyKind) throw createError({ statusCode: 422, statusMessage: 'propertyKind debe ser developer (obra nueva) o agent (2ª mano)' })
 
   const db = useDb(event)
   const template = (
@@ -45,15 +50,18 @@ export default defineEventHandler(async (event) => {
   }
 
   const assetIds = [...new Set(body.assetIds)]
+  // Cada id se busca en SU catálogo, de esta agencia y fuera de la papelera:
+  // las ajenas y las borradas se saltan (no se exporta material nuevo de ellas).
+  const P = propertyKind === 'agent' ? schema.agentProperties : schema.developerProperties
   const foundAssets = await db
-    .select({ id: schema.developerProperties.id })
-    .from(schema.developerProperties)
-    // Las de la papelera se saltan como las ajenas: no se exporta material nuevo de ellas.
-    .where(and(inArray(schema.developerProperties.id, assetIds), eq(schema.developerProperties.organizationId, orgId), livePropertyCond(schema.developerProperties)))
+    .select({ id: P.id })
+    .from(P)
+    .where(and(inArray(P.id, assetIds), eq(P.organizationId, orgId), livePropertyCond(P)))
   const validIds = assetIds.filter((id) => foundAssets.some((a) => a.id === id))
   const skipped = assetIds.filter((id) => !validIds.includes(id))
 
-  if (validIds.length === 0) throw createError({ statusCode: 422, statusMessage: 'Ninguno de los activos indicados pertenece a tu organización' })
+  // Ninguno de esta agencia (o todos en la papelera): 404, como cualquier id ajeno.
+  if (validIds.length === 0) throw createError({ statusCode: 404, statusMessage: 'Ninguno de los activos indicados pertenece a tu organización' })
 
   const nowTs = now()
   const catalog = (
@@ -68,6 +76,9 @@ export default defineEventHandler(async (event) => {
         status: 'pending',
         totalCount: validIds.length,
         requestedBy: user.id,
+        // Sin columna para el catálogo de propiedades (sin migración): va en
+        // validation_json (server/utils/assetExport/catalogKind.ts).
+        validationJson: withCatalogKind(null, propertyKind),
         createdAt: nowTs,
       })
       .returning()
@@ -84,5 +95,5 @@ export default defineEventHandler(async (event) => {
   )
 
   await logAdminAction(event, { user, orgId, action: 'create', resource: 'asset-export-catalog', resourceId: catalog.id, detail: `${validIds.length} items` })
-  return { ...catalog, skipped }
+  return { ...catalog, propertyKind, skipped }
 })

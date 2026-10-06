@@ -9,7 +9,8 @@ import { recomputeLeadScore } from './score'
  * escribe a mano, sólo `syncLeadNextAction()`, y sólo a partir de datos
  * reales (Task abierta con `dueAt`, o Appointment futura) de ese lead.
  *
- * Las tareas de la papelera (`deletedAt`, bloque N6) nunca cuentan.
+ * Las tareas de la papelera (`deletedAt`, bloque N6) nunca cuentan, ni las
+ * citas de la papelera (cierre D3a).
  *
  * Sólo entran en el cálculo las Task con `dueAt` — una tarea "algún día" sin
  * fecha no tiene con qué competir por "la próxima acción" ni se puede
@@ -34,7 +35,7 @@ export async function syncLeadNextAction(db: any, orgId: number, leadId: number)
     const [nextVisit] = await db
       .select({ type: schema.visits.type, scheduledAt: schema.visits.scheduledAt })
       .from(schema.visits)
-      .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.leadId, leadId), eq(schema.visits.status, 'scheduled'), gt(schema.visits.scheduledAt, nowTs)))
+      .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.leadId, leadId), eq(schema.visits.status, 'scheduled'), gt(schema.visits.scheduledAt, nowTs), isNull(schema.visits.deletedAt)))
       .orderBy(asc(schema.visits.scheduledAt))
       .limit(1)
 

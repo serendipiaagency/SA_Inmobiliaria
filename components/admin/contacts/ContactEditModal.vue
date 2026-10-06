@@ -29,8 +29,19 @@
         </label>
         <label class="block">
           <span class="ce-label">WhatsApp</span>
-          <input v-model="form.whatsapp" class="ce-input" placeholder="Si es distinto del teléfono" >
+          <input v-model="form.whatsapp" class="ce-input" placeholder="Si es distinto del teléfono" data-testid="contact-edit-whatsapp" >
         </label>
+        <!-- Id en otro sistema (cierre del núcleo, FASE 14): va con su sistema y cuenta para los duplicados. -->
+        <div class="grid grid-cols-2 gap-2">
+          <label class="block">
+            <span class="ce-label">Id externo: sistema</span>
+            <input v-model="form.externalSource" class="ce-input" placeholder="Idealista, CRM anterior…" data-testid="contact-edit-external-source" >
+          </label>
+          <label class="block">
+            <span class="ce-label">Id externo</span>
+            <input v-model="form.externalId" class="ce-input" data-testid="contact-edit-external-id" >
+          </label>
+        </div>
         <label class="block">
           <span class="ce-label">Idioma</span>
           <select v-model="form.language" class="ce-input" data-testid="contact-edit-language">
@@ -100,7 +111,7 @@
       </label>
 
       <div v-if="duplicates.length" class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-[13px] text-amber-900" data-testid="contact-edit-duplicates">
-        <p class="font-medium">Ese email o teléfono ya es de otro contacto de tu agencia:</p>
+        <p class="font-medium">Ese email, teléfono, WhatsApp o id externo ya es de otro contacto de tu agencia:</p>
         <ul class="mt-1 list-disc pl-5">
           <li v-for="d in duplicates" :key="d.contactId">
             <NuxtLink :to="`/admin/contactos/${d.contactId}`" class="underline">{{ d.name }}</NuxtLink> ({{ d.email || d.phone }}, coincide por {{ d.matchedOn }})
@@ -153,6 +164,8 @@ const form = reactive({
   email: props.contact.email || '',
   phone: props.contact.phone || '',
   whatsapp: props.contact.whatsapp || '',
+  externalSource: props.contact.externalSource || '',
+  externalId: props.contact.externalId || '',
   language: props.contact.language || null,
   country: props.contact.country || '',
   source: props.contact.source || null,
@@ -192,6 +205,9 @@ async function save(force = false) {
   } catch (e: any) {
     if (e?.statusCode === 409 || e?.status === 409) {
       duplicates.value = e?.data?.data?.duplicates || []
+      // Un id externo de otro contacto no admite «guardar igualmente» (es único por sistema): se dice el motivo.
+      const message = e?.data?.statusMessage || ''
+      if (!duplicates.value.length || /id externo/.test(message)) error.value = message || 'Ese dato ya es de otro contacto'
     } else {
       error.value = e?.data?.statusMessage || e?.statusMessage || 'No se pudo guardar'
     }

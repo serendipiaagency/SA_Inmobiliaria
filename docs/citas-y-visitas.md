@@ -49,7 +49,8 @@ recordatorio, resultado, percepción del precio y valoraciones 1-5.
 | `confirmationStatus` | `pending`, `confirmed` (la da el cliente desde su enlace) y `confirmed_internal` (la anota la agencia). El panel no puede poner `confirmed`. |
 | `reminderStatus` | Lo escribe el envío de recordatorios: `pending`, `sent` o `not_applicable` (sin email ni teléfono). Se ve en la ficha. |
 | `meetingPoint`, `notes`, `internalNotes` | Texto. Las notas internas no salen en el iCal ni en ningún aviso. |
-| `createdBy`, `updatedAt` | Autor y última edición. |
+| `createdBy`, `updatedAt` | Autor y última edición. La ficha enseña «Creado por X el Y» (cierre D3a, ver abajo). |
+| `deletedAt` | Papelera (cierre D3a): una cita creada por error. Ver «Papelera de citas». |
 
 ### Reglas al crear o editar
 
@@ -95,6 +96,42 @@ paradas. Cada parada es una cita real de `visits`.
   - queda `APPOINTMENT_RESCHEDULED` en Activity y se avisa al cliente.
   - Las paradas canceladas no se mueven. Si alguna ya se hizo, el tour ya
     empezó: las horas no se recalculan y cada parada se mueve por separado.
+- **Añadir una parada a un tour ya creado** (`addTourStop`, cierre C2). Las
+  mismas validaciones que el alta:
+  - comercial de la agencia (404 si no);
+  - inmueble de esta agencia en SU catálogo (404) y fuera de la papelera (422);
+  - duración propia, fin propio o la franja del comercial;
+  - sin pisar otra parada activa del propio tour (422, dice con cuál) ni la
+    agenda real del comercial (409; el índice `visits_agent_slot_unique` es la
+    red de seguridad).
+
+  La hora es la que llega o, sin ella, **«al final con el margen»**: empieza al
+  acabar la última parada activa (las canceladas no cuentan) más
+  `gapMinutes` (por defecto 15, máximo 240). La parada va al final de la ruta
+  (último `tourStopOrder`); si tiene que ir antes, se reordena. Hereda del tour
+  lo mismo que el alta da a cada parada: cliente (nombre, email y teléfono de
+  la cabecera), lead, contacto y zona horaria. Las notas son de la cabecera
+  (`property_tours.notes`), igual que al crearlo: no se copian a la cita.
+  Queda `APPOINTMENT_CREATED` en Activity (con `tourId` y `addedToTour`), se
+  sincronizan la próxima acción y la primera cita del lead, y se avisa al
+  cliente con `notifyAppointment()` (tipo `confirmation`, con el enlace de
+  gestión de la cita) — el mismo mecanismo que al reordenar: el aviso interno
+  siempre queda; email y WhatsApp sólo salen con proveedor real, y sin él se
+  registran como no entregados.
+- **Quitar una parada** (`removeTourStop`, cierre C2). No se borra nada: la
+  cita pasa a cancelada con su motivo exactamente igual que al cancelar una
+  cita (`updateAppointment`: motivo obligatorio, `cancelledAt`,
+  `APPOINTMENT_CANCELLED` en Activity —aquí con `tourId` y
+  `removedFromTour`—, próxima acción del lead y aviso de cancelación al
+  cliente). La parada sigue en el tour, cancelada. Reglas:
+  - sólo se quita una parada agendada: una ya hecha (o en la que el cliente
+    no vino) es historia (422), y una ya cancelada también (422);
+  - un tour no se queda sin paradas activas: quitar la última es 422. No hay
+    una acción «cancelar el tour»; si esa visita ya no se hace, se cancela la
+    cita (ficha → «Cancelar»). El cliente, desde su enlace, sí puede cancelar
+    la última: es su cita;
+  - una cita de otro tour, suelta o de otra agencia no es una parada de este
+    tour: 404.
 - **Optimización real de ruta: no implementada, a propósito.** El cálculo
   vive en `utils/tourPlanning.ts` (`planSequentialSchedule`), compartido por
   el servidor y el formulario. El punto de extensión es la interfaz
@@ -108,7 +145,7 @@ paradas. Cada parada es una cita real de `visits`.
 
   Hoy el orden lo decide el comercial y el trayecto es su margen.
 
-Endpoint: `POST /api/admin/saas/tours` tiene tres acciones (el presupuesto de
+Endpoint: `POST /api/admin/saas/tours` tiene cinco acciones (el presupuesto de
 rutas de Nitro es 0):
 
 - sin `action`: crear. Recibe `contactId`, `leadId`, `notes`, `timezone` y
@@ -116,7 +153,19 @@ rutas de Nitro es 0):
   `endsAt` o `durationMinutes`, `channel` y `meetingPoint`;
 - `action: 'update'` + `tourId`: edita cliente, lead, contacto y notas;
 - `action: 'reorder'` + `tourId` + `stopIds`: reordena; con `recalculate`,
-  `gapMinutes` y `startAt`, recalcula las horas.
+  `gapMinutes` y `startAt`, recalcula las horas;
+- `action: 'add_stop'` + `tourId` + `stop` (`propertyId`, `propertyKind`,
+  `agentId`, `scheduledAt` o nada para «al final», `endsAt` o
+  `durationMinutes`, `channel`, `meetingPoint`) y `gapMinutes`: añade una
+  parada. Devuelve `{ id, stopId, scheduledAt, endsAt, tourStopOrder }`;
+- `action: 'remove_stop'` + `tourId` + `stopId` + `reason`: quita una parada
+  (su cita queda cancelada con el motivo).
+
+En el panel (pestaña Tours): «+ Parada» en la cabecera de cada tour
+(`components/admin/appointments/TourStopAddModal.vue`, con el buscador de
+inmuebles del alta) y «Quitar» en cada parada agendada
+(`CancelAppointmentModal.vue` en modo «quitar parada», con los mismos
+motivos sugeridos). «Quitar» está desactivado en la única parada activa.
 
 `GET /api/admin/saas/tours` devuelve cada parada con su resultado y sus
 ofertas.
@@ -226,10 +275,85 @@ su hora en cualquier zona. Los **huecos libres** de la reserva pública miden
 «ya pasado» y «hoy» con el reloj de la zona de la agenda del comercial
 (`agendaNowWall`), no con el UTC del servidor.
 
-## Pendiente (conocido)
+## Papelera de citas (cierre D3a)
 
-- Añadir o quitar paradas de un tour ya creado: hoy se cancela la parada (con
-  motivo) o se crea otra cita.
+`visits.deleted_at` existía desde la 0086 y la Lista y el Calendario ya la
+filtraban, pero nada la escribía: una cita creada por error (otro cliente,
+otro comercial, duplicada) sólo se podía cancelar y se quedaba para siempre en
+la agenda, los contadores y la cronología. Ahora:
+
+- **Eliminar**: `PATCH /api/admin/saas/visits/:id` con `{ deleted: true }`
+  (sin ruta nueva). En el panel, «Eliminar» en la fila de la Lista y en la
+  ficha de la cita, con confirmación. Pone `deleted_at` y deja
+  `APPOINTMENT_TRASHED` en Activity (con contacto, lead e inmueble, y en
+  `metadata` el estado y la hora que tenía). Recalcula la próxima acción del
+  lead y su «primera cita» (si era la única, vuelve a vacío; si era la
+  primera, pasa a la siguiente). **No avisa al cliente.**
+- **El hueco queda libre.** El índice único `visits_agent_slot_unique`
+  (migración 0050) sólo excluye las canceladas, así que una cita **agendada**
+  se guarda además cancelada con el motivo `APPOINTMENT_TRASH_REASON` y
+  `cancelled_at` = `deleted_at`. Sin esto, la cita correcta no se podría
+  volver a crear a la misma hora con el mismo comercial (409).
+  `trashedFromStatus()` (`utils/appointmentCatalog.ts`) reconoce esa
+  cancelación y dice el estado que tenía.
+- **Restaurar**: `{ deleted: false }`. La devuelve como estaba: una agendada
+  vuelve a agendada si su comercial sigue libre a esa hora (si no, **409** y
+  se queda en la papelera); una que ya estaba cancelada sigue cancelada con su
+  motivo. Su inmueble no se vuelve a juzgar. Deja `APPOINTMENT_RESTORED`;
+  restaurar algo que no está en la papelera no hace nada (no hay dos eventos).
+- **La vista**: «Papelera» al final de los filtros de la Lista
+  (`?bucket=trash` en la URL) → `GET /api/admin/saas/visits?trashed=1`: lo
+  último eliminado primero, con quién la creó, el estado que tenía y cuándo se
+  eliminó, y «Restaurar». `trashedCount` en la respuesta normal es el
+  contador del botón.
+
+### Qué bloquea eliminarla (409 con el motivo)
+
+Eliminar no avisa al cliente: es para lo que nunca debió existir. Lo que ya no
+es un error interno se **cancela** (que sí avisa y deja su motivo):
+
+| Caso | Por qué |
+|---|---|
+| Parada de un tour (`tour_id`) | Se quita desde el tour («Quitar»): queda cancelada con su motivo, la ruta se mantiene y el tour nunca se queda sin paradas activas. |
+| Con el resultado de la visita anotado | El resultado pudo crear una tarea, una segunda visita, una oferta o descartar una compatibilidad. |
+| Realizada (`completed`) o «No asistió» (`no_show`) | Ya ocurrió: es historia y cuenta en el dashboard y el rendimiento del comercial. Si se marcó por error, se vuelve a poner como agendada y entonces se elimina. |
+| Agendada y el cliente ya la conoce | La confirmó desde su enlace (`confirmation_status = confirmed`) o le llegó un aviso real (`appointment_notifications` por email o WhatsApp con `delivered = 1`). Un aviso sin proveedor o el interno no cuentan. |
+| El comprador tiene ofertas sobre ese inmueble | La cita forma parte de esa negociación (la ficha de la cita las enseña). |
+
+Tareas y notas que apuntan a la cita no la bloquean: siguen siendo trabajo
+real y conservan la referencia como historia, igual que con una operación.
+Una cita de la papelera no se edita, no admite resultado (404) y su ficha
+(`?id=`) es 404. Otra agencia: 404 en las dos acciones.
+
+### Ninguna lectura la ve
+
+`isNull(visits.deleted_at)` en: la Lista y el Calendario (`query.ts`), el
+iCal (`ical.ts`), los recordatorios (`reminderWindow.ts`), los huecos libres y
+los solapes (`availability.ts`, también la reserva pública), los tours
+(`tours.ts`), la próxima acción y el Lead Score del lead, la ficha del lead,
+del contacto (ya lo hacía) y de la operación (citas y próxima acción), el
+dashboard comercial (visitas y embudo), el resumen del panel
+(`overview.get.ts`), la Analítica de citas, el rendimiento del comercial, la
+ficha antigua de Cliente (`related.get.ts`, `clients.get.ts`), el portal del
+cliente, el contador público de visitas de un proyecto, el enlace de gestión
+del cliente (ver, confirmar, cancelar y reprogramar: 404), las Domain Tools
+(`reschedule_viewing`, `cancel_viewing`) e INMO. Se conservan a propósito:
+la exportación y el borrado RGPD (son datos de la persona), la unificación
+de contactos (la cita también es suya), la cronología de Activity y la
+etiqueta «Cita: …» de una tarea que ya apuntaba a ella (historia).
+
+## Notas y autor en la ficha (cierre D3a)
+
+- **Notas del equipo**: la ficha de la cita monta
+  `components/admin/notes/NotesPanel.vue` (`entityType: 'appointment'`), el
+  recurso `notes` del motor genérico, que valida que la cita sea de la
+  agencia (404 si no). Son varias, con autor, fijables y nunca salen al
+  cliente; distintas del campo «Notas internas» de la cita.
+- **«Creado por X el Y»**: `getAppointment()` trae `createdByName` (usuario de
+  la agencia, o el super admin de la plataforma) y `createdByDeleted` (tenía
+  autor pero ese usuario ya no existe → «usuario eliminado»), resueltos con
+  `withCreatorNames()` (`server/utils/crm/labels.ts`, en lote y troceado).
+  Sin autor (reserva pública) sólo dice cuándo.
 
 ## Pruebas
 
@@ -247,5 +371,16 @@ su hora en cualquier zona. Los **huecos libres** de la reserva pública miden
   - filtros del calendario;
   - iCal en verano, invierno, Canarias y Dubái, con la resolución de zona.
 - `test/unit/domainTools.test.ts`: `cancel_viewing` deja motivo.
+- `test/unit/cierreC2.test.ts`: añadir parada (a una hora y «al final», los
+  dos catálogos, propagación del tour, Activity y aviso; ajena 404, papelera
+  422, choque con el tour 422 y con la agenda 409) y quitarla (cancelada con
+  motivo, nunca la última activa, ni una ya hecha, ni de otro tour).
+- `test/unit/cierreD3a.test.ts`: papelera de citas (libera el hueco, sale de
+  calendario, iCal, recordatorios, huecos libres, solapes, dashboard, fichas,
+  enlace del cliente y Domain Tools; restaurar, también con el hueco ocupado;
+  cada bloqueo; aislamiento), notas de la cita y «Creado por».
+- `tests/e2e/cierre-d3a.spec.ts`: lo mismo por HTTP real y desde el panel.
 - `tests/e2e/nucleo-n5.spec.ts`: lo mismo sobre HTTP real y el panel.
   `tests/e2e/tours.spec.ts` y `activity.spec.ts` cancelan ya con motivo.
+  `tests/e2e/cierre-c2.spec.ts`: añadir y quitar paradas por la API y desde
+  la pestaña Tours.

@@ -47,19 +47,13 @@
          simulaba el tour arrastrando la primera foto aunque no hubiera ninguno. -->
     <div v-if="hasReal360" v-show="tab === '360'" class="relative h-[540px] overflow-hidden rounded-2xl bg-ink" data-testid="gallery-360">
       <template v-if="panoramas.length">
-        <div
-          ref="pano"
-          class="h-full w-[300%] cursor-grab bg-cover bg-center active:cursor-grabbing"
-          role="img"
-          :aria-label="panoramas[panoIndex].alt || panoramas[panoIndex].title || `${name} 360°`"
-          :style="{ backgroundImage: `url(${panoramas[panoIndex].url})`, transform: `translateX(${panoX}px)` }"
-          @pointerdown="startPan"
-        />
+        <!-- Visor esférico (WebGL); sin WebGL, la foto se recorre en horizontal. -->
+        <Pano360Viewer :key="panoramas[panoIndex].url" :src="panoramas[panoIndex].url" :alt="panoramas[panoIndex].alt || panoramas[panoIndex].title || `${name} 360°`" />
         <div class="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-4 py-2 text-[11px] uppercase tracking-widest2 text-white backdrop-blur">
           ◐ {{ t('mediaGallery.tour360.hint', 'Arrastra para mirar alrededor') }}
         </div>
         <div v-if="panoramas.length > 1" class="absolute left-4 top-4 flex gap-1.5">
-          <button v-for="(p, i) in panoramas" :key="p.url" type="button" class="rounded-full px-3 py-1 text-[11px] font-semibold" :class="i === panoIndex ? 'bg-white text-ink' : 'bg-black/50 text-white'" @click="panoIndex = i; panoX = 0">{{ p.title || `360° ${i + 1}` }}</button>
+          <button v-for="(p, i) in panoramas" :key="p.url" type="button" class="rounded-full px-3 py-1 text-[11px] font-semibold" :class="i === panoIndex ? 'bg-white text-ink' : 'bg-black/50 text-white'" @click="panoIndex = i">{{ p.title || `360° ${i + 1}` }}</button>
         </div>
       </template>
       <div v-if="tours.length" class="flex flex-wrap gap-2" :class="panoramas.length ? 'absolute right-4 top-4' : 'h-full items-center justify-center'">
@@ -69,11 +63,24 @@
       </div>
     </div>
 
-    <!-- Vídeo: todos los publicables (FASE 7). Un enlace externo (YouTube,
-         Vimeo…) se abre aparte; un vídeo subido se reproduce aquí. -->
+    <!-- Vídeo: todos los publicables (FASE 7). Un vídeo subido se reproduce
+         aquí; YouTube y Vimeo, con su reproductor sin cookies incrustado
+         (utils/videoEmbed.ts); cualquier otro enlace externo se abre aparte. -->
     <div v-show="tab === 'video'" class="flex h-[540px] flex-col items-center justify-center gap-3 rounded-2xl bg-ink text-center" data-testid="gallery-videos">
       <template v-if="videos.length">
         <video v-if="!isExternal(videos[videoIndex].url)" :key="videos[videoIndex].url" :src="videos[videoIndex].url" controls class="min-h-0 w-full flex-1 rounded-2xl object-cover" />
+        <iframe
+          v-else-if="currentEmbed"
+          :key="currentEmbed.src"
+          :src="currentEmbed.src"
+          :title="videos[videoIndex].title || `${name} — ${t('mediaGallery.tabs.video', 'Vídeo')}`"
+          class="min-h-0 w-full flex-1 rounded-2xl"
+          loading="lazy"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+          allowfullscreen
+          data-testid="gallery-video-embed"
+        />
         <div v-else class="flex flex-1 items-center justify-center">
           <a :href="videos[videoIndex].url" target="_blank" rel="noopener" class="inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ videos[videoIndex].title || t('mediaGallery.video.open', 'Ver el vídeo') }} ↗</a>
         </div>
@@ -230,6 +237,7 @@ const videos = computed(() => {
   return list
 })
 const videoIndex = ref(0)
+const currentEmbed = computed(() => videoEmbed(videos.value[videoIndex.value]?.url))
 const tours = computed(() => {
   const list: { url: string; title?: string | null }[] = byType('virtual_tour').map((m) => ({ url: m.url, title: m.title }))
   if (props.virtualTourUrl && !list.some((x) => x.url === props.virtualTourUrl)) list.push({ url: props.virtualTourUrl, title: null })
@@ -266,31 +274,6 @@ const tabs = computed(() => {
 })
 const tab = ref('fotos')
 
-// 360 pan
-const pano = ref<HTMLElement | null>(null)
-const panoX = ref(0)
-let dragging = false
-let startX = 0
-let startVal = 0
-function startPan(e: PointerEvent) {
-  dragging = true
-  startX = e.clientX
-  startVal = panoX.value
-  window.addEventListener('pointermove', onPan)
-  window.addEventListener('pointerup', endPan)
-}
-function onPan(e: PointerEvent) {
-  if (!dragging) return
-  const w = pano.value?.clientWidth || 900
-  const min = -(w - (pano.value?.parentElement?.clientWidth || 300))
-  panoX.value = Math.max(min, Math.min(0, startVal + (e.clientX - startX)))
-}
-function endPan() {
-  dragging = false
-  window.removeEventListener('pointermove', onPan)
-  window.removeEventListener('pointerup', endPan)
-}
-onBeforeUnmount(endPan)
 
 // --- Fullscreen viewer: single/multi image, zoom, pan, swipe, thumbnails ---
 type FullKind = 'photo' | 'plano' | 'night' | 'drone'

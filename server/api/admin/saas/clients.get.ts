@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
       .prepare(
         `SELECT lower(coalesce(client_email,'')) AS email, client_name AS name,
                 count(*) AS visits, max(scheduled_at) AS lastAt
-         FROM visits WHERE organization_id = ?1 GROUP BY email, name`,
+         FROM visits WHERE organization_id = ?1 AND deleted_at IS NULL GROUP BY email, name`,
       )
       .bind(orgId)
       .all<any>(),

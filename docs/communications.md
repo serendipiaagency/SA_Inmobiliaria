@@ -3,6 +3,10 @@
 > Núcleo N8a (2026-10-05): la bandeja recibe también los **formularios de la
 > web** y el **chat de la web** como hilos, cada uno con su Contact, Lead y
 > Property guardados. Ver «Formularios y chat web» más abajo.
+>
+> FASE 29, email entrante (2026-10-06): con la plataforma configurada en
+> Cloudflare, la respuesta de un cliente a un email enviado desde un hilo
+> vuelve a ese hilo. Ver «Email entrante» más abajo.
 
 Bandeja de WhatsApp por agencia dentro del panel (`/admin/comunicaciones`):
 recibir y responder mensajes, compartir propiedades de los dos catálogos
@@ -300,12 +304,14 @@ TS2589 en cero, ver «Reintentos»):
 | Ficha de una propiedad (los dos catálogos; sólo con lectura de CRM) | Conversaciones donde es el contexto o donde se envió | `GET /api/admin/comms/conversations?propertyId=&propertyKind=` |
 
 `listPersonCommunications()` (`server/utils/comms/related.ts`) es la única
-consulta para las tres primeras. **El email es sólo saliente**: Resend no
-recibe correo en este proyecto (su webhook sólo trae el estado de entrega de
-lo que enviamos), así que no hay bandeja de entrada de email y no se inventa
-una (§115). Se cruza por la dirección exacta a la que se envió —`email_log`
+consulta para las tres primeras. Los emails que lista son **los enviados**:
+Resend no recibe correo (su webhook sólo trae el estado de entrega de lo que
+enviamos), así que no hay una bandeja de email general y no se inventa una
+(§115). Se cruzan por la dirección exacta a la que se envió —`email_log`
 guarda una fila por destinatario— y nunca se devuelve el HTML del correo,
-sólo asunto, plantilla, estado y fechas.
+sólo asunto, plantilla, estado y fechas. Lo que el cliente RESPONDE a un email
+de un hilo web entra en ese hilo con el email entrante (FASE 29, abajo), así
+que aparece con los hilos web de la persona, no en esta lista.
 
 Desde FASE 29 (§128), un envío de propiedad real y una llamada contestada
 de verdad generan además un evento de `activities` — `PROPERTY_SENT` y
@@ -520,13 +526,172 @@ ficha.
 
 ### Lo que sigue sin existir (y no se simula)
 
-- **Email entrante.** Resend no recibe correo en este proyecto: no hay bandeja
-  de email entrante ni hilos de email iniciados por el cliente. Una respuesta
-  del cliente a un email nuestro llega al buzón del «Responder a» de la agencia,
-  fuera de la plataforma. Hace falta un proveedor de entrada (p. ej. el inbound
-  de un proveedor de email con su webhook) para cerrarlo.
+- **Una bandeja de email general.** El email entrante (abajo) sólo recibe
+  RESPUESTAS a los emails enviados desde un hilo web, en ese hilo. Un correo
+  nuevo que un cliente escriba a la agencia sin responder a uno de esos emails
+  no entra en la plataforma, y sin la configuración de Cloudflare tampoco las
+  respuestas: entonces llegan al «Responder a» de la agencia, como antes.
 - **Llamadas.** Siguen sin validarse con una llamada real (ver «Estado real de
   las llamadas»): no hay número de Meta con Calling activo en esta plataforma.
+
+## Email entrante (FASE 29)
+
+Sin migración: reutiliza `comms_web_threads`, `comms_web_messages` (un mensaje
+`direction = 'in'`, `via = 'email'`) y `comms_webhook_events` (idempotencia).
+Hoy sólo existe para **hilos web** (formulario y chat): son los únicos desde
+los que la bandeja envía email (`replyToWebThread()`, plantilla
+`web_thread_reply`).
+
+### Cómo funciona
+
+1. **Envío.** Si la plataforma tiene `INBOUND_EMAIL_DOMAIN` y
+   `INBOUND_EMAIL_SECRET`, `replyToWebThread()` pide a `threadReplyAddress()`
+   (`server/utils/comms/inboundAddress.ts`) la dirección del hilo y se la pasa a
+   `sendTransactionalEmail()` como `replyTo`:
+
+   ```
+   Reply-To: respuestas+<orgId>-<threadId>-<firma>@<INBOUND_EMAIL_DOMAIN>
+   ```
+
+   `<firma>` = HMAC-SHA256(`INBOUND_EMAIL_SECRET`, `inbound-reply:v1:<orgId>:<threadId>`)
+   truncado a 20 caracteres hexadecimales (80 bits; hexadecimal porque las
+   direcciones de email no distinguen mayúsculas de forma fiable). **Sólo
+   cambia el Reply-To**: el remitente (From) sigue siendo el de siempre
+   (`INMO <info@serendipiaagency.com>` con el nombre de la agencia, o su
+   dominio verificado — `server/utils/email/orgSender.ts`); nunca se envía como
+   otra dirección. La dirección queda en `email_log.reply_to`, así que un
+   reintento de la cola sale con la misma. **Sin las dos variables (o con un
+   secreto de menos de 32 caracteres) no cambia nada**: el Reply-To es el de la
+   agencia, exactamente como antes, y el redactor del hilo dice que la
+   respuesta llegará a ese buzón y no al hilo.
+2. **Recepción.** Cloudflare Email Routing entrega el correo al Worker
+   (manejador `email`). Con el preset `cloudflare_module`, Nitro lo pasa al hook
+   `cloudflare:email`, que escucha `server/plugins/inbound-email.ts` (un plugin,
+   no una ruta HTTP: desde fuera sólo se llega por Email Routing). El trabajo está
+   en `handleInboundEmail()` (`server/utils/comms/inboundEmail.ts`, sin H3).
+3. **Verificación.** Del destinatario del **sobre** (`message.to`, no la
+   cabecera To): formato `respuestas+…`, dominio = `INBOUND_EMAIL_DOMAIN`,
+   firma comparada en tiempo constante, y el hilo se busca por id **y**
+   `organization_id`. Si cualquier cosa falla —firma mala o manipulada, hilo de
+   otra agencia, hilo que no existe, email entrante sin configurar— se rechaza
+   con `message.setReject()` y **siempre la misma razón genérica** («Esta
+   direccion no acepta mensajes.»), sin decir cuál falló. Las razones van en
+   ASCII porque viajan en la respuesta SMTP.
+4. **Lectura.** Correo de más de 10 MB → rechazo («demasiado grande»; Email
+   Routing admite 25 MiB, pero los adjuntos no se guardan y no merece la pena
+   leerlos). El MIME lo lee `postal-mime` (dependencia nueva, MIT-0, sin
+   dependencias propias; la misma librería que usa el simulador de email de
+   Wrangler): multipart, quoted-printable, base64, charsets y asuntos
+   codificados. Se usa el texto plano; si sólo hay HTML, se pasa a texto
+   cortando antes de la cita (`gmail_quote`, `divRplyFwdMsg`/`appendonsend` de
+   Outlook, `moz-cite-prefix`, `yahoo_quoted`, `<blockquote>`).
+5. **Sin la cita.** `stripQuotedReply()` corta en la línea «El … escribió:» /
+   «On … wrote:» (también partida en dos líneas, como hace Gmail), en el bloque
+   «De: / Enviado: / Asunto:» de Outlook, en «-----Mensaje original-----» o en
+   un bloque FINAL de líneas con «>». Una respuesta intercalada se deja entera,
+   y si quitar la cita dejara el mensaje vacío se guarda el texto completo. Se
+   acota a 5000 caracteres (lo mismo que un formulario), avisando si se recortó.
+6. **Al hilo.** `appendInboundEmailMessage()` (`web.ts`) guarda el mensaje con
+   asunto, remitente (la cabecera From, sólo informativa: lo que autoriza es la
+   dirección firmada) y, si los traía, la lista de adjuntos; el hilo se reabre
+   si estaba cerrado, pasa a último mensaje y suma un no leído en la bandeja.
+7. **Efectos**, como un mensaje entrante del chat o de WhatsApp:
+   - `leads.last_contact_at` del lead del hilo (si no está en la papelera): la
+     última interacción real, lo mismo que hace `upsertLead()` cuando la persona
+     vuelve a escribir por un formulario; cierra «sin contacto X días» en el
+     siguiente repaso del SLA. **No** `markLeadContacted()`: eso es el primer
+     contacto / primera respuesta humana DE LA AGENCIA, y aquí escribe el cliente.
+   - Activity `EMAIL_REPLY_RECEIVED` (`comms_web_message`, actor `contact`), sin
+     el texto en `metadata`: sólo el hilo y cuántos adjuntos no se guardaron.
+   - Lead Score: «Respondió recientemente» cuenta la respuesta por email
+     (`lastInboundKind = 'email'`, docs/lead-score.md). Sólo email: un mensaje
+     del chat web sigue sin contar, como antes.
+   - Automatizaciones: ningún disparador escucha mensajes entrantes
+     (`utils/automationCatalog.ts`), así que no hay nada más que avisar.
+
+**Adjuntos: no se guardan.** La dirección firmada autentica el HILO, no a la
+persona: cualquiera a quien se reenvíe el email puede escribir en él. Guardar
+sin revisión en el R2 de la agencia lo que adjunte cualquiera (DNI, nóminas…
+o un ejecutable) sería almacenar datos personales y posibles programas
+maliciosos que nadie ha pedido. El mensaje del hilo dice qué traía (nombre,
+tamaño, y «ejecutable» si lo es) para pedirlo por un canal donde la agencia
+decida guardarlo.
+
+**Respuestas automáticas** (fuera de la oficina, `Auto-Submitted`,
+`X-Autoreply`, `Precedence: bulk/list/junk`, informes de entrega
+`multipart/report`, `MAILER-DAEMON`/`postmaster` o remitente vacío): se aceptan
+—rechazarlas provocaría más rebotes— pero no entran en el hilo; queda la fila
+de `comms_webhook_events` con la nota.
+
+**Idempotencia y freno.** Cada correo se reclama en `comms_webhook_events`
+(`provider = 'email_inbound'`, clave = agencia, hilo y SHA-256 del Message-ID
+—o del correo entero si no lo trae—): el mismo correo dos veces entra una. Si
+guardar falla, la clave se libera (la fila queda como auditoría del fallo) y se
+rechaza con «inténtalo más tarde». Más de 20 respuestas por email a un mismo
+hilo en una hora se rechazan (un bucle de respuestas automáticas o alguien con
+la dirección).
+
+**Privacidad.** El secreto sólo se usa en `inboundAddress.ts` para firmar y
+verificar; nunca sale en una respuesta HTTP, un log, Activity, auditoría ni
+`email_log` (la dirección firmada sí está en `email_log.reply_to`: es la del
+hilo, no el secreto). El panel sólo sabe si las variables están y son válidas.
+La línea de log del Worker dice el resultado y el hilo (`[email entrante]
+stored hilo w12`), nunca direcciones, asunto ni texto; la fila de
+`comms_webhook_events` guarda hilo, tamaño y número de adjuntos, sin contenido.
+Un error de consulta no se copia (su mensaje llevaría el cuerpo del correo en
+los parámetros): sólo el de su causa.
+
+**Rotar el secreto** invalida todas las direcciones ya enviadas: una respuesta
+a un email antiguo se rechazaría. Hacerlo sólo si se ha filtrado.
+
+**Lo que no se ha podido comprobar aquí.** No hay credenciales de Cloudflare
+en el entorno de desarrollo: el circuito se ha probado con MIME real y la
+SQLite real (`test/unit/inboundEmail.test.ts`), pero no con un correo real a
+través de Email Routing. Y `setReject()` se llama dentro del `waitUntil` en el
+que Nitro ejecuta el hook; la documentación de Cloudflare no dice si un rechazo
+hecho ahí llega a la respuesta SMTP. Si no llegara, un correo inválido se
+descartaría en silencio en lugar de rebotar — nunca entraría en un hilo: la
+verificación no depende de eso. La primera respuesta real es la validación
+pendiente.
+
+### Qué tiene que hacer el propietario en Cloudflare
+
+Una vez por plataforma (y otra para staging, con otro dominio o subdominio):
+
+1. **Elegir el dominio de respuestas.** Tiene que ser una zona de la cuenta de
+   Cloudflare o un subdominio suyo. **Recomendado: un subdominio dedicado**
+   (p. ej. `respuestas.<dominio-de-la-plataforma>`): activar Email Routing en el
+   dominio raíz cambia sus registros MX, y si ese dominio ya recibe correo
+   (p. ej. `info@serendipiaagency.com` en otro proveedor) dejaría de llegarle.
+2. **Activar Email Routing.** Panel de Cloudflare → la zona → Email → Email
+   Routing (en el panel nuevo: Compute → Email Service → Email Routing) →
+   activar. Para un subdominio: Email Routing → Settings → **Subdomains** →
+   añadir el subdominio; Cloudflare crea sus registros MX (y el TXT de SPF) en
+   ese subdominio. Esperar a que el estado diga que los registros están bien.
+3. **Activar «Subaddressing»** en Email Routing → Settings (es lo que hace que
+   `respuestas+…@dominio` case con la regla de `respuestas@dominio`).
+4. **Regla de enrutado.** Email Routing → Routing rules → Create address:
+   dirección `respuestas@<dominio>`, acción **Send to a Worker**, destino el
+   Worker `sa-inmobiliaria` (en staging, `sa-inmobiliaria-staging`). En un
+   dominio raíz también vale el catch-all → Send to a Worker; en un subdominio
+   no: Cloudflare sólo admite el catch-all en el dominio raíz, de ahí la
+   subdirección.
+5. **Variable y secreto del Worker.**
+   - `INBOUND_EMAIL_DOMAIN` = el dominio del paso 1, sin `@` ni `https://`
+     (p. ej. `respuestas.serendipiaagency.com`). Es una variable: descomentar la
+     línea de ejemplo de `[vars]` en `wrangler.toml` (y en `[env.staging.vars]`
+     con el de staging) y desplegar por el pipeline — un `wrangler deploy`
+     sustituye las variables puestas a mano en el panel por las de
+     `wrangler.toml`. También vale como secreto (`wrangler secret put
+     INBOUND_EMAIL_DOMAIN`), que el despliegue no toca.
+   - `INBOUND_EMAIL_SECRET`: `wrangler secret put INBOUND_EMAIL_SECRET` (y
+     `--env staging`), con 32 caracteres aleatorios o más (p. ej. la salida de
+     `openssl rand -hex 32`). Distinto en cada entorno.
+6. **Comprobar.** Configuración → Comunicaciones → «Email entrante» pasa a
+   «Activo» (y Sistema → Estado del sistema, a ok). Responder por email a un hilo
+   web propio con una dirección de prueba, contestar a ese email desde el buzón
+   de prueba y ver la respuesta en el hilo, sin la cita. Email Routing →
+   Activity log muestra cada entrega al Worker (y los rechazos).
 
 ## Permisos y aislamiento
 
@@ -619,7 +784,8 @@ agencia/externas) sale en el mensaje (§125).
 | API del panel | `server/api/admin/comms/**` |
 | Interfaz | `pages/admin/comunicaciones/{index,configuracion}.vue`, `components/admin/comms/*`, `composables/{useComms,useVoiceManager}.ts` |
 | Formularios y chat web (hilos, respuesta, enlaces personales) | `server/utils/comms/{web,webPublic,shareLinks}.ts`, `components/admin/comms/{WebComposer,WebMessageBubble,WebThreadPanel}.vue`, `components/WebChatWidget.vue` |
-| Pruebas | `test/unit/comms.*.test.ts`, `test/unit/nucleoN8a.test.ts`, `tests/e2e/comms.spec.ts`, `tests/e2e/nucleo-n8a.spec.ts`, `tests/e2e/principal-flow-fase25-29.spec.ts` (+ simulador `scripts/e2e-provider-mock.mjs`) |
+| Email entrante (dirección firmada, recepción, MIME, entrada al hilo) | `server/utils/comms/{inboundAddress,inboundEmail}.ts`, `server/plugins/inbound-email.ts`, estado en `GET /api/admin/comms/channels` (`inboundEmail`) |
+| Pruebas | `test/unit/comms.*.test.ts`, `test/unit/nucleoN8a.test.ts`, `test/unit/inboundEmail.test.ts`, `tests/e2e/comms.spec.ts`, `tests/e2e/nucleo-n8a.spec.ts`, `tests/e2e/cierre-d4e.spec.ts`, `tests/e2e/principal-flow-fase25-29.spec.ts` (+ simulador `scripts/e2e-provider-mock.mjs`) |
 | Ayuda in-app | `/admin/ayuda` → CRM → Comunicaciones |
 
 ## Qué falta para tenerlo del todo en producción
@@ -635,3 +801,7 @@ agencia/externas) sale en el mensaje (§125).
 5. Para formularios y chat web (núcleo N8a): la migración `0087` aplicada; el
    chat se activa por agencia en Configuración → Comunicaciones; responder por
    email exige `RESEND_API_KEY` (sin él, el redactor lo dice y no envía).
+6. Para el email entrante (FASE 29, sin migración): Email Routing en Cloudflare
+   con la regla `respuestas@<dominio>` → Worker, «Subaddressing» activado,
+   `INBOUND_EMAIL_DOMAIN` y el secreto `INBOUND_EMAIL_SECRET` (pasos en «Email
+   entrante → Qué tiene que hacer el propietario en Cloudflare»).

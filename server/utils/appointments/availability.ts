@@ -1,4 +1,4 @@
-import { and, eq, gte, lt, lte, ne } from 'drizzle-orm'
+import { and, eq, gte, isNull, lt, lte, ne } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { agendaNowWall } from './timezone'
 import { APPOINTMENT_MAX_MINUTES } from '../../../utils/appointmentCatalog'
@@ -84,6 +84,8 @@ export async function computeAvailableSlots(
     eq(schema.visits.organizationId, orgId),
     eq(schema.visits.agentId, agentId),
     ne(schema.visits.status, 'cancelled'),
+    // Cierre D3a: una cita de la papelera no ocupa la agenda (huecos libres de la reserva pública).
+    isNull(schema.visits.deletedAt),
     gte(schema.visits.scheduledAt, dayStart),
     lte(schema.visits.scheduledAt, dayEnd),
   ]
@@ -149,6 +151,7 @@ export async function hasOverlappingVisit(db: any, orgId: number, agentId: numbe
         eq(schema.visits.organizationId, orgId),
         eq(schema.visits.agentId, agentId),
         ne(schema.visits.status, 'cancelled'),
+        isNull(schema.visits.deletedAt),
         gte(schema.visits.scheduledAt, shiftDateTime(startAt, -APPOINTMENT_MAX_MINUTES)),
         lt(schema.visits.scheduledAt, endAt),
       ),

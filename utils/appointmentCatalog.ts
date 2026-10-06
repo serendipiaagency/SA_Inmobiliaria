@@ -115,6 +115,25 @@ export const CANCELLATION_REASON_SUGGESTIONS = [
   'Se cambia por otra cita',
 ]
 
+/**
+ * Motivo con el que queda cancelada una cita AGENDADA al mandarla a la
+ * papelera (cierre D3a). Se cancela para liberar su hueco: el índice único
+ * `visits_agent_slot_unique` (migración 0050) sólo excluye las canceladas, y
+ * sin esto no se podría volver a dar de alta la cita correcta a la misma
+ * hora. Restaurarla la devuelve a «agendada» (server/utils/appointments/trash.ts).
+ */
+export const APPOINTMENT_TRASH_REASON = 'Eliminada: enviada a la papelera'
+
+/**
+ * El estado que tenía una cita de la papelera ANTES de eliminarla: si la
+ * cancelación la puso la propia papelera (mismo instante y su motivo), era
+ * una cita agendada; si no, el que tiene. Fuera de la papelera, su estado.
+ */
+export function trashedFromStatus(v: { status: string; deletedAt?: string | null; cancelledAt?: string | null; cancellationReason?: string | null }): string {
+  if (v.deletedAt && v.status === 'cancelled' && v.cancelledAt === v.deletedAt && v.cancellationReason === APPOINTMENT_TRASH_REASON) return 'scheduled'
+  return v.status
+}
+
 /** Duración mínima y máxima de una cita (minutos). */
 export const APPOINTMENT_MIN_MINUTES = 5
 export const APPOINTMENT_MAX_MINUTES = 720

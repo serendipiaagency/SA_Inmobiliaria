@@ -227,6 +227,23 @@ export function buildSystemStatus(input: SystemStatusInput): SystemStatusReport 
       remedy: has('WHATSAPP_APP_SECRET') && has('WHATSAPP_WEBHOOK_VERIFY_TOKEN') ? null : 'Si la plataforma usa una sola app de Meta para todas las agencias, configura WHATSAPP_APP_SECRET y WHATSAPP_WEBHOOK_VERIFY_TOKEN en el Worker (docs/communications.md).',
       setting: 'WHATSAPP_APP_SECRET',
     },
+    {
+      // FASE 29 — email entrante (server/utils/comms/inboundAddress.ts). Aquí sólo
+      // presencia; Configuración → Comunicaciones dice además si el valor es válido.
+      key: 'inbound-email',
+      label: 'Email entrante (respuestas a los hilos)',
+      group: 'Comunicaciones',
+      state: has('INBOUND_EMAIL_DOMAIN') && has('INBOUND_EMAIL_SECRET') ? 'ok' : 'not-configured',
+      detail:
+        has('INBOUND_EMAIL_DOMAIN') && has('INBOUND_EMAIL_SECRET')
+          ? 'Los emails de los hilos web salen con un «Responder a» firmado de cada hilo, y lo que el cliente responde vuelve a ese hilo por Cloudflare Email Routing.'
+          : 'El email de los hilos es sólo de salida: si el cliente responde, la respuesta llega al buzón «Responder a» de la agencia, fuera de la plataforma. El código ya está.',
+      remedy:
+        has('INBOUND_EMAIL_DOMAIN') && has('INBOUND_EMAIL_SECRET')
+          ? null
+          : 'Configura Email Routing en Cloudflare (regla respuestas@<dominio> → el Worker) y en el Worker la variable INBOUND_EMAIL_DOMAIN y el secreto INBOUND_EMAIL_SECRET (docs/communications.md, «Email entrante»).',
+      setting: 'INBOUND_EMAIL_DOMAIN',
+    },
     secretBacked(
       'stripe',
       'Cobros (Stripe)',
@@ -347,4 +364,6 @@ export const TRACKED_SECRETS = [
   'COMMS_CREDENTIALS_ENCRYPTION_KEY',
   'WHATSAPP_APP_SECRET',
   'WHATSAPP_WEBHOOK_VERIFY_TOKEN',
+  'INBOUND_EMAIL_DOMAIN',
+  'INBOUND_EMAIL_SECRET',
 ] as const

@@ -11,6 +11,7 @@ import { agentNames, buildPropertyShare } from './admin'
 import { normalizePhone } from './phone'
 import { PREVIEW_MAX } from './inbox'
 import { createPropertyShareLink, personalPropertyUrl, randomUrlToken, sha256OfText } from './shareLinks'
+import { threadReplyAddress } from './inboundAddress'
 import { inJsonList } from '../sqlChunks'
 
 /**
@@ -32,6 +33,11 @@ import { inJsonList } from '../sqlChunks'
  * plataforma tiene el email conectado) o WhatsApp (la bandeja abre el hilo
  * de WhatsApp con su teléfono, que exige un número conectado). Si no hay
  * canal, se dice — nunca se simula un envío.
+ *
+ * Email entrante (FASE 29): con la plataforma configurada
+ * (server/utils/comms/inboundAddress.ts), el email de un hilo sale con un
+ * Reply-To firmado de ese hilo y la respuesta del cliente vuelve a él
+ * (`appendInboundEmailMessage`, desde server/utils/comms/inboundEmail.ts).
  *
  * Igual que inbox.ts, no depende del evento H3 salvo para lanzar errores:
  * el alta de leads (`upsertLead`, que sí lo necesita) se inyecta.
@@ -425,6 +431,44 @@ export async function pollWebChat(db: any, orgId: number, token: unknown, afterI
   return { status: thread.status, messages: rows.map(toPublicMessage) }
 }
 
+// --- email entrante (FASE 29) -----------------------------------------------------
+
+export interface InboundEmailReplyInput {
+  /** Texto ya extraído del correo, sin la cita del mensaje anterior y acotado (server/utils/comms/inboundEmail.ts). */
+  body: string
+  /** Lo que enseña la burbuja junto al texto: asunto, remitente, adjuntos no guardados… Nunca el HTML ni el correo crudo. */
+  fields: Record<string, string>
+}
+
+/**
+ * La respuesta del cliente por email entra en SU hilo (FASE 29): un mensaje
+ * `in` por `email` y, como un mensaje entrante del chat, el hilo se reabre si
+ * estaba cerrado, pasa a ser el último mensaje y suma un no leído en la
+ * bandeja. Los efectos sobre la persona (último contacto del lead, Actividad,
+ * Lead Score) los aplica quien llama, después de guardarlo.
+ */
+export async function appendInboundEmailMessage(db: any, thread: WebThreadRow, input: InboundEmailReplyInput): Promise<WebMessageRow> {
+  const ts = now()
+  const body = stripControl(String(input.body || '')).trim()
+  const [row] = await db
+    .insert(schema.commsWebMessages)
+    .values({ organizationId: thread.organizationId, threadId: thread.id, direction: 'in', via: 'email', body, fieldsJson: JSON.stringify(input.fields || {}), status: 'received', createdAt: ts })
+    .returning()
+  const T = schema.commsWebThreads
+  await db
+    .update(T)
+    .set({
+      status: thread.status === 'closed' ? 'open' : thread.status,
+      lastMessageAt: ts,
+      lastMessagePreview: preview(body),
+      lastInboundAt: ts,
+      unreadCount: sql`${T.unreadCount} + 1`,
+      updatedAt: ts,
+    })
+    .where(and(eq(T.id, thread.id), eq(T.organizationId, thread.organizationId)))
+  return row
+}
+
 // --- panel: carga, listado y serialización --------------------------------------
 
 export async function loadWebThreadForOrg(db: any, orgId: number, id: number): Promise<WebThreadRow> {
@@ -697,7 +741,8 @@ export async function patchWebThread(db: any, thread: WebThreadRow, body: Record
 }
 
 export interface WebReplyOptions {
-  email: { available: boolean; to: string | null; reason: string | null }
+  /** `repliesToThread`: con el email entrante activo (FASE 29), la respuesta del cliente vuelve a este hilo; si no, llega al «Responder a» de la agencia. */
+  email: { available: boolean; to: string | null; reason: string | null; repliesToThread: boolean }
   chat: { available: boolean; reason: string | null }
   whatsapp: { available: boolean; phone: string | null; reason: string | null }
 }
@@ -705,9 +750,10 @@ export interface WebReplyOptions {
 /**
  * Por qué canal real se puede responder a este hilo, y si no, por qué no.
  * `whatsappChannelActive` lo calcula quien llama (necesita las credenciales
- * cifradas del canal, que esto no toca).
+ * cifradas del canal, que esto no toca); `inboundEmailActive`, también
+ * (`inboundEmailStatus(env).active`, server/utils/comms/inboundAddress.ts).
  */
-export function webReplyOptions(thread: WebThreadRow, ctx: { emailConnected: boolean; whatsappChannelActive: boolean; defaultCountryPrefix: string | null }): WebReplyOptions {
+export function webReplyOptions(thread: WebThreadRow, ctx: { emailConnected: boolean; whatsappChannelActive: boolean; defaultCountryPrefix: string | null; inboundEmailActive?: boolean }): WebReplyOptions {
   const email = thread.visitorEmail
   const chatOpen = thread.kind === 'chat' && Boolean(thread.sessionExpiresAt && thread.sessionExpiresAt > now())
   const phone = thread.visitorPhone ? normalizePhone(thread.visitorPhone, ctx.defaultCountryPrefix) : null
@@ -716,6 +762,7 @@ export function webReplyOptions(thread: WebThreadRow, ctx: { emailConnected: boo
       available: Boolean(email) && ctx.emailConnected,
       to: email,
       reason: !email ? 'No dejó email.' : !ctx.emailConnected ? 'El email de la plataforma no está conectado (falta RESEND_API_KEY): no se puede enviar.' : null,
+      repliesToThread: Boolean(ctx.inboundEmailActive),
     },
     chat: {
       available: chatOpen,
@@ -815,11 +862,16 @@ export async function replyToWebThread(db: any, env: Record<string, any>, input:
   if (via === 'email') {
     // En el email el enlace va en el botón: la ficha se escribe sin la URL suelta.
     const shareForEmail = share ? (share.url ? share.text.replace(share.url, '').trim() : share.text) : null
+    // FASE 29 — email entrante: con INBOUND_EMAIL_DOMAIN/SECRET, el Reply-To es la
+    // dirección firmada de ESTE hilo y la respuesta del cliente vuelve aquí. Sin
+    // ellos, `null`: se queda el «Responder a» de la agencia, como siempre.
+    const replyTo = await threadReplyAddress(env, input.orgId, thread.id)
     const [result] = await sendTransactionalEmail(db, env, {
       organizationId: input.orgId,
       template: 'web_thread_reply',
       to: thread.visitorEmail!,
       data: { subject: input.subject || null, body: [text, shareForEmail].filter(Boolean).join('\n\n'), propertyUrl, propertyName: share?.name ?? null },
+      replyTo,
     })
     emailLogId = result?.logId ?? null
     status = result?.status ?? 'failed'

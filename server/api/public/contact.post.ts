@@ -7,6 +7,7 @@ import { getRequestId } from '../../utils/requestId'
 import { readFirstTouch } from '../../utils/firstTouch'
 import { recordWebFormSubmission } from '../../utils/comms/web'
 import { handlePublicWebChat, publicPropertyBySlug, samePagePath } from '../../utils/comms/webPublic'
+import { publicLeadLanguage } from '../../utils/leads/captureLanguage'
 
 /**
  * POST /api/public/contact — formulario de contacto (y de captación del
@@ -20,6 +21,10 @@ import { handlePublicWebChat, publicPropertyBySlug, samePagePath } from '../../u
  *     (server/utils/comms/webPublic.ts): una rama de este endpoint y no una
  *     ruta nueva (presupuesto de rutas de Nitro = 0). Su límite de tasa se
  *     aplica antes de leer el cuerpo, igual que el del formulario.
+ *
+ * Cierre del núcleo: el lead llega con el idioma de quien escribe
+ * (`language`, ver server/utils/leads/captureLanguage.ts) y con el catálogo
+ * de su propiedad (la web pública sólo enseña obra nueva: `developer`).
  */
 export default defineEventHandler(async (event) => {
   if (getQuery(event).channel === 'chat') return handlePublicWebChat(event)
@@ -63,7 +68,8 @@ export default defineEventHandler(async (event) => {
         source: 'web',
         notes: body.subject ? String(body.subject).slice(0, 300) : null,
         originalMessage: String(message).slice(0, 5000),
-        ...(property ? { propertyId: property.id, propertyName: property.name } : {}),
+        language: publicLeadLanguage(event, body.language),
+        ...(property ? { propertyId: property.id, propertyKind: 'developer' as const, propertyName: property.name } : {}),
         ...firstTouch,
       })
       leadId = lead?.id ?? null

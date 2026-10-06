@@ -1,18 +1,18 @@
-/** Formatting helpers shared across the SaaS dashboard. Currency defaults to AED. */
+/**
+ * Formatting helpers shared across the SaaS dashboard. Los importes salen en
+ * la moneda de la agencia (Configuración → Moneda), sin convertir — ver
+ * `utils/currency.ts` y `useAgencyCurrency()`. Antes era «AED» fijo.
+ */
 export function useDash() {
   const nf = new Intl.NumberFormat('en-US')
+  const agencyCurrency = useAgencyCurrency()
 
   function num(v: number | null | undefined): string {
     return nf.format(Math.round(v || 0))
   }
 
   function money(v: number | null | undefined, opts: { compact?: boolean } = {}): string {
-    const n = v || 0
-    if (opts.compact) {
-      if (Math.abs(n) >= 1e6) return `AED ${(n / 1e6).toFixed(n % 1e6 ? 1 : 0)}M`
-      if (Math.abs(n) >= 1e3) return `AED ${Math.round(n / 1e3)}k`
-    }
-    return `AED ${nf.format(Math.round(n))}`
+    return agencyCurrency.format(v || 0, opts)
   }
 
   function pct(v: number | null | undefined): string {

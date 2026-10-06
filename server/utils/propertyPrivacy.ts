@@ -70,8 +70,21 @@ export interface PublicProjectionOptions {
  * aleatorio: determinista, fácil de razonar y de testear, y no hay radio de
  * verdad configurado más que como referencia visual futura del picker.
  */
-function roundCoord(v: number): number {
-  return Math.round(v * 1000) / 1000
+/**
+ * Tamaño de la cuadrícula (en grados) de la ubicación aproximada: el radio de
+ * privacidad en metros (un grado ≈ 111 km), nunca menos de 0,001° (≈110 m),
+ * que era el redondeo fijo de antes. La búsqueda pública por zona usa la
+ * misma regla en SQL (`server/api/public/properties.get.ts`), así que buscar
+ * nunca afina más que el pin que se publica.
+ */
+export function approximateGridDegrees(radiusMeters?: number | null): number {
+  const r = Number(radiusMeters)
+  return Math.max(0.001, Number.isFinite(r) && r > 0 ? r / 111_000 : 0)
+}
+
+function roundCoord(v: number, radiusMeters?: number | null): number {
+  const g = approximateGridDegrees(radiusMeters)
+  return Number((Math.round(v / g) * g).toFixed(6))
 }
 
 /**
@@ -91,7 +104,7 @@ export function toPublicProperty<T extends PropertyLocationPrivacyFields>(row: T
   const out: any = projectWithFields(row as Record<string, any>, catalog, publicFields(schema))
   for (const key of INTERNAL_ONLY_KEYS) Reflect.deleteProperty(out, key)
 
-  return redactLocation(out, row.locationPrivacy)
+  return redactLocation(out, row.locationPrivacy, row.locationPrivacyRadius)
 }
 
 /**
@@ -99,7 +112,7 @@ export function toPublicProperty<T extends PropertyLocationPrivacyFields>(row: T
  * es una copia. La comparten la web pública y lo que se entrega a un portal
  * (server/utils/publication/listing.ts).
  */
-export function redactLocation<T extends Record<string, any>>(out: T, locationPrivacy: string | null | undefined): T {
+export function redactLocation<T extends Record<string, any>>(out: T, locationPrivacy: string | null | undefined, locationPrivacyRadius?: number | null): T {
   const privacy = locationPrivacy || 'exact'
   if (privacy === 'exact') return out
   const o: Record<string, any> = out
@@ -113,8 +126,8 @@ export function redactLocation<T extends Record<string, any>>(out: T, locationPr
   if ('staircase' in o) o.staircase = null
 
   if (privacy === 'approximate') {
-    if (typeof o.lat === 'number') o.lat = roundCoord(o.lat)
-    if (typeof o.lng === 'number') o.lng = roundCoord(o.lng)
+    if (typeof o.lat === 'number') o.lat = roundCoord(o.lat, locationPrivacyRadius)
+    if (typeof o.lng === 'number') o.lng = roundCoord(o.lng, locationPrivacyRadius)
   }
 
   return out

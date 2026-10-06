@@ -3,6 +3,7 @@ import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { answerQuestion } from '../../utils/ai'
 import { rateLimit } from '../../utils/rateLimit'
 import { livePropertyCond } from '../../utils/properties/trash'
+import { organizationCurrency } from '../../utils/currency'
 
 export default defineEventHandler(async (event) => {
   // Each call can hit a paid LLM API (see server/utils/ai.ts) — cap it well before the
@@ -30,6 +31,7 @@ export default defineEventHandler(async (event) => {
   const project = rows[0]
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
 
-  const { text, engine } = await answerQuestion(event, question, project)
+  // Los importes de la respuesta, en la moneda de la agencia (utils/currency.ts).
+  const { text, engine } = await answerQuestion(event, question, project, await organizationCurrency(db, orgId))
   return { text, engine }
 })

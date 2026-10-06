@@ -35,8 +35,8 @@ de tabla o de columna (§25). Cada una autoriza, valida y delega.
 | `get_property` | lectura | web:read | — | — | `toPublicProperty` (vista `public`) / ficha interna compacta (`internal`) |
 | `find_contacts` | lectura | crm:read | — | — | `searchContacts` (la búsqueda de Contactos) |
 | `find_matches` | lectura | crm:read | — | — | Motor de Matching: `findPropertiesForRequirement` (necesidad guardada) o `findPropertiesForCriteria` (exploratoria, sin persistir) |
-| `create_lead` | escritura | crm:write | — | sí | `upsertLead` (Contact + dedup + routing + SLA + Activity) |
-| `update_lead` | escritura | crm:write | — | — | `transitionLeadStage`, `reassignLead`, `setLeadOutcome` |
+| `create_lead` | escritura | crm:write | — | sí | `upsertLead` (Contact + dedup + routing + SLA + Activity). Con `propertyKind` (por defecto `developer`) y `language` normalizado (cierre D2L) |
+| `update_lead` | escritura | crm:write | — | — | `transitionLeadStage`, `reassignLead`, `setLeadOutcome`; cambia la propiedad de interés con `propertyId` + `propertyKind` (juntos; `null` la quita). Sin `reason`, el historial dice de dónde vino («Cambio hecho con INMO», «Automatización», «Domain Tools API») |
 | `create_contact` | escritura | crm:write | — | sí | `resolveContact` (nunca fusiona dudosos: los devuelve) |
 | `update_buyer_requirements` | escritura | crm:write | — | — | `createBuyerRequirement` / `updateBuyerRequirement` |
 | `book_viewing` | escritura | crm:write | **sí** | sí | `createAdminAppointment` (conflictos reales del comercial) |

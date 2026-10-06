@@ -1,4 +1,4 @@
-import { and, eq, gte, ne } from 'drizzle-orm'
+import { and, eq, gte, isNull, ne } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { now } from '../db'
 import { appointmentChannelLabel, appointmentTypeLabel } from '../../../utils/appointmentCatalog'
@@ -48,13 +48,13 @@ export interface IcsAgent {
   organizationId: number
 }
 
-/** Citas desde ayer (para no perder las de hoy en ninguna zona horaria), sin las canceladas. */
+/** Citas desde ayer (para no perder las de hoy en ninguna zona horaria), sin las canceladas ni las de la papelera (cierre D3a). */
 export async function buildAgentIcs(db: any, agent: IcsAgent, opts: { nowTs?: string } = {}): Promise<string> {
   const nowTs = opts.nowTs || now()
   const visits = await db
     .select()
     .from(schema.visits)
-    .where(and(eq(schema.visits.organizationId, agent.organizationId), eq(schema.visits.agentId, agent.id), ne(schema.visits.status, 'cancelled'), gte(schema.visits.scheduledAt, addMinutes(nowTs, -24 * 60).slice(0, 10))))
+    .where(and(eq(schema.visits.organizationId, agent.organizationId), eq(schema.visits.agentId, agent.id), ne(schema.visits.status, 'cancelled'), isNull(schema.visits.deletedAt), gte(schema.visits.scheduledAt, addMinutes(nowTs, -24 * 60).slice(0, 10))))
 
   const tz = await createTimezoneResolver(db, agent.organizationId)
   const stamp = `${nowTs.replace(/[-:]/g, '').replace(' ', 'T')}Z`

@@ -7,6 +7,7 @@ import { isValidEmail } from '../../utils/validate'
 import { readFirstTouch } from '../../utils/firstTouch'
 import { recordWebFormSubmission } from '../../utils/comms/web'
 import { samePagePath } from '../../utils/comms/webPublic'
+import { publicLeadLanguage } from '../../utils/leads/captureLanguage'
 
 const PDF_FIELDS = [
   'passport_pdf',
@@ -104,6 +105,8 @@ export default defineEventHandler(async (event) => {
       phone: text.phone_number,
       source: 'web',
       notes: [text.property_type, text.preferred_location, text.budget_range].filter(Boolean).join(' · ') || null,
+      // Cierre del núcleo (FASE 15): el idioma de quien rellena el formulario.
+      language: publicLeadLanguage(event, text.language),
       ...readFirstTouch(event),
     })
     leadId = lead?.id ?? null

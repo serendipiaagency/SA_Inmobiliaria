@@ -5,7 +5,10 @@
  *   <script src="https://SITE/embed.js"
  *           data-widget="grid" data-filter="featured" data-city=""
  *           data-limit="6" data-theme="light" data-accent="#16150f"
- *           data-font="sans" data-cols="3" data-radius="16" data-currency="AED"></script>
+ *           data-font="sans" data-cols="3" data-radius="16" data-currency="EUR"></script>
+ *
+ * data-currency es opcional: sin él, los precios salen en la moneda de la
+ * agencia; con él, convertidos desde ella (utils/currency.ts).
  *
  * The script inserts a responsive, sandboxed iframe right after itself and
  * auto-resizes it to its content height via postMessage.

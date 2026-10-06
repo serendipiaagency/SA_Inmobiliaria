@@ -15,7 +15,7 @@
           :source-href="SOURCES.property.href"
           class="flex items-center justify-between rounded-xl border border-line px-5 py-4 text-sm transition hover:border-ink hover:bg-paper"
         >
-          <SbText tag="span" field="card.label" label="Nombre del tipo" :dynamic="dynamicLabel('property', 'Tipo')" :source-href="SOURCES.property.href" class="font-medium" :text="pt" />
+          <SbText tag="span" field="card.label" label="Nombre del tipo" :dynamic="dynamicLabel('property', 'Tipo')" :source-href="SOURCES.property.href" class="font-medium" :text="typeLabel(pt)" />
           <span class="text-stone-400 transition group-hover:text-ink">→</span>
         </SbBox>
       </div>
@@ -27,8 +27,12 @@
 import SbText from '../nodes/SbText.vue'
 import SbBox from '../nodes/SbBox.vue'
 import { SOURCES, dynamicLabel } from '~/utils/siteBuilder/sources'
+import { orderPropertyTypes } from '~/utils/propertySheet'
 
 const NuxtLink = resolveComponent('NuxtLink')
 const props = defineProps<{ content: Record<string, any>; projects: any[] }>()
-const types = computed(() => [...new Set((props.projects || []).map((p) => p.propertyType).filter(Boolean))])
+// Los tipos que hay en las propiedades del bloque, en el orden del catálogo
+// común y con su rótulo traducido (antes la clave interna en inglés).
+const types = computed(() => orderPropertyTypes((props.projects || []).map((p) => p.propertyType)))
+const typeLabel = usePropertyTypeLabel()
 </script>

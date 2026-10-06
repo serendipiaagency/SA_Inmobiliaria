@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray, isNull, or } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { selectInChunks } from '../sqlChunks'
 
@@ -45,6 +45,40 @@ export function officeNames(db: any, orgId: number, ids: Array<number | null | u
 }
 export function userNames(db: any, orgId: number, ids: Array<number | null | undefined>) {
   return namesFrom(db, schema.users, schema.users.name, orgId, ids)
+}
+
+/**
+ * Quién creó cada registro (`createdBy` = `users.id`, cierre D3a): los
+ * usuarios de ESTA agencia y, como en el autor de una nota, el super admin
+ * de la plataforma (no tiene agencia: `organization_id` NULL) cuando fue él
+ * quien lo dio de alta. Un usuario de otra agencia nunca resuelve.
+ */
+export async function creatorNames(db: any, orgId: number, ids: Array<number | null | undefined>): Promise<Map<number, string>> {
+  const list = uniq(ids)
+  if (!list.length) return new Map()
+  const rows = await selectInChunks(list, (part) =>
+    db
+      .select({ id: schema.users.id, name: schema.users.name })
+      .from(schema.users)
+      .where(and(inArray(schema.users.id, part), or(eq(schema.users.organizationId, orgId), and(isNull(schema.users.organizationId), eq(schema.users.role, 'super_admin'))))),
+  )
+  return new Map(rows.map((r: any) => [r.id, r.name || `#${r.id}`]))
+}
+
+export interface CreatorLabel {
+  /** Nombre del usuario que lo creó; null si no consta o si ya no existe. */
+  createdByName: string | null
+  /** Tenía autor (`createdBy`) pero ese usuario ya no existe en la agencia: la pantalla dice «usuario eliminado». */
+  createdByDeleted: boolean
+}
+
+/** Añade `createdByName`/`createdByDeleted` a cada fila, con UNA consulta por lote (troceada). */
+export async function withCreatorNames<T extends { createdBy?: number | null }>(db: any, orgId: number, rows: T[]): Promise<Array<T & CreatorLabel>> {
+  const names = await creatorNames(db, orgId, rows.map((r) => r.createdBy))
+  return rows.map((r) => {
+    const name = r.createdBy ? (names.get(r.createdBy) ?? null) : null
+    return { ...r, createdByName: name, createdByDeleted: !!r.createdBy && !name }
+  })
 }
 
 /** Etiqueta de una cita: «Cliente · 2026-02-01 10:00». */

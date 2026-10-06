@@ -186,6 +186,12 @@ en qué punto del proceso estaba.
 > `lead_stage_history` (`to_stage` = `lost` / `reactivated`, con el motivo
 > del catálogo y el comentario), y la deduplicación del lead mira también
 > teléfono, WhatsApp e id externo. Ver `docs/leads-ficha-y-enrutado.md`.
+>
+> Cierre D2L: desde el panel cada movimiento exige su motivo (fase, perder,
+> reactivar y la acción masiva); `transitionLeadStage()` sigue aceptando el
+> motivo descriptivo de las entradas automáticas. Y el lead guarda el
+> catálogo de su propiedad (`property_kind`, migración 0089). Ver
+> `docs/leads-ficha-y-enrutado.md`.
 
 ## Deduplicación de Contact: nunca automática, nunca destructiva
 

@@ -3,7 +3,7 @@
     <div class="mb-6">
       <NuxtLink to="/admin/comunicaciones" class="text-xs font-medium text-stone-400 hover:text-ink">← Comunicaciones</NuxtLink>
       <h1 class="mt-2 text-2xl font-semibold tracking-tight">Configuración de Comunicaciones</h1>
-      <p class="mt-1 text-sm text-stone-500">Números de WhatsApp conectados, llamadas, plantillas, ajustes de la bandeja y el chat de la web.</p>
+      <p class="mt-1 text-sm text-stone-500">Números de WhatsApp conectados, llamadas, plantillas, ajustes de la bandeja, el chat de la web y el estado del email entrante.</p>
     </div>
 
     <div v-if="!canWrite('system')" class="card p-6 text-sm text-stone-500">Esta pantalla es de Sistema: tu cuenta no tiene permiso para cambiar la configuración.</div>
@@ -221,6 +221,32 @@
         </div>
       </AdminPanel>
 
+      <!-- FASE 29: email entrante. Estado real de la plataforma, sin botones: se configura en Cloudflare, no aquí -->
+      <AdminPanel class="mt-4" title="Email entrante" sub="Que la respuesta de un cliente a un email enviado desde un hilo vuelva a ese hilo.">
+        <div v-if="inbound?.active" class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-[13px] text-emerald-900" data-testid="comms-inbound-email-active">
+          <p class="font-semibold"><span class="mr-1 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white">Activo</span> Las respuestas por email vuelven a su hilo</p>
+          <p class="mt-1 text-[12px] leading-relaxed">
+            Al responder a un hilo web por email, el «Responder a» es una dirección propia de ese hilo ({{ inbound.routingAddress?.replace('@', '+…@') }}, firmada: nadie puede escribir en otro hilo adivinándola). El remitente no cambia.
+            Lo que conteste el cliente aparece en el hilo como no leído, sin la cita del mensaje anterior; los adjuntos no se guardan (el mensaje dice cuáles traía). Las respuestas ya no llegan al buzón «Responder a» de la agencia.
+          </p>
+        </div>
+        <div v-else class="rounded-xl border border-line bg-stone-50 p-4 text-[13px] text-stone-700" data-testid="comms-inbound-email-inactive">
+          <p class="font-semibold text-ink"><span class="mr-1 rounded bg-stone-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-stone-600">No activo</span> El email de los hilos es sólo de salida</p>
+          <p class="mt-1 text-[12px] leading-relaxed">
+            Hoy, si un cliente responde a un email enviado desde un hilo, su respuesta llega al buzón «Responder a» de la agencia, fuera de la plataforma. Lo activa quien administra la plataforma en Cloudflare:
+          </p>
+          <ol class="mt-2 list-decimal space-y-1 pl-5 text-[12px] leading-relaxed">
+            <li>En Cloudflare → Email Routing, un dominio (mejor un subdominio dedicado, p. ej. respuestas.tudominio.com, para no tocar los MX del correo que ya usáis) con sus registros MX; activar «Subaddressing».</li>
+            <li>Una regla de enrutado «respuestas@ese-dominio» → «Send to a Worker» → el Worker de la plataforma (en un dominio raíz también vale una regla catch-all al Worker).</li>
+            <li>En el Worker, la variable INBOUND_EMAIL_DOMAIN con ese dominio y el secreto INBOUND_EMAIL_SECRET (32 caracteres aleatorios o más).</li>
+          </ol>
+          <ul v-if="inbound?.missing?.length" class="mt-2 space-y-0.5 text-[12px] text-amber-800" data-testid="comms-inbound-email-missing">
+            <li v-for="m in inbound.missing" :key="m">Falta: {{ m }}</li>
+          </ul>
+          <p class="mt-2 text-[11px] text-stone-500">Los pasos exactos están en docs/communications.md («Email entrante»).</p>
+        </div>
+      </AdminPanel>
+
       <AdminPanel class="mt-4" title="Qué permite cada proveedor" sub="Según su documentación oficial. Lo que no está aquí no se ofrece en la interfaz.">
         <div class="overflow-x-auto">
           <table class="w-full text-[12px]">
@@ -261,6 +287,8 @@ const CAPS = [
 
 const { data, refresh } = await useFetch<any>('/api/admin/comms/channels', { default: () => null })
 const rows = computed<any[]>(() => data.value?.rows || [])
+/** FASE 29: estado del email entrante de la plataforma (sólo presencia/validez de las variables, nunca su valor). */
+const inbound = computed<{ active: boolean; domain: string | null; routingAddress: string | null; missing: string[] } | null>(() => data.value?.inboundEmail || null)
 const { data: tplData, refresh: refreshTemplates } = await useFetch<{ rows: any[] }>('/api/admin/comms/templates', { default: () => ({ rows: [] }) })
 const { data: settingsData } = await useFetch<any>('/api/admin/comms/settings', { default: () => null })
 const settings = reactive({ defaultCountryPrefix: '', unknownContactPolicy: 'ask', notifyInternal: true, webChatEnabled: false, webChatGreeting: '' })

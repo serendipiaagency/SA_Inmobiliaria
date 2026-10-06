@@ -75,7 +75,7 @@
       <div class="space-y-2">
         <div v-for="(row, i) in varRows" :key="`row-${i}`" class="grid gap-2 sm:grid-cols-2">
           <input v-model="row.key" class="cfg-input" placeholder="clave (ej: amount)" >
-          <input v-model="row.value" class="cfg-input" placeholder="valor (ej: 15.000 €)" >
+          <input v-model="row.value" class="cfg-input" placeholder="valor (ej: 15.000)" >
         </div>
         <button type="button" class="text-xs font-medium text-ink hover:underline" @click="varRows.push({ key: '', value: '' })">+ Añadir variable</button>
       </div>

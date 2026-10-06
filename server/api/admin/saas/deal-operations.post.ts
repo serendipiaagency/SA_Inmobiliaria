@@ -1,14 +1,14 @@
 import { requireOrgScope } from '../../../utils/auth'
 import { useDb } from '../../../utils/db'
 import { hasAreaAccess } from '../../../utils/permissions'
-import { createDeal, transitionDealStage, closeDeal, cancelDeal, updateDeal, linkDealRecord, unlinkDealRecord, DEAL_RECORD_KINDS, type DealStage, type DealRecordKind } from '../../../utils/deals/service'
+import { createDeal, transitionDealStage, closeDeal, cancelDeal, updateDeal, linkDealRecord, unlinkDealRecord, trashDeal, restoreDeal, DEAL_RECORD_KINDS, type DealStage, type DealRecordKind } from '../../../utils/deals/service'
 import { logAdminAction } from '../../../utils/audit'
 
 interface DealOperationPostBody {
   /** Sin `action`: "Crear operación" — única forma de nacer un Deal, siempre sobre una Offer ya `accepted` (§94, nunca automático). */
   acceptedOfferId?: number
   /** Con `action`: transición o cambio sobre una operación ya existente. */
-  action?: 'stage' | 'close' | 'cancel' | 'update' | 'link' | 'unlink'
+  action?: 'stage' | 'close' | 'cancel' | 'update' | 'link' | 'unlink' | 'trash' | 'restore'
   id?: number
   toStage?: string
   reason?: string
@@ -35,7 +35,10 @@ function optionalId(v: unknown): number | null | undefined {
  *  - `close` / `cancel` (`reason` obligatorio al cancelar);
  *  - `update` (`officeId`, `commercialId`) — bloque N6;
  *  - `link` / `unlink` (`kind`: reservation|deposit|contract, `recordId`) —
- *    bloque N6: reservas, arras y contratos de la operación.
+ *    bloque N6: reservas, arras y contratos de la operación;
+ *  - `trash` / `restore` — cierre C1: mandarla a la papelera (409 si está
+ *    cerrada o tiene reserva, arras o contrato vinculados; ver `trashDeal()`)
+ *    y sacarla de ella.
  *
  * Todo bajo una única clave de ruta a propósito — ver el comentario en
  * `deal-operations.get.ts` sobre el margen agotado de `npm run typecheck`
@@ -93,6 +96,18 @@ export default defineEventHandler(async (event) => {
     const result = body.action === 'link' ? await linkDealRecord(db, orgId, dealId, kind, recordId, actor) : await unlinkDealRecord(db, orgId, dealId, kind, recordId, actor)
     await logAdminAction(event, { user, orgId, action: 'update', resource: 'deal', resourceId: dealId, detail: `${body.action}:${kind}:${recordId}` })
     return result
+  }
+
+  if (body.action === 'trash') {
+    const deal = await trashDeal(db, orgId, dealId, { actorType: 'user', actorId: user.id }, { includeFinance: hasAreaAccess(user, 'finance', 'read') })
+    await logAdminAction(event, { user, orgId, action: 'delete', resource: 'deal', resourceId: dealId, detail: 'papelera' })
+    return deal
+  }
+
+  if (body.action === 'restore') {
+    const deal = await restoreDeal(db, orgId, dealId, { actorType: 'user', actorId: user.id })
+    await logAdminAction(event, { user, orgId, action: 'restore', resource: 'deal', resourceId: dealId })
+    return deal
   }
 
   throw createError({ statusCode: 422, statusMessage: 'Acción no reconocida' })

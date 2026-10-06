@@ -71,13 +71,14 @@ onMounted(async () => {
 })
 
 const { format: fmtCur } = useCurrency()
+const typeLabel = usePropertyTypeLabel()
 function fmt(v: number | null | undefined) {
   return v ? fmtCur(v) : '—'
 }
 const specs = computed(() => [
   { key: 'price', label: t('hero.price', 'Precio'), get: (p: any) => fmt(p.price) },
   { key: 'm2', label: t('compare.spec.pricePerM2', 'Precio / m²'), get: (p: any) => (p.price && p.area ? fmt(Math.round(p.price / p.area)) : '—') },
-  { key: 'type', label: t('compare.spec.type', 'Tipo'), get: (p: any) => p.propertyType || '—' },
+  { key: 'type', label: t('compare.spec.type', 'Tipo'), get: (p: any) => typeLabel(p.propertyType) || '—' },
   { key: 'beds', label: t('hero.bedrooms', 'Habitaciones'), get: (p: any) => p.bedrooms ?? '—' },
   { key: 'baths', label: t('hero.bathrooms', 'Baños'), get: (p: any) => p.bathrooms ?? '—' },
   { key: 'area', label: t('hero.area', 'Superficie'), get: (p: any) => (p.area ? `${Math.round(p.area)} m²` : '—') },

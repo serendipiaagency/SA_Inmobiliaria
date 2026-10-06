@@ -109,7 +109,7 @@ test.describe('Flujo principal FASES 20-24', () => {
     expect((await a.get('/api/admin/saas/leads-routing/sla-alerts')).ok()).toBeTruthy()
 
     // --- Cualificación (§13) --------------------------------------------
-    const qualifyRes = await a.patch(`/api/admin/saas/leads/${leadId}`, { data: { stage: 'qualified' } })
+    const qualifyRes = await a.patch(`/api/admin/saas/leads/${leadId}`, { data: { stage: 'qualified', reason: 'Presupuesto y zona confirmados' } })
     expect(qualifyRes.ok(), await qualifyRes.text()).toBeTruthy()
     expect((await qualifyRes.json()).stage).toBe('qualified')
 
@@ -237,7 +237,7 @@ test.describe('Flujo principal FASES 20-24', () => {
     const reassignRes = await a.post(`/api/admin/saas/leads/${leadId}/reassign`, { data: { commercialId: commercialAgentId, reason: 'Asignación E2E' } })
     expect(reassignRes.ok(), await reassignRes.text()).toBeTruthy()
 
-    await a.patch(`/api/admin/saas/leads/${leadId}`, { data: { stage: 'qualified' } })
+    await a.patch(`/api/admin/saas/leads/${leadId}`, { data: { stage: 'qualified', reason: 'Presupuesto y zona confirmados' } })
 
     // --- Necesidad + matching sobre el catálogo de 2ª mano ----------------
     const reqRes = await a.post('/api/admin/saas/buyer-requirements', {

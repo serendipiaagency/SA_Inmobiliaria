@@ -25,6 +25,10 @@ import { PROPERTY_KINDS, type PropertyKind } from '../../../utils/matching/servi
  * oficina y cuántos documentos (reserva, arras, contrato) tiene vinculados.
  * La ficha trae además esos documentos y los candidatos a vincular; arras y
  * contratos (área Finanzas) sólo si quien pregunta puede leer Finanzas.
+ *
+ * Cierre C1: `trashed=1` lista SÓLO la papelera (con los mismos filtros), para
+ * la vista «Papelera» y su «Restaurar». La ficha de una operación de la
+ * papelera sigue siendo 404.
  */
 export default defineEventHandler(async (event) => {
   const { user, orgId } = await requireOrgScope(event)
@@ -48,6 +52,7 @@ export default defineEventHandler(async (event) => {
     officeId: q.officeId ? Number(q.officeId) : undefined,
     status: (DEAL_STATUSES as readonly string[]).includes(String(q.status)) ? (q.status as DealStatus) : undefined,
     stage: (DEAL_STAGES as readonly string[]).includes(String(q.stage)) ? (q.stage as DealStage) : undefined,
+    trashed: q.trashed === '1' || q.trashed === 'true',
   })
   const [labeled, recordCounts] = await Promise.all([
     withDealLabels(db, orgId, deals),

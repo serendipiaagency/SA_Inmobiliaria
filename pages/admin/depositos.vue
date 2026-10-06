@@ -21,6 +21,7 @@
           </select>
         </label>
         <label class="block">
+          <!-- El depósito lleva su propia moneda (la del cobro en Stripe, «eur» si no se indica): no es la moneda de la agencia (utils/currency.ts, regla 4). -->
           <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Importe (€)</span>
           <input v-model.number="form.amount" type="number" min="0" step="100" class="cfg-input" >
         </label>
@@ -54,7 +55,7 @@
                 {{ d.contractTitle || '—' }}
                 <NuxtLink v-if="d.dealOperationId" :to="`/admin/deal-operations/${d.dealOperationId}`" class="block text-[11px] font-normal text-emerald-700 hover:underline">Operación #{{ d.dealOperationId }}</NuxtLink>
               </td>
-              <td class="px-4 py-3 text-right tabular-nums">{{ dt.money(d.amount) }}</td>
+              <td class="px-4 py-3 text-right tabular-nums">{{ formatAmount(d.amount, d.currency) }}</td>
               <td class="px-4 py-3">
                 <span class="rounded-full px-2 py-0.5 text-[11px] font-medium" :class="statusClass(d.status)">{{ statusLabel(d.status) }}</span>
                 <span v-if="d.status === 'failed' && d.errorMessage" class="ml-2 text-xs text-red-500">{{ d.errorMessage }}</span>
@@ -95,9 +96,10 @@
 </template>
 
 <script setup lang="ts">
+import { formatAmount } from '~/utils/pipelineCatalog'
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Depósitos — M&M Real Estate' })
-const dt = useDash()
 const toast = useToast()
 
 const { data: depositsData, refresh: refreshDeposits } = await useFetch<any[]>('/api/admin/saas/deposits')

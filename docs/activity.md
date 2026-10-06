@@ -49,11 +49,14 @@ implementar eventos que todavía no ocurren realmente"):
 | `APPOINTMENT_RESCHEDULED` / `APPOINTMENT_CANCELLED` | `PATCH /api/admin/saas/visits/:id` y los endpoints públicos de gestión (`reschedule.post.ts`/`cancel.post.ts`) |
 | `VIEWING_COMPLETED` / `VIEWING_NO_SHOW` | `PATCH /api/admin/saas/visits/:id`, sólo cuando `visits.type === 'property_viewing'` |
 | `VISIT_OUTCOME_RECORDED` | `server/utils/appointments/outcome.ts` → `recordVisitOutcome()` — el evento sólo dice qué resultado se anotó, nunca el texto de las notas |
+| `APPOINTMENT_TRASHED` / `APPOINTMENT_RESTORED` | `server/utils/appointments/trash.ts` → `trashAppointment()`/`restoreAppointment()` — una cita creada por error mandada a la papelera y restaurada (cierre D3a), con su contacto, lead e inmueble; `metadata` = `{ status, scheduledAt, type }` (el estado que tenía al eliminarla o con el que vuelve). Grupo «Citas y visitas» |
 | `TASK_CREATED` / `TASK_COMPLETED` | `server/utils/tasks/service.ts` → `createTask()`/`updateTask()` (FASE 22, ver `docs/tasks.md`) |
 | `OFFER_CREATED` / `OFFER_SUBMITTED` / `OFFER_COUNTERED` / `OFFER_ACCEPTED` / `OFFER_REJECTED` / `OFFER_WITHDRAWN` / `OFFER_EXPIRED` | `server/utils/offers/service.ts` — una por cada transición real, incluida la automática del cron `offers:expire` (FASE 23, ver `docs/offers.md`) |
 | `DEAL_CREATED` / `DEAL_STAGE_CHANGED` / `DEAL_CLOSED` / `DEAL_CANCELLED` | `server/utils/deals/service.ts` (FASE 24, ver `docs/deals.md`) — Deal Operation, no confundir con la tabla legacy `deals` de cierres para comisiones, que no emite Activity |
 | `TASK_CANCELLED` | `updateTask()` al pasar una tarea a `cancelled` (bloque N6) |
 | `OFFER_RESUBMITTED` | `newOffer()` — la nueva oferta del comprador tras una contraoferta (bloque N6) |
+| `TASK_TRASHED` / `TASK_RESTORED` | `deleteTask()`/`restoreTask()` — una tarea mandada a la papelera o restaurada desde CRM → Tareas (cierre C1), con las relaciones de la tarea |
+| `DEAL_TRASHED` / `DEAL_RESTORED` | `trashDeal()`/`restoreDeal()` — una operación mandada a la papelera o restaurada (cierre C1); `metadata` de `DEAL_TRASHED` = `{ status, stage }` que tenía |
 | `DEAL_RECORD_LINKED` / `DEAL_RECORD_UNLINKED` | `linkDealRecord()`/`unlinkDealRecord()` — una reserva, unas arras o un contrato vinculados a la operación o soltados (bloque N6); `metadata` = `{ kind, recordId }` |
 | `PROPERTY_SENT` | `server/utils/comms/inbox.ts#sendOutbound` — ficha enviada por WhatsApp y aceptada por el proveedor (FASE 29) |
 | `PROPERTY_SHARE_OPENED` | `server/utils/comms/inbox.ts#applyMessageStatus` — la PRIMERA confirmación de lectura de WhatsApp de un mensaje `property_share` («el cliente abrió la ficha», bloque N6). `actorType: 'contact'` |

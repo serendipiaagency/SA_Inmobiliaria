@@ -3,6 +3,9 @@
     <div class="mb-6">
       <NuxtLink to="/admin/asset-export/catalogs" class="text-xs text-stone-500 hover:underline">← Catálogos</NuxtLink>
       <h1 class="mt-1 text-2xl font-semibold tracking-tight">{{ catalog?.name }}</h1>
+      <p v-if="catalog" class="mt-1 text-xs text-stone-500" data-testid="catalog-detail-kind">
+        Propiedades de {{ catalog.propertyKind === 'agent' ? '2ª mano' : 'obra nueva' }}<template v-if="catalog.propertyKind === 'agent'"> · sólo datos y fotos publicables, sin QR</template>
+      </p>
     </div>
 
     <AdminPanel class="mb-4">
@@ -25,7 +28,7 @@
 
     <AdminPanel title="Secciones del catálogo">
       <ul class="divide-y divide-line">
-        <li v-for="item in items" :key="item.id" class="flex items-center justify-between py-2.5 text-sm">
+        <li v-for="item in items" :key="item.id" class="flex items-center justify-between py-2.5 text-sm" :data-testid="`catalog-item-${item.assetId}`">
           <span>{{ item.assetName || `Activo #${item.assetId}` }}</span>
           <span class="flex items-center gap-3">
             <span v-if="item.status === 'completed' && item.pageCount" class="text-xs text-stone-500">{{ item.pageCount }} pág.</span>
@@ -58,6 +61,7 @@ interface CatalogDetail {
   completedCount: number
   failedCount: number
   errorMessage: string | null
+  propertyKind?: 'developer' | 'agent'
   items: CatalogItem[]
 }
 

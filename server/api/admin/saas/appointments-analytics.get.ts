@@ -1,4 +1,4 @@
-import { and, eq, gte } from 'drizzle-orm'
+import { and, eq, gte, isNull } from 'drizzle-orm'
 import { useDb, schema } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
 import { timeToMinutes } from '../../../utils/appointments/availability'
@@ -19,7 +19,8 @@ export default defineEventHandler(async (event) => {
   const fromDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
   const fromStr = `${fromDate.toISOString().slice(0, 10)} 00:00:00`
 
-  const visits = await db.select().from(schema.visits).where(and(eq(schema.visits.organizationId, orgId), gte(schema.visits.scheduledAt, fromStr)))
+  // Cierre D3a: una cita de la papelera (creada por error) no es uso real de la agenda.
+  const visits = await db.select().from(schema.visits).where(and(eq(schema.visits.organizationId, orgId), isNull(schema.visits.deletedAt), gte(schema.visits.scheduledAt, fromStr)))
 
   const scheduled = visits.filter((v) => v.status === 'scheduled').length
   const completed = visits.filter((v) => v.status === 'completed').length

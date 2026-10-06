@@ -303,6 +303,8 @@
 
 <script setup lang="ts">
 import { hasValidCoords } from '~/utils/maps/coords'
+import { formatDisplayPrice } from '~/utils/currency'
+import { PROPERTY_TYPE_LABELS } from '~/utils/propertySheet'
 
 const route = useRoute()
 const { t } = useI18n()
@@ -319,12 +321,15 @@ const socialMediaForGallery = computed(() =>
 )
 
 const seoTitle = `${data.value.project.name} — M&M Real Estate`
+// SEO y schema.org van en la moneda en la que está guardado el precio (la de
+// la agencia), nunca en la que eligió un visitante (utils/currency.ts).
+const { format: formatPrice, base: baseCurrency } = useCurrency()
 const seoDescription = [
-  data.value.project.propertyType,
+  data.value.project.propertyType ? PROPERTY_TYPE_LABELS[data.value.project.propertyType] || data.value.project.propertyType : null,
   data.value.project.community ? `en ${data.value.project.community}` : null,
   data.value.project.bedrooms != null ? `${data.value.project.bedrooms || 'Estudio'} hab.` : null,
   data.value.project.area ? `${Math.round(data.value.project.area)} m²` : null,
-  data.value.project.price ? `desde AED ${new Intl.NumberFormat('en-US').format(data.value.project.price)}` : null,
+  data.value.project.price ? `desde ${formatDisplayPrice(data.value.project.price, baseCurrency.value, baseCurrency.value)}` : null,
 ]
   .filter(Boolean)
   .join(' · ')
@@ -337,7 +342,7 @@ const jsonLd = computed(() => ({
   description: seoDescription,
   image: seoImage,
   offers: data.value!.project.price
-    ? { '@type': 'Offer', price: data.value!.project.price, priceCurrency: 'AED', availability: 'https://schema.org/InStock' }
+    ? { '@type': 'Offer', price: data.value!.project.price, priceCurrency: baseCurrency.value, availability: 'https://schema.org/InStock' }
     : undefined,
   address: data.value!.project.community ? { '@type': 'PostalAddress', addressLocality: data.value!.project.community, addressCountry: 'AE' } : undefined,
 }))
@@ -354,7 +359,6 @@ useHead({
   script: [{ type: 'application/ld+json', innerHTML: JSON.stringify(jsonLd.value) }],
 })
 
-const { format: formatPrice } = useCurrency()
 const { isFavorite, toggle: toggleFav, load: loadFav } = useFavorites()
 const { has: hasCompare, toggle: toggleCompare, load: loadCompare } = useCompare()
 onMounted(() => { loadFav(); loadCompare() })
