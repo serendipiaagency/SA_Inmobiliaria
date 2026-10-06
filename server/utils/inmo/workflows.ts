@@ -189,7 +189,7 @@ export const INMO_WORKFLOWS: readonly WorkflowDef[] = [
       const [v] = await ctx.db
         .select({ id: V.id, leadId: V.leadId, contactId: V.contactId, agentId: V.agentId, status: V.status })
         .from(V)
-        .where(and(eq(V.id, visitId), eq(V.organizationId, ctx.orgId)))
+        .where(and(eq(V.id, visitId), eq(V.organizationId, ctx.orgId), isNull(V.deletedAt)))
         .limit(1)
       if (!v) throw createError({ statusCode: 404, statusMessage: 'Cita no encontrada' })
       let contactId = v.contactId

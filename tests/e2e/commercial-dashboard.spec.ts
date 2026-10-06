@@ -41,7 +41,7 @@ test.describe('Dashboard comercial (FASE 33)', () => {
       expect(res.ok(), await res.text()).toBeTruthy()
       ids.push((await res.json()).data.id)
     }
-    expect((await a.patch(`/api/admin/saas/leads/${ids[0]}`, { data: { stage: 'qualified' } })).ok()).toBeTruthy()
+    expect((await a.patch(`/api/admin/saas/leads/${ids[0]}`, { data: { stage: 'qualified', reason: 'Cualificado en la prueba' } })).ok()).toBeTruthy()
 
     const res = await a.get('/api/admin/saas/overview', { params: { view: 'commercial', from: today, to: today, source: 'api' } })
     expect(res.ok(), await res.text()).toBeTruthy()

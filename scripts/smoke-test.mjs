@@ -21,6 +21,11 @@
  * se reintenta hasta SMOKE_VERSION_WAIT_MS (90 s por defecto) antes de
  * darlo por fallido. Un deploy que de verdad dejó vivo el build anterior
  * sigue fallando; uno que sólo está propagándose, no.
+ *
+ * Una sola lectura buena no basta: durante la propagación, nodos distintos
+ * del borde contestan builds distintos, y la comprobación de después podía
+ * caer en uno que aún servía el anterior (staging de #141, 2026-10-06). Se
+ * exigen VERSION_STABLE_READS lecturas seguidas del build esperado.
  */
 const BASE_URL = (process.argv[2] || process.env.SMOKE_BASE_URL || '').replace(/\/$/, '')
 if (!BASE_URL) {
@@ -31,6 +36,8 @@ if (!BASE_URL) {
 const TIMEOUT_MS = 15_000
 const VERSION_WAIT_MS = Number(process.env.SMOKE_VERSION_WAIT_MS || 90_000)
 const VERSION_POLL_MS = 5_000
+const VERSION_STABLE_READS = 3
+const VERSION_STABLE_GAP_MS = 2_000
 let failures = 0
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -39,16 +46,23 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 async function waitForExpectedBuild(want) {
   const deadline = Date.now() + VERSION_WAIT_MS
   let last = null
+  let streak = 0
   while (Date.now() < deadline) {
     try {
       const res = await fetchWithTimeout('/api/health/ready')
       if (res.ok) {
         last = (await res.json())?.version?.commit ?? null
-        if (last === want) return
+        if (last === want) {
+          streak += 1
+          if (streak >= VERSION_STABLE_READS) return
+          await sleep(VERSION_STABLE_GAP_MS)
+          continue
+        }
       }
     } catch {
       // red o timeout puntual: se vuelve a intentar hasta el plazo
     }
+    streak = 0
     console.log(`  … el borde todavía sirve ${last ?? '¿?'}; esperando a ${want}`)
     await sleep(VERSION_POLL_MS)
   }

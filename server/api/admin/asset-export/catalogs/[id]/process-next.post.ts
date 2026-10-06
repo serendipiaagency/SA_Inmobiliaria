@@ -11,6 +11,7 @@ import type { TemplateStructure } from '../../../../../utils/assetExport/types'
 import { buildStructuredKey } from '../../../../../utils/media'
 import { registerGeneratedFile, softDeleteMediaAssetByKey } from '../../../../../utils/mediaAssets'
 import { assertQuotaAvailable } from '../../../../../utils/mediaQuota'
+import { CATALOG_ASSET_KIND, catalogPropertyKind, withCatalogKind } from '../../../../../utils/assetExport/catalogKind'
 
 /**
  * Renders exactly one pending fragment per call (same one-item-per-request
@@ -30,6 +31,8 @@ export default defineEventHandler(async (event) => {
   if (!catalog || catalog.organizationId !== orgId) throw createError({ statusCode: 404, statusMessage: 'Catalog not found' })
 
   if (['cancelled', 'completed', 'completed_with_errors', 'failed'].includes(catalog.status)) return { done: true, catalog }
+  // Obra nueva o 2ª mano (FASE 28): decide de qué tabla salen los datos de cada sección.
+  const propertyKind = catalogPropertyKind(catalog)
 
   const item = (
     await db
@@ -49,10 +52,11 @@ export default defineEventHandler(async (event) => {
     const template = (await db.select().from(schema.assetExportTemplates).where(eq(schema.assetExportTemplates.id, catalog.templateId)).limit(1))[0]
     if (!template) throw createError({ statusCode: 404, statusMessage: 'Template not found' })
 
-    const asset = (await db.select({ name: schema.developerProperties.name }).from(schema.developerProperties).where(eq(schema.developerProperties.id, item.assetId)).limit(1))[0]
-    const title = asset?.name || `Activo #${item.assetId}`
-
-    const bindings = await resolveAssetBindings(event, { orgId, assetKind: 'developer_property', assetId: item.assetId })
+    // Los datos (y el título del índice) salen de los bindings, que ya acotan a
+    // la agencia y aplican la privacidad: en obra nueva el título es su nombre;
+    // en 2ª mano, «<tipo> en <zona>» (agentCatalogTitle).
+    const bindings = await resolveAssetBindings(event, { orgId, assetKind: CATALOG_ASSET_KIND[propertyKind], assetId: item.assetId })
+    const title = bindings.values['asset.title'] || `Activo #${item.assetId}`
     const structure = JSON.parse(template.structureJson) as TemplateStructure
     const pdfBytes = await renderPdf(event, structure, catalog.formatKey, bindings)
 
@@ -175,7 +179,7 @@ export default defineEventHandler(async (event) => {
       }
       const [updated] = await db
         .update(schema.assetExportCatalogs)
-        .set({ status: finalStatus, r2Key, fileSizeBytes: finalBytes.byteLength, validationJson: JSON.stringify(assemblyValidation), completedAt })
+        .set({ status: finalStatus, r2Key, fileSizeBytes: finalBytes.byteLength, validationJson: withCatalogKind(assemblyValidation, propertyKind), completedAt })
         .where(eq(schema.assetExportCatalogs.id, catalogId))
         .returning()
 

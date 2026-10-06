@@ -1,7 +1,9 @@
-import { and, asc, desc, eq, gte, inArray, isNull, lte, or, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, lte, or, sql, type SQL } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/sqlite-core'
 import * as schema from '../../db/schema'
 import { selectInChunks } from '../sqlChunks'
+import { withCreatorNames } from '../crm/labels'
+import { trashedFromStatus } from '../../../utils/appointmentCatalog'
 
 /**
  * Lectura de citas para el panel (FASES 17-20): la Lista y el Calendario de
@@ -40,6 +42,11 @@ export interface AppointmentFilters {
   /** Cliente: la cita es de ese contacto, directamente o a través de su lead. */
   contactId?: number | null
   leadId?: number | null
+  /**
+   * Cierre D3a: sólo las de la papelera (`deleted_at`), lo último eliminado
+   * primero. Sin él, las de la papelera nunca salen.
+   */
+  trashed?: boolean
   order?: 'asc' | 'desc'
   limit?: number
 }
@@ -110,8 +117,10 @@ function baseSelect(db: any) {
       wantsSecondVisit: V.wantsSecondVisit,
       wantsToOffer: V.wantsToOffer,
       discarded: V.discarded,
+      createdBy: V.createdBy,
       createdAt: V.createdAt,
       updatedAt: V.updatedAt,
+      deletedAt: V.deletedAt,
     })
     .from(V)
     .leftJoin(A, and(eq(A.id, V.agentId), eq(A.organizationId, V.organizationId)))
@@ -177,10 +186,11 @@ export async function attachRelatedOffers(db: any, orgId: number, rows: Array<{ 
 
 /** Citas con los filtros del calendario y de la lista (FASE 20). */
 export async function listAppointments(db: any, orgId: number, f: AppointmentFilters = {}): Promise<AppointmentRow[]> {
-  const conds: SQL[] = [eq(V.organizationId, orgId), isNull(V.deletedAt)]
+  const conds: SQL[] = [eq(V.organizationId, orgId), f.trashed ? isNotNull(V.deletedAt) : isNull(V.deletedAt)]
   if (f.from) conds.push(gte(V.scheduledAt, `${f.from} 00:00:00`))
   if (f.to) conds.push(lte(V.scheduledAt, `${f.to} 23:59:59`))
-  if (f.status && f.status !== 'all') conds.push(eq(V.status, f.status))
+  // En la papelera el estado no filtra: una agendada se guarda cancelada al eliminarla (ver trash.ts).
+  if (f.status && f.status !== 'all' && !f.trashed) conds.push(eq(V.status, f.status))
   if (f.type && f.type !== 'all') conds.push(eq(V.type, f.type))
   if (f.agentId) conds.push(eq(V.agentId, f.agentId))
   if (f.officeId) conds.push(sql`coalesce(${V.officeId}, ${A.officeId}) = ${f.officeId}`)
@@ -194,20 +204,41 @@ export async function listAppointments(db: any, orgId: number, f: AppointmentFil
 
   const rows = await baseSelect(db)
     .where(and(...conds))
-    .orderBy(f.order === 'asc' ? asc(V.scheduledAt) : desc(V.scheduledAt))
+    .orderBy(f.trashed ? desc(V.deletedAt) : f.order === 'asc' ? asc(V.scheduledAt) : desc(V.scheduledAt))
     .limit(Math.min(Math.max(f.limit || 200, 1), 1000))
   const offers = await attachRelatedOffers(db, orgId, rows)
+  if (f.trashed) {
+    // La papelera enseña quién la creó y en qué estado estaba al eliminarla.
+    return (await withCreatorNames(db, orgId, rows as any[])).map((r: any) => ({ ...r, trashedFromStatus: trashedFromStatus(r), offers: offers.get(r.id) || [] }))
+  }
   return rows.map((r: any) => ({ ...r, offers: offers.get(r.id) || [] }))
 }
 
-/** Una cita de esta agencia con todos sus campos (la ficha), o null. */
-export async function getAppointment(db: any, orgId: number, id: number): Promise<AppointmentRow | null> {
+/**
+ * Una cita de esta agencia con todos sus campos (la ficha), o null. Con
+ * quién la creó (`createdByName`, o `createdByDeleted` si ese usuario ya no
+ * existe). Una cita de la papelera no tiene ficha (null → 404), salvo que se
+ * pida a propósito con `includeTrashed`.
+ */
+export async function getAppointment(db: any, orgId: number, id: number, opts: { includeTrashed?: boolean } = {}): Promise<AppointmentRow | null> {
+  const conds: SQL[] = [eq(V.organizationId, orgId), eq(V.id, id)]
+  if (!opts.includeTrashed) conds.push(isNull(V.deletedAt))
   const [row] = await baseSelect(db)
-    .where(and(eq(V.organizationId, orgId), eq(V.id, id)))
+    .where(and(...conds))
     .limit(1)
   if (!row) return null
   const offers = await attachRelatedOffers(db, orgId, [row])
-  return { ...row, offers: offers.get(row.id) || [] }
+  const [labeled] = await withCreatorNames(db, orgId, [row as any])
+  return { ...labeled, offers: offers.get(row.id) || [] }
+}
+
+/** Cuántas citas hay en la papelera (el contador del botón «Papelera»). */
+export async function trashedAppointmentCount(db: any, orgId: number): Promise<number> {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)` })
+    .from(V)
+    .where(and(eq(V.organizationId, orgId), isNotNull(V.deletedAt)))
+  return Number(row?.n ?? 0)
 }
 
 /** Cuántas citas hay en cada estado (los contadores de la Lista). */

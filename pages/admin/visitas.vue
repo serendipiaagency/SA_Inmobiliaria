@@ -10,6 +10,13 @@
         <button v-for="f in filters" :key="f.key" class="rounded-lg border px-3 py-1.5 text-xs font-medium transition" :class="status === f.key ? 'border-ink bg-ink text-white' : 'border-line bg-white text-stone-600 hover:border-stone-300'" @click="status = f.key">
           {{ f.label }} <span class="ml-1 opacity-60">{{ f.key === 'all' ? totalCount : (counts[f.key] || 0) }}</span>
         </button>
+        <!-- Cierre D3a: las citas eliminadas (creadas por error), con «Restaurar». -->
+        <button
+          class="rounded-lg border px-3 py-1.5 text-xs font-medium transition" :class="inTrash ? 'border-ink bg-ink text-white' : 'border-line bg-white text-stone-500 hover:border-stone-300'"
+          data-testid="visitas-trash-toggle" @click="status = inTrash ? 'all' : 'trash'"
+        >
+          Papelera <span class="ml-1 opacity-60">{{ trashedCount }}</span>
+        </button>
       </div>
       <div v-else />
       <div class="flex items-center gap-2">
@@ -169,13 +176,14 @@
             </p>
             <p v-if="t.notes" class="mt-0.5 text-xs text-stone-500">{{ t.notes }}</p>
           </div>
-          <div class="flex shrink-0 items-center gap-2">
+          <div class="flex shrink-0 flex-wrap items-center gap-2">
             <span class="text-xs text-stone-400">{{ t.stops.length }} paradas</span>
+            <button class="btn-quiet !px-2.5 !py-1 text-xs" :data-testid="`tour-${t.id}-add-stop`" @click="tourAddStop = t">+ Parada</button>
             <button class="btn-quiet !px-2.5 !py-1 text-xs" :data-testid="`tour-${t.id}-edit`" @click="tourEdit = t">Editar / reordenar</button>
           </div>
         </div>
         <div class="divide-y divide-line/60">
-          <div v-for="(s, i) in t.stops" :key="s.id" class="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-sm">
+          <div v-for="(s, i) in t.stops" :key="s.id" class="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-sm" :data-testid="`tour-stop-${s.id}`">
             <div class="min-w-0">
               <p class="truncate font-medium">{{ Number(i) + 1 }}. {{ s.propertyName || 'Sin inmueble' }} <span v-if="s.propertyKind" class="text-xs font-normal text-stone-400">· {{ s.propertyKind === 'agent' ? '2ª mano' : 'obra nueva' }}</span></p>
               <p class="truncate text-xs text-stone-400">
@@ -189,7 +197,12 @@
               <AdminStatusPill :status="s.status" />
               <button class="btn-quiet !px-2 !py-1 text-xs" @click="detailId = s.id">Ver</button>
               <button v-if="s.status === 'scheduled'" class="btn-quiet !px-2 !py-1 text-xs" :disabled="busyId === s.id" @click="setStatus(s, 'completed')">Completada</button>
-              <button v-if="s.status === 'scheduled'" class="btn-quiet !px-2 !py-1 text-xs text-red-600" @click="cancelTarget = s">Cancelar</button>
+              <!-- Quitar del tour = su cita queda cancelada con motivo; la última parada activa no se quita (para eso, «Ver» → «Cancelar»). -->
+              <button
+                v-if="s.status === 'scheduled'" class="btn-quiet !px-2 !py-1 text-xs text-red-600" :disabled="activeStopCount(t) <= 1"
+                :title="activeStopCount(t) <= 1 ? 'Es la única parada activa: si la visita ya no se hace, cancela la cita desde «Ver»' : 'Quitar del tour (la cita queda cancelada con su motivo)'"
+                :data-testid="`tour-stop-${s.id}-remove`" @click="removeTarget = { stop: s, tourId: t.id }"
+              >Quitar</button>
               <button v-if="s.status === 'completed'" class="btn-quiet !px-2 !py-1 text-xs" :class="s.outcome ? 'text-emerald-600' : ''" @click="outcomeTarget = s">{{ s.outcome ? 'Editar resultado' : 'Anotar resultado' }}</button>
             </div>
           </div>
@@ -197,8 +210,12 @@
       </AdminPanel>
     </div>
 
-    <!-- LISTA -->
-    <AdminPanel v-else :pad="false">
+    <!-- LISTA (y su papelera, cierre D3a) -->
+    <p v-if="view === 'list' && inTrash" class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800" data-testid="visitas-trash-notice">
+      Citas eliminadas por haberse creado por error. No salen en la agenda, el calendario, el iCal, los recordatorios ni el dashboard, y su hueco queda libre.
+      «Restaurar» la devuelve como estaba (una agendada vuelve a agendada si su comercial sigue libre a esa hora) y queda anotado en su actividad.
+    </p>
+    <AdminPanel v-if="view === 'list'" :pad="false">
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="border-b border-line bg-stone-50 text-left text-[11px] uppercase tracking-wide text-stone-400">
@@ -208,16 +225,18 @@
               <th class="px-4 py-2.5 font-semibold">Propiedad</th>
               <th class="px-4 py-2.5 font-semibold">Comercial</th>
               <th class="px-4 py-2.5 font-semibold">Fecha</th>
-              <th class="px-4 py-2.5 font-semibold">Estado</th>
-              <th class="px-4 py-2.5 font-semibold">Resultado</th>
+              <th class="px-4 py-2.5 font-semibold">{{ inTrash ? 'Estado al eliminarla' : 'Estado' }}</th>
+              <th class="px-4 py-2.5 font-semibold">{{ inTrash ? 'Eliminada' : 'Resultado' }}</th>
               <th class="px-4 py-2.5 font-semibold"/>
             </tr>
           </thead>
           <tbody>
             <tr v-for="v in rows" :key="v.id" class="border-b border-line/60 align-top last:border-0 hover:bg-stone-50" :data-testid="`visit-row-${v.id}`">
               <td class="px-4 py-3">
-                <button class="font-medium hover:underline" @click="detailId = v.id">{{ v.clientName }}</button>
+                <span v-if="inTrash" class="font-medium">{{ v.clientName }}</span>
+                <button v-else class="font-medium hover:underline" @click="detailId = v.id">{{ v.clientName }}</button>
                 <p v-if="v.contactName || v.leadName" class="text-xs text-stone-400">{{ v.contactName || v.leadName }}</p>
+                <CreatedBy v-if="inTrash" class="block" :created-by-name="v.createdByName" :created-by-deleted="v.createdByDeleted" :created-at="v.createdAt" />
               </td>
               <td class="px-4 py-3 text-stone-600">
                 {{ appointmentTypeLabel(v.type) }}
@@ -233,25 +252,32 @@
                 <p v-if="v.officeName" class="text-xs text-stone-400">{{ v.officeName }}</p>
               </td>
               <td class="px-4 py-3 text-stone-600">{{ dt.dateTime(v.scheduledAt) }}<p v-if="v.endsAt" class="text-xs text-stone-400">hasta {{ v.endsAt.slice(11, 16) }}</p></td>
-              <td class="px-4 py-3">
+              <td v-if="inTrash" class="px-4 py-3"><AdminStatusPill :status="v.trashedFromStatus || v.status" /></td>
+              <td v-else class="px-4 py-3">
                 <div class="flex items-center gap-1.5">
                   <AdminStatusPill :status="v.status" />
                   <span v-if="v.status === 'scheduled' && v.confirmationStatus !== 'pending'" class="text-xs text-emerald-600" :title="confirmationLabel(v.confirmationStatus)">✓</span>
                 </div>
                 <p v-if="v.status === 'cancelled' && v.cancellationReason" class="mt-0.5 max-w-[12rem] truncate text-xs text-stone-400" :title="v.cancellationReason">{{ v.cancellationReason }}</p>
               </td>
-              <td class="px-4 py-3"><OutcomeSummary :v="v" compact /></td>
+              <td v-if="inTrash" class="px-4 py-3 text-xs text-stone-500">{{ v.deletedAt ? dt.dateTime(v.deletedAt) : '—' }}</td>
+              <td v-else class="px-4 py-3"><OutcomeSummary :v="v" compact /></td>
               <td class="px-4 py-3 text-right">
-                <div class="flex flex-wrap justify-end gap-1.5">
+                <!-- Papelera: la única acción que tiene sentido es devolverla. -->
+                <div v-if="inTrash" class="flex justify-end">
+                  <button v-if="canEdit" class="btn-quiet !px-2.5 !py-1 text-xs text-emerald-700" :disabled="busyId === v.id" :data-testid="`visit-restore-${v.id}`" @click="restoreVisit(v)">Restaurar</button>
+                </div>
+                <div v-else class="flex flex-wrap justify-end gap-1.5">
                   <button class="btn-quiet !px-2.5 !py-1 text-xs" @click="formAppointment = v">Editar</button>
                   <button v-if="v.status === 'scheduled'" class="btn-quiet !px-2.5 !py-1 text-xs" :disabled="busyId === v.id" @click="setStatus(v, 'completed')">Completada</button>
                   <button v-if="v.status === 'scheduled'" class="btn-quiet !px-2.5 !py-1 text-xs" :disabled="busyId === v.id" @click="setStatus(v, 'no_show')">No asistió</button>
                   <button v-if="v.status === 'scheduled'" class="btn-quiet !px-2.5 !py-1 text-xs text-red-600" :data-testid="`visit-row-${v.id}-cancel`" @click="cancelTarget = v">Cancelar</button>
                   <button v-if="v.status === 'completed'" class="btn-quiet !px-2.5 !py-1 text-xs" :class="v.outcome ? 'text-emerald-600' : ''" :data-testid="`visit-row-${v.id}-outcome`" @click="outcomeTarget = v">{{ v.outcome ? 'Editar resultado' : 'Anotar resultado' }}</button>
+                  <button v-if="canEdit && trashable(v)" class="btn-quiet !px-2.5 !py-1 text-xs text-red-600" :disabled="busyId === v.id" :data-testid="`visit-row-${v.id}-trash`" @click="trashVisit(v)">Eliminar</button>
                 </div>
               </td>
             </tr>
-            <tr v-if="!rows.length"><td colspan="8" class="px-4 py-10 text-center text-stone-400">Sin visitas</td></tr>
+            <tr v-if="!rows.length"><td colspan="8" class="px-4 py-10 text-center text-stone-400" :data-testid="inTrash ? 'visitas-trash-empty' : undefined">{{ inTrash ? 'La papelera está vacía.' : 'Sin visitas' }}</td></tr>
           </tbody>
         </table>
       </div>
@@ -260,6 +286,7 @@
     <AppointmentDetailModal
       v-if="detailId" :id="detailId" :resizable="view === 'calendar'" :refresh-key="detailKey"
       @close="detailId = null" @changed="refreshAll" @edit="(r) => (formAppointment = r)" @outcome="(r) => (outcomeTarget = r)" @cancel="(r) => (cancelTarget = r)"
+      @trashed="detailId = null; refreshAll()"
     />
     <AppointmentFormModal
       v-if="formAppointment" :key="formAppointment.id || 'new'" :appointment="formAppointment.id ? formAppointment : null" :defaults="formAppointment.id ? null : formAppointment" :agents="agents"
@@ -269,6 +296,8 @@
     <VisitOutcomeModal v-if="outcomeTarget" :visit="outcomeTarget" @close="outcomeTarget = null" @saved="onOutcomeSaved" />
     <TourFormModal v-if="tourForm" :agents="agents" :default-agent-id="calFilters.agentId" @close="tourForm = false" @saved="tourForm = false; onSaved('Tour creado')" />
     <TourEditModal v-if="tourEdit" :tour="tourEdit" @close="tourEdit = null" @saved="tourEdit = null; onSaved('Tour guardado')" />
+    <TourStopAddModal v-if="tourAddStop" :tour="tourAddStop" :agents="agents" @close="tourAddStop = null" @saved="tourAddStop = null; onSaved('Parada añadida al tour')" />
+    <CancelAppointmentModal v-if="removeTarget" :appointment="removeTarget.stop" :tour-id="removeTarget.tourId" @close="removeTarget = null" @cancelled="removeTarget = null; onSaved('Parada quitada del tour')" />
   </div>
 </template>
 
@@ -283,6 +312,8 @@ import CancelAppointmentModal from '~/components/admin/appointments/CancelAppoin
 import VisitOutcomeModal from '~/components/admin/appointments/VisitOutcomeModal.vue'
 import TourFormModal from '~/components/admin/appointments/TourFormModal.vue'
 import TourEditModal from '~/components/admin/appointments/TourEditModal.vue'
+import TourStopAddModal from '~/components/admin/appointments/TourStopAddModal.vue'
+import CreatedBy from '~/components/admin/CreatedBy.vue'
 import { loadRelationOptions, type RelationOption } from '~/composables/useRelationOptions'
 import {
   APPOINTMENT_STATUSES,
@@ -300,12 +331,25 @@ definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Visitas — M&M Real Estate' })
 const dt = useDash()
 const toast = useToast()
+const { confirm } = useConfirm()
+const { canWrite } = useAdminPermissions()
+const canEdit = computed(() => canWrite('crm'))
+const route = useRoute()
+const router = useRouter()
 
-const status = ref('all')
-const { data, refresh } = await useFetch<any>('/api/admin/saas/visits', { query: { status } })
+// Cierre D3a: «trash» es la papelera (GET ?trashed=1); queda en la URL como ?bucket=trash.
+const status = ref(route.query.bucket === 'trash' ? 'trash' : 'all')
+const inTrash = computed(() => status.value === 'trash')
+watch(status, (s) => router.replace({ query: { ...route.query, bucket: s === 'trash' ? 'trash' : undefined } }))
+const listQuery = computed(() => (inTrash.value ? { trashed: '1' } : { status: status.value }))
+const { data, refresh } = await useFetch<any>('/api/admin/saas/visits', { query: listQuery })
 const rows = computed<any[]>(() => data.value?.rows || [])
 const counts = ref<Record<string, number>>({})
-watch(data, (d) => { if (d?.counts) counts.value = d.counts }, { immediate: true })
+const trashedCount = ref(0)
+watch(data, (d) => {
+  if (d?.counts) counts.value = d.counts
+  if (d) trashedCount.value = d.trashedCount ?? 0
+}, { immediate: true })
 const totalCount = computed(() => Object.values(counts.value).reduce((a, b) => a + b, 0))
 
 const { data: toursData, refresh: refreshTours } = await useFetch<any>('/api/admin/saas/tours')
@@ -333,6 +377,10 @@ const cancelTarget = ref<any>(null)
 const outcomeTarget = ref<any>(null)
 const tourForm = ref(false)
 const tourEdit = ref<any>(null)
+// Añadir / quitar paradas de un tour ya creado (FASE 18).
+const tourAddStop = ref<any>(null)
+const removeTarget = ref<{ stop: any; tourId: number } | null>(null)
+const activeStopCount = (t: any) => (t.stops || []).filter((s: any) => s.status !== 'cancelled').length
 
 /**
  * FASE 20 — Calendar. No es una segunda agenda: sólo visualiza `visits`
@@ -512,6 +560,47 @@ async function onOutcomeSaved(res: Record<string, any>) {
 }
 
 const busyId = ref<number | null>(null)
+
+/**
+ * Papelera (cierre D3a). Sólo se ofrece «Eliminar» en lo que puede ser un
+ * error (agendada o cancelada, sin tour ni resultado); el servidor tiene la
+ * última palabra y explica con un 409 por qué no (el cliente ya la conoce,
+ * hay ofertas…).
+ */
+function trashable(v: any) {
+  return !v.tourId && !v.outcome && (v.status === 'scheduled' || v.status === 'cancelled')
+}
+async function trashVisit(v: any) {
+  const ok = await confirm(`La cita de «${v.clientName}» del ${dt.dateTime(v.scheduledAt)} sale de la agenda, del calendario, del iCal y de los recordatorios, y su hueco queda libre. No se avisa al cliente: si ya la conoce, cancélala en lugar de eliminarla. Se puede restaurar desde «Papelera».`, {
+    title: '¿Eliminar esta cita creada por error?',
+    confirmLabel: 'Eliminar',
+    danger: true,
+  })
+  if (!ok) return
+  busyId.value = v.id
+  try {
+    await $fetch(`/api/admin/saas/visits/${v.id}`, { method: 'PATCH', body: { deleted: true } })
+    toast.success('Cita enviada a la papelera')
+    await refreshAll()
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'No se pudo eliminar la cita')
+  } finally {
+    busyId.value = null
+  }
+}
+async function restoreVisit(v: any) {
+  busyId.value = v.id
+  try {
+    await $fetch(`/api/admin/saas/visits/${v.id}`, { method: 'PATCH', body: { deleted: false } })
+    toast.success('Cita restaurada')
+    await refreshAll()
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'No se pudo restaurar la cita')
+  } finally {
+    busyId.value = null
+  }
+}
+
 async function setStatus(v: any, next: string) {
   busyId.value = v.id
   try {

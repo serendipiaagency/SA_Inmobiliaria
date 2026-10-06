@@ -33,15 +33,51 @@ import 'leaflet/dist/leaflet.css'
 export function useLeafletMap(container: Ref<HTMLElement | null>, options: L.MapOptions = {}) {
   const map = shallowRef<L.Map | null>(null)
   let resizeObserver: ResizeObserver | null = null
+  let stopWaiting: (() => void) | null = null
+  const readyCallbacks: (() => void)[] = []
 
-  onMounted(() => {
-    if (!container.value) return
+  function init() {
+    if (map.value || !container.value) return
     map.value = L.map(container.value, options)
     resizeObserver = new ResizeObserver(() => map.value?.invalidateSize())
     resizeObserver.observe(container.value)
+    for (const cb of readyCallbacks.splice(0)) cb()
+  }
+
+  onMounted(() => {
+    init()
+    // Un componente `.client` que se monta durante la hidratación (entrar a
+    // la página por un enlace o recargarla) pinta primero el marcador de
+    // posición de Nuxt (nuxt/dist/app/components/client-only.js) y ejecuta
+    // sus onMounted ANTES de pintar su plantilla real: el contenedor todavía
+    // no existe. Antes el mapa no se creaba nunca en ese caso — /mapa salía
+    // vacío al entrar directamente y sólo funcionaba navegando desde otra
+    // página. Ahora se crea en cuanto el contenedor aparece.
+    if (!map.value) {
+      stopWaiting = watch(
+        container,
+        () => {
+          init()
+          if (map.value) stopWaiting?.()
+        },
+        { flush: 'post' },
+      )
+    }
   })
 
+  /**
+   * Lo que el componente tiene que hacer cuando el mapa ya existe (capas,
+   * marcadores, listeners). Sustituye al `onMounted` de cada mapa, que con la
+   * hidratación podía llegar antes que el mapa.
+   */
+  function onMapReady(cb: () => void) {
+    if (map.value) cb()
+    else readyCallbacks.push(cb)
+  }
+
   onBeforeUnmount(() => {
+    stopWaiting?.()
+    readyCallbacks.length = 0
     resizeObserver?.disconnect()
     resizeObserver = null
     // map.remove() ya limpia todas las capas/marcadores/listeners propios —
@@ -51,7 +87,7 @@ export function useLeafletMap(container: Ref<HTMLElement | null>, options: L.Map
     map.value = null
   })
 
-  return { map }
+  return { map, onMapReady }
 }
 
 /** Las tres capas base que usa todo el sistema de mapas — un único sitio para sus URLs, no repetidas por componente. */

@@ -46,6 +46,13 @@ describe('PROPERTY_LIST_CONFIG', () => {
     expect(PROPERTY_LIST_CONFIG.properties.cardToggleEvent).toBe('toggle-sold')
   })
 
+  it.each(RESOURCES)('«%s»: el primer chip es el estado, con la misma etiqueta que su desplegable (la fila lo edita inline)', (resource) => {
+    const c = PROPERTY_LIST_CONFIG[resource]
+    for (const s of c.statusOptions) {
+      expect(c.rowChips({ status: s.value, publishedAt: null, transactionType: 'sale' })[0].label).toBe(s.label)
+    }
+  })
+
   it('todos los tonos de chip usados existen en la tabla de clases', () => {
     const sample = { status: 'sold', publishedAt: null, transactionType: 'rent' }
     for (const resource of RESOURCES) {

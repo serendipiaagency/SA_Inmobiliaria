@@ -407,14 +407,14 @@ test.describe('Bulk Actions — Leads (FASE 28 incremento 3)', () => {
 
   test('cambiar fase reutiliza leads/pipeline.ts#transitionLeadStage — rechaza una fase inválida sin abortar el job', async () => {
     const lead = await createLead()
-    const created = await a.post('/api/admin/lead-bulk-jobs', { data: { action: 'change_stage', params: { stage: 'qualified' }, ids: [lead] } })
+    const created = await a.post('/api/admin/lead-bulk-jobs', { data: { action: 'change_stage', params: { stage: 'qualified', reason: 'Campaña de cualificación' }, ids: [lead] } })
     const finalJob = await runJob(a, (await created.json()).id)
     expect(finalJob.status).toBe('completed')
     const row = await getLead(lead)
     expect(row.stage).toBe('qualified')
 
     const bad = await createLead()
-    const badJob = await a.post('/api/admin/lead-bulk-jobs', { data: { action: 'change_stage', params: { stage: 'not_a_real_stage' }, ids: [bad] } })
+    const badJob = await a.post('/api/admin/lead-bulk-jobs', { data: { action: 'change_stage', params: { stage: 'not_a_real_stage', reason: 'Prueba' }, ids: [bad] } })
     expect((await runJob(a, (await badJob.json()).id)).status).toBe('failed')
   })
 
@@ -483,9 +483,10 @@ test.describe('Bulk Actions — Leads (FASE 28 incremento 3)', () => {
     await page.locator('select').filter({ hasText: 'Elige una fase…' }).selectOption('qualified')
     await page.getByRole('button', { name: 'Aplicar' }).click()
 
-    const dialog = page.getByRole('alertdialog')
-    await expect(dialog).toBeVisible()
-    await dialog.getByRole('button', { name: 'Aplicar' }).click()
+    // «Cambiar fase» pide el motivo (cierre del núcleo, FASE 13): su ventana es la confirmación.
+    await expect(page.getByTestId('lead-stage-reason-modal')).toBeVisible()
+    await page.getByTestId('lead-stage-reason-text').fill('Cualificados en bloque')
+    await page.getByTestId('lead-stage-reason-confirm').click()
 
     await expect(page.getByText(/Acción aplicada a 1 lead/)).toBeVisible({ timeout: 10_000 })
     const updated = await getLead(lead)

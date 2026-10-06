@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { useDb, schema, cfEnv, now } from '../../../../utils/db'
 import { notifyAppointment } from '../../../../utils/appointments/notifications'
 import { rateLimit } from '../../../../utils/rateLimit'
@@ -14,7 +14,8 @@ export default defineEventHandler(async (event) => {
   if (!token) throw createError({ statusCode: 400, statusMessage: 'Missing token' })
 
   const db = useDb(event)
-  const rows = await db.select().from(schema.visits).where(eq(schema.visits.managementToken, token)).limit(1)
+  // Cierre D3a: una cita de la papelera no se gestiona desde el enlace (404, como si no existiera).
+  const rows = await db.select().from(schema.visits).where(and(eq(schema.visits.managementToken, token), isNull(schema.visits.deletedAt))).limit(1)
   const visit = rows[0]
   if (!visit) throw createError({ statusCode: 404, statusMessage: 'Cita no encontrada' })
   if (visit.status !== 'scheduled') throw createError({ statusCode: 422, statusMessage: 'Esta cita ya no está activa' })

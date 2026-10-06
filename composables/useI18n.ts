@@ -22,11 +22,17 @@ export function useI18n() {
     return dict[key] ?? messages.es[key] ?? fallback ?? key
   }
 
+  // `locale` siempre existe («es» por defecto); esta otra dice que la persona
+  // lo ELIGIÓ en el selector. Es lo que permite saber en qué idioma quiere que
+  // la atiendan cuando escribe por un formulario (useVisitorLanguage.ts).
+  const chosen = useCookie<string | null>('locale_chosen', { maxAge: 60 * 60 * 24 * 365, sameSite: 'lax', path: '/' })
+
   function setLocale(next: string) {
     if (!LOCALES.some((l) => l.code === next)) return
     locale.value = next
     cookie.value = next
+    chosen.value = '1'
   }
 
-  return { locale, locales: LOCALES, currentLocale, isRtl, t, setLocale }
+  return { locale, locales: LOCALES, currentLocale, isRtl, t, setLocale, localeChosen: computed(() => String(chosen.value) === '1') }
 }

@@ -73,6 +73,8 @@ describe('retryOutboundMessage — FASE 29 §136', () => {
 
   it('una propiedad fallida se reconstruye en vivo: sale el precio actual, no el del primer intento', async () => {
     const { contact, conversation } = await openConversation()
+    // Agencia en euros (Configuración → Moneda): el texto rehecho cita el precio en su moneda (utils/currency.ts).
+    await db.insert(schema.settings).values({ key: `org:${a.orgId}:currency`, value: 'EUR', updatedAt: '' })
     await db.update(schema.developerProperties).set({ name: 'Torre Sol', slug: 'torre-sol', price: 500000, coverImage: null }).where(eq(schema.developerProperties.id, a.projectId))
     const first = await sendOutbound(db, {
       channel,

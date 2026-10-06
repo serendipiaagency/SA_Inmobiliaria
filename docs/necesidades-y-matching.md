@@ -78,6 +78,13 @@ editor de propiedad.
   Necesidad → inmuebles sólo recorta por tipo cuando es imprescindible; así,
   bajarlo a preferible hace que los otros tipos lleguen al motor y puntúen, y
   las dos direcciones dicen lo mismo.
+- **Estado comercial**: una propiedad cuyo estado comercial común
+  (`property_details.commercial_status`) es vendida, alquilada, retirada o
+  borrador no se ofrece a ningún comprador, aunque la disponibilidad de su
+  catálogo siga «disponible». «Reservada» sí sigue siendo candidata: la
+  reserva puede caerse. Sin estado comercial indicado, decide la
+  disponibilidad del catálogo, como siempre. Lo prueba
+  `test/unit/cierreMatchingEstadoComercial.test.ts`.
 
 ## El motor (`server/utils/matching/engine.ts`, `RULES_VERSION = 2`)
 
@@ -136,6 +143,56 @@ Compatibilidades y la pestaña «Necesidades» del contacto.
 - La ficha del contacto (`GET /api/admin/saas/contacts/:id`) devuelve ahora
   `selections`, con el nombre en vivo de cada propiedad.
 
+## Vista propia de una selección (cierre C2)
+
+Página `pages/admin/contactos/selecciones/[id].vue`
+(`/admin/contactos/selecciones/:id`). Se llega desde la ficha del contacto →
+«Necesidades» → «Selecciones» → título o «Abrir». No está en el menú: es una
+vista de detalle, y al colgar de `/admin/contactos` hereda el área CRM.
+
+Sin ruta nueva: va por el motor genérico, con el recurso
+`property-selections` (área `crm`, `tenantPolicy: direct`) en
+`server/utils/adminResources.ts`. La lógica vive en
+`server/utils/selections/service.ts`.
+
+| Qué | Cómo |
+|---|---|
+| Ver | `GET /api/admin/property-selections/:id` → `{ row }`: la selección con `contact` (nombre, email, teléfono, WhatsApp), `requirement` (si sigue viva) e `items` en su orden, cada uno con `name`, `image`, `price`, `status` + `statusLabel`, `location`, `bedrooms`, `area`, `note`, `trashed` y `missing` (`getPropertySelectionDetail`) |
+| Reordenar | `PUT …/:id` `{ action: 'reorder', itemIds }` — todas, cada una una vez (422 si no) |
+| Quitar | `PUT …/:id` `{ action: 'remove', itemId }` — borra la fila de la selección (nunca la propiedad) y renumera; quitar la última es 422 |
+| Añadir | `PUT …/:id` `{ action: 'add', items: [{ propertyId, propertyKind, note? }] }` — `addItemsToPropertySelection` (de la agencia en SU catálogo 404, papelera 422, sin repetir, máximo 30) |
+| Enviar | Lo hace el panel con el mecanismo real de «Enviar propiedad» (ver abajo) |
+| Crear | `POST /api/admin/property-selections` responde 405: se crean desde una compatibilidad o con INMO |
+
+- **Orden sin migración**: vive en `property_selection_items.position`, la
+  columna que ya escribían el alta y «añadir». No hace falta otra.
+- **Aislamiento**: el recurso pasa por `authorizeRecord` (ajena = 404 en
+  GET, PUT y DELETE) y por la matriz de `multitenant.crossTenant.test.ts`.
+  Los items no llevan `organizationId`: sólo se leen o escriben a través de
+  una selección ya acotada a la agencia, y un item de otra selección es 404.
+  Las propiedades se leen en vivo de su catálogo, siempre de esta agencia, con
+  la lista de ids en un solo parámetro (`inJsonList`).
+- **Activity**: añadir deja `PROPERTY_SELECTION_CREATED` con
+  `created: false` («Ampliada»), como al ampliar una desde una compatibilidad.
+  Si la selección viene de una necesidad, lo añadido pasa a «seleccionado» en
+  su compatibilidad si no había decisión (`markItemsSelectedForRequirement`,
+  el mismo paso que «Crear selección»). Reordenar y quitar quedan en la
+  auditoría (`logAdminAction`).
+- **Enviar como conjunto**
+  (`components/admin/selections/SendSelectionModal.vue`): no hay un envío
+  «de selección» aparte. Es el flujo de «Enviar propiedad» repetido en el
+  orden de la selección: abre la conversación
+  (`POST /api/admin/comms/conversations`) y manda cada ficha
+  (`POST …/:id/share-property`, con `buyerRequirementId` si la selección viene
+  de una necesidad). Reglas:
+  - las de la papelera o que ya no existen no se envían, y se dice;
+  - si una falla, se para ahí y cada fila dice lo que pasó;
+  - sin teléfono en la ficha, o sin número de WhatsApp conectado (409 con el
+    enlace wa.me), lo dice y no envía nada;
+  - el match sólo pasa a «Enviado» cuando el proveedor acepta, igual que
+    siempre. Cada envío aceptado deja `PROPERTY_SENT` en Activity
+    (`sendOutbound`).
+
 ## Interfaz
 
 - `components/admin/requirements/RequirementEditor.vue`: crear y editar, con
@@ -158,3 +215,8 @@ Compatibilidades y la pestaña «Necesidades» del contacto.
   `property_details`, prefiltro por tipo, crear selección/visita, descartar y
   recuperar, enviar sólo hacia delante y aislamiento entre agencias.
 - `tests/e2e/nucleo-n4.spec.ts`: API y panel (editor, ficha de propiedad).
+- `test/unit/cierreC2.test.ts`: la vista de una selección (detalle con foto,
+  precio y estado, reordenar, quitar, añadir con sus reglas, «seleccionado»
+  en la compatibilidad y aislamiento entre agencias).
+- `tests/e2e/cierre-c2.spec.ts`: lo mismo sobre HTTP real, y el panel
+  (abrirla desde la ficha, reordenar, añadir y enviar sin simular nada).

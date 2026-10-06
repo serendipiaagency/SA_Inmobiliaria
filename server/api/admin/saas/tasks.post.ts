@@ -3,6 +3,14 @@ import { useDb } from '../../../utils/db'
 import { createTask, type CreateTaskInput } from '../../../utils/tasks/service'
 import { logAdminAction } from '../../../utils/audit'
 
+/** Oficina opcional (cierre D3a): vacía = la de su responsable; un id mal formado es 422, nunca se ignora. */
+function officeIdOf(v: unknown): number | null {
+  if (v === undefined || v === null || v === '') return null
+  const n = Number(v)
+  if (!Number.isInteger(n) || n <= 0) throw createError({ statusCode: 422, statusMessage: 'Oficina no válida' })
+  return n
+}
+
 /** POST /api/admin/saas/tasks — crear una tarea (FASE 22), desde la ficha de Cliente, Leads, el resultado de una visita o la propia pantalla de Tareas (que ya permite elegir contacto, lead, propiedad, cita y operación — cada una validada en la organización). */
 export default defineEventHandler(async (event) => {
   const { user, orgId } = await requireOrgScope(event)
@@ -25,6 +33,7 @@ export default defineEventHandler(async (event) => {
       propertyKind: body.propertyKind || null,
       appointmentId: body.appointmentId ? Number(body.appointmentId) : null,
       dealId: body.dealId ? Number(body.dealId) : null,
+      officeId: officeIdOf(body.officeId),
     },
     { createdBy: user.id },
   )

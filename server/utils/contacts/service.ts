@@ -290,6 +290,9 @@ export async function updateContact(
   if (input.email !== undefined) patch.email = input.email || null
   if (input.phone !== undefined) patch.phone = input.phone || null
   if (input.whatsapp !== undefined) patch.whatsapp = input.whatsapp || null
+  // Id en otro sistema y de qué sistema es (cierre del núcleo: ya tiene interfaz).
+  if (input.externalSource !== undefined) patch.externalSource = input.externalSource || null
+  if (input.externalId !== undefined) patch.externalId = input.externalId || null
   if (input.language !== undefined) patch.language = input.language || null
   if (input.assignedCommercialId !== undefined) patch.assignedCommercialId = input.assignedCommercialId
   if (input.notes !== undefined) patch.notes = input.notes || null

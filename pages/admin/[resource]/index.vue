@@ -24,7 +24,7 @@
         <tbody>
           <tr v-for="row in data?.rows || []" :key="row.id" class="border-t border-slate-100 hover:bg-slate-50">
             <td v-for="f in meta.listFields" :key="f" class="max-w-xs truncate px-4 py-3" :data-field="f">
-              {{ cell(f, row[f]) }}
+              {{ cell(f, row[f], row) }}
             </td>
             <td class="whitespace-nowrap px-4 py-3 text-right">
               <template v-if="trashed">
@@ -101,10 +101,14 @@ function toggleTrash() {
 
 // Empresas: estado y origen del alta en palabras («Activa», «Registro web»),
 // no el valor guardado. El resto de recursos muestran el dato tal cual.
-function cell(field: string, value: unknown) {
+function cell(field: string, value: unknown, row: Record<string, any> = {}) {
   if (resource.value === 'organizations') return organizationCellLabel(field, value) ?? value
   const fd = meta.value?.fields?.[field]
   if (value === null || value === undefined || value === '') return value
+  // Reglas de enrutado: el valor de una regla de oficina o equipo es su id; se lee por su nombre.
+  if (resource.value === 'lead-routing-rules' && field === 'matchValue' && (row.scope === 'office' || row.scope === 'team')) {
+    return routingMatchLabels[row.scope]?.get(Number(value)) ?? `#${value}`
+  }
   // Un id de otro recurso se lee por su nombre; un valor de desplegable, por su etiqueta.
   if (fd?.relation) return relationLabels[field]?.get(Number(value)) ?? `#${value}`
   if (fd?.optionLabels?.[String(value)]) return fd.optionLabels[String(value)]
@@ -121,6 +125,17 @@ function loadListRelations() {
 }
 onMounted(loadListRelations)
 watch(resource, loadListRelations)
+
+// Nombres de oficinas y equipos para el «Valor a comparar» de las reglas de enrutado.
+const routingMatchLabels = reactive<Record<string, Map<number, string>>>({})
+function loadRoutingMatchLabels() {
+  if (resource.value !== 'lead-routing-rules') return
+  for (const [scope, res] of [['office', 'offices'], ['team', 'teams']] as const) {
+    loadRelationOptions(res).then((rows) => (routingMatchLabels[scope] = new Map(rows.map((r) => [r.id, r.label]))))
+  }
+}
+onMounted(loadRoutingMatchLabels)
+watch(resource, loadRoutingMatchLabels)
 
 const { confirm } = useConfirm()
 const toast = useToast()

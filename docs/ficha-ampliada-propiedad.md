@@ -60,7 +60,8 @@ sirve `properties` y `developer-properties`.
   referencia ajena).
 - `createdBy` de la propiedad lo fija el servidor con el usuario de la sesión.
 - Duplicar una obra nueva copia también su ficha ampliada (salvo el código
-  comercial, igual que la referencia). Borrar definitivamente una propiedad
+  comercial, igual que la referencia, y —desde el cierre D1p— el estado
+  comercial: la copia nace sin publicar ni reservar). Borrar definitivamente una propiedad
   (`DELETE …?hard=1`, desde la Papelera) borra su ficha ampliada; el
   `DELETE` normal sólo la manda a la Papelera (ver más abajo).
 
@@ -73,6 +74,52 @@ precio y la fecha, el **precio anterior**, **quién** lo cambió (`changed_by`,
 que admite un precio fijo o un **porcentaje** sobre el precio de cada
 propiedad (entre −90 % y +500 %). Las filas anteriores a 0086 no tienen esos
 datos y se ven como «—».
+
+## Moneda (FASE 5, cierre D3b)
+
+Antes cada pantalla decidía su moneda: «AED» fijo en `useDash().money` (y con
+él presupuestos de leads, operaciones, facturas…), en el mapa, los filtros y
+la ficha pública, en la IA y en el SEO; «€» fijo en el listado y las tarjetas
+del panel, en el alta de lead, en emails, WhatsApp, contratos y PDF; y la
+moneda que se elegía en Configuración no la leía nadie. La regla única vive
+en `utils/currency.ts` (compartido por cliente y servidor):
+
+1. **La fuente de verdad es el ajuste `currency` de la agencia**
+   (Sistema → Configuración → Moneda; clave `org:<id>:currency` de
+   `settings`, y la anterior al espacio de nombres para la agencia 1, igual
+   que la zona horaria). Sólo se aceptan los códigos que la plataforma sabe
+   pintar y convertir (AED, EUR, USD, GBP, CNY): otro valor es 422.
+2. **Los importes se guardan en esa moneda**: nunca se convierten al guardar
+   ni al leer. El panel (`useAgencyCurrency()`, `useDash().money`) y el
+   servidor (`organizationCurrency()` en `server/utils/currency.ts`: IA,
+   INMO —se le dice en qué moneda están los importes—, matching, resumen de la necesidad, WhatsApp, contratos, alertas de
+   búsquedas guardadas, Asset Export) formatean con ella en castellano
+   (`formatMoney`: «1.250.000 €», «1.250.000 AED»).
+3. **Web pública**: la moneda base es la de la agencia, que expone
+   `/api/public/tenant` (`currency`). El selector del visitante (cookie
+   `display_currency`; la antigua `currency` se escribía siempre con «AED» y
+   se deja de leer) sólo cambia cómo se enseña: convierte desde la base con
+   tasas orientativas **relativas** (`perUsd`, `convertAmount`), no «desde
+   AED». Los filtros de precio siguen en la moneda base, que es en la que
+   filtra el API; el presupuesto que escribe un visitante en «Reservar cita»
+   se convierte a la base antes de guardarse. SEO y schema.org van siempre en
+   la base. El widget incrustable convierte igual desde la base
+   (`data-currency` opcional).
+4. **Registros con moneda propia** (ofertas, operaciones del pipeline,
+   depósitos de Stripe) se enseñan con la suya (`formatAmount`). Una oferta
+   nueva sin moneda toma la de la agencia si la eligió; si nunca la eligió,
+   `eur` como antes (`defaultRecordCurrency`). Los depósitos de Stripe no
+   cambian: cobran en `eur` salvo que se indique otra (es dinero real; el
+   formulario lo dice).
+5. **Agencia sin ajuste: AED** (`DEFAULT_AGENCY_CURRENCY`), lo que ya
+   enseñaban Configuración, la web pública y `useDash` por defecto — igual
+   que `DEFAULT_AGENCY_TIMEZONE` es Asia/Dubái. No se ha migrado ni
+   convertido ningún dato: una agencia que trabaja en euros elige EUR y desde
+   ese momento todo sale en euros.
+
+Quedan con «€» a propósito: la landing de la plataforma (`pages/index.vue`,
+maquetas de marketing, no datos de ninguna agencia), los ejemplos de texto
+de INMO y de la Ayuda, y el formulario de depósitos (punto 4).
 
 ## Papelera
 
@@ -232,6 +279,108 @@ galería, los planos y el resto de tablas hijas siguen editables como hasta
 ahora. Borrar definitivamente una propiedad libera además los ficheros de
 sus fotos, planos y multimedia (si nadie más de la agencia los usa) y se
 lleva sus documentos con sus ficheros.
+
+## Cierre D1p — estado comercial, fechas, renta, comunidad y autor
+
+Sin migración ni rutas nuevas: todo va por el motor genérico
+(`[resource]/index.get.ts`, `index.post.ts`, `[id].put.ts`) y las acciones
+masivas.
+
+### Estado comercial común frente al `status` de cada catálogo
+
+Había tres datos que se llamaban «estado». Ahora cada uno tiene su nombre y su
+sitio, y ninguno se reescribe en bloque:
+
+| Dato | Dónde | Rótulo | Valores |
+|---|---|---|---|
+| Estado comercial (común) | `property_details.commercial_status` | «Estado comercial» | disponible, reservada, vendida, alquilada, retirada, borrador |
+| `status` de obra nueva | `developer_properties.status` | «Estado de la obra» | obra nueva, en construcción, lista |
+| `status` de 2ª mano | `agent_properties.status` | «Disponibilidad» | disponible, vendida (la que lee el matching) |
+| `is_reserved` (los dos) | fila | «Reservada» (lo que enseña la web) | sí / no |
+
+El estado comercial se filtra (`commercialStatus=reserved,none`), se ve como
+columna y chip en el listado, se edita desde la fila (mismo `PUT` del editor) y
+en bloque («Cambiar estado comercial», ver [`bulk-actions.md`](./bulk-actions.md)).
+El resumen de la ficha lo enseña arriba y, debajo, «Estado de la obra: …» o
+«Disponibilidad: …».
+
+Reglas de convivencia (`utils/propertyCommercialStatus.ts`, las mismas en el
+servidor —`server/utils/properties/commercialStatus.ts`— y en el editor y el
+listado). Sólo se aplican **al cambiar** uno de estos datos:
+
+1. Cambiar el estado comercial ajusta «Reservada»: la marca con «Reservada» y
+   la quita con cualquier otro.
+2. En 2ª mano, el estado comercial «Vendida» o «Disponible» pone igual la
+   disponibilidad (los dos únicos valores comunes). Con reservada, alquilada,
+   retirada o borrador, la disponibilidad no cambia.
+3. En 2ª mano, pasar la disponibilidad a «Vendida» (a mano, desde la fila, en
+   bloque o al cerrar una operación de venta) pasa a «Vendida» un estado
+   comercial ya indicado; uno vacío se queda vacío (no se inventa). Volver a
+   «Disponible» devuelve a «Disponible» un estado comercial «Vendida».
+
+El estado de la obra nunca se toca desde el estado comercial: es la fase de la
+construcción, no si se puede vender. Las fichas existentes con datos que no
+cuadran (p. ej. «Reservada» marcada y estado comercial vacío) se quedan como
+están hasta que alguien cambie el estado comercial.
+
+Pendiente (no se pidió en este cierre): el matching sigue filtrando 2ª mano por
+la disponibilidad, no por el estado comercial; una propiedad «Retirada» o
+«Alquilada» con disponibilidad «Disponible» se sigue ofreciendo.
+
+### Fechas de captación y de exclusiva
+
+Columnas de texto (0068) que el editor pedía como texto libre. Ahora:
+
+- El editor usa un selector de fecha. Si la ficha tenía «15/03/2025», el
+  selector enseña esa fecha y un aviso de cómo se lee; no se reescribe hasta
+  que alguien elige la fecha.
+- El servidor exige `AAAA-MM-DD` de calendario **sólo al cambiar** la fecha
+  (`assertPropertyDatesOnSave`); al crear, todo es un cambio. El vencimiento
+  de la exclusiva no puede quedar antes del inicio.
+- Los formatos antiguos habituales se leen igual en todas partes:
+  `parsePropertyDate` (`utils/propertyDates.ts`: ISO con o sin hora,
+  `dd/mm/aaaa`, `d/m/aaaa`, con `/`, `-` o `.`, y `aaaa/mm/dd`) y su gemela
+  en SQL, `normalizedDateSql` (searchService.ts, sólo `trim`/`replace`/
+  `substr`/`GLOB`, sin parámetros). Las usan `exclusivityState` (aviso de
+  exclusiva caducada o que caduca en 30 días), el filtro «Vencimiento de la
+  exclusiva» (`exclusivity=expired|expiring`) y «Captada desde/hasta», que ya
+  comparan fechas y no texto. Una fecha imposible en SQL (31/02) no se
+  valida: compara como texto normalizado; en JS es «no es una fecha».
+
+### Dormitorios
+
+`bedrooms` se rotula «Dormitorios» en todo el panel (editor, listado, filtro
+«Dormitorios (mín.)», tarjetas, resumen del editor y el editor de
+necesidades). «Habitaciones (total de estancias)» (`rooms_total`) es otro
+dato. La web pública sigue diciendo «Habitaciones» (es lo habitual en los
+portales y allí no aparece el total de estancias, así que no confunde).
+
+### Renta mensual
+
+Con `transactionType = rent`, `price` es la renta de cada mes (sin columna
+nueva). El editor rotula el campo «Renta mensual» (`FieldSpec.labelFor`); el
+listado, las tarjetas, la cabecera y el resumen añaden «/mes»; el precio por
+m² pasa a «€/m²·mes» (`priceSuffixFor`, `pricePerM2SuffixFor`).
+
+### Comunidad: un solo campo
+
+`service_charge_annual` («Gastos de comunidad anuales», en la fila desde
+antes de la ficha ampliada) y `community_fee_monthly` («Comunidad (mensual)»,
+ficha ampliada) decían lo mismo. Decisión: la comunidad se escribe en
+«Comunidad (mensual)» (Precio → Gastos del inmueble). El campo anual no se
+borra ni se convierte (convertir anual → mensual sería inventar un redondeo):
+sólo aparece, como «Gastos de comunidad anuales (dato anterior)» y con su
+explicación, en las fichas que **ya lo tenían relleno al abrirlas**
+(`FieldSpec.legacyOnly`). Vaciarlo lo hace desaparecer la próxima vez. La
+casilla antigua «Reservada» sigue el mismo criterio: sólo se ve en las fichas
+que la tenían marcada, porque ahora la marca el estado comercial.
+
+### Quién y cuándo
+
+El resumen de la ficha (`?view=summary`) devuelve `createdBy`, `createdAt` y
+`createdByName`, y la cabecera dice «Creada por X el Y». El nombre sólo se
+resuelve si el usuario es de la agencia o super_admin (como el histórico de
+precios); las fichas anteriores a N1 no tienen autor y lo dicen.
 
 ## Deriva conocida de producción
 

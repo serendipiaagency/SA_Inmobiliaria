@@ -34,7 +34,7 @@
           <input v-model="form.agentName" class="cfg-input" placeholder="Nombre del comercial" >
         </label>
         <label class="block">
-          <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Valor de la operación (€)</span>
+          <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Valor de la operación ({{ currencyLabel }})</span>
           <input v-model.number="form.dealValue" type="number" min="0" step="1000" class="cfg-input" >
         </label>
         <label class="block">
@@ -99,6 +99,8 @@
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Cierres y comisiones — M&M Real Estate' })
 const dt = useDash()
+// Importes en la moneda de la agencia (utils/currency.ts) — antes «€» en el rótulo y «AED» en la tabla.
+const { symbol: currencyLabel } = useAgencyCurrency()
 const toast = useToast()
 
 interface Deal {

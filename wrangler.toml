@@ -58,6 +58,14 @@ SESSION_TTL_DAYS = "7"
 # PLATFORM_EMAIL_REPLY_TO = "info@serendipiaagency.com"
 # PLATFORM_ADMIN_NOTIFY_EMAILS = "info@serendipiaagency.com"
 # PLATFORM_BASE_URL = "https://sa-inmobiliaria.example"
+#
+# Email ENTRANTE (FASE 29, docs/communications.md «Email entrante»): el dominio
+# o subdominio con Cloudflare Email Routing cuya regla respuestas@<dominio>
+# envía al Worker. Con él y el secreto INBOUND_EMAIL_SECRET
+# (`wrangler secret put INBOUND_EMAIL_SECRET`, >= 32 caracteres aleatorios),
+# el email de un hilo web sale con un Reply-To firmado de ese hilo y la
+# respuesta del cliente vuelve a él. Sin los dos, nada cambia.
+# INBOUND_EMAIL_DOMAIN = "respuestas.serendipiaagency.com"
 
 [observability]
 enabled = true
@@ -129,6 +137,9 @@ bucket_name = "sa-inmobiliaria-media-staging"
 
 [env.staging.vars]
 SESSION_TTL_DAYS = "7"
+# Email entrante en staging: OTRO dominio/subdominio y otro INBOUND_EMAIL_SECRET
+# (`wrangler secret put INBOUND_EMAIL_SECRET --env staging`).
+# INBOUND_EMAIL_DOMAIN = "respuestas-staging.serendipiaagency.com"
 
 [env.staging.observability]
 enabled = true

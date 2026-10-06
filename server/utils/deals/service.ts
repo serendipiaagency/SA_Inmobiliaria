@@ -1,13 +1,14 @@
-import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, ne } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gt, inArray, isNotNull, isNull, ne } from 'drizzle-orm'
 import { createError } from 'h3'
 import * as schema from '../../db/schema'
 import { now } from '../db'
 import { recordActivity } from '../activity/service'
 import type { PropertyKind } from '../matching/service'
 import { assertLiveProperty } from '../properties/trash'
-import { contactNames, officeNames, propertyNameOf, propertyNames, teamMemberNames, userNames } from '../crm/labels'
+import { contactNames, officeNames, propertyNameOf, propertyNames, teamMemberNames, userNames, withCreatorNames } from '../crm/labels'
 import { selectInChunks } from '../sqlChunks'
 import { DEAL_RECORD_KINDS, DEAL_STAGES, DEAL_STATUSES } from '../../../utils/pipelineCatalog'
+import { syncCommercialStatusAfterAvailability } from '../properties/commercialStatus'
 
 /**
  * DealService (FASE 24) — el único sitio que crea o transiciona un Deal
@@ -97,7 +98,13 @@ export async function createDeal(db: any, orgId: number, input: { acceptedOfferI
   if (!offer) throw createError({ statusCode: 404, statusMessage: 'Oferta no encontrada' })
   if (offer.status !== 'accepted') throw createError({ statusCode: 422, statusMessage: 'Sólo se puede crear una operación a partir de una oferta aceptada' })
 
-  const existing = await db.select({ id: schema.dealOperations.id }).from(schema.dealOperations).where(eq(schema.dealOperations.acceptedOfferId, offer.id)).limit(1)
+  const existing = await db
+    .select({ id: schema.dealOperations.id, deletedAt: schema.dealOperations.deletedAt })
+    .from(schema.dealOperations)
+    .where(eq(schema.dealOperations.acceptedOfferId, offer.id))
+    .limit(1)
+  // Una operación en la papelera sigue ocupando su oferta (índice único): se restaura, no se crea otra.
+  if (existing[0]?.deletedAt) throw createError({ statusCode: 409, statusMessage: `La operación #${existing[0].id} de esta oferta está en la papelera: restáurala desde Operaciones → Papelera` })
   if (existing[0]) throw createError({ statusCode: 409, statusMessage: 'Ya existe una operación para esta oferta' })
   // Una operación nueva sobre una propiedad en la papelera, no. Las que ya
   // existían siguen avanzando y cerrándose (historia).
@@ -168,6 +175,9 @@ async function syncPropertyStatusOnClose(db: any, orgId: number, propertyId: num
   const rows = await db.select({ transactionType: schema.agentProperties.transactionType }).from(schema.agentProperties).where(and(eq(schema.agentProperties.id, propertyId), eq(schema.agentProperties.organizationId, orgId))).limit(1)
   if (rows[0]?.transactionType === 'sale') {
     await db.update(schema.agentProperties).set({ status: 'sold' }).where(eq(schema.agentProperties.id, propertyId))
+    // Cierre D1p: un estado comercial ya indicado («Reservada», «Disponible»…)
+    // pasa a «Vendida», como al marcarla vendida a mano (utils/propertyCommercialStatus.ts).
+    await syncCommercialStatusAfterAvailability(db, orgId, propertyId, 'sold', null)
   }
 }
 
@@ -361,6 +371,99 @@ export async function unlinkDealRecord(db: any, orgId: number, dealId: number, k
   return { kind, id: recordId, dealOperationId: null }
 }
 
+/** Cuántas reservas, arras y contratos de esta organización apuntan a la operación (una consulta por tabla, un parámetro de id cada una). */
+async function linkedRecordCounts(db: any, orgId: number, dealId: number): Promise<Record<DealRecordKind, number>> {
+  const out = { reservation: 0, deposit: 0, contract: 0 } as Record<DealRecordKind, number>
+  for (const kind of DEAL_RECORD_KINDS) {
+    const t = recordTable(kind)
+    const [row] = await db
+      .select({ n: count() })
+      .from(t)
+      .where(and(eq(t.organizationId, orgId), eq(t.dealOperationId, dealId)))
+    out[kind] = Number(row?.n) || 0
+  }
+  return out
+}
+
+function plural(n: number, one: string, many: string) {
+  return `${n} ${n === 1 ? one : many}`
+}
+
+/**
+ * Manda la operación a la papelera (`deletedAt`, cierre C1): sale del
+ * Kanban, del listado y de la ficha (404), pero no se borra nada —
+ * historial de etapas, vendedores, tareas, citas y Activity siguen ahí, y
+ * su oferta aceptada sigue ocupada (una por oferta): para recuperarla se
+ * restaura, no se crea otra.
+ *
+ * Qué la bloquea (409, con el motivo), y por qué:
+ *  - **Cerrada.** `closeDeal()` ya tuvo efectos fuera de la operación: creó
+ *    su apunte en la tabla legacy `deals` («Cierres y comisiones», Ingresos)
+ *    y, en una venta de 2ª mano, marcó el inmueble como vendido. Esconderla
+ *    dejaría un cierre y una comisión sin la operación que los explica.
+ *  - **Con reserva, arras o contrato vinculados.** Son documentos con valor
+ *    legal o contable que siguen apuntando a la operación (Reservas,
+ *    Depósitos y Contratos enseñan «Operación #…»): apuntarían a algo que
+ *    ya no se puede abrir. Se desvinculan antes, a propósito y con su
+ *    propio evento. Las arras y los contratos son del área Finanzas: a quien
+ *    no puede leerla no se le detallan, sólo se le dice que existen.
+ *
+ * Activa o cancelada y sin documentos vinculados (lo normal en una
+ * operación abierta por error o que no salió) se puede mandar a la papelera.
+ */
+export async function trashDeal(db: any, orgId: number, dealId: number, actor: ActorOpts, opts: { includeFinance?: boolean } = {}): Promise<DealRow> {
+  const deal = await getDealOrThrow(db, orgId, dealId)
+  if (deal.status === 'closed') {
+    throw createError({ statusCode: 409, statusMessage: 'Una operación cerrada no se manda a la papelera: ya tiene su apunte en «Cierres y comisiones» y forma parte de la historia de la agencia.' })
+  }
+  const counts = await linkedRecordCounts(db, orgId, dealId)
+  if (counts.reservation || counts.deposit || counts.contract) {
+    const parts: string[] = []
+    if (counts.reservation) parts.push(plural(counts.reservation, 'reserva', 'reservas'))
+    if (opts.includeFinance) {
+      if (counts.deposit) parts.push(plural(counts.deposit, 'arras / depósito', 'arras / depósitos'))
+      if (counts.contract) parts.push(plural(counts.contract, 'contrato', 'contratos'))
+    } else if (counts.deposit || counts.contract) {
+      parts.push('documentos de Finanzas (arras o contratos) que sólo puede desvincular alguien con acceso a Finanzas')
+    }
+    throw createError({ statusCode: 409, statusMessage: `Tiene vinculados ${parts.join(' y ')}: desvincúlalos antes en «Reserva, arras y contratos» de su ficha.` })
+  }
+  const nowTs = now()
+  await db
+    .update(schema.dealOperations)
+    .set({ deletedAt: nowTs, updatedAt: nowTs })
+    .where(and(eq(schema.dealOperations.id, dealId), eq(schema.dealOperations.organizationId, orgId), isNull(schema.dealOperations.deletedAt)))
+  const updated: DealRow = { ...deal, deletedAt: nowTs, updatedAt: nowTs }
+  await recordDealActivity(db, orgId, updated, 'DEAL_TRASHED', actor, { status: deal.status, stage: deal.stage })
+  return updated
+}
+
+/**
+ * Saca la operación de la papelera tal cual estaba (misma etapa, estado,
+ * comercial y oficina) y registra DEAL_RESTORED. De otra agencia o
+ * inexistente = 404; si no está en la papelera se devuelve sin tocar.
+ * Su inmueble no se vuelve a juzgar: aunque esté en la papelera, la
+ * operación ya existía (historia, igual que las que siguen avanzando).
+ */
+export async function restoreDeal(db: any, orgId: number, dealId: number, actor: ActorOpts): Promise<DealRow> {
+  const rows = await db
+    .select()
+    .from(schema.dealOperations)
+    .where(and(eq(schema.dealOperations.id, dealId), eq(schema.dealOperations.organizationId, orgId)))
+    .limit(1)
+  const deal: DealRow | undefined = rows[0]
+  if (!deal) throw createError({ statusCode: 404, statusMessage: 'Operación no encontrada' })
+  if (!deal.deletedAt) return deal
+  const nowTs = now()
+  await db
+    .update(schema.dealOperations)
+    .set({ deletedAt: null, updatedAt: nowTs })
+    .where(and(eq(schema.dealOperations.id, dealId), eq(schema.dealOperations.organizationId, orgId)))
+  const updated: DealRow = { ...deal, deletedAt: null, updatedAt: nowTs }
+  await recordDealActivity(db, orgId, updated, 'DEAL_RESTORED', actor)
+  return updated
+}
+
 export interface ListDealsFilter {
   propertyId?: number
   propertyKind?: PropertyKind
@@ -371,11 +474,13 @@ export interface ListDealsFilter {
   officeId?: number
   status?: DealStatus
   stage?: DealStage
+  /** Cierre C1: sólo las de la papelera (la vista «Papelera» de Operaciones). Sin él, nunca salen. */
+  trashed?: boolean
 }
 
-/** Operaciones de la organización (nunca las borradas), más recientes primero. */
+/** Operaciones de la organización (nunca las borradas, salvo que se pida la papelera con `trashed`), más recientes primero. */
 export async function listDeals(db: any, orgId: number, filter: ListDealsFilter = {}): Promise<DealRow[]> {
-  const conditions = [eq(schema.dealOperations.organizationId, orgId), isNull(schema.dealOperations.deletedAt)]
+  const conditions = [eq(schema.dealOperations.organizationId, orgId), filter.trashed ? isNotNull(schema.dealOperations.deletedAt) : isNull(schema.dealOperations.deletedAt)]
   if (filter.propertyId) {
     conditions.push(eq(schema.dealOperations.propertyId, filter.propertyId))
     if (filter.propertyKind) conditions.push(eq(schema.dealOperations.propertyKind, filter.propertyKind))
@@ -480,7 +585,8 @@ export async function getDealDetail(db: any, orgId: number, dealId: number, opts
     db
       .select()
       .from(schema.visits)
-      .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.dealId, dealId)))
+      // Cierre D3a: sin las citas de la papelera.
+      .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.dealId, dealId), isNull(schema.visits.deletedAt)))
       .orderBy(desc(schema.visits.scheduledAt)),
     db.select().from(schema.tasks).where(liveDealTasks).orderBy(desc(schema.tasks.id)),
     db
@@ -500,7 +606,7 @@ export async function getDealDetail(db: any, orgId: number, dealId: number, opts
   const [nextVisit] = await db
     .select({ type: schema.visits.type, scheduledAt: schema.visits.scheduledAt })
     .from(schema.visits)
-    .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.dealId, dealId), eq(schema.visits.status, 'scheduled'), gt(schema.visits.scheduledAt, nowTs)))
+    .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.dealId, dealId), eq(schema.visits.status, 'scheduled'), gt(schema.visits.scheduledAt, nowTs), isNull(schema.visits.deletedAt)))
     .orderBy(asc(schema.visits.scheduledAt))
     .limit(1)
   let nextAction: { type: string; at: string } | null = null
@@ -508,15 +614,17 @@ export async function getDealDetail(db: any, orgId: number, dealId: number, opts
   else if (nextVisit) nextAction = { type: `appointment:${nextVisit.type}`, at: nextVisit.scheduledAt }
 
   const sellerContactIds: number[] = sellerRows.map((r: any) => r.contactId)
-  const [[labeled], sellerNames, actorNames, records] = await Promise.all([
+  const [[labeled], sellerNames, actorNames, records, [creator]] = await Promise.all([
     withDealLabels(db, orgId, [deal]),
     contactNames(db, orgId, sellerContactIds),
     userNames(db, orgId, (stageHistory as any[]).filter((h) => h.actorType === 'user').map((h) => h.actorId)),
     dealRecords(db, orgId, dealId, !!opts.includeFinance),
+    // Quién la abrió (cierre D3a): nombre del usuario de la agencia o «usuario eliminado».
+    withCreatorNames(db, orgId, [{ createdBy: deal.createdBy }]),
   ])
 
   return {
-    deal: labeled,
+    deal: { ...labeled, createdByName: creator.createdByName, createdByDeleted: creator.createdByDeleted },
     sellerContactIds,
     sellers: sellerContactIds.map((id) => ({ id, name: sellerNames.get(id) ?? null })),
     stageHistory: (stageHistory as any[]).map((h) => ({ ...h, actorName: h.actorType === 'user' && h.actorId ? (actorNames.get(h.actorId) ?? null) : null })),

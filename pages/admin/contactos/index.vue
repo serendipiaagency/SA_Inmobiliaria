@@ -7,16 +7,16 @@
           Las personas. Un contacto puede tener varias necesidades a la vez y varios leads a lo largo del tiempo.
         </p>
       </div>
-      <button type="button" class="dash-btn-primary shrink-0" @click="showCreate = !showCreate">
+      <button type="button" class="dash-btn-primary shrink-0" data-testid="contact-new-toggle" @click="showCreate = !showCreate">
         {{ showCreate ? 'Cancelar' : 'Nuevo contacto' }}
       </button>
     </div>
 
-    <AdminPanel v-if="showCreate" title="Nuevo contacto" class="mb-6">
+    <AdminPanel v-if="showCreate" title="Nuevo contacto" class="mb-6" data-testid="contact-new-form">
       <div class="grid gap-4 sm:grid-cols-2">
         <label class="block">
           <span class="cfg-label">Nombre</span>
-          <input v-model="form.name" class="cfg-input" @blur="checkDuplicates" >
+          <input v-model="form.name" class="cfg-input" data-testid="contact-new-name" @blur="checkDuplicates" >
         </label>
         <label class="block">
           <span class="cfg-label">Tipo</span>
@@ -27,40 +27,61 @@
         </label>
         <label class="block">
           <span class="cfg-label">Email</span>
-          <input v-model="form.email" type="email" class="cfg-input" @blur="checkDuplicates" >
+          <input v-model="form.email" type="email" class="cfg-input" data-testid="contact-new-email" @blur="checkDuplicates" >
         </label>
         <label class="block">
           <span class="cfg-label">Teléfono</span>
-          <input v-model="form.phone" class="cfg-input" placeholder="+34 600 11 22 33" @blur="checkDuplicates" >
+          <input v-model="form.phone" class="cfg-input" placeholder="+34 600 11 22 33" data-testid="contact-new-phone" @blur="checkDuplicates" >
         </label>
+        <!-- Cierre del núcleo (FASE 14): WhatsApp e id externo también cuentan para detectar duplicados. -->
+        <label class="block">
+          <span class="cfg-label">WhatsApp</span>
+          <input v-model="form.whatsapp" class="cfg-input" placeholder="Si es distinto del teléfono" data-testid="contact-new-whatsapp" @blur="checkDuplicates" >
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="block">
+            <span class="cfg-label">Id externo: sistema</span>
+            <input v-model="form.externalSource" class="cfg-input" placeholder="Idealista, CRM anterior…" data-testid="contact-new-external-source" @blur="checkDuplicates" >
+          </label>
+          <label class="block">
+            <span class="cfg-label">Id externo</span>
+            <input v-model="form.externalId" class="cfg-input" placeholder="Su id en ese sistema" data-testid="contact-new-external-id" @blur="checkDuplicates" >
+          </label>
+        </div>
       </div>
 
-      <div v-if="duplicates.length" class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      <div v-if="duplicates.length" class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" data-testid="contact-new-duplicates">
         <p class="font-medium">
           {{ duplicates.length === 1 ? 'Puede que este contacto ya exista' : 'Puede que este contacto ya exista (varios candidatos)' }}
         </p>
-        <ul class="mt-2 space-y-1.5">
-          <li v-for="d in duplicates" :key="d.contactId" class="flex items-center justify-between gap-3">
-            <span>
+        <ul class="mt-2 space-y-2">
+          <li v-for="d in duplicates" :key="d.contactId" class="flex flex-wrap items-center justify-between gap-2" :data-testid="`contact-duplicate-${d.contactId}`">
+            <span class="min-w-0">
               <NuxtLink :to="`/admin/contactos/${d.contactId}`" class="font-medium underline">{{ d.name }}</NuxtLink>
               <span class="text-amber-700"> · coincide el {{ d.matchedOn }}</span>
               <span v-if="d.level === 'possible'" class="text-amber-700"> (coincidencia débil)</span>
             </span>
+            <span class="flex shrink-0 gap-2">
+              <NuxtLink :to="`/admin/contactos/${d.contactId}`" class="rounded border border-amber-400 bg-white px-2 py-0.5 text-[12px] font-medium" :data-testid="`contact-duplicate-open-${d.contactId}`">Abrir</NuxtLink>
+              <button type="button" class="rounded border border-amber-400 bg-white px-2 py-0.5 text-[12px] font-medium" :disabled="creating" :data-testid="`contact-duplicate-unify-${d.contactId}`" @click="unify(d.contactId)">
+                Unificar
+              </button>
+            </span>
           </li>
         </ul>
         <p class="mt-2 text-xs text-amber-700">
-          Nada se fusiona automáticamente: abre el existente para usarlo, o crea uno nuevo igualmente si de verdad es otra persona.
+          Nada se fusiona automáticamente. «Unificar» completa ese contacto con los datos que acabas de escribir y que le falten (nunca cambia los que ya tiene) y lo abre; «Crear igualmente» si de verdad es otra persona.
         </p>
       </div>
 
-      <div class="mt-4 flex items-center gap-3">
-        <button type="button" class="dash-btn-primary" :disabled="creating" @click="create(false)">
+      <div class="mt-4 flex flex-wrap items-center gap-3">
+        <button type="button" class="dash-btn-primary" :disabled="creating" data-testid="contact-new-save" @click="create(false)">
           {{ creating ? 'Creando…' : 'Crear contacto' }}
         </button>
-        <button v-if="duplicates.length" type="button" class="dash-btn-secondary" :disabled="creating" @click="create(true)">
+        <button v-if="duplicates.length" type="button" class="dash-btn-secondary" :disabled="creating" data-testid="contact-new-force" @click="create(true)">
           Crear igualmente
         </button>
-        <span v-if="error" class="text-sm font-medium text-red-600">{{ error }}</span>
+        <span v-if="error" class="text-sm font-medium text-red-600" data-testid="contact-new-error">{{ error }}</span>
       </div>
     </AdminPanel>
 
@@ -151,14 +172,16 @@ const showCreate = ref(false)
 const creating = ref(false)
 const error = ref('')
 const duplicates = ref<any[]>([])
-const form = reactive({ name: '', kind: 'person', email: '', phone: '' })
+const EMPTY_FORM = { name: '', kind: 'person', email: '', phone: '', whatsapp: '', externalSource: '', externalId: '' }
+const form = reactive({ ...EMPTY_FORM })
 
 /**
  * Se consulta mientras se rellena el formulario, no sólo al enviar: es mejor
  * enseñar el contacto que ya existe antes de que alguien lo escriba entero.
+ * Cuentan email, teléfono, WhatsApp e id externo (con su sistema).
  */
 async function checkDuplicates() {
-  if (!form.name && !form.email && !form.phone) {
+  if (!form.name && !form.email && !form.phone && !form.whatsapp && !form.externalId) {
     duplicates.value = []
     return
   }
@@ -177,17 +200,43 @@ async function create(force: boolean) {
     await $fetch('/api/admin/saas/contacts', { method: 'POST', body: { ...form, force } })
     showCreate.value = false
     duplicates.value = []
-    Object.assign(form, { name: '', kind: 'person', email: '', phone: '' })
+    Object.assign(form, EMPTY_FORM)
     await refresh()
     toast.success('Contacto creado')
   } catch (err: any) {
     // 409 = hay candidatos; se muestran en vez de tratarlo como un error seco.
     if (err?.statusCode === 409 && err?.data?.data?.duplicates) {
       duplicates.value = err.data.data.duplicates
-      error.value = ''
+      // El id externo de otra persona no admite «Crear igualmente»: se dice por qué.
+      const message = err?.data?.statusMessage || ''
+      error.value = !err.data.data.duplicates.length || /id externo/.test(message) ? message : ''
     } else {
       error.value = err?.data?.statusMessage || 'No se pudo crear el contacto'
     }
+  } finally {
+    creating.value = false
+  }
+}
+
+/**
+ * «Unificar» (cierre del núcleo, FASE 14): no crea otro contacto — completa
+ * el existente con lo que se acaba de escribir y le falte (el servidor nunca
+ * pisa un dato que ya tenga, ni le pone uno que sea de otra persona) y lo
+ * abre. Queda en la Actividad del contacto.
+ */
+async function unify(contactId: number) {
+  error.value = ''
+  creating.value = true
+  try {
+    const res = await $fetch<{ id: number; filled?: string[]; skipped?: string[] }>('/api/admin/saas/contacts', { method: 'POST', body: { ...form, mergeIntoContactId: contactId } })
+    const filled = res.filled?.length ?? 0
+    toast.success(filled ? `Unificado: se completaron ${filled} dato${filled === 1 ? '' : 's'}` : 'Unificado: el contacto ya tenía esos datos')
+    showCreate.value = false
+    duplicates.value = []
+    Object.assign(form, EMPTY_FORM)
+    await navigateTo(`/admin/contactos/${res.id}`)
+  } catch (err: any) {
+    error.value = err?.data?.statusMessage || 'No se pudo unificar'
   } finally {
     creating.value = false
   }

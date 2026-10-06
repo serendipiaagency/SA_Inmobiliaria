@@ -129,10 +129,12 @@ test.describe('N3 — leads: alta, ficha, historial y enrutado', () => {
     await expect(page.getByTestId('lead-name')).toHaveText(`Panel N3 ${RUN}`)
     await expect(page.getByTestId('lead-priority')).toContainText('Urgente')
 
-    // Fase con motivo.
+    // Fase con motivo (cierre del núcleo: se pide en su ventana, con motivos rápidos).
     await page.getByTestId('lead-stage-select').selectOption('contacted')
-    await page.getByTestId('lead-stage-reason').fill('Primera llamada hecha')
     await page.getByTestId('lead-stage-save').click()
+    await expect(page.getByTestId('lead-stage-reason-confirm')).toBeDisabled()
+    await page.getByTestId('lead-stage-reason-text').fill('Primera llamada hecha')
+    await page.getByTestId('lead-stage-reason-confirm').click()
     await expect(page.getByTestId('lead-stage')).toHaveText('Contactado')
     await expect(page.getByTestId('lead-milestone-first-contact')).not.toContainText('—')
 
@@ -150,8 +152,10 @@ test.describe('N3 — leads: alta, ficha, historial y enrutado', () => {
     await expect(rows.first().getByTestId('lead-stage-history-reason')).toHaveText('No interesado — Ha comprado con otra agencia')
     await expect(rows.nth(1).getByTestId('lead-stage-history-reason')).toHaveText('Primera llamada hecha')
 
-    // Reactivar vuelve a la fase en la que estaba.
+    // Reactivar vuelve a la fase en la que estaba, también con su motivo.
     await page.getByTestId('lead-reactivate').click()
+    await page.getByTestId('lead-stage-reason-chip-0').click()
+    await page.getByTestId('lead-stage-reason-confirm').click()
     await expect(page.getByTestId('lead-stage')).toHaveText('Contactado')
   })
 

@@ -15,9 +15,11 @@ import { WEB_CHANNEL_LABELS, WEB_FORM_TYPE_LABELS, webThreadKey } from './web'
  *   (`comms_conversations.crm_contact_id`). Sin vínculo, nada.
  * - Hilos web: por el Contact o el lead guardados en el hilo
  *   (`comms_web_threads.contact_id` / `lead_id`).
- * - Email: **sólo saliente**. Resend no recibe correo en este proyecto (su
- *   webhook sólo trae el estado de entrega de lo que enviamos), así que no hay
- *   bandeja de entrada que mostrar y no se inventa una (§115). Se cruza por la
+ * - Email: los ENVIADOS. Resend no recibe correo (su webhook sólo trae el
+ *   estado de entrega de lo que enviamos), así que no hay bandeja de email
+ *   general y no se inventa una (§115); la respuesta del cliente a un email de
+ *   un hilo web entra en ese hilo (email entrante, FASE 29) y sale aquí con los
+ *   hilos web, no en esta lista. Se cruza por la
  *   dirección exacta a la que se envió — `email_log` guarda una fila por
  *   destinatario — y nunca se devuelve el HTML: sólo asunto, plantilla,
  *   estado y fechas.

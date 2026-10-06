@@ -28,6 +28,7 @@
  * otra en PROPERTY_BUILDER_SECTIONS, no escribir otra página.**
  */
 import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '~/utils/propertySheet'
+import { CATALOG_STATUS_TITLES } from '~/utils/propertyCommercialStatus'
 
 /** Los tonos que usa la celda de estado. Cerrados a propósito: si hiciera falta uno nuevo es una decisión de diseño, no un color suelto en una plantilla. */
 export type ListChipTone = 'neutral' | 'muted' | 'positive' | 'strong'
@@ -49,6 +50,14 @@ export interface PropertyListConfig {
   card: 'developer' | 'agent'
   cardToggleEvent: 'publish' | 'toggle-sold'
   statusOptions: { value: string; label: string }[]
+  /**
+   * Rótulo del `status` propio del catálogo (cierre D1p): «Estado de la obra»
+   * en obra nueva, «Disponibilidad» en 2ª mano. Nunca «Estado» a secas: el
+   * estado comercial común es otro dato, con su propia columna y filtro.
+   */
+  statusTitle: string
+  /** La primera opción del desplegable rápido de ese `status` («Toda fase de obra», «Toda disponibilidad»). */
+  statusAllLabel: string
   sortOptions: { value: string; label: string }[]
   /**
    * Si el listado ofrece el filtro venta/alquiler. Los dos catálogos tienen
@@ -61,6 +70,13 @@ export interface PropertyListConfig {
   rowTitle: (p: any) => string
   rowImage: (p: any) => string | null
   rowLocation: (p: any) => string
+  /**
+   * Chips de la celda del `status` del catálogo («Estado de la obra» /
+   * «Disponibilidad»). El PRIMERO es siempre ese `status`, con la etiqueta de
+   * `statusOptions`: con escritura, la fila lo convierte en su editor inline
+   * (cierre C1). El resto son informativos. El estado comercial común tiene
+   * su propia columna (cierre D1p).
+   */
   rowChips: (p: any) => ListChip[]
   /** Enlace a la ficha pública, o null si este catálogo no tiene una. */
   previewHref: ((p: any) => string) | null
@@ -97,6 +113,8 @@ export const PROPERTY_LIST_CONFIG: Record<string, PropertyListConfig> = {
     card: 'developer',
     cardToggleEvent: 'publish',
     statusOptions: Object.entries(DEVELOPER_STATUS_LABELS).map(([value, label]) => ({ value, label })),
+    statusTitle: CATALOG_STATUS_TITLES.developer,
+    statusAllLabel: 'Toda fase de obra',
     // Una promoción tiene nombre propio, así que ordenar por nombre significa
     // algo aquí; una vivienda de reventa no lo tiene (se identifica por
     // tipo + referencia), y por eso 2ª mano no ofrece esa opción.
@@ -128,6 +146,8 @@ export const PROPERTY_LIST_CONFIG: Record<string, PropertyListConfig> = {
     card: 'agent',
     cardToggleEvent: 'toggle-sold',
     statusOptions: Object.entries(AGENT_STATUS_LABELS).map(([value, label]) => ({ value, label })),
+    statusTitle: CATALOG_STATUS_TITLES.agent,
+    statusAllLabel: 'Toda disponibilidad',
     sortOptions: BASE_SORT_OPTIONS,
     hasTransactionFilter: true,
 

@@ -1,4 +1,4 @@
-import { and, eq, ne, sql } from 'drizzle-orm'
+import { and, eq, isNull, ne, sql } from 'drizzle-orm'
 import { schema, useDb } from '../../../../utils/db'
 import { requireOrgScope } from '../../../../utils/auth'
 import { getResource } from '../../../../utils/adminResources'
@@ -30,11 +30,12 @@ export default defineEventHandler(async (event) => {
       .select({ c: sql<number>`count(*)` })
       .from(schema.leads)
       .where(and(eq(schema.leads.organizationId, orgId), eq(schema.leads.agentId, id), ne(schema.leads.status, 'won'), ne(schema.leads.status, 'lost'))),
-    db.select({ c: sql<number>`count(*)` }).from(schema.visits).where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.agentId, id))),
+    // Las citas de la papelera (cierre D3a) no cuentan en el rendimiento del comercial.
+    db.select({ c: sql<number>`count(*)` }).from(schema.visits).where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.agentId, id), isNull(schema.visits.deletedAt))),
     db
       .select({ c: sql<number>`count(*)` })
       .from(schema.visits)
-      .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.agentId, id), eq(schema.visits.status, 'completed'))),
+      .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.agentId, id), eq(schema.visits.status, 'completed'), isNull(schema.visits.deletedAt))),
     db
       .select({ dealValue: schema.deals.dealValue, commissionAmount: schema.deals.commissionAmount })
       .from(schema.deals)

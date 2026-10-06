@@ -23,9 +23,14 @@
         :placeholder="placeholder"
         maxlength="120"
         :aria-label="title"
+        :list="suggestions.length ? listId : undefined"
+        autocomplete="off"
         :data-testid="`${testPrefix}-value`"
         @keydown.enter.prevent="add"
       >
+      <datalist :id="listId">
+        <option v-for="s in suggestions" :key="s" :value="s" />
+      </datalist>
       <button type="button" class="rounded-lg border border-line px-3 py-2 text-[13px] font-medium hover:bg-stone-50 disabled:opacity-50" :disabled="!value.trim()" :data-testid="`${testPrefix}-add`" @click="add">Añadir</button>
     </div>
   </div>
@@ -46,6 +51,23 @@ const emit = defineEmits<{ 'update:modelValue': [value: ZoneRefLike[]] }>()
 const kind = ref<ZoneKind>('district')
 const value = ref('')
 const placeholder = computed(() => ({ district: 'Chamberí', city: 'Madrid', postalCode: '28010', label: 'La Moraleja' })[kind.value])
+
+// Sugerencias: las zonas que la agencia tiene en sus fichas (los mismos campos
+// con los que compara el motor). Las comparten las listas de zonas deseadas y
+// excluidas, y se renuevan a los 5 minutos; si fallan, el campo sigue libre.
+type Suggestions = Record<ZoneKind, string[]>
+const zoneSuggestions = useState<{ at: number; data: Suggestions } | null>('requirement-zone-suggestions', () => null)
+const listId = `${props.testPrefix}-suggestions`
+const suggestions = computed(() => zoneSuggestions.value?.data[kind.value] || [])
+onMounted(async () => {
+  if (zoneSuggestions.value && Date.now() - zoneSuggestions.value.at < 5 * 60_000) return
+  try {
+    const data = await $fetch<Suggestions>('/api/admin/saas/buyer-requirements', { query: { zoneSuggestions: '1' } })
+    zoneSuggestions.value = { at: Date.now(), data }
+  } catch {
+    /* sin sugerencias: el campo sigue siendo libre */
+  }
+})
 
 function add() {
   const zone = zoneFromInput(kind.value, value.value)

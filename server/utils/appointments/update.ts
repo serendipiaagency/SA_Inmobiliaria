@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { createError } from 'h3'
 import { schema, isUniqueConstraintError, now } from '../db'
 import { hasOverlappingVisit } from './availability'
@@ -80,12 +80,19 @@ export interface UpdateAppointmentContext {
   env: Record<string, any>
   requestId?: string | null
   publicOrigin?: string | null
+  /** Contexto extra para Activity (p. ej. `{ tourId, removedFromTour }` al quitar una parada de un tour). */
+  activityMetadata?: Record<string, unknown> | null
 }
 
 export async function updateAppointment(db: any, orgId: number, visitId: number, body: UpdateAppointmentInput, ctx: UpdateAppointmentContext) {
   if (!Number.isFinite(visitId)) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
   body = body || {}
-  const rows = await db.select().from(schema.visits).where(and(eq(schema.visits.id, visitId), eq(schema.visits.organizationId, orgId))).limit(1)
+  // Una cita de la papelera (cierre D3a) no se edita: primero se restaura.
+  const rows = await db
+    .select()
+    .from(schema.visits)
+    .where(and(eq(schema.visits.id, visitId), eq(schema.visits.organizationId, orgId), isNull(schema.visits.deletedAt)))
+    .limit(1)
   const visit = rows[0]
   if (!visit) throw createError({ statusCode: 404, statusMessage: 'Visita no encontrada' })
 
@@ -301,15 +308,17 @@ export async function updateAppointment(db: any, orgId: number, visitId: number,
     actorType: ctx.actorType ?? ('user' as const),
     actorId: ctx.userId,
   }
+  const extra = ctx.activityMetadata || {}
+  const withExtra = (metadata: Record<string, unknown> | null) => (metadata || Object.keys(extra).length ? { ...(metadata || {}), ...extra } : null)
   if (patch.status === 'cancelled') {
-    await recordActivity(db, orgId, { ...activityBase, eventType: 'APPOINTMENT_CANCELLED', metadata: { reason: patch.cancellationReason ?? null } })
+    await recordActivity(db, orgId, { ...activityBase, eventType: 'APPOINTMENT_CANCELLED', metadata: withExtra({ reason: patch.cancellationReason ?? null }) })
   } else if (patch.status === 'completed' && nextType === 'property_viewing') {
-    await recordActivity(db, orgId, { ...activityBase, eventType: 'VIEWING_COMPLETED' })
+    await recordActivity(db, orgId, { ...activityBase, eventType: 'VIEWING_COMPLETED', metadata: withExtra(null) })
   } else if (patch.status === 'no_show' && nextType === 'property_viewing') {
-    await recordActivity(db, orgId, { ...activityBase, eventType: 'VIEWING_NO_SHOW' })
+    await recordActivity(db, orgId, { ...activityBase, eventType: 'VIEWING_NO_SHOW', metadata: withExtra(null) })
   }
   if (patch.scheduledAt && patch.scheduledAt !== visit.scheduledAt && finalStatus !== 'cancelled') {
-    await recordActivity(db, orgId, { ...activityBase, eventType: 'APPOINTMENT_RESCHEDULED', metadata: { from: visit.scheduledAt, to: patch.scheduledAt } })
+    await recordActivity(db, orgId, { ...activityBase, eventType: 'APPOINTMENT_RESCHEDULED', metadata: withExtra({ from: visit.scheduledAt, to: patch.scheduledAt }) })
   }
   // Cancelar, completar, mover o cambiar de lead la cita puede cambiar cuál es la próxima acción del lead (FASE 22).
   const leadsToSync = new Set<number>()

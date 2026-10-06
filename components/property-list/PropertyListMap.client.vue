@@ -56,7 +56,7 @@ const emit = defineEmits<{
 const config = computed(() => PROPERTY_LIST_CONFIG[props.resource])
 const el = ref<HTMLElement | null>(null)
 // Centro de reserva sin propiedades: Madrid, igual que el editor de ubicación.
-const { map } = useLeafletMap(el, { zoomControl: true, scrollWheelZoom: true, center: [40.4168, -3.7038], zoom: 5, preferCanvas: true })
+const { map, onMapReady } = useLeafletMap(el, { zoomControl: true, scrollWheelZoom: true, center: [40.4168, -3.7038], zoom: 5, preferCanvas: true })
 
 const radiusKm = ref<number>(Number(props.filters.radiusKm) || 5)
 const pickingCenter = ref(false)
@@ -71,8 +71,10 @@ let markers: L.LayerGroup | null = null
 let geoLayer: L.Layer | null = null
 let fittedOnce = false
 
+// Moneda de la agencia, sin convertir (utils/currency.ts) — antes «€» fijo.
+const { format: formatAgencyMoney } = useAgencyCurrency()
 function money(v: unknown) {
-  return typeof v === 'number' ? `${new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(v)} €` : ''
+  return typeof v === 'number' ? formatAgencyMoney(v) : ''
 }
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string)
@@ -147,7 +149,7 @@ function searchArea() {
   })
 }
 
-onMounted(() => {
+onMapReady(() => {
   if (!map.value) return
   createTileLayer('light').addTo(map.value)
   map.value.on('click', (e: L.LeafletMouseEvent) => {

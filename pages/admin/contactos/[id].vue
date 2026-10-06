@@ -20,6 +20,8 @@
             </div>
             <!-- Etiquetas (FASE 0, bloque N7b): los contactos ya se pueden etiquetar. -->
             <TagsEditor class="mt-2" entity-type="contact" :entity-id="contactId" :can-edit="canEdit" />
+            <!-- Quién lo dio de alta (FASE 0, cierre D3a). -->
+            <CreatedBy class="mt-2 block" :created-by-name="data.contact.createdByName" :created-by-deleted="data.contact.createdByDeleted" :created-at="data.contact.createdAt" />
           </div>
           <div class="flex shrink-0 flex-wrap gap-2">
             <a v-if="data.contact.phone" :href="`tel:${data.contact.phone}`" class="rounded-lg border border-line px-3 py-1.5 text-[12px] font-medium hover:bg-stone-50">Llamar</a>
@@ -86,13 +88,17 @@
           <RequirementCard v-for="r in data.requirements" :key="r.id" :requirement="r" :contact="data.contact" @changed="refresh" />
         </div>
 
-        <!-- Selecciones de propiedades preparadas para esta persona (INMO o «Crear selección» desde una compatibilidad). -->
+        <!-- Selecciones de propiedades preparadas para esta persona (INMO o «Crear selección» desde una compatibilidad).
+             «Abrir» lleva a su vista propia: reordenar, quitar, añadir y enviarla como conjunto. -->
         <AdminPanel v-if="data.selections?.length" title="Selecciones" class="mt-5" data-testid="contact-selections">
           <ul class="divide-y divide-line text-sm">
             <li v-for="s in data.selections" :key="s.id" class="py-2.5" data-testid="contact-selection-row">
               <div class="flex flex-wrap items-baseline justify-between gap-2">
-                <p class="font-medium">{{ s.title }}</p>
-                <p class="text-[11px] text-stone-400">{{ dt.date(s.createdAt) }}{{ s.buyerRequirementId ? ` · ${requirementTitle(s.buyerRequirementId)}` : '' }}</p>
+                <NuxtLink :to="`/admin/contactos/selecciones/${s.id}`" class="font-medium hover:underline">{{ s.title }}</NuxtLink>
+                <p class="flex items-baseline gap-2 text-[11px] text-stone-400">
+                  <span>{{ dt.date(s.createdAt) }}{{ s.buyerRequirementId ? ` · ${requirementTitle(s.buyerRequirementId)}` : '' }}</span>
+                  <NuxtLink :to="`/admin/contactos/selecciones/${s.id}`" class="rounded-lg border border-line px-2 py-0.5 text-[12px] font-medium text-ink hover:bg-stone-50" :data-testid="`contact-selection-open-${s.id}`">Abrir</NuxtLink>
+                </p>
               </div>
               <ul class="mt-1 flex flex-wrap gap-1.5">
                 <li v-for="it in s.items" :key="`${it.propertyKind}-${it.propertyId}`">
@@ -198,7 +204,7 @@
                 <p class="text-xs text-stone-400">{{ o.side === 'seller' ? 'Como vendedor' : 'Como comprador' }} · {{ dt.date(o.createdAt) }}</p>
               </div>
               <span class="flex items-center gap-2">
-                <span class="tabular-nums">{{ o.currentAmount != null ? money(o.currentAmount) : o.amount != null ? money(o.amount) : '—' }}</span>
+                <span class="tabular-nums">{{ o.currentAmount != null ? formatAmount(o.currentAmount, o.currency) : o.amount != null ? formatAmount(o.amount, o.currency) : '—' }}</span>
                 <AdminStatusPill :status="o.status" />
               </span>
             </li>
@@ -305,6 +311,9 @@
             <div><dt class="text-stone-400">Tipo</dt><dd>{{ data.contact.kind === 'company' ? 'Empresa' : 'Persona' }}</dd></div>
             <div><dt class="text-stone-400">Email</dt><dd>{{ data.contact.email || '—' }}</dd></div>
             <div><dt class="text-stone-400">Teléfono</dt><dd>{{ data.contact.phone || '—' }}</dd></div>
+            <div><dt class="text-stone-400">WhatsApp</dt><dd>{{ data.contact.whatsapp || '—' }}</dd></div>
+            <!-- Cierre del núcleo (FASE 14): el id en otro sistema, con su sistema. -->
+            <div><dt class="text-stone-400">Id externo</dt><dd data-testid="contact-external-id">{{ data.contact.externalId ? `${data.contact.externalId}${data.contact.externalSource ? ` (${data.contact.externalSource})` : ''}` : '—' }}</dd></div>
             <div><dt class="text-stone-400">Alta</dt><dd>{{ dt.date(data.contact.createdAt) }}</dd></div>
             <div v-if="data.clients.length"><dt class="text-stone-400">Ficha de cliente</dt><dd>{{ data.clients.map((c: any) => c.type).join(', ') }}</dd></div>
           </dl>
@@ -380,10 +389,12 @@ import {
   describeMergeRelations,
 } from '~/utils/crmCatalog'
 import { propertyTypeLabel } from '~/utils/propertySheet'
+import { formatAmount } from '~/utils/pipelineCatalog'
 import { formatDateTime } from '~/composables/useClientConfig'
 import ActivityTimeline from '~/components/admin/activity/ActivityTimeline.vue'
 import NotesPanel from '~/components/admin/notes/NotesPanel.vue'
 import TagsEditor from '~/components/admin/tags/TagsEditor.vue'
+import CreatedBy from '~/components/admin/CreatedBy.vue'
 import CustomFieldsPanel from '~/components/admin/custom-fields/CustomFieldsPanel.vue'
 import ContactEditModal from '~/components/admin/contacts/ContactEditModal.vue'
 import RequirementEditor from '~/components/admin/requirements/RequirementEditor.vue'
@@ -518,9 +529,6 @@ function requirementTitle(id: number): string {
   return r ? `para «${r.title || 'Necesidad'}»` : 'de una necesidad ya no activa'
 }
 
-function money(n: number) {
-  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
-}
 
 // --- Deduplicación de Contact (FASE 14) -------------------------------------
 const dupChecked = ref(false)

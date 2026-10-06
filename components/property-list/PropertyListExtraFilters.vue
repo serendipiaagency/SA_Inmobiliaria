@@ -34,17 +34,21 @@
       <span class="label">Municipio</span>
       <input :value="modelValue.municipality || ''" class="input" data-testid="filter-municipality" @change="set('municipality', ($event.target as HTMLInputElement).value.trim())">
     </label>
-    <label v-if="hasPortals" class="block">
+    <label v-if="catalog === 'developer'" class="block">
       <span class="label">Publicada en el portal</span>
       <select :value="modelValue.portal || ''" class="input" data-testid="filter-portal" @change="set('portal', ($event.target as HTMLSelectElement).value)">
         <option value="">Cualquiera</option>
         <option v-for="p in options?.portals || []" :key="p.key" :value="p.key">{{ p.label }}</option>
       </select>
     </label>
-    <div v-else class="block">
+    <!-- 2ª mano (cierre D1p): el filtro se ve desactivado y explica por qué, en vez de existir y dar siempre cero. -->
+    <label v-else class="block">
       <span class="label">Publicada en el portal</span>
-      <p class="pt-1.5 text-[11px] text-stone-400">La publicación en portales sólo existe en Propiedades (web).</p>
-    </div>
+      <select class="input" disabled aria-describedby="filter-portal-why" data-testid="filter-portal-unavailable">
+        <option>No disponible en 2ª mano</option>
+      </select>
+      <span id="filter-portal-why" class="mt-1 block text-[11px] text-stone-400">La publicación en portales sólo programa Propiedades (web): en 2ª mano no hay nada por lo que filtrar.</span>
+    </label>
     <label class="block">
       <span class="label">Etiqueta</span>
       <select :value="modelValue.tags || ''" class="input" data-testid="filter-tag" @change="set('tags', ($event.target as HTMLSelectElement).value)">
@@ -57,11 +61,30 @@
       <legend class="label">Características (debe tenerlas todas)</legend>
       <div class="flex flex-wrap gap-x-5 gap-y-1.5" data-testid="filter-features">
         <label v-for="(label, key) in PROPERTY_FEATURE_LABELS" :key="key" class="flex items-center gap-1.5 text-[13px]">
-          <input type="checkbox" :checked="features.includes(key)" @change="toggleFeature(key)">
+          <input type="checkbox" :checked="features.includes(key)" :data-testid="`filter-feature-${key}`" @change="toggleFeature(key)">
           {{ label }}
         </label>
       </div>
+      <p class="mt-1 text-[11px] text-stone-400">«Piscina» y «Jardín» cuentan también la privada y la comunitaria de la ficha.</p>
     </fieldset>
+
+    <!-- «Más características» (cierre D1p): cualquier sí/no de la ficha ampliada, por bloque, con su rótulo de la ficha. -->
+    <details class="col-span-full rounded-lg border border-line px-3 py-2" :open="amenities.length > 0" data-testid="filter-amenities">
+      <summary class="cursor-pointer text-[13px] font-medium text-ink">
+        Más características
+        <span v-if="amenities.length" class="ml-1 rounded-full bg-ink px-1.5 py-0.5 text-[10px] font-semibold text-white">{{ amenities.length }}</span>
+        <span class="ml-1 text-[11px] font-normal text-stone-400">(edificio, vivienda, instalaciones, zonas comunes y exterior; debe tenerlas todas)</span>
+      </summary>
+      <div class="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div v-for="g in PROPERTY_AMENITY_FILTER_GROUPS" :key="g.key">
+          <p class="mb-1 text-[11px] font-semibold uppercase tracking-wide text-stone-400">{{ g.label }}</p>
+          <label v-for="f in g.fields" :key="f.key" class="flex items-center gap-1.5 py-0.5 text-[13px]">
+            <input type="checkbox" :checked="amenities.includes(f.key)" :data-testid="`filter-amenity-${f.key}`" @change="toggleAmenity(f.key)">
+            {{ f.label }}
+          </label>
+        </div>
+      </div>
+    </details>
 
     <!-- Campos personalizados (FASE 0) -->
     <fieldset v-if="options?.customFields?.length" class="col-span-full" data-testid="filter-custom-fields">
@@ -106,17 +129,19 @@
 </template>
 
 <script setup lang="ts">
-import { PROPERTY_FEATURE_LABELS, RADIUS_KEYS, BBOX_KEYS, subtypeOptions, type PropertyFilterOptions } from '~/utils/propertyListFilters'
+import { PROPERTY_AMENITY_FILTER_GROUPS, PROPERTY_FEATURE_LABELS, RADIUS_KEYS, BBOX_KEYS, subtypeOptions, type PropertyFilterOptions } from '~/utils/propertyListFilters'
 
 /**
  * Los filtros del listado de propiedades del bloque N7b (FASE 27: subtipo,
  * comercial, oficina, propietario, portal y características; FASE 2: barrio,
- * municipio y coordenadas; FASE 0: etiquetas y campos personalizados). Edita
+ * municipio y coordenadas; FASE 0: etiquetas y campos personalizados) y del
+ * cierre D1p («Más características» de la ficha ampliada; piscina y jardín
+ * privados o comunitarios; el portal, desactivado y explicado en 2ª mano). Edita
  * un mapa `clave → texto` con los mismos nombres que la query del servidor;
  * PropertyList.vue lo lleva a la URL, al CSV, a las vistas guardadas y a las
  * acciones masivas.
  */
-const props = defineProps<{ modelValue: Record<string, string>; options: PropertyFilterOptions | null; propertyType?: string | null }>()
+const props = defineProps<{ modelValue: Record<string, string>; options: PropertyFilterOptions | null; propertyType?: string | null; catalog: 'developer' | 'agent' }>()
 const emit = defineEmits<{ 'update:modelValue': [value: Record<string, string>] }>()
 
 function emitWith(changes: Record<string, string | null>) {
@@ -132,12 +157,16 @@ function set(key: string, value: string) {
 }
 
 const subtypes = computed(() => subtypeOptions(props.propertyType))
-const hasPortals = computed(() => (props.options?.portals?.length || 0) > 0)
 
 const features = computed(() => (props.modelValue.features || '').split(',').filter(Boolean))
 function toggleFeature(key: string) {
   const list = features.value.includes(key) ? features.value.filter((f) => f !== key) : [...features.value, key]
   set('features', list.join(','))
+}
+const amenities = computed(() => (props.modelValue.amenities || '').split(',').filter(Boolean))
+function toggleAmenity(key: string) {
+  const list = amenities.value.includes(key) ? amenities.value.filter((f) => f !== key) : [...amenities.value, key]
+  set('amenities', list.join(','))
 }
 
 const cfId = ref('')

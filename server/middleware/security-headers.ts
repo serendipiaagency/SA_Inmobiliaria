@@ -1,4 +1,5 @@
 import { getCspNonce } from '../utils/cspNonce'
+import { permissionsPolicyFor } from '../utils/permissionsPolicy'
 
 /**
  * Baseline security headers for every response. /embed is the one deliberate exception —
@@ -32,7 +33,8 @@ export default defineEventHandler((event) => {
 
   setHeader(event, 'X-Content-Type-Options', 'nosniff')
   setHeader(event, 'Referrer-Policy', 'strict-origin-when-cross-origin')
-  setHeader(event, 'Permissions-Policy', 'geolocation=(), microphone=(), camera=()')
+  // Geolocalización sólo para el propio origen y sólo en la web pública («Mi ubicación» de /mapa) — ver server/utils/permissionsPolicy.ts.
+  setHeader(event, 'Permissions-Policy', permissionsPolicyFor(path))
   setHeader(event, 'Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
   if (!isEmbeddable) setHeader(event, 'X-Frame-Options', 'DENY')
 
@@ -48,7 +50,8 @@ export default defineEventHandler((event) => {
       "style-src-attr 'unsafe-inline'",
       "font-src 'self' https://fonts.gstatic.com",
       `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' https://www.instagram.com https://www.tiktok.com`,
-      "frame-src 'self' https://www.instagram.com https://www.tiktok.com",
+      // YouTube y Vimeo sólo con su reproductor sin cookies (utils/videoEmbed.ts).
+      "frame-src 'self' https://www.instagram.com https://www.tiktok.com https://www.youtube-nocookie.com https://player.vimeo.com",
       "connect-src 'self'",
       "object-src 'none'",
       "base-uri 'self'",

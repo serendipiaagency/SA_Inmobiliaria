@@ -149,9 +149,13 @@ export const ACTIVITY_EVENT_LABELS: Record<string, string> = {
   VIEWING_COMPLETED: 'Visita completada',
   VIEWING_NO_SHOW: 'El cliente no se presentó a la visita',
   VISIT_OUTCOME_RECORDED: 'Resultado de visita anotado',
+  APPOINTMENT_TRASHED: 'Cita eliminada (a la papelera)',
+  APPOINTMENT_RESTORED: 'Cita restaurada de la papelera',
   TASK_CREATED: 'Tarea creada',
   TASK_COMPLETED: 'Tarea completada',
   TASK_CANCELLED: 'Tarea cancelada',
+  TASK_TRASHED: 'Tarea enviada a la papelera',
+  TASK_RESTORED: 'Tarea restaurada de la papelera',
   OFFER_CREATED: 'Oferta creada (borrador)',
   OFFER_SUBMITTED: 'Oferta enviada',
   OFFER_COUNTERED: 'Contraoferta',
@@ -166,22 +170,26 @@ export const ACTIVITY_EVENT_LABELS: Record<string, string> = {
   DEAL_CANCELLED: 'Operación cancelada',
   DEAL_RECORD_LINKED: 'Documento vinculado a la operación',
   DEAL_RECORD_UNLINKED: 'Documento desvinculado de la operación',
+  DEAL_TRASHED: 'Operación enviada a la papelera',
+  DEAL_RESTORED: 'Operación restaurada de la papelera',
   PROPERTY_SENT: 'Ficha enviada por WhatsApp',
   PROPERTY_SHARE_OPENED: 'El cliente abrió la ficha enviada',
   CALL_COMPLETED: 'Llamada atendida',
+  EMAIL_REPLY_RECEIVED: 'Respuesta por email recibida',
   CONTACT_MERGED: 'Contactos unificados',
+  CONTACT_UNIFIED: 'Completado con un alta nueva (unificar)',
 }
 
 /** Grupos para filtrar una cronología (chips del componente ActivityTimeline). */
 export const ACTIVITY_GROUPS: { key: string; label: string; types: string[] }[] = [
   { key: 'leads', label: 'Leads', types: ['LEAD_CREATED', 'LEAD_ASSIGNED', 'LEAD_REASSIGNED', 'LEAD_QUALIFIED'] },
   { key: 'matching', label: 'Necesidades y matching', types: ['BUYER_REQUIREMENT_CREATED', 'MATCH_SELECTED', 'MATCH_DISCARDED', 'PROPERTY_SELECTION_CREATED'] },
-  { key: 'citas', label: 'Citas y visitas', types: ['APPOINTMENT_CREATED', 'APPOINTMENT_RESCHEDULED', 'APPOINTMENT_CANCELLED', 'VIEWING_COMPLETED', 'VIEWING_NO_SHOW', 'VISIT_OUTCOME_RECORDED'] },
-  { key: 'tareas', label: 'Tareas', types: ['TASK_CREATED', 'TASK_COMPLETED', 'TASK_CANCELLED'] },
+  { key: 'citas', label: 'Citas y visitas', types: ['APPOINTMENT_CREATED', 'APPOINTMENT_RESCHEDULED', 'APPOINTMENT_CANCELLED', 'VIEWING_COMPLETED', 'VIEWING_NO_SHOW', 'VISIT_OUTCOME_RECORDED', 'APPOINTMENT_TRASHED', 'APPOINTMENT_RESTORED'] },
+  { key: 'tareas', label: 'Tareas', types: ['TASK_CREATED', 'TASK_COMPLETED', 'TASK_CANCELLED', 'TASK_TRASHED', 'TASK_RESTORED'] },
   { key: 'ofertas', label: 'Ofertas', types: ['OFFER_CREATED', 'OFFER_SUBMITTED', 'OFFER_COUNTERED', 'OFFER_RESUBMITTED', 'OFFER_ACCEPTED', 'OFFER_REJECTED', 'OFFER_WITHDRAWN', 'OFFER_EXPIRED'] },
-  { key: 'operacion', label: 'Operación', types: ['DEAL_CREATED', 'DEAL_STAGE_CHANGED', 'DEAL_CLOSED', 'DEAL_CANCELLED', 'DEAL_RECORD_LINKED', 'DEAL_RECORD_UNLINKED'] },
-  { key: 'comunicaciones', label: 'Comunicaciones', types: ['PROPERTY_SENT', 'PROPERTY_SHARE_OPENED', 'CALL_COMPLETED'] },
-  { key: 'contacto', label: 'Contacto', types: ['CONTACT_MERGED'] },
+  { key: 'operacion', label: 'Operación', types: ['DEAL_CREATED', 'DEAL_STAGE_CHANGED', 'DEAL_CLOSED', 'DEAL_CANCELLED', 'DEAL_RECORD_LINKED', 'DEAL_RECORD_UNLINKED', 'DEAL_TRASHED', 'DEAL_RESTORED'] },
+  { key: 'comunicaciones', label: 'Comunicaciones', types: ['PROPERTY_SENT', 'PROPERTY_SHARE_OPENED', 'CALL_COMPLETED', 'EMAIL_REPLY_RECEIVED'] },
+  { key: 'contacto', label: 'Contacto', types: ['CONTACT_MERGED', 'CONTACT_UNIFIED'] },
 ]
 
 export const ACTIVITY_ACTOR_LABELS: Record<string, string> = { user: 'Usuario', contact: 'Cliente', system: 'Sistema', ai: 'IA' }

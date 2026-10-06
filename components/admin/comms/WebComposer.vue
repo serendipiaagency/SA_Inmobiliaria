@@ -23,7 +23,10 @@
     </p>
     <p v-else-if="currentReason" class="px-4 pt-1 text-[11px] text-stone-400">{{ currentReason }}</p>
     <p v-else-if="via === 'chat'" class="px-4 pt-1 text-[11px] text-stone-400">El visitante lo verá en el chat de la web mientras tenga la sesión abierta.</p>
-    <p v-else-if="via === 'email'" class="px-4 pt-1 text-[11px] text-stone-400">Se envía a {{ reply.email.to }} con el email de la agencia; el estado de entrega lo confirma el proveedor.</p>
+    <p v-else-if="via === 'email'" class="px-4 pt-1 text-[11px] text-stone-400" data-testid="web-composer-email-hint">
+      Se envía a {{ reply.email.to }} con el email de la agencia; el estado de entrega lo confirma el proveedor.
+      {{ reply.email.repliesToThread ? 'Si responde, su respuesta llega a este hilo.' : 'Si responde, la respuesta llega al buzón «Responder a» de la agencia, no a este hilo (el email entrante no está activo en la plataforma).' }}
+    </p>
 
     <div class="flex items-end gap-2 px-3 py-2.5">
       <div class="flex items-center gap-0.5">
@@ -60,7 +63,7 @@
  * widget del visitante no las ve.
  */
 interface ReplyOptions {
-  email: { available: boolean; to: string | null; reason: string | null }
+  email: { available: boolean; to: string | null; reason: string | null; repliesToThread?: boolean }
   chat: { available: boolean; reason: string | null }
   whatsapp: { available: boolean; phone: string | null; reason: string | null }
 }

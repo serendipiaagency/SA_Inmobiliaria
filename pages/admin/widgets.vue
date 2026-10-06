@@ -76,7 +76,7 @@
                 <input v-model.number="cfg.radius" type="range" min="0" max="28" class="w-full accent-ink" >
               </label>
               <label class="block"><span class="wl">Moneda</span>
-                <select v-model="cfg.currency" class="wi"><option>AED</option><option>USD</option><option>EUR</option><option>GBP</option><option>CNY</option></select>
+                <select v-model="cfg.currency" class="wi" data-testid="widget-currency"><option v-for="c in CURRENCIES" :key="c.code" :value="c.code">{{ c.code }}{{ c.code === agencyCurrency ? ' (la de la agencia)' : '' }}</option></select>
               </label>
             </div>
             <div class="flex items-center gap-4 pt-1">
@@ -116,8 +116,11 @@
 </template>
 
 <script setup lang="ts">
+import { CURRENCIES } from '~/utils/currency'
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Widgets — M&M Real Estate' })
+const { code: agencyCurrency } = useAgencyCurrency()
 
 const cfg = reactive({
   widget: 'grid',
@@ -129,7 +132,9 @@ const cfg = reactive({
   font: 'sans',
   accent: '#16150f',
   radius: 16,
-  currency: 'AED',
+  // Por defecto, la moneda de la agencia: el widget no convierte nada. Otra
+  // moneda se convierte desde la de la agencia (utils/currency.ts).
+  currency: agencyCurrency.value,
   header: true,
   branding: true,
 })

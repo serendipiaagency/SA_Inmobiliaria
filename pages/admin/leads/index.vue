@@ -206,15 +206,33 @@
                   <TagChips v-if="l.tags?.length" class="mt-1" :tags="l.tags" />
                 </td>
                 <td class="px-4 py-3 text-stone-600">{{ leadSourceLabel(l.source) }}</td>
-                <td class="px-4 py-3 text-stone-600">{{ stageLabel(l.stage) }}</td>
+                <!-- Edición inline (cierre C1): fase y comercial desde la fila, por las mismas rutas que el Kanban. -->
+                <td class="px-4 py-3 text-stone-600">
+                  <AdminInlineEdit
+                    type="select"
+                    label="Fase"
+                    :value="tableStageValue(l)"
+                    :display="tableStageValue(l) === 'lost' ? 'Perdido' : stageLabel(l.stage)"
+                    :options="tableStageOptions"
+                    :editable="canEdit"
+                    :test-id="`lead-inline-stage-${l.id}`"
+                    :save="(v) => saveTableStage(l, String(v))"
+                  />
+                </td>
                 <td class="px-4 py-3"><AdminStatusPill :status="l.status" /></td>
                 <td class="px-4 py-3 text-right"><AdminLeadScoreBadge :lead="l" @updated="(u) => Object.assign(l, u)" /></td>
                 <td class="px-4 py-3 text-right tabular-nums">{{ dt.money(l.budget, { compact: true }) }}</td>
                 <td class="px-4 py-3 text-stone-600">
-                  <select class="rounded border border-line bg-white px-1.5 py-1 text-xs" :value="l.agentId || ''" :disabled="reassigningId === l.id" @change="reassignLead(l, ($event.target as HTMLSelectElement).value)">
-                    <option value="">Sin asignar</option>
-                    <option v-for="a in agents" :key="a.id" :value="a.id">{{ a.name }}</option>
-                  </select>
+                  <AdminInlineEdit
+                    type="select"
+                    label="Comercial"
+                    :value="l.agentId ? String(l.agentId) : ''"
+                    :display="l.agentName || (l.agentId ? `Comercial #${l.agentId}` : 'Sin asignar')"
+                    :options="[{ value: '', label: 'Sin asignar' }, ...agents.map((a) => ({ value: String(a.id), label: a.name }))]"
+                    :editable="canEdit"
+                    :test-id="`lead-inline-agent-${l.id}`"
+                    :save="(v) => reassignLeadOrThrow(l, String(v ?? ''))"
+                  />
                 </td>
                 <td class="px-4 py-3 text-stone-500">{{ dt.relative(l.lastContactAt) }}</td>
                 <td class="px-4 py-3 text-xs" :class="isNextActionOverdue(l) ? 'font-medium text-red-600' : 'text-stone-500'">
@@ -240,6 +258,18 @@
 
     <LeadFormModal v-if="creating" @close="creating = false" @saved="onCreated" />
     <LeadLostModal v-if="losingLead" :name="losingLead.name" @close="cancelLost" @confirm="confirmLost" />
+    <LeadLostModal v-if="tableLosing" :name="tableLosing.lead.name" @close="settleTableLost(null)" @confirm="settleTableLost" />
+    <!-- Motivo de cada movimiento (cierre del núcleo, FASE 13): Kanban, Tabla y acción masiva. -->
+    <LeadStageReasonModal
+      v-if="reasonAsk"
+      :title="reasonAsk.title"
+      :sub="reasonAsk.sub"
+      :to-stage="reasonAsk.toStage"
+      :confirm-label="reasonAsk.confirmLabel"
+      :warning="reasonAsk.warning"
+      @close="settleReason(null)"
+      @confirm="settleReason"
+    />
 
     <!-- Nueva tarea -->
     <div v-if="newTaskLead" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="newTaskLead = null">
@@ -278,6 +308,7 @@ import { nextActionLabel } from '~/utils/pipelineCatalog'
 import { loadRelationOptions, type RelationOption } from '~/composables/useRelationOptions'
 import LeadFormModal from '~/components/admin/leads/LeadFormModal.vue'
 import LeadLostModal from '~/components/admin/leads/LeadLostModal.vue'
+import LeadStageReasonModal from '~/components/admin/leads/LeadStageReasonModal.vue'
 import TagChips from '~/components/admin/tags/TagChips.vue'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
@@ -313,7 +344,7 @@ const sort = ref('')
 const route = useRoute()
 const router = useRouter()
 // `officeScope` (núcleo N8a): oficina como entidad con la regla del dashboard (la del lead o, sin ella, la de su comercial).
-const DRILL_KEYS = ['ids', 'createdFrom', 'createdTo', 'qualifiedFrom', 'qualifiedTo', 'agentId', 'office', 'officeScope', 'portal', 'campaign', 'propertyId', 'unattended'] as const
+const DRILL_KEYS = ['ids', 'createdFrom', 'createdTo', 'qualifiedFrom', 'qualifiedTo', 'agentId', 'office', 'officeScope', 'portal', 'campaign', 'propertyId', 'propertyKind', 'unattended'] as const
 const drill = computed<Record<string, string>>(() => {
   const out: Record<string, string> = {}
   for (const k of DRILL_KEYS) if (typeof route.query[k] === 'string' && route.query[k]) out[k] = route.query[k] as string
@@ -377,6 +408,20 @@ const { data: agentsData } = await useFetch<any>('/api/admin/saas/agents')
 const agents = computed<any[]>(() => agentsData.value?.rows || [])
 
 const reassigningId = ref<number | null>(null)
+/**
+ * Comercial desde la fila de la Tabla (edición inline, cierre C1): la misma
+ * reasignación que el desplegable de las tarjetas (`/reassign`, con su
+ * historial de asignaciones y LEAD_REASSIGNED), pero si falla lanza el
+ * error para que el editor lo enseñe bajo el control.
+ */
+async function reassignLeadOrThrow(lead: any, agentIdValue: string) {
+  const commercialId = agentIdValue ? Number(agentIdValue) : null
+  if (commercialId === (lead.agentId || null)) return
+  const updated = await $fetch<any>(`/api/admin/saas/leads/${lead.id}/reassign`, { method: 'POST', body: { commercialId } })
+  lead.agentId = updated.agentId
+  lead.agentName = updated.agentName
+  toast.success('Lead reasignado')
+}
 async function reassignLead(lead: any, agentIdValue: string) {
   const commercialId = agentIdValue ? Number(agentIdValue) : null
   if (commercialId === (lead.agentId || null)) return
@@ -395,6 +440,38 @@ async function reassignLead(lead: any, agentIdValue: string) {
   } finally {
     reassigningId.value = null
   }
+}
+
+/**
+ * El motivo de un movimiento (cierre del núcleo, FASE 13): toda acción del
+ * panel que mueve un lead —soltar una tarjeta, la fase de la Tabla, la
+ * acción masiva— lo pide con LeadStageReasonModal antes de llamar al
+ * servidor, que también lo exige. `null` = se canceló: no se mueve nada.
+ */
+interface ReasonAsk { title: string; sub: string; toStage: string; confirmLabel: string; warning?: string | null; resolve: (v: string | null) => void }
+const reasonAsk = ref<ReasonAsk | null>(null)
+function askReason(opts: Omit<ReasonAsk, 'resolve'>): Promise<string | null> {
+  return new Promise((resolve) => (reasonAsk.value = { ...opts, resolve }))
+}
+function settleReason(v: string | null) {
+  const pending = reasonAsk.value
+  reasonAsk.value = null
+  pending?.resolve(v)
+}
+/** La ventana del motivo para llevar `lead` a `toStage` (si está perdido, reactivarlo primero). */
+function askMoveReason(lead: any, toStage: string): Promise<string | null> {
+  const wasLost = lead.status === 'lost'
+  const reactivateOnly = wasLost && (toStage === lead.stage || !toStage)
+  return askReason({
+    title: wasLost ? 'Reactivar el lead' : 'Cambiar de fase',
+    sub: wasLost
+      ? reactivateOnly
+        ? `${lead.name} vuelve a «${stageLabel(lead.stage)}».`
+        : `${lead.name} se reactiva y pasa a «${stageLabel(toStage)}».`
+      : `${lead.name}: ${stageLabel(lead.stage)} → ${stageLabel(toStage)}`,
+    toStage: wasLost ? 'reactivated' : toStage,
+    confirmLabel: wasLost ? 'Reactivar' : 'Cambiar fase',
+  })
 }
 
 /**
@@ -554,17 +631,29 @@ function exportSelection() {
 async function runBulkAction() {
   if (!bulkAction.value || !canRunBulkAction.value || !selectionCount.value) return
 
-  const ok = await confirm(
-    `Se va a ${BULK_ACTION_LABELS[bulkAction.value]} ${selectionCount.value} lead${selectionCount.value === 1 ? '' : 's'}. No se puede deshacer.`,
-    { title: '¿Aplicar acción masiva?', confirmLabel: 'Aplicar' },
-  )
-  if (!ok) return
+  const affected = `${selectionCount.value} lead${selectionCount.value === 1 ? '' : 's'}`
+  // «Cambiar fase» pide el motivo (va al historial de cada lead): su ventana
+  // hace también de confirmación. El resto, la confirmación de siempre.
+  let stageReason: string | null = null
+  if (bulkAction.value === 'change_stage') {
+    stageReason = await askReason({
+      title: 'Cambiar de fase en bloque',
+      sub: `${affected} → ${stageLabel(bulkStage.value)}`,
+      toStage: bulkStage.value,
+      confirmLabel: 'Aplicar',
+      warning: `Se va a cambiar la fase de ${affected}. No se puede deshacer; el motivo queda en el historial de cada uno.`,
+    })
+    if (!stageReason) return
+  } else {
+    const ok = await confirm(`Se va a ${BULK_ACTION_LABELS[bulkAction.value]} ${affected}. No se puede deshacer.`, { title: '¿Aplicar acción masiva?', confirmLabel: 'Aplicar' })
+    if (!ok) return
+  }
 
   const params: Record<string, unknown> =
     bulkAction.value === 'change_commercial'
       ? { commercialId: bulkCommercialId.value || null }
       : bulkAction.value === 'change_stage'
-        ? { stage: bulkStage.value }
+        ? { stage: bulkStage.value, reason: stageReason }
         : bulkAction.value === 'add_tag'
           ? { tagName: bulkTagName.value.trim() }
           : bulkAction.value === 'recalculate_score'
@@ -600,6 +689,51 @@ async function runBulkAction() {
   }
 }
 
+/**
+ * Fase desde la fila de la Tabla (edición inline, cierre C1). Mismo servicio
+ * que el Kanban (`PATCH /api/admin/saas/leads/:id` → transitionLeadStage /
+ * setLeadOutcome), así que cada cambio deja su fila en el historial de fases
+ * con quién y cuándo. «Perdido» pide el motivo con el mismo modal que el
+ * Kanban; un lead perdido que se lleva a una fase se reactiva primero
+ * (queda «reactivado» en el historial) y después se mueve a la fase elegida.
+ */
+const tableStageOptions = [...pipelineColumns.map((c) => ({ value: c.key, label: c.label })), { value: 'lost', label: 'Perdido (pide motivo)' }]
+function tableStageValue(l: any) {
+  return l.status === 'lost' ? 'lost' : l.stage
+}
+const tableLosing = ref<{ lead: any; resolve: (v: { lostReason: string; note: string | null } | null) => void } | null>(null)
+function settleTableLost(v: { lostReason: string; note: string | null } | null) {
+  const pending = tableLosing.value
+  tableLosing.value = null
+  pending?.resolve(v)
+}
+async function saveTableStage(lead: any, toStage: string) {
+  const wasLost = lead.status === 'lost'
+  if (toStage === 'lost') {
+    const lost = await new Promise<{ lostReason: string; note: string | null } | null>((resolve) => (tableLosing.value = { lead, resolve }))
+    // Cancelar el motivo no cambia nada: el editor vuelve a enseñar la fase de antes.
+    if (!lost) return
+    const res = await $fetch<any>(`/api/admin/saas/leads/${lead.id}`, { method: 'PATCH', body: { lost: true, lostReason: lost.lostReason, note: lost.note } })
+    Object.assign(lead, { status: res.status, stage: res.stage, lostReason: res.lostReason })
+  } else {
+    if (!wasLost && lead.stage === toStage) return
+    // El motivo (obligatorio): cancelar la ventana no cambia nada.
+    const reason = await askMoveReason(lead, toStage)
+    if (!reason) return
+    if (wasLost) {
+      const res = await $fetch<any>(`/api/admin/saas/leads/${lead.id}`, { method: 'PATCH', body: { lost: false, note: reason } })
+      Object.assign(lead, { status: res.status, stage: res.stage, lostReason: null })
+    }
+    if (lead.stage !== toStage) {
+      const res = await $fetch<any>(`/api/admin/saas/leads/${lead.id}`, { method: 'PATCH', body: { stage: toStage, reason } })
+      Object.assign(lead, { status: res.status, stage: res.stage })
+    }
+  }
+  toast.success(toStage === 'lost' ? 'Lead marcado como perdido' : `Fase: ${stageLabel(toStage)}`)
+  // Los contadores del Pipeline salen del servidor.
+  refresh()
+}
+
 const dragId = ref<number | null>(null)
 // Soltar en «Perdidos» abre el modal del motivo (catálogo + comentario): el
 // movimiento sólo se aplica al confirmarlo.
@@ -624,9 +758,13 @@ async function onDrop(columnKey: string) {
     losingLead.value = lead
     return
   }
-  await applyDrop(lead, columnKey)
+  // Cualquier otra columna pide el motivo; cancelar deja la tarjeta donde estaba.
+  // Sacar una de «Perdidos» la reactiva en la fase en la que se quedó.
+  const reason = await askMoveReason(lead, lead.status === 'lost' ? lead.stage : columnKey)
+  if (!reason) return
+  await applyDrop(lead, columnKey, undefined, reason)
 }
-async function applyDrop(lead: any, columnKey: string, lost?: { lostReason: string; note: string | null }) {
+async function applyDrop(lead: any, columnKey: string, lost?: { lostReason: string; note: string | null }, reason?: string) {
   const id = lead.id
   const wasLost = lead.status === 'lost'
   const fromColumn = wasLost ? 'lost' : lead.stage
@@ -651,13 +789,13 @@ async function applyDrop(lead: any, columnKey: string, lost?: { lostReason: stri
     } else if (wasLost) {
       // Reactivar desde "Perdidos": vuelve al stage en el que se quedó.
       lead.status = 'active'
-      const res = await $fetch<any>(`/api/admin/saas/leads/${id}`, { method: 'PATCH', body: { lost: false } })
+      const res = await $fetch<any>(`/api/admin/saas/leads/${id}`, { method: 'PATCH', body: { lost: false, note: reason } })
       lead.status = res.status
       lead.stage = res.stage
       lead.lostReason = null
     } else {
       lead.stage = columnKey
-      const res = await $fetch<any>(`/api/admin/saas/leads/${id}`, { method: 'PATCH', body: { stage: columnKey } })
+      const res = await $fetch<any>(`/api/admin/saas/leads/${id}`, { method: 'PATCH', body: { stage: columnKey, reason } })
       lead.status = res.status
       lead.stage = res.stage
     }

@@ -99,7 +99,7 @@
             @update:persisted="(v) => (m.persisted = v)"
           />
           <div v-if="offerFormFor === m" class="mt-3 flex items-center gap-2 border-t border-line pt-3">
-            <input v-model.number="offerAmount" type="number" min="1" step="1" class="cfg-input" placeholder="Importe de la oferta (€)" >
+            <input v-model.number="offerAmount" type="number" min="1" step="1" class="cfg-input" :placeholder="`Importe de la oferta (${offerCurrencyLabel})`" >
             <button type="button" class="btn-primary shrink-0 !px-3 !py-1.5 text-xs" :disabled="!(offerAmount! > 0) || creatingOffer" @click="createOfferFromMatch(m)">
               {{ creatingOffer ? 'Creando…' : 'Crear' }}
             </button>
@@ -113,11 +113,15 @@
 
 <script setup lang="ts">
 import MatchActions from '~/components/admin/matching/MatchActions.vue'
+import { currencySymbol } from '~/utils/currency'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Compatibilidades — M&M Real Estate' })
 
 const dt = useDash()
+// La oferta nueva lleva la moneda que le pondrá el servidor: la de la agencia si la eligió (utils/currency.ts).
+const { recordCode: offerCurrency } = useAgencyCurrency()
+const offerCurrencyLabel = computed(() => currencySymbol(offerCurrency.value))
 const toast = useToast()
 const { canWrite } = useAdminPermissions()
 const canEdit = computed(() => canWrite('crm'))
@@ -149,8 +153,10 @@ const currentName = computed(() => {
   return p.name || p.reference || p.location || `Inmueble #${p.id}`
 })
 
+const { format: formatAgencyMoney } = useAgencyCurrency()
+/** Importe en la moneda de la agencia (utils/currency.ts) — antes «€» fijo. */
 function money(n: number) {
-  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
+  return formatAgencyMoney(n)
 }
 
 async function fetchMatches() {

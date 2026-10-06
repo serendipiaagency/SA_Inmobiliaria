@@ -20,6 +20,7 @@ import {
   zoneLabel,
 } from '../../../utils/buyerRequirementCatalog'
 import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '../../../utils/propertySheet'
+import { formatMoney } from '../../../utils/currency'
 
 /**
  * BuyerRequirement — la necesidad inmobiliaria (FASE 10, migración 0066).
@@ -595,6 +596,8 @@ function safeParse<T>(raw: string | null, fallback: T): T {
  * El resumen legible de una necesidad, construido desde los datos
  * estructurados — nunca escrito a mano ni generado por un modelo:
  * "Compra · Piso/Ático · Chamberí · sin Lavapiés · ≤ 650.000 € · ≥ 2 dorm. · Terraza imprescindible".
+ * El precio va en la moneda de la agencia (`currency`, utils/currency.ts), en
+ * la que se guarda; sin ella, la de por defecto.
  */
 export function summarizeRequirement(requirement: {
   operation: string
@@ -606,7 +609,7 @@ export function summarizeRequirement(requirement: {
   priceMin?: number | null
   bedroomsMin?: number | null
   criteria?: { criterionType: string; importance: string; valueBool?: number | null }[]
-}): string {
+}, currency?: string | null): string {
   const parts: string[] = [requirement.operation === 'rent' ? 'Alquiler' : 'Compra']
 
   // Las etiquetas del catálogo común (Piso, Ático…), nunca la clave interna.
@@ -618,7 +621,7 @@ export function summarizeRequirement(requirement: {
   if (excluded.length) parts.push(`sin ${excluded.join(' ni ')}`)
   if (requirement.radiusKm != null) parts.push(`radio ${requirement.radiusKm} km`)
 
-  const money = (n: number) => new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
+  const money = (n: number) => formatMoney(n, currency)
   if (requirement.priceMax != null) parts.push(`≤ ${money(requirement.priceMax)}`)
   else if (requirement.priceMin != null) parts.push(`≥ ${money(requirement.priceMin)}`)
 

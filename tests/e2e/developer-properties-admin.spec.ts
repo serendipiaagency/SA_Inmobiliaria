@@ -1,5 +1,6 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
 import { STATE_A } from './global-setup'
+import { formatMoney } from '../../utils/currency'
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8788'
 
@@ -160,7 +161,10 @@ test.describe('Propiedades (web) — listado admin', () => {
     // without failing a check that only looks at page chrome.
     await expect(page.getByRole('button', { name: 'Grid' })).toHaveClass(/bg-ink/)
     await expect(page.getByText('Tarjeta visible E2E')).toBeVisible()
-    await expect(page.getByText('321.000 €').first()).toBeVisible()
+    // El precio sale en la moneda de la agencia (Configuración → Moneda; AED
+    // si nunca se eligió), sin convertir — utils/currency.ts. Antes «€» fijo.
+    const { currency } = await (await a.get('/api/admin/active-org-info')).json()
+    await expect(page.getByText(formatMoney(321000, currency)).first()).toBeVisible()
     await page.getByRole('button', { name: /^Filtros/ }).click()
     await expect(page.getByText('Precio mínimo')).toBeVisible()
     // Excludes network-level resource failures (net::ERR_*) — an external
@@ -185,8 +189,10 @@ test.describe('Propiedades (web) — listado admin', () => {
     await expect(page.locator('input[placeholder*="Reserva"]')).toHaveValue('Reserva')
     // Sections stay mounted (v-show, not v-if) so other sections' textareas
     // (e.g. Descripción) still exist in the DOM — only the visible ones
-    // matter for "no raw JSON textarea in the Precio section" here.
-    await expect(page.locator('textarea:visible')).toHaveCount(0)
+    // matter for "no raw JSON textarea in the Precio section" here. Acotado a
+    // la sección: debajo del editor está el panel de Notas (cierre D3a), que
+    // sí tiene su textarea para escribir una nota.
+    await expect(page.locator('[data-testid^="property-editor-section-"]:visible textarea:visible')).toHaveCount(0)
 
     // «Multimedia» a secas: «Galería y multimedia» (bloque N7a) también lo contiene.
     await nav.getByTestId('property-editor-step-media').click()

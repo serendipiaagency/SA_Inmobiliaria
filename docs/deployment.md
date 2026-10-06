@@ -55,6 +55,19 @@ Para activar los emails transaccionales con Resend (`RESEND_API_KEY`,
 `RESEND_WEBHOOK_SECRET`, verificación de dominio y el endpoint de webhook en
 el Dashboard de Resend), ver [`docs/resend-email.md`](./resend-email.md).
 
+Para activar el **email entrante** (FASE 29: que la respuesta de un cliente a
+un email enviado desde un hilo de Comunicaciones vuelva a ese hilo), en
+Cloudflare: Email Routing en un dominio o, mejor, un subdominio dedicado (no
+tocar los MX del dominio que ya recibe correo), «Subaddressing» activado, una
+regla `respuestas@<dominio>` → **Send to a Worker** → `sa-inmobiliaria` (y
+`sa-inmobiliaria-staging` en staging, con otro dominio), la variable
+`INBOUND_EMAIL_DOMAIN` (línea comentada en `[vars]` de `wrangler.toml`) y el
+secreto `wrangler secret put INBOUND_EMAIL_SECRET` (≥ 32 caracteres
+aleatorios, distinto por entorno). Sin migración. Pasos exactos y cómo
+comprobarlo en [`docs/communications.md`](./communications.md), «Email
+entrante». Sin esto todo sigue como antes: las respuestas llegan al «Responder
+a» de la agencia.
+
 **1. Desactivar el auto-deploy de Cloudflare Workers Builds — el paso más
 importante.** Ahora mismo, Cloudflare tiene su propia integración con git
 que ejecuta `npx wrangler deploy` en cada push (a cualquier rama), sin

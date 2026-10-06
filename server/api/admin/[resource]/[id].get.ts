@@ -12,6 +12,7 @@ import { buildPropertySummary } from '../../../utils/properties/summary'
 import { assertCustomFieldValueScope } from '../../../utils/customFields/service'
 import { assertTagLinkScope } from '../../../utils/tags/service'
 import { automationDetail } from '../../../utils/automations/service'
+import { getPropertySelectionDetail } from '../../../utils/selections/service'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -87,6 +88,10 @@ export default defineEventHandler(async (event) => {
   }
   // Automatización (bloque N8b): su configuración legible y su registro de ejecuciones.
   if (key === 'automations') return { ...(await automationDetail(db, orgId!, row)), translations }
+  // Selección de propiedades (FASE 11, cierre C2): con su contacto, su
+  // necesidad y cada propiedad en su orden (foto, precio, estado), para su
+  // vista propia (pages/admin/contactos/selecciones/[id].vue).
+  if (key === 'property-selections') return { row: await getPropertySelectionDetail(db, orgId!, id), translations }
   if (key === 'organizations') {
     return { row, translations, overview: await organizationOverview(db, id) }
   }

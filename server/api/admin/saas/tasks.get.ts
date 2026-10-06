@@ -13,6 +13,12 @@ import { PROPERTY_KINDS, type PropertyKind } from '../../../utils/matching/servi
  * Bloque N6: `status=active` (abiertas + en curso); las tareas de la
  * papelera nunca salen; cada fila trae ya el nombre de su responsable,
  * contacto, lead, inmueble y cita (resueltos dentro de la organización).
+ *
+ * Cierre C1: `trashed=1` lista SÓLO la papelera (con los mismos filtros de
+ * comercial, tipo y prioridad), para la vista «Papelera» y su «Restaurar».
+ *
+ * Cierre D3a: `officeId` filtra por la oficina de la tarea o, si no tiene,
+ * la de su responsable; cada fila trae `officeName` y quién la creó.
  */
 const STATUS_FILTERS: TaskStatusFilter[] = ['open', 'in_progress', 'completed', 'cancelled', 'active']
 
@@ -34,8 +40,10 @@ export default defineEventHandler(async (event) => {
   }
   if (q.appointmentId) filter.appointmentId = Number(q.appointmentId)
   if (q.dealId) filter.dealId = Number(q.dealId)
+  if (q.officeId && Number.isInteger(Number(q.officeId)) && Number(q.officeId) > 0) filter.officeId = Number(q.officeId)
   if (q.overdue === '1' || q.overdue === 'true') filter.overdue = true
   if (q.dueToday === '1' || q.dueToday === 'true') filter.dueToday = true
+  if (q.trashed === '1' || q.trashed === 'true') filter.trashed = true
 
   const rows = await withTaskLabels(db, orgId, await listTasks(db, orgId, filter))
   return { rows }

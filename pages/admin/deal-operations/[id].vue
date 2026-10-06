@@ -16,9 +16,13 @@
             </NuxtLink>
             <span>· {{ formatAmount(deal.agreedAmount, deal.currency) }}</span>
           </p>
+          <!-- Quién la abrió (FASE 0, cierre D3a). -->
+          <CreatedBy class="mt-1 block" :created-by-name="deal.createdByName" :created-by-deleted="deal.createdByDeleted" :created-at="deal.createdAt" />
         </div>
-        <div class="flex shrink-0 items-center gap-2">
+        <div class="flex shrink-0 flex-wrap items-center gap-2">
           <span class="rounded-full px-2.5 py-1 text-xs font-semibold" :class="DEAL_STATUS_CLS[deal.status]" data-testid="deal-status">{{ DEAL_STATUS_LABELS[deal.status] || deal.status }}</span>
+          <!-- Cierre C1: una cerrada no va a la papelera (trashDeal() → 409), así que ni se ofrece. -->
+          <button v-if="canEdit && deal.status !== 'closed'" type="button" class="btn-quiet !px-2.5 !py-1 text-xs text-red-600" data-testid="deal-trash" @click="trashDeal">Mandar a la papelera</button>
         </div>
       </div>
     </div>
@@ -99,6 +103,11 @@
               <p class="text-[11px] text-stone-400">{{ v.agentName }} · {{ v.status }}</p>
             </li>
           </ul>
+        </AdminPanel>
+
+        <!-- Notas del equipo (Note, FASE 0, cierre D3a): internas, con autor, fijables. -->
+        <AdminPanel title="Notas" sub="Internas: las ve tu equipo, nunca el cliente." data-testid="deal-notes">
+          <NotesPanel entity-type="deal" :entity-id="deal.id" :can-edit="canEdit" />
         </AdminPanel>
 
         <AdminPanel title="Actividad" sub="Lo que ha pasado en esta operación, en su oferta, sus tareas y sus citas.">
@@ -214,6 +223,8 @@ import TaskFormModal from '~/components/admin/tasks/TaskFormModal.vue'
 import OfferDetailModal from '~/components/admin/offers/OfferDetailModal.vue'
 import DealRecordsPanel from '~/components/admin/deals/DealRecordsPanel.vue'
 import CustomFieldsPanel from '~/components/admin/custom-fields/CustomFieldsPanel.vue'
+import NotesPanel from '~/components/admin/notes/NotesPanel.vue'
+import CreatedBy from '~/components/admin/CreatedBy.vue'
 import { DEAL_STAGES, DEAL_STAGE_LABELS, DEAL_STATUS_LABELS, TASK_STATUS_LABELS, TASK_TYPE_LABELS, formatAmount, nextActionLabel, offerFinanceLabel } from '~/utils/pipelineCatalog'
 
 /**
@@ -222,7 +233,8 @@ import { DEAL_STAGES, DEAL_STAGE_LABELS, DEAL_STATUS_LABELS, TASK_STATUS_LABELS,
  * qué), tareas y citas. Bloque N6: oficina y comercial editables, la oferta
  * aceptada con su negociación completa, las reservas, arras y contratos
  * vinculados, y la cronología de actividad de la operación. Ver
- * docs/deals.md.
+ * docs/deals.md. Cierre C1: «Mandar a la papelera» (no si está cerrada).
+ * Cierre D3a: quién la abrió y las notas del equipo.
  */
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -307,6 +319,27 @@ async function promptCancel() {
     toast.success('Operación cancelada')
   } catch (e: any) {
     toast.error(e?.data?.statusMessage || 'No se pudo cancelar la operación')
+  }
+}
+
+/**
+ * Papelera (cierre C1). El servidor la rechaza con 409 y el motivo si tiene
+ * reserva, arras o contrato vinculados; si sale bien, se vuelve al listado
+ * (la ficha de una operación de la papelera es 404).
+ */
+async function trashDeal() {
+  const ok = await confirm('Sale del Kanban y de la lista y su ficha deja de abrirse. No se borra nada —historial, tareas, citas y actividad se conservan— y se puede restaurar desde Operaciones → Papelera.', {
+    title: '¿Mandar la operación a la papelera?',
+    confirmLabel: 'Mandar a la papelera',
+    danger: true,
+  })
+  if (!ok) return
+  try {
+    await $fetch('/api/admin/saas/deal-operations', { method: 'POST', body: { id: Number(id), action: 'trash' } })
+    toast.success('Operación enviada a la papelera')
+    await navigateTo('/admin/deal-operations')
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'No se pudo mandar a la papelera')
   }
 }
 

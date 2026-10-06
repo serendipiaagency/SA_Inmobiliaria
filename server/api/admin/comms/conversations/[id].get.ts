@@ -6,13 +6,15 @@ import { channelView } from '../../../../utils/comms/credentials'
 import { getCommsSettings, syncConversationCrmContact } from '../../../../utils/comms/inbox'
 import { NO_CAPABILITIES, PROVIDERS } from '../../../../utils/comms/providers/registry'
 import { loadWebThreadForOrg, parseWebThreadKey, serializeWebThreads, webReplyOptions, webThreadMessages } from '../../../../utils/comms/web'
+import { inboundEmailStatus } from '../../../../utils/comms/inboundAddress'
 
 /**
  * GET /api/admin/comms/conversations/:id — el hilo completo: conversación, contacto, canal (sin secretos), mensajes, llamadas, plantillas y comerciales.
  *
  * Núcleo N8a: con `:id = w<n>` es un hilo web (formulario o chat): mismos
  * bloques de contexto (lead, necesidades, citas, propiedad) más `reply`, por
- * qué canal real se le puede responder y, si no, por qué no. En los hilos de
+ * qué canal real se le puede responder y, si no, por qué no (y, FASE 29, si
+ * la respuesta del cliente a un email volverá a este hilo). En los hilos de
  * WhatsApp, el Contact se GUARDA en el hilo (`crm_contact_id`) la primera
  * vez que se conoce, en vez de deducirse en cada lectura.
  */
@@ -44,7 +46,7 @@ export default defineEventHandler(async (event) => {
       team,
       property: await contextPropertyFor(db, orgId, thread.propertyId, thread.propertyKind),
       crmContact: await crmContactRef(db, orgId, thread.contactId),
-      reply: webReplyOptions(thread, { emailConnected: Boolean(env.RESEND_API_KEY), whatsappChannelActive: Boolean(caps?.defaultChannel), defaultCountryPrefix: settings.defaultCountryPrefix }),
+      reply: webReplyOptions(thread, { emailConnected: Boolean(env.RESEND_API_KEY), whatsappChannelActive: Boolean(caps?.defaultChannel), defaultCountryPrefix: settings.defaultCountryPrefix, inboundEmailActive: inboundEmailStatus(env).active }),
       ...context,
     }
   }

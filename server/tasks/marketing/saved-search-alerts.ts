@@ -1,8 +1,13 @@
 import { drizzle } from 'drizzle-orm/d1'
-import { and, eq, gte } from 'drizzle-orm'
+import { and, eq, gte, like, or, sql } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { sendTransactionalEmail } from '../../utils/email/send'
 import { livePropertyCond } from '../../utils/properties/trash'
+import { geoConds, publicCoordsSql } from '../../utils/properties/geoSearch'
+import { GeoFilterError, parseGeoQuery } from '../../../utils/maps/geo'
+import { normalizePostalCode } from '../../../utils/publicSearch'
+import { organizationCurrency } from '../../utils/currency'
+import { formatMoney } from '../../../utils/currency'
 
 function fmt(d: Date): string {
   return d.toISOString().replace('T', ' ').slice(0, 19)
@@ -11,7 +16,8 @@ function fmt(d: Date): string {
 /**
  * Runs hourly. For each active saved search, looks for real developer
  * properties created since the last check that match a practical subset of
- * the saved filters (community, property type, price range, min bedrooms —
+ * the saved filters (community, municipality, neighbourhood, código postal,
+ * radio alrededor de un punto, property type, price range, min bedrooms —
  * the most common ones a buyer actually filters by; this is not full parity
  * with every advanced filter on the search page, and doesn't pretend to be).
  * Emails via the same honest Resend adapter used for appointment
@@ -47,6 +53,31 @@ export default defineTask<{ skipped: true; reason: string } | { checked: number;
       const conds = [eq(schema.developerProperties.organizationId, search.organizationId), gte(schema.developerProperties.createdAt, since), livePropertyCond(schema.developerProperties)]
       if (filters.community) conds.push(eq(schema.developerProperties.community, String(filters.community)))
       if (filters.type) conds.push(eq(schema.developerProperties.propertyType, String(filters.type)))
+      const P = schema.developerProperties
+      // Código postal y radio (FASE 2), con la misma regla que el buscador
+      // público: CP por prefijo, y el radio sobre las coordenadas que se
+      // publican. Un radio guardado mal formado no amplía la búsqueda a
+      // todo: esa alerta se salta (nunca avisa de lo que no pidió).
+      const postalCode = normalizePostalCode(filters.postalCode)
+      if (postalCode) conds.push(like(P.postalCode, `${postalCode}%`))
+      try {
+        const coords = publicCoordsSql(P)
+        conds.push(...geoConds(coords.lat, coords.lng, parseGeoQuery({ lat: filters.lat, lng: filters.lng, radiusKm: filters.radiusKm })))
+      } catch (e) {
+        if (e instanceof GeoFilterError) continue
+        throw e
+      }
+      // Municipio y barrio, con la misma regla que el buscador público
+      // (server/api/public/properties.get.ts): la columna de la ficha o la de
+      // la ficha ampliada.
+      if (filters.municipality) {
+        const v = `%${String(filters.municipality)}%`
+        conds.push(or(like(P.city, v), sql`exists (select 1 from property_details pd where pd.organization_id = ${P.organizationId} and pd.property_kind = 'developer' and pd.property_id = ${P.id} and pd.municipality like ${v})`)!)
+      }
+      if (filters.neighborhood) {
+        const v = `%${String(filters.neighborhood)}%`
+        conds.push(or(like(P.community, v), sql`exists (select 1 from property_details pd where pd.organization_id = ${P.organizationId} and pd.property_kind = 'developer' and pd.property_id = ${P.id} and pd.neighborhood like ${v})`)!)
+      }
 
       const candidates = await db
         .select()
@@ -63,9 +94,11 @@ export default defineTask<{ skipped: true; reason: string } | { checked: number;
       if (matches.length) {
         const org = (await db.select({ domain: schema.organizations.domain }).from(schema.organizations).where(eq(schema.organizations.id, search.organizationId)).limit(1))[0]
         const origin = org?.domain ? `https://${org.domain}` : 'https://sa-inmobiliaria.com'
+        // El precio, en la moneda de la agencia (utils/currency.ts) — antes «€» fijo.
+        const currency = await organizationCurrency(db, search.organizationId)
         const items = matches
           .slice(0, 10)
-          .map((p) => `${p.name}${p.community ? ` — ${p.community}` : ''}${p.price ? ` — ${new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(p.price)}` : ''}`)
+          .map((p) => `${p.name}${p.community ? ` — ${p.community}` : ''}${p.price ? ` — ${formatMoney(p.price, currency)}` : ''}`)
         const [result] = await sendTransactionalEmail(db, env, {
           organizationId: search.organizationId,
           template: 'saved_search_alert',

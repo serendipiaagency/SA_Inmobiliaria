@@ -32,6 +32,21 @@ function bboxCond(lat: unknown, lng: unknown, b: GeoBBox): SQL {
   return sql`(${latCond} and ${lngCond})`
 }
 
+/**
+ * Las coordenadas que se PUBLICAN de una propiedad, como expresiones SQL: si
+ * la ubicación es aproximada, redondeadas a la cuadrícula de su radio de
+ * privacidad (`approximateGridDegrees()`, mínimo 0,001°), igual que
+ * `toPublicProperty()`. Lo usan la búsqueda pública y las alertas de
+ * búsquedas guardadas: buscar por zona nunca afina más que el pin publicado.
+ */
+export function publicCoordsSql(P: { lat: unknown; lng: unknown; locationPrivacy: unknown; locationPrivacyRadius: unknown }): { lat: SQL; lng: SQL } {
+  const grid = sql`max(0.001, coalesce(${P.locationPrivacyRadius}, 0) / 111000.0)`
+  return {
+    lat: sql`(case when ${P.locationPrivacy} = 'approximate' then round(${P.lat} / ${grid}) * ${grid} else ${P.lat} end)`,
+    lng: sql`(case when ${P.locationPrivacy} = 'approximate' then round(${P.lng} / ${grid}) * ${grid} else ${P.lng} end)`,
+  }
+}
+
 /** Distancia al cuadrado (km²) con la aproximación equirectangular — para ordenar y para el filtro de radio. */
 export function squaredDistanceSql(lat: unknown, lng: unknown, r: Pick<GeoRadius, 'lat' | 'lng'>): SQL<number> {
   const ky = KM_PER_DEG_LAT

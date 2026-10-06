@@ -247,14 +247,12 @@
           <transition name="more">
             <div v-if="moreOpen" class="mt-3 grid gap-3 rounded-2xl bg-white/95 p-5 backdrop-blur sm:grid-cols-3">
               <label class="pop-label">
-                Tipo de propiedad
-                <select v-model="form.subtype" class="pop-select">
-                  <option value="">Cualquiera</option>
-                  <option>Apartment</option>
-                  <option>Villa</option>
-                  <option>Townhouse</option>
-                  <option>Penthouse</option>
-                  <option>Studio</option>
+                {{ t('filters.propertyType', 'Tipo de propiedad') }}
+                <!-- El catálogo común de tipos (utils/propertySheet.ts), sólo los
+                     que la agencia tiene publicados, con su rótulo traducido. -->
+                <select v-model="form.subtype" class="pop-select" data-testid="hero-type">
+                  <option value="">{{ t('hero.any', 'Cualquiera') }}</option>
+                  <option v-for="ty in typeOptions" :key="ty" :value="ty">{{ typeLabel(ty) }}</option>
                 </select>
               </label>
               <label class="pop-label">
@@ -300,6 +298,7 @@
 // título para escribir); fuera de él, los mismos componentes no añaden nada.
 import SbText from '~/components/site-builder/nodes/SbText.vue'
 import SbLink from '~/components/site-builder/nodes/SbLink.vue'
+import { PROPERTY_TYPES } from '~/utils/propertySheet'
 
 const props = defineProps<{
   eyebrow?: string
@@ -399,6 +398,12 @@ function toggle(key: string) {
 function cellCls(key: string) {
   return open.value === key ? 'cell-active' : ''
 }
+
+// Tipos publicados por la agencia (`facets=types`), en el orden del catálogo
+// común; sin respuesta, el catálogo entero. Antes eran cinco claves en inglés.
+const { data: facetData } = await useFetch<{ facets?: { types: string[] } }>('/api/public/properties', { query: { countOnly: '1', facets: 'types' } })
+const typeOptions = computed<string[]>(() => (facetData.value?.facets?.types?.length ? facetData.value.facets.types : [...PROPERTY_TYPES]))
+const typeLabel = usePropertyTypeLabel()
 
 // Location suggestions
 const { data: locData } = await useFetch<{ rows: { name: string }[] }>('/api/public/locations')

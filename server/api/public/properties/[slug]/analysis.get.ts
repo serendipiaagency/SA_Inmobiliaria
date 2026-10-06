@@ -3,6 +3,7 @@ import { useDb, schema, resolvePublicOrgId } from '../../../../utils/db'
 import { analyzeInvestment } from '../../../../utils/ai'
 import { getMarketStats } from '../../../../utils/market'
 import { livePropertyCond } from '../../../../utils/properties/trash'
+import { organizationCurrency } from '../../../../utils/currency'
 
 /**
  * Investment analysis for a single property. Kept as its own lazy-loaded
@@ -24,6 +25,7 @@ export default defineEventHandler(async (event) => {
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
 
   const market = await getMarketStats(db, project)
-  const { text, engine } = await analyzeInvestment(event, project, market)
+  // Los importes del análisis, en la moneda de la agencia (utils/currency.ts).
+  const { text, engine } = await analyzeInvestment(event, project, market, await organizationCurrency(db, project.organizationId))
   return { text, engine, market }
 })

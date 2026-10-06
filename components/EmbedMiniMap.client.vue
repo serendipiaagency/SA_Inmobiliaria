@@ -6,26 +6,22 @@
 import L from 'leaflet'
 import { useLeafletMap, createTileLayer } from '~/composables/useLeafletMap'
 import { withValidCoords } from '~/utils/maps/coords'
+import { formatDisplayPrice } from '~/utils/currency'
 
-const props = defineProps<{ items: any[]; accent?: string; dark?: boolean; origin?: string; currency?: string }>()
+/** `baseCurrency`: la de la agencia, en la que están los precios; `currency`: la que se enseña (utils/currency.ts). */
+const props = defineProps<{ items: any[]; accent?: string; dark?: boolean; origin?: string; currency?: string; baseCurrency?: string }>()
 
-const RATES: Record<string, { r: number; s: string }> = {
-  AED: { r: 1, s: 'AED ' }, USD: { r: 0.2723, s: '$' }, EUR: { r: 0.2532, s: '€' }, GBP: { r: 0.2151, s: '£' }, CNY: { r: 1.962, s: '¥' },
-}
 function priceShort(v: number) {
-  const c = RATES[(props.currency || 'AED').toUpperCase()] || RATES.AED
-  const val = (v || 0) * c.r
-  if (val >= 1e6) return `${c.s}${(val / 1e6).toFixed(val % 1e6 ? 1 : 0)}M`
-  return `${c.s}${Math.round(val / 1000)}k`
+  return formatDisplayPrice(v || 0, props.baseCurrency, props.currency || props.baseCurrency, { compact: true })
 }
 
 const FALLBACK_CENTER: [number, number] = [25.15, 55.25]
 const el = ref<HTMLElement | null>(null)
 const pts = withValidCoords(props.items)
 const initialCenter: [number, number] = pts.length ? [pts[0].lat, pts[0].lng] : FALLBACK_CENTER
-const { map } = useLeafletMap(el, { zoomControl: true, scrollWheelZoom: false, center: initialCenter, zoom: 12 })
+const { map, onMapReady } = useLeafletMap(el, { zoomControl: true, scrollWheelZoom: false, center: initialCenter, zoom: 12 })
 
-onMounted(() => {
+onMapReady(() => {
   if (!map.value) return
   createTileLayer(props.dark ? 'dark' : 'light').addTo(map.value)
 

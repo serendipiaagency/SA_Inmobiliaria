@@ -42,7 +42,8 @@ import { formatDateTime } from '~/composables/useClientConfig'
  */
 type Row = { price: number; previousPrice?: number | null; reason?: string | null; changedByName?: string | null; recordedAt: string }
 defineProps<{ rows: Row[] }>()
-const { format: formatCurrency } = useCurrency()
+// Panel: moneda de la agencia, sin convertir (utils/currency.ts) — no el selector del visitante de la web.
+const { format: formatCurrency } = useAgencyCurrency()
 
 function variation(r: Row): string {
   if (!r.previousPrice) return ''

@@ -2,23 +2,32 @@
   <div>
     <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Operaciones</h1>
+        <h1 class="text-2xl font-semibold tracking-tight">{{ trashed ? 'Papelera · Operaciones' : 'Operaciones' }}</h1>
         <p class="mt-1 text-sm text-stone-500">
-          {{ rows.length }} operación{{ rows.length === 1 ? '' : 'es' }} · de la oferta aceptada a la firma{{ view === 'board' && canEdit ? ' · arrastra una tarjeta para cambiar de etapa' : '' }}
+          <template v-if="trashed">{{ rows.length }} operación{{ rows.length === 1 ? '' : 'es' }} en la papelera</template>
+          <template v-else>
+            {{ rows.length }} operación{{ rows.length === 1 ? '' : 'es' }} · de la oferta aceptada a la firma{{ view === 'board' && canEdit ? ' · arrastra una tarjeta para cambiar de etapa' : '' }}
+          </template>
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <NuxtLink to="/admin/operaciones" class="text-[12px] text-stone-500 hover:underline" data-testid="deals-legacy-link">Cierres y comisiones →</NuxtLink>
-        <div class="flex gap-1 rounded-lg bg-stone-100 p-0.5">
+        <button type="button" class="btn-quiet !px-3 !py-1.5" data-testid="deals-trash-toggle" @click="trashed = !trashed">{{ trashed ? '← Volver a las operaciones' : 'Papelera' }}</button>
+        <div v-if="!trashed" class="flex gap-1 rounded-lg bg-stone-100 p-0.5">
           <button type="button" class="rounded-md px-3 py-1.5 text-xs font-medium transition" :class="view === 'board' ? 'bg-white text-ink shadow-sm' : 'text-stone-500'" data-testid="deals-view-board" @click="view = 'board'">Kanban</button>
           <button type="button" class="rounded-md px-3 py-1.5 text-xs font-medium transition" :class="view === 'table' ? 'bg-white text-ink shadow-sm' : 'text-stone-500'" data-testid="deals-view-table" @click="view = 'table'">Lista</button>
         </div>
       </div>
     </div>
 
+    <p v-if="trashed" class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800" data-testid="deals-trash-notice">
+      Las operaciones de la papelera no salen en el Kanban ni en la lista y su ficha no se abre. Su historial de etapas, tareas, citas y actividad se
+      conservan; «Restaurar» la devuelve tal cual estaba. Una operación cerrada, o con reserva, arras o contrato vinculados, no se puede mandar aquí.
+    </p>
+
     <!-- Filtros -->
     <div class="mb-4 flex flex-wrap items-center gap-2">
-      <select v-model="status" class="rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink" data-testid="deals-status">
+      <select v-if="!trashed" v-model="status" class="rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink" data-testid="deals-status">
         <option value="active">Activas</option>
         <option value="closed">Cerradas</option>
         <option value="cancelled">Canceladas</option>
@@ -39,8 +48,25 @@
       </select>
     </div>
 
+    <!-- Papelera (cierre C1): una lista apilada, sin enlace a la ficha (es 404 mientras esté aquí), con «Restaurar». -->
+    <AdminPanel v-if="trashed" :pad="false">
+      <div v-if="!rows.length" class="py-16 text-center text-sm text-stone-400" data-testid="deals-trash-empty">La papelera está vacía.</div>
+      <ul v-else class="divide-y divide-line" data-testid="deals-trash-list">
+        <li v-for="d in rows" :key="d.id" class="flex flex-wrap items-center gap-3 px-4 py-3" :data-testid="`deal-trash-row-${d.id}`">
+          <div class="min-w-0 flex-1 basis-56">
+            <p class="truncate text-sm font-medium text-ink">#{{ d.id }} · {{ d.buyerName || `Comprador #${d.buyerContactId}` }}</p>
+            <p class="truncate text-[11px] text-stone-400">
+              {{ d.propertyName || `Inmueble #${d.propertyId}` }} · {{ DEAL_STAGE_LABELS[d.stage] || d.stage }} · {{ DEAL_STATUS_LABELS[d.status] || d.status }} ·
+              {{ formatAmount(d.agreedAmount, d.currency) }}<template v-if="d.deletedAt"> · Borrada el {{ formatDate(d.deletedAt) }}</template>
+            </p>
+          </div>
+          <button v-if="canEdit" type="button" class="shrink-0 text-xs font-medium text-emerald-700 hover:underline" :data-testid="`deal-restore-${d.id}`" @click="restoreDeal(d)">Restaurar</button>
+        </li>
+      </ul>
+    </AdminPanel>
+
     <!-- Kanban por las 8 etapas -->
-    <div v-if="view === 'board'" class="flex gap-3 overflow-x-auto pb-2" data-testid="deals-board">
+    <div v-else-if="view === 'board'" class="flex gap-3 overflow-x-auto pb-2" data-testid="deals-board">
       <div
         v-for="stage in DEAL_STAGES"
         :key="stage"
@@ -104,6 +130,7 @@
               <th class="px-4 py-2.5 font-semibold">Comercial</th>
               <th class="px-4 py-2.5 font-semibold">Oficina</th>
               <th class="px-4 py-2.5 font-semibold">Abierta</th>
+              <th v-if="canEdit" class="px-2 py-2.5 font-semibold"><span class="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody>
@@ -118,6 +145,10 @@
               <td class="px-4 py-3 text-stone-600">{{ d.commercialName || '—' }}</td>
               <td class="px-4 py-3 text-stone-600">{{ d.officeName || '—' }}</td>
               <td class="px-4 py-3 text-stone-500">{{ formatDate(d.openedAt) }}</td>
+              <td v-if="canEdit" class="px-2 py-3 text-right">
+                <!-- Una cerrada no va a la papelera (ver trashDeal()): ni se ofrece. -->
+                <button v-if="d.status !== 'closed'" type="button" class="btn-quiet !px-2 !py-1 text-[11px] text-red-600" :data-testid="`deal-trash-${d.id}`" @click="trashDeal(d)">Papelera</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -143,6 +174,9 @@ import { DEAL_STAGES, DEAL_STAGE_LABELS, DEAL_STATUS_LABELS, formatAmount } from
  * La pantalla antigua `/admin/operaciones` (tabla legacy `deals`, cierres
  * para comisiones) sigue en su URL, ahora en el menú como «Cierres y
  * comisiones» — ver docs/deals.md.
+ *
+ * Cierre C1: «Papelera» en cada fila de la Lista (y en la ficha) y la vista
+ * Papelera con «Restaurar».
  */
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Operaciones — M&M Real Estate' })
@@ -151,7 +185,12 @@ const { confirm } = useConfirm()
 const { canWrite } = useAdminPermissions()
 const canEdit = computed(() => canWrite('crm'))
 
+const route = useRoute()
+const router = useRouter()
 const view = ref<'board' | 'table'>('board')
+/** Papelera (cierre C1): en la URL (`?trashed=1`), así el aviso de una oferta cuya operación está aquí lleva directo a ella. */
+const trashed = ref(route.query.trashed === '1')
+watch(trashed, (v) => router.replace({ query: { ...route.query, trashed: v ? '1' : undefined } }))
 const status = ref('active')
 const officeId = ref('')
 const commercialId = ref('')
@@ -159,7 +198,8 @@ const propertyKind = ref('')
 
 const query = computed(() => {
   const q: Record<string, any> = {}
-  if (status.value) q.status = status.value
+  if (trashed.value) q.trashed = '1'
+  else if (status.value) q.status = status.value
   if (officeId.value) q.officeId = officeId.value
   if (commercialId.value) q.commercialId = commercialId.value
   if (propertyKind.value) q.propertyKind = propertyKind.value
@@ -194,6 +234,37 @@ function onSelectMove(d: any, event: Event) {
   const stage = select.value
   select.value = d.stage
   moveTo(d, stage)
+}
+
+/**
+ * Papelera (cierre C1): `POST { action: 'trash' }`. El servidor decide si se
+ * puede (409 con el motivo si está cerrada o tiene reserva, arras o contrato
+ * vinculados) y deja DEAL_TRASHED en la actividad.
+ */
+async function trashDeal(d: any) {
+  const ok = await confirm(`La operación #${d.id} irá a la papelera: sale del Kanban y de la lista, y su ficha no se abre. No se borra nada (historial, tareas, citas y actividad) y se puede restaurar.`, {
+    title: '¿Mandar la operación a la papelera?',
+    confirmLabel: 'Mandar a la papelera',
+    danger: true,
+  })
+  if (!ok) return
+  try {
+    await $fetch('/api/admin/saas/deal-operations', { method: 'POST', body: { id: d.id, action: 'trash' } })
+    toast.success('Operación enviada a la papelera')
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'No se pudo mandar a la papelera')
+  }
+  refresh()
+}
+
+async function restoreDeal(d: any) {
+  try {
+    await $fetch('/api/admin/saas/deal-operations', { method: 'POST', body: { id: d.id, action: 'restore' } })
+    toast.success('Operación restaurada')
+    refresh()
+  } catch (e: any) {
+    toast.error(e?.data?.statusMessage || 'No se pudo restaurar la operación')
+  }
 }
 
 async function moveTo(d: any, stage: string) {

@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { getRequestURL } from 'h3'
-import { schema } from '../db'
+import { now as nowTs, schema } from '../db'
 import { buildPropertyFilterConds, PROPERTY_FEATURE_COLUMNS, propertyTableFor, type PropertyFeature } from '../properties/searchService'
 import { livePropertyCond } from '../properties/trash'
 import { toPublicProperty } from '../propertyPrivacy'
@@ -8,6 +8,8 @@ import { getPropertySchemaFor, isFieldApplicable } from '../propertySchema/regis
 import { upsertLead } from '../leads'
 import { LOST_REASONS, setLeadOutcome, STAGES, transitionLeadStage } from '../leads/pipeline'
 import { reassignLead } from '../leads/routing'
+import { leadPropertySummary } from '../leads/property'
+import { normalizeLanguage } from '../../../utils/crmCatalog'
 import { orgDefaultCountryPrefix, resolveContact, searchContacts } from '../contacts/service'
 import { createBuyerRequirement, MORTGAGE_STATUSES, OPERATIONS, updateBuyerRequirement } from '../buyerRequirements/service'
 import { findPropertiesForCriteria, findPropertiesForRequirement, PROPERTY_KINDS, type ExploratoryCriteria, type PropertyKind } from '../matching/service'
@@ -310,17 +312,41 @@ const createLeadTool: DomainTool = {
   action: 'write',
   idempotent: true,
   inputSchema: schemaOf(
-    { name: { type: 'string' }, email: { type: 'string' }, phone: { type: 'string', description: 'Con prefijo internacional.' }, budget: { type: 'number' }, notes: { type: 'string' }, propertyId: { type: 'integer', description: 'Sólo Propiedades (web).' } },
+    {
+      name: { type: 'string' },
+      email: { type: 'string' },
+      phone: { type: 'string', description: 'Con prefijo internacional.' },
+      budget: { type: 'number' },
+      notes: { type: 'string' },
+      propertyId: { type: 'integer', description: 'Propiedad de interés. Sin propertyKind se entiende Propiedades (web).' },
+      propertyKind: { ...KIND_SCHEMA, description: 'Catálogo de propertyId: «developer» = Propiedades (web, obra nueva, por defecto), «agent» = Propiedades 2ª mano.' },
+      language: { type: 'string', description: 'Idioma de la persona: código (es, en, fr…) o nombre («inglés»).' },
+    },
     ['name'],
   ),
   parse: (o) => {
-    const input = { name: v.str(o, 'name', { required: true, max: 200 })!, email: v.str(o, 'email', { max: 200 }), phone: v.str(o, 'phone', { max: 40 }), budget: v.num(o, 'budget', { min: 0 }), notes: v.str(o, 'notes', { max: 2000 }), propertyId: v.int(o, 'propertyId', { min: 1 }) }
+    const language = v.str(o, 'language', { max: 40 })
+    const input = {
+      name: v.str(o, 'name', { required: true, max: 200 })!,
+      email: v.str(o, 'email', { max: 200 }),
+      phone: v.str(o, 'phone', { max: 40 }),
+      budget: v.num(o, 'budget', { min: 0 }),
+      notes: v.str(o, 'notes', { max: 2000 }),
+      propertyId: v.int(o, 'propertyId', { min: 1 }),
+      // Cierre del núcleo (migración 0089): el lead guarda el catálogo. Sin él, obra nueva, como siempre ha hecho esta herramienta.
+      propertyKind: v.oneOf(o, 'propertyKind', PROPERTY_KINDS) ?? 'developer',
+      language: language ? normalizeLanguage(language) : null,
+    }
     if (!input.email && !input.phone) fail('Hace falta email o teléfono.')
+    if (language && !input.language) fail(`Idioma no reconocido: «${language}». Usa un código como es, en, fr, de, it, pt…`)
     return input
   },
   async run(ctx, input) {
     let propertyName: string | null = null
-    if (input.propertyId) propertyName = (await loadOwnedProperty(ctx.db, ctx.orgId, 'developer', input.propertyId)).name ?? null
+    if (input.propertyId) {
+      await loadOwnedProperty(ctx.db, ctx.orgId, input.propertyKind, input.propertyId)
+      propertyName = (await leadPropertySummary(ctx.db, ctx.orgId, { propertyId: input.propertyId, propertyKind: input.propertyKind }))?.name ?? null
+    }
     const r = await upsertLead(ctx.event, {
       organizationId: ctx.orgId,
       name: input.name,
@@ -329,7 +355,9 @@ const createLeadTool: DomainTool = {
       source: ctx.source === 'inmo' ? 'inmo' : 'manual',
       budget: input.budget ?? null,
       propertyId: input.propertyId ?? null,
+      propertyKind: input.propertyId ? input.propertyKind : null,
       propertyName,
+      language: input.language,
       notes: input.notes ?? null,
     })
     const lead = await loadOwnedLead(ctx.db, ctx.orgId, r.id)
@@ -339,12 +367,22 @@ const createLeadTool: DomainTool = {
 
 const updateLeadTool: DomainTool = {
   name: 'update_lead',
-  description: 'Mueve un lead de fase (con su historial), lo reasigna a otro comercial, o lo marca perdido/reactivado — por el pipeline real.',
+  description:
+    'Mueve un lead de fase (con su historial), lo reasigna a otro comercial, lo marca perdido/reactivado o cambia su propiedad de interés (propertyId + propertyKind; null la quita) — por el pipeline real. Indica siempre el motivo en reason.',
   kind: 'write',
   area: 'crm',
   action: 'write',
   inputSchema: schemaOf(
-    { leadId: { type: 'integer' }, stage: { type: 'string', enum: [...STAGES] }, commercialId: { type: ['integer', 'null'] }, lost: { type: 'boolean' }, lostReason: { type: 'string', enum: [...LOST_REASONS] }, reason: { type: 'string' } },
+    {
+      leadId: { type: 'integer' },
+      stage: { type: 'string', enum: [...STAGES] },
+      commercialId: { type: ['integer', 'null'] },
+      lost: { type: 'boolean' },
+      lostReason: { type: 'string', enum: [...LOST_REASONS] },
+      reason: { type: 'string', description: 'Motivo del cambio: queda en el historial del lead.' },
+      propertyId: { type: ['integer', 'null'], description: 'Nueva propiedad de interés (null la quita).' },
+      propertyKind: KIND_SCHEMA,
+    },
     ['leadId'],
   ),
   parse: (o) => {
@@ -355,8 +393,12 @@ const updateLeadTool: DomainTool = {
       lost: typeof o.lost === 'boolean' ? o.lost : undefined,
       lostReason: v.oneOf(o, 'lostReason', LOST_REASONS),
       reason: v.str(o, 'reason', { max: 300 }),
+      propertyId: o.propertyId === null ? null : v.int(o, 'propertyId', { min: 1 }),
+      propertyKind: v.oneOf(o, 'propertyKind', PROPERTY_KINDS),
     }
-    if (input.stage === undefined && input.commercialId === undefined && input.lost === undefined) fail('Indica stage, commercialId o lost.')
+    if (input.stage === undefined && input.commercialId === undefined && input.lost === undefined && input.propertyId === undefined) fail('Indica stage, commercialId, lost o propertyId.')
+    // El catálogo nunca se adivina: un id sin catálogo es ambiguo (los dos catálogos pueden tener ese id).
+    if (input.propertyId && !input.propertyKind) fail('Con propertyId indica también propertyKind («developer» o «agent»).')
     return input
   },
   async run(ctx, input) {
@@ -364,9 +406,23 @@ const updateLeadTool: DomainTool = {
     // Una automatización no es una persona: su cambio queda como «Sistema»
     // (con el motivo) y no cuenta como primera respuesta humana del SLA.
     const actorId = ctx.source === 'automation' ? null : ctx.user.id
+    // Sin motivo explícito, el historial dice al menos por dónde vino el cambio (nunca queda en blanco).
+    const reason = input.reason ?? (ctx.source === 'automation' ? 'Automatización' : ctx.source === 'inmo' ? 'Cambio hecho con INMO' : 'Domain Tools API')
+    if (input.propertyId !== undefined) {
+      let patch: Record<string, unknown> = { propertyId: null, propertyKind: null, propertyName: null }
+      if (input.propertyId) {
+        await loadOwnedProperty(ctx.db, ctx.orgId, input.propertyKind!, input.propertyId)
+        const summary = await leadPropertySummary(ctx.db, ctx.orgId, { propertyId: input.propertyId, propertyKind: input.propertyKind })
+        patch = { propertyId: input.propertyId, propertyKind: input.propertyKind, propertyName: summary?.name ?? null }
+      }
+      await ctx.db
+        .update(schema.leads)
+        .set({ ...patch, updatedAt: nowTs() })
+        .where(and(eq(schema.leads.id, input.leadId), eq(schema.leads.organizationId, ctx.orgId)))
+    }
     if (input.commercialId !== undefined) await reassignLead(ctx.event, ctx.orgId, input.leadId, input.commercialId, { userId: actorId, reason: input.reason ?? 'INMO' })
-    if (input.stage) await transitionLeadStage(ctx.event, ctx.orgId, input.leadId, { toStage: input.stage, reason: input.reason }, { userId: actorId })
-    if (input.lost !== undefined) await setLeadOutcome(ctx.event, ctx.orgId, input.leadId, { lost: input.lost, lostReason: input.lostReason, note: input.reason }, { userId: actorId })
+    if (input.stage) await transitionLeadStage(ctx.event, ctx.orgId, input.leadId, { toStage: input.stage, reason }, { userId: actorId })
+    if (input.lost !== undefined) await setLeadOutcome(ctx.event, ctx.orgId, input.leadId, { lost: input.lost, lostReason: input.lostReason, note: input.reason ?? (input.lost ? null : reason) }, { userId: actorId })
     const lead = await loadOwnedLead(ctx.db, ctx.orgId, input.leadId)
     return { output: { leadId: lead.id, stage: lead.stage, status: lead.status, commercialId: lead.agentId }, target: { type: 'lead', id: lead.id } }
   },
@@ -625,7 +681,8 @@ async function loadOwnedAppointment(db: any, orgId: number, id: number) {
   const [visit] = await db
     .select({ id: schema.visits.id, status: schema.visits.status, scheduledAt: schema.visits.scheduledAt, agentId: schema.visits.agentId })
     .from(schema.visits)
-    .where(and(eq(schema.visits.id, id), eq(schema.visits.organizationId, orgId)))
+    // Cierre D3a: una cita de la papelera no existe para las Domain Tools (ni para INMO).
+    .where(and(eq(schema.visits.id, id), eq(schema.visits.organizationId, orgId), isNull(schema.visits.deletedAt)))
     .limit(1)
   if (!visit) throw new ToolError('NOT_FOUND', 'Cita no encontrada.')
   return visit

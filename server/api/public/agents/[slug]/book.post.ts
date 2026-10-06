@@ -16,6 +16,7 @@ import { syncLeadNextAction } from '../../../../utils/leads/nextAction'
 import { livePropertyCond } from '../../../../utils/properties/trash'
 import { recordWebFormSubmission } from '../../../../utils/comms/web'
 import { samePagePath } from '../../../../utils/comms/webPublic'
+import { publicLeadLanguage } from '../../../../utils/leads/captureLanguage'
 
 const VALID_CHANNELS = ['in_person', 'video', 'phone'] as const
 const SLOT_START_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/
@@ -30,6 +31,8 @@ interface BookAppointmentBody {
   notes?: string
   budget?: number
   interest?: string
+  /** Idioma de quien reserva (selector de la web o navegador). */
+  language?: string
 }
 
 /** Books a real appointment with an agent — re-validates the slot server-side, never trusts the client's picker state. */
@@ -142,10 +145,13 @@ export default defineEventHandler(async (event) => {
       phone: body.phone || null,
       source: 'web',
       propertyId,
+      // La reserva pública sólo ofrece propiedades de obra nueva (developer_properties, arriba).
+      propertyKind: propertyId ? 'developer' : null,
       propertyName,
       agentId: agent.id,
       agentName: agent.name,
       budget: clientBudget,
+      language: publicLeadLanguage(event, body.language),
       notes: [`Cita agendada con ${agent.name} (${channel})`, clientInterest && `Interés: ${clientInterest}`].filter(Boolean).join(' — '),
       ...readFirstTouch(event),
     })

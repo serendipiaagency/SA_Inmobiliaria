@@ -4,8 +4,3 @@ export function mediaUrl(key: string | null | undefined): string {
   if (key.startsWith('http') || key.startsWith('/')) return key
   return `/api/media/${key}`
 }
-
-export function formatPrice(value: number | null | undefined): string {
-  if (value === null || value === undefined) return 'Price on request'
-  return `AED ${new Intl.NumberFormat('en-US').format(value)}`
-}

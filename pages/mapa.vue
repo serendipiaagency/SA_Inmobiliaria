@@ -12,13 +12,26 @@
               <path stroke-linecap="round" d="M3 5h18M6 12h12M10 19h4" />
             </svg>
             {{ t('filters.button', 'Filtros') }}
-            <span v-if="activeCount" class="badge">{{ activeCount }}</span>
+            <span v-if="activeCount" class="badge" data-testid="map-filters-badge">{{ activeCount }}</span>
           </button>
         </div>
-        <div class="flex items-center justify-between">
-          <p class="text-sm text-stone-500"><span class="font-semibold text-ink">{{ data?.total ?? items.length }}</span> {{ t('mapa.propertiesOnMap', 'propiedades en el mapa') }}</p>
+        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <p class="mr-auto text-sm text-stone-500"><span class="font-semibold text-ink">{{ data?.total ?? items.length }}</span> {{ t('mapa.propertiesOnMap', 'propiedades en el mapa') }}</p>
           <button v-if="hasArea" type="button" class="text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-ink" data-testid="map-clear-area" @click="clearArea">
             {{ t('mapa.clearArea', 'Quitar zona') }}
+          </button>
+          <button v-if="nearby" type="button" class="text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-ink" data-testid="map-clear-nearby" @click="clearNearby">
+            {{ t('mapa.clearNearby', 'Quitar radio') }} ({{ nearby.radiusKm }} km)
+          </button>
+          <button
+            v-if="activeCount || q"
+            type="button"
+            class="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-widest transition"
+            :class="searchIsSaved ? 'text-ink' : 'text-stone-400 hover:text-ink'"
+            data-testid="map-save-search"
+            @click="onSaveSearch"
+          >
+            {{ searchIsSaved ? t('search.saved') : t('search.save') }}
           </button>
           <button v-if="activeCount || q" type="button" class="text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-ink" @click="clearAll">
             {{ t('hero.clear', 'Limpiar') }}
@@ -56,7 +69,18 @@
     <!-- Map -->
     <div v-show="view === 'map' || isDesktop" class="relative flex-1">
       <ClientOnly>
-        <MapExplorer :items="items" :active-id="active" :fit-to-items="!hasArea" search-area @marker-hover="active = $event" @marker-click="onMarkerClick" @search-area="onSearchArea" />
+        <MapExplorer
+          :items="items"
+          :active-id="active"
+          :fit-to-items="!hasArea && !nearby"
+          search-area
+          nearby
+          :nearby-circle="nearby"
+          @marker-hover="active = $event"
+          @marker-click="onMarkerClick"
+          @search-area="onSearchArea"
+          @search-nearby="onSearchNearby"
+        />
         <template #fallback>
           <div class="flex h-full items-center justify-center bg-stone-100 text-stone-400">{{ t('mapa.loading', 'Cargando mapa…') }}</div>
         </template>
@@ -74,6 +98,7 @@
 
 <script setup lang="ts">
 import { withValidCoords } from '~/utils/maps/coords'
+import { countActivePublicFilters, nearbyFromQuery, nearbyQuery, withoutNearby } from '~/utils/publicSearch'
 
 const { t } = useI18n()
 const { tenant, load: loadTenant } = useTenant()
@@ -103,26 +128,56 @@ const { data } = await useFetch('/api/public/properties', {
 })
 const AREA_KEYS = ['north', 'south', 'east', 'west'] as const
 const hasArea = computed(() => AREA_KEYS.every((k) => typeof route.query[k] === 'string' && route.query[k]))
+function withoutArea(query: Record<string, any>) {
+  return Object.fromEntries(Object.entries(query).filter(([k]) => !(AREA_KEYS as readonly string[]).includes(k)))
+}
+// Zona visible y radio no se combinan: buscar por uno quita el otro, para
+// que lo que se ve en el mapa sea siempre exactamente lo que filtra.
 function onSearchArea(b: { north: number; south: number; east: number; west: number }) {
-  router.push({ query: { ...route.query, north: String(b.north), south: String(b.south), east: String(b.east), west: String(b.west) } })
+  router.push({ query: { ...withoutNearby(route.query), north: String(b.north), south: String(b.south), east: String(b.east), west: String(b.west) } })
 }
 function clearArea() {
-  router.push({ query: Object.fromEntries(Object.entries(route.query).filter(([k]) => !(AREA_KEYS as readonly string[]).includes(k))) })
+  router.push({ query: withoutArea(route.query) })
+}
+
+// «Buscar cerca de aquí» (FASE 2): lat/lng/radiusKm en la URL, que el API ya
+// filtra sobre las coordenadas publicadas. Cuenta en la insignia y se guarda
+// con la búsqueda.
+const nearby = computed(() => nearbyFromQuery(route.query))
+function onSearchNearby(p: { lat: number; lng: number; radiusKm: number }) {
+  router.push({ query: { ...withoutArea(withoutNearby(route.query)), ...nearbyQuery(p.lat, p.lng, p.radiusKm) } })
+}
+function clearNearby() {
+  router.push({ query: withoutNearby(route.query) })
 }
 const items = computed(() => withValidCoords((data.value?.rows as any[]) || []))
 
-// Advanced filter keys that count toward the badge
-const ADV = ['minPrice','maxPrice','minArea','maxArea','bedrooms','bathrooms','type','status','orientation','minYear','energy','elevator','pool','garage','terrace','garden','pets','accessible']
-const activeCount = computed(() => ADV.filter((k) => route.query[k]).length)
+// Filtros activos de la insignia: los del modal (con el código postal) y el
+// radio, que cuenta como uno (utils/publicSearch.ts).
+const activeCount = computed(() => countActivePublicFilters(route.query))
+
+// Guardar la búsqueda del mapa (código postal y radio incluidos), igual que
+// en el listado: se abre después desde «Búsquedas guardadas».
+const toast = useToast()
+const { save: saveSearch, isSaved, load: loadSavedSearches } = useSavedSearches()
+const typeLabel = usePropertyTypeLabel()
+const savableQuery = computed(() => withoutArea(route.query))
+const searchIsSaved = computed(() => isSaved(savableQuery.value))
+function onSaveSearch() {
+  if (searchIsSaved.value) return
+  saveSearch(describePublicSearch({ ...savableQuery.value, q: q.value }, t, typeLabel), savableQuery.value)
+  toast.success(t('search.saved'))
+}
 
 // Seed for the modal from current URL query
 const modalSeed = computed(() => {
   const s: Record<string, any> = {}
   for (const k of ['minPrice','maxPrice','minArea','maxArea','bedrooms','bathrooms','minYear'])
     if (route.query[k]) s[k] = Number(route.query[k])
-  for (const k of ['type','status','orientation','energy']) if (route.query[k]) s[k] = String(route.query[k])
+  for (const k of ['municipality','neighborhood','postalCode','type','status','orientation','energy']) if (route.query[k]) s[k] = String(route.query[k])
   for (const k of ['elevator','pool','garage','terrace','garden','pets','accessible'])
     if (route.query[k] === '1') s[k] = true
+  if (nearby.value) Object.assign(s, nearby.value)
   return s
 })
 
@@ -165,6 +220,7 @@ function applySearch() {
 }
 
 onMounted(() => {
+  loadSavedSearches()
   isDesktop.value = window.innerWidth >= 1024
   window.addEventListener('resize', () => (isDesktop.value = window.innerWidth >= 1024))
 })

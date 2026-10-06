@@ -39,6 +39,15 @@ import type { PropertyKind } from '../matching/service'
  *    TASK_CANCELLED y DEAL_RECORD_LINKED/UNLINKED (reserva, arras o
  *    contrato vinculados a una operación) salen de acciones reales de sus
  *    servicios.
+ *
+ * Cierre C1: TASK_TRASHED/TASK_RESTORED y DEAL_TRASHED/DEAL_RESTORED — mandar
+ * una tarea u operación a la papelera (`deletedAt`) y restaurarla desde el
+ * panel. Antes, borrar una tarea no dejaba ningún evento: la cronología no
+ * podía explicar por qué una tarea «desaparecía» ni por qué volvía.
+ *
+ * Cierre D3a: APPOINTMENT_TRASHED/APPOINTMENT_RESTORED — una cita creada por
+ * error mandada a la papelera (`visits.deleted_at`) y restaurada. Antes
+ * nada escribía esa columna: no había forma de quitar una cita equivocada.
  */
 
 export const ACTIVITY_EVENT_TYPES = [
@@ -57,9 +66,15 @@ export const ACTIVITY_EVENT_TYPES = [
   'VIEWING_COMPLETED',
   'VIEWING_NO_SHOW',
   'VISIT_OUTCOME_RECORDED',
+  // Cierre D3a: una cita creada por error a la papelera y restaurada (appointments/trash.ts).
+  'APPOINTMENT_TRASHED',
+  'APPOINTMENT_RESTORED',
   'TASK_CREATED',
   'TASK_COMPLETED',
   'TASK_CANCELLED',
+  // Cierre C1: mandar una tarea a la papelera y sacarla de ella (tasks/service.ts#deleteTask/restoreTask).
+  'TASK_TRASHED',
+  'TASK_RESTORED',
   'OFFER_CREATED',
   'OFFER_SUBMITTED',
   'OFFER_COUNTERED',
@@ -74,13 +89,25 @@ export const ACTIVITY_EVENT_TYPES = [
   'DEAL_CANCELLED',
   'DEAL_RECORD_LINKED',
   'DEAL_RECORD_UNLINKED',
+  // Cierre C1: operación a la papelera y restaurada (deals/service.ts#trashDeal/restoreDeal).
+  'DEAL_TRASHED',
+  'DEAL_RESTORED',
   'PROPERTY_SENT',
   'PROPERTY_SHARE_OPENED',
   'CALL_COMPLETED',
+  // FASE 29 — email entrante: la respuesta del cliente a un email enviado
+  // desde un hilo web llega a ese hilo (server/utils/comms/inboundEmail.ts).
+  // Sin el texto del correo en `metadata`: la fuente es el mensaje del hilo.
+  'EMAIL_REPLY_RECEIVED',
   // Unificar dos contactos duplicados (server/utils/contacts/merge.ts). Su
   // metadata `mergedContactIds` es lo que hace que la cronología del que se
   // conserva incluya la de los unificados (ver `contactActivityCond`).
   'CONTACT_MERGED',
+  // Cierre del núcleo (FASE 14): «Unificar» al dar de alta un contacto que ya
+  // existía — se completó el existente con los datos nuevos que le faltaban
+  // (server/utils/contacts/crm.ts#unifyIntoContact). Metadata: qué se
+  // completó (`filled`), qué no se pisó (`skipped`) y los roles añadidos.
+  'CONTACT_UNIFIED',
 ] as const
 export type ActivityEventType = (typeof ACTIVITY_EVENT_TYPES)[number]
 

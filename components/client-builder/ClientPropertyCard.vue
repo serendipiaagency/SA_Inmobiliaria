@@ -37,7 +37,8 @@
  */
 const props = defineProps<{ property: Record<string, any> }>()
 
-const { format } = useCurrency()
+// Panel: moneda de la agencia, sin convertir (utils/currency.ts) — no el selector del visitante de la web.
+const { format } = useAgencyCurrency()
 const price = computed(() => (typeof props.property.price === 'number' ? format(props.property.price) : 'Sin precio'))
 const location = computed(
   () => [props.property.community, props.property.city].filter(Boolean).join(' · ') || props.property.location || '—',

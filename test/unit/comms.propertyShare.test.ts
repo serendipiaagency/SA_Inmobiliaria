@@ -56,6 +56,8 @@ describe('buildPropertyShare — FASE 29 §124/§143', () => {
   it('agent-properties: la nota se incluye, y el precio se formatea igual que developer', async () => {
     const { db } = createTestDb()
     const fixture = await seedTenant(db, 'ShareAgentNote')
+    // Una agencia que trabaja en euros (Configuración → Moneda): el precio sale en su moneda (utils/currency.ts).
+    await db.insert(schema.settings).values({ key: `org:${fixture.orgId}:currency`, value: 'EUR', updatedAt: ts })
     const [agentProperty] = await db
       .insert(schema.agentProperties)
       .values({ organizationId: fixture.orgId, slug: `share-agent-note-${Date.now()}`, price: 180000, city: 'Málaga', street: 'Avenida Sur 2', status: 'available', createdAt: ts, updatedAt: ts })

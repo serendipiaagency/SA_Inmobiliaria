@@ -8,6 +8,8 @@ import { resolveContact, orgDefaultCountryPrefix } from './contacts/service'
 import { routeLead, assignLead, buildRoutingContextFromProperty } from './leads/routing'
 import { recordActivity } from './activity/service'
 import { recomputeLeadScore } from './leads/score'
+import { parseLeadPropertyKind, type LeadPropertyKind } from './leads/property'
+import { normalizeLanguage } from '../../utils/crmCatalog'
 
 export interface UpsertLeadInput {
   /** Which tenant this lead belongs to — always the caller's resolved org, never client input. */
@@ -29,6 +31,13 @@ export interface UpsertLeadInput {
   /** El mensaje de captación tal cual, nunca reescrito — distinto de `notes`. */
   originalMessage?: string | null
   propertyId?: number | null
+  /**
+   * Catálogo de `propertyId` (migración 0089): 'agent' (2ª mano) o
+   * 'developer' (obra nueva). Quien llama lo pone cuando lo sabe (la web
+   * pública sólo enseña obra nueva; el panel y la API v1 lo dicen); sin él
+   * queda NULL y los lectores usan la resolución de siempre.
+   */
+  propertyKind?: LeadPropertyKind | null
   propertyName?: string | null
   agentId?: number | null
   agentName?: string | null
@@ -37,6 +46,7 @@ export interface UpsertLeadInput {
   // Núcleo inmobiliario (migración 0086): idioma (también para el enrutado),
   // id del lead en el sistema de origen (portal, CRM externo), portal,
   // prioridad, oficina/equipo y quién lo dio de alta a mano.
+  /** Se normaliza al catálogo (`normalizeLanguage`): «es-ES» o «English» llegan como «es» / «en»; lo que no es del catálogo no se guarda. */
   language?: string | null
   externalId?: string | null
   portal?: string | null
@@ -102,9 +112,12 @@ export async function findReusableLead(
  * Antes de esta fase, `contactId` se quedaba NULL en todo lead creado después del
  * backfill de la migración 0066 — esto lo corrige hacia delante.
  */
-export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
+export async function upsertLead(event: H3Event, rawInput: UpsertLeadInput) {
   const db = useDb(event)
   const nowTs = now()
+  // FASE 15: el idioma, siempre del catálogo — así la regla «Idioma» del
+  // enrutado compara códigos y no «es-ES» contra «es».
+  const input: UpsertLeadInput = { ...rawInput, language: normalizeLanguage(rawInput.language) }
 
   let contactId: number | null = null
   if (input.email || input.phone || input.whatsapp) {
@@ -113,7 +126,7 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
       const resolved = await resolveContact(
         event,
         input.organizationId,
-        { name: input.name, email: input.email, phone: input.phone, whatsapp: input.whatsapp },
+        { name: input.name, email: input.email, phone: input.phone, whatsapp: input.whatsapp, language: input.language },
         { defaultCountryPrefix },
       )
       contactId = resolved.contactId
@@ -131,7 +144,8 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
       .set({
         lastContactAt: nowTs,
         updatedAt: nowTs,
-        ...(input.propertyId ? { propertyId: input.propertyId, propertyName: input.propertyName || null } : {}),
+        // La propiedad nueva viaja con su catálogo (o NULL si quien llama no lo sabe): nunca un id nuevo con el catálogo del anterior.
+        ...(input.propertyId ? { propertyId: input.propertyId, propertyKind: parseLeadPropertyKind(input.propertyKind), propertyName: input.propertyName || null } : {}),
         ...(input.agentId ? { agentId: input.agentId, agentName: input.agentName || null } : {}),
         ...(input.phone ? { phone: input.phone } : {}),
         ...(input.budget ? { budget: input.budget } : {}),
@@ -156,9 +170,11 @@ export async function upsertLead(event: H3Event, input: UpsertLeadInput) {
  * manual del panel cuando alguien decide «crear igualmente» pese a un
  * duplicado (server/utils/leads/admin.ts).
  */
-export async function insertLead(event: H3Event, input: UpsertLeadInput, contactId: number | null, opts: { skipRouting?: boolean } = {}) {
+export async function insertLead(event: H3Event, rawInput: UpsertLeadInput, contactId: number | null, opts: { skipRouting?: boolean } = {}) {
   const db = useDb(event)
   const nowTs = now()
+  const input: UpsertLeadInput = { ...rawInput, language: normalizeLanguage(rawInput.language) }
+  const propertyKind = input.propertyId ? parseLeadPropertyKind(input.propertyKind) : null
 
   const [row] = await db
     .insert(schema.leads)
@@ -194,6 +210,7 @@ export async function insertLead(event: H3Event, input: UpsertLeadInput, contact
       score: 0,
       budget: input.budget || null,
       propertyId: input.propertyId || null,
+      propertyKind,
       propertyName: input.propertyName || null,
       agentId: input.agentId || null,
       agentName: input.agentName || null,
@@ -227,7 +244,8 @@ export async function insertLead(event: H3Event, input: UpsertLeadInput, contact
   // dueño desde el principio — el routing nunca pisa una elección explícita).
   if (!input.agentId && !opts.skipRouting) {
     try {
-      const ctx = await buildRoutingContextFromProperty(event, input.organizationId, input.propertyId)
+      // Con el catálogo del lead se lee sólo ese; sin él (NULL), como siempre.
+      const ctx = await buildRoutingContextFromProperty(event, input.organizationId, input.propertyId, propertyKind)
       // El idioma del lead también enruta (regla «Idioma»), y la oficina que
       // ya trae acota el reparto a esa oficina.
       ctx.language = input.language || null

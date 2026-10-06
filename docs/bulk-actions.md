@@ -77,6 +77,25 @@ Cambiar de filtro (no de página) vacía la selección — arrastrarla entre
 criterios de búsqueda distintos sería fácil de confundir con "estos son
 los resultados actuales".
 
+## Cierre D1p — «Cambiar estado comercial»
+
+Acción `change_commercial_status` en los dos catálogos
+(`propertyActions.ts`), con `params.commercialStatus` del vocabulario común
+(disponible, reservada, vendida, alquilada, retirada, borrador). Un valor
+fuera de él se rechaza al crear el job (422), antes de procesar nada. Cada
+elemento guarda la ficha ampliada con `updated_by` = quien lanzó la acción y
+aplica las mismas reglas que el `PUT` (`setPropertyCommercialStatus`: casilla
+«Reservada» y, en 2ª mano, la disponibilidad con «Vendida»/«Disponible»).
+Auditoría como el resto: el alta del job queda en el registro
+(`create property-bulk-jobs`, «change_commercial_status × N») y cada elemento
+en `bulk_action_job_items` con su resultado.
+
+«Cambiar estado» sigue siendo el `status` propio del catálogo y en el panel se
+llama «Cambiar estado de la obra» (obra nueva) o «Cambiar disponibilidad» (2ª
+mano). En 2ª mano, una disponibilidad nueva ajusta el estado comercial que la
+contradiga (`syncCommercialStatusAfterAvailability`), igual que el `PUT` y el
+cierre de una operación de venta.
+
 ## Confirmación, progreso, fallo parcial
 
 Antes de aplicar, `useConfirm()` (el mismo componente ya usado por
@@ -129,9 +148,9 @@ y "Exportar seleccionadas" (§92):
   `test/unit/bulkActions.test.ts` «2ª mano también se publica y se retira»),
   y el desplegable del listado los ofrece en los dos. El precio por
   porcentaje (N1) también: «por porcentaje» en el mismo test.
-  **Crear catálogo** sigue sólo en obra nueva a propósito: Asset Export
-  Studio (`asset-export/catalogs.post.ts`) sólo sabe componer fichas de
-  `developer_properties`.
+  **Crear catálogo** también, desde el cierre D3b (ver más abajo).
+  Antes era sólo de obra nueva porque Asset Export Studio sólo sabía
+  componer fichas de `developer_properties`.
 - **Actualizar precio** (§94-95) — genera SIEMPRE un
   `PropertyPriceHistory` por fila: `price_history` en obra nueva (mismo
   camino que ya usaba `[id].put.ts` en una edición manual, incluido
@@ -167,11 +186,39 @@ y "Exportar seleccionadas" (§92):
 - **Crear catálogo** (§93) — no es un `bulk_action_job`: es una única
   llamada síncrona a `POST /api/admin/asset-export/catalogs` (igual que
   "Exportar seleccionadas"), con la plantilla que se elige en el propio
-  desplegable de la barra de acciones. Limitado a `developer-properties`
-  y al tope ya existente de ese endpoint (`MAX_CATALOG_ASSETS = 30`);
-  "todos los filtrados" queda deshabilitado para esta acción porque
-  necesita los ids reales, no una resolución tardía del lado servidor.
-  Al terminar, lleva directamente a la ficha del catálogo creado.
+  desplegable de la barra de acciones. Limitado al tope ya existente de
+  ese endpoint (`MAX_CATALOG_ASSETS = 30`); "todos los filtrados" queda
+  deshabilitado para esta acción porque necesita los ids reales, no una
+  resolución tardía del lado servidor. Al terminar, lleva directamente a
+  la ficha del catálogo creado.
+
+  **En los dos catálogos (cierre D3b, FASE 28).** El listado de 2ª mano
+  manda `propertyKind: 'agent'` y el endpoint busca los ids en
+  `agent_properties` (de la agencia y fuera de la papelera; los ajenos se
+  saltan y, si no queda ninguno, 404). Es el MISMO motor: plantillas,
+  `process-next` de una sección por petición, ensamblado con portada e
+  índice, validación y R2. Lo único nuevo es
+  `resolveAgentAssetBindings()` (`server/utils/assetExport/bindings.ts`),
+  que rellena las mismas claves `{{asset.*}}` desde una ficha de 2ª mano:
+  - **sólo lo publicable**: la fila pasa por `toPublicProperty()` (fuera
+    lo interno, ubicación redactada según su privacidad); la zona
+    («Chamberí, Madrid») nunca lleva la dirección, y el título («Piso en
+    Chamberí») sólo usa la calle si la ubicación es exacta y no hay zona;
+  - **la foto** es la portada (`main_image`) salvo que esa misma foto
+    esté marcada en la galería como no publicable, privada u oculta;
+    entonces, la primera publicable de la galería (`listPublicGallery`);
+  - **la referencia** es el número de ficha, como en obra nueva (la
+    `reference` interna nunca sale en una respuesta pública);
+  - **sin QR ni enlace**: la 2ª mano no tiene página pública, y un QR a
+    ninguna parte es peor que ninguno (la plantilla deja ese hueco en blanco).
+
+  Sin migración: `asset_export_catalogs` no tiene columna para el
+  catálogo de propiedades, así que va en su `validation_json`
+  (`{"propertyKind":"agent"}`, `server/utils/assetExport/catalogKind.ts`) y
+  el ensamblado final lo conserva al escribir su validación. Sin marca =
+  obra nueva, que es lo que son todos los catálogos anteriores. El detalle
+  del catálogo busca el nombre de cada sección en SU tabla y dentro de la
+  agencia (antes un `JOIN` sólo por id).
 
 ## Incremento 3 — Bulk Leads (cierre de FASE 28)
 

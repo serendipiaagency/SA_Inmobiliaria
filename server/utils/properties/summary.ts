@@ -15,6 +15,8 @@ import { propertyMediaCounts } from './media'
 import { OWNERSHIP_ROLES, PROPERTY_CONTACT_ROLE_LABELS } from '../../../utils/crmCatalog'
 import { OFFER_OPEN_STATUSES } from '../../../utils/pipelineCatalog'
 import { PROPERTY_SHEET_FIELD_MAP } from '../../../utils/propertySheet'
+import { CATALOG_STATUS_TITLES } from '../../../utils/propertyCommercialStatus'
+import { parsePropertyDate } from '../../../utils/propertyDates'
 
 /**
  * Resumen de la ficha de una propiedad (FASE 25, bloque N7a): lo que hay que
@@ -141,6 +143,32 @@ export async function propertyChannels(db: any, env: Record<string, any>, orgId:
   }
 }
 
+/**
+ * Exclusiva (FASE 1): el fin de la exclusiva se guardaba y nada lo leía.
+ * `open` = exclusiva sin fecha de fin; `expiring` = vence en 30 días o menos.
+ *
+ * Cierre D1p: la fecha de fin se pedía como texto libre, así que se entiende
+ * también en los formatos antiguos habituales (`15/03/2025`, `15-3-2025`…,
+ * `parsePropertyDate`). Una fecha que no se entiende cuenta como «sin fecha
+ * de fin», igual que antes. Mismo criterio que el filtro «Vencimiento de la
+ * exclusiva» del listado (`normalizedDateSql`, searchService.ts).
+ */
+export function exclusivityState(isExclusive: unknown, until: unknown, today: string): { state: 'none' | 'open' | 'active' | 'expiring' | 'expired'; until: string | null; daysLeft: number | null } {
+  if (!isExclusive || Number(isExclusive) === 0) return { state: 'none', until: null, daysLeft: null }
+  const day = parsePropertyDate(until)
+  if (!day) return { state: 'open', until: null, daysLeft: null }
+  const toUtc = (d: string) => Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10)))
+  const daysLeft = Math.round((toUtc(day) - toUtc(today)) / 86_400_000)
+  return { state: daysLeft < 0 ? 'expired' : daysLeft <= 30 ? 'expiring' : 'active', until: day, daysLeft }
+}
+
+/** Precio por m² construido (FASE 5): antes sólo lo calculaba la web pública. */
+export function pricePerSquareMeter(price: unknown, area: unknown): number | null {
+  const p = Number(price)
+  const a = Number(area)
+  return Number.isFinite(p) && p > 0 && Number.isFinite(a) && a > 0 ? Math.round(p / a) : null
+}
+
 export async function buildPropertySummary(event: H3Event, db: any, env: Record<string, any>, orgId: number, user: SessionUser, kind: PropertyKind, row: Record<string, any>, sheet: Record<string, unknown>) {
   const resourceKey = kind === 'developer' ? 'developer-properties' : 'properties'
   const canCrm = hasAreaAccess(user, 'crm', 'read')
@@ -183,6 +211,19 @@ export async function buildPropertySummary(event: H3Event, db: any, env: Record<
   const sch = getPropertySchemaFor(kind, (row.propertyType as string | null) ?? null)
   const readiness = validateAgainstSchema(sch, { ...row, ...sheet }, 'publish')
   const commercialStatus = (sheet.commercialStatus as string | null) ?? null
+  // Quién la dio de alta y cuándo (cierre D1p). `createdBy` lo fija siempre
+  // el servidor con la sesión (N1); el nombre sólo se resuelve si es una
+  // cuenta de esta agencia o un super_admin — nunca el de otra agencia.
+  // Las fichas anteriores a N1 no tienen autor: se dice «sin autor registrado».
+  let createdByName: string | null = null
+  if (row.createdBy) {
+    const [u] = await db
+      .select({ name: schema.users.name, organizationId: schema.users.organizationId, role: schema.users.role })
+      .from(schema.users)
+      .where(eq(schema.users.id, Number(row.createdBy)))
+      .limit(1)
+    if (u && (u.organizationId === orgId || u.role === 'super_admin')) createdByName = u.name || null
+  }
 
   return {
     kind,
@@ -190,15 +231,22 @@ export async function buildPropertySummary(event: H3Event, db: any, env: Record<
     schemaLabel: sch.label,
     status: row.status ?? null,
     statusLabel: STATUS_LABELS[row.status] || row.status || null,
+    /** Rótulo del `status` propio del catálogo: «Estado de la obra» u «Disponibilidad» (cierre D1p). */
+    statusTitle: CATALOG_STATUS_TITLES[kind],
     commercialStatus,
     commercialStatusLabel: commercialStatus ? COMMERCIAL_STATUS_LABELS[commercialStatus] || commercialStatus : null,
     transactionType: row.transactionType ?? null,
     price: row.price ?? null,
     priceOld: row.priceOld ?? null,
     isExclusive: !!row.isExclusive,
+    exclusivity: exclusivityState(row.isExclusive, row.exclusiveUntil, new Date().toISOString().slice(0, 10)),
+    pricePerM2: pricePerSquareMeter(row.price, row.area),
     isReserved: !!row.isReserved,
     publishedAt: row.publishedAt ?? null,
     deletedAt: row.deletedAt ?? null,
+    createdAt: row.createdAt || null,
+    createdBy: row.createdBy ?? null,
+    createdByName,
     channels,
     owners,
     otherContacts,

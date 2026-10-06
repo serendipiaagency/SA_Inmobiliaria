@@ -29,6 +29,7 @@ import {
   type SheetPayload,
 } from '../../../utils/properties/extendedSheet'
 import { isSubtypeOf } from '../../../../utils/propertySheet'
+import { applyCommercialStatusRulesOnSave, assertPropertyDatesOnSave } from '../../../utils/properties/commercialStatus'
 import { isPropertyTrashed } from '../../../utils/properties/trash'
 import { documentUpdateFromBody, grantDocumentAccess, revokeDocumentAccess } from '../../../utils/properties/documents'
 import { PROPERTY_FILE_COLUMNS, enforceSingleMainMedia, releaseMediaKeyIfUnreferenced, syncMediaKeyVisibility, validatePropertyMedia } from '../../../utils/properties/media'
@@ -38,6 +39,8 @@ import { updateAutomation } from '../../../utils/automations/service'
 import { runAutomationsForOrg } from '../../../utils/automations/engine'
 import { prepareKnowledgeDocument } from '../../../utils/knowledge/documents'
 import { prepareBrainSettings } from '../../../utils/inmo/brainCatalog'
+import { applyPropertySelectionAction } from '../../../utils/selections/service'
+import { markItemsSelectedForRequirement } from '../../../utils/matching/actions'
 
 export default defineEventHandler(async (event) => {
   const { key, def } = getResource(event)
@@ -88,6 +91,17 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody<Record<string, any>>(event)
+  // Selección de propiedades (FASE 11, cierre C2): reordenar, quitar o añadir
+  // (`action`), con las mismas reglas que al crearla. Lo que se añade a una
+  // selección ligada a una necesidad queda «Seleccionado» en su
+  // compatibilidad si no había decisión, igual que «Crear selección».
+  if (key === 'property-selections') {
+    const res = await applyPropertySelectionAction(db, orgId!, id, body || {}, { userId: user.id })
+    const requirementId = (existing as any).buyerRequirementId as number | null
+    if (requirementId && res.added.length) await markItemsSelectedForRequirement(event, orgId!, requirementId, res.added, user.id)
+    await logAdminAction(event, { user, orgId, action: 'update', resource: key, resourceId: id, detail: res.action === 'add' ? `${res.added.length} propiedad(es) añadida(s)` : res.action === 'remove' ? 'propiedad quitada' : 'reordenada' })
+    return res
+  }
   // Automatizaciones (bloque N8b): editar/activar/desactivar con el permiso
   // de quien lo hace, o «Procesar ahora» ({ action: 'run' }) — el mismo motor
   // que el cron, sólo para esta automatización de esta agencia.
@@ -211,6 +225,17 @@ export default defineEventHandler(async (event) => {
     // CAMBIARLO — una ficha antigua con un tipo fuera de la lista se sigue
     // pudiendo guardar sin tocarlo (el autoguardado reenvía la ficha entera).
     if ('propertyType' in data && data.propertyType !== (existing as any).propertyType) assertValidPropertyType(data.propertyType)
+    // Estado y precio — los que se editan también desde la fila del listado
+    // (edición inline, cierre C1): el estado tiene que ser uno del catálogo y
+    // el precio no puede ser negativo. Mismo criterio que el tipo: sólo al
+    // CAMBIARLOS, para no bloquear el guardado de una ficha antigua.
+    const statusDef = def.fields.status
+    if ('status' in data && data.status !== (existing as any).status && statusDef?.options && !statusDef.options.includes(data.status)) {
+      throw createError({ statusCode: 422, statusMessage: `Estado no válido para este catálogo. Usa uno de: ${statusDef.options.map((o) => statusDef.optionLabels?.[o] || o).join(', ')}.` })
+    }
+    if (typeof data.price === 'number' && data.price !== (existing as any).price && data.price < 0) {
+      throw createError({ statusCode: 422, statusMessage: 'El precio no puede ser negativo.' })
+    }
     // Ficha ampliada (migración 0086): validada aquí, guardada tras el UPDATE.
     sheet = extractSheetPayload(body || {})
     const typeChanged = 'propertyType' in data && data.propertyType !== (existing as any).propertyType
@@ -222,6 +247,11 @@ export default defineEventHandler(async (event) => {
       if (current.subtype && !isSubtypeOf(current.subtype, merged.propertyType)) sheet.details.subtype = null
     }
     await assertSheetReferences(db, sheet, orgId!)
+    // Cierre D1p: fechas de gestión en AAAA-MM-DD (sólo al cambiarlas) y
+    // convivencia del estado comercial con «Reservada» y la disponibilidad
+    // (sólo si el estado comercial o la disponibilidad cambian).
+    assertPropertyDatesOnSave(data, existing as Record<string, any>)
+    await applyCommercialStatusRulesOnSave(db, orgId!, propertyKind, id, data, sheet, existing as Record<string, any>)
   }
   // Motivo del cambio de precio (opcional): viaja con el PUT de la ficha y
   // sólo se usa si el precio cambia de verdad.

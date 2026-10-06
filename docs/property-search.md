@@ -141,8 +141,9 @@ no viera ya paginando.
 **Export CSV** (§79): `format=csv` en el propio
 `GET /api/admin/[resource]` (coste cero de ruta), mismas condiciones y
 mismas columnas ya autorizadas que el listado JSON — nunca puede
-exponer un dato que el usuario no pudiera ya ver. Sin paginar, con tope
-`PROPERTY_EXPORT_MAX_ROWS` (2.000). Ninguna de las dos tablas tiene hoy
+exponer un dato que el usuario no pudiera ya ver. Desde el cierre D1p, sin
+tope: `exportPropertyRows` recorre todo el filtro por lotes de
+`PROPERTY_EXPORT_BATCH` (500), como la exportación de leads (ver abajo). Ninguna de las dos tablas tiene hoy
 precio mínimo, comisión ni dato de propietario — el encargo pide no
 filtrarlos en el export; como el campo no existe, no hay nada que
 excluir a propósito.
@@ -231,5 +232,140 @@ Sin romper lo que ya había (todo es opcional):
   `/mapa` lo usa, y su botón «Buscar en esta zona» filtra por la zona visible.
 
 Sigue pendiente: la web pública sólo tiene obra nueva (2ª mano no tiene
-consumidor público), y el buscador público (`FiltersModal.vue`) no expone
-municipio ni barrio todavía — el API ya los acepta.
+consumidor público).
+
+### Web pública: tipos, código postal y radio (cierre D3b)
+
+- **Tipos.** `FiltersModal.vue` y el buscador de la portada (`HeroSearch.vue`)
+  ofrecían cinco claves (y en inglés en la portada). Ahora usan el catálogo
+  común (`PROPERTY_TYPES`), reducido a lo que la agencia tiene publicado:
+  `GET /api/public/properties?facets=types` devuelve `facets.types`, los
+  tipos distintos de sus propiedades vivas en el orden del catálogo
+  (`orderPropertyTypes`), sin el resto de filtros para que la lista no
+  encoja al filtrar. El rótulo es `t('filters.type.<clave>')` —en castellano
+  igual que `PROPERTY_TYPE_LABELS` (lo comprueba una prueba), traducido en
+  los otros cinco idiomas— vía `usePropertyTypeLabel()`; también en la ficha
+  rápida, el comparador y el bloque «Tipos» del Constructor Web.
+- **Código postal.** Campo propio en «Ubicación» del modal. El API filtra
+  `postalCode` por **prefijo** (antes «contiene»): «280» encuentra todo
+  280xx y el código completo coincide igual. Se normaliza
+  (`normalizePostalCode`: letras, cifras, espacio y guion; sin comodines de
+  `LIKE`).
+- **Radio.** En `/mapa`, «Buscar cerca de aquí» (1 a 50 km) alrededor del
+  centro del mapa o de «Mi ubicación» (geolocalización del navegador; ver
+  `server/utils/permissionsPolicy.ts` para por qué se abre `geolocation=(self)`
+  sólo en la web pública). La posición sale redondeada a 3 decimales (~110 m).
+  Pone `lat`/`lng`/`radiusKm` en la URL (el API ya los filtraba sobre las
+  coordenadas publicadas), dibuja el círculo y quita la «zona visible» (no
+  se combinan). El modal enseña el radio activo para cambiarlo o quitarlo.
+- **Insignia y búsqueda guardada.** `countActivePublicFilters()`
+  (`utils/publicSearch.ts`) cuenta cada filtro del modal, el código postal
+  incluido, y el radio como uno; la usan el listado y el mapa. El mapa
+  también guarda la búsqueda (con CP y radio, sin la zona visible) y el
+  nombre lo pone `describePublicSearch()`. Las alertas por email
+  (`saved-search-alerts`) aplican ya el código postal y el radio con la
+  misma regla que el buscador; un radio guardado mal formado no amplía la
+  alerta a todo: esa búsqueda no avisa.
+
+## Edición inline en el listado (cierre C1, FASE 25)
+
+La vista Lista de los dos catálogos (`components/property-list/PropertyList.vue`,
+el mismo listado para obra nueva y 2ª mano) edita **precio, estado y
+comercial** desde la fila: clic en el valor → control → Enter o salir del
+campo guarda (un desplegable, al elegir) → Esc o × cancela. El componente
+es `components/admin/InlineEdit.vue`, compartido con la Tabla de Leads.
+
+- **Sin endpoint nuevo.** Cada cambio es el `PUT /api/admin/<recurso>/:id`
+  del motor genérico, el mismo que usa el editor, con sólo el campo que
+  cambia. Así se aplican, sin duplicarlos, los permisos del área (`web`,
+  escritura), la validación del esquema de la propiedad, la comprobación de
+  que el comercial (`agentId`) es de la agencia (404 si no), las
+  automatizaciones de publicación (bajada de precio, cambio de estado) y la
+  auditoría.
+- **Histórico de precios.** Lo escribe el propio `PUT`, igual que desde el
+  editor: una fila en `price_history` (obra nueva) o
+  `agent_property_price_history` (2ª mano) por cada cambio real, con el
+  precio anterior y quién lo cambió. El cliente no escribe historial, así
+  que no hay doble entrada; reenviar el mismo precio no añade nada. El
+  motivo del cambio (`priceChangeReason`) sólo se anota desde el editor.
+- **Validación.** En el navegador, al escribir (`utils/inlineEdit.ts`:
+  números «450000» o «450.000», obligatorio, no negativo, con un tope de
+  cordura). En el servidor, el `PUT` rechaza ahora con 422 un `status` que no
+  es del catálogo y un precio negativo — sólo al **cambiarlos**, para no
+  bloquear el guardado de una ficha antigua (mismo criterio que el tipo de
+  inmueble). Cualquier error se queda visible bajo el control.
+- **Permisos en la UI.** Sólo con escritura en el área (`canWrite('web')`,
+  lo mismo que ya decide «Restaurar» en la papelera); sin ella, la celda
+  enseña el valor sin botón.
+- **Columna «Comercial».** Nueva en «Columnas» (se puede ocultar); los
+  nombres salen de `?view=filterOptions` (los mismos del filtro). El primer
+  chip de la celda del `status` del catálogo («Estado de la obra» /
+  «Disponibilidad», cierre D1p) es siempre ese `status`
+  (`PROPERTY_LIST_CONFIG.rowChips`, comprobado en
+  `test/unit/propertyListConfig.test.ts`) y es el que se edita. El estado
+  comercial común tiene su propia columna (abajo).
+- La cuadrícula (tarjetas) no tiene edición inline: sus acciones siguen
+  siendo las de la tarjeta.
+
+## Cierre D1p — estado comercial, exclusiva, características, referencias y CSV sin tope
+
+Mismo motor (`buildPropertyFilterConds` / `parsePropertyFilters`), así que
+todo lo nuevo va también a la URL, al CSV, a las vistas guardadas y a
+«Seleccionar las N que cumplen el filtro». Sin rutas nuevas.
+
+### Filtros nuevos
+
+| Parámetro | Qué filtra | Dónde está el dato |
+|---|---|---|
+| `commercialStatus=reserved,sold,none` | Estado comercial común, cualquiera de los indicados; `none` = sin indicar | `property_details.commercial_status` (valores como un único parámetro JSON) |
+| `exclusivity=expired\|expiring` | Exclusiva caducada / que caduca en 30 días (hoy incluido), como el aviso del resumen | `is_exclusive` + `exclusive_until` normalizada (`normalizedDateSql`) |
+| `features=…,privatePool,communityPool,privateGarden` | Piscina privada / comunitaria y jardín privado | `property_details` |
+| `features=pool` / `garden` | Ahora cuenta cualquiera de los tres: la casilla de la fila, la privada o la comunitaria | `has_pool` / `has_garden` o `property_details` |
+| `amenities=hasGym,hasFiber,…` | «Más características»: cualquier sí/no de la ficha ampliada (edificio, vivienda, instalaciones, zonas comunes, exterior), todas | `property_details`, una sola subconsulta |
+| `capturedFrom` / `capturedTo` | Ahora compara fechas (también «15/03/2025» guardado a mano); una fecha de filtro que no se entiende es 422 | `capture_date` normalizada |
+
+Un valor desconocido de `commercialStatus`, `amenities` o `exclusivity` es un
+**422** (como la búsqueda geográfica): ignorarlo devolvería todo. Las
+columnas de `amenities` salen siempre del esquema a partir de una clave del
+catálogo (`PROPERTY_AMENITY_KEYS`), nunca del texto del cliente, y van como
+SQL literal: ni una característica ocupa uno de los 100 parámetros de D1
+(`test/unit/cierreD1p.test.ts` comprueba la consulta con todas a la vez).
+
+El matching cuenta la piscina y el jardín igual
+(`FEATURE_SOURCES.anyOf`, `withPropertyDetails` carga las cuatro columnas):
+con cualquiera marcada, «sí»; «no» si lo dice la casilla genérica (con su
+política de repaso) o si la privada y la comunitaria dicen «no» las dos.
+
+### Búsqueda de texto por referencias
+
+`?q=` de los dos catálogos y `q` de «todos los filtrados» usan la misma
+condición, `propertyTextSearchCond`: las columnas `searchFields` del recurso
+(ahora también `externalReference`, `agencyReference` y, en 2ª mano,
+`street`), el código comercial de la ficha ampliada (subconsulta por
+organización) y, si es un número, el id («Ref. #»). La búsqueda `text` de las
+Domain Tools y el selector compacto (`searchPropertiesCompact`) buscan también
+por las referencias.
+
+### Portal en 2ª mano
+
+La publicación multicanal sólo programa obra nueva. En 2ª mano el filtro se ve
+**desactivado con su explicación** y el panel no lo manda: un `portal` que
+llegue en la URL o en una vista guardada se descarta (`pickExtraFilters` con
+`allowPortal: false`). Llamado a mano, el servidor sigue respondiendo cero.
+
+### Listado
+
+- Columna «Estado comercial» (chip, edición inline con el mismo `PUT`); la
+  del `status` del catálogo se llama «Estado de la obra» o «Disponibilidad».
+- «Dormitorios (mín.)», «N dorm.» en la fila y en las pastillas.
+- Precio con «/mes» en alquiler.
+- La pastilla del tipo enseña el rótulo («Tipo: Chalet»), no la clave.
+- «Exportar CSV (N)» exporta todo el filtro, con la columna `commercialStatus`.
+
+### Pendiente (fuera de este cierre)
+
+- La web pública (`/api/public/properties`, filtro `pool`) sigue mirando sólo
+  la casilla genérica de la fila; no se pidió tocar el buscador público.
+- La Domain Tool `search_properties` ya FILTRA «piscina»/«jardín» con los tres
+  orígenes (usa el mismo motor), pero la lista `features` de cada resultado
+  (`compactProperty`) sigue saliendo sólo de las columnas de la fila.

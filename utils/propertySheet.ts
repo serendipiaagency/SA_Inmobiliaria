@@ -89,6 +89,28 @@ export function propertyTypeLabel(value: string | null | undefined): string {
   return PROPERTY_TYPE_LABELS[value] || value
 }
 
+/**
+ * Clave i18n del rótulo de un tipo en la WEB PÚBLICA (`filters.type.apartment`…).
+ * En castellano el diccionario dice lo mismo que `PROPERTY_TYPE_LABELS` (lo
+ * comprueba una prueba); en el resto de idiomas, su traducción. Sin entrada,
+ * `t()` cae a la etiqueta del catálogo.
+ */
+export function propertyTypeI18nKey(type: string): string {
+  return `filters.type.${type.toLowerCase()}`
+}
+
+/**
+ * Los tipos distintos que una agencia tiene publicados, en el orden del
+ * catálogo común; un valor antiguo fuera del catálogo va al final, tal cual
+ * (sigue siendo filtrable: el servidor compara con lo guardado).
+ */
+export function orderPropertyTypes(values: unknown[]): string[] {
+  const present = new Set(values.map((v) => (typeof v === 'string' ? v.trim() : '')).filter(Boolean))
+  const known = PROPERTY_TYPES.filter((t) => present.has(t))
+  const unknown = [...present].filter((v) => !(PROPERTY_TYPES as readonly string[]).includes(v)).sort((a, b) => a.localeCompare(b, 'es'))
+  return [...known, ...unknown]
+}
+
 export function isSubtypeOf(subtype: unknown, type: unknown): boolean {
   return !!type && !!subtype && String(subtype) in (PROPERTY_SUBTYPES[String(type)] || {})
 }
@@ -115,7 +137,13 @@ export interface SheetField {
   max?: number
 }
 
-const COMMERCIAL_STATUS = { available: 'Disponible', reserved: 'Reservada', sold: 'Vendida', rented: 'Alquilada', withdrawn: 'Retirada', draft: 'Borrador' }
+/**
+ * Estado comercial común a los dos catálogos (`property_details.commercial_status`).
+ * Distinto del `status` de cada catálogo (fase de la obra en obra nueva,
+ * disponibilidad en 2ª mano): ver utils/propertyCommercialStatus.ts.
+ */
+export const PROPERTY_COMMERCIAL_STATUS_LABELS: Record<string, string> = { available: 'Disponible', reserved: 'Reservada', sold: 'Vendida', rented: 'Alquilada', withdrawn: 'Retirada', draft: 'Borrador' }
+const COMMERCIAL_STATUS = PROPERTY_COMMERCIAL_STATUS_LABELS
 const STREET_TYPES = { street: 'Calle', avenue: 'Avenida', square: 'Plaza', road: 'Carretera', boulevard: 'Paseo', way: 'Camino', passage: 'Pasaje', roundabout: 'Glorieta', urbanization: 'Urbanización', other: 'Otro' }
 const FACADE = { brick: 'Ladrillo visto', render: 'Enfoscado / monocapa', stone: 'Piedra', ventilated: 'Fachada ventilada', glass: 'Muro cortina', other: 'Otra' }
 const STRUCTURE = { concrete: 'Hormigón', steel: 'Metálica', load_bearing: 'Muros de carga', wood: 'Madera', mixed: 'Mixta' }
@@ -336,6 +364,20 @@ export const PROPERTY_SHEET_GROUPS: { key: string; label: string; fields: SheetF
 export const PROPERTY_SHEET_FIELDS: SheetField[] = PROPERTY_SHEET_GROUPS.flatMap((g) => g.fields)
 export const PROPERTY_SHEET_FIELD_MAP: Record<string, SheetField> = Object.fromEntries(PROPERTY_SHEET_FIELDS.map((f) => [f.key, f]))
 
+/**
+ * Las características sí/no de la ficha ampliada (`property_details`) por
+ * bloque — edificio, vivienda, instalaciones, zonas comunes y exterior —, con
+ * su rótulo del catálogo. Son las que ofrece el filtro «Más características»
+ * del listado (`amenities=hasGym,hasFiber…`); el servidor sólo acepta estas
+ * claves, así que nunca llega al SQL un nombre de columna que no sea de aquí.
+ */
+export const PROPERTY_AMENITY_GROUPS: { key: string; label: string; fields: { key: string; label: string }[] }[] = PROPERTY_SHEET_GROUPS.map((g) => ({
+  key: g.key,
+  label: g.label,
+  fields: g.fields.filter((f) => f.type === 'bool' && f.store === 'details').map((f) => ({ key: f.key, label: f.label })),
+})).filter((g) => g.fields.length > 0)
+export const PROPERTY_AMENITY_KEYS: string[] = PROPERTY_AMENITY_GROUPS.flatMap((g) => g.fields.map((f) => f.key))
+
 /** Campos internos: nunca salen en la web pública ni en un feed de portal. */
 export const PROPERTY_SHEET_INTERNAL_KEYS = new Set([
   'commercialCode',
@@ -367,6 +409,24 @@ export function pricePerSquareMeter(price: unknown, area: unknown): number | nul
   const a = typeof area === 'number' ? area : Number(area)
   if (!Number.isFinite(p) || !Number.isFinite(a) || p <= 0 || a <= 0) return null
   return Math.round((p / a) * 100) / 100
+}
+
+/**
+ * Renta mensual (cierre D1p): con operación «Alquiler», el único `price` de la
+ * propiedad ES la renta de cada mes — no hay columna aparte ni migración. Lo
+ * que cambia es cómo se lee: «Renta mensual» en el editor, «/mes» junto al
+ * importe y «/m²·mes» en el precio por m².
+ */
+export function isRentTransaction(transactionType: unknown): boolean {
+  return transactionType === 'rent'
+}
+/** Lo que va detrás del importe: « /mes» en alquiler, nada en venta. */
+export function priceSuffixFor(transactionType: unknown): string {
+  return isRentTransaction(transactionType) ? '/mes' : ''
+}
+/** Lo que va detrás del precio por m²: «/m²·mes» en alquiler, «/m²» en venta. */
+export function pricePerM2SuffixFor(transactionType: unknown): string {
+  return isRentTransaction(transactionType) ? '/m²·mes' : '/m²'
 }
 
 /** Tipos de documento de una propiedad (FASE 6). */

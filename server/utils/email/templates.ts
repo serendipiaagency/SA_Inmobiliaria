@@ -40,8 +40,20 @@ export interface TemplateDef {
   body: (data: any, locale: EmailLocale) => string
 }
 
-const money = (n: number | null | undefined, locale: EmailLocale) =>
-  n == null ? '—' : new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
+/**
+ * Importe de un cobro con SU moneda (`d.currency`, la del depósito de Stripe):
+ * un registro con moneda propia se enseña con ella, no con la de la agencia
+ * (utils/currency.ts, regla 4). Sin moneda, `eur`, la de siempre de los depósitos.
+ */
+const money = (n: number | null | undefined, locale: EmailLocale, currency?: string | null) => {
+  if (n == null) return '—'
+  const code = String(currency || 'eur').toUpperCase()
+  try {
+    return new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'es-ES', { style: 'currency', currency: code, maximumFractionDigits: 0 }).format(n)
+  } catch {
+    return `${new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'es-ES', { maximumFractionDigits: 0 }).format(n)} ${code}`
+  }
+}
 
 export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
   lead_created: {
@@ -173,7 +185,7 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
     body: (d, l) =>
       emailHeading(l === 'en' ? 'Payment received' : 'Pago recibido') +
       emailParagraph(l === 'en' ? 'Thank you — your payment was confirmed.' : 'Gracias — tu pago se ha confirmado.') +
-      emailInfoTable([[l === 'en' ? 'Amount' : 'Importe', money(d.amount, l)]]),
+      emailInfoTable([[l === 'en' ? 'Amount' : 'Importe', money(d.amount, l, d.currency)]]),
   },
 
   payment_failed: {
@@ -187,7 +199,7 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
           ? 'We were unable to process your payment. Please try again or contact us if the problem continues.'
           : 'No hemos podido procesar tu pago. Inténtalo de nuevo o contacta con nosotros si el problema continúa.',
       ) +
-      emailInfoTable([[l === 'en' ? 'Amount' : 'Importe', money(d.amount, l)]]),
+      emailInfoTable([[l === 'en' ? 'Amount' : 'Importe', money(d.amount, l, d.currency)]]),
   },
 
   user_welcome: {

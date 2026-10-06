@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, isNull } from 'drizzle-orm'
 import { requireUser } from '../../utils/auth'
 import { useDb, schema } from '../../utils/db'
 import { contactIdsForEmail, listContactDocuments } from '../../utils/properties/documents'
@@ -20,7 +20,8 @@ export default defineEventHandler(async (event) => {
     db
       .select()
       .from(schema.visits)
-      .where(and(eq(schema.visits.organizationId, user.organizationId), eq(schema.visits.clientEmail, email)))
+      // Cierre D3a: el cliente no ve las citas que la agencia mandó a la papelera.
+      .where(and(eq(schema.visits.organizationId, user.organizationId), eq(schema.visits.clientEmail, email), isNull(schema.visits.deletedAt)))
       .orderBy(desc(schema.visits.scheduledAt)),
     db
       .select()

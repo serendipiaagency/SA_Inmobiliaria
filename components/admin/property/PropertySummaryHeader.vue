@@ -20,14 +20,17 @@
 
       <dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-[13px] sm:grid-cols-4 xl:grid-cols-8">
         <div>
-          <dt class="text-[11px] uppercase tracking-wide text-stone-400">Estado</dt>
-          <dd class="font-medium text-ink" data-testid="property-summary-status">{{ summary.commercialStatusLabel || summary.statusLabel || '—' }}</dd>
+          <!-- Estado comercial común y, debajo, el `status` propio del catálogo con su nombre (cierre D1p). -->
+          <dt class="text-[11px] uppercase tracking-wide text-stone-400">Estado comercial</dt>
+          <dd class="font-medium" :class="summary.commercialStatusLabel ? 'text-ink' : 'text-stone-400'" data-testid="property-summary-status">{{ summary.commercialStatusLabel || 'Sin indicar' }}</dd>
+          <dd v-if="summary.statusLabel" class="text-[11px] text-stone-500" data-testid="property-summary-catalog-status">{{ summary.statusTitle }}: {{ summary.statusLabel }}</dd>
           <dd v-if="flags" class="text-[11px] text-stone-500">{{ flags }}</dd>
         </div>
         <div>
-          <dt class="text-[11px] uppercase tracking-wide text-stone-400">Precio</dt>
-          <dd class="font-medium text-ink">{{ summary.price != null ? formatCurrency(summary.price) : '—' }}</dd>
+          <dt class="text-[11px] uppercase tracking-wide text-stone-400">{{ isRent ? 'Renta mensual' : 'Precio' }}</dt>
+          <dd class="font-medium text-ink" data-testid="property-summary-price">{{ summary.price != null ? `${formatCurrency(summary.price)}${isRent ? ' /mes' : ''}` : '—' }}</dd>
           <dd v-if="summary.priceOld" class="text-[11px] text-stone-400 line-through">{{ formatCurrency(summary.priceOld) }}</dd>
+          <dd v-if="summary.pricePerM2" class="text-[11px] text-stone-500" data-testid="property-summary-price-m2">{{ formatCurrency(summary.pricePerM2) }}{{ pricePerM2SuffixFor(summary.transactionType) }}</dd>
         </div>
         <div>
           <dt class="text-[11px] uppercase tracking-wide text-stone-400">Canales</dt>
@@ -63,23 +66,29 @@
           <dd class="text-[11px] text-stone-500">{{ mediaText }}</dd>
         </div>
       </dl>
+      <!-- Quién la dio de alta y cuándo (cierre D1p). Las fichas anteriores a que se guardara el autor lo dicen. -->
+      <p class="mt-3 border-t border-line pt-2 text-[11px] text-stone-400" data-testid="property-summary-created">{{ createdText }}</p>
     </template>
   </section>
 </template>
 
 <script setup lang="ts">
 import { PROPERTY_MEDIA_TYPE_LABELS } from '~/utils/propertyMediaCatalog'
+import { pricePerM2SuffixFor } from '~/utils/propertySheet'
 
 /**
  * Cabecera «Resumen» de la ficha de propiedad (FASE 25, bloque N7a), igual en
- * los dos catálogos: estado, precio, canales donde está publicada, dueños,
+ * los dos catálogos: estado comercial (y el estado de la obra o la
+ * disponibilidad), precio (renta mensual en alquiler), canales donde está publicada, dueños,
  * compradores compatibles, ofertas, documentos (con caducados y a punto de
- * caducar), multimedia publicable y qué falta para publicar. Los datos salen
+ * caducar), multimedia publicable, qué falta para publicar y quién la creó y
+ * cuándo (cierre D1p). Los datos salen
  * de `GET /api/admin/<recurso>/:id?view=summary`; lo de CRM sólo aparece si
  * la cuenta puede leer el CRM.
  */
 const props = defineProps<{ resource: 'developer-properties' | 'properties'; recordId: number; refreshKey?: number }>()
-const { format: formatCurrency } = useCurrency()
+// Panel: moneda de la agencia, sin convertir (utils/currency.ts) — no el selector del visitante de la web.
+const { format: formatCurrency } = useAgencyCurrency()
 
 const summary = ref<any | null>(null)
 const pending = ref(false)
@@ -98,7 +107,32 @@ async function load() {
   }
 }
 
-const flags = computed(() => [summary.value?.isExclusive ? 'Exclusiva' : '', summary.value?.isReserved ? 'Reservada' : '', summary.value?.transactionType === 'rent' ? 'Alquiler' : summary.value?.transactionType === 'sale' ? 'Venta' : ''].filter(Boolean).join(' · '))
+/** «Reservada» sólo si el estado comercial no lo dice ya (la casilla de la web, en fichas anteriores al estado comercial). */
+const flags = computed(() =>
+  [
+    summary.value?.isExclusive ? (summary.value?.exclusivity?.until ? `Exclusiva hasta ${formatDay(summary.value.exclusivity.until)}` : 'Exclusiva') : '',
+    summary.value?.isReserved && summary.value?.commercialStatus !== 'reserved' ? 'Marcada «Reservada» en la web' : '',
+    summary.value?.transactionType === 'rent' ? 'Alquiler' : summary.value?.transactionType === 'sale' ? 'Venta' : '',
+  ]
+    .filter(Boolean)
+    .join(' · '),
+)
+const isRent = computed(() => summary.value?.transactionType === 'rent')
+/** `AAAA-MM-DD` (o una fecha con hora) como fecha española. */
+function formatDay(v: string | null | undefined) {
+  if (!v) return ''
+  const day = String(v).slice(0, 10)
+  const [y, m, d] = day.split('-')
+  return y && m && d ? `${d}/${m}/${y}` : String(v)
+}
+const createdText = computed(() => {
+  const s = summary.value
+  if (!s) return ''
+  const when = s.createdAt ? ` el ${formatDay(s.createdAt)}` : ''
+  if (s.createdByName) return `Creada por ${s.createdByName}${when}`
+  if (s.createdBy) return `Creada por un usuario que ya no está en la agencia${when}`
+  return `Creada${when || ' (sin fecha)'} · sin autor registrado (ficha anterior a que se guardara quién la crea)`
+})
 const ownersText = computed(() => (summary.value?.owners || []).map((o: any) => (o.ownershipPct != null ? `${o.name} (${o.ownershipPct} %)` : o.name)).join(', '))
 const channelsText = computed(() => {
   const portals: any[] = summary.value?.channels?.portals || []
@@ -121,6 +155,9 @@ const alerts = computed(() => {
   const out: { tone: 'red' | 'amber'; text: string }[] = []
   if (s.documents.expired.length) out.push({ tone: 'red', text: `Documentos caducados: ${s.documents.expired.map((d: any) => `${d.title} (${d.docTypeLabel}, ${String(d.expiresAt).slice(0, 10)})`).join(' · ')}` })
   if (s.documents.expiring.length) out.push({ tone: 'amber', text: `Caducan pronto: ${s.documents.expiring.map((d: any) => `${d.title} (${String(d.expiresAt).slice(0, 10)})`).join(' · ')}` })
+  // Exclusiva (FASE 1): vencida o a punto de vencer.
+  if (s.exclusivity?.state === 'expired') out.push({ tone: 'red', text: `La exclusiva venció el ${formatDay(s.exclusivity.until)}: renuévala o quita la marca de exclusiva.` })
+  if (s.exclusivity?.state === 'expiring') out.push({ tone: 'amber', text: `La exclusiva vence el ${formatDay(s.exclusivity.until)} (${s.exclusivity.daysLeft === 0 ? 'hoy' : `faltan ${s.exclusivity.daysLeft} días`}).` })
   if (!s.publishReadiness.ok && !s.deletedAt) out.push({ tone: 'amber', text: `Para publicarla falta: ${s.publishReadiness.missing.map((m: any) => m.label).join(', ')}.` })
   return out
 })

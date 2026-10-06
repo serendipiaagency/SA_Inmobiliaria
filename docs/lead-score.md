@@ -19,7 +19,7 @@ reglas deterministas sobre señales reales**, con su «¿por qué?».
 | --- | --- | --- |
 | `budget_validated` | +20 | BuyerRequirement activa con `budget_validated = 1` (validado por una persona) |
 | `purchase_horizon` | +15 (90 días) | BuyerRequirement: `desired_date` dentro del plazo, o `urgency` high/urgent |
-| `responded_recently` | +15 (24 h) | Mensaje de WhatsApp entrante, o llamada entrante contestada (WhatsApp Calling con `answered_at`, o anotada a mano como contestada) |
+| `responded_recently` | +15 (24 h) | Mensaje de WhatsApp entrante, llamada entrante contestada (WhatsApp Calling con `answered_at`, o anotada a mano como contestada) o (FASE 29, email entrante) respuesta del cliente por email a un hilo web de ese lead o de su Contact (`comms_web_messages` `in` por `email`; un mensaje del chat web no cuenta) |
 | `viewing_requested` | +20 | Una visita `property_viewing` del lead no cancelada |
 | `financing_validated` | +10 | BuyerRequirement: `mortgage_status` en {aprobada, preaprobada, sin hipoteca} (configurable) |
 | `opened_listings` | +4 (≥ 3) | Fichas enviadas con apertura confirmada, distintas: `property_share` de WhatsApp con lectura confirmada por el proveedor **o** (núcleo N8a) enlace personal abierto, enviado por email o por el chat web (`property_share_links.first_opened_at`) |

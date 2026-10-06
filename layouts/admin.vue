@@ -248,6 +248,11 @@ if (isSuperAdmin.value) {
 }
 
 const { data: orgInfo } = await useFetch<any>('/api/admin/active-org-info')
+// Moneda de la agencia para todo el panel (useAgencyCurrency / useDash().money):
+// se fija aquí, antes de que se pinte la página, para que SSR e hidratación
+// formateen igual. Ver utils/currency.ts.
+const agencyCurrency = useAgencyCurrency()
+watch(orgInfo, (info) => agencyCurrency.set(info?.currency ?? null, info?.recordCurrency ?? null), { immediate: true })
 // Org's own custom domain (server/utils/domain.ts) is where "/" resolves to
 // its real-estate portal home (see server/api/public/tenant.get.ts) — with
 // no domain configured there's no public URL to preview.

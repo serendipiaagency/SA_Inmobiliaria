@@ -294,12 +294,14 @@ const faqs = [
   { question: '¿Podemos empezar con una sola sede y crecer después?', answer: 'Sí. La arquitectura permite empezar con una organización y escalar después a equipos, sedes, marcas o clientes sin reconstruir el sistema.' },
 ]
 
+// Cierre del núcleo (FASE 15): el lead llega con el idioma de quien escribe.
+const visitorLanguage = useVisitorLanguage()
 async function submitDemo() {
   demoStatus.value = 'sending'
   try {
     await $fetch('/api/public/contact', {
       method: 'POST',
-      body: { name: `${form.name} · ${form.company}`, email: form.email, phone: form.phone, subject: form.challenge, message: form.message || 'Solicitud de demo de la plataforma inmobiliaria.' },
+      body: { name: `${form.name} · ${form.company}`, email: form.email, phone: form.phone, subject: form.challenge, message: form.message || 'Solicitud de demo de la plataforma inmobiliaria.', language: visitorLanguage() },
     })
     demoStatus.value = 'success'
   } catch {

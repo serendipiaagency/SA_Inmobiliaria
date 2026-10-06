@@ -29,6 +29,7 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+const typeLabel = usePropertyTypeLabel()
 
 const statusLabels = computed<Record<string, string>>(() => ({
   new: t('quickFacts.statusNew', 'Obra nueva'),
@@ -39,7 +40,7 @@ const statusLabels = computed<Record<string, string>>(() => ({
 const facts = computed(() => {
   const p = props.project
   const out: { label: string; value: string; icon: string }[] = []
-  if (p.propertyType) out.push({ label: t('quickFacts.type', 'Tipo'), value: p.propertyType, icon: ic('home') })
+  if (p.propertyType) out.push({ label: t('quickFacts.type', 'Tipo'), value: typeLabel(p.propertyType), icon: ic('home') })
   if (p.yearBuilt) out.push({ label: t('quickFacts.yearBuilt', 'Año de construcción'), value: String(p.yearBuilt), icon: ic('calendar') })
   if (p.status === 'under_construction' && p.handoverDate) out.push({ label: t('quickFacts.handoverDate', 'Entrega prevista'), value: p.handoverDate, icon: ic('key') })
   else if (p.status) out.push({ label: t('quickFacts.status', 'Estado'), value: statusLabels.value[p.status] || p.status, icon: ic('key') })

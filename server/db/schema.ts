@@ -1064,6 +1064,8 @@ export const leads = sqliteTable(
     score: integer('score').notNull().default(0), // 0..100
     budget: real('budget'),
     propertyId: integer('property_id'),
+    /** Migración 0089 — de qué catálogo es `propertyId`: agent (2ª mano) | developer (obra nueva). NULL = no consta (filas anteriores). */
+    propertyKind: text('property_kind'),
     propertyName: text('property_name'),
     agentId: integer('agent_id'),
     agentName: text('agent_name'),
@@ -2325,6 +2327,8 @@ export const tasks = sqliteTable(
     appointmentId: integer('appointment_id'),
     /** Sin FK real todavía — Deal no existe hasta FASE 24. Mismo precedente que visits.propertyId/propertyKind. */
     dealId: integer('deal_id'),
+    /** Migración 0089 — oficina de la tarea. NULL = la de su responsable. */
+    officeId: integer('office_id'),
     createdBy: integer('created_by'), // users.id
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
@@ -2338,6 +2342,7 @@ export const tasks = sqliteTable(
     index('tasks_contact').on(t.contactId),
     index('tasks_lead').on(t.leadId),
     index('tasks_property').on(t.propertyId, t.propertyKind),
+    index('idx_tasks_org_office').on(t.organizationId, t.officeId),
     index('tasks_appointment').on(t.appointmentId),
     index('tasks_deal').on(t.dealId),
   ],

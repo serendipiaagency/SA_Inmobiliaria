@@ -64,12 +64,20 @@ export const MORTGAGE_STATUS_LABELS: Record<string, string> = {
  */
 export const FEATURE_CRITERIA = ['terrace', 'garage', 'elevator', 'pool', 'garden', 'accessible', 'pets', 'airConditioning'] as const
 export type FeatureCriterion = (typeof FEATURE_CRITERIA)[number]
-export const FEATURE_SOURCES: Record<FeatureCriterion, { column: string; reviewed: boolean }> = {
+/**
+ * `anyOf` (cierre D1p): columnas de `property_details` que también cuentan
+ * como la característica. «Piscina» es la casilla genérica de la fila, la
+ * piscina privada o la comunitaria de la ficha ampliada; «Jardín», igual. Con
+ * cualquiera marcada, SÍ; el «no» lo da la casilla genérica (con su política
+ * de repaso) o que las dos de la ficha ampliada digan «no» explícitamente.
+ * Mismo criterio que el filtro del listado (`PROPERTY_FEATURE_DETAIL_ALTERNATIVES`).
+ */
+export const FEATURE_SOURCES: Record<FeatureCriterion, { column: string; reviewed: boolean; anyOf?: string[] }> = {
   terrace: { column: 'hasTerrace', reviewed: true },
   garage: { column: 'hasGarage', reviewed: true },
   elevator: { column: 'hasElevator', reviewed: true },
-  pool: { column: 'hasPool', reviewed: true },
-  garden: { column: 'hasGarden', reviewed: true },
+  pool: { column: 'hasPool', reviewed: true, anyOf: ['hasPrivatePool', 'hasCommunityPool'] },
+  garden: { column: 'hasGarden', reviewed: true, anyOf: ['hasPrivateGarden', 'hasCommunityGarden'] },
   accessible: { column: 'accessible', reviewed: true },
   pets: { column: 'petsAllowed', reviewed: true },
   airConditioning: { column: 'hasAirConditioning', reviewed: false },

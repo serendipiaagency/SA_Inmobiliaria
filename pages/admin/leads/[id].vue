@@ -12,7 +12,7 @@
           </span>
           <span v-if="lead.priority" class="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800" data-testid="lead-priority">Prioridad {{ LEAD_PRIORITY_LABELS[lead.priority] || lead.priority }}</span>
           <span class="text-stone-500">{{ leadSourceLabel(lead.source) }}{{ lead.sourceDetail ? ` · ${lead.sourceDetail}` : '' }}</span>
-          <span class="text-stone-400">· creado {{ formatDateTime(lead.createdAt) }}{{ data.createdByName ? ` por ${data.createdByName}` : '' }}</span>
+          <span class="text-stone-400" data-testid="lead-created-by">· creado {{ formatDateTime(lead.createdAt) }}{{ data.createdByName ? ` por ${data.createdByName}` : data.createdByDeleted ? ' por usuario eliminado' : '' }}</span>
         </div>
         <p v-if="data.contact" class="mt-1 text-[13px]">
           Contacto: <NuxtLink :to="`/admin/contactos/${data.contact.id}`" class="font-medium underline" data-testid="lead-contact-link">{{ data.contact.name }}</NuxtLink>
@@ -26,7 +26,7 @@
         <template v-if="canEdit">
           <button type="button" class="btn-secondary" data-testid="lead-edit" @click="editing = true">Editar</button>
           <button v-if="lead.status !== 'lost'" type="button" class="btn-secondary" data-testid="lead-mark-lost" @click="losing = true">Marcar como perdido</button>
-          <button v-else type="button" class="btn-secondary" data-testid="lead-reactivate" @click="reactivate">Reactivar</button>
+          <button v-else type="button" class="btn-secondary" data-testid="lead-reactivate" @click="reasonFor = { kind: 'reactivate' }">Reactivar</button>
         </template>
       </div>
     </header>
@@ -45,13 +45,11 @@
               <option v-for="s in LEAD_STAGES" :key="s" :value="s">{{ LEAD_STAGE_LABELS[s] }}</option>
             </select>
           </label>
-          <label class="block min-w-0 flex-1">
-            <span class="mb-1 block text-[12px] font-medium text-stone-600">Motivo (queda en el historial)</span>
-            <input v-model="stageForm.reason" class="cfg-input" placeholder="Llamada hecha, quiere ver pisos en el centro…" data-testid="lead-stage-reason" >
-          </label>
-          <button type="button" class="dash-btn-primary" :disabled="stageForm.stage === lead.stage || changingStage" data-testid="lead-stage-save" @click="changeStage">
-            {{ changingStage ? 'Guardando…' : 'Cambiar fase' }}
+          <!-- El motivo es obligatorio (cierre del núcleo, FASE 13): se pide en una ventana con motivos rápidos. -->
+          <button type="button" class="dash-btn-primary" :disabled="stageForm.stage === lead.stage || changingStage" data-testid="lead-stage-save" @click="reasonFor = { kind: 'stage', toStage: stageForm.stage }">
+            {{ changingStage ? 'Guardando…' : 'Cambiar fase…' }}
           </button>
+          <p class="w-full text-[11px] text-stone-400">Te pedirá el motivo: queda en el historial de fases.</p>
         </div>
         <p v-else-if="lead.status === 'lost'" class="text-sm text-stone-500">El lead está perdido; reactívalo para moverlo en el pipeline (vuelve a «{{ LEAD_STAGE_LABELS[lead.stage] }}»).</p>
         <ol class="mt-4 flex flex-wrap gap-1 text-[11px]">
@@ -113,6 +111,18 @@
           <div v-for="f in dataFields" :key="f.label">
             <dt class="text-[11px] uppercase tracking-wide text-stone-400">{{ f.label }}</dt>
             <dd class="break-words" :class="f.value ? '' : 'text-stone-400'">{{ f.value || '—' }}</dd>
+          </div>
+          <!-- Propiedad de interés con su catálogo y enlace a su ficha (migración 0089). -->
+          <div data-testid="lead-property">
+            <dt class="text-[11px] uppercase tracking-wide text-stone-400">Propiedad de interés</dt>
+            <dd v-if="data.property" class="break-words">
+              <NuxtLink :to="data.property.adminPath" class="font-medium underline" data-testid="lead-property-link">{{ data.property.name || `#${data.property.id}` }}</NuxtLink>
+              <span class="ml-1 text-[12px] text-stone-500" data-testid="lead-property-kind">· {{ data.property.kind === 'agent' ? '2ª mano' : 'obra nueva' }}</span>
+              <span v-if="data.property.trashed" class="ml-1 text-[12px] text-amber-700">· en la papelera</span>
+              <span v-if="data.property.inferred" class="block text-[11px] text-stone-400" title="El lead es anterior a que se guardara el catálogo: se ha deducido como siempre (primero 2ª mano, luego obra nueva).">Catálogo deducido (lead antiguo)</span>
+            </dd>
+            <dd v-else-if="lead.propertyId" class="text-stone-500">{{ lead.propertyName || `#${lead.propertyId}` }} <span class="text-[12px] text-stone-400">· ya no existe</span></dd>
+            <dd v-else class="text-stone-400">—</dd>
           </div>
         </dl>
         <div v-if="lead.originalMessage" class="mt-4 rounded-lg bg-stone-50 p-3 text-sm" data-testid="lead-original-message">
@@ -228,7 +238,7 @@
               <p class="text-xs text-stone-400">{{ formatDateTime(o.createdAt) }}</p>
             </div>
             <span class="flex items-center gap-2">
-              <span class="tabular-nums">{{ o.currentAmount != null ? money(o.currentAmount) : o.amount != null ? money(o.amount) : '—' }}</span>
+              <span class="tabular-nums">{{ o.currentAmount != null ? formatAmount(o.currentAmount, o.currency) : o.amount != null ? formatAmount(o.amount, o.currency) : '—' }}</span>
               <AdminStatusPill :status="o.status" />
             </span>
           </li>
@@ -251,8 +261,17 @@
       </AdminPanel>
     </section>
 
-    <LeadFormModal v-if="editing" :lead="lead" @close="editing = false" @saved="onSaved" />
+    <LeadFormModal v-if="editing" :lead="lead" :contact="data.contact" :property="data.property" @close="editing = false" @saved="onSaved" />
     <LeadLostModal v-if="losing" :name="lead.name" @close="losing = false" @confirm="markLost" />
+    <LeadStageReasonModal
+      v-if="reasonFor"
+      :title="reasonFor.kind === 'reactivate' ? 'Reactivar el lead' : 'Cambiar de fase'"
+      :sub="reasonFor.kind === 'reactivate' ? `${lead.name} vuelve a «${LEAD_STAGE_LABELS[lead.stage] || lead.stage}».` : `${lead.name}: ${LEAD_STAGE_LABELS[lead.stage] || lead.stage} → ${LEAD_STAGE_LABELS[reasonFor.toStage!] || reasonFor.toStage}`"
+      :to-stage="reasonFor.kind === 'reactivate' ? 'reactivated' : reasonFor.toStage"
+      :confirm-label="reasonFor.kind === 'reactivate' ? 'Reactivar' : 'Cambiar fase'"
+      @close="reasonFor = null"
+      @confirm="onReason"
+    />
   </div>
 </template>
 
@@ -261,7 +280,7 @@ import { LEAD_LOST_REASON_LABELS, LEAD_PRIORITY_LABELS, LEAD_STAGES, LEAD_STAGE_
 import { LANGUAGE_LABELS } from '~/utils/crmCatalog'
 import { appointmentTypeLabel, visitOutcomeLabel } from '~/utils/appointmentCatalog'
 import { formatDateTime } from '~/composables/useClientConfig'
-import { nextActionLabel } from '~/utils/pipelineCatalog'
+import { formatAmount, nextActionLabel } from '~/utils/pipelineCatalog'
 import ActivityTimeline from '~/components/admin/activity/ActivityTimeline.vue'
 import { loadRelationOptions, type RelationOption } from '~/composables/useRelationOptions'
 import NotesPanel from '~/components/admin/notes/NotesPanel.vue'
@@ -269,6 +288,7 @@ import TagsEditor from '~/components/admin/tags/TagsEditor.vue'
 import CustomFieldsPanel from '~/components/admin/custom-fields/CustomFieldsPanel.vue'
 import LeadFormModal from '~/components/admin/leads/LeadFormModal.vue'
 import LeadLostModal from '~/components/admin/leads/LeadLostModal.vue'
+import LeadStageReasonModal from '~/components/admin/leads/LeadStageReasonModal.vue'
 
 /**
  * Ficha del lead (núcleo inmobiliario, FASES 12-16): todos sus campos, la
@@ -335,14 +355,15 @@ const dataFields = computed(() => {
     { label: 'Página de entrada', value: l.landingPage },
     { label: 'Referrer', value: l.referrer },
     { label: 'Presupuesto', value: l.budget != null ? money(l.budget) : null },
-    { label: 'Propiedad de interés', value: l.propertyName || (l.propertyId ? `#${l.propertyId}` : null) },
     { label: 'Oficina', value: data.value.officeName },
     { label: 'Equipo', value: data.value.teamName },
   ]
 })
 
+const { format: formatAgencyMoney } = useAgencyCurrency()
+/** Importe en la moneda de la agencia (utils/currency.ts) — antes «€» fijo. */
 function money(n: number) {
-  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
+  return formatAgencyMoney(n)
 }
 
 async function loadRelated() {
@@ -360,13 +381,21 @@ let relatedLoaded = false
 onMounted(loadRelated)
 
 // --- Fase ---------------------------------------------------------------
-const stageForm = reactive({ stage: lead.value.stage as string, reason: '' })
+// Cada movimiento pide su motivo en LeadStageReasonModal (cierre del núcleo,
+// FASE 13): cambiar de fase y reactivar. El servidor también lo exige.
+const stageForm = reactive({ stage: lead.value.stage as string })
+const reasonFor = ref<{ kind: 'stage' | 'reactivate'; toStage?: string } | null>(null)
+async function onReason(reason: string) {
+  const pending = reasonFor.value
+  reasonFor.value = null
+  if (pending?.kind === 'reactivate') await reactivate(reason)
+  else if (pending?.toStage) await changeStage(pending.toStage, reason)
+}
 const changingStage = ref(false)
-async function changeStage() {
+async function changeStage(toStage: string, reason: string) {
   changingStage.value = true
   try {
-    await $fetch(`/api/admin/saas/leads/${leadId}`, { method: 'PATCH', body: { stage: stageForm.stage, reason: stageForm.reason.trim() || null } })
-    stageForm.reason = ''
+    await $fetch(`/api/admin/saas/leads/${leadId}`, { method: 'PATCH', body: { stage: toStage, reason } })
     toast.success('Fase cambiada')
     await Promise.all([refresh(), loadRelated()])
   } catch (e: any) {
@@ -388,9 +417,9 @@ async function markLost(v: { lostReason: string; note: string | null }) {
     toast.error(e?.data?.statusMessage || 'No se pudo marcar como perdido')
   }
 }
-async function reactivate() {
+async function reactivate(reason: string) {
   try {
-    await $fetch(`/api/admin/saas/leads/${leadId}`, { method: 'PATCH', body: { lost: false } })
+    await $fetch(`/api/admin/saas/leads/${leadId}`, { method: 'PATCH', body: { lost: false, note: reason } })
     toast.success('Lead reactivado')
     await refresh()
   } catch (e: any) {

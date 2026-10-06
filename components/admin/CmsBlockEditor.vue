@@ -161,7 +161,7 @@
 
         <!-- Dynamic: mortgage calculator (real logic, same component as property pages) -->
         <div v-else-if="block.type === 'mortgage_calculator'" class="block-body">
-          <input v-model.number="block.price" type="number" class="input" placeholder="Precio de referencia (AED)" >
+          <input v-model.number="block.price" type="number" class="input" :placeholder="`Precio de referencia (${currencyLabel})`" >
           <p class="mt-1 text-[11px] text-stone-450">Calculadora real e interactiva — el lector puede ajustar entrada y plazo.</p>
         </div>
       </div>
@@ -182,6 +182,8 @@
 
 <script setup lang="ts">
 const props = defineProps<{ modelValue: any[] }>()
+// Los precios de la web están en la moneda de la agencia (utils/currency.ts).
+const { symbol: currencyLabel } = useAgencyCurrency()
 const emit = defineEmits<{ 'update:modelValue': [any[]] }>()
 
 const blocks = computed({

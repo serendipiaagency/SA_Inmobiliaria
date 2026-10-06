@@ -4,6 +4,8 @@ import { now, schema, useDb } from '../db'
 import type { SessionUser } from '../auth'
 import { logAdminAction } from '../audit'
 import { createContact, findDuplicateContacts, orgDefaultCountryPrefix, updateContact, type ContactInput } from './service'
+import { normalizePhone } from '../comms/phone'
+import { recordActivity } from '../activity/service'
 import { assertLiveProperty } from '../properties/trash'
 import { selectInChunks } from '../sqlChunks'
 import {
@@ -55,6 +57,10 @@ export function contactInputFromBody(body: Record<string, any>): Partial<Contact
   if (out.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(out.email)) fail(422, 'El email no tiene un formato válido')
   text('phone', 40)
   text('whatsapp', 40)
+  // Id en otro sistema (portal, CRM anterior) y de qué sistema es: sólo
+  // identifica dentro de su origen (índice único organización+origen+id).
+  text('externalSource', 100)
+  text('externalId', 200)
   text('language', 10)
   text('country', 80)
   text('notes', 4000)
@@ -144,9 +150,145 @@ export async function assertOwnedRef(db: any, table: any, id: number | null | un
 }
 
 /**
+ * Id externo (cierre del núcleo, FASE 14): va siempre con su origen — «12345»
+ * sólo identifica dentro de «Idealista» — y no puede ser de otro contacto de
+ * la agencia, ni siquiera de uno archivado: el índice único
+ * (organización, origen, id) no admite «crear igualmente», así que es un 409
+ * que lo dice en vez de un error de base de datos.
+ */
+async function assertExternalRef(db: any, orgId: number, source: string | null | undefined, externalId: string | null | undefined, excludeContactId?: number) {
+  if (!source && !externalId) return
+  if (!source || !externalId) fail(422, externalId ? 'Indica de qué sistema es el id externo (Idealista, CRM anterior…)' : 'Falta el id externo de ese sistema')
+  const conds = [eq(schema.contacts.organizationId, orgId), eq(schema.contacts.externalSource, source), eq(schema.contacts.externalId, externalId)]
+  if (excludeContactId) conds.push(ne(schema.contacts.id, excludeContactId))
+  const [owner] = await db.select({ id: schema.contacts.id, name: schema.contacts.name, deletedAt: schema.contacts.deletedAt }).from(schema.contacts).where(and(...conds)).limit(1)
+  if (owner) {
+    fail(409, owner.deletedAt ? `Ese id externo es de un contacto archivado («${owner.name}»)` : `Ese id externo ya es de «${owner.name}»: unifica con ese contacto`, {
+      duplicates: owner.deletedAt ? [] : [{ contactId: owner.id, name: owner.name, email: null, phone: null, level: 'exact', matchedOn: 'id externo' }],
+    })
+  }
+}
+
+/**
+ * «Unificar» al dar de alta (cierre del núcleo, FASE 14): en vez de crear un
+ * contacto que ya existe, completa el existente con los datos NUEVOS que le
+ * falten y devuelve ese. Nunca pisa un dato que ya tenga (un email distinto
+ * no sustituye al suyo: se ignora y se dice), nunca le pone un email,
+ * teléfono, WhatsApp o id externo que ya sea de OTRA persona de la agencia
+ * (eso crearía un duplicado cruzado), y suma los roles marcados sin quitar
+ * ninguno. Las notas se añaden a las suyas. Queda en Activity
+ * (`CONTACT_UNIFIED`, con qué se completó) y en Auditoría.
+ *
+ * El contacto tiene que ser de esta agencia y estar activo (404 si no).
+ */
+export async function unifyIntoContact(event: H3Event, orgId: number, user: SessionUser, targetId: number, input: Partial<ContactInput>, roles: string[] = []) {
+  const db = useDb(event)
+  if (!Number.isInteger(targetId) || targetId <= 0) fail(422, 'Contacto a unificar no válido')
+  const [target] = await db
+    .select()
+    .from(schema.contacts)
+    .where(and(eq(schema.contacts.id, targetId), eq(schema.contacts.organizationId, orgId), isNull(schema.contacts.deletedAt)))
+    .limit(1)
+  if (!target) fail(404, 'Contacto no encontrado')
+  const defaultCountryPrefix = await orgDefaultCountryPrefix(event, orgId)
+
+  const patch: Partial<ContactInput> = {}
+  const filled: string[] = []
+  const skipped: string[] = []
+  const empty = (v: unknown) => v === null || v === undefined || v === ''
+
+  // Identidad: sólo lo que le falta y no es de nadie más.
+  const identity = { email: 'email', phone: 'teléfono', whatsapp: 'WhatsApp' } as const
+  const wanted: Partial<ContactInput> = {}
+  // «El mismo dato escrito de otra forma» (+34 600… / 600…) no es un dato distinto.
+  const sameValue = (k: keyof typeof identity) => {
+    const a = String(target[k]).trim().toLowerCase()
+    const b = String(input[k]).trim().toLowerCase()
+    if (a === b) return true
+    if (k === 'email') return false
+    const na = normalizePhone(String(target[k]), defaultCountryPrefix)
+    return !!na && na === normalizePhone(String(input[k]), defaultCountryPrefix)
+  }
+  for (const k of Object.keys(identity) as (keyof typeof identity)[]) {
+    if (empty(input[k])) continue
+    if (!empty(target[k])) {
+      if (!sameValue(k)) skipped.push(k)
+      continue
+    }
+    wanted[k] = input[k]
+  }
+  if (Object.keys(wanted).length) {
+    const others = await findDuplicateContacts(event, orgId, { name: '', email: wanted.email, phone: wanted.phone, whatsapp: wanted.whatsapp ?? null }, { defaultCountryPrefix, excludeContactId: targetId })
+    const taken = new Set(others.filter((c) => c.level === 'exact').map((c) => c.matchedOn))
+    for (const k of Object.keys(wanted) as (keyof typeof identity)[]) {
+      if (taken.has(identity[k])) skipped.push(k)
+      else {
+        ;(patch as any)[k] = wanted[k]
+        filled.push(k)
+      }
+    }
+  }
+  // Id externo: la pareja entera, si no tenía ninguna y está libre.
+  if (!empty(input.externalId) && !empty(input.externalSource)) {
+    if (empty(target.externalId) && empty(target.externalSource)) {
+      const [owner] = await db
+        .select({ id: schema.contacts.id })
+        .from(schema.contacts)
+        .where(and(eq(schema.contacts.organizationId, orgId), eq(schema.contacts.externalSource, input.externalSource!), eq(schema.contacts.externalId, input.externalId!), ne(schema.contacts.id, targetId)))
+        .limit(1)
+      if (owner) skipped.push('externalId')
+      else {
+        patch.externalSource = input.externalSource
+        patch.externalId = input.externalId
+        filled.push('externalId')
+      }
+    } else if (target.externalId !== input.externalId || target.externalSource !== input.externalSource) skipped.push('externalId')
+  }
+  // Cabecera: lo que esté vacío en el existente.
+  for (const k of ['language', 'country', 'source', 'officeId', 'assignedCommercialId', 'nextActionType', 'nextActionAt'] as const) {
+    if (empty(input[k])) continue
+    if (empty(target[k])) {
+      ;(patch as any)[k] = input[k]
+      filled.push(k)
+    } else if (String(target[k]) !== String(input[k])) skipped.push(k)
+  }
+  // Las notas se suman: es lo que se apuntó en esta nueva alta.
+  if (!empty(input.notes)) {
+    patch.notes = target.notes ? `${target.notes}\n\n${input.notes}` : input.notes
+    filled.push('notes')
+  }
+
+  const updated = Object.keys(patch).length ? await updateContact(event, orgId, targetId, patch, { defaultCountryPrefix }) : target
+  if (!updated) fail(404, 'Contacto no encontrado')
+  const before = await listContactRoles(db, orgId, targetId)
+  for (const role of roles) await ensureContactRole(db, orgId, targetId, role, user.id)
+  const addedRoles = roles.filter((r) => !before.includes(r))
+
+  await recordActivity(db, orgId, {
+    eventType: 'CONTACT_UNIFIED',
+    entityType: 'contact',
+    entityId: targetId,
+    contactId: targetId,
+    actorType: 'user',
+    actorId: user.id,
+    metadata: { filled, skipped, addedRoles, via: 'alta' },
+  })
+  await logAdminAction(event, {
+    user,
+    orgId,
+    action: 'update',
+    resource: 'contact',
+    resourceId: targetId,
+    detail: `unificado con un alta nueva${filled.length ? ` — completado: ${filled.join(', ')}` : ' — sin datos nuevos'}${skipped.length ? ` — no se pisó: ${skipped.join(', ')}` : ''}`,
+  })
+  return { contact: updated, filled, skipped, addedRoles }
+}
+
+/**
  * Alta de un contacto desde el panel (POST /api/admin/contacts): misma
  * deduplicación que Contactos → Nuevo (409 con candidatos salvo `force`),
- * más los roles.
+ * más los roles. Con `mergeIntoContactId` no crea nada: unifica con ese
+ * contacto (`unifyIntoContact`).
  */
 export async function createContactFromAdmin(event: H3Event, orgId: number, user: SessionUser, body: Record<string, any>) {
   const db = useDb(event)
@@ -156,6 +298,11 @@ export async function createContactFromAdmin(event: H3Event, orgId: number, user
   await assertOwnedRef(db, schema.teamMembers, input.assignedCommercialId, orgId, 'Comercial')
   await assertOwnedRef(db, schema.offices, input.officeId, orgId, 'Oficina')
   const roles = 'roles' in body ? normalizeRoles(body.roles) : []
+  if (body.mergeIntoContactId != null && body.mergeIntoContactId !== '') {
+    const res = await unifyIntoContact(event, orgId, user, Number(body.mergeIntoContactId), input, roles)
+    return { ok: true, id: res.contact.id, merged: true, filled: res.filled, skipped: res.skipped }
+  }
+  await assertExternalRef(db, orgId, input.externalSource, input.externalId)
   const defaultCountryPrefix = await orgDefaultCountryPrefix(event, orgId)
   const candidates = await findDuplicateContacts(event, orgId, input, { defaultCountryPrefix })
   if (candidates.length && body.force !== true) fail(409, 'Puede que este contacto ya exista', { duplicates: candidates })
@@ -170,6 +317,46 @@ export async function createContactFromAdmin(event: H3Event, orgId: number, user
     detail: candidates.length ? `creado pese a ${candidates.length} posible(s) duplicado(s)` : undefined,
   })
   return { ok: true, id: contact.id }
+}
+
+/**
+ * Contactos → «Nuevo contacto» (POST /api/admin/saas/contacts): nombre, tipo,
+ * email, teléfono, WhatsApp e id externo, validados igual que la edición.
+ * Ante un posible duplicado responde 409 con los candidatos; quien decide
+ * elige «Abrir», «Unificar» (`mergeIntoContactId`: completa ese contacto con
+ * lo que le falte, ver `unifyIntoContact`) o «Crear igualmente» (`force`).
+ * Devuelve la fila del contacto (creado o unificado), como siempre.
+ */
+export async function createContactFromPanel(event: H3Event, orgId: number, user: SessionUser, body: Record<string, any>) {
+  const db = useDb(event)
+  const input = contactInputFromBody(body) as ContactInput
+  if (!input.name) fail(422, 'El nombre es obligatorio')
+  if (!input.email && !input.phone && !input.whatsapp) fail(422, 'Indica al menos un email o un teléfono')
+  // Antes esta ruta guardaba el cuerpo tal cual: un comercial u oficina de otra agencia es un 404.
+  await assertOwnedRef(db, schema.teamMembers, input.assignedCommercialId, orgId, 'Comercial')
+  await assertOwnedRef(db, schema.offices, input.officeId, orgId, 'Oficina')
+  if (body.mergeIntoContactId != null && body.mergeIntoContactId !== '') {
+    const res = await unifyIntoContact(event, orgId, user, Number(body.mergeIntoContactId), input)
+    return { ...res.contact, merged: true, filled: res.filled, skipped: res.skipped }
+  }
+  await assertExternalRef(db, orgId, input.externalSource, input.externalId)
+  // El prefijo configurado por la agencia hace que "600112233" se normalice
+  // igual que "+34600112233": sin él ni se detecta el duplicado ni se guarda
+  // el teléfono normalizado.
+  const defaultCountryPrefix = await orgDefaultCountryPrefix(event, orgId)
+  const candidates = await findDuplicateContacts(event, orgId, input, { defaultCountryPrefix })
+  if (candidates.length && !body.force) fail(409, 'Puede que este contacto ya exista', { duplicates: candidates })
+  const contact = await createContact(event, orgId, input, { createdBy: user.id, defaultCountryPrefix })
+  await logAdminAction(event, {
+    user,
+    orgId,
+    action: 'create',
+    resource: 'contact',
+    resourceId: contact.id,
+    // Queda constancia de que se creó a sabiendas de que había candidatos.
+    detail: candidates.length ? `creado pese a ${candidates.length} posible(s) duplicado(s)` : undefined,
+  })
+  return contact
 }
 
 /**
@@ -191,6 +378,12 @@ export async function updateContactFromAdmin(event: H3Event, orgId: number, user
     .where(and(eq(schema.contacts.id, id), eq(schema.contacts.organizationId, orgId)))
     .limit(1)
   if (!existing) fail(404, 'Contacto no encontrado')
+  // Id externo (FASE 14): la pareja origen + id del estado resultante, libre en la agencia.
+  if ('externalId' in input || 'externalSource' in input) {
+    const source = 'externalSource' in input ? input.externalSource : existing.externalSource
+    const externalId = 'externalId' in input ? input.externalId : existing.externalId
+    if (source !== existing.externalSource || externalId !== existing.externalId) await assertExternalRef(db, orgId, source, externalId, id)
+  }
   const identityChanged = (['email', 'phone', 'whatsapp'] as const).some((k) => k in input && (input as any)[k] !== existing[k])
   if (identityChanged && body.force !== true) {
     const merged: ContactInput = { name: input.name ?? existing.name, email: input.email ?? existing.email, phone: input.phone ?? existing.phone, whatsapp: input.whatsapp ?? existing.whatsapp }

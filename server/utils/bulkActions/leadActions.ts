@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { createError, type H3Event } from 'h3'
 import { schema, useDb } from '../db'
 import { reassignLead, LeadRoutingError } from '../leads/routing'
-import { transitionLeadStage, LeadPipelineError, STAGES } from '../leads/pipeline'
+import { transitionLeadStage, LeadPipelineError, STAGES, requirePanelStageReason } from '../leads/pipeline'
 import { getOrCreateTag, linkTag } from '../tags/service'
 import { createTask } from '../tasks/service'
 import { recomputeLeadScore } from '../leads/score'
@@ -32,12 +32,19 @@ async function changeCommercial(event: H3Event, orgId: number, leadId: number, p
   }
 }
 
-/** §98 — reutiliza leads/pipeline.ts#transitionLeadStage, el único escritor legal de leads.stage: genera lead_stage_history igual que arrastrar la tarjeta en el Kanban. */
-async function changeStage(event: H3Event, orgId: number, leadId: number, params: { stage?: string }, requestedBy: number | null | undefined) {
+/**
+ * §98 — reutiliza leads/pipeline.ts#transitionLeadStage, el único escritor
+ * legal de leads.stage: genera lead_stage_history igual que arrastrar la
+ * tarjeta en el Kanban. El motivo es el que escribió quien lanzó la acción
+ * (obligatorio al crear el job, ver `validateLeadBulkParams`), marcado como
+ * masivo; antes todas las filas decían sólo «Acción masiva».
+ */
+async function changeStage(event: H3Event, orgId: number, leadId: number, params: { stage?: string; reason?: string }, requestedBy: number | null | undefined) {
   if (!params.stage || !STAGES.includes(params.stage as any)) throw createError({ statusCode: 422, statusMessage: `Fase inválida: ${params.stage}` })
   await assertOwnedLead(event, orgId, leadId)
+  const reason = typeof params.reason === 'string' && params.reason.trim() ? `Acción masiva: ${params.reason.trim()}` : 'Acción masiva'
   try {
-    await transitionLeadStage(event, orgId, leadId, { toStage: params.stage, reason: 'Acción masiva' }, { userId: requestedBy })
+    await transitionLeadStage(event, orgId, leadId, { toStage: params.stage, reason }, { userId: requestedBy })
   } catch (err) {
     if (err instanceof LeadPipelineError) throw createError({ statusCode: 422, statusMessage: err.message })
     throw err
@@ -81,6 +88,23 @@ async function createTaskForLead(event: H3Event, orgId: number, leadId: number, 
 async function recalculateScore(event: H3Event, orgId: number, leadId: number) {
   await assertOwnedLead(event, orgId, leadId)
   await recomputeLeadScore(useDb(event), orgId, leadId, 'rules')
+}
+
+/**
+ * Valida los parámetros de un job de leads ANTES de crearlo (POST
+ * /api/admin/lead-bulk-jobs): «Cambiar fase» exige su motivo, igual que el
+ * cambio de fase uno a uno desde el panel (FASE 13). Un job sin motivo no
+ * llega a existir; `changeStage` conserva «Acción masiva» sólo para jobs
+ * creados antes de esta regla.
+ */
+export function validateLeadBulkParams(action: string, params: Record<string, any>): Record<string, any> {
+  if (action !== 'change_stage') return params
+  try {
+    return { ...params, reason: requirePanelStageReason(params?.reason) }
+  } catch (err) {
+    if (err instanceof LeadPipelineError) throw createError({ statusCode: 422, statusMessage: err.message })
+    throw err
+  }
 }
 
 export function leadBulkHandlers(): Record<string, BulkActionItemHandler> {

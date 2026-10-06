@@ -3,9 +3,11 @@
   FASE 32 — reglas del Lead Score explicable).
 
   Las reglas de enrutado (quién decide a qué comercial va un lead nuevo) se
-  gestionan en el CRUD genérico del panel (/admin/lead-routing-rules) — esta
-  página se centra en lo que sí es propio: los umbrales de SLA por agencia y
-  las alertas abiertas ahora mismo, con acción directa sobre cada una.
+  gestionan en /admin/lead-routing-rules, con su propio editor
+  (components/admin/leads/RoutingRuleEditor.vue: desplegables de oficinas,
+  equipos e idiomas y editor de horario) — esta página se centra en lo que
+  sí es propio: los umbrales de SLA por agencia y las alertas abiertas ahora
+  mismo, con acción directa sobre cada una.
 -->
 <template>
   <div>

@@ -15,6 +15,8 @@ export default defineEventHandler(async (event) => {
       image: schema.teamMembers.image,
       slotDurationMinutes: schema.teamMembers.slotDurationMinutes,
       officeName: schema.teamMembers.officeName,
+      // Cierre D3a: la oficina (entidad) del comercial — el formulario de tareas la propone por defecto.
+      officeId: schema.teamMembers.officeId,
     })
     .from(schema.teamMembers)
     .where(eq(schema.teamMembers.organizationId, orgId))

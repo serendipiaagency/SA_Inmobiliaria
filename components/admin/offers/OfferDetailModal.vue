@@ -71,14 +71,16 @@
           </template>
           <button v-if="['draft', 'submitted', 'countered'].includes(offer.status)" type="button" class="btn-quiet !px-3 !py-1.5 text-xs text-stone-500" :disabled="busy" @click="act('withdraw')">Retirar</button>
           <template v-if="offer.status === 'accepted'">
-            <NuxtLink v-if="offer.dealId" :to="`/admin/deal-operations/${offer.dealId}`" class="btn-quiet !px-3 !py-1.5 text-xs text-emerald-700">Ver operación →</NuxtLink>
+            <!-- Cierre C1: una operación en la papelera no se abre (404); se restaura desde la papelera de Operaciones. -->
+            <NuxtLink v-if="offer.dealId && offer.dealTrashed" to="/admin/deal-operations?trashed=1" class="btn-quiet !px-3 !py-1.5 text-xs text-amber-700" data-testid="offer-deal-trashed">Operación #{{ offer.dealId }} en la papelera →</NuxtLink>
+            <NuxtLink v-else-if="offer.dealId" :to="`/admin/deal-operations/${offer.dealId}`" class="btn-quiet !px-3 !py-1.5 text-xs text-emerald-700">Ver operación →</NuxtLink>
             <button v-else type="button" class="btn-primary !px-3 !py-1.5 text-xs" :disabled="busy" data-testid="offer-create-deal" @click="createDeal">Crear operación</button>
           </template>
         </div>
 
         <div v-if="termsMode" class="mt-4 rounded-lg border border-line bg-stone-50 p-4" data-testid="offer-terms-form">
           <p class="mb-3 text-[13px] font-semibold">{{ termsMode === 'new_offer' ? 'Nueva oferta del comprador' : 'Contraoferta del vendedor' }}</p>
-          <OfferTermsFields v-model="terms" testid="offer-move" />
+          <OfferTermsFields v-model="terms" testid="offer-move" :currency="offer.currency" />
           <div class="mt-3 flex justify-end gap-2">
             <button type="button" class="btn-secondary !px-3 !py-1.5 text-xs" @click="termsMode = null">Cancelar</button>
             <button type="button" class="btn-primary !px-3 !py-1.5 text-xs" :disabled="!(Number(terms.amount) > 0) || busy" data-testid="offer-move-save" @click="sendTerms">Registrar</button>

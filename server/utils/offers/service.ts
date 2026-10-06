@@ -8,6 +8,7 @@ import { assertLiveProperty } from '../properties/trash'
 import { contactNames, propertyNameOf, propertyNames, teamMemberNames, userNames } from '../crm/labels'
 import { selectInChunks } from '../sqlChunks'
 import { OFFER_FINANCE_CONDITIONS, OFFER_OPEN_STATUSES, OFFER_STATUSES } from '../../../utils/pipelineCatalog'
+import { defaultRecordCurrency } from '../currency'
 
 /**
  * OfferService (FASE 23) — el único sitio que crea o transiciona una Offer.
@@ -194,7 +195,9 @@ export async function createOffer(db: any, orgId: number, rawInput: CreateOfferI
   await assertOfferReferences(db, orgId, input)
 
   const nowTs = now()
-  const currency = input.currency || 'eur'
+  // Sin moneda explícita, la de la agencia si la eligió en Configuración; si
+  // nunca la eligió, `eur` como antes (utils/currency.ts, regla 4).
+  const currency = input.currency ? String(input.currency).trim().toLowerCase() : await defaultRecordCurrency(db, orgId)
   const [offer] = await db
     .insert(schema.offers)
     .values({
@@ -379,6 +382,8 @@ export interface OfferWithLabels extends OfferRow {
   commercialName: string | null
   /** La operación que nació de esta oferta, si ya existe. */
   dealId: number | null
+  /** Cierre C1: esa operación está en la papelera (su ficha es 404; se restaura desde Operaciones → Papelera). */
+  dealTrashed: boolean
   /** Derivado (`isOfferExpired`): activa pero con el vencimiento ya pasado, aunque el cron horario aún no la haya marcado. */
   isExpired: boolean
 }
@@ -396,7 +401,7 @@ export async function withOfferLabels(db: any, orgId: number, rows: OfferRow[]):
     selectInChunks(ids, (part) => db.select({ offerId: schema.offerSellers.offerId, contactId: schema.offerSellers.contactId }).from(schema.offerSellers).where(inArray(schema.offerSellers.offerId, part))),
     selectInChunks(ids, (part) =>
       db
-        .select({ id: schema.dealOperations.id, acceptedOfferId: schema.dealOperations.acceptedOfferId })
+        .select({ id: schema.dealOperations.id, acceptedOfferId: schema.dealOperations.acceptedOfferId, deletedAt: schema.dealOperations.deletedAt })
         .from(schema.dealOperations)
         .where(and(eq(schema.dealOperations.organizationId, orgId), inArray(schema.dealOperations.acceptedOfferId, part))),
     ),
@@ -404,6 +409,7 @@ export async function withOfferLabels(db: any, orgId: number, rows: OfferRow[]):
   const sellersByOffer = new Map<number, number[]>()
   for (const r of sellerRows) sellersByOffer.set(r.offerId, [...(sellersByOffer.get(r.offerId) || []), r.contactId])
   const dealByOffer = new Map<number, number>(dealRows.map((r: any) => [r.acceptedOfferId, r.id]))
+  const trashedDealOffers = new Set<number>(dealRows.filter((r: any) => r.deletedAt).map((r: any) => r.acceptedOfferId))
 
   const [contacts, properties, commercials] = await Promise.all([
     contactNames(db, orgId, [...rows.map((r) => r.buyerContactId), ...sellerRows.map((r: any) => r.contactId)]),
@@ -421,6 +427,7 @@ export async function withOfferLabels(db: any, orgId: number, rows: OfferRow[]):
       propertyName: propertyNameOf(properties, r.propertyId, r.propertyKind),
       commercialName: r.commercialId ? (commercials.get(r.commercialId) ?? null) : null,
       dealId: dealByOffer.get(r.id) ?? null,
+      dealTrashed: trashedDealOffers.has(r.id),
       isExpired: isOfferExpired(r, nowTs),
     }
   })

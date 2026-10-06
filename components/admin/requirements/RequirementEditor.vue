@@ -56,11 +56,11 @@
       </div>
       <div class="mt-2 grid gap-4 sm:grid-cols-2">
         <label class="block">
-          <span class="rq-label">Precio mínimo (€)</span>
+          <span class="rq-label">Precio mínimo ({{ currencyLabel }})</span>
           <input v-model.number="form.priceMin" type="number" min="0" step="1000" class="rq-input" data-testid="req-price-min">
         </label>
         <label class="block">
-          <span class="rq-label">Precio máximo (€)</span>
+          <span class="rq-label">Precio máximo ({{ currencyLabel }})</span>
           <input v-model.number="form.priceMax" type="number" min="0" step="1000" class="rq-input" data-testid="req-price-max">
         </label>
       </div>
@@ -272,6 +272,8 @@ import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '~/utils/propertySheet'
 const props = withDefaults(defineProps<{ contactId: number; requirement?: any | null }>(), { requirement: null })
 const emit = defineEmits<{ saved: [row: any]; cancel: [] }>()
 const dt = useDash()
+// Los precios de una necesidad están en la moneda de la agencia (utils/currency.ts).
+const { symbol: currencyLabel } = useAgencyCurrency()
 const { canWrite } = useAdminPermissions()
 const canEdit = computed(() => canWrite('crm'))
 
@@ -470,7 +472,7 @@ function payload() {
 function clientError(body: Record<string, any>): string {
   if (body.priceMin != null && body.priceMax != null && body.priceMin > body.priceMax) return 'El precio mínimo no puede superar al máximo'
   if (body.areaMin != null && body.areaMax != null && body.areaMin > body.areaMax) return 'La superficie mínima no puede superar a la máxima'
-  for (const [label, v] of [['habitaciones', body.bedroomsMin], ['baños', body.bathroomsMin]] as const) {
+  for (const [label, v] of [['dormitorios', body.bedroomsMin], ['baños', body.bathroomsMin]] as const) {
     if (v != null && (!Number.isInteger(v) || v < 0)) return `El número de ${label} debe ser un entero no negativo`
   }
   if (useRadius.value && body.radiusKm == null) return 'Indica el radio en km o quita el radio'

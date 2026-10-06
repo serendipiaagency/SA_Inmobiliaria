@@ -29,6 +29,27 @@ export const LEAD_LOST_REASON_LABELS: Record<string, string> = {
   other: 'Perdido (otro motivo)',
 }
 
+/**
+ * Motivos rápidos del cambio de fase (cierre del núcleo, FASE 13): los chips
+ * de la ventana del motivo, según la fase a la que va el lead. Sólo rellenan
+ * el texto, que se puede editar; el servidor exige que no llegue vacío
+ * (server/utils/leads/pipeline.ts#requirePanelStageReason). `reactivated` son
+ * los de «Reactivar» un lead perdido.
+ */
+export const LEAD_STAGE_QUICK_REASONS: Record<string, string[]> = {
+  new: ['Se movió por error', 'Vuelve a empezar desde cero'],
+  contacted: ['Primera llamada hecha', 'Respondió por WhatsApp', 'Respondió por email'],
+  qualifying: ['Recogiendo lo que busca', 'Pendiente de confirmar presupuesto'],
+  qualified: ['Presupuesto y zona confirmados', 'Financiación validada'],
+  viewing: ['Visita agendada', 'Visita hecha'],
+  offer: ['Ha presentado una oferta', 'Preparando la oferta'],
+  negotiation: ['Contraoferta en curso', 'Negociando condiciones'],
+  won: ['Reserva firmada', 'Operación cerrada'],
+  reactivated: ['Ha vuelto a escribir', 'Retoma la búsqueda', 'Se marcó perdido por error'],
+}
+/** Los que valen para cualquier fase, detrás de los propios. */
+export const LEAD_STAGE_GENERIC_REASONS = ['A petición del cliente', 'Corrección: estaba mal la fase']
+
 export const LEAD_SOURCES = ['web', 'portal', 'whatsapp', 'call', 'email', 'referral', 'ads', 'social', 'walk_in', 'event', 'visit', 'api', 'other'] as const
 export const LEAD_SOURCE_LABELS: Record<string, string> = {
   web: 'Web',

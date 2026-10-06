@@ -65,6 +65,13 @@ export interface SendTransactionalEmailOpts {
   unsubscribeUrl?: string | null
   /** Correlation id (server/utils/requestId.ts) of the request that triggered this send, when there is one — see email_log.requestId. */
   requestId?: string | null
+  /**
+   * Responder-a de ESTE envío en lugar del de la empresa (FASE 29, email
+   * entrante: la dirección firmada de un hilo web, server/utils/comms/inboundAddress.ts).
+   * Sólo cambia el Reply-To — el remitente sigue siendo el de la empresa o el
+   * de la plataforma. Sin él (o vacío), todo queda exactamente como antes.
+   */
+  replyTo?: string | null
 }
 
 export interface SendTransactionalEmailResult {
@@ -96,6 +103,7 @@ export async function sendTransactionalEmail(db: any, env: Record<string, any>, 
     identity.fromHeader = platform.fromHeader
     identity.replyTo = platform.replyTo
   }
+  if (opts.replyTo) identity.replyTo = opts.replyTo
   const template = TEMPLATES[opts.template]
   const locale = opts.locale || identity.locale
   const recipients = (Array.isArray(opts.to) ? opts.to : [opts.to]).filter(Boolean)

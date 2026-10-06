@@ -3,8 +3,10 @@ import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { attachPhotos } from '../../utils/photos'
 import { toPublicProperties } from '../../utils/propertyPrivacy'
 import { livePropertyCond } from '../../utils/properties/trash'
-import { geoConds, parseGeoFilters } from '../../utils/properties/geoSearch'
+import { geoConds, parseGeoFilters, publicCoordsSql } from '../../utils/properties/geoSearch'
 import { inJsonList } from '../../utils/sqlChunks'
+import { orderPropertyTypes } from '../../../utils/propertySheet'
+import { normalizePostalCode } from '../../../utils/publicSearch'
 
 const P = schema.developerProperties
 
@@ -23,7 +25,8 @@ const MAP_MAX_PER_PAGE = 300
  * FASE 2: city, municipality, neighborhood; north/south/east/west (zona
  *   visible del mapa) y lat/lng/radiusKm (radio).
  * Params: sort (price_asc|price_desc|newest), page, perPage, countOnly,
- *   view=map (hasta 300 por página, para el mapa).
+ *   view=map (hasta 300 por página, para el mapa), facets=types (los tipos que
+ *   la agencia tiene publicados, para los filtros de la web).
  */
 export default defineEventHandler(async (event) => {
   const db = useDb(event)
@@ -40,7 +43,8 @@ export default defineEventHandler(async (event) => {
   // at least one — `conds` has to accept that possibility to hold their
   // result, and `and(...conds)` below already filters out `undefined` entries.
   // Nada de la papelera en la web pública (tampoco al pedir ids concretos de favoritos/comparar).
-  const conds: (SQL<unknown> | undefined)[] = [eq(P.organizationId, resolvePublicOrgId(event)), livePropertyCond(P)]
+  const orgId = resolvePublicOrgId(event)
+  const conds: (SQL<unknown> | undefined)[] = [eq(P.organizationId, orgId), livePropertyCond(P)]
   const q = String(query.q || '').trim()
   if (q)
     conds.push(
@@ -54,7 +58,10 @@ export default defineEventHandler(async (event) => {
     )
   if (query.community) conds.push(like(P.community, `%${String(query.community)}%`))
   if (query.street) conds.push(like(P.street, `%${String(query.street)}%`))
-  if (query.postalCode) conds.push(like(P.postalCode, `%${String(query.postalCode)}%`))
+  // Código postal (FASE 2): por prefijo, que es como se escribe uno a medias
+  // («280» = el centro de Madrid); el código completo coincide igual.
+  const postalCode = normalizePostalCode(query.postalCode)
+  if (postalCode) conds.push(like(P.postalCode, `${postalCode}%`))
   if (query.status) conds.push(eq(P.status, String(query.status)))
   if (String(query.new || '') === '1') conds.push(eq(P.status, 'new'))
   if (query.developerId) conds.push(eq(P.developerId, Number(query.developerId)))
@@ -78,9 +85,9 @@ export default defineEventHandler(async (event) => {
   // Sobre las coordenadas QUE SE PUBLICAN: si la ubicación es aproximada, las
   // redondeadas (toPublicProperty) — buscar por zona nunca afina más que el
   // pin que ya se enseña.
-  const publicLat = sql`(case when ${P.locationPrivacy} = 'approximate' then round(${P.lat}, 3) else ${P.lat} end)`
-  const publicLng = sql`(case when ${P.locationPrivacy} = 'approximate' then round(${P.lng}, 3) else ${P.lng} end)`
-  conds.push(...geoConds(publicLat, publicLng, parseGeoFilters(query)))
+  // La cuadrícula es la de `approximateGridDegrees()` (radio de privacidad, mínimo 0,001°).
+  const publicCoords = publicCoordsSql(P)
+  conds.push(...geoConds(publicCoords.lat, publicCoords.lng, parseGeoFilters(query)))
 
   // Fetch by exact ids (favorites/compare) — bypasses the normal page size
   // cap so a saved item never silently disappears once the catalog grows
@@ -127,11 +134,33 @@ export default defineEventHandler(async (event) => {
     ['pets', P.petsAllowed],
     ['accessible', P.accessible],
   ]
+  // Piscina y jardín cuentan también la privada y la comunitaria de la ficha
+  // ampliada, como en el listado del panel y en el matching (cierre D1p).
+  const detailAlternatives: Record<string, string> = {
+    pool: 'pd.has_private_pool = 1 or pd.has_community_pool = 1',
+    garden: 'pd.has_private_garden = 1 or pd.has_community_garden = 1',
+  }
   for (const [key, col] of bools) {
-    if (String(query[key] || '') === '1') conds.push(eq(col, 1))
+    if (String(query[key] || '') !== '1') continue
+    const alt = detailAlternatives[key]
+    conds.push(
+      alt
+        ? or(eq(col, 1), sql`exists (select 1 from property_details pd where pd.organization_id = ${P.organizationId} and pd.property_kind = 'developer' and pd.property_id = ${P.id} and (${sql.raw(alt)}))`)!
+        : eq(col, 1),
+    )
   }
 
   const where = conds.length ? and(...conds) : undefined
+
+  // `facets=types` (FASE 27): los tipos que esta agencia tiene publicados, en
+  // el orden del catálogo común, para que el modal de filtros y el buscador de
+  // la portada sólo ofrezcan lo que existe. Sobre la misma base que el
+  // listado (agencia del host + fuera de la papelera) y SIN el resto de
+  // filtros: la lista no encoge según se filtra.
+  const facets =
+    String(query.facets || '') === 'types'
+      ? { types: orderPropertyTypes((await db.selectDistinct({ type: P.propertyType }).from(P).where(and(eq(P.organizationId, orgId), livePropertyCond(P)))).map((r: { type: string | null }) => r.type)) }
+      : undefined
 
   const countRows = await db.select({ count: sql<number>`count(*)` }).from(P).where(where as any)
   const total = countRows[0]?.count ?? 0
@@ -140,7 +169,7 @@ export default defineEventHandler(async (event) => {
   // omitted field) — a union return type here is exactly what forces every
   // caller to type-guard before touching `.rows`/`.perPage` for no runtime
   // benefit, since countOnly callers already know to ignore `rows`.
-  if (countOnly) return { rows: [], total, page, perPage }
+  if (countOnly) return { rows: [], total, page, perPage, ...(facets ? { facets } : {}) }
 
   const sortKey = String(query.sort || '')
   const orderBy =
@@ -161,5 +190,5 @@ export default defineEventHandler(async (event) => {
   const merged = rows.map((r) => ({ ...r.project, developerName: r.developerName }))
   const withPhotos = await attachPhotos(db, merged)
 
-  return { rows: toPublicProperties(withPhotos), total, page, perPage }
+  return { rows: toPublicProperties(withPhotos), total, page, perPage, ...(facets ? { facets } : {}) }
 })

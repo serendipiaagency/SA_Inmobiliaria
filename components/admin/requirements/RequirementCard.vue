@@ -160,8 +160,9 @@ const details = computed(() => {
   return out
 })
 
+/** Importe en la moneda de la agencia (utils/currency.ts) — antes «€» fijo. */
 function money(n: number) {
-  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
+  return dt.money(n)
 }
 function propertyName(m: any): string {
   return m.property.name || m.property.reference || m.property.location || [m.property.street, m.property.city].filter(Boolean).join(', ') || `Inmueble #${m.property.id}`

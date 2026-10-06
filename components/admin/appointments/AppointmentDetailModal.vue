@@ -7,6 +7,8 @@
         <span class="rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600" data-testid="appointment-detail-confirmation">{{ confirmationLabel(row.confirmationStatus) }}</span>
         <span v-if="row.tourId" class="rounded bg-stone-100 px-1.5 py-0.5 text-[11px] text-stone-600">🧭 Parada {{ (row.tourStopOrder ?? 0) + 1 }} de un tour</span>
       </div>
+      <!-- Quién la creó (FASE 0, cierre D3a). Sin autor: la reservó el cliente o la creó una automatización. -->
+      <CreatedBy :created-by-name="row.createdByName" :created-by-deleted="row.createdByDeleted" :created-at="row.createdAt" />
 
       <dl class="grid gap-x-6 gap-y-2 sm:grid-cols-2">
         <div><dt class="ad-dt">Cuándo</dt><dd>{{ when }}</dd></div>
@@ -40,6 +42,12 @@
         <CustomFieldsPanel entity-type="appointment" :entity-id="row.id" :can-edit="canWrite('crm')" compact />
       </div>
 
+      <!-- Notas del equipo sobre la cita (Note, FASE 0, cierre D3a): varias, con autor, fijables; nunca salen al cliente. -->
+      <div class="rounded-lg border border-line p-3" data-testid="appointment-detail-notes">
+        <p class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-stone-400">Notas del equipo</p>
+        <NotesPanel entity-type="appointment" :entity-id="row.id" :can-edit="canWrite('crm')" />
+      </div>
+
       <p v-if="actionError" class="text-sm font-medium text-red-600">{{ actionError }}</p>
     </div>
     <template v-if="row" #footer>
@@ -52,6 +60,11 @@
         <button v-if="row.status === 'scheduled'" type="button" class="btn-quiet !px-2.5 !py-1 text-xs text-red-600" data-testid="appointment-detail-cancel" @click="emit('cancel', row)">Cancelar</button>
         <button v-if="row.status === 'completed'" type="button" class="btn-quiet !px-2.5 !py-1 text-xs" data-testid="appointment-detail-outcome" @click="emit('outcome', row)">{{ row.outcome ? 'Editar resultado' : 'Anotar resultado' }}</button>
         <button type="button" class="btn-quiet !px-2.5 !py-1 text-xs" data-testid="appointment-detail-edit" @click="emit('edit', row)">Editar</button>
+        <!-- Cierre D3a: eliminar una cita creada por error (a la papelera). El servidor decide si se puede (409 con el motivo). -->
+        <button
+          v-if="canWrite('crm') && canTrash" type="button" class="btn-quiet !px-2.5 !py-1 text-xs text-red-600" :disabled="trashing"
+          data-testid="appointment-detail-trash" @click="trash"
+        >Eliminar</button>
       </div>
     </template>
   </CommsModal>
@@ -62,16 +75,22 @@ import CommsModal from '~/components/admin/comms/Modal.vue'
 import AdminStatusPill from '~/components/admin/StatusPill.vue'
 import OutcomeSummary from '~/components/admin/appointments/OutcomeSummary.vue'
 import CustomFieldsPanel from '~/components/admin/custom-fields/CustomFieldsPanel.vue'
+import NotesPanel from '~/components/admin/notes/NotesPanel.vue'
+import CreatedBy from '~/components/admin/CreatedBy.vue'
 import { appointmentChannelLabel, appointmentTypeLabel, confirmationLabel, reminderSummary } from '~/utils/appointmentCatalog'
 
 /**
  * Ficha de una cita (FASES 17-19): todos sus campos, el resultado
  * estructurado y las ofertas, con las acciones rápidas. Lee
  * GET /api/admin/saas/visits?id=… (la cita sólo existe para su agencia).
+ *
+ * Cierre D3a: quién la creó, las notas del equipo y «Eliminar» (a la
+ * papelera, PATCH `{ deleted: true }`) para una cita creada por error.
  */
 const props = withDefaults(defineProps<{ id: number; resizable?: boolean; refreshKey?: number }>(), { resizable: false, refreshKey: 0 })
-const emit = defineEmits<{ close: []; edit: [row: any]; outcome: [row: any]; cancel: [row: any]; changed: [] }>()
+const emit = defineEmits<{ close: []; edit: [row: any]; outcome: [row: any]; cancel: [row: any]; changed: []; trashed: [id: number] }>()
 const toast = useToast()
+const { confirm } = useConfirm()
 const dt = useDash()
 const { canWrite } = useAdminPermissions()
 
@@ -105,6 +124,33 @@ async function patch(body: Record<string, any>, ok: string) {
     actionError.value = e?.data?.statusMessage || 'No se pudo actualizar la cita'
   }
 }
+/**
+ * Lo que seguro que no se puede eliminar ni se ofrece (parada de un tour, ya
+ * realizada, no presentada o con resultado). El resto lo decide el servidor:
+ * si el cliente ya la conoce o hay ofertas, responde 409 con el motivo.
+ */
+const canTrash = computed(() => !!row.value && !row.value.tourId && !row.value.outcome && (row.value.status === 'scheduled' || row.value.status === 'cancelled'))
+const trashing = ref(false)
+async function trash() {
+  const ok = await confirm('Sale de la agenda, del calendario, del iCal y de los recordatorios, y se puede restaurar desde Visitas → Papelera. No se avisa al cliente: si ya conoce la cita, cancélala en lugar de eliminarla.', {
+    title: '¿Eliminar esta cita creada por error?',
+    confirmLabel: 'Eliminar',
+    danger: true,
+  })
+  if (!ok) return
+  actionError.value = ''
+  trashing.value = true
+  try {
+    await $fetch(`/api/admin/saas/visits/${props.id}`, { method: 'PATCH', body: { deleted: true } })
+    toast.success('Cita enviada a la papelera')
+    emit('trashed', props.id)
+  } catch (e: any) {
+    actionError.value = e?.data?.statusMessage || 'No se pudo eliminar la cita'
+  } finally {
+    trashing.value = false
+  }
+}
+
 function resize(delta: number) {
   const current = row.value.endsAt ? Math.round((Date.parse(`${row.value.endsAt.replace(' ', 'T')}Z`) - Date.parse(`${row.value.scheduledAt.replace(' ', 'T')}Z`)) / 60000) : row.value.durationMinutes || 60
   patch({ durationMinutes: Math.max(15, current + delta) }, 'Duración actualizada')

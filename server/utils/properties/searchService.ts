@@ -1,11 +1,15 @@
-import { and, asc, desc, eq, gte, isNull, like, lte, or, sql, type SQL } from 'drizzle-orm'
-import type { H3Event } from 'h3'
+import { and, asc, desc, eq, getTableName, gte, isNull, like, lte, or, sql, type AnyColumn, type SQL } from 'drizzle-orm'
+import { createError, type H3Event } from 'h3'
 import { schema, useDb } from '../db'
 import { tablesFor, type PropertyKind } from '../matching/service'
 import { livePropertyCond } from './trash'
 import { geoConds, parseGeoFilters, type GeoFilter } from './geoSearch'
 import { parseTagIds, tagFilterConds } from '../tags/service'
 import { customFieldFilterConds, parseCustomFieldFilters, type CustomFieldFilter } from '../customFields/service'
+import { inJsonList } from '../sqlChunks'
+import { PROPERTY_AMENITY_KEYS } from '../../../utils/propertySheet'
+import { COMMERCIAL_STATUS_NONE, isCommercialStatus } from '../../../utils/propertyCommercialStatus'
+import { addDaysToIsoDate, parsePropertyDate } from '../../../utils/propertyDates'
 
 /**
  * Property Search Service (FASE 27) — el filtro profesional único sobre
@@ -60,7 +64,8 @@ export interface PropertySearchFilters {
    */
   zones?: string[]
   propertyTypes?: string[]
-  features?: PropertyFeature[]
+  /** Las 5 de la fila (las de las Domain Tools) y, desde el cierre D1p, piscina privada / comunitaria y jardín privado de la ficha ampliada. */
+  features?: (PropertyFeature | PropertyDetailFeature)[]
   /**
    * Bloque N7b (FASE 27): subtipo y oficina (ficha ampliada,
    * `property_details`), comercial asignado (`agentId`, «none» = sin
@@ -82,6 +87,20 @@ export interface PropertySearchFilters {
   customFields?: CustomFieldFilter[]
   /** FASE 2: zona visible del mapa (bounding box) y/o radio alrededor de unas coordenadas. */
   geo?: GeoFilter
+  /**
+   * Cierre D1p: estado comercial común (`property_details.commercial_status`),
+   * cualquiera de los indicados; `none` = sin estado comercial indicado.
+   */
+  commercialStatuses?: string[]
+  /**
+   * Cierre D1p: exclusiva caducada (`expired`) o que caduca en los próximos 30
+   * días (`expiring`, hoy incluido) a fecha de `today` — el mismo criterio que
+   * el aviso del resumen de la ficha (`exclusivityState`), leyendo también las
+   * fechas guardadas en formato antiguo.
+   */
+  exclusivity?: { state: 'expired' | 'expiring'; today: string }
+  /** Cierre D1p: «Más características» — sí/no de la ficha ampliada que debe tener todas (`PROPERTY_AMENITY_KEYS`). */
+  amenities?: string[]
 }
 
 /**
@@ -99,6 +118,60 @@ export const PROPERTY_FEATURE_COLUMNS = {
   garden: 'hasGarden',
 } as const
 export type PropertyFeature = keyof typeof PROPERTY_FEATURE_COLUMNS
+
+/**
+ * Cierre D1p: la ficha ampliada distingue piscina y jardín privados y
+ * comunitarios. Se ofrecen como características propias en el filtro…
+ */
+export const PROPERTY_DETAIL_FEATURE_KEYS = {
+  privatePool: 'hasPrivatePool',
+  communityPool: 'hasCommunityPool',
+  privateGarden: 'hasPrivateGarden',
+} as const
+export type PropertyDetailFeature = keyof typeof PROPERTY_DETAIL_FEATURE_KEYS
+
+/**
+ * …y «piscina» y «jardín» a secas cuentan cualquiera de los tres: la casilla
+ * genérica de la fila, la privada o la comunitaria. Mismo criterio que el
+ * matching (`FEATURE_SOURCES.anyOf`, utils/buyerRequirementCatalog.ts).
+ */
+export const PROPERTY_FEATURE_DETAIL_ALTERNATIVES: Partial<Record<PropertyFeature, string[]>> = {
+  pool: ['hasPrivatePool', 'hasCommunityPool'],
+  garden: ['hasPrivateGarden', 'hasCommunityGarden'],
+}
+
+/**
+ * `pd.<columna> = 1` para una característica de la ficha ampliada. La columna
+ * sale SIEMPRE del esquema (`schema.propertyDetails`) a partir de una clave ya
+ * validada contra el catálogo — nunca de texto del cliente —, por eso puede ir
+ * como SQL literal (y no ocupa ninguno de los 100 parámetros de D1).
+ */
+function detailFlagSql(key: string): SQL {
+  const col = (schema.propertyDetails as any)[key]
+  if (!col?.name || !/^[a-z_]+$/.test(col.name)) throw new Error(`Característica de la ficha ampliada desconocida: ${key}`)
+  return sql.raw(`pd.${col.name} = 1`)
+}
+
+/**
+ * Una fecha guardada como texto (`capture_date`, `exclusive_until`…) leída
+ * como `AAAA-MM-DD` en SQL, con los mismos formatos que `parsePropertyDate`
+ * (utils/propertyDates.ts): ISO (con o sin hora) y día primero con `/`, `-` o
+ * `.` (`15/03/2025`, `5-3-2025`), o `aaaa/mm/dd`. Lo que no es una fecha da
+ * NULL y no entra en ningún rango. Sin funciones de fecha de SQLite: sólo
+ * `trim`/`replace`/`substr`/`GLOB`, que D1 tiene, y sin parámetros.
+ */
+export function normalizedDateSql(col: AnyColumn | SQL): SQL {
+  const raw = sql`trim(${col})`
+  const s = sql`replace(replace(trim(${col}), '.', '/'), '-', '/')`
+  return sql`(case
+    when ${raw} glob '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*' then substr(${raw}, 1, 10)
+    when ${s} glob '[0-9][0-9]/[0-9][0-9]/[0-9][0-9][0-9][0-9]' then substr(${s}, 7, 4) || '-' || substr(${s}, 4, 2) || '-' || substr(${s}, 1, 2)
+    when ${s} glob '[0-9]/[0-9][0-9]/[0-9][0-9][0-9][0-9]' then substr(${s}, 6, 4) || '-' || substr(${s}, 3, 2) || '-0' || substr(${s}, 1, 1)
+    when ${s} glob '[0-9][0-9]/[0-9]/[0-9][0-9][0-9][0-9]' then substr(${s}, 6, 4) || '-0' || substr(${s}, 4, 1) || '-' || substr(${s}, 1, 2)
+    when ${s} glob '[0-9]/[0-9]/[0-9][0-9][0-9][0-9]' then substr(${s}, 5, 4) || '-0' || substr(${s}, 3, 1) || '-0' || substr(${s}, 1, 1)
+    when ${s} glob '[0-9][0-9][0-9][0-9]/[0-9][0-9]/[0-9][0-9]' then substr(${s}, 1, 4) || '-' || substr(${s}, 6, 2) || '-' || substr(${s}, 9, 2)
+    else null end)`
+}
 
 /** La tabla Drizzle de cada catálogo — mismo mapeo que `matching/service.ts` (tablesFor), reexportado en vez de redeclarado para no tener una tercera forma de resolver "kind -> tabla". */
 export function propertyTableFor(kind: PropertyKind) {
@@ -120,6 +193,11 @@ export function propertyTableFor(kind: PropertyKind) {
 export function buildPropertyFilterConds(kind: PropertyKind, filters: PropertySearchFilters): SQL[] {
   const t = propertyTableFor(kind) as any
   const conds: SQL[] = []
+  // Toda subconsulta se correlaciona con el id, el catálogo y la ORGANIZACIÓN
+  // de la propiedad: un id de oficina, contacto, etiqueta o campo de otra
+  // agencia no coincide con nada.
+  const details = (cond: SQL) =>
+    sql`exists (select 1 from property_details pd where pd.organization_id = ${t.organizationId} and pd.property_kind = ${kind} and pd.property_id = ${t.id} and ${cond})`
   if (filters.priceMin != null) conds.push(gte(t.price, filters.priceMin))
   if (filters.priceMax != null) conds.push(lte(t.price, filters.priceMax))
   if (filters.country) conds.push(like(t.country, `%${filters.country}%`))
@@ -139,28 +217,56 @@ export function buildPropertyFilterConds(kind: PropertyKind, filters: PropertySe
   if (filters.plotAreaMin != null) conds.push(gte(t.plotArea, filters.plotAreaMin))
   if (filters.plotAreaMax != null) conds.push(lte(t.plotArea, filters.plotAreaMax))
   if (filters.text) {
-    const cols = kind === 'developer' ? [t.name, t.reference] : [t.reference, t.street, t.location]
-    conds.push(or(...cols.map((c: any) => like(c, `%${filters.text}%`)))!)
+    // Cierre D1p: también las referencias externa y de agencia y el código
+    // comercial (ficha ampliada) — buscar «por referencia» es buscar por
+    // cualquiera de las que la agencia maneja.
+    const cols = kind === 'developer' ? [t.name, t.reference, t.externalReference, t.agencyReference] : [t.reference, t.externalReference, t.agencyReference, t.street, t.location]
+    conds.push(or(...cols.map((c: any) => like(c, `%${filters.text}%`)), details(sql`pd.commercial_code like ${`%${filters.text}%`}`))!)
   }
   if (filters.isExclusive != null) conds.push(eq(t.isExclusive, filters.isExclusive ? 1 : 0))
   if (filters.published === 'published') conds.push(sql`${t.publishedAt} is not null`)
   if (filters.published === 'unpublished') conds.push(isNull(t.publishedAt))
-  if (filters.capturedFrom) conds.push(gte(t.captureDate, filters.capturedFrom))
-  if (filters.capturedTo) conds.push(lte(t.captureDate, endOfDay(filters.capturedTo)))
+  // Cierre D1p: la fecha de captación es texto y hay fichas con «15/03/2025»;
+  // se compara como fecha de verdad (normalizada a AAAA-MM-DD), no como texto.
+  // `parsePropertyFilters` ya dejó los extremos en AAAA-MM-DD.
+  if (filters.capturedFrom) conds.push(sql`${normalizedDateSql(t.captureDate)} >= ${filters.capturedFrom}`)
+  if (filters.capturedTo) conds.push(sql`${normalizedDateSql(t.captureDate)} <= ${filters.capturedTo.slice(0, 10)}`)
   if (filters.updatedFrom) conds.push(gte(t.updatedAt, filters.updatedFrom))
   if (filters.updatedTo) conds.push(lte(t.updatedAt, endOfDay(filters.updatedTo)))
   if (filters.zones?.length) {
     conds.push(or(...filters.zones.flatMap((z) => [like(t.city, `%${z}%`), like(t.district, `%${z}%`)]))!)
   }
   if (filters.propertyTypes?.length) conds.push(or(...filters.propertyTypes.map((pt) => eq(t.propertyType, pt)))!)
-  for (const f of filters.features || []) conds.push(eq(t[PROPERTY_FEATURE_COLUMNS[f]], 1))
+  for (const f of filters.features || []) {
+    if (f in PROPERTY_DETAIL_FEATURE_KEYS) {
+      conds.push(details(detailFlagSql(PROPERTY_DETAIL_FEATURE_KEYS[f as PropertyDetailFeature])))
+      continue
+    }
+    const own = eq(t[PROPERTY_FEATURE_COLUMNS[f as PropertyFeature]], 1)
+    const alternatives = PROPERTY_FEATURE_DETAIL_ALTERNATIVES[f as PropertyFeature]
+    conds.push(alternatives ? or(own, details(sql`(${sql.join(alternatives.map(detailFlagSql), sql` or `)})`))! : own)
+  }
+  // «Más características» (cierre D1p): todas en UNA subconsulta, sin parámetros por característica.
+  if (filters.amenities?.length) conds.push(details(sql.join(filters.amenities.map(detailFlagSql), sql` and `)))
+  // Estado comercial común (cierre D1p). Los valores van como un único
+  // parámetro JSON; «sin indicar» es no tener ficha ampliada o tenerla vacía.
+  if (filters.commercialStatuses?.length) {
+    const values = filters.commercialStatuses.filter((v) => v !== COMMERCIAL_STATUS_NONE)
+    const parts: SQL[] = []
+    if (values.length) parts.push(details(inJsonList(sql`pd.commercial_status`, values)))
+    if (filters.commercialStatuses.includes(COMMERCIAL_STATUS_NONE)) parts.push(sql`not ${details(sql`coalesce(pd.commercial_status, '') <> ''`)}`)
+    conds.push(parts.length === 1 ? parts[0] : or(...parts)!)
+  }
+  // Exclusiva caducada / a punto de caducar (cierre D1p), con la fecha de fin normalizada.
+  if (filters.exclusivity) {
+    const until = normalizedDateSql(t.exclusiveUntil)
+    const { state, today } = filters.exclusivity
+    conds.push(eq(t.isExclusive, 1))
+    if (state === 'expired') conds.push(sql`${until} < ${today}`)
+    else conds.push(sql`${until} >= ${today} and ${until} <= ${addDaysToIsoDate(today, 30)}`)
+  }
 
   // --- Bloque N7b ---------------------------------------------------------
-  // Toda subconsulta se correlaciona con el id, el catálogo y la ORGANIZACIÓN
-  // de la propiedad: un id de oficina, contacto, etiqueta o campo de otra
-  // agencia no coincide con nada.
-  const details = (cond: SQL) =>
-    sql`exists (select 1 from property_details pd where pd.organization_id = ${t.organizationId} and pd.property_kind = ${kind} and pd.property_id = ${t.id} and ${cond})`
   if (filters.subtype) conds.push(details(sql`pd.subtype = ${filters.subtype}`))
   if (filters.officeId) conds.push(details(sql`pd.office_id = ${filters.officeId}`))
   if (filters.agentId === 'none') conds.push(isNull(t.agentId))
@@ -179,7 +285,9 @@ export function buildPropertyFilterConds(kind: PropertyKind, filters: PropertySe
   if (filters.portal) {
     // La publicación multicanal sólo programa obra nueva
     // (publication_schedules.developer_property_id): en 2ª mano ninguna
-    // propiedad está en un portal, y el filtro lo dice devolviendo cero.
+    // propiedad está en un portal, y el filtro lo dice devolviendo cero. El
+    // panel no lo ofrece en 2ª mano ni lo manda (cierre D1p: tampoco lo
+    // arrastra desde un enlace o una vista guardada).
     if (kind === 'developer') {
       conds.push(sql`exists (select 1 from publication_jobs j
         join publication_schedules ps on ps.id = j.schedule_id and ps.organization_id = j.organization_id
@@ -197,7 +305,24 @@ export function buildPropertyFilterConds(kind: PropertyKind, filters: PropertySe
 }
 
 /**
- * `capturedTo`/`updatedTo` llegan de un `<input type="date">` como
+ * Búsqueda de texto libre del listado admin (`?q=`) y de «seleccionar todos
+ * los filtrados» de las acciones masivas — UNA sola condición para las dos
+ * (cierre D1p). Busca en las columnas que declara el recurso
+ * (`searchFields` de adminResources.ts: referencias interna, externa y de
+ * agencia, nombre, calle, zona…), en el código comercial de la ficha ampliada
+ * y, si es un número, en el id («Ref. #123» del listado).
+ */
+export function propertyTextSearchCond(kind: PropertyKind, q: string, searchFields: string[]): SQL {
+  const t = propertyTableFor(kind) as any
+  const needle = `%${q}%`
+  const parts: SQL[] = searchFields.filter((f) => t[f]).map((f) => like(t[f], needle))
+  parts.push(sql`exists (select 1 from property_details pd where pd.organization_id = ${t.organizationId} and pd.property_kind = ${kind} and pd.property_id = ${t.id} and pd.commercial_code like ${needle})`)
+  if (/^\d+$/.test(q) && q.length <= 12) parts.push(eq(t.id, parseInt(q, 10)))
+  return or(...parts)!
+}
+
+/**
+ * `updatedTo` llega de un `<input type="date">` como
  * `"2026-09-24"` (10 caracteres), comparados contra columnas que a veces
  * llevan hora (`"2026-09-24T10:00:00"`). En comparación de texto, el prefijo
  * corto SIEMPRE ordena por debajo del más largo, así que un `lte` con la
@@ -219,13 +344,35 @@ export function parsePropertyFilters(query: Record<string, unknown>): PropertySe
     const n = Number(v)
     return v != null && v !== '' && Number.isInteger(n) && n > 0 ? n : undefined
   }
-  const features = String(query.features ?? '')
-    .split(',')
-    .map((f) => f.trim())
-    .filter((f): f is PropertyFeature => f in PROPERTY_FEATURE_COLUMNS)
+  const list = (v: unknown) =>
+    String(Array.isArray(v) ? v.join(',') : (v ?? ''))
+      .split(',')
+      .map((f) => f.trim())
+      .filter(Boolean)
+  const features = list(query.features).filter((f): f is PropertyFeature | PropertyDetailFeature => f in PROPERTY_FEATURE_COLUMNS || f in PROPERTY_DETAIL_FEATURE_KEYS)
   const tagIds = parseTagIds(query.tags)
   const customFields = parseCustomFieldFilters(query)
   const geo = parseGeoFilters(query)
+  // Cierre D1p. Igual que la búsqueda geográfica, un valor que no se entiende
+  // es un 422 y nunca se ignora: ignorarlo devolvería todas las propiedades.
+  const commercialStatuses = [...new Set(list(query.commercialStatus))]
+  const badStatus = commercialStatuses.find((v) => v !== COMMERCIAL_STATUS_NONE && !isCommercialStatus(v))
+  if (badStatus) throw createError({ statusCode: 422, statusMessage: `Estado comercial no válido: ${badStatus.slice(0, 40)}` })
+  const amenities = [...new Set(list(query.amenities))]
+  const badAmenity = amenities.find((k) => !PROPERTY_AMENITY_KEYS.includes(k))
+  if (badAmenity) throw createError({ statusCode: 422, statusMessage: `Característica no válida: ${badAmenity.slice(0, 40)}` })
+  const exclusivityState = str(query.exclusivity)
+  if (exclusivityState && exclusivityState !== 'expired' && exclusivityState !== 'expiring') {
+    throw createError({ statusCode: 422, statusMessage: 'Vencimiento de la exclusiva no válido (expired o expiring)' })
+  }
+  /** Fecha de captación «desde»/«hasta»: AAAA-MM-DD (o un formato antiguo que se entienda); otra cosa, 422. */
+  const captured = (v: unknown, label: string) => {
+    const raw = str(v)
+    if (!raw) return undefined
+    const day = parsePropertyDate(raw)
+    if (!day) throw createError({ statusCode: 422, statusMessage: `Fecha de captación «${label}» no válida (AAAA-MM-DD)` })
+    return day
+  }
   return {
     priceMin: num(query.priceMin),
     priceMax: num(query.priceMax),
@@ -242,8 +389,8 @@ export function parsePropertyFilters(query: Record<string, unknown>): PropertySe
     areaMax: num(query.areaMax),
     isExclusive: bool(query.isExclusive),
     published,
-    capturedFrom: str(query.capturedFrom),
-    capturedTo: str(query.capturedTo),
+    capturedFrom: captured(query.capturedFrom, 'desde'),
+    capturedTo: captured(query.capturedTo, 'hasta'),
     updatedFrom: str(query.updatedFrom),
     updatedTo: str(query.updatedTo),
     features: features.length ? [...new Set(features)] : undefined,
@@ -259,6 +406,9 @@ export function parsePropertyFilters(query: Record<string, unknown>): PropertySe
     tagIds: tagIds.length ? tagIds : undefined,
     customFields: customFields.length ? customFields : undefined,
     geo: geo.bbox || geo.radius ? geo : undefined,
+    commercialStatuses: commercialStatuses.length ? commercialStatuses : undefined,
+    amenities: amenities.length ? amenities : undefined,
+    exclusivity: exclusivityState ? { state: exclusivityState as 'expired' | 'expiring', today: new Date().toISOString().slice(0, 10) } : undefined,
   }
 }
 
@@ -291,13 +441,89 @@ export interface PropertySearchRow {
 }
 
 /**
- * Tope de filas de una exportación CSV (§79) — export lee la misma
- * consulta que el listado (mismas condiciones, mismas columnas ya
- * autorizadas), así que nunca puede filtrar un dato que el usuario no
- * pudiera ya ver paginando; el límite es sólo para no dejar una petición
- * sin paginar crecer sin tope sobre una organización con miles de filas.
+ * Exportación CSV (§79) del listado de propiedades. Lee la misma consulta que
+ * el listado (mismas condiciones, mismas columnas ya autorizadas), así que
+ * nunca puede sacar un dato que el usuario no pudiera ya ver paginando.
+ *
+ * Cierre D1p: sin el tope de 2.000 filas de antes. Como la de leads (bloque
+ * N7b, `exportLeadRows`), recorre TODO el resultado filtrado por lotes de
+ * `PROPERTY_EXPORT_BATCH`: cada lote es una consulta pequeña y del mismo
+ * tamaño (los mismos parámetros que una página del listado), así que crecer
+ * en propiedades no hace crecer ninguna consulta. El orden lleva `id` de
+ * desempate para que ninguna fila se repita o se salte entre lotes.
  */
-export const PROPERTY_EXPORT_MAX_ROWS = 2000
+export const PROPERTY_EXPORT_BATCH = 500
+
+/**
+ * El estado comercial común (ficha ampliada) como columna de un listado:
+ * subconsulta correlacionada por organización, catálogo e id. La tabla se
+ * nombra a mano porque Drizzle escribe las columnas SIN tabla en la lista de
+ * un SELECT de una sola tabla, y dentro de la subconsulta `id` sería el de
+ * `property_details`.
+ */
+export function commercialStatusColumnSql(kind: PropertyKind): SQL<string | null> {
+  const name = sql.identifier(getTableName(propertyTableFor(kind) as any))
+  return sql<string | null>`(select pd.commercial_status from property_details pd where pd.organization_id = ${name}.organization_id and pd.property_kind = ${kind} and pd.property_id = ${name}.id)`
+}
+
+/** Las columnas del CSV de cada catálogo (más el estado comercial común de la ficha ampliada). */
+function exportColumns(kind: PropertyKind) {
+  const t = propertyTableFor(kind) as any
+  const commercialStatus = commercialStatusColumnSql(kind)
+  if (kind === 'developer') {
+    return {
+      id: t.id,
+      reference: t.reference,
+      name: t.name,
+      slug: t.slug,
+      status: t.status,
+      commercialStatus,
+      transactionType: t.transactionType,
+      price: t.price,
+      propertyType: t.propertyType,
+      bedrooms: t.bedrooms,
+      bathrooms: t.bathrooms,
+      area: t.area,
+      community: t.community,
+      city: t.city,
+      country: t.country,
+      isExclusive: t.isExclusive,
+      publishedAt: t.publishedAt,
+      updatedAt: t.updatedAt,
+    }
+  }
+  return {
+    id: t.id,
+    reference: t.reference,
+    slug: t.slug,
+    propertyType: t.propertyType,
+    transactionType: t.transactionType,
+    status: t.status,
+    commercialStatus,
+    price: t.price,
+    area: t.area,
+    bedrooms: t.bedrooms,
+    bathrooms: t.bathrooms,
+    city: t.city,
+    district: t.district,
+    country: t.country,
+    isExclusive: t.isExclusive,
+    publishedAt: t.publishedAt,
+    updatedAt: t.updatedAt,
+  }
+}
+
+export async function exportPropertyRows(db: any, kind: PropertyKind, where: SQL | undefined, sort: SQL, batchSize = PROPERTY_EXPORT_BATCH): Promise<Record<string, unknown>[]> {
+  const t = propertyTableFor(kind) as any
+  const columns = exportColumns(kind)
+  const out: Record<string, unknown>[] = []
+  for (let offset = 0; ; offset += batchSize) {
+    const batch = await db.select(columns).from(t).where(where).orderBy(sort, asc(t.id)).limit(batchSize).offset(offset)
+    out.push(...batch)
+    if (batch.length < batchSize) break
+  }
+  return out
+}
 
 /** Serializa filas ya autorizadas a CSV — sin librería, el escapado es el único caso a cubrir: comas, comillas y saltos de línea. */
 export function rowsToCsv(rows: Record<string, unknown>[]): string {
@@ -343,7 +569,14 @@ export async function searchPropertiesCompact(event: H3Event, orgId: number, q: 
           eq(schema.developerProperties.organizationId, orgId),
           // Un selector de inmueble (Calendar, Comunicaciones) nunca ofrece uno de la papelera.
           livePropertyCond(schema.developerProperties),
-          or(like(schema.developerProperties.name, needle), like(schema.developerProperties.community, needle)),
+          // Cierre D1p: también por referencia (interna, de agencia o externa), como el listado.
+          or(
+            like(schema.developerProperties.name, needle),
+            like(schema.developerProperties.community, needle),
+            like(schema.developerProperties.reference, needle),
+            like(schema.developerProperties.agencyReference, needle),
+            like(schema.developerProperties.externalReference, needle),
+          ),
         ),
       )
       .orderBy(asc(schema.developerProperties.name))
@@ -362,7 +595,13 @@ export async function searchPropertiesCompact(event: H3Event, orgId: number, q: 
         and(
           eq(schema.agentProperties.organizationId, orgId),
           livePropertyCond(schema.agentProperties),
-          or(like(schema.agentProperties.reference, needle), like(schema.agentProperties.street, needle), like(schema.agentProperties.city, needle)),
+          or(
+            like(schema.agentProperties.reference, needle),
+            like(schema.agentProperties.agencyReference, needle),
+            like(schema.agentProperties.externalReference, needle),
+            like(schema.agentProperties.street, needle),
+            like(schema.agentProperties.city, needle),
+          ),
         ),
       )
       .orderBy(agentDisplayName)

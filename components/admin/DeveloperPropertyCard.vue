@@ -6,7 +6,15 @@
         <span v-else class="text-3xl">🏠</span>
         <div class="absolute left-2 top-2 flex flex-wrap gap-1">
           <span v-if="property.isExclusive" class="rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold text-white">Exclusiva</span>
-          <span v-if="property.isReserved" class="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">Reservada</span>
+          <!-- Estado comercial común (cierre D1p); si no está indicado, la casilla «Reservada» de siempre. -->
+          <span
+            v-if="property.commercialStatus"
+            class="rounded-full px-2 py-0.5 text-[10px] font-semibold"
+            :class="LIST_CHIP_CLASSES[commercialStatusTone(property.commercialStatus)]"
+            title="Estado comercial"
+            :data-testid="`property-card-commercial-${property.id}`"
+          >{{ commercialStatusLabel(property.commercialStatus) }}</span>
+          <span v-else-if="property.isReserved" class="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">Reservada</span>
         </div>
         <span
           class="absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold"
@@ -17,7 +25,7 @@
       </div>
       <div class="p-4">
         <div class="mb-1 flex items-center justify-between gap-2">
-          <span class="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-stone-600">{{ STATUS_LABELS[property.status] || property.status }}</span>
+          <span class="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-stone-600" title="Estado de la obra">{{ STATUS_LABELS[property.status] || property.status }}</span>
           <span class="text-[11px] text-stone-400">Ref. #{{ property.id }}</span>
         </div>
         <p class="line-clamp-1 font-medium text-ink">{{ property.name }}</p>
@@ -32,7 +40,7 @@
           <p class="text-[11px] text-stone-400">{{ formatDate(property.updatedAt) }}</p>
         </div>
         <div class="mt-2 flex gap-3 text-[12px] text-stone-500">
-          <span v-if="property.bedrooms != null">🛏 {{ property.bedrooms }}</span>
+          <span v-if="property.bedrooms != null" title="Dormitorios" :aria-label="`${property.bedrooms} dormitorios`">🛏 {{ property.bedrooms }}</span>
           <span v-if="property.bathrooms != null">🛁 {{ property.bathrooms }}</span>
           <span v-if="property.area != null">📐 {{ property.area }} m²</span>
         </div>
@@ -60,6 +68,9 @@
 
 <script setup lang="ts">
 import TagChips from '~/components/admin/tags/TagChips.vue'
+import { priceSuffixFor } from '~/utils/propertySheet'
+import { commercialStatusLabel, commercialStatusTone } from '~/utils/propertyCommercialStatus'
+import { LIST_CHIP_CLASSES } from '~/composables/usePropertyListConfig'
 const props = defineProps<{ property: Record<string, any> }>()
 const emit = defineEmits<{ publish: [id: number]; duplicate: [id: number]; delete: [id: number] }>()
 
@@ -79,8 +90,13 @@ function act(action: 'publish' | 'duplicate' | 'delete') {
   emit(action as any, props.property.id)
 }
 
+// Moneda de la agencia, sin convertir (utils/currency.ts) — antes «€» fijo.
+// En alquiler el precio es la renta de cada mes (cierre D1p): «1.200 € /mes».
+const { format: formatAgencyMoney } = useAgencyCurrency()
 function formatPrice(v: number | null | undefined) {
-  return typeof v === 'number' ? new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(v) + ' €' : '—'
+  if (typeof v !== 'number') return '—'
+  const suffix = priceSuffixFor(props.property.transactionType)
+  return `${formatAgencyMoney(v)}${suffix ? ` ${suffix}` : ''}`
 }
 function formatDate(v: string | null | undefined) {
   return v ? new Date(v).toLocaleDateString('es-ES') : '—'

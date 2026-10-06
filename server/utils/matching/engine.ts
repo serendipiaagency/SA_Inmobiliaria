@@ -32,6 +32,7 @@
 import type { Importance, ZoneRef } from '../buyerRequirements/service'
 import { CRITERION_LABELS, FEATURE_CRITERIA, FEATURE_SOURCES, defaultImportanceOf, type FeatureCriterion } from '../../../utils/buyerRequirementCatalog'
 import { PROPERTY_CONDITION_LABELS, PROPERTY_TYPE_LABELS } from '../../../utils/propertySheet'
+import { formatMoney } from '../../../utils/currency'
 
 /**
  * Sube cuando cambian los pesos o las reglas, para que un breakdown guardado siga siendo interpretable.
@@ -140,6 +141,11 @@ export interface MatchableProperty {
   condition?: string | null
   /** De la ficha ampliada (`property_details`), que admite NULL: NULL = no consta, 0 = «no» escrito por alguien. */
   hasAirConditioning?: number | null
+  /** Piscina y jardín privados y comunitarios (ficha ampliada, cierre D1p): cuentan como «piscina» / «jardín». */
+  hasPrivatePool?: number | null
+  hasCommunityPool?: number | null
+  hasPrivateGarden?: number | null
+  hasCommunityGarden?: number | null
   isRenovated?: number | null
   renovationYear?: number | null
   /**
@@ -191,8 +197,17 @@ function normalizeText(value: string | null | undefined): string {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
-function money(n: number): string {
-  return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
+/**
+ * La normalización con la que el motor compara textos (zonas, operación),
+ * para quien tenga que agrupar valores igual que él. Con otro nombre que
+ * `normalizeText` de knowledge/text.ts: los dos se autoimportan en el servidor.
+ */
+export const normalizeMatchText = normalizeText
+
+/** Opciones del motor que no cambian el resultado, sólo cómo se explica. */
+export interface EvaluateOptions {
+  /** Moneda de la agencia (utils/currency.ts) para el detalle del precio. Sin ella, la de por defecto. */
+  currency?: string | null
 }
 
 /**
@@ -357,12 +372,22 @@ function evaluateRange(
  */
 export function featureValue(property: MatchableProperty, feature: FeatureCriterion): boolean | null {
   const source = FEATURE_SOURCES[feature]
-  const raw = (property as unknown as Record<string, unknown>)[source.column]
-  if (raw === 1 || raw === true) return true
-  if (raw == null) return null
-  if (!source.reviewed) return false // ficha ampliada: el 0 lo escribió alguien
+  const values = property as unknown as Record<string, unknown>
+  const raw = values[source.column]
+  const isYes = (v: unknown) => v === 1 || v === true
+  if (isYes(raw)) return true
+  // Cierre D1p: la piscina o el jardín privado o comunitario de la ficha ampliada también cuentan.
+  const alternatives = (source.anyOf || []).map((c) => values[c])
+  if (alternatives.some(isYes)) return true
+  let own: boolean | null
+  if (raw == null) own = null
+  else if (!source.reviewed) own = false // ficha ampliada: el 0 lo escribió alguien
   // raw === 0 en una columna NOT NULL DEFAULT 0: sólo es un "no" si alguien repasó las características.
-  return property.featuresReviewedAt ? false : null
+  else own = property.featuresReviewedAt ? false : null
+  if (own === false) return false
+  // Sin «no» en la casilla genérica: es «no» sólo si la ficha ampliada dice «no» a todas las variantes.
+  if (alternatives.length && alternatives.every((v) => v === 0 || v === false)) return false
+  return own
 }
 
 function evaluateFeature(requirement: MatchableRequirement, property: MatchableProperty, feature: FeatureCriterion): Evaluation | null {
@@ -463,7 +488,10 @@ function symbolFor(outcome: Outcome): string {
  * siempre el mismo resultado, sin azar, sin modelos y sin depender del orden
  * en que se consultó la base de datos.
  */
-export function evaluateMatch(property: MatchableProperty, requirement: MatchableRequirement): MatchResult {
+export function evaluateMatch(property: MatchableProperty, requirement: MatchableRequirement, opts: EvaluateOptions = {}): MatchResult {
+  // El precio de la propiedad y los de la necesidad están en la moneda de la
+  // agencia: se explican con ella, sin convertir (antes «€» fijo).
+  const money = (n: number) => formatMoney(n, opts.currency)
   const raw: ({ key: string } & Evaluation)[] = []
 
   const push = (key: string, result: Evaluation | null) => {

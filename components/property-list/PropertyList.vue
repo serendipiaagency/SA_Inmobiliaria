@@ -31,9 +31,14 @@
         </button>
       </div>
 
-      <select v-model="status" class="input !w-40" @change="applyAndReset">
-        <option value="">Todos los estados</option>
+      <!-- El `status` propio del catálogo («Estado de la obra» / «Disponibilidad») y, aparte, el estado comercial común (cierre D1p). -->
+      <select v-model="status" class="input !w-44" :aria-label="config.statusTitle" :title="config.statusTitle" data-testid="property-status-filter" @change="applyAndReset">
+        <option value="">{{ config.statusAllLabel }}</option>
         <option v-for="s in config.statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
+      </select>
+      <select v-model="commercialStatusFilter" class="input !w-56" aria-label="Estado comercial" title="Estado comercial" data-testid="property-commercial-status-filter">
+        <option value="">Todo estado comercial</option>
+        <option v-for="o in COMMERCIAL_STATUS_FILTER_OPTIONS" :key="o.value" :value="o.value">Estado comercial: {{ o.label.toLowerCase() }}</option>
       </select>
       <select v-if="config.hasTransactionFilter" v-model="transactionType" class="input !w-40" @change="applyAndReset">
         <option value="">Venta y alquiler</option>
@@ -100,7 +105,8 @@
         </div>
       </div>
 
-      <a v-if="!trashed" :href="exportHref" download class="btn-quiet">Exportar CSV</a>
+      <!-- Todo el filtro, sin tope de filas (cierre D1p): el servidor lo recorre por lotes. -->
+      <a v-if="!trashed" :href="exportHref" download class="btn-quiet" data-testid="property-export-csv">Exportar CSV ({{ data?.total ?? 0 }})</a>
 
       <div v-if="!trashed" class="relative">
         <button v-if="view === 'list'" type="button" class="btn-quiet" :class="columnsOpen ? '!border-ink !text-ink' : ''" @click="columnsOpen = !columnsOpen; savedViewsOpen = false">
@@ -109,7 +115,7 @@
         <div v-if="columnsOpen" class="card absolute left-0 top-full z-10 mt-1 w-56 p-3">
           <label v-for="c in LIST_COLUMNS" :key="c.key" class="flex items-center gap-2 py-1 text-[13px]">
             <input type="checkbox" :checked="isColumnVisible(c.key)" @change="toggleColumn(c.key)" >
-            {{ c.label }}
+            {{ c.key === 'status' ? config.statusTitle : c.label }}
           </label>
         </div>
       </div>
@@ -128,11 +134,11 @@
     <!-- Advanced filters panel -->
     <div v-if="filtersOpen" class="card mb-3 grid gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4">
       <label class="block">
-        <span class="label">Precio mínimo</span>
+        <span class="label">Precio mínimo ({{ agencyCurrencySymbol }})</span>
         <input v-model.number="priceMin" type="number" class="input" placeholder="0" >
       </label>
       <label class="block">
-        <span class="label">Precio máximo</span>
+        <span class="label">Precio máximo ({{ agencyCurrencySymbol }})</span>
         <input v-model.number="priceMax" type="number" class="input" placeholder="Sin límite" >
       </label>
       <label class="block">
@@ -152,8 +158,9 @@
         <input v-model="postalCode" class="input" >
       </label>
       <label class="block">
-        <span class="label">Habitaciones (mín.)</span>
-        <input v-model.number="bedroomsMin" type="number" min="0" class="input" >
+        <!-- `bedrooms` son dormitorios; el total de estancias es otro dato de la ficha (cierre D1p). -->
+        <span class="label">Dormitorios (mín.)</span>
+        <input v-model.number="bedroomsMin" type="number" min="0" class="input" data-testid="filter-bedrooms-min" >
       </label>
       <label class="block">
         <span class="label">Baños (mín.)</span>
@@ -173,6 +180,15 @@
           <option value="">Todas</option>
           <option value="1">Exclusivas</option>
           <option value="0">No exclusivas</option>
+        </select>
+      </label>
+      <!-- Vencimiento de la exclusiva (cierre D1p): el mismo criterio que el aviso del resumen de la ficha. -->
+      <label class="block">
+        <span class="label">Vencimiento de la exclusiva</span>
+        <select v-model="exclusivityFilter" class="input" data-testid="filter-exclusivity">
+          <option value="">Cualquiera</option>
+          <option value="expired">Caducada</option>
+          <option value="expiring">Caduca en 30 días</option>
         </select>
       </label>
       <label class="block">
@@ -201,7 +217,7 @@
       </label>
       <!-- Subtipo, comercial, oficina, propietario, portal, características, barrio,
            municipio, etiquetas, campos personalizados y coordenadas (bloque N7b). -->
-      <PropertyListExtraFilters v-model="extra" :options="filterOptions" :property-type="propertyType || null" />
+      <PropertyListExtraFilters v-model="extra" :options="filterOptions" :property-type="propertyType || null" :catalog="catalogKind" />
       <div class="col-span-full flex items-center gap-3">
         <button type="button" class="btn-primary !px-4 !py-2" @click="applyAndReset">Aplicar filtros</button>
         <button type="button" class="text-[13px] font-medium text-stone-500 hover:text-ink" @click="clearAll">Limpiar filtros</button>
@@ -273,23 +289,29 @@
       <!-- Bulk Actions (FASE 28) — sólo en vista de lista: la cuadrícula no tiene checkbox de fila. -->
       <div v-if="selectionCount > 0" class="card mb-3 flex flex-wrap items-center gap-3 p-3">
         <span class="text-sm font-medium">{{ selectionCount }} seleccionada{{ selectionCount === 1 ? '' : 's' }}</span>
-        <select v-model="bulkAction" class="input !w-52" @change="onBulkActionChange">
+        <select v-model="bulkAction" class="input !w-52" data-testid="bulk-action-select" @change="onBulkActionChange">
           <option value="">Elige una acción…</option>
           <option value="change_commercial">Cambiar comercial</option>
-          <option value="change_status">Cambiar estado</option>
+          <option value="change_status">Cambiar {{ config.statusTitle.toLowerCase() }}</option>
+          <option value="change_commercial_status">Cambiar estado comercial</option>
           <option value="add_tag">Añadir etiqueta</option>
           <option value="update_price">Actualizar precio</option>
           <option value="publish">Publicar</option>
           <option value="withdraw">Retirar</option>
-          <option v-if="isDeveloperCatalog" value="create_catalog">Crear catálogo</option>
+          <!-- Crear catálogo (PDF de Asset Export Studio) en los dos catálogos (FASE 28). -->
+          <option value="create_catalog">Crear catálogo</option>
         </select>
         <select v-if="bulkAction === 'change_commercial'" v-model="bulkCommercialId" class="input !w-48">
           <option value="">Sin asignar</option>
           <option v-for="a in bulkAgents" :key="a.id" :value="a.id">{{ a.name }}</option>
         </select>
-        <select v-if="bulkAction === 'change_status'" v-model="bulkStatus" class="input !w-44">
+        <select v-if="bulkAction === 'change_status'" v-model="bulkStatus" class="input !w-44" :aria-label="config.statusTitle">
           <option value="">Elige un estado…</option>
           <option v-for="s in config.statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
+        </select>
+        <select v-if="bulkAction === 'change_commercial_status'" v-model="bulkCommercialStatus" class="input !w-44" aria-label="Estado comercial" data-testid="bulk-commercial-status">
+          <option value="">Elige un estado comercial…</option>
+          <option v-for="s in COMMERCIAL_STATUS_OPTIONS" :key="s.value" :value="s.value">{{ s.label }}</option>
         </select>
         <input v-if="bulkAction === 'add_tag'" v-model="bulkTagName" class="input !w-48" placeholder="Nombre de la etiqueta" >
         <template v-if="bulkAction === 'update_price'">
@@ -303,12 +325,13 @@
           <input v-model="bulkPriceReason" class="input !w-56" placeholder="Motivo (queda en el histórico)" >
         </template>
         <template v-if="bulkAction === 'create_catalog'">
-          <select v-model="bulkTemplateId" class="input !w-52">
+          <select v-model="bulkTemplateId" class="input !w-52" data-testid="bulk-catalog-template">
             <option value="">Elige una plantilla…</option>
             <option v-for="t in bulkTemplates" :key="t.id" :value="t.id">{{ t.name }}</option>
           </select>
           <span v-if="selectAllFilteredMode" class="text-[12px] text-amber-700">Selecciona manualmente para crear un catálogo (no vale "todos los filtrados").</span>
           <span v-else-if="selectionCount > MAX_CATALOG_ASSETS" class="text-[12px] text-amber-700">Máximo {{ MAX_CATALOG_ASSETS }} propiedades por catálogo.</span>
+          <span v-else-if="catalogPropertyKind === 'agent'" class="text-[12px] text-stone-500" data-testid="bulk-catalog-agent-hint">Sólo datos y fotos publicables, con la ubicación según su privacidad; sin QR (la 2ª mano no tiene página pública).</span>
         </template>
         <button type="button" class="btn-primary !px-3 !py-1.5 text-xs" :disabled="!canRunBulkAction || bulkRunning" @click="runBulkAction">
           {{ bulkRunning ? bulkProgressLabel : 'Aplicar' }}
@@ -330,7 +353,9 @@
               <th v-if="isColumnVisible('location')" class="px-4 py-3">Ubicación</th>
               <th v-if="isColumnVisible('price')" class="px-4 py-3">Precio</th>
               <th v-if="isColumnVisible('details')" class="px-4 py-3">Detalles</th>
-              <th v-if="isColumnVisible('status')" class="px-4 py-3">Estado</th>
+              <th v-if="isColumnVisible('commercialStatus')" class="px-4 py-3">Estado comercial</th>
+              <th v-if="isColumnVisible('status')" class="px-4 py-3">{{ config.statusTitle }}</th>
+              <th v-if="isColumnVisible('agent')" class="px-4 py-3">Comercial</th>
               <th v-if="isColumnVisible('updatedAt')" class="px-4 py-3">Actualizado</th>
               <th class="px-4 py-3 text-right">Acciones</th>
             </tr>
@@ -353,19 +378,69 @@
                 {{ config.rowLocation(p) }}
                 <span v-if="p.distanceKm != null" class="block text-[11px] text-stone-400" data-testid="property-row-distance">a {{ formatKm(p.distanceKm) }}</span>
               </td>
-              <td v-if="isColumnVisible('price')" class="px-4 py-3 text-stone-700">{{ formatPrice(p.price) }}</td>
+              <!-- Edición inline (cierre C1): precio, estado y comercial desde la fila, con el mismo PUT que el editor. -->
+              <td v-if="isColumnVisible('price')" class="px-4 py-3 text-stone-700">
+                <AdminInlineEdit
+                  type="number"
+                  :label="p.transactionType === 'rent' ? 'Renta mensual' : 'Precio'"
+                  :value="p.price ?? null"
+                  :display="formatPrice(p.price, p.transactionType)"
+                  :editable="canWriteProperties"
+                  :validate="validateInlinePrice"
+                  placeholder="p. ej. 450.000"
+                  :test-id="`property-inline-price-${p.id}`"
+                  :save="(v) => saveInline(p, 'price', v)"
+                />
+              </td>
               <td v-if="isColumnVisible('details')" class="px-4 py-3 text-stone-500">
-                <span v-if="p.bedrooms != null">{{ p.bedrooms }} hab · </span><span v-if="p.bathrooms != null">{{ p.bathrooms }} baños · </span><span v-if="p.area != null">{{ p.area }} m²</span>
+                <span v-if="p.bedrooms != null" title="Dormitorios">{{ p.bedrooms }} dorm. · </span><span v-if="p.bathrooms != null">{{ p.bathrooms }} baños · </span><span v-if="p.area != null">{{ p.area }} m²</span>
+              </td>
+              <!-- Estado comercial común (cierre D1p): chip y edición inline, con el mismo PUT que el editor. -->
+              <td v-if="isColumnVisible('commercialStatus')" class="px-4 py-3">
+                <AdminInlineEdit
+                  type="select"
+                  label="Estado comercial"
+                  :value="p.commercialStatus || ''"
+                  :display="commercialStatusLabel(p.commercialStatus)"
+                  :options="COMMERCIAL_STATUS_INLINE_OPTIONS"
+                  :editable="canWriteProperties"
+                  :test-id="`property-inline-commercial-${p.id}`"
+                  :save="(v) => saveInline(p, 'commercialStatus', v === '' || v === null ? null : String(v))"
+                >
+                  <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold" :class="LIST_CHIP_CLASSES[commercialStatusTone(p.commercialStatus)]" :data-testid="`property-commercial-chip-${p.id}`">{{ commercialStatusLabel(p.commercialStatus) }}</span>
+                </AdminInlineEdit>
               </td>
               <td v-if="isColumnVisible('status')" class="px-4 py-3">
-                <span
-                  v-for="(chip, i) in config.rowChips(p)"
-                  :key="chip.label"
-                  class="rounded-full px-2 py-0.5 text-[11px] font-semibold"
-                  :class="[LIST_CHIP_CLASSES[chip.tone], i > 0 ? 'ml-1' : '']"
-                >
-                  {{ chip.label }}
-                </span>
+                <div class="flex flex-wrap items-center gap-1">
+                  <!-- El primer chip es siempre el `status` del catálogo (PROPERTY_LIST_CONFIG): con escritura, se edita aquí mismo. -->
+                  <AdminInlineEdit
+                    type="select"
+                    :label="config.statusTitle"
+                    :value="p.status"
+                    :display="statusLabel(p.status)"
+                    :options="config.statusOptions"
+                    :editable="canWriteProperties"
+                    :test-id="`property-inline-status-${p.id}`"
+                    :save="(v) => saveInline(p, 'status', v)"
+                  >
+                    <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold" :class="LIST_CHIP_CLASSES[config.rowChips(p)[0].tone]">{{ config.rowChips(p)[0].label }}</span>
+                  </AdminInlineEdit>
+                  <span v-for="chip in config.rowChips(p).slice(1)" :key="chip.label" class="rounded-full px-2 py-0.5 text-[11px] font-semibold" :class="LIST_CHIP_CLASSES[chip.tone]">
+                    {{ chip.label }}
+                  </span>
+                </div>
+              </td>
+              <td v-if="isColumnVisible('agent')" class="px-4 py-3 text-stone-600">
+                <AdminInlineEdit
+                  type="select"
+                  label="Comercial"
+                  :value="p.agentId ? String(p.agentId) : ''"
+                  :display="agentLabel(p.agentId)"
+                  :options="agentOptions(p.agentId)"
+                  :editable="canWriteProperties"
+                  :test-id="`property-inline-agent-${p.id}`"
+                  :save="(v) => saveInline(p, 'agentId', v === '' || v === null ? null : Number(v))"
+                />
               </td>
               <td v-if="isColumnVisible('updatedAt')" class="px-4 py-3 text-stone-450">{{ p.updatedAt ? new Date(p.updatedAt).toLocaleDateString('es-ES') : '—' }}</td>
               <td class="whitespace-nowrap px-4 py-3 text-right text-xs">
@@ -396,7 +471,10 @@ import DeveloperPropertyCard from '~/components/admin/DeveloperPropertyCard.vue'
 import AgentPropertyCard from '~/components/admin/AgentPropertyCard.vue'
 import TagChips from '~/components/admin/tags/TagChips.vue'
 import PropertyListExtraFilters from '~/components/property-list/PropertyListExtraFilters.vue'
-import { BBOX_KEYS, RADIUS_KEYS, extraFilterChips, pickExtraFilters, type PropertyFilterOptions } from '~/utils/propertyListFilters'
+import { BBOX_KEYS, COMMERCIAL_STATUS_FILTER_OPTIONS, RADIUS_KEYS, extraFilterChips, pickExtraFilters, type PropertyFilterOptions } from '~/utils/propertyListFilters'
+import { validateInlinePrice } from '~/utils/inlineEdit'
+import { PROPERTY_COMMERCIAL_STATUSES, commercialStatusForAvailability, commercialStatusLabel, commercialStatusTone, rowChangesForCommercialStatus } from '~/utils/propertyCommercialStatus'
+import { priceSuffixFor } from '~/utils/propertySheet'
 
 /**
  * El listado de propiedades, uno solo para los dos catálogos. Qué cambia
@@ -407,6 +485,14 @@ import { BBOX_KEYS, RADIUS_KEYS, extraFilterChips, pickExtraFilters, type Proper
 const props = defineProps<{ resource: 'properties' | 'developer-properties' }>()
 
 const config = computed(() => PROPERTY_LIST_CONFIG[props.resource])
+/** El catálogo de este listado, con el vocabulario del servidor ('developer' obra nueva, 'agent' 2ª mano). */
+const catalogKind = computed<'developer' | 'agent'>(() => (props.resource === 'developer-properties' ? 'developer' : 'agent'))
+/** Estado comercial común (cierre D1p): las opciones del desplegable inline y de la acción masiva. */
+const COMMERCIAL_STATUS_OPTIONS = PROPERTY_COMMERCIAL_STATUSES.map((value) => ({ value, label: commercialStatusLabel(value) }))
+const COMMERCIAL_STATUS_INLINE_OPTIONS = [{ value: '', label: 'Sin indicar' }, ...COMMERCIAL_STATUS_OPTIONS]
+// Los precios están en la moneda de la agencia y se pintan con ella, sin
+// convertir (utils/currency.ts) — antes «€» fijo aunque la agencia trabajara en AED.
+const { format: formatAgencyMoney, symbol: agencyCurrencySymbol } = useAgencyCurrency()
 
 const { confirm } = useConfirm()
 const toast = useToast()
@@ -470,7 +556,24 @@ const updatedTo = ref(qs('updatedTo'))
  * servidor (utils/propertyListFilters.ts). Se reemplaza entero en cada cambio,
  * así el `watch` de los filtros lo detecta sin `deep`.
  */
-const extra = ref<Record<string, string>>(pickExtraFilters(route.query as Record<string, unknown>))
+const extra = ref<Record<string, string>>(pickExtraFilters(route.query as Record<string, unknown>, { allowPortal: props.resource === 'developer-properties' }))
+/** Un filtro de `extra` como `v-model` de un desplegable: vacío = quitarlo del mapa. */
+function extraModel(key: string) {
+  return computed({
+    get: () => extra.value[key] || '',
+    set: (v: string) => {
+      extra.value = v ? { ...extra.value, [key]: v } : withoutKeys(extra.value, [key])
+    },
+  })
+}
+// 2ª mano (cierre D1p): un `portal` que llegue en un enlace no se aplica
+// (`pickExtraFilters`) y tampoco se queda en la URL dando a entender lo contrario.
+if (props.resource === 'properties' && route.query.portal !== undefined) {
+  onMounted(() => router.replace({ query: { ...route.query, portal: undefined } }))
+}
+/** Estado comercial (barra rápida) y vencimiento de la exclusiva (Filtros), cierre D1p: viven en `extra` como el resto, así van a la URL, al CSV, a las vistas y a las acciones masivas. */
+const commercialStatusFilter = extraModel('commercialStatus')
+const exclusivityFilter = extraModel('exclusivity')
 const filterOptions = ref<PropertyFilterOptions | null>(null)
 onMounted(async () => {
   try {
@@ -525,7 +628,7 @@ const filtersOpen = ref(
     capturedTo.value ||
     updatedFrom.value ||
     updatedTo.value ||
-    extraChips.value.some((c) => c.key !== 'bbox' && c.key !== 'radius')
+    extraChips.value.some((c) => c.key !== 'bbox' && c.key !== 'radius' && c.key !== 'commercialStatus')
   ),
 )
 
@@ -540,7 +643,11 @@ const LIST_COLUMNS = [
   { key: 'location', label: 'Ubicación' },
   { key: 'price', label: 'Precio' },
   { key: 'details', label: 'Detalles' },
-  { key: 'status', label: 'Estado' },
+  // Cierre D1p: el estado comercial común, aparte del `status` del catálogo (cuyo rótulo es `config.statusTitle`).
+  { key: 'commercialStatus', label: 'Estado comercial' },
+  { key: 'status', label: 'Estado de la obra / disponibilidad' },
+  // Cierre C1: el comercial (agentId) se ve y se cambia desde la fila.
+  { key: 'agent', label: 'Comercial' },
   { key: 'updatedAt', label: 'Actualizado' },
 ] as const
 type ListColumnKey = (typeof LIST_COLUMNS)[number]['key']
@@ -674,10 +781,10 @@ const advancedCount = computed(() =>
     capturedTo.value,
     updatedFrom.value,
     updatedTo.value,
-  ].filter((v) => v !== null && v !== '').length + extraChips.value.length,
+  ].filter((v) => v !== null && v !== '').length + extraChips.value.filter((c) => c.key !== 'commercialStatus').length,
 )
 const hasActiveFilters = computed(
-  () => !!q.value || !!status.value || (config.value.hasTransactionFilter && !!transactionType.value) || !!propertyType.value || advancedCount.value > 0,
+  () => !!q.value || !!status.value || !!extra.value.commercialStatus || (config.value.hasTransactionFilter && !!transactionType.value) || !!propertyType.value || advancedCount.value > 0,
 )
 
 function applyAndReset() {
@@ -713,21 +820,22 @@ const chips = computed(() => {
   if (q.value) list.push({ key: 'q', label: `"${q.value}"`, clear: () => (q.value = '') })
   if (status.value) {
     const label = config.value.statusOptions.find((s) => s.value === status.value)?.label || status.value
-    list.push({ key: 'status', label, clear: () => (status.value = '') })
+    list.push({ key: 'status', label: `${config.value.statusTitle}: ${label}`, clear: () => (status.value = '') })
   }
   if (config.value.hasTransactionFilter && transactionType.value) {
     list.push({ key: 'transactionType', label: transactionType.value === 'rent' ? 'Alquiler' : 'Venta', clear: () => (transactionType.value = '') })
   }
-  if (propertyType.value) list.push({ key: 'type', label: propertyType.value, clear: () => (propertyType.value = '') })
+  // El rótulo del tipo, nunca la clave guardada («Chalet», no «Villa»).
+  if (propertyType.value) list.push({ key: 'type', label: `Tipo: ${PROPERTY_TYPE_LABELS[propertyType.value] || propertyType.value}`, clear: () => (propertyType.value = '') })
   if (priceMin.value != null || priceMax.value != null) {
-    const label = `€${priceMin.value ?? 0} – ${priceMax.value != null ? `€${priceMax.value}` : '∞'}`
+    const label = `${formatAgencyMoney(priceMin.value ?? 0)} – ${priceMax.value != null ? formatAgencyMoney(priceMax.value) : '∞'}`
     list.push({ key: 'price', label, clear: () => ((priceMin.value = null), (priceMax.value = null)) })
   }
   if (country.value) list.push({ key: 'country', label: country.value, clear: () => (country.value = '') })
   if (city.value) list.push({ key: 'city', label: city.value, clear: () => (city.value = '') })
   if (district.value) list.push({ key: 'district', label: district.value, clear: () => (district.value = '') })
   if (postalCode.value) list.push({ key: 'postalCode', label: postalCode.value, clear: () => (postalCode.value = '') })
-  if (bedroomsMin.value != null) list.push({ key: 'bedroomsMin', label: `${bedroomsMin.value}+ hab.`, clear: () => (bedroomsMin.value = null) })
+  if (bedroomsMin.value != null) list.push({ key: 'bedroomsMin', label: `${bedroomsMin.value}+ dorm.`, clear: () => (bedroomsMin.value = null) })
   if (bathroomsMin.value != null) list.push({ key: 'bathroomsMin', label: `${bathroomsMin.value}+ baños`, clear: () => (bathroomsMin.value = null) })
   if (areaMin.value != null || areaMax.value != null) {
     const label = `${areaMin.value ?? 0} – ${areaMax.value ?? '∞'} m²`
@@ -862,7 +970,7 @@ function applySavableQuery(parsed: Record<string, unknown>) {
   if (parsed.capturedTo) capturedTo.value = String(parsed.capturedTo)
   if (parsed.updatedFrom) updatedFrom.value = String(parsed.updatedFrom)
   if (parsed.updatedTo) updatedTo.value = String(parsed.updatedTo)
-  extra.value = pickExtraFilters(parsed)
+  extra.value = pickExtraFilters(parsed, { allowPortal: props.resource === 'developer-properties' })
   if (hasGeo.value) mapOpen.value = true
   filtersOpen.value = advancedCount.value > 0
 }
@@ -879,8 +987,57 @@ watch(
   { flush: 'post' },
 )
 
-function formatPrice(v: number | null | undefined) {
-  return typeof v === 'number' ? new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(v) + ' €' : '—'
+/** Con operación alquiler el precio es la renta de cada mes (cierre D1p): «1.200 € /mes». En la moneda de la agencia, sin convertir (D3b). */
+function formatPrice(v: number | null | undefined, transactionType?: string | null) {
+  if (typeof v !== 'number') return '—'
+  const suffix = priceSuffixFor(transactionType)
+  return `${formatAgencyMoney(v)}${suffix ? ` ${suffix}` : ''}`
+}
+
+/**
+ * Edición inline (cierre C1, FASE 25): precio, estado y comercial desde la
+ * fila. Es el MISMO `PUT /api/admin/<recurso>/:id` del editor, con sólo el
+ * campo que cambia — así el servidor aplica lo de siempre: permisos del área,
+ * validación (estado del catálogo, precio no negativo, comercial de la
+ * agencia), una fila en el histórico de precios por cada cambio real,
+ * automatizaciones de publicación y auditoría. Sin escritura en el área
+ * (`canWriteProperties`) la celda sólo enseña el valor.
+ */
+async function saveInline(p: any, field: 'price' | 'status' | 'agentId' | 'commercialStatus', value: string | number | null) {
+  await $fetch<{ ok: true }>(`/api/admin/${props.resource}/${p.id}`, { method: 'PUT', body: { [field]: value } })
+  // Lo que el servidor arrastra con el cambio (utils/propertyCommercialStatus.ts) se refleja en la fila sin recargar.
+  if (field === 'commercialStatus') Object.assign(p, rowChangesForCommercialStatus(catalogKind.value, value === null ? null : String(value)))
+  if (field === 'status' && catalogKind.value === 'agent') {
+    const derived = commercialStatusForAvailability(String(value), p.commercialStatus)
+    if (derived !== undefined) Object.assign(p, { commercialStatus: derived, ...rowChangesForCommercialStatus('agent', derived), status: value })
+  }
+  p[field] = value
+  p.updatedAt = new Date().toISOString()
+  toast.success(
+    field === 'price'
+      ? 'Precio actualizado (queda en el histórico)'
+      : field === 'status'
+        ? `${config.value.statusTitle}: ${statusLabel(String(value))}`
+        : field === 'commercialStatus'
+          ? `Estado comercial: ${commercialStatusLabel(value === null ? null : String(value))}`
+          : 'Comercial actualizado',
+  )
+}
+
+function statusLabel(value: string | null | undefined) {
+  return config.value.statusOptions.find((s) => s.value === value)?.label || value || '—'
+}
+
+/** Comerciales de la agencia (los mismos del filtro «Comercial»), con «Sin comercial» y, si la fila tiene uno que ya no está en la lista, ese también. */
+function agentOptions(agentId: number | null | undefined) {
+  const agents = filterOptions.value?.agents || []
+  const options = [{ value: '', label: 'Sin comercial' }, ...agents.map((a) => ({ value: String(a.id), label: a.name }))]
+  if (agentId && !agents.some((a) => a.id === agentId)) options.push({ value: String(agentId), label: `Comercial #${agentId}` })
+  return options
+}
+function agentLabel(agentId: number | null | undefined) {
+  if (!agentId) return 'Sin comercial'
+  return filterOptions.value?.agents.find((a) => a.id === agentId)?.name || `Comercial #${agentId}`
 }
 
 function rowById(id: number) {
@@ -1008,12 +1165,14 @@ function clearSelection() {
 // son los resultados actuales".
 watch(FILTER_REFS, () => clearSelection())
 
-const isDeveloperCatalog = computed(() => props.resource === 'developer-properties')
+/** De qué catálogo son las propiedades del listado, en el vocabulario de Asset Export («Crear catálogo»). */
+const catalogPropertyKind = computed<'developer' | 'agent'>(() => (props.resource === 'developer-properties' ? 'developer' : 'agent'))
 
-type BulkAction = '' | 'change_commercial' | 'change_status' | 'add_tag' | 'update_price' | 'publish' | 'withdraw' | 'create_catalog'
+type BulkAction = '' | 'change_commercial' | 'change_status' | 'change_commercial_status' | 'add_tag' | 'update_price' | 'publish' | 'withdraw' | 'create_catalog'
 const bulkAction = ref<BulkAction>('')
 const bulkCommercialId = ref<number | ''>('')
 const bulkStatus = ref('')
+const bulkCommercialStatus = ref('')
 const bulkTagName = ref('')
 const bulkPrice = ref<number | null>(null)
 const bulkPriceMode = ref<'fixed' | 'percent'>('fixed')
@@ -1030,6 +1189,7 @@ const MAX_CATALOG_ASSETS = 30
 async function onBulkActionChange() {
   bulkCommercialId.value = ''
   bulkStatus.value = ''
+  bulkCommercialStatus.value = ''
   bulkTagName.value = ''
   bulkPrice.value = null
   bulkPercent.value = null
@@ -1040,14 +1200,16 @@ async function onBulkActionChange() {
     bulkAgents.value = res.rows || []
   }
   if (bulkAction.value === 'create_catalog' && !bulkTemplates.value.length) {
-    const res = await $fetch<{ id: number; name: string }[]>('/api/admin/asset-export/templates')
-    bulkTemplates.value = res || []
+    const res = await $fetch<{ id: number; name: string; formatKey?: string }[]>('/api/admin/asset-export/templates')
+    // Un catálogo combinado es un PDF: las plantillas de imagen para redes no se ofrecen (el servidor las rechazaría con 422).
+    bulkTemplates.value = (res || []).filter((t) => !String(t.formatKey || '').startsWith('social_'))
   }
 }
 
 const canRunBulkAction = computed(() => {
   if (!bulkAction.value) return false
   if (bulkAction.value === 'change_status') return !!bulkStatus.value
+  if (bulkAction.value === 'change_commercial_status') return !!bulkCommercialStatus.value
   if (bulkAction.value === 'add_tag') return !!bulkTagName.value.trim()
   if (bulkAction.value === 'update_price') {
     if (bulkPriceMode.value === 'percent') return typeof bulkPercent.value === 'number' && bulkPercent.value !== 0 && bulkPercent.value >= -90 && bulkPercent.value <= 500
@@ -1059,11 +1221,37 @@ const canRunBulkAction = computed(() => {
 
 const BULK_ACTION_LABELS: Record<string, string> = {
   change_commercial: 'cambiar el comercial',
-  change_status: 'cambiar el estado',
+  change_commercial_status: 'cambiar el estado comercial',
   add_tag: 'añadir la etiqueta',
   update_price: 'actualizar el precio',
   publish: 'publicar',
   withdraw: 'retirar',
+}
+
+/** Lo que se va a hacer, para la confirmación. «Cambiar estado» es el `status` del catálogo: la fase de la obra o la disponibilidad. */
+function bulkActionLabel(action: string) {
+  if (action === 'change_status') return catalogKind.value === 'developer' ? 'cambiar el estado de la obra' : 'cambiar la disponibilidad'
+  return BULK_ACTION_LABELS[action] || action
+}
+
+/** Los parámetros de cada acción masiva (publicar y retirar no llevan). */
+function bulkActionParams(): Record<string, unknown> {
+  switch (bulkAction.value) {
+    case 'change_commercial':
+      return { commercialId: bulkCommercialId.value || null }
+    case 'change_status':
+      return { status: bulkStatus.value }
+    case 'change_commercial_status':
+      return { commercialStatus: bulkCommercialStatus.value }
+    case 'add_tag':
+      return { tagName: bulkTagName.value.trim() }
+    case 'update_price':
+      return bulkPriceMode.value === 'percent'
+        ? { percent: bulkPercent.value, reason: bulkPriceReason.value.trim() || undefined }
+        : { price: bulkPrice.value, reason: bulkPriceReason.value.trim() || undefined }
+    default:
+      return {}
+  }
 }
 
 /** Exportar seleccionadas (§92) — mismo endpoint que el botón "Exportar CSV" de arriba, con un filtro por ids en vez de un mecanismo nuevo. En modo "todos los filtrados" ya no hace falta el filtro por ids: es exactamente lo que exporta ese botón. */
@@ -1087,7 +1275,9 @@ async function runBulkAction() {
     bulkRunning.value = true
     bulkProgressLabel.value = 'Creando…'
     try {
-      const res = await $fetch<{ id: number }>('/api/admin/asset-export/catalogs', { method: 'POST', body: { templateId: bulkTemplateId.value, assetIds: selectedIds.value } })
+      // FASE 28: también desde 2ª mano — el mismo motor, con las fichas de 2ª
+      // mano (sólo lo publicable: ver resolveAgentAssetBindings).
+      const res = await $fetch<{ id: number }>('/api/admin/asset-export/catalogs', { method: 'POST', body: { templateId: bulkTemplateId.value, assetIds: selectedIds.value, propertyKind: catalogPropertyKind.value } })
       toast.success('Catálogo creado')
       clearSelection()
       bulkAction.value = ''
@@ -1101,23 +1291,12 @@ async function runBulkAction() {
   }
 
   const ok = await confirm(
-    `Se va a ${BULK_ACTION_LABELS[bulkAction.value]} de ${selectionCount.value} propiedad${selectionCount.value === 1 ? '' : 'es'}. No se puede deshacer.`,
-    { title: '¿Aplicar acción masiva?', confirmLabel: 'Aplicar', danger: ['change_status', 'update_price', 'withdraw'].includes(bulkAction.value) },
+    `Se va a ${bulkActionLabel(bulkAction.value)} de ${selectionCount.value} propiedad${selectionCount.value === 1 ? '' : 'es'}. No se puede deshacer.`,
+    { title: '¿Aplicar acción masiva?', confirmLabel: 'Aplicar', danger: ['change_status', 'change_commercial_status', 'update_price', 'withdraw'].includes(bulkAction.value) },
   )
   if (!ok) return
 
-  const params: Record<string, unknown> =
-    bulkAction.value === 'change_commercial'
-      ? { commercialId: bulkCommercialId.value || null }
-      : bulkAction.value === 'change_status'
-        ? { status: bulkStatus.value }
-        : bulkAction.value === 'add_tag'
-          ? { tagName: bulkTagName.value.trim() }
-          : bulkAction.value === 'update_price'
-            ? bulkPriceMode.value === 'percent'
-              ? { percent: bulkPercent.value, reason: bulkPriceReason.value.trim() || undefined }
-              : { price: bulkPrice.value, reason: bulkPriceReason.value.trim() || undefined }
-            : {} // publish/withdraw: sin parámetros
+  const params = bulkActionParams()
 
   bulkRunning.value = true
   bulkProgressLabel.value = 'Iniciando…'

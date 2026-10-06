@@ -144,9 +144,9 @@ test.describe('E2E final del Real Estate OS (§158)', () => {
       expect((await leadRow()).firstResponseAt).toBeFalsy()
 
       // --- 6-8. el comercial responde → firstResponseAt → QUALIFYING ---------------
-      expect((await a.patch(`/api/admin/saas/leads/${leadId}`, { data: { stage: 'contacted' } })).ok()).toBeTruthy()
+      expect((await a.patch(`/api/admin/saas/leads/${leadId}`, { data: { stage: 'contacted', reason: 'Primera llamada hecha' } })).ok()).toBeTruthy()
       expect((await leadRow()).firstResponseAt, 'un cambio de fase humano es la primera respuesta').toBeTruthy()
-      expect((await (await a.patch(`/api/admin/saas/leads/${leadId}`, { data: { stage: 'qualifying' } })).json()).stage).toBe('qualifying')
+      expect((await (await a.patch(`/api/admin/saas/leads/${leadId}`, { data: { stage: 'qualifying', reason: 'Recogiendo lo que busca' } })).json()).stage).toBe('qualifying')
 
       // --- 9. BuyerRequirement: compra, zona, ≤ 650.000, ≥ 2 dormitorios, terraza OBLIGATORIA
       const reqRes = await a.post('/api/admin/saas/buyer-requirements', {
@@ -168,7 +168,7 @@ test.describe('E2E final del Real Estate OS (§158)', () => {
       expect((await a.post(`/api/admin/saas/buyer-requirements/${requirement.id}/validate-budget`, { data: { validated: true } })).ok()).toBeTruthy()
 
       // --- 10-11. QUALIFIED y Lead Score explicado ----------------------------------
-      expect((await (await a.patch(`/api/admin/saas/leads/${leadId}`, { data: { stage: 'qualified' } })).json()).stage).toBe('qualified')
+      expect((await (await a.patch(`/api/admin/saas/leads/${leadId}`, { data: { stage: 'qualified', reason: 'Presupuesto y zona confirmados' } })).json()).stage).toBe('qualified')
       const score = await (await a.get('/api/admin/saas/leads', { params: { scoreFor: String(leadId) } })).json()
       const applied = score.breakdown.filter((x: any) => x.applied).map((x: any) => x.criterion)
       expect(applied).toEqual(expect.arrayContaining(['budget_validated', 'purchase_horizon']))

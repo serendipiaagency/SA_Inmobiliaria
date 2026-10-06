@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull, isNull } from 'drizzle-orm'
 import { createError } from 'h3'
 import * as schema from '../../db/schema'
 import { now } from '../db'
@@ -14,8 +14,9 @@ import type { PropertyKind } from '../matching/service'
 import { resolveLeadAndContact } from './adminCreate'
 import { fail, initialReminderStatus, loadAgent, loadLead, minutesBetween, normalizeDateTime, optionalId, optionalText, parsePropertyKind, parseTimezone, propertyDisplayName, resolveChannel, resolveEnd } from './fields'
 import { attachRelatedOffers, type RelatedOffer } from './query'
+import { updateAppointment } from './update'
 import { selectInChunks } from '../sqlChunks'
-import { DEFAULT_TOUR_GAP_MINUTES, MAX_TOUR_GAP_MINUTES, planSequentialSchedule } from '../../../utils/tourPlanning'
+import { DEFAULT_TOUR_GAP_MINUTES, MAX_TOUR_GAP_MINUTES, planSequentialSchedule, shiftWallTime } from '../../../utils/tourPlanning'
 
 /**
  * Tours (FASE 18, migración 0073): un cliente viendo varios inmuebles en una
@@ -23,8 +24,9 @@ import { DEFAULT_TOUR_GAP_MINUTES, MAX_TOUR_GAP_MINUTES, planSequentialSchedule 
  * comercial, el estado, la confirmación y el resultado de cada parada viven
  * ahí (FASE 17), nunca duplicados aquí. Este módulo orquesta crear la
  * cabecera con sus paradas, editar la cabecera (cliente, lead, contacto y
- * notas) y reordenar la ruta recalculando las horas, siempre con la misma
- * comprobación de solapes que el resto de la agenda.
+ * notas), reordenar la ruta recalculando las horas y añadir o quitar
+ * paradas de un tour ya creado, siempre con la misma comprobación de solapes
+ * que el resto de la agenda.
  *
  * Cada parada tiene su propia hora y su propia duración (o fin), y su
  * inmueble puede ser de cualquiera de los dos catálogos — por eso se guarda
@@ -276,7 +278,8 @@ async function loadTourStops(db: any, orgId: number, tourId: number): Promise<an
   return db
     .select()
     .from(schema.visits)
-    .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.tourId, tourId)))
+    // Una parada nunca va a la papelera (se quita del tour); el filtro es la red de seguridad (cierre D3a).
+    .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.tourId, tourId), isNull(schema.visits.deletedAt)))
     .orderBy(asc(schema.visits.tourStopOrder), asc(schema.visits.scheduledAt))
 }
 
@@ -494,12 +497,216 @@ export async function reorderTour(
   return { id: tourId, moved }
 }
 
+export interface TourActionContext {
+  userId?: number | null
+  env?: Record<string, any>
+  requestId?: string | null
+  publicOrigin?: string | null
+}
+
+export interface AddTourStopInput {
+  /** La parada nueva. Sin `scheduledAt` va «al final»: al acabar la última parada activa más `gapMinutes`. */
+  stop: Omit<TourStopInput, 'scheduledAt'> & { scheduledAt?: string | null }
+  /** Margen de desplazamiento tras la última parada activa (minutos), sólo al ir «al final». */
+  gapMinutes?: number | null
+}
+
+/**
+ * Añade una parada a un tour ya creado (FASE 18, cierre C2). Mismas
+ * validaciones que el alta (`createTour`): comercial de la agencia, inmueble
+ * de esta agencia en SU catálogo y fuera de la papelera (404/422), duración
+ * propia (o la franja del comercial), sin pisar otra parada activa del propio
+ * tour (422) ni la agenda real del comercial (409).
+ *
+ * La hora es la que llega o, sin ella, «al final con el margen»: empieza al
+ * acabar la última parada activa más el desplazamiento elegido. La parada va
+ * al final de la ruta (último `tourStopOrder`); si tiene que ir antes, se
+ * reordena con `reorderTour`.
+ *
+ * Hereda del tour lo que el alta da a todas sus paradas: cliente (nombre,
+ * email y teléfono de la cabecera), lead, contacto y zona horaria. Las notas
+ * del tour son de la cabecera (`property_tours.notes`), igual que al crearlo:
+ * la parada nueva las tiene por ser del tour, no se copian a la cita.
+ * Queda `APPOINTMENT_CREATED` en Activity y se avisa al cliente con
+ * `notifyAppointment()` — el mismo mecanismo que al reordenar: el aviso
+ * interno siempre queda; email y WhatsApp sólo salen con proveedor real, y
+ * si no lo hay se registran como no entregados, nunca como enviados.
+ */
+export async function addTourStop(db: any, orgId: number, tourId: number, input: AddTourStopInput, ctx: TourActionContext = {}): Promise<{ id: number; stopId: number; scheduledAt: string; endsAt: string; tourStopOrder: number }> {
+  const tour = await loadTourOrThrow(db, orgId, tourId)
+  const stops = await loadTourStops(db, orgId, tourId)
+  const active = stops.filter((s) => s.status !== 'cancelled')
+  const label = 'Parada nueva'
+  const stop = input.stop || ({} as AddTourStopInput['stop'])
+
+  const agentId = Number(stop.agentId)
+  if (!Number.isInteger(agentId) || agentId <= 0) fail(422, `${label}: falta el comercial`)
+  const agent = await loadAgent(db, orgId, agentId, `${label}: comercial no encontrado`)
+
+  let propertyKind: PropertyKind | null = null
+  let propertyName: string | null = null
+  const propertyId = optionalId(stop.propertyId, `${label}: inmueble`) ?? null
+  if (propertyId) {
+    // Igual que en el alta del tour y en una cita suelta: de esta agencia, de SU catálogo y fuera de la papelera.
+    propertyKind = parsePropertyKind(stop.propertyKind || 'developer')
+    const state = await propertyState(db, orgId, propertyKind, propertyId)
+    if (state === 'missing') fail(404, `${label}: inmueble no encontrado`)
+    if (state === 'trashed') fail(422, `${label}: ${trashedPropertyMessage('incluirla en un tour')}`)
+    propertyName = await propertyDisplayName(db, orgId, propertyKind, propertyId)
+  }
+
+  let scheduledAt: string
+  if (stop.scheduledAt) {
+    scheduledAt = normalizeDateTime(stop.scheduledAt, label)
+  } else {
+    const gap = input.gapMinutes === undefined || input.gapMinutes === null ? DEFAULT_TOUR_GAP_MINUTES : Number(input.gapMinutes)
+    if (!Number.isInteger(gap) || gap < 0 || gap > MAX_TOUR_GAP_MINUTES) fail(422, `El margen entre paradas tiene que estar entre 0 y ${MAX_TOUR_GAP_MINUTES} minutos`)
+    if (!active.length) fail(422, 'El tour no tiene paradas activas: indica la hora de la parada nueva')
+    const lastEnd = active.map((s) => s.endsAt || s.scheduledAt).sort().pop() as string
+    scheduledAt = shiftWallTime(lastEnd, gap)
+  }
+  const { endsAt, durationMinutes } = resolveEnd(scheduledAt, stop, agent.slotDurationMinutes, label)
+
+  // Primero contra el propio tour (para decir con qué parada choca), luego contra toda la agenda del comercial.
+  const clash = active.find((s) => s.agentId === agent.id && overlaps(scheduledAt, endsAt, s.scheduledAt, s.endsAt || s.scheduledAt))
+  if (clash) fail(422, `${label}: se solapa con la parada ${stops.indexOf(clash) + 1} de este tour para ${agent.name}`)
+  if (await hasOverlappingVisit(db, orgId, agent.id, scheduledAt, endsAt)) fail(409, `${label}: ${agent.name} ya tiene otra cita a esa hora`)
+
+  if (!tour.clientEmail && !tour.clientPhone) fail(422, 'email o teléfono es obligatorio para avisar al cliente')
+  const contactId: number | null = stops.find((s) => s.contactId)?.contactId ?? null
+  const timezone: string | null = stops.find((s) => s.timezone)?.timezone ?? null
+  const tourStopOrder = stops.reduce((max, s) => Math.max(max, Number(s.tourStopOrder ?? 0) + 1), 0)
+  const channel = resolveChannel('property_viewing', stop.channel)
+  const meetingPoint = optionalText(stop.meetingPoint, `${label}: punto de encuentro`, 300) ?? null
+  const managementToken = generateManagementToken()
+  const nowTs = now()
+
+  let stopId: number
+  try {
+    const [row] = await db
+      .insert(schema.visits)
+      .values({
+        organizationId: orgId,
+        clientName: tour.clientName,
+        clientEmail: tour.clientEmail,
+        clientPhone: tour.clientPhone,
+        propertyId,
+        propertyName,
+        propertyKind,
+        agentId: agent.id,
+        agentName: agent.name,
+        officeId: agent.officeId ?? null,
+        timezone,
+        scheduledAt,
+        durationMinutes,
+        endsAt,
+        status: 'scheduled',
+        channel,
+        type: 'property_viewing',
+        meetingPoint,
+        leadId: tour.leadId ?? null,
+        contactId,
+        reminderStatus: initialReminderStatus(tour.clientEmail, tour.clientPhone),
+        videoLink: channel === 'video' ? generateVideoLink() : null,
+        tourId,
+        tourStopOrder,
+        managementToken,
+        createdBy: ctx.userId ?? null,
+        createdAt: nowTs,
+        updatedAt: nowTs,
+      })
+      .returning({ id: schema.visits.id })
+    stopId = row.id
+  } catch (e: any) {
+    // La comprobación de arriba es leer-y-escribir: el índice visits_agent_slot_unique es la red de seguridad.
+    if (String(e?.cause?.message || e?.message || '').includes('UNIQUE constraint failed')) fail(409, `${label}: ${agent.name} ya tiene otra cita a esa hora`)
+    throw e
+  }
+
+  await recordActivity(db, orgId, {
+    eventType: 'APPOINTMENT_CREATED',
+    entityType: 'visit',
+    entityId: stopId,
+    appointmentId: stopId,
+    leadId: tour.leadId ?? null,
+    contactId,
+    propertyId,
+    propertyKind,
+    actorType: 'user',
+    actorId: ctx.userId ?? null,
+    metadata: { tourId, tourStopOrder, addedToTour: true },
+  })
+  if (tour.leadId) {
+    await syncLeadNextAction(db, orgId, tour.leadId)
+    await markFirstAppointment(db, orgId, tour.leadId)
+  }
+
+  const manageUrl = ctx.publicOrigin ? `${ctx.publicOrigin.replace(/\/$/, '')}/citas/${managementToken}` : null
+  try {
+    await notifyAppointment(db, ctx.env || {}, {
+      organizationId: orgId,
+      visitId: stopId,
+      type: 'confirmation',
+      recipientEmail: tour.clientEmail,
+      recipientPhone: tour.clientPhone,
+      message: [`Hemos añadido una visita a tu ruta: ${propertyName || 'una visita'} el ${scheduledAt} con ${agent.name}.`, manageUrl ? `Gestiona esta cita aquí: ${manageUrl}` : null].filter(Boolean).join(' '),
+      scheduledAt,
+      agentName: agent.name,
+      propertyName,
+      manageUrl,
+      requestId: ctx.requestId ?? null,
+      publicOrigin: ctx.publicOrigin ?? null,
+    })
+  } catch {
+    // La parada ya quedó guardada — un fallo al notificar nunca debe deshacerla.
+  }
+
+  return { id: tourId, stopId, scheduledAt, endsAt, tourStopOrder }
+}
+
+/**
+ * Quita una parada de un tour ya creado (FASE 18, cierre C2). No se borra
+ * nada: la cita de esa parada pasa a cancelada con su motivo exactamente
+ * igual que al cancelar una cita (`updateAppointment`: motivo obligatorio,
+ * `cancelledAt`, `APPOINTMENT_CANCELLED` en Activity —aquí con el tour—,
+ * próxima acción del lead y aviso de cancelación al cliente). La parada
+ * sigue en el tour, cancelada, para que la ruta cuente lo que pasó.
+ *
+ * Sólo se quita una parada agendada: una ya hecha (o en la que el cliente no
+ * vino) es historia. Y un tour no se queda sin paradas activas: quitar la
+ * última es un 422 — no existe «cancelar el tour» como acción propia; si la
+ * visita ya no se hace, se cancela la cita.
+ */
+export async function removeTourStop(db: any, orgId: number, tourId: number, input: { stopId: number; reason?: string | null }, ctx: TourActionContext = {}): Promise<{ id: number; stopId: number }> {
+  await loadTourOrThrow(db, orgId, tourId)
+  const stops = await loadTourStops(db, orgId, tourId)
+  const stop = stops.find((s) => s.id === Number(input.stopId))
+  // Una cita de otro tour, suelta o de otra agencia no es una parada de ESTE tour.
+  if (!stop) fail(404, 'Parada no encontrada en este tour')
+  if (stop.status === 'cancelled') fail(422, 'Esta parada ya está cancelada')
+  if (stop.status !== 'scheduled') fail(422, 'Esta parada ya se hizo (o el cliente no vino): es historia y no se quita del tour')
+  const reason = optionalText(input.reason, 'Motivo', 500)
+  if (!reason) fail(422, 'Indica el motivo por el que se quita la parada')
+  if (!stops.some((s) => s.id !== stop.id && s.status !== 'cancelled')) {
+    fail(422, 'Es la única parada activa del tour y un tour no se queda sin paradas. Si esta visita ya no se hace, cancela la cita (botón «Ver» → «Cancelar»).')
+  }
+
+  await updateAppointment(db, orgId, stop.id, { status: 'cancelled', cancellationReason: reason }, {
+    userId: ctx.userId ?? null,
+    env: ctx.env || {},
+    requestId: ctx.requestId ?? null,
+    publicOrigin: ctx.publicOrigin ?? null,
+    activityMetadata: { tourId, removedFromTour: true },
+  })
+  return { id: tourId, stopId: stop.id }
+}
+
 /** Tours de la organización con sus paradas (y el resultado y las ofertas de cada una), más recientes primero. */
 export async function listTours(db: any, orgId: number): Promise<TourView[]> {
   const tours = await db.select().from(schema.propertyTours).where(eq(schema.propertyTours.organizationId, orgId)).orderBy(schema.propertyTours.createdAt)
   if (!tours.length) return []
 
-  const stopRows = await db.select().from(schema.visits).where(and(eq(schema.visits.organizationId, orgId), isNotNull(schema.visits.tourId)))
+  const stopRows = await db.select().from(schema.visits).where(and(eq(schema.visits.organizationId, orgId), isNotNull(schema.visits.tourId), isNull(schema.visits.deletedAt)))
   const offersByVisit = await attachRelatedOffers(db, orgId, stopRows as any[])
   const leadIds = [...new Set((tours as any[]).map((t) => t.leadId).filter(Boolean))] as number[]
   const leadNames = new Map<number, string>()

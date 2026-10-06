@@ -41,6 +41,8 @@ const code = String(route.params.code)
 const { data: link, pending } = await useFetch<any>(`/api/public/referral-links/${code}`, { onResponseError: () => {} })
 
 const form = reactive({ name: '', email: '', phone: '' })
+// Cierre del núcleo (FASE 15): el lead llega con el idioma de quien se registra.
+const visitorLanguage = useVisitorLanguage()
 const submitting = ref(false)
 const done = ref(false)
 const error = ref('')
@@ -53,7 +55,7 @@ async function submit() {
   }
   submitting.value = true
   try {
-    await $fetch('/api/public/referrals', { method: 'POST', body: { code, ...form } })
+    await $fetch('/api/public/referrals', { method: 'POST', body: { code, ...form, language: visitorLanguage() } })
     done.value = true
   } catch (err: any) {
     error.value = err?.data?.statusMessage || 'Error al enviar'

@@ -98,7 +98,8 @@ export default defineEventHandler(async (event) => {
     properties:
       ((await raw.prepare('SELECT count(*) AS n FROM developer_properties WHERE organization_id = ?1 AND deleted_at IS NULL').bind(orgId).first<{ n: number }>())?.n || 0) +
       ((await raw.prepare('SELECT count(*) AS n FROM agent_properties WHERE organization_id = ?1 AND deleted_at IS NULL').bind(orgId).first<{ n: number }>())?.n || 0),
-    upcomingVisits: (await raw.prepare("SELECT count(*) AS n FROM visits WHERE organization_id = ?1 AND status='scheduled'").bind(orgId).first<{ n: number }>())?.n || 0,
+    // Sin las citas de la papelera (cierre D3a).
+    upcomingVisits: (await raw.prepare("SELECT count(*) AS n FROM visits WHERE organization_id = ?1 AND status='scheduled' AND deleted_at IS NULL").bind(orgId).first<{ n: number }>())?.n || 0,
     pendingInvoices:
       (await raw.prepare("SELECT count(*) AS n FROM invoices WHERE organization_id = ?1 AND status IN ('pending','overdue')").bind(orgId).first<{ n: number }>())?.n || 0,
     outstanding:
@@ -118,7 +119,7 @@ export default defineEventHandler(async (event) => {
     await raw.prepare("SELECT reference, client_name, amount, status, created_at FROM reservations WHERE organization_id = ?1 ORDER BY created_at DESC LIMIT 6").bind(orgId).all<any>()
   ).results.map((r: any) => ({ type: 'reservation', title: `${r.client_name}`, meta: `${r.reference} · ${r.status}`, at: r.created_at, amount: r.amount }))
   const upcoming = (
-    await raw.prepare("SELECT client_name, property_name, scheduled_at FROM visits WHERE organization_id = ?1 AND status='scheduled' ORDER BY scheduled_at ASC LIMIT 6").bind(orgId).all<any>()
+    await raw.prepare("SELECT client_name, property_name, scheduled_at FROM visits WHERE organization_id = ?1 AND status='scheduled' AND deleted_at IS NULL ORDER BY scheduled_at ASC LIMIT 6").bind(orgId).all<any>()
   ).results.map((r: any) => ({ type: 'visit', title: r.client_name, meta: r.property_name, at: r.scheduled_at }))
 
   return {

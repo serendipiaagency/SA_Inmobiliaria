@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNotNull, lte, ne, or } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNotNull, isNull, lte, ne, or } from 'drizzle-orm'
 import { createError } from 'h3'
 import { schema, now } from '../db'
 
@@ -11,7 +11,8 @@ import { schema, now } from '../db'
  *
  *   budget_validated     BuyerRequirement activa con budget_validated = 1
  *   purchase_horizon     BuyerRequirement: desired_date dentro de N días, o urgency high/urgent
- *   responded_recently   mensaje de WhatsApp entrante (o llamada entrante contestada) en las últimas N horas
+ *   responded_recently   mensaje de WhatsApp entrante (o llamada entrante contestada, o —FASE 29, email
+ *                        entrante— respuesta por email a un hilo web) en las últimas N horas
  *   viewing_requested    una visita a inmueble del lead que no está cancelada
  *   financing_validated  BuyerRequirement: mortgage_status estructurado (aprobada, preaprobada, sin hipoteca)
  *   opened_listings      fichas enviadas con apertura confirmada: lectura de WhatsApp confirmada por el
@@ -77,7 +78,7 @@ export const LEAD_SCORE_CATALOG: Record<LeadScoreCriterion, CriterionMeta> = {
   },
   responded_recently: {
     label: 'Respondió recientemente',
-    source: 'Mensaje de WhatsApp entrante, o llamada entrante contestada, dentro de la ventana.',
+    source: 'Mensaje de WhatsApp entrante, llamada entrante contestada o respuesta por email a un hilo de Comunicaciones, dentro de la ventana.',
     defaults: { points: 15, enabled: true, priority: 30, config: { withinHours: 24 } },
   },
   viewing_requested: {
@@ -112,7 +113,7 @@ export function defaultLeadScoreRules(): LeadScoreRule[] {
 export interface LeadScoreSignals {
   requirements: Array<{ id: number; budgetValidated: boolean; desiredDate: string | null; urgency: string | null; mortgageStatus: string | null }>
   lastInboundAt: string | null
-  lastInboundKind: 'whatsapp' | 'call' | null
+  lastInboundKind: 'whatsapp' | 'call' | 'email' | null
   lastOutboundAt: string | null
   viewings: Array<{ id: number; status: string; scheduledAt: string }>
   /** Fichas DISTINTAS enviadas con apertura confirmada (WhatsApp leído ∪ enlace personal abierto). */
@@ -200,7 +201,7 @@ export function evaluateLeadScore(signals: LeadScoreSignals, rules: LeadScoreRul
         const last = toMs(signals.lastInboundAt)
         applied = last !== null && nowMs - last <= withinHours * HOUR
         if (applied) {
-          detail = `${signals.lastInboundKind === 'call' ? 'Llamada entrante contestada' : 'Mensaje de WhatsApp entrante'} el ${signals.lastInboundAt} (UTC).`
+          detail = `${signals.lastInboundKind === 'call' ? 'Llamada entrante contestada' : signals.lastInboundKind === 'email' ? 'Respuesta por email' : 'Mensaje de WhatsApp entrante'} el ${signals.lastInboundAt} (UTC).`
           expiries.push(last! + withinHours * HOUR)
         } else {
           detail = last !== null ? `Última entrada real el ${signals.lastInboundAt} (UTC), fuera de las últimas ${withinHours} h.` : 'Ningún mensaje ni llamada entrante registrados.'
@@ -273,7 +274,7 @@ export async function collectLeadScoreSignals(db: any, orgId: number, lead: { id
   const viewings = await db
     .select({ id: schema.visits.id, status: schema.visits.status, scheduledAt: schema.visits.scheduledAt })
     .from(schema.visits)
-    .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.leadId, lead.id), eq(schema.visits.type, 'property_viewing'), ne(schema.visits.status, 'cancelled')))
+    .where(and(eq(schema.visits.organizationId, orgId), eq(schema.visits.leadId, lead.id), eq(schema.visits.type, 'property_viewing'), ne(schema.visits.status, 'cancelled'), isNull(schema.visits.deletedAt)))
     .orderBy(schema.visits.id)
     .limit(5)
 
@@ -285,7 +286,7 @@ export async function collectLeadScoreSignals(db: any, orgId: number, lead: { id
   ).map((r: any) => r.id)
 
   let lastInboundAt: string | null = null
-  let lastInboundKind: 'whatsapp' | 'call' | null = null
+  let lastInboundKind: 'whatsapp' | 'call' | 'email' | null = null
   let lastOutboundAt: string | null = null
   const openedShares = new Set<string>()
   if (commsContactIds.length) {
@@ -350,6 +351,25 @@ export async function collectLeadScoreSignals(db: any, orgId: number, lead: { id
         lastInboundKind = 'call'
       }
     }
+  }
+
+  // FASE 29 — email entrante: la respuesta del cliente por email a un hilo web
+  // de ESTE lead o de su Contact (comms_web_messages `in` por `email`). Sólo
+  // email: un mensaje del chat web no ha contado nunca como «respondió» y no
+  // se cambia aquí de rebote.
+  const W = schema.commsWebThreads
+  const WM = schema.commsWebMessages
+  const threadOwners = [eq(W.leadId, lead.id), ...(lead.contactId ? [eq(W.contactId, lead.contactId)] : [])]
+  const [emailReply] = await db
+    .select({ createdAt: WM.createdAt })
+    .from(WM)
+    .innerJoin(W, eq(W.id, WM.threadId))
+    .where(and(eq(WM.organizationId, orgId), eq(W.organizationId, orgId), eq(WM.direction, 'in'), eq(WM.via, 'email'), or(...threadOwners)))
+    .orderBy(desc(WM.createdAt))
+    .limit(1)
+  if (emailReply && (toMs(emailReply.createdAt) ?? 0) > (toMs(lastInboundAt) ?? -1)) {
+    lastInboundAt = emailReply.createdAt
+    lastInboundKind = 'email'
   }
 
   // Núcleo N8a — aperturas de su enlace personal (email o chat web): sólo las

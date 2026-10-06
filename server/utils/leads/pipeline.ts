@@ -36,6 +36,25 @@ export class LeadPipelineError extends Error {}
 
 const LOST_REASON_TEXT: Record<string, string> = { no_response: 'No responde', not_interested: 'No interesado', duplicate: 'Duplicado', other: 'Otro motivo' }
 
+/** Largo máximo de un motivo escrito a mano (lo que cabe en una línea del historial). */
+export const STAGE_REASON_MAX = 300
+
+/**
+ * Motivo de un movimiento hecho por una PERSONA desde el panel (FASE 13:
+ * «cada cambio registra usuario, fecha, fase anterior, fase nueva y
+ * motivo»): obligatorio, sin espacios sobrantes y acotado. Lo exigen la ruta
+ * del panel (PATCH /api/admin/saas/leads/:id: ficha, Kanban, Tabla) y la
+ * acción masiva al crearse. `transitionLeadStage()` no lo exige a propósito:
+ * las entradas automáticas (automatizaciones, workflows de INMO) llegan con
+ * su propio motivo descriptivo y no deben romperse por esto.
+ */
+export function requirePanelStageReason(raw: unknown, what = 'del cambio de fase'): string {
+  const reason = typeof raw === 'string' ? raw.trim() : ''
+  if (!reason) throw new LeadPipelineError(`Indica el motivo ${what}: queda en el historial del lead`)
+  if (reason.length > STAGE_REASON_MAX) throw new LeadPipelineError(`El motivo admite como máximo ${STAGE_REASON_MAX} caracteres`)
+  return reason
+}
+
 /**
  * Mueve un lead a un stage nuevo (drag&drop del Kanban o un cambio manual).
  * Escribe `lead_stage_history` siempre — es la única forma de que exista

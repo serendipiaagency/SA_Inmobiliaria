@@ -26,6 +26,13 @@ contacto, dirección de propiedad, origen del lead): sólo guarda sus ids
   precedente que `visits.propertyId`/`propertyKind` (entero suelto,
   resuelto por la capa de aplicación).
 
+- `officeId` — la oficina de la tarea (migración 0089, cierre D3a). `NULL` =
+  la de su responsable, calculada al leer (no se copia: si cambia el
+  responsable o su oficina, la tarea le sigue). Ver «Oficina de la tarea».
+- `createdBy` — quién la creó (`users.id`, lo pone el servidor). Cada fila
+  del listado trae `createdByName` / `createdByDeleted` («usuario
+  eliminado»), resueltos en lote dentro de la agencia (cierre D3a).
+
 - `deletedAt` — papelera (migración 0086, bloque N6). Una tarea borrada
   no sale en ningún listado (`listTasks`), ni en la ficha de su operación,
   ni en el panel comercial, ni cuenta para la próxima acción del lead; la
@@ -107,7 +114,24 @@ desvincula). Reglas:
 
 Borrar es `deleteTask()` — `deletedAt`, nunca un `DELETE`: sale de todo y
 recalcula la próxima acción de su lead. Una tarea borrada ya no se edita ni
-se vuelve a borrar (404). No hay restauración desde el panel.
+se vuelve a borrar (404).
+
+### Papelera y restaurar (cierre C1)
+
+- `deleteTask()` registra ahora `TASK_TRASHED` (con quién lo hizo y las
+  relaciones de la tarea, para que salga en la cronología de su contacto,
+  lead, inmueble y cita). Antes borrar no dejaba ningún evento.
+- `restoreTask()` quita `deletedAt` y la devuelve **tal cual estaba**
+  (estado, fecha, responsable, prioridad y relaciones), recalcula la próxima
+  acción de su lead y registra `TASK_RESTORED`. Sus referencias **no se
+  vuelven a juzgar** — mismo criterio que `updateTask()`, que sólo valida lo
+  que cambia: lo que ya tenía es historia aunque después se haya borrado
+  (p. ej. una propiedad o una operación que ahora están en su papelera).
+  Una tarea de otra agencia, o inexistente, es 404; una que no está en la
+  papelera se devuelve sin tocar (restaurar dos veces no deja dos eventos).
+- `listTasks({ trashed: true })` lista sólo la papelera, ordenada por
+  cuándo se borró (lo último primero), con los mismos filtros de comercial,
+  tipo y prioridad.
 
 ### API (sin rutas nuevas)
 
@@ -117,13 +141,41 @@ se vuelve a borrar (404). No hay restauración desde el panel.
   `appointmentLabel`, resueltos dentro de la organización.
 - `POST /api/admin/saas/tasks` — acepta `status` (`open`/`in_progress`).
 - `PATCH /api/admin/saas/tasks/:id` — todos los campos de arriba (ids como
-  número, `null` o `''` para desvincular; uno mal formado es 422) y
-  `{ deleted: true }` para mandarla a la papelera (no hay ruta `DELETE`: el
-  presupuesto de rutas de Nitro está agotado).
+  número, `null` o `''` para desvincular; uno mal formado es 422),
+  `{ deleted: true }` para mandarla a la papelera y `{ deleted: false }`
+  para restaurarla (cierre C1). No hay rutas `DELETE` ni `/restore`: el
+  presupuesto de rutas de Nitro está agotado.
+- `GET /api/admin/saas/tasks?trashed=1` — sólo la papelera de la
+  organización (cierre C1); combinable con `assigneeId`, `type` y
+  `priority`. Sin `trashed`, las borradas nunca salen.
+
+## Oficina de la tarea (cierre D3a)
+
+`tasks.office_id` (migración 0089, ya aplicada antes que este código):
+
+- **Alta y edición**: `POST /api/admin/saas/tasks` y `PATCH …/:id` aceptan
+  `officeId`. Vacío/`null` = «la de su responsable». Una oficina nueva tiene
+  que ser **viva y de la agencia** (`assertTaskReferences`): de otra agencia,
+  inexistente o borrada = **404**; un id mal formado = **422**. Como el resto
+  de relaciones, sólo se juzga lo que cambia: conservar una oficina que
+  después se cerró se permite.
+- **Formulario** (`TaskFormModal.vue`): selector «Oficina» cuya opción vacía
+  dice cuál es ahora «la de su responsable» (`/api/admin/saas/agents` trae
+  `officeId`).
+- **Lectura**: cada fila trae `effectiveOfficeId`, `officeName` y
+  `officeFromAssignee` (la oficina es la heredada del responsable).
+- **Filtro**: `GET /api/admin/saas/tasks?officeId=` — la oficina de la tarea
+  o, si no tiene, la de su responsable (subconsulta de comerciales de esa
+  oficina, sin listas de ids). CRM → Tareas tiene el desplegable «Todas las
+  oficinas» y lee `officeId`/`assigneeId` de la URL.
+- **Dashboard comercial**: el KPI «Tareas vencidas» con oficina usa la misma
+  regla (`officeCond` con `tasks.office_id`), y su enlace abre CRM → Tareas
+  con `bucket=overdue` y el mismo comercial u oficina.
 
 ## Dónde se ve
 
-- **CRM → Tareas** (`/admin/tareas`) — todas las tareas de la organización,
+- **CRM → Tareas** (`/admin/tareas`) — cada fila dice quién la creó y su
+  oficina («· de su responsable» si es la heredada). Todas las tareas de la organización,
   con filtro Pendientes (por defecto) / Abiertas / En curso / Vencidas /
   Vencen hoy / Completadas / Canceladas / Todas. «+ Nueva tarea» y «Editar»
   abren `components/admin/tasks/TaskFormModal.vue`, con todos los campos y
@@ -131,8 +183,11 @@ se vuelve a borrar (404). No hay restauración desde el panel.
   contactos y leads del motor genérico, inmuebles de
   `properties/search` —sólo vivos—, citas y operaciones). La columna
   «Relacionada con» enseña nombres reales con enlace; el estado se cambia
-  desde su desplegable; «Borrar» pide confirmación. Igual que Calendar, el
-  filtro por comercial organiza la vista, no la restringe.
+  desde su desplegable; «Borrar» pide confirmación y la manda a la
+  papelera. «Papelera» (botón arriba, u opción del primer filtro; queda en
+  la URL como `?bucket=trash`) lista las borradas con su fecha y
+  «Restaurar» (cierre C1). Igual que Calendar, el filtro por comercial
+  organiza la vista, no la restringe.
 - **Ficha de la operación** — sus tareas, con «+ Nueva tarea» (la operación
   fijada; comprador, inmueble y lead propuestos) y «Editar».
 - **Ficha de Contacto / Lead → pestaña "Tareas"**, **Ficha de Cliente**, y
@@ -146,4 +201,5 @@ se vuelve a borrar (404). No hay restauración desde el panel.
 
 - Una Task sin `dueAt` es válida pero no entra en el cálculo de Next Action:
   no hay con qué compararla contra una cita real. Documentado, no un bug.
-- No hay papelera visible ni «restaurar» de tareas en el panel.
+- No hay «eliminar definitivamente» de una tarea: la papelera no se vacía
+  (la fila y su Activity son historia de la agencia).

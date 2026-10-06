@@ -18,7 +18,9 @@
  * entrada en los dos.
  */
 
-import { PROPERTY_CONDITIONS, PROPERTY_CONDITION_LABELS, PROPERTY_SHEET_GROUPS, PROPERTY_TYPES, PROPERTY_TYPE_LABELS, pricePerSquareMeter, type SheetField } from '~/utils/propertySheet'
+import { currencySymbol, DEFAULT_AGENCY_CURRENCY } from '~/utils/currency'
+import { PROPERTY_CONDITIONS, PROPERTY_CONDITION_LABELS, PROPERTY_SHEET_GROUPS, PROPERTY_TYPES, PROPERTY_TYPE_LABELS, isRentTransaction, pricePerSquareMeter, type SheetField } from '~/utils/propertySheet'
+import { CATALOG_STATUS_TITLES } from '~/utils/propertyCommercialStatus'
 
 export interface FieldSpec {
   key: string
@@ -50,6 +52,19 @@ export interface FieldSpec {
   showWhen?: { key: string; in?: string[]; notIn?: string[]; emptyAs?: string }
   /** Para `computed`: valor derivado de la ficha que se enseña pero nunca se guarda. */
   compute?: (form: Record<string, any>) => string
+  /**
+   * Rótulo que depende de la ficha (cierre D1p): p. ej. «Renta mensual» en
+   * vez de «Precio» cuando la operación es alquiler. `label` sigue siendo el
+   * nombre por defecto (búsqueda de campos, validación).
+   */
+  labelFor?: (form: Record<string, any>) => string
+  /**
+   * Campo heredado (cierre D1p): sólo se enseña si la ficha ya traía un valor
+   * AL ABRIRLA — para no perder ni esconder lo que hay, sin ofrecerlo como una
+   * segunda forma de escribir algo que ya tiene su campo. Vaciarlo no lo
+   * oculta hasta volver a abrir la ficha.
+   */
+  legacyOnly?: boolean
   /**
    * Campo de la interfaz que no es una columna de la propiedad (el motivo de
    * un cambio de precio, un valor calculado): el filtrado por schema
@@ -204,18 +219,76 @@ function sheetGroupFlat(key: string): FieldSpec[] {
 const ONLY_RENT = { key: 'transactionType', in: ['rent'], emptyAs: 'sale' }
 const ONLY_SALE = { key: 'transactionType', notIn: ['rent'], emptyAs: 'sale' }
 
-/** Precio por m² (o renta por m²) calculado: precio ÷ superficie construida. Nunca se guarda. */
+/**
+ * Símbolo de la moneda de la agencia (cierre D3b) para el precio por m². Se
+ * lee al pintar el campo; fuera de una app de Nuxt (tests del catálogo de
+ * campos) se usa el de la moneda por defecto.
+ */
+function agencySymbol(): string {
+  try {
+    return useAgencyCurrency().symbol.value
+  } catch {
+    return currencySymbol(DEFAULT_AGENCY_CURRENCY)
+  }
+}
+
+/** Precio por m² (o renta por m² y mes en alquiler) calculado: precio ÷ superficie construida. Nunca se guarda. */
 const PRICE_PER_M2: FieldSpec = {
   key: 'pricePerSquareMeter',
   label: 'Precio por m²',
+  labelFor: (form) => (isRentTransaction(form.transactionType) ? `Renta por m² (${agencySymbol()}/m²·mes)` : `Precio por m² (${agencySymbol()}/m²)`),
   type: 'computed',
   virtual: true,
-  hint: 'Calculado: precio ÷ superficie construida.',
+  hint: 'Calculado: precio ÷ superficie construida (en alquiler, renta mensual ÷ superficie).',
   group: 'Precio principal',
   compute: (form) => {
     const v = pricePerSquareMeter(form.price, form.area)
-    return v == null ? 'Indica precio y superficie construida' : v.toLocaleString('es-ES', { maximumFractionDigits: 2 })
+    if (v == null) return 'Indica precio y superficie construida'
+    return `${v.toLocaleString('es-ES', { maximumFractionDigits: 2 })} ${agencySymbol()}${isRentTransaction(form.transactionType) ? '/m²·mes' : '/m²'}`
   },
+}
+
+/**
+ * Con operación «Alquiler» el único precio de la propiedad es la renta de
+ * cada mes (cierre D1p, sin columna aparte): el rótulo lo dice.
+ */
+function priceLabel(saleLabel: string) {
+  return (form: Record<string, any>) => (isRentTransaction(form.transactionType) ? 'Renta mensual' : saleLabel)
+}
+
+/** Fechas de gestión (cierre D1p): selector de fecha; el servidor exige AAAA-MM-DD al cambiarlas. */
+const DATE_HINT_LEGACY = 'Si la ficha la tenía escrita a mano (p. ej. 15/03/2025), se sigue entendiendo; elige la fecha para guardarla en el formato nuevo.'
+
+/**
+ * El estado comercial común (ficha ampliada) frente al `status` de cada
+ * catálogo — tres datos distintos, ver utils/propertyCommercialStatus.ts.
+ */
+const COMMERCIAL_STATUS_HINT = 'El que gestiona la agencia, igual en los dos catálogos: se filtra y se cambia desde el listado. «Reservada» marca además la etiqueta «Reservada» de la web.'
+const COMMERCIAL_STATUS_HINT_AGENT = `${COMMERCIAL_STATUS_HINT} «Vendida» y «Disponible» ponen igual la disponibilidad.`
+
+/**
+ * «Gastos de comunidad anuales» (`service_charge_annual`, de la fila) es el
+ * dato anterior a la ficha ampliada, que ya tiene «Comunidad (mensual)». Se
+ * conserva tal cual (nada se borra ni se convierte), pero sólo aparece en las
+ * fichas que lo tenían relleno, con su explicación (cierre D1p).
+ */
+const LEGACY_SERVICE_CHARGE: FieldSpec = {
+  key: 'serviceChargeAnnual',
+  label: 'Gastos de comunidad anuales (dato anterior)',
+  type: 'number',
+  legacyOnly: true,
+  group: 'Inversión',
+  hint: 'Dato que se guardaba antes de la ficha ampliada. La comunidad se indica ahora en Precio → «Comunidad (mensual)»; cuando la tengas allí, puedes vaciar este campo y dejará de aparecer.',
+}
+
+/** La casilla «Reservada» de la web, heredada: ahora la marca el estado comercial «Reservada» (cierre D1p). */
+const LEGACY_RESERVED: FieldSpec = {
+  key: 'isReserved',
+  label: 'Reservada (marca anterior)',
+  type: 'checkbox',
+  legacyOnly: true,
+  group: 'Inversión',
+  hint: 'Es la etiqueta «Reservada» que enseña la web. Ahora se marca y se quita sola con el «Estado comercial» (Información básica).',
 }
 
 /** Motivo del cambio de precio: se guarda en el histórico sólo si el precio cambia. */
@@ -233,9 +306,18 @@ const PRICE_CHANGE_REASON: FieldSpec = {
 const SHEET_PRICE_FIELDS: FieldSpec[] = [
   ...sheetGroup('sale', 'Venta', { showWhen: ONLY_SALE }),
   ...sheetGroup('rent', 'Alquiler', { showWhen: ONLY_RENT }),
-  ...sheetGroup('costs', 'Gastos del inmueble'),
+  ...sheetGroup('costs', 'Gastos del inmueble').map((f) =>
+    f.key === 'communityFeeMonthly' ? { ...f, hint: 'La cuota de comunidad, al mes. Es el único sitio donde se escribe: el antiguo «Gastos de comunidad anuales» sólo aparece (en Comercial / Inversión) en las fichas que lo tenían.' } : f,
+  ),
   ...sheetGroup('commissions', 'Comisiones'),
 ]
+
+/** El estado comercial común, con la explicación de en qué se diferencia del `status` del catálogo. */
+function commercialStatusField(group: string, kind: 'developer' | 'agent'): FieldSpec[] {
+  return sheetGroup('identification', group)
+    .filter((f) => f.key === 'commercialStatus')
+    .map((f) => ({ ...f, hint: kind === 'agent' ? COMMERCIAL_STATUS_HINT_AGENT : COMMERCIAL_STATUS_HINT }))
+}
 const SHEET_BUILDING_SECTION: FieldsSection = {
   key: 'building',
   label: 'Edificio y vivienda',
@@ -311,13 +393,22 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'externalSource', label: 'Origen externo', type: 'text', hint: 'De dónde procede si viene de un sistema externo.', group: 'Identificación' },
         { key: 'externalReference', label: 'Referencia externa', type: 'text', group: 'Identificación' },
         { key: 'developerId', label: 'Promotora', type: 'relation', relationResource: 'developers', required: true, group: 'Clasificación' },
-        { key: 'status', label: 'Estado', type: 'select', options: ['new', 'under_construction', 'ready'], optionLabels: { new: 'Obra nueva', under_construction: 'En construcción', ready: 'Lista' }, group: 'Clasificación' },
+        {
+          key: 'status',
+          label: CATALOG_STATUS_TITLES.developer,
+          type: 'select',
+          options: ['new', 'under_construction', 'ready'],
+          optionLabels: { new: 'Obra nueva', under_construction: 'En construcción', ready: 'Lista' },
+          hint: 'La fase de la construcción. Si se puede vender o no lo dice el «Estado comercial».',
+          group: 'Clasificación',
+        },
         { key: 'transactionType', label: 'Operación', type: 'select', options: ['sale', 'rent'], optionLabels: { sale: 'Venta', rent: 'Alquiler' }, group: 'Clasificación' },
         { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, optionLabels: PROPERTY_TYPE_LABELS, group: 'Clasificación' },
-        ...sheetGroup('identification', 'Clasificación').filter((f) => f.key === 'subtype' || f.key === 'commercialStatus'),
+        ...sheetGroup('identification', 'Clasificación').filter((f) => f.key === 'subtype'),
+        ...commercialStatusField('Clasificación', 'developer'),
         { key: 'yearBuilt', label: 'Año de construcción', type: 'number', group: 'Clasificación' },
         ...sheetGroup('identification', 'Identificación comercial').filter((f) => f.key === 'commercialCode'),
-        { key: 'captureDate', label: 'Fecha de captación', type: 'text', group: 'Captación' },
+        { key: 'captureDate', label: 'Fecha de captación', type: 'date', hint: DATE_HINT_LEGACY, group: 'Captación' },
         { key: 'captureSource', label: 'Origen de captación', type: 'text', group: 'Captación' },
       ],
     },
@@ -351,7 +442,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
           hint: 'Exacta: se publica tal cual. Aproximada: coordenadas redondeadas y sin número. Ocultar número: coordenadas exactas pero sin número/portal/bloque/planta/letra en público.',
           span: 2,
         },
-        { key: 'locationPrivacyRadius', label: 'Radio de privacidad (m)', type: 'number', hint: 'Referencia visual del área aproximada; no afecta al cálculo de la ubicación aproximada.' },
+        { key: 'locationPrivacyRadius', label: 'Radio de privacidad (m)', type: 'number', hint: 'Con «Ubicación aproximada», el punto público se redondea a una cuadrícula de este tamaño (mínimo unos 110 m): cuanto mayor, menos precisa la ubicación que se publica.' },
       ],
     },
     {
@@ -361,7 +452,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Precio de salida, evolución y plan de pagos.',
       kind: 'fields',
       fields: [
-        { key: 'price', label: 'Precio de salida', type: 'number', required: true, group: 'Precio principal' },
+        { key: 'price', label: 'Precio de salida', labelFor: priceLabel('Precio de salida'), type: 'number', required: true, group: 'Precio principal' },
         { key: 'priceOld', label: 'Precio anterior', type: 'number', hint: 'Para mostrar un precio tachado si ha bajado.', group: 'Precio principal' },
         PRICE_PER_M2,
         PRICE_CHANGE_REASON,
@@ -380,7 +471,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Distribución, superficie y equipamiento.',
       kind: 'fields',
       fields: [
-        { key: 'bedrooms', label: 'Habitaciones', type: 'stepper', recommended: true, group: 'Dimensiones' },
+        { key: 'bedrooms', label: 'Dormitorios', type: 'stepper', recommended: true, group: 'Dimensiones' },
         { key: 'bathrooms', label: 'Baños', type: 'stepper', recommended: true, group: 'Dimensiones' },
         { key: 'toilets', label: 'Aseos', type: 'stepper', group: 'Dimensiones' },
         { key: 'livingRooms', label: 'Salones', type: 'stepper', group: 'Dimensiones' },
@@ -519,13 +610,13 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'agentId', label: 'Comercial asignado', type: 'agent', group: 'Comercial' },
         ...sheetGroup('identification', 'Comercial').filter((f) => f.key === 'officeId' || f.key === 'teamId'),
         { key: 'mandateType', label: 'Tipo de mandato', type: 'text', group: 'Comercial' },
-        { key: 'exclusiveFrom', label: 'Exclusividad — inicio', type: 'text', group: 'Comercial' },
-        { key: 'exclusiveUntil', label: 'Exclusividad — vencimiento', type: 'text', group: 'Comercial' },
+        { key: 'exclusiveFrom', label: 'Exclusividad — inicio', type: 'date', hint: DATE_HINT_LEGACY, group: 'Comercial' },
+        { key: 'exclusiveUntil', label: 'Exclusividad — vencimiento', type: 'date', hint: 'El resumen avisa cuando falten 30 días o menos y cuando haya vencido; el listado filtra por ello.', group: 'Comercial' },
         { key: 'isExclusive', label: 'Exclusiva', type: 'checkbox', group: 'Inversión' },
-        { key: 'isReserved', label: 'Reservada', type: 'checkbox', group: 'Inversión' },
+        LEGACY_RESERVED,
         { key: 'hasTour', label: 'Tiene tour virtual', type: 'checkbox', group: 'Inversión' },
         { key: 'rentalYield', label: 'Rentabilidad estimada (%)', type: 'number', group: 'Inversión' },
-        { key: 'serviceChargeAnnual', label: 'Gastos de comunidad anuales', type: 'number', group: 'Inversión' },
+        LEGACY_SERVICE_CHARGE,
       ],
     },
     OWNERS_SECTION,
@@ -556,11 +647,19 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, optionLabels: PROPERTY_TYPE_LABELS, recommended: true, group: 'Clasificación' },
         ...sheetGroup('identification', 'Clasificación').filter((f) => f.key === 'subtype'),
         { key: 'transactionType', label: 'Operación', type: 'select', options: ['sale', 'rent'], optionLabels: { sale: 'Venta', rent: 'Alquiler' }, recommended: true, group: 'Clasificación' },
-        { key: 'status', label: 'Estado', type: 'select', options: ['available', 'sold'], optionLabels: { available: 'Disponible', sold: 'Vendida' }, group: 'Clasificación' },
-        ...sheetGroup('identification', 'Clasificación').filter((f) => f.key === 'commercialStatus'),
+        {
+          key: 'status',
+          label: CATALOG_STATUS_TITLES.agent,
+          type: 'select',
+          options: ['available', 'sold'],
+          optionLabels: { available: 'Disponible', sold: 'Vendida' },
+          hint: 'La que lee el matching. «Vendida» pasa también a «Vendida» un estado comercial ya indicado.',
+          group: 'Clasificación',
+        },
+        ...commercialStatusField('Clasificación', 'agent'),
         { key: 'yearBuilt', label: 'Año de construcción', type: 'number', group: 'Clasificación' },
         ...sheetGroup('identification', 'Identificación comercial').filter((f) => f.key === 'commercialCode'),
-        { key: 'captureDate', label: 'Fecha de captación', type: 'text', group: 'Captación' },
+        { key: 'captureDate', label: 'Fecha de captación', type: 'date', hint: DATE_HINT_LEGACY, group: 'Captación' },
         { key: 'captureSource', label: 'Origen de captación', type: 'text', group: 'Captación' },
         { key: 'keyHighlights', label: 'Puntos clave', type: 'textarea', span: 2, group: 'Contenido' },
       ],
@@ -596,7 +695,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
           hint: 'Exacta: se publica tal cual. Aproximada: coordenadas redondeadas y sin número. Ocultar número: coordenadas exactas pero sin número/portal/bloque/planta/letra en público.',
           span: 2,
         },
-        { key: 'locationPrivacyRadius', label: 'Radio de privacidad (m)', type: 'number', hint: 'Referencia visual del área aproximada; no afecta al cálculo de la ubicación aproximada.' },
+        { key: 'locationPrivacyRadius', label: 'Radio de privacidad (m)', type: 'number', hint: 'Con «Ubicación aproximada», el punto público se redondea a una cuadrícula de este tamaño (mínimo unos 110 m): cuanto mayor, menos precisa la ubicación que se publica.' },
       ],
     },
     {
@@ -606,7 +705,7 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       description: 'Precio de venta o alquiler.',
       kind: 'fields',
       fields: [
-        { key: 'price', label: 'Precio (venta) o renta mensual (alquiler)', type: 'number', required: true, group: 'Precio principal' },
+        { key: 'price', label: 'Precio de venta', labelFor: priceLabel('Precio de venta'), type: 'number', required: true, group: 'Precio principal' },
         { key: 'priceOld', label: 'Precio anterior', type: 'number', hint: 'Para mostrar un precio tachado si ha bajado.', group: 'Precio principal' },
         PRICE_PER_M2,
         PRICE_CHANGE_REASON,
@@ -618,11 +717,11 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       key: 'features',
       label: 'Características',
       icon: 'layers',
-      description: 'Superficie, habitaciones, baños y equipamiento.',
+      description: 'Superficie, dormitorios, baños y equipamiento.',
       kind: 'fields',
       fields: [
         { key: 'area', label: 'Superficie construida (m²)', type: 'number', recommended: true, group: 'Dimensiones' },
-        { key: 'bedrooms', label: 'Habitaciones', type: 'stepper', recommended: true, group: 'Dimensiones' },
+        { key: 'bedrooms', label: 'Dormitorios', type: 'stepper', recommended: true, group: 'Dimensiones' },
         { key: 'bathrooms', label: 'Baños', type: 'stepper', recommended: true, group: 'Dimensiones' },
         { key: 'toilets', label: 'Aseos', type: 'stepper', group: 'Dimensiones' },
         { key: 'livingRooms', label: 'Salones', type: 'stepper', group: 'Dimensiones' },
@@ -737,13 +836,13 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
         { key: 'agentId', label: 'Comercial asignado', type: 'agent', span: 2, group: 'Comercial' },
         ...sheetGroup('identification', 'Comercial').filter((f) => f.key === 'officeId' || f.key === 'teamId'),
         { key: 'mandateType', label: 'Tipo de mandato', type: 'text', group: 'Comercial' },
-        { key: 'exclusiveFrom', label: 'Exclusividad — inicio', type: 'text', group: 'Comercial' },
-        { key: 'exclusiveUntil', label: 'Exclusividad — vencimiento', type: 'text', group: 'Comercial' },
+        { key: 'exclusiveFrom', label: 'Exclusividad — inicio', type: 'date', hint: DATE_HINT_LEGACY, group: 'Comercial' },
+        { key: 'exclusiveUntil', label: 'Exclusividad — vencimiento', type: 'date', hint: 'El resumen avisa cuando falten 30 días o menos y cuando haya vencido; el listado filtra por ello.', group: 'Comercial' },
         { key: 'isExclusive', label: 'Exclusiva', type: 'checkbox', group: 'Inversión' },
-        { key: 'isReserved', label: 'Reservada', type: 'checkbox', group: 'Inversión' },
+        LEGACY_RESERVED,
         { key: 'hasTour', label: 'Tiene tour virtual', type: 'checkbox', group: 'Inversión' },
         { key: 'rentalYield', label: 'Rentabilidad estimada (%)', type: 'number', group: 'Inversión' },
-        { key: 'serviceChargeAnnual', label: 'Gastos de comunidad anuales', type: 'number', group: 'Inversión' },
+        LEGACY_SERVICE_CHARGE,
       ],
     },
     OWNERS_SECTION,

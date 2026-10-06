@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, now } from '../db'
 import { evaluateMatch, importanceOf, RULES_VERSION, type MatchResult, type MatchableProperty, type MatchableRequirement } from './engine'
@@ -6,6 +6,7 @@ import type { ZoneRef } from '../buyerRequirements/service'
 import { recordActivity } from '../activity/service'
 import { livePropertyCond } from '../properties/trash'
 import { selectInChunks } from '../sqlChunks'
+import { organizationCurrency } from '../currency'
 
 /**
  * Las dos direcciones del matching (FASE 11), sobre el mismo motor.
@@ -133,9 +134,11 @@ export interface ScoredProperty {
 
 /**
  * Los datos de la ficha ampliada (`property_details`) que el motor lee:
- * reformado / año de reforma (obra «reformado») y aire acondicionado. Se
- * añaden a la fila del catálogo sin pisar nada; una propiedad sin ficha
- * ampliada se queda con esos datos a NULL, que el motor lee como «no consta».
+ * reformado / año de reforma (obra «reformado»), aire acondicionado y —desde
+ * el cierre D1p— piscina y jardín privados y comunitarios, que cuentan como
+ * «piscina» / «jardín» (`FEATURE_SOURCES.anyOf`). Se añaden a la fila del
+ * catálogo sin pisar nada; una propiedad sin ficha ampliada se queda con esos
+ * datos a NULL, que el motor lee como «no consta».
  */
 export async function withPropertyDetails<T extends Record<string, any>>(db: any, orgId: number, kind: PropertyKind, rows: T[]): Promise<(T & MatchableDetails)[]> {
   if (!rows.length) return rows as (T & MatchableDetails)[]
@@ -143,15 +146,25 @@ export async function withPropertyDetails<T extends Record<string, any>>(db: any
   // Por trozos: hasta MAX_CANDIDATES ids, y D1 no admite más de 100 parámetros por consulta.
   const details = await selectInChunks<number, any>([...new Set(rows.map((r) => Number(r.id)))], (part) =>
     db
-      .select({ propertyId: D.propertyId, isRenovated: D.isRenovated, renovationYear: D.renovationYear, hasAirConditioning: D.hasAirConditioning })
+      .select({
+        propertyId: D.propertyId,
+        isRenovated: D.isRenovated,
+        renovationYear: D.renovationYear,
+        hasAirConditioning: D.hasAirConditioning,
+        hasPrivatePool: D.hasPrivatePool,
+        hasCommunityPool: D.hasCommunityPool,
+        hasPrivateGarden: D.hasPrivateGarden,
+        hasCommunityGarden: D.hasCommunityGarden,
+      })
       .from(D)
       .where(and(eq(D.organizationId, orgId), eq(D.propertyKind, kind), inArray(D.propertyId, part))),
   )
-  const byProperty = new Map<number, MatchableDetails>(details.map((d: any) => [d.propertyId, { isRenovated: d.isRenovated, renovationYear: d.renovationYear, hasAirConditioning: d.hasAirConditioning }]))
-  return rows.map((r) => ({ ...r, ...(byProperty.get(Number(r.id)) || { isRenovated: null, renovationYear: null, hasAirConditioning: null }) }))
+  const byProperty = new Map<number, MatchableDetails>(details.map(({ propertyId, ...d }: any) => [propertyId, d]))
+  const none: MatchableDetails = { isRenovated: null, renovationYear: null, hasAirConditioning: null, hasPrivatePool: null, hasCommunityPool: null, hasPrivateGarden: null, hasCommunityGarden: null }
+  return rows.map((r) => ({ ...r, ...(byProperty.get(Number(r.id)) || none) }))
 }
 
-type MatchableDetails = Pick<MatchableProperty, 'isRenovated' | 'renovationYear' | 'hasAirConditioning'>
+type MatchableDetails = Pick<MatchableProperty, 'isRenovated' | 'renovationYear' | 'hasAirConditioning' | 'hasPrivatePool' | 'hasCommunityPool' | 'hasPrivateGarden' | 'hasCommunityGarden'>
 
 /** Candidatos con margen de precio de un catálogo, ya recortados en SQL. */
 async function candidatesInCatalog(event: H3Event, orgId: number, kind: PropertyKind, matchable: MatchableRequirement) {
@@ -164,6 +177,12 @@ async function candidatesInCatalog(event: H3Event, orgId: number, kind: Property
   // concepto de disponibilidad binaria (new/under_construction/ready son todas
   // comercializables) — sólo se filtra por estado en el catálogo que lo define.
   if (kind === 'agent') filters.push(eq(P.status, 'available'))
+  // Estado comercial común (cierre D1p, `property_details.commercial_status`):
+  // una propiedad vendida, alquilada, retirada o en borrador no se ofrece a
+  // nadie, aunque la disponibilidad del catálogo diga otra cosa (una obra
+  // nueva no tiene «vendida», y una 2ª mano retirada sigue «disponible»).
+  // «Reservada» sí sigue siendo candidata: la reserva puede caerse.
+  filters.push(sql`not exists (select 1 from property_details pd where pd.organization_id = ${P.organizationId} and pd.property_kind = ${kind} and pd.property_id = ${P.id} and pd.commercial_status in ('sold', 'rented', 'withdrawn', 'draft'))`)
 
   filters.push(or(isNull(P.transactionType), eq(P.transactionType, matchable.operation))!)
   // El tipo sólo recorta en SQL cuando es imprescindible (lo es por defecto).
@@ -234,6 +253,7 @@ async function scoreAcrossCatalogs(
 ): Promise<{ requirement: MatchableRequirement; results: ScoredProperty[]; scanned: number }> {
   const results: ScoredProperty[] = []
   let scanned = 0
+  const currency = await organizationCurrency(useDb(event), orgId)
 
   for (const kind of PROPERTY_KINDS) {
     const candidates = await candidatesInCatalog(event, orgId, kind, matchable)
@@ -241,7 +261,7 @@ async function scoreAcrossCatalogs(
     const byProperty = requirementId ? await persistedMatchesForRequirement(event, orgId, kind, requirementId) : new Map<number, any>()
 
     for (const property of candidates) {
-      const result = evaluateMatch(property, matchable)
+      const result = evaluateMatch(property, matchable, { currency })
       if (result.eligibility === 'ineligible' && !opts.includeIneligible) continue
       const saved = byProperty.get(property.id)
       results.push({
@@ -369,9 +389,10 @@ export async function findRequirementsForProperty(
   const byRequirement = new Map<number, any>(persisted.map((m: any) => [m.buyerRequirementId, m]))
 
   const results: ScoredRequirement[] = []
+  const currency = await organizationCurrency(db, orgId)
   for (const row of candidates) {
     const matchable = toMatchable(row, criteriaMap.get(row.id) || [])
-    const result = evaluateMatch(property as MatchableProperty, matchable)
+    const result = evaluateMatch(property as MatchableProperty, matchable, { currency })
     if (result.eligibility === 'ineligible' && !opts.includeIneligible) continue
     const saved = byRequirement.get(row.id)
     results.push({
@@ -451,7 +472,7 @@ async function upsertMatchStatus(
   const [property] = await withPropertyDetails(db, orgId, input.propertyKind, [row])
 
   const criteriaMap = await criteriaFor(event, orgId, [requirement.id])
-  const result = evaluateMatch(property as MatchableProperty, toMatchable(requirement, criteriaMap.get(requirement.id) || []))
+  const result = evaluateMatch(property as MatchableProperty, toMatchable(requirement, criteriaMap.get(requirement.id) || []), { currency: await organizationCurrency(db, orgId) })
 
   const nowTs = now()
   const values = {

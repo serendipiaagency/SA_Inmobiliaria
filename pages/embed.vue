@@ -9,7 +9,7 @@
     <!-- Map layout -->
     <div v-if="layout === 'map'" class="sa-map-wrap">
       <ClientOnly>
-        <EmbedMiniMap :items="rows" :accent="accent" :dark="dark" :origin="origin" :currency="currency" />
+        <EmbedMiniMap :items="rows" :accent="accent" :dark="dark" :origin="origin" :currency="currency" :base-currency="baseCurrency" />
         <template #fallback><div class="sa-map-fallback">Cargando mapa…</div></template>
       </ClientOnly>
     </div>
@@ -57,6 +57,8 @@
 </template>
 
 <script setup lang="ts">
+import { agencyCurrencyOrDefault, formatDisplayPrice, normalizeCurrency } from '~/utils/currency'
+
 definePageMeta({ layout: false, pageTransition: false })
 
 const { tenant, load: loadTenant } = useTenant()
@@ -75,7 +77,11 @@ const accent = sanitizeColor(String(q.accent || '')) || (dark ? '#e9c46a' : '#16
 const font = String(q.font || 'sans') === 'serif' ? "'Playfair Display', Georgia, serif" : "'Inter', system-ui, sans-serif"
 const radius = Math.min(28, Math.max(0, parseInt(String(q.radius || '16'), 10) || 16))
 const cols = Math.min(4, Math.max(1, parseInt(String(q.cols || '3'), 10) || 3))
-const currency = (String(q.currency || 'AED') || 'AED').toUpperCase()
+// Los precios están en la moneda de la agencia; el widget los enseña en la de
+// `data-currency` (convertidos desde la de la agencia) o, sin ella, tal cual
+// (utils/currency.ts). Antes las tasas eran «desde AED» fuera cual fuera la agencia.
+const baseCurrency = agencyCurrencyOrDefault(tenant.value?.currency)
+const currency = normalizeCurrency(q.currency) || baseCurrency
 const showHeader = String(q.header || '1') !== '0'
 const showBranding = String(q.branding || '1') !== '0'
 
@@ -85,13 +91,8 @@ const root = ref<HTMLElement | null>(null)
 const { data } = await useFetch<any>('/api/widget/properties', { query: { filter, city, limit } })
 const rows = computed<any[]>(() => data.value?.rows || [])
 
-const RATES: Record<string, { r: number; s: string }> = {
-  AED: { r: 1, s: 'AED ' }, USD: { r: 0.2723, s: '$' }, EUR: { r: 0.2532, s: '€' }, GBP: { r: 0.2151, s: '£' }, CNY: { r: 1.962, s: '¥' },
-}
 function money(v: number | null | undefined) {
-  if (v == null) return '—'
-  const c = RATES[currency] || RATES.AED
-  return `${c.s}${new Intl.NumberFormat('en-US').format(Math.round(v * c.r))}`
+  return formatDisplayPrice(v, baseCurrency, currency)
 }
 function img(src: string | null | undefined) {
   if (!src) return `${origin.value}/placeholder.svg`

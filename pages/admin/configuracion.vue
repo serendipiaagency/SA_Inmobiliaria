@@ -18,9 +18,11 @@
           </label>
           <label class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Moneda</span>
-            <select v-model="form.currency" class="cfg-input">
-              <option>AED</option><option>EUR</option><option>USD</option><option>GBP</option>
+            <select v-model="form.currency" class="cfg-input" data-testid="config-currency">
+              <option v-for="c in CURRENCIES" :key="c.code" :value="c.code">{{ c.label }}</option>
             </select>
+            <!-- La moneda es la de TODOS los importes de la agencia (utils/currency.ts): no convierte nada de lo ya guardado. -->
+            <span class="mt-1 block text-[11px] text-stone-500" data-testid="config-currency-help">La de los precios y presupuestos que guardas. El panel, los emails y los PDF la usan tal cual; la web pública la toma como base y el visitante puede verla convertida. Cambiarla no convierte los importes ya guardados.</span>
           </label>
           <label class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">Idioma</span>
@@ -71,21 +73,25 @@
 
 <script setup lang="ts">
 import { COMMON_TIMEZONES, DEFAULT_AGENCY_TIMEZONE } from '~/utils/appointmentCatalog'
+import { CURRENCIES, DEFAULT_AGENCY_CURRENCY, agencyCurrencyOrDefault } from '~/utils/currency'
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Configuración — M&M Real Estate' })
 
 const { data } = await useFetch<Record<string, string>>('/api/admin/saas/settings')
 const form = reactive({
-  company_name: '', notify_email: '', currency: 'AED', locale: 'es', timezone: DEFAULT_AGENCY_TIMEZONE, brand_color: '#16150f', weekly_report: 'on',
+  company_name: '', notify_email: '', currency: DEFAULT_AGENCY_CURRENCY, locale: 'es', timezone: DEFAULT_AGENCY_TIMEZONE, brand_color: '#16150f', weekly_report: 'on',
 })
-watch(data, (d) => { if (d) Object.assign(form, d) }, { immediate: true })
+watch(data, (d) => { if (d) Object.assign(form, d, { currency: agencyCurrencyOrDefault(d.currency) }) }, { immediate: true })
 
+const agencyCurrency = useAgencyCurrency()
 const saving = ref(false)
 const saved = ref(false)
 async function save() {
   saving.value = true
   try {
     await $fetch('/api/admin/saas/settings', { method: 'POST', body: { ...form } })
+    // El panel ya pinta los importes con la moneda nueva sin recargar.
+    agencyCurrency.set(form.currency, form.currency)
     saved.value = true
     setTimeout(() => (saved.value = false), 2500)
   } finally {
