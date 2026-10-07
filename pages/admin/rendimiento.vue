@@ -141,7 +141,7 @@
 <script setup lang="ts">
 import { defineComponent, h, resolveComponent } from 'vue'
 
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Rendimiento comercial — M&M Real Estate' })
 
 const today = () => new Date().toISOString().slice(0, 10)

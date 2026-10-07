@@ -108,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Enrutamiento y SLA — M&M Real Estate' })
 const dt = useDash()
 const toast = useToast()
