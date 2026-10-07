@@ -108,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Enrutamiento y SLA — M&M Real Estate' })
 const dt = useDash()
 const toast = useToast()
@@ -123,14 +123,19 @@ function typeLabel(t: string) {
   return TYPE_LABELS[t] || t
 }
 
+// La primera carga corre en SSR: `useRequestFetch()` lleva la cookie de sesión.
+// Con un `$fetch` suelto la API respondía 401 y la página entera salía como
+// «Error 401» al abrir o recargar la URL (desde el menú, en el cliente, sí iba).
+const requestFetch = useRequestFetch()
+
 async function loadSettings() {
-  settings.value = await $fetch('/api/admin/saas/leads-routing/sla-settings')
+  settings.value = await requestFetch('/api/admin/saas/leads-routing/sla-settings')
 }
 
 async function loadAlerts() {
   loadingAlerts.value = true
   try {
-    const res = await $fetch<any>('/api/admin/saas/leads-routing/sla-alerts')
+    const res = await requestFetch<any>('/api/admin/saas/leads-routing/sla-alerts')
     alerts.value = res.rows
   } finally {
     loadingAlerts.value = false
@@ -157,7 +162,7 @@ const recalculating = ref(false)
 const recalcLabel = ref('Recalculando…')
 
 async function loadScoreSettings() {
-  scoreSettings.value = await $fetch('/api/admin/saas/leads-routing/sla-settings', { query: { scope: 'score' } })
+  scoreSettings.value = await requestFetch('/api/admin/saas/leads-routing/sla-settings', { query: { scope: 'score' } })
 }
 
 function toggleStatus(rule: any, status: string) {

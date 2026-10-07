@@ -150,7 +150,7 @@
 import InmoWorkflowPanel from '~/components/admin/inmo/InmoWorkflowPanel.vue'
 import { inmoEntityLabel, inmoEntityLink, inmoToolLabel } from '~/utils/inmoCatalog'
 
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 interface Provenance { tool: string; ok: boolean; target: { type: string; id: number } | null; errorCode?: string; results?: number }
 interface Citation { ref: string; sourceType: string; sourceId: string | number; title: string; url: string | null }

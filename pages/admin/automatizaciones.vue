@@ -233,10 +233,14 @@ const runningId = ref<number | null>(null)
 const real = computed(() => rows.value.filter((r) => !r.legacy))
 const legacy = computed(() => rows.value.filter((r) => r.legacy))
 
+// La primera carga corre en SSR: `useRequestFetch()` lleva la cookie de sesión
+// (un `$fetch` suelto no, y la lista salía vacía al abrir o recargar la URL).
+const requestFetch = useRequestFetch()
+
 async function load() {
   const [list, cat] = await Promise.all([
-    $fetch<any>('/api/admin/automations', { params: { perPage: 100 } }).catch(() => null),
-    $fetch<any>('/api/admin/automations', { params: { view: 'catalog' } }).catch(() => null),
+    requestFetch<any>('/api/admin/automations', { params: { perPage: 100 } }).catch(() => null),
+    requestFetch<any>('/api/admin/automations', { params: { view: 'catalog' } }).catch(() => null),
   ])
   rows.value = list?.rows || []
   summary.value = cat?.summary || null
