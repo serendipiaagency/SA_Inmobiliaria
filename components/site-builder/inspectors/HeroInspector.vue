@@ -19,13 +19,27 @@
     </InspectorSection>
 
     <InspectorSection title="Multimedia">
+      <SegmentedField
+        label="Fondo"
+        :model-value="backgroundMode"
+        :options="[{ value: 'slideshow', label: 'Bucle de imágenes' }, { value: 'static', label: 'Imagen fija' }]"
+        data-testid="hero-background-mode"
+        @update:model-value="(v) => (content.backgroundMode = v)"
+      />
       <GalleryField
+        v-if="backgroundMode === 'slideshow'"
         label="Imágenes de fondo"
-        hint="Se rotan en bucle. La primera es la portada inicial."
+        :hint="`Se alternan en bucle, una cada ${HERO_SLIDE_SECONDS} segundos. La primera es la portada inicial. Con una sola imagen, el fondo queda fijo.`"
         folder="site-builder"
         :model-value="slides"
         @update:model-value="(v) => (content.slides = v)"
       />
+      <template v-else>
+        <ImageField label="Imagen de fondo" folder="site-builder" aspect="wide" :model-value="content.backgroundImage || ''" @update:model-value="(v) => (content.backgroundImage = v)" />
+        <p class="-mt-1 mb-3 text-[11px] text-stone-400" data-testid="hero-static-hint">
+          {{ content.backgroundImage ? 'Se queda quieta, sin bucle ni zoom.' : 'Sin imagen elegida se usa la primera del bucle.' }} Las imágenes del bucle se conservan por si vuelves a él.
+        </p>
+      </template>
     </InspectorSection>
 
     <InspectorSection title="Diseño" tab="design">
@@ -45,12 +59,15 @@
 import InspectorSection from '../inspector/InspectorSection.vue'
 import TextField from '../inspector/fields/TextField.vue'
 import GalleryField from '../inspector/fields/GalleryField.vue'
+import ImageField from '../inspector/fields/ImageField.vue'
+import { HERO_SLIDE_SECONDS, heroBackgroundMode } from '~/utils/siteBuilder/heroMedia'
 import SliderField from '../inspector/fields/SliderField.vue'
 import SelectField from '../inspector/fields/SelectField.vue'
 import SegmentedField from '../inspector/fields/SegmentedField.vue'
 
 const props = defineProps<{ content: Record<string, any> }>()
 const slides = computed<string[]>(() => (Array.isArray(props.content.slides) ? props.content.slides : []))
+const backgroundMode = computed(() => heroBackgroundMode(props.content.backgroundMode))
 
 const FOCAL_POINTS = [
   { value: '50% 0%', label: 'Arriba' },

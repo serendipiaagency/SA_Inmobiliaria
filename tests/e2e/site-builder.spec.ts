@@ -825,6 +825,59 @@ test.describe('Constructor Web — edición directa sobre el lienzo', () => {
     await expect(page.getByTestId('inspector-title')).toHaveText('Propiedades de la sección')
   })
 
+  test('Hero › Multimedia: «Imagen fija» deja una sola imagen quieta y «Bucle de imágenes» vuelve con las del bucle intactas', async ({ page }) => {
+    const A = 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1600&q=60'
+    const B = 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=1600&q=60'
+    await setDraft([{ id: 'hero-fondo', type: 'hero', version: 1, content: { title1: 'Fondo', slides: [A, B] } }])
+    await page.goto('/admin/site-builder')
+    const canvas = page.frameLocator(CANVAS)
+    const slides = canvas.locator('[data-site-block-id="hero-fondo"] [data-testid="hero-slide"]')
+    await expect(slides).toHaveCount(2, { timeout: 10_000 })
+
+    await canvas.locator('[data-site-block-id="hero-fondo"]').dispatchEvent('click')
+    await expect(page.getByTestId('inspector-title')).toHaveText('Propiedades de la sección')
+    const mode = page.getByTestId('hero-background-mode')
+    await mode.getByRole('button', { name: 'Imagen fija', exact: true }).click()
+    await expect.poll(async () => (await draft()).blocks[0].content.backgroundMode, { timeout: 10_000 }).toBe('static')
+    // Sin imagen elegida: la primera del bucle, quieta.
+    await expect(page.getByTestId('hero-static-hint')).toContainText('se usa la primera del bucle')
+    await expect(slides).toHaveCount(1)
+    await expect(slides.first()).toHaveClass(/is-static/)
+    expect(await slides.first().evaluate((el) => (el as HTMLElement).style.backgroundImage)).toContain('photo-1613490493576')
+
+    // De vuelta al bucle, las dos imágenes siguen ahí.
+    await mode.getByRole('button', { name: 'Bucle de imágenes', exact: true }).click()
+    await expect.poll(async () => (await draft()).blocks[0].content.backgroundMode, { timeout: 10_000 }).toBe('slideshow')
+    await expect(slides).toHaveCount(2)
+    expect((await draft()).blocks[0].content.slides).toEqual([A, B])
+  })
+
+  test('Hero › bucle: rota con cualquier número de imágenes, una cada 7 s; con una sola, el fondo queda fijo (antes se iba a negro)', async ({ page }) => {
+    const imgs = ['photo-1613490493576-7fde63acd811', 'photo-1512917774080-9991f1c4c750'].map((p) => `https://images.unsplash.com/${p}?w=1600&q=60`)
+    await page.clock.install()
+    await setDraft([{ id: 'hero-bucle', type: 'hero', version: 1, content: { title1: 'Bucle', slides: imgs } }])
+    await page.goto('/admin/site-builder')
+    const canvas = page.frameLocator(CANVAS)
+    const slides = canvas.locator('[data-site-block-id="hero-bucle"] [data-testid="hero-slide"]')
+    await expect(slides).toHaveCount(2, { timeout: 10_000 })
+    await expect(slides.nth(0)).toHaveClass(/is-active/)
+    await expect(slides.nth(1)).not.toHaveClass(/is-active/)
+
+    await page.clock.runFor(7_000)
+    await expect(slides.nth(1)).toHaveClass(/is-active/)
+    await expect(slides.nth(0)).toHaveClass(/is-leaving/)
+    await page.clock.runFor(7_000)
+    await expect(slides.nth(0)).toHaveClass(/is-active/)
+
+    // Una sola imagen en el bucle: fija, sin desvanecerse.
+    await setDraft([{ id: 'hero-bucle', type: 'hero', version: 1, content: { title1: 'Bucle', slides: [imgs[0]] } }])
+    await page.reload()
+    await expect(slides).toHaveCount(1, { timeout: 10_000 })
+    await expect(slides.first()).toHaveClass(/is-static/)
+    await page.clock.runFor(21_000)
+    expect(await slides.first().evaluate((el) => getComputedStyle(el).opacity)).toBe('1')
+  })
+
   test('«Tipo de propiedad» ofrece todo el catálogo en castellano con su recuento, y filtra por la clave guardada', async ({ page }) => {
     const devRes = await a.post('/api/admin/developers', { data: { name: `Tipos dev ${Date.now()}`, email: `tipos-${Date.now()}@mm.test`, status: 'active' } })
     expect(devRes.ok()).toBeTruthy()
@@ -839,6 +892,8 @@ test.describe('Constructor Web — edición directa sobre el lienzo', () => {
     await expect(page.getByTestId('inspector-title')).toHaveText('Propiedades de la sección')
 
     const select = page.getByTestId('sb-dynamic-type').locator('select')
+    // Las propiedades llegan al inspector después de abrirlo: hasta entonces todo cuenta 0.
+    await expect(select.locator('option', { hasText: /^Estudio \([1-9]\d*\)$/ })).toHaveCount(1, { timeout: 10_000 })
     const labels = await select.locator('option').allTextContents()
     // «Elige un tipo…» + los 15 tipos del catálogo común, con su rótulo en castellano.
     expect(labels[0]).toBe('Elige un tipo…')

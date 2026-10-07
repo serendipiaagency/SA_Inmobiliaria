@@ -452,6 +452,28 @@ estilos globales y estructura, con un punto por "ráfaga" de cambios, no por
 tecla. Funcionan con el foco en el lienzo (lo maneja `canvas.vue` y llegan al
 shell como `command`) y en el shell.
 
+## Fondo del Hero: bucle de imágenes o imagen fija
+
+`HeroInspector.vue` › Multimedia › «Fondo» guarda `content.backgroundMode`:
+
+- **`slideshow` (o ausente: todo lo guardado antes):** `content.slides` en
+  bucle, una cada `HERO_SLIDE_SECONDS` (7 s), con fundido y un zoom lento.
+- **`static`:** una sola imagen quieta, `content.backgroundImage`. Si está
+  vacía, se usa la primera del bucle. `content.slides` no se toca, así que
+  volver al bucle recupera sus imágenes.
+
+`utils/siteBuilder/heroMedia.ts` (`heroFrames`) decide qué imágenes pinta
+`HeroSearch.vue`. La imagen visible del bucle la marca JS (`is-active` cada
+7 s), no una animación CSS de duración fija. La animación anterior (21 s)
+estaba pensada para exactamente 3 imágenes:
+
+- con 1, el fondo se quedaba negro 14 s de cada 21;
+- con 2, había huecos;
+- con 4 o más, se pisaban.
+
+Ahora, con una sola imagen, el fondo queda fijo (`is-static`). Con
+`prefers-reduced-motion`, ni rota ni hace zoom.
+
 ## El Block Inspector: un componente por tipo de bloque, no un formulario genérico
 
 El panel derecho (`components/site-builder/inspectors/*.vue`) es un registro,
