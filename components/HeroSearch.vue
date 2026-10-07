@@ -1,12 +1,14 @@
 <template>
   <section ref="root" class="hero relative flex flex-col overflow-hidden bg-ink" :style="{ minHeight: '100svh' }">
-    <!-- Cinematic background (crossfading, Ken Burns + subtle parallax) -->
-    <div class="absolute -inset-y-[7%] inset-x-0 will-change-transform" :style="parallaxStyle" aria-hidden="true">
+    <!-- Fondo: bucle de imágenes (fundido + zoom lento) o imagen fija, con un parallax suave (utils/siteBuilder/heroMedia.ts) -->
+    <div class="absolute -inset-y-[7%] inset-x-0 will-change-transform" :style="parallaxStyle" aria-hidden="true" data-testid="hero-background">
       <div
-        v-for="(img, i) in slides"
-        :key="i"
+        v-for="(img, i) in frames"
+        :key="`${i}:${img}`"
         class="hero-slide absolute inset-0 bg-cover"
-        :style="{ backgroundImage: `url(${img})`, backgroundPosition: backgroundPosition, animationDelay: `${i * 7}s` }"
+        :class="frames.length === 1 ? 'is-static' : { 'is-active': i === active, 'is-leaving': i === leaving }"
+        :style="{ backgroundImage: `url(${img})`, backgroundPosition: backgroundPosition }"
+        data-testid="hero-slide"
       />
       <div class="absolute inset-0 bg-gradient-to-b from-black/55 via-black/20 to-black/70" />
       <div class="absolute inset-0 bg-black/10" />
@@ -299,6 +301,7 @@
 import SbText from '~/components/site-builder/nodes/SbText.vue'
 import SbLink from '~/components/site-builder/nodes/SbLink.vue'
 import { PROPERTY_TYPES } from '~/utils/propertySheet'
+import { HERO_SLIDE_SECONDS, heroFrames } from '~/utils/siteBuilder/heroMedia'
 
 const props = defineProps<{
   eyebrow?: string
@@ -306,6 +309,10 @@ const props = defineProps<{
   title2?: string
   subtitle?: string
   slides?: string[]
+  /** «Bucle de imágenes» (por defecto) o «Imagen fija» — Constructor Web › Hero › Multimedia. */
+  backgroundMode?: 'slideshow' | 'static'
+  /** La imagen de «Imagen fija»; vacía = la primera del bucle. */
+  backgroundImage?: string
   exploreCta?: string
   exploreCtaTo?: string
   advisorCta?: string
@@ -327,7 +334,30 @@ const defaultSlides = [
   'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=2400&q=80',
   'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=2400&q=80',
 ]
-const slides = computed(() => (props.slides?.length ? props.slides : defaultSlides))
+const frames = computed(() => heroFrames({ mode: props.backgroundMode, image: props.backgroundImage, slides: props.slides, fallback: defaultSlides }))
+
+// La imagen visible del bucle la marca JS (`is-active`) cada HERO_SLIDE_SECONDS,
+// así rota igual con 2 imágenes que con 10. Antes era una animación CSS de 21 s
+// pensada para 3: con 1 imagen el fondo se quedaba negro 14 s de cada 21, con
+// 2 había huecos y con 4 o más se pisaban. `is-leaving` mantiene el zoom de la
+// que se va mientras se funde, para que no dé un salto.
+const active = ref(0)
+const leaving = ref(-1)
+let rotateTimer: ReturnType<typeof setInterval> | null = null
+function stopRotation() {
+  if (rotateTimer) clearInterval(rotateTimer)
+  rotateTimer = null
+}
+function startRotation() {
+  stopRotation()
+  active.value = 0
+  leaving.value = -1
+  if (frames.value.length < 2 || reduceMotion.value) return
+  rotateTimer = setInterval(() => {
+    leaving.value = active.value
+    active.value = (active.value + 1) % frames.value.length
+  }, HERO_SLIDE_SECONDS * 1000)
+}
 const heroEyebrow = computed(() => props.eyebrow || t('hero.eyebrow'))
 const heroTitle1 = computed(() => props.title1 || t('hero.title1'))
 const heroTitle2 = computed(() => props.title2 || t('hero.title2'))
@@ -502,12 +532,16 @@ onMounted(() => {
   document.addEventListener('keydown', onKey)
   reduceMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   if (!reduceMotion.value) window.addEventListener('scroll', onScroll, { passive: true })
+  startRotation()
+  // En el Constructor, cambiar las imágenes o el modo reinicia el bucle.
+  watch(() => frames.value.join('\n'), startRotation)
 })
 onBeforeUnmount(() => {
   document.removeEventListener('click', onDocClick)
   document.removeEventListener('keydown', onKey)
   window.removeEventListener('scroll', onScroll)
   if (rafId) cancelAnimationFrame(rafId)
+  stopRotation()
 })
 
 function delay(i: number) {
@@ -516,31 +550,34 @@ function delay(i: number) {
 </script>
 
 <style scoped>
-/* Cinematic crossfade + Ken Burns */
+/* Bucle: fundido cruzado + zoom lento (Ken Burns) de la imagen activa, que
+   dura lo mismo que se ve (HERO_SLIDE_SECONDS); la que se va conserva el zoom
+   final mientras se funde. */
 .hero-slide {
   opacity: 0;
-  animation: heroFade 21s infinite;
+  transition: opacity 1.2s ease;
   will-change: opacity, transform;
 }
-@keyframes heroFade {
-  0% {
-    opacity: 0;
+.hero-slide.is-active {
+  opacity: 1;
+  animation: heroZoom 7s linear forwards;
+}
+.hero-slide.is-leaving {
+  transform: scale(1.09);
+}
+@keyframes heroZoom {
+  from {
     transform: scale(1);
   }
-  4% {
-    opacity: 1;
-  }
-  28% {
-    opacity: 1;
-  }
-  33% {
-    opacity: 0;
+  to {
     transform: scale(1.09);
   }
-  100% {
-    opacity: 0;
-    transform: scale(1.09);
-  }
+}
+/* Imagen fija (o una sola imagen en el bucle): quieta, sin fundido ni zoom. */
+.hero-slide.is-static {
+  opacity: 1;
+  transition: none;
+  will-change: auto;
 }
 
 /* Soft radial vignette to keep focus on the centered content */
@@ -813,6 +850,9 @@ function delay(i: number) {
   .hero-slide,
   .rise,
   .scroll-dot {
+    animation: none;
+  }
+  .hero-slide.is-active {
     animation: none;
   }
   .hero-slide:first-child {

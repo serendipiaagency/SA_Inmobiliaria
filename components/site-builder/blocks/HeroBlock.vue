@@ -5,6 +5,8 @@
     :title2="content.title2"
     :subtitle="content.subtitle"
     :slides="slides"
+    :background-mode="content.backgroundMode === 'static' ? 'static' : 'slideshow'"
+    :background-image="backgroundImage"
     :explore-cta="content.exploreCta"
     :explore-cta-to="content.exploreCtaTo"
     :advisor-cta="content.advisorCta"
@@ -21,4 +23,6 @@ const props = defineProps<{ content: Record<string, any> }>()
 // external URL (the original hardcoded defaults) — mediaUrl() normalizes
 // all three the same way every other image reference in this app does.
 const slides = computed(() => (Array.isArray(props.content.slides) ? props.content.slides : []).map((s: string) => mediaUrl(s)))
+// «Imagen fija» (Multimedia): su imagen, o vacío para usar la primera del bucle.
+const backgroundImage = computed(() => (props.content.backgroundImage ? mediaUrl(props.content.backgroundImage) : ''))
 </script>
