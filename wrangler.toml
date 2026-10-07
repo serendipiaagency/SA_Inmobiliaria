@@ -68,11 +68,10 @@ SESSION_TTL_DAYS = "7"
 # respuesta del cliente vuelve a él. Sin los dos, nada cambia.
 # INBOUND_EMAIL_DOMAIN = "respuestas.serendipiaagency.com"
 #
-# Mapas (docs/maps.md «Proveedor»): clave de CARTO Basemaps. Sin ella, CARTO
-# sirve una tesela «API KEY REQUIRED» en vez del mapa, y los mapas usan
-# OpenStreetMap. Se pide gratis en https://carto.com/basemaps/apikey (uso
-# comercial gratuito hasta 1M de teselas al mes). Es una clave pública: llega
-# al navegador en cada URL de tesela. Mejor como secreto
+# Mapas (docs/maps.md «Proveedor»): el fondo es OpenStreetMap, sin clave ni
+# configuración. OPCIONAL: con una clave de CARTO Basemaps
+# (https://carto.com/basemaps/apikey) los mapas pasan al estilo de CARTO.
+# Es una clave pública (viaja en cada URL de tesela); mejor como secreto
 # (`wrangler secret put CARTO_BASEMAPS_KEY`), que sobrevive a los despliegues.
 # CARTO_BASEMAPS_KEY = "..."
 #

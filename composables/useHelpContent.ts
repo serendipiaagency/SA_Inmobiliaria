@@ -1203,10 +1203,10 @@ export function useHelpContent() {
     },
     {
       id: 'faq-mapa-fondo',
-      question: '¿Por qué el fondo del mapa se ve distinto, o sale «API KEY REQUIRED»?',
+      question: '¿De dónde sale el fondo de los mapas? ¿Hay que configurar algo?',
       answer:
-        'El fondo de los mapas (calles, nombres) viene de un proveedor externo. Desde septiembre de 2026, CARTO, el de siempre, exige una clave: sin ella dibuja «API KEY REQUIRED» en lugar del mapa. Mientras la plataforma no tenga esa clave configurada, los mapas usan OpenStreetMap, con otro aspecto pero con todas las calles. Las propiedades, los precios y los filtros funcionan igual. La clave la configura el equipo de la plataforma; las agencias no tienen que hacer nada.',
-      tags: ['mapa', 'fondo', 'carto', 'openstreetmap', 'api key', 'teselas'],
+        'El fondo de los mapas (calles, nombres de lugares) es de OpenStreetMap: no necesita clave ni cuenta, y no hay nada que configurar. Abajo a la derecha de cada mapa aparece «© OpenStreetMap», que es obligatorio y no se puede quitar. El modo «Oscuro» es el mismo mapa en colores oscuros y «Satélite» usa fotos aéreas de Esri. Si alguna vez viste un mapa lleno de «API KEY REQUIRED», era el proveedor anterior (CARTO), que desde septiembre de 2026 exige una clave; ya no se usa.',
+      tags: ['mapa', 'fondo', 'openstreetmap', 'carto', 'api key', 'teselas'],
     },
     {
       id: 'faq-exportar-leads',

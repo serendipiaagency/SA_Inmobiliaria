@@ -4,17 +4,15 @@
  * plugin que lleva la clave del servidor al cliente (plugins/map-tiles.ts),
  * que no debe arrastrar Leaflet al bundle de entrada, y se prueba sin DOM.
  *
- * Desde el 25-sep-2026 CARTO sólo sirve sus mapas base con clave: sin ella
- * devuelve 200 con una tesela que dice «API KEY REQUIRED» en vez del mapa
- * (carto.com/basemaps/apikey). La clave es pública por naturaleza (viaja en
- * cada URL de tesela) y gratuita para uso comercial hasta 1M de teselas al
- * mes. Por eso:
+ * El proveedor es OpenStreetMap: sin clave, sin cuenta y sin coste, con
+ * «© OpenStreetMap» siempre visible (decisión del propietario, 7-oct-2026;
+ * docs/maps.md «Proveedor»). El oscuro es el mismo mapa invertido por CSS
+ * (`.pi-tiles-dark`, assets/css/main.css).
  *
- * - con `CARTO_BASEMAPS_KEY` configurada, los mapas son los de siempre
- *   (Positron claro y Dark Matter oscuro de CARTO);
- * - sin ella, OpenStreetMap: un mapa real y con su atribución, nunca la
- *   tesela de aviso. El oscuro es el mismo mapa invertido por CSS
- *   (`.pi-tiles-dark`, assets/css/main.css).
+ * CARTO queda sólo como opción: desde el 25-sep-2026 sirve sus mapas base
+ * únicamente con clave (sin ella, una tesela «API KEY REQUIRED»). Si algún
+ * día se pone `CARTO_BASEMAPS_KEY`, los mapas pasan a su estilo (Positron y
+ * Dark Matter) con la clave en cada tesela; sin ella no se pide nada a CARTO.
  *
  * El satélite (Esri World Imagery) no depende de CARTO y no cambia.
  */
