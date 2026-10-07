@@ -1,5 +1,13 @@
 <template>
-  <img v-if="logoUrl" :src="logoUrl" :alt="companyName ?? ''" class="mm-logo-img" :class="markSizeCls" >
+  <!-- Logo + nombre: con logo subido, el nombre de la empresa va a su derecha (cabecera y pie de la web). -->
+  <span v-if="logoUrl && variant === 'full' && companyName" class="mm-lockup" data-testid="brand-lockup">
+    <img :src="logoUrl" alt="" class="mm-logo-img" :class="markSizeCls" >
+    <span class="mm-full" :class="dark ? 'mm-full-dark' : 'mm-full-light'">
+      <span class="mm-word" :class="wordSizeCls">{{ wordText }}</span>
+      <span v-if="subText" class="mm-sub" :class="subSizeCls">{{ subText }}</span>
+    </span>
+  </span>
+  <img v-else-if="logoUrl" :src="logoUrl" :alt="companyName ?? ''" class="mm-logo-img" :class="markSizeCls" >
   <span v-else-if="variant === 'mark'" class="mm-mark" :class="[markSizeCls, dark ? 'mm-mark-dark' : 'mm-mark-light']">{{ initials }}</span>
   <span v-else class="mm-full" :class="dark ? 'mm-full-dark' : 'mm-full-light'">
     <span class="mm-word" :class="wordSizeCls">{{ wordText }}</span>
@@ -13,6 +21,11 @@
  * visually unless real per-organization branding is provided — pass
  * `companyName`/`logoUrl` explicitly (e.g. from useTenant()) to brand this
  * for a different client company.
+ *
+ * `full` con logo subido: el logo y, a su derecha, el nombre de la empresa
+ * (antes sólo el logo, y el nombre no aparecía en ninguna parte de la
+ * cabecera). `mark` sigue siendo sólo el icono: el panel pone el nombre
+ * aparte.
  */
 const props = withDefaults(
   defineProps<{ variant?: 'full' | 'mark'; size?: 'sm' | 'md' | 'lg'; dark?: boolean; companyName?: string | null; logoUrl?: string | null }>(),
@@ -45,6 +58,18 @@ const subSizeCls = computed(() => ({ sm: 'mm-sub-sm', md: 'mm-sub-md', lg: 'mm-s
 </script>
 
 <style scoped>
+.mm-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+.mm-lockup .mm-full {
+  min-width: 0;
+}
+.mm-lockup .mm-sub {
+  white-space: nowrap;
+}
 .mm-logo-img {
   display: inline-block;
   object-fit: contain;

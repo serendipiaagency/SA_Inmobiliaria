@@ -3,7 +3,7 @@
     <div class="mx-auto max-w-screen-2xl px-6 py-16 lg:px-10">
       <div class="grid gap-12 md:grid-cols-12">
         <div class="md:col-span-5">
-          <Logo size="md" :company-name="tenant?.companyName" :logo-url="mediaUrl(tenant?.logo)" />
+          <Logo size="md" :company-name="tenant?.companyName || tenant?.name" :logo-url="mediaUrl(tenant?.logo)" />
           <p class="mt-5 max-w-sm text-sm leading-relaxed text-stone-500">
             {{ t('footer.tagline') }}
           </p>

@@ -9,7 +9,7 @@
   >
     <div class="mx-auto flex max-w-screen-2xl items-center justify-between gap-8 px-6 py-5 lg:px-10">
       <NuxtLink to="/" class="shrink-0">
-        <Logo size="md" :dark="navLight" :company-name="tenant?.companyName" :logo-url="mediaUrl(tenant?.logo)" />
+        <Logo size="md" :dark="navLight" :company-name="tenant?.companyName || tenant?.name" :logo-url="mediaUrl(tenant?.logo)" />
       </NuxtLink>
 
       <nav class="hidden items-center gap-9 text-[11px] font-semibold uppercase tracking-widest2 lg:flex" :class="navLight ? 'text-white/85' : 'text-stone-500'">
