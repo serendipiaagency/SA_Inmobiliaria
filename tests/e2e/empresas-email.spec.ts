@@ -11,7 +11,7 @@ import { STATE_A, STATE_B } from './global-setup'
  *    desde la dirección de INMO y las respuestas a su administrador; después,
  *    de su dirección.
  *  - Lo que envía a SUS clientes (contrato) sale de su dirección; las altas de
- *    usuario salen siempre de INMO <info@serendipiaagency.com>.
+ *    usuario salen siempre de Portal INMO <info@serendipiaagency.com>.
  *  - Otra empresa no puede usar ese dominio; Gmail no vale como remitente.
  */
 
@@ -79,7 +79,7 @@ test.describe('Email propio de la empresa', () => {
     await page.context().close()
   })
 
-  test('lo que la empresa envía a sus clientes sale de su dirección; las altas de usuario, de INMO', async () => {
+  test('lo que la empresa envía a sus clientes sale de su dirección; las altas de usuario, de Portal INMO', async () => {
     const tpl = await tenantB.post('/api/admin/saas/contract-templates', { data: { name: `Reserva ${RUN}`, bodyTemplate: 'Contrato de reserva para {{clientName}}' } })
     expect(tpl.ok(), await tpl.text()).toBeTruthy()
     const client = `cliente-${RUN}@example.com`
@@ -95,7 +95,7 @@ test.describe('Email propio de la empresa', () => {
     const created = await tenantB.post('/api/admin/users', { data: { name: 'Empleado E2E', email: newUser, password: 'TempPass123!', role: 'user' } })
     expect(created.ok(), await created.text()).toBeTruthy()
     const [welcome] = await emailsTo(newUser)
-    expect(welcome.from).toBe('INMO <info@serendipiaagency.com>')
+    expect(welcome.from).toBe('Portal INMO <info@serendipiaagency.com>')
   })
 
   test('otra empresa no puede usar ese dominio, ni siquiera con otra dirección', async () => {

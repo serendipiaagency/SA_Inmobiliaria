@@ -89,8 +89,8 @@ export default defineTask<
         // La propia agencia, a su buzón interno (si lo tiene configurado)…
         await sendInternalNotification(db, env, org.id, template, data)
         // …y cada super_admin de la plataforma, que es quien puede arreglar
-        // el enrutado. Se envía con la identidad de la agencia afectada para
-        // que el remitente diga de quién es el dominio.
+        // el enrutado. Es un email propio de Portal INMO (plantilla maestra y
+        // remitente de la plataforma); la agencia afectada va en los datos.
         const superAdmins = await db.select({ email: schema.users.email }).from(schema.users).where(eq(schema.users.role, 'super_admin'))
         if (superAdmins.length) {
           await sendTransactionalEmail(db, env, { organizationId: org.id, template, to: superAdmins.map((u) => u.email), data })

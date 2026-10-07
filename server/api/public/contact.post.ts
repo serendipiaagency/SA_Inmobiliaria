@@ -3,6 +3,7 @@ import { upsertLead } from '../../utils/leads'
 import { rateLimit } from '../../utils/rateLimit'
 import { requireValidEmail } from '../../utils/validate'
 import { sendInternalNotification } from '../../utils/email/send'
+import { platformBaseUrl } from '../../utils/email/links'
 import { getRequestId } from '../../utils/requestId'
 import { readFirstTouch } from '../../utils/firstTouch'
 import { recordWebFormSubmission } from '../../utils/comms/web'
@@ -94,13 +95,13 @@ export default defineEventHandler(async (event) => {
       // El hilo de la bandeja es un extra: el mensaje y el lead ya están guardados.
     }
     try {
-      await sendInternalNotification(db, cfEnv(event), orgId, 'contact_message', { name, email, phone: body.phone, subject: body.subject, message }, getRequestId(event))
+      await sendInternalNotification(db, cfEnv(event), orgId, 'contact_message', { name, email, phone: body.phone, subject: body.subject, message, adminUrl: `${platformBaseUrl(event)}/admin/comunicaciones` }, getRequestId(event))
     } catch {
       // The message is already saved — a notification failure must never undo that.
     }
   } else {
     try {
-      await sendInternalNotification(db, cfEnv(event), orgId, 'complaint', { name, email, phone: body.phone, message }, getRequestId(event))
+      await sendInternalNotification(db, cfEnv(event), orgId, 'complaint', { name, email, phone: body.phone, message, adminUrl: `${platformBaseUrl(event)}/admin/contact-messages` }, getRequestId(event))
     } catch {
       // The complaint is already saved — a notification failure must never undo that.
     }

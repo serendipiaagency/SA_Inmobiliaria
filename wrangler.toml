@@ -47,15 +47,16 @@ SESSION_TTL_DAYS = "7"
 # /admin/organizations, not here.
 # PRIMARY_DOMAIN = "sa-inmobiliaria.example"
 #
-# Email de PLATAFORMA (docs/empresas.md): lo que INMO envía a las empresas y
-# al super admin (bienvenida del registro, invitación al administrador,
-# cambios de estado). Sin definir, el código usa INMO <info@serendipiaagency.com>
-# y responde-a la misma dirección; los avisos al super admin van a las
+# Emails propios de Portal INMO (docs/email.md): alta y estado de empresas,
+# cuenta de usuario, avisos de la web y avisos internos al equipo. Sin definir,
+# el código usa Portal INMO <info@serendipiaagency.com>, responde-a y contacto
+# («¿Hablamos?», PLATFORM_EMAIL_CONTACT) la misma dirección; los avisos al super admin van a las
 # cuentas super_admin. Necesita el secreto RESEND_API_KEY y el dominio
 # serendipiaagency.com verificado en esa cuenta de Resend.
-# PLATFORM_EMAIL_FROM_NAME = "INMO"
+# PLATFORM_EMAIL_FROM_NAME = "Portal INMO"
 # PLATFORM_EMAIL_FROM_ADDRESS = "info@serendipiaagency.com"
 # PLATFORM_EMAIL_REPLY_TO = "info@serendipiaagency.com"
+# PLATFORM_EMAIL_CONTACT = "info@serendipiaagency.com"
 # PLATFORM_ADMIN_NOTIFY_EMAILS = "info@serendipiaagency.com"
 # PLATFORM_BASE_URL = "https://sa-inmobiliaria.example"
 #

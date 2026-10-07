@@ -106,6 +106,8 @@ function escapeAttr(s: string): string {
 export function htmlToText(html: string): string {
   return html
     .replace(/<(style|script|title)[^>]*>[\s\S]*?<\/\1>/gi, '')
+    // El pre-encabezado oculto de la plantilla maestra repite el primer párrafo.
+    .replace(/<div class="pi-preheader"[^>]*>[\s\S]*?<\/div>/gi, '')
     .replace(/<a\s[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi, (_m, href, label) => `${label.replace(/<[^>]+>/g, '').trim()} (${href})`)
     .replace(/<br\s*\/?>/gi, '\n')
     .replace(/<\/(p|h1|h2|h3|tr|table|div)>/gi, '\n')

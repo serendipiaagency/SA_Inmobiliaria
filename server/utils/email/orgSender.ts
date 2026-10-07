@@ -32,15 +32,11 @@ import { createResendDomain, findResendDomain, getResendDomain, verifyResendDoma
  * alta a mano) sólo lo puede asignar un super_admin.
  */
 
-/**
- * Emails de CUENTA y del sistema que salen siempre del remitente de la
- * plataforma (INMO <info@serendipiaagency.com>), aunque la empresa tenga su
- * propio dominio: alta y bienvenida de usuarios, recuperar contraseña y los
- * avisos técnicos del dominio web. Los de plataforma (company_*, admin_*) ya
- * van por server/utils/email/platform.ts. Todo lo demás — lo que la empresa
- * envía a SUS clientes y a SU equipo — sale con el remitente de la empresa.
- */
-export const SYSTEM_SENDER_TEMPLATES = new Set(['user_welcome', 'password_reset', 'domain_check_failed', 'domain_check_recovered'])
+// Los emails propios de Portal INMO (cuenta, avisos del sistema y
+// notificaciones al equipo) salen siempre del remitente de la plataforma,
+// aunque la empresa tenga su propio dominio: lo decide isPortalInmoTemplate()
+// (server/utils/email/render.ts). Lo que la empresa envía a SUS clientes sale
+// con el remitente de la empresa.
 
 /** Buzones gratuitos: nadie puede verificar su DNS, así que no sirven como remitente propio. */
 export const PERSONAL_MAILBOX_DOMAINS = new Set([

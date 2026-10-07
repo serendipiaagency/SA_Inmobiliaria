@@ -3,6 +3,7 @@ import type { H3Event } from 'h3'
 import { useDb, schema, now, cfEnv } from './db'
 import { dispatchWebhook } from './webhooks'
 import { sendInternalNotification } from './email/send'
+import { platformBaseUrl } from './email/links'
 import { getRequestId } from './requestId'
 import { resolveContact, orgDefaultCountryPrefix } from './contacts/service'
 import { routeLead, assignLead, buildRoutingContextFromProperty } from './leads/routing'
@@ -234,7 +235,7 @@ export async function insertLead(event: H3Event, rawInput: UpsertLeadInput, cont
   })
 
   try {
-    await sendInternalNotification(db, cfEnv(event), input.organizationId, 'lead_created', { name: row.name, email: row.email, source: row.source, propertyName: row.propertyName }, getRequestId(event))
+    await sendInternalNotification(db, cfEnv(event), input.organizationId, 'lead_created', { name: row.name, email: row.email, source: row.source, propertyName: row.propertyName, adminUrl: `${platformBaseUrl(event)}/admin/leads/${row.id}` }, getRequestId(event))
   } catch {
     // The lead is already saved — a notification failure must never undo that.
   }
