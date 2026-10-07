@@ -12,43 +12,56 @@ del proyecto: no hay Google Maps ni Mapbox en ningún sitio. Las capas base
 salen de `utils/maps/tiles.ts` (`tileSpec`), el único sitio con URLs y
 atribuciones:
 
-| Capa | Con `CARTO_BASEMAPS_KEY` | Sin clave |
+| Capa | Proveedor | Clave |
 |---|---|---|
-| Plano | CARTO Positron (`light_all`) | OpenStreetMap |
-| Oscuro | CARTO Dark Matter (`dark_all`) | OpenStreetMap invertido por CSS (`.pi-tiles-dark`) |
-| Satélite | Esri World Imagery | Esri World Imagery |
+| Plano | OpenStreetMap (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`) | ninguna |
+| Oscuro | OpenStreetMap invertido por CSS (`.pi-tiles-dark`) | ninguna |
+| Satélite | Esri World Imagery | ninguna |
 
 Cambiar de proveedor es una decisión de negocio (coste, licencia, cobertura),
 nunca un detalle de implementación: no lo cambies sin un motivo documentado
 aquí.
 
-### Por qué hay una clave de CARTO (oct-2026)
+### Por qué OpenStreetMap (decisión del propietario, 7-oct-2026)
 
-Desde el 25-sep-2026 CARTO sólo sirve sus mapas base con clave. Sin ella
+Hasta septiembre de 2026 el plano y el oscuro eran de CARTO (Positron y Dark
+Matter). Desde el 25-sep-2026 CARTO sólo los sirve con clave: sin ella
 responde 200 con una tesela que dice «API KEY REQUIRED ·
-carto.com/basemaps/apikey» en lugar del mapa: los marcadores se ven, el fondo
-no. Una clave inválida, o usada desde un dominio que la clave no admite,
-produce lo mismo.
+carto.com/basemaps/apikey» en lugar del mapa (los marcadores se veían, el
+fondo no). El propietario eligió OpenStreetMap porque no pide clave, cuenta
+ni pago.
 
-- **La clave se pide en <https://carto.com/basemaps/apikey>**: sin cuenta,
-  llega por email. Es gratuita para uso comercial hasta 1M de teselas al mes
-  (de pago a partir de ahí). Si se restringe por dominios, hay que incluir
-  todos los de la plataforma, también los dominios propios de cada agencia.
-- **Dónde va:** variable del Worker `CARTO_BASEMAPS_KEY`. Si se pone en el
-  panel de Cloudflare, mejor como secreto (`wrangler secret put
+**Condiciones de OpenStreetMap** (<https://operations.osmfoundation.org/policies/tiles/>):
+
+- «© OpenStreetMap» visible en cada mapa: la pone `tileSpec` en la
+  atribución de Leaflet. No se oculta ni se tapa.
+- Esa URL exacta, sin subdominios, y el Referer que manda el navegador
+  (`Referrer-Policy: strict-origin-when-cross-origin`).
+- Nada de descargas masivas ni de precargar zonas. Es un servicio gratuito
+  de voluntarios, sin garantías: admite el uso normal de una web, no un
+  tráfico intensivo, y puede cortar a quien abuse. Si el tráfico de mapas
+  crece mucho, la salida es un proveedor de pago o servir teselas propias,
+  cambiando sólo `tileSpec`.
+
+### CARTO, sólo como opción
+
+Si algún día se pone la variable del Worker `CARTO_BASEMAPS_KEY` (clave en
+<https://carto.com/basemaps/apikey>, gratuita para uso comercial hasta 1M de
+teselas al mes), el plano y el oscuro pasan al estilo de CARTO con la clave
+en cada tesela y la atribución de CARTO. Sin ella no se pide nada a CARTO.
+
+- **Dónde va:** mejor como secreto (`wrangler secret put
   CARTO_BASEMAPS_KEY`), porque los secretos sobreviven a cada despliegue y
-  las variables puestas a mano no. También vale en `[vars]` de
+  las variables puestas a mano en el panel no. También vale en `[vars]` de
   `wrangler.toml`.
 - **Cómo llega al navegador:** `plugins/map-tiles.ts` la lee del entorno al
   renderizar en el servidor y la pasa en el payload de la página. Es una
   clave pública: CARTO la exige en cada URL de tesela.
-- **Sin clave:** OpenStreetMap (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`),
-  con «© OpenStreetMap» visible. Su política
-  (<https://operations.osmfoundation.org/policies/tiles/>) admite el uso
-  normal de una web con atribución y el Referer del navegador, pero no da
-  garantías ni admite un uso intensivo. Es el respaldo para que el mapa
-  nunca sea la tesela de aviso; para producción, la clave de CARTO.
-- La CSP (`img-src`) admite los orígenes de `TILE_ORIGINS`.
+- Si la clave se restringe por dominios, hay que incluir todos los de la
+  plataforma, también los dominios propios de cada agencia: desde un dominio
+  no admitido, CARTO vuelve a la tesela de aviso.
+
+La CSP (`img-src`) admite los orígenes de `TILE_ORIGINS`.
 
 ## La base compartida
 
