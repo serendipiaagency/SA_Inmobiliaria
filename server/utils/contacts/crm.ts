@@ -64,6 +64,9 @@ export function contactInputFromBody(body: Record<string, any>): Partial<Contact
   text('language', 10)
   text('country', 80)
   text('notes', 4000)
+  // Foto (migración 0090): una clave de la biblioteca de medios o una URL https, nunca otra cosa.
+  text('photo', 1000)
+  if (out.photo && !(/^https:\/\/\S+$/i.test(out.photo) || /^[\w./-]+$/.test(out.photo)) ) fail(422, 'Foto: debe ser una imagen de la biblioteca o un enlace https')
   if ('kind' in body) out.kind = body.kind === 'company' ? 'company' : 'person'
   if ('source' in body) {
     const v = body.source ? String(body.source) : null

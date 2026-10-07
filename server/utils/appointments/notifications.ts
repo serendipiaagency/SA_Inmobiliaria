@@ -3,6 +3,7 @@ import { now } from '../db'
 import { sendTransactionalEmail } from '../email/send'
 import type { TemplateKey } from '../email/templates'
 import { sendWhatsAppMessage } from '../whatsapp'
+import { DEMO_BLOCKED_MESSAGE, isDemoOrg } from '../demo/tenant'
 
 export type NotificationType = 'confirmation' | 'reminder_24h' | 'reminder_1h' | 'cancelled' | 'rescheduled'
 
@@ -84,11 +85,15 @@ export async function notifyAppointment(db: any, env: Record<string, any>, input
   }
 
   if (input.recipientPhone) {
-    const result = await sendWhatsAppMessage(env, {
-      to: input.recipientPhone,
-      body: input.message,
-      statusCallbackUrl: input.publicOrigin ? `${input.publicOrigin.replace(/\/$/, '')}/api/twilio/status` : null,
-    })
+    // Cuenta demo: el WhatsApp se registra como no enviado, con el motivo.
+    // El email ya lo frena attemptSend().
+    const result = (await isDemoOrg(db, input.organizationId))
+      ? { ok: false, message: DEMO_BLOCKED_MESSAGE, sid: null }
+      : await sendWhatsAppMessage(env, {
+          to: input.recipientPhone,
+          body: input.message,
+          statusCallbackUrl: input.publicOrigin ? `${input.publicOrigin.replace(/\/$/, '')}/api/twilio/status` : null,
+        })
     await db.insert(schema.appointmentNotifications).values({
       organizationId: input.organizationId,
       visitId: input.visitId,

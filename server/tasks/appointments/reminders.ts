@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { notifyAppointment } from '../../utils/appointments/notifications'
 import { dueReminderVisits } from '../../utils/appointments/reminderWindow'
+import { isDemoOrg } from '../../utils/demo/tenant'
 
 function fmt(d: Date): string {
   return d.toISOString().replace('T', ' ').slice(0, 19)
@@ -32,6 +33,11 @@ export default defineTask<{ skipped: true; reason: string } | { sent24h: number;
     const due24h = await dueReminderVisits(db, 'reminder24hSentAt', now, 23.5 * 60 * 60 * 1000, 24.5 * 60 * 60 * 1000)
     let sent24h = 0
     for (const visit of due24h) {
+      // Cuenta demo: no se avisa a nadie (sus clientes son ficticios) y el panel lo dice tal cual.
+      if (await isDemoOrg(db, visit.organizationId)) {
+        await db.update(schema.visits).set({ reminder24hSentAt: fmt(now), reminderStatus: 'not_applicable' }).where(eq(schema.visits.id, visit.id))
+        continue
+      }
       if (visit.clientEmail || visit.clientPhone) {
         await notifyAppointment(db, env, {
           organizationId: visit.organizationId,
@@ -56,6 +62,10 @@ export default defineTask<{ skipped: true; reason: string } | { sent24h: number;
     const due1h = await dueReminderVisits(db, 'reminder1hSentAt', now, 50 * 60 * 1000, 70 * 60 * 1000)
     let sent1h = 0
     for (const visit of due1h) {
+      if (await isDemoOrg(db, visit.organizationId)) {
+        await db.update(schema.visits).set({ reminder1hSentAt: fmt(now), reminderStatus: 'not_applicable' }).where(eq(schema.visits.id, visit.id))
+        continue
+      }
       if (visit.clientEmail || visit.clientPhone) {
         await notifyAppointment(db, env, {
           organizationId: visit.organizationId,

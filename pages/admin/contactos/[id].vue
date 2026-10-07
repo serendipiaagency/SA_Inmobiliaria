@@ -11,7 +11,9 @@
            de un vistazo, y «Editar» para cambiarlo. -->
       <div class="mb-6 rounded-2xl border border-line bg-white p-4 sm:p-5" data-testid="contact-header">
         <div class="flex flex-wrap items-start justify-between gap-3">
-          <div class="min-w-0">
+          <div class="flex min-w-0 items-start gap-4">
+            <AdminPersonAvatar :photo="data.contact.photo" :name="data.contact.name" size="lg" />
+            <div class="min-w-0">
             <h1 class="text-2xl font-semibold tracking-tight" data-testid="contact-name">{{ data.contact.name }}</h1>
             <div class="mt-2 flex flex-wrap gap-1.5" data-testid="contact-roles">
               <span v-for="r in data.contact.roles" :key="r" class="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-700">{{ CONTACT_ROLE_LABELS[r as ContactRole] || r }}</span>
@@ -22,6 +24,7 @@
             <TagsEditor class="mt-2" entity-type="contact" :entity-id="contactId" :can-edit="canEdit" />
             <!-- Quién lo dio de alta (FASE 0, cierre D3a). -->
             <CreatedBy class="mt-2 block" :created-by-name="data.contact.createdByName" :created-by-deleted="data.contact.createdByDeleted" :created-at="data.contact.createdAt" />
+            </div>
           </div>
           <div class="flex shrink-0 flex-wrap gap-2">
             <a v-if="data.contact.phone" :href="`tel:${data.contact.phone}`" class="rounded-lg border border-line px-3 py-1.5 text-[12px] font-medium hover:bg-stone-50">Llamar</a>

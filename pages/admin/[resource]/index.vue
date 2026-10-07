@@ -11,6 +11,9 @@
       </div>
     </div>
 
+    <!-- Sistemas > Empresas: la cuenta demo comercial (sólo super admin, como esta lista). -->
+    <AdminOrganizationsDemoAccountPanel v-if="resource === 'organizations' && !trashed" />
+
     <div class="card overflow-x-auto">
       <table class="w-full text-left text-sm">
         <thead class="bg-slate-50 text-xs uppercase text-slate-500">

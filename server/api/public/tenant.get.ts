@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { getCommsSettings } from '../../utils/comms/inbox'
 import { organizationCurrency } from '../../utils/currency'
+import { isDemoOrg } from '../../utils/demo/tenant'
 
 /**
  * Public branding for the resolved tenant — consumed by useTenant() to
@@ -44,6 +45,10 @@ export default defineEventHandler(async (event) => {
   // público por naturaleza — cada precio publicado ya la lleva.
   const currency = await organizationCurrency(db, orgId)
   return {
+    // Vista previa de una empresa sin dominio (server/utils/sitePreview.ts): la web enseña una franja para salir.
+    preview: Boolean((event.context as any).sitePreview),
+    // Cuenta demo: la web neutraliza los enlaces que llamarían o escribirían de verdad (plugins/demo-links.client.ts).
+    isDemo: await isDemoOrg(db, orgId).catch(() => false),
     webChat: { enabled: Boolean(chat?.webChatEnabled), greeting: chat?.webChatGreeting ?? null },
     currency,
     ...(rows[0] || {

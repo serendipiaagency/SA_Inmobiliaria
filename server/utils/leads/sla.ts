@@ -1,5 +1,6 @@
 import { and, eq, isNull, lt, ne, notInArray, sql } from 'drizzle-orm'
 import { schema, now } from '../db'
+import { clockNow } from '../clock'
 
 /**
  * Lead SLA (FASE 16, migración 0071).
@@ -149,8 +150,10 @@ export async function markLeadContacted(db: any, orgId: number, target: { leadId
   }
 }
 
+// El reloj de la petición (server/utils/clock.ts): el real, salvo cuando el
+// seed de la cuenta demo reproduce su historia y pasa el SLA en su fecha.
 function minutesAgo(n: number): string {
-  return new Date(Date.now() - n * 60_000).toISOString().replace('T', ' ').slice(0, 19)
+  return new Date(clockNow().getTime() - n * 60_000).toISOString().replace('T', ' ').slice(0, 19)
 }
 
 async function openAlert(db: any, orgId: number, leadId: number, type: string) {

@@ -4,6 +4,7 @@ import { requireOrgScope, type SessionUser } from '../auth'
 import { cfEnv, schema, useDb } from '../db'
 import { logAdminAction } from '../audit'
 import { OrgSenderError, orgSenderView, saveOrgSender, verifyOrgSender } from './orgSender'
+import { assertNotDemoExternal } from '../demo/tenant'
 
 /**
  * Capa HTTP del remitente de empresa. Sin rutas nuevas (presupuesto de rutas
@@ -44,6 +45,8 @@ export async function handleOrgSenderWrite(event: H3Event, body: Record<string, 
   const { user, orgId } = await targetOrg(event, body?.organizationId)
   const db = useDb(event)
   const env = cfEnv(event) as Record<string, any>
+  // Cuenta demo: no da de alta dominios en la cuenta de Resend de la plataforma.
+  await assertNotDemoExternal(db, orgId)
   try {
     const result = body?.action === 'verify' ? await verifyOrgSender(db, env, orgId) : await saveOrgSender(db, env, orgId, body || {}, user)
     await logAdminAction(event, { user, orgId, action: body?.action === 'verify' ? 'run' : 'update', resource: 'organizations', resourceId: orgId, detail: result.detail })

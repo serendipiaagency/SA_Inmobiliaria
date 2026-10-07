@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, now } from './db'
 import { getRequestId } from './requestId'
+import { DEMO_BLOCKED_MESSAGE, isDemoOrg } from './demo/tenant'
 
 export type WebhookEvent = 'lead.created' | 'deal.closed' | 'visit.booked' | 'contract.accepted' | 'referral.converted'
 
@@ -43,6 +44,16 @@ export async function attemptWebhookDelivery(db: any, deliveryId: number): Promi
     await db
       .update(schema.webhookDeliveries)
       .set({ status: 'failed', attempts, errorMessage: 'El endpoint fue eliminado o desactivado', nextRetryAt: null })
+      .where(eq(schema.webhookDeliveries.id, deliveryId))
+    return { status: 'failed' }
+  }
+
+  // Cuenta demo: ningún webhook sale hacia fuera. Queda registrado como no
+  // entregado, con el motivo, y sin reintentos.
+  if (await isDemoOrg(db, endpoint.organizationId)) {
+    await db
+      .update(schema.webhookDeliveries)
+      .set({ status: 'failed', attempts, errorMessage: DEMO_BLOCKED_MESSAGE, nextRetryAt: null })
       .where(eq(schema.webhookDeliveries.id, deliveryId))
     return { status: 'failed' }
   }

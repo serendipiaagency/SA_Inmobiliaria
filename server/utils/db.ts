@@ -1,6 +1,7 @@
 import { drizzle } from 'drizzle-orm/d1'
 import type { H3Event } from 'h3'
 import * as schema from '../db/schema'
+import { clockNow } from './clock'
 
 export { schema }
 
@@ -26,8 +27,13 @@ export function useDb(event: H3Event) {
   return drizzle(cfEnv(event).DB, { schema })
 }
 
+/**
+ * La hora con la que se fecha todo lo que se escribe. Es la real salvo dentro
+ * de `atClock()` (server/utils/clock.ts), que sólo usa el seed de la cuenta
+ * demo para escribir su historia en fechas pasadas.
+ */
 export function now(): string {
-  return new Date().toISOString().replace('T', ' ').slice(0, 19)
+  return clockNow().toISOString().replace('T', ' ').slice(0, 19)
 }
 
 /**

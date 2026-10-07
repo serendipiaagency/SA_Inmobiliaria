@@ -3675,6 +3675,8 @@ export const contacts = sqliteTable(
     lastContactAt: text('last_contact_at'),
     nextActionType: text('next_action_type'),
     nextActionAt: text('next_action_at'),
+    /** Migración 0090 — foto del contacto: clave de R2 o URL, como team_members.image. */
+    photo: text('photo'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
     deletedAt: text('deleted_at'),
@@ -3897,6 +3899,8 @@ export const offices = sqliteTable(
     country: text('country'),
     timezone: text('timezone'),
     status: text('status').notNull().default('active'), // active | inactive
+    /** Migración 0090 — foto de la oficina: clave de R2 o URL. */
+    photo: text('photo'),
     createdBy: integer('created_by'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),

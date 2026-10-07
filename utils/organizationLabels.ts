@@ -13,6 +13,8 @@ export const ORGANIZATION_STATUS_LABELS: Record<string, { label: string; descrip
 export const REGISTRATION_SOURCE_LABELS: Record<string, string> = {
   admin: 'Panel (Sistemas > Empresas)',
   self_service: 'Registro web',
+  // Aprovisionada por la plataforma (server/utils/demo/): no envía nada fuera.
+  demo: 'Cuenta demo (sin envíos reales)',
 }
 
 export const APPROVAL_STATUS_LABELS: Record<string, string> = {

@@ -3,6 +3,7 @@ import { useDb, schema } from '../../utils/db'
 import { requireOrgScope } from '../../utils/auth'
 import { organizationCurrencySetting } from '../../utils/currency'
 import { agencyCurrencyOrDefault } from '../../../utils/currency'
+import { isDemoOrg } from '../../utils/demo/tenant'
 
 /**
  * The logged-in admin's own (or currently switched-to, for super_admin) organization's branding.
@@ -30,6 +31,8 @@ export default defineEventHandler(async (event) => {
   return {
     ...(rows[0] || { id: orgId, name: 'M&M Real Estate', companyName: 'M&M Real Estate', logo: null, brandColor: null, domain: null }),
     currency: agencyCurrencyOrDefault(chosen),
+    // Cuenta demo (server/utils/demo/tenant.ts): el panel lo indica y neutraliza tel:/mailto:/WhatsApp.
+    isDemo: await isDemoOrg(db, orgId).catch(() => false),
     recordCurrency: (chosen || 'EUR').toLowerCase(),
   }
 })

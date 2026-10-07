@@ -31,6 +31,8 @@ export interface ContactInput {
   status?: string | null
   nextActionType?: string | null
   nextActionAt?: string | null
+  /** Migración 0090: foto del contacto (clave de R2 de la biblioteca de medios o URL https). */
+  photo?: string | null
 }
 
 /** El email en minúsculas y sin espacios. `null` cuando no hay nada que normalizar. */
@@ -206,13 +208,14 @@ export async function searchContacts(db: any, orgId: number, search: string, lim
       language: schema.contacts.language,
       assignedCommercialId: schema.contacts.assignedCommercialId,
       status: schema.contacts.status,
+      photo: schema.contacts.photo,
       createdAt: schema.contacts.createdAt,
     })
     .from(schema.contacts)
     .where(and(...conditions))
     .orderBy(desc(schema.contacts.id))
     .limit(limit) as Promise<
-    { id: number; name: string; kind: string; email: string | null; phone: string | null; whatsapp: string | null; language: string | null; assignedCommercialId: number | null; status: string; createdAt: string }[]
+    { id: number; name: string; kind: string; email: string | null; phone: string | null; whatsapp: string | null; language: string | null; assignedCommercialId: number | null; status: string; photo: string | null; createdAt: string }[]
   >
 }
 
@@ -251,6 +254,7 @@ export async function createContact(
       officeId: input.officeId ?? null,
       nextActionType: input.nextActionType || null,
       nextActionAt: input.nextActionAt || null,
+      photo: input.photo || null,
       status: 'active',
       createdBy: opts.createdBy ?? null,
       createdAt: nowTs,
@@ -303,6 +307,7 @@ export async function updateContact(
   if (input.status !== undefined && input.status) patch.status = input.status
   if (input.nextActionType !== undefined) patch.nextActionType = input.nextActionType || null
   if (input.nextActionAt !== undefined) patch.nextActionAt = input.nextActionAt || null
+  if (input.photo !== undefined) patch.photo = input.photo || null
 
   await db.update(schema.contacts).set(patch).where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.organizationId, orgId)))
   // Acotada por organización igual que la escritura: nunca se devuelve una
