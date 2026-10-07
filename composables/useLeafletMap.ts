@@ -9,6 +9,7 @@ import L from 'leaflet'
 // vivía duplicado (con el mismo comentario) en LocationPicker, MapExplorer y
 // EmbedMiniMap.
 import 'leaflet/dist/leaflet.css'
+import { mapTilesConfig, tileSpec, type TileKey } from '~/utils/maps/tiles'
 
 /**
  * Un mapa Leaflet sobre `container`, con su tamaño mantenido en sincronía
@@ -90,17 +91,15 @@ export function useLeafletMap(container: Ref<HTMLElement | null>, options: L.Map
   return { map, onMapReady }
 }
 
-/** Las tres capas base que usa todo el sistema de mapas — un único sitio para sus URLs, no repetidas por componente. */
-export const TILE_URLS = {
-  light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-} as const
+export type { TileKey }
 
-export type TileKey = keyof typeof TILE_URLS
-
-/** Nunca cambiar de proveedor de tiles sin motivo documentado (megaprompt de mapas): sigue siendo CartoDB/Esri, sólo con una URL compartida en vez de tres copias. */
+/**
+ * Las tres capas base de todo el sistema de mapas. Las URLs y atribuciones
+ * viven en utils/maps/tiles.ts: CARTO con su clave o, sin ella, OpenStreetMap
+ * (desde sep-2026 CARTO sin clave sólo sirve la tesela «API KEY REQUIRED»).
+ * No se cambia de proveedor sin un motivo documentado en docs/maps.md.
+ */
 export function createTileLayer(key: TileKey): L.TileLayer {
-  if (key === 'satellite') return L.tileLayer(TILE_URLS.satellite, { maxZoom: 19, attribution: 'Esri' })
-  return L.tileLayer(TILE_URLS[key], { maxZoom: 20, attribution: '© OSM · CARTO' })
+  const { url, options } = tileSpec(key, mapTilesConfig())
+  return L.tileLayer(url, options)
 }

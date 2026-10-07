@@ -16,7 +16,15 @@
       <template v-if="(content.source || 'dynamic') === 'dynamic'">
         <SelectField label="Qué propiedades mostrar" hint="Siempre en vivo: se refleja al instante lo que edites en Propiedades (web)." :model-value="content.dynamicFilter || 'latest'" :options="DYNAMIC_FILTERS" @update:model-value="(v) => (content.dynamicFilter = v)" />
         <SelectField v-if="content.dynamicFilter === 'community'" label="Comunidad" :model-value="content.dynamicCommunity || ''" :options="communityOptions" @update:model-value="(v) => (content.dynamicCommunity = v)" />
-        <SelectField v-if="content.dynamicFilter === 'type'" label="Tipo de propiedad" :model-value="content.dynamicType || ''" :options="typeOptions" @update:model-value="(v) => (content.dynamicType = v)" />
+        <SelectField
+          v-if="content.dynamicFilter === 'type'"
+          label="Tipo de propiedad"
+          :hint="selectedTypeEmpty ? 'Todavía no hay propiedades de este tipo en Propiedades (web): la sección saldrá vacía hasta que añadas alguna.' : 'Entre paréntesis, cuántas hay de cada tipo en Propiedades (web).'"
+          :model-value="content.dynamicType || ''"
+          :options="[{ value: '', label: 'Elige un tipo…' }, ...typeOptions]"
+          data-testid="sb-dynamic-type"
+          @update:model-value="(v) => (content.dynamicType = v)"
+        />
         <StepperField label="Número de propiedades" :model-value="content.limit || 4" :min="1" :max="12" @update:model-value="(v) => (content.limit = v)" />
       </template>
 
@@ -69,6 +77,7 @@
 </template>
 
 <script setup lang="ts">
+import { propertyTypeOptions } from '~/utils/propertySheet'
 import InspectorSection from '../inspector/InspectorSection.vue'
 import TextField from '../inspector/fields/TextField.vue'
 import SelectField from '../inspector/fields/SelectField.vue'
@@ -94,10 +103,9 @@ const communityOptions = computed(() => {
   const set = new Set((props.projects || []).map((p) => p.community).filter(Boolean))
   return Array.from(set).map((c) => ({ value: c as string, label: c as string }))
 })
-const typeOptions = computed(() => {
-  const set = new Set((props.projects || []).map((p) => p.propertyType).filter(Boolean))
-  return Array.from(set).map((t) => ({ value: t as string, label: t as string }))
-})
+// Todo el catálogo común de tipos, no sólo los que ya tienen propiedades (utils/propertySheet.ts).
+const typeOptions = computed(() => propertyTypeOptions((props.projects || []).map((p) => p.propertyType)))
+const selectedTypeEmpty = computed(() => !!props.content.dynamicType && typeOptions.value.find((o) => o.value === props.content.dynamicType)?.count === 0)
 
 const manualIds = computed<number[]>(() => (Array.isArray(props.content.manualIds) ? props.content.manualIds : []))
 function toggleManual(id: number, checked: boolean) {

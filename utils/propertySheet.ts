@@ -111,6 +111,27 @@ export function orderPropertyTypes(values: unknown[]): string[] {
   return [...known, ...unknown]
 }
 
+/**
+ * Opciones de «Tipo de propiedad» del Constructor Web (bloques Propiedades y
+ * Mapa): TODO el catálogo común, con su rótulo en castellano y cuántas
+ * propiedades de cada tipo hay ahora mismo en `values`, y al final, tal cual,
+ * un valor antiguo fuera del catálogo. Antes salían sólo los tipos que ya
+ * tenía alguna propiedad, con la clave interna en inglés («Apartment»): no se
+ * podía preparar una sección para un tipo todavía sin propiedades.
+ */
+export function propertyTypeOptions(values: unknown[]): { value: string; label: string; count: number }[] {
+  const counts = new Map<string, number>()
+  for (const v of values) {
+    const key = typeof v === 'string' ? v.trim() : ''
+    if (key) counts.set(key, (counts.get(key) || 0) + 1)
+  }
+  const legacy = orderPropertyTypes(values).filter((v) => !(PROPERTY_TYPES as readonly string[]).includes(v))
+  return [...PROPERTY_TYPES, ...legacy].map((value) => {
+    const count = counts.get(value) || 0
+    return { value, label: `${propertyTypeLabel(value)} (${count})`, count }
+  })
+}
+
 export function isSubtypeOf(subtype: unknown, type: unknown): boolean {
   return !!type && !!subtype && String(subtype) in (PROPERTY_SUBTYPES[String(type)] || {})
 }

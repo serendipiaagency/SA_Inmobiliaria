@@ -542,3 +542,10 @@ dentro de `content` — solo criterios de selección. El patrón es
 `dynamicFilter` (con sub-criterios como `dynamicCommunity`/`dynamicType`) o,
 para selección manual, `manualIds: number[]` — ambos resueltos en vivo en el
 renderer contra la tabla real, nunca guardados como snapshot.
+
+`dynamicType` guarda la clave del catálogo común de tipos (`PROPERTY_TYPES`
+en `utils/propertySheet.ts`: `Apartment`, `Studio`…), la misma que guarda la
+propiedad. El inspector ofrece **todo** el catálogo con su rótulo en
+castellano y el recuento actual (`propertyTypeOptions`), no sólo los tipos
+que ya tienen propiedades. Antes listaba únicamente esos, con la clave en
+inglés, y no se podía preparar una sección para un tipo todavía vacío.
