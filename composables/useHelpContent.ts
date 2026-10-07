@@ -627,7 +627,7 @@ export function useHelpContent() {
         'La sección "Captación" añade los dos bloques que convierten visitas en clientes. El "Formulario de captación" crea un lead real en CRM → Leads (origen "web"), guarda el mensaje en Bandeja → Mensajes y, si tienes destinatarios configurados, avisa por email; en su inspector eliges los textos, si pides teléfono y una "Referencia interna" que viaja con cada envío para saber de qué formulario vino cada lead.',
         'La "Reserva de visita" abre la misma agenda que la ficha pública del comercial: ofrece solo sus huecos libres, respeta sus días bloqueados y su tope diario, y la cita aparece en CRM → Visitas. Elige con qué comercial (o deja "el primero de la lista") y si la cita es presencial, videollamada o llamada. Si el comercial elegido deja de estar publicado, el bloque te avisa en el editor y la web sigue funcionando con el primero disponible.',
         'Esos dos bloques están desactivados mientras editas y también en Vista previa, a propósito: probar tu propia portada no debe llenarte el CRM de leads inventados ni la agenda de citas falsas. Funcionan en cuanto publicas.',
-        'Los bloques de Propiedades, Comunidades y Blog siempre muestran tus datos reales y actuales — en su pestaña "Contenido" puedes elegir un criterio automático (más recientes, destacadas, por comunidad o tipo…) o seleccionar propiedades/comunidades concretas a mano; en ambos casos se siguen leyendo en vivo, nunca se copian.',
+        'Los bloques de Propiedades, Comunidades y Blog siempre muestran tus datos reales y actuales — en su pestaña "Contenido" puedes elegir un criterio automático (más recientes, destacadas, por comunidad o tipo…) o seleccionar propiedades/comunidades concretas a mano; en ambos casos se siguen leyendo en vivo, nunca se copian. Con "Tipo de propiedad" eliges entre todos los tipos del catálogo (Piso, Casa, Chalet, Ático, Local, Garaje…), con cuántas propiedades tienes de cada uno entre paréntesis; puedes elegir uno que aún no tenga ninguna y la sección se llenará sola cuando la añadas.',
         'El bloque "Mapa (teaser)" enseña un mapa real (no una ilustración) con las propiedades que elijas, con el mismo criterio automático o selección manual que Propiedades — las coordenadas siempre son las reales de cada propiedad, así que una propiedad sin ubicación guardada en su ficha nunca aparece ahí. Mientras editas, el mapa se ve pero no se puede arrastrar ni hacer zoom con la rueda (un clic sobre él selecciona el bloque, igual que el resto del lienzo); en Vista previa y en la web publicada funciona con normalidad.',
         'Si un bloque muestra una imagen, gestiónala desde su pestaña "Contenido": subir, sustituir, elegir desde la Biblioteca de medios o eliminar — sin salir del editor. Los cambios se ven al instante en el lienzo, sin necesidad de guardar primero.',
         'Cambia entre Escritorio/Tablet/Móvil arriba para comprobar cómo se ve en cada tamaño real.',
@@ -1200,6 +1200,13 @@ export function useHelpContent() {
       answer:
         'En el listado de Propiedades (web) o 2ª mano pulsa «Mapa». Mueve el mapa a la zona y pulsa «Buscar en esta zona», o pon un radio en km, pulsa «Buscar alrededor de un punto» y haz clic en el mapa: el listado se filtra y se ordena por cercanía. Si tienes las coordenadas, escríbelas en Filtros → «Cerca de unas coordenadas». Sólo salen las propiedades con ubicación guardada en su ficha.',
       tags: ['mapa', 'zona', 'radio', 'coordenadas', 'búsqueda', 'cerca'],
+    },
+    {
+      id: 'faq-mapa-fondo',
+      question: '¿Por qué el fondo del mapa se ve distinto, o sale «API KEY REQUIRED»?',
+      answer:
+        'El fondo de los mapas (calles, nombres) viene de un proveedor externo. Desde septiembre de 2026, CARTO, el de siempre, exige una clave: sin ella dibuja «API KEY REQUIRED» en lugar del mapa. Mientras la plataforma no tenga esa clave configurada, los mapas usan OpenStreetMap, con otro aspecto pero con todas las calles. Las propiedades, los precios y los filtros funcionan igual. La clave la configura el equipo de la plataforma; las agencias no tienen que hacer nada.',
+      tags: ['mapa', 'fondo', 'carto', 'openstreetmap', 'api key', 'teselas'],
     },
     {
       id: 'faq-exportar-leads',

@@ -97,20 +97,27 @@ test.describe('Tours — visitas multi-inmueble', () => {
   })
 
   test('rechaza dos paradas que se solapan para el mismo comercial, sin crear el tour', async () => {
-    const stop1 = randomFutureSlot()
-    const stop2 = shift(stop1, 10) // 10 min después, dentro de la misma franja de 30 min
-
-    const res = await a.post('/api/admin/saas/tours', {
-      data: {
-        clientName: `Tour Choque ${Date.now()}`,
-        clientEmail: `tour-choque-${Date.now()}@example.com`,
-        stops: [
-          { agentId, scheduledAt: stop1 },
-          { agentId, scheduledAt: stop2 },
-        ],
-      },
-    })
-    expect(res.status()).toBe(422)
+    // Igual que arriba: si el hueco al azar ya lo tiene otra cita de este
+    // comercial (otra suite, o la parada que deja la prueba anterior), el
+    // servidor responde 409 de agenda antes de mirar el solape entre paradas.
+    // Se prueba con otro hueco hasta dar con uno libre.
+    let res!: Awaited<ReturnType<APIRequestContext['post']>>
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const stop1 = randomFutureSlot()
+      const stop2 = shift(stop1, 10) // 10 min después, dentro de la misma franja de 30 min
+      res = await a.post('/api/admin/saas/tours', {
+        data: {
+          clientName: `Tour Choque ${Date.now()}`,
+          clientEmail: `tour-choque-${Date.now()}@example.com`,
+          stops: [
+            { agentId, scheduledAt: stop1 },
+            { agentId, scheduledAt: stop2 },
+          ],
+        },
+      })
+      if (res.status() !== 409) break
+    }
+    expect(res.status(), await res.text()).toBe(422)
   })
 
   test('aislamiento entre tenants: los tours de una agencia nunca aparecen en otra', async () => {

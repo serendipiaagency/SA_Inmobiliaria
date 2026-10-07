@@ -825,6 +825,44 @@ test.describe('Constructor Web — edición directa sobre el lienzo', () => {
     await expect(page.getByTestId('inspector-title')).toHaveText('Propiedades de la sección')
   })
 
+  test('«Tipo de propiedad» ofrece todo el catálogo en castellano con su recuento, y filtra por la clave guardada', async ({ page }) => {
+    const devRes = await a.post('/api/admin/developers', { data: { name: `Tipos dev ${Date.now()}`, email: `tipos-${Date.now()}@mm.test`, status: 'active' } })
+    expect(devRes.ok()).toBeTruthy()
+    const studioName = `Estudio Tipos ${Date.now()}`
+    const propRes = await a.post('/api/admin/developer-properties', { data: { developerId: (await devRes.json()).id, name: studioName, status: 'new', price: 210000, propertyType: 'Studio' } })
+    expect(propRes.ok(), await propRes.text()).toBeTruthy()
+
+    await setDraft([{ id: 'props-tipo', type: 'properties', version: 1, content: { title: 'Por tipo', source: 'dynamic', dynamicFilter: 'type', dynamicType: '', limit: 12, layout: 'row' } }])
+    await page.goto('/admin/site-builder')
+    const canvas = page.frameLocator(CANVAS)
+    await canvas.locator('[data-site-block-id="props-tipo"]').dispatchEvent('click')
+    await expect(page.getByTestId('inspector-title')).toHaveText('Propiedades de la sección')
+
+    const select = page.getByTestId('sb-dynamic-type').locator('select')
+    const labels = await select.locator('option').allTextContents()
+    // «Elige un tipo…» + los 15 tipos del catálogo común, con su rótulo en castellano.
+    expect(labels[0]).toBe('Elige un tipo…')
+    for (const label of ['Piso', 'Casa', 'Chalet', 'Adosado', 'Ático', 'Dúplex', 'Estudio', 'Finca', 'Terreno', 'Local', 'Oficina', 'Nave', 'Garaje', 'Edificio', 'Promoción']) {
+      expect(labels.some((l) => l.startsWith(`${label} (`)), `${label} en el selector`).toBe(true)
+    }
+    expect(labels.some((l) => /^(Apartment|Penthouse|Villa|House) /.test(l)), 'ninguna clave interna en inglés').toBe(false)
+    expect(Number(labels.find((l) => l.startsWith('Estudio ('))!.match(/\((\d+)\)/)![1])).toBeGreaterThanOrEqual(1)
+
+    // Un tipo con propiedades: se guarda la clave del catálogo y la sección las enseña.
+    await select.selectOption('Studio')
+    await expect.poll(async () => (await draft()).blocks[0].content.dynamicType, { timeout: 10_000 }).toBe('Studio')
+    await expect(canvas.getByText(studioName).first()).toBeVisible({ timeout: 10_000 })
+
+    // Un tipo sin propiedades se puede elegir igual, y el inspector avisa de que la sección saldrá vacía.
+    const options = await select.locator('option').evaluateAll((os) => os.map((o) => ({ value: (o as HTMLOptionElement).value, text: o.textContent || '' })))
+    const empty = options.find((o) => o.value && o.text.endsWith('(0)'))
+    if (empty) {
+      await select.selectOption(empty.value)
+      await expect(page.getByTestId('sb-dynamic-type')).toContainText('la sección saldrá vacía')
+      await expect.poll(async () => (await draft()).blocks[0].content.dynamicType, { timeout: 10_000 }).toBe(empty.value)
+    }
+  })
+
   test('cabecera y pie se ven en el lienzo como elementos globales; Esc sube de nivel hasta deseleccionar', async ({ page }) => {
     await setDraft([{ id: 'text-e2e', type: 'text', version: 1, content: { title: 'Niveles', body: 'Cuerpo' } }])
 

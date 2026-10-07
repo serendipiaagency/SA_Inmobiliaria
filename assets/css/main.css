@@ -220,3 +220,10 @@
   opacity: 0;
   transform: translateY(6px);
 }
+
+/* Mapa oscuro sin clave de CARTO (utils/maps/tiles.ts): las teselas de
+   OpenStreetMap invertidas, con el tono girado para que el agua siga siendo
+   azul. Sólo afecta a la capa base: marcadores y controles no se tocan. */
+.pi-tiles-dark {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.6);
+}

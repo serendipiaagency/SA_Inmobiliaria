@@ -282,6 +282,19 @@ describe('D3b · tipos de la web pública: catálogo común, sólo los publicado
     expect(orderPropertyTypes(['Penthouse', null, 'Apartment', 'Penthouse', '', 'loft antiguo', 'Villa'])).toEqual(['Apartment', 'Villa', 'Penthouse', 'loft antiguo'])
   })
 
+  it('Constructor Web: «Tipo de propiedad» ofrece TODO el catálogo en castellano con su recuento, no sólo los tipos que ya tienen propiedades', async () => {
+    const { propertyTypeOptions, PROPERTY_TYPES, PROPERTY_TYPE_LABELS } = await import('../../utils/propertySheet')
+    const options = propertyTypeOptions(['Penthouse', null, 'Apartment', 'Penthouse', '', 'loft antiguo', 'Villa', 'House'])
+    // Los 15 del catálogo, en su orden, y al final el valor antiguo tal cual.
+    expect(options.map((o) => o.value)).toEqual([...PROPERTY_TYPES, 'loft antiguo'])
+    expect(options.find((o) => o.value === 'Penthouse')).toEqual({ value: 'Penthouse', label: 'Ático (2)', count: 2 })
+    expect(options.find((o) => o.value === 'Apartment')!.label).toBe('Piso (1)')
+    expect(options.find((o) => o.value === 'Garage')).toEqual({ value: 'Garage', label: 'Garaje (0)', count: 0 })
+    expect(options.find((o) => o.value === 'loft antiguo')!.label).toBe('loft antiguo (1)')
+    // Sin propiedades, el catálogo entero igualmente.
+    expect(propertyTypeOptions([]).map((o) => o.label)).toEqual(PROPERTY_TYPES.map((t) => `${PROPERTY_TYPE_LABELS[t]} (0)`))
+  })
+
   it('facets=types: sólo los tipos de la agencia del host, de propiedades vivas, y sin encoger con los filtros', async () => {
     const { db } = createTestDb()
     const a = await seedTenant(db, 'D3bTiposA')

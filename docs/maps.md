@@ -7,11 +7,48 @@ de una propiedad, y el bloque "Mapa (teaser)" del Constructor Web.
 
 ## Proveedor
 
-**Leaflet** (`leaflet` + `leaflet.markercluster`), con tiles de **CartoDB**
-(plano/oscuro) y **Esri/ArcGIS Online** (satélite). Es el único proveedor de
-mapas del proyecto — no hay Google Maps ni Mapbox en ningún sitio. Cambiar de
-proveedor es una decisión de negocio (coste, licencia, cobertura), nunca un
-detalle de implementación: no lo cambies sin un motivo documentado aquí.
+**Leaflet** (`leaflet` + `leaflet.markercluster`). Es el único motor de mapas
+del proyecto: no hay Google Maps ni Mapbox en ningún sitio. Las capas base
+salen de `utils/maps/tiles.ts` (`tileSpec`), el único sitio con URLs y
+atribuciones:
+
+| Capa | Con `CARTO_BASEMAPS_KEY` | Sin clave |
+|---|---|---|
+| Plano | CARTO Positron (`light_all`) | OpenStreetMap |
+| Oscuro | CARTO Dark Matter (`dark_all`) | OpenStreetMap invertido por CSS (`.pi-tiles-dark`) |
+| Satélite | Esri World Imagery | Esri World Imagery |
+
+Cambiar de proveedor es una decisión de negocio (coste, licencia, cobertura),
+nunca un detalle de implementación: no lo cambies sin un motivo documentado
+aquí.
+
+### Por qué hay una clave de CARTO (oct-2026)
+
+Desde el 25-sep-2026 CARTO sólo sirve sus mapas base con clave. Sin ella
+responde 200 con una tesela que dice «API KEY REQUIRED ·
+carto.com/basemaps/apikey» en lugar del mapa: los marcadores se ven, el fondo
+no. Una clave inválida, o usada desde un dominio que la clave no admite,
+produce lo mismo.
+
+- **La clave se pide en <https://carto.com/basemaps/apikey>**: sin cuenta,
+  llega por email. Es gratuita para uso comercial hasta 1M de teselas al mes
+  (de pago a partir de ahí). Si se restringe por dominios, hay que incluir
+  todos los de la plataforma, también los dominios propios de cada agencia.
+- **Dónde va:** variable del Worker `CARTO_BASEMAPS_KEY`. Si se pone en el
+  panel de Cloudflare, mejor como secreto (`wrangler secret put
+  CARTO_BASEMAPS_KEY`), porque los secretos sobreviven a cada despliegue y
+  las variables puestas a mano no. También vale en `[vars]` de
+  `wrangler.toml`.
+- **Cómo llega al navegador:** `plugins/map-tiles.ts` la lee del entorno al
+  renderizar en el servidor y la pasa en el payload de la página. Es una
+  clave pública: CARTO la exige en cada URL de tesela.
+- **Sin clave:** OpenStreetMap (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`),
+  con «© OpenStreetMap» visible. Su política
+  (<https://operations.osmfoundation.org/policies/tiles/>) admite el uso
+  normal de una web con atribución y el Referer del navegador, pero no da
+  garantías ni admite un uso intensivo. Es el respaldo para que el mapa
+  nunca sea la tesela de aviso; para producción, la clave de CARTO.
+- La CSP (`img-src`) admite los orígenes de `TILE_ORIGINS`.
 
 ## La base compartida
 
@@ -29,8 +66,9 @@ el mismo comentario) en cada componente de mapa:
   cuando pasa a tener una caja real — justo cuando hace falta. Es la causa
   raíz nº1 de la auditoría de mapas (2026-09): la práctica totalidad de
   "el mapa sale gris/mal encajado" reportados venía de aquí.
-- **`TILE_URLS` / `createTileLayer(key)`** — las tres capas base (`light`,
-  `dark`, `satellite`) en un único sitio, con sus atribuciones correctas.
+- **`createTileLayer(key)`** — las tres capas base (`light`, `dark`,
+  `satellite`), con la URL y la atribución que dé `tileSpec` (ver
+  «Proveedor»).
 
 `utils/maps/coords.ts` es la segunda pieza — validación de coordenadas, con
 importación explícita porque cruza la frontera servidor/cliente (Nitro no
@@ -141,9 +179,12 @@ republicar.
 
 ## Qué NO hacer
 
-- No hardcodear una API key de mapas en ningún componente — CartoDB/Esri no
-  la requieren para este volumen de tráfico; si algún día hace falta una,
-  vive en variables de entorno del Worker, nunca en el bundle del cliente.
+- No escribir una clave de mapas en ningún componente ni en el código: la de
+  CARTO vive en la variable del Worker `CARTO_BASEMAPS_KEY` y llega al
+  navegador sólo por el payload (`plugins/map-tiles.ts`).
+- No volver a poner una URL de CARTO sin `?key=`: sin clave, CARTO sirve la
+  tesela «API KEY REQUIRED» con un 200, y nada falla de forma visible salvo
+  el propio mapa.
 - No usar `(0,0)` como centro por defecto para "sin ubicación" — usa el
   centro de fallback del mercado correspondiente (Madrid en el editor de
   admin, Dubái en `/mapa` — son valores de negocio distintos a propósito,
