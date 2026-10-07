@@ -106,7 +106,8 @@ describe('sendTransactionalEmail — simulated successful provider', () => {
     await db.update(schema.organizations).set({ emailSenderName: 'Custom Agency', emailSenderAddress: 'hello@customagency.example', emailReplyTo: 'support@customagency.example' }).where(eq(schema.organizations.id, a.orgId))
 
     const send = async () => {
-      const [result] = await sendTransactionalEmail(db, { RESEND_API_KEY: 'k' }, { organizationId: a.orgId, template: 'lead_created', to: 'client@example.com', data: { name: 'X' } })
+      // Un email de la agencia a SU cliente (los avisos internos al equipo son de Portal INMO).
+      const [result] = await sendTransactionalEmail(db, { RESEND_API_KEY: 'k' }, { organizationId: a.orgId, template: 'appointment_created', to: 'client@example.com', data: { name: 'X' } })
       return (await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, result!.logId)))[0]
     }
     // Sin verificar: nunca su dirección (Resend la rechazaría; sería suplantar un dominio no probado).
@@ -120,15 +121,15 @@ describe('sendTransactionalEmail — simulated successful provider', () => {
     expect(after.replyTo).toBe('support@customagency.example')
   })
 
-  it('account emails (welcome, password reset) always come from the platform sender, even with a verified company domain', async () => {
+  it('Portal INMO\'s own emails (account, internal notices) always come from the platform sender, even with a verified company domain', async () => {
     stubSuccessfulResend()
     const { db } = createTestDb()
     const a = await seedTenant(db, 'EmailAccount')
     await db.update(schema.organizations).set({ emailSenderName: 'Custom Agency', emailSenderAddress: 'hello@customagency.example', emailSenderDomainVerified: 1 }).where(eq(schema.organizations.id, a.orgId))
-    for (const template of ['user_welcome', 'password_reset'] as const) {
+    for (const template of ['user_welcome', 'password_reset', 'lead_created'] as const) {
       const [result] = await sendTransactionalEmail(db, { RESEND_API_KEY: 'k' }, { organizationId: a.orgId, template, to: 'newuser@example.com', data: { name: 'X', email: 'newuser@example.com' } })
       const [row] = await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, result!.logId))
-      expect(row.fromHeader).toBe('INMO <info@serendipiaagency.com>')
+      expect(row.fromHeader).toBe('Portal INMO <info@serendipiaagency.com>')
     }
   })
 

@@ -5,12 +5,13 @@ enviado, depósito recibido…) genera un email real, registrado y separado por
 organización. Este documento cubre cómo funciona, la configuración manual en
 Resend/Cloudflare, y los 14 disparadores implementados.
 
-> **Email de plataforma.** Lo que INMO envía a las propias empresas y al
-> super admin (bienvenida del registro, invitación al administrador, avisos de
-> alta y de cambio de estado) usa el mismo `email_log`, cola y proveedor, pero
-> sale SIEMPRE del remitente central `INMO <info@serendipiaagency.com>`, no de
-> la identidad de cada empresa. Configuración y verificación del dominio en
-> Resend: [docs/empresas.md](empresas.md#email-de-plataforma).
+> **Emails propios de Portal INMO.** Lo que la plataforma envía en su nombre
+> (alta y estado de empresas, invitaciones, cuenta de usuario, avisos de la web
+> y avisos internos al equipo de cada agencia) usa el mismo `email_log`, cola y
+> proveedor, pero sale SIEMPRE del remitente central
+> `Portal INMO <info@serendipiaagency.com>` y con la **plantilla maestra**
+> (`master.ts`): ver [docs/email.md](email.md). Configuración y verificación
+> del dominio en Resend: [docs/empresas.md](empresas.md#email-de-plataforma).
 
 ## Arquitectura
 
@@ -20,7 +21,10 @@ Resend/Cloudflare, y los 14 disparadores implementados.
   que ya existía y se ha migrado al mismo sistema). Cada una declara su
   `kind` (`transactional` | `commercial`), a quién va dirigida
   (`client` | `internal` | `user`) y genera asunto + cuerpo en `es`/`en`.
-- **`layout.ts`** — la plantilla HTML responsiva compartida (tablas + estilos
+- **`master.ts`** — la plantilla maestra de Portal INMO (emails propios de la
+  plataforma). **`render.ts`** decide, por template, si un email es propio de
+  Portal INMO (`master`) o de la agencia a sus clientes (`body` + `layout.ts`).
+- **`layout.ts`** — la plantilla HTML responsiva de los emails de cada agencia a sus clientes (tablas + estilos
   en línea, lo único que los clientes de correo reales renderizan de forma
   consistente) con la marca de cada organización (logo/color/nombre) y un
   pie que distingue estructuralmente transaccional de comercial: solo el

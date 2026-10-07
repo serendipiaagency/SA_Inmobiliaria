@@ -7,6 +7,7 @@ import { logAdminAction } from '../audit'
 import { getRequestId } from '../requestId'
 import { describeUserCreation } from '../sensitiveAudit'
 import { platformAdminRecipients, sendPlatformEmail, summarizeEmailResults, type PlatformEmailResult } from '../email/platform'
+import { platformBaseUrl } from '../email/links'
 import { STATUS_LABELS, decideOrganizationAccess, type OrganizationStatus } from './access'
 import { PASSWORD_MIN_LENGTH, ProvisioningError, provisionOrganization, type ProvisionedOrganization } from './provisioning'
 
@@ -24,13 +25,6 @@ import { PASSWORD_MIN_LENGTH, ProvisioningError, provisionOrganization, type Pro
 
 export type EmailDelivery = ReturnType<typeof summarizeEmailResults>
 
-const HTTPS_ORIGIN_RE = /^https?:\/\/[^/\s]+$/i
-
-/** Origen público de la plataforma para los enlaces de los emails. */
-export function platformBaseUrl(event: H3Event): string {
-  const configured = String((cfEnv(event) as Record<string, any>).PLATFORM_BASE_URL || '').trim().replace(/\/+$/, '')
-  return HTTPS_ORIGIN_RE.test(configured) ? configured : getRequestURL(event).origin
-}
 
 /** Respuesta de error de validación del alta: campo + paso del asistente + mensaje. */
 export function provisioningErrorResponse(event: H3Event, e: ProvisioningError) {

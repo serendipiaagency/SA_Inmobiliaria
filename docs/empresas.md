@@ -156,12 +156,13 @@ Nunca aparecen contraseñas, hashes ni tokens.
 
 ## Email de plataforma
 
-Es lo que INMO envía a las empresas y al super admin sobre el alta y el estado
-de las empresas. Es distinto del email de cada empresa a SUS clientes, que sale
+Es lo que Portal INMO envía a las empresas y al super admin sobre el alta y el
+estado de las empresas. Todos estos emails usan la **plantilla maestra** de
+Portal INMO (`docs/email.md`). Es distinto del email de cada empresa a SUS clientes, que sale
 con su propia identidad (`resolveOrgEmailIdentity`, ver `docs/resend-email.md`).
 
-- **Remitente central:** `INMO <info@serendipiaagency.com>`. Ningún template
-  lo lleva escrito: sale de `platformEmailConfig()`.
+- **Remitente central:** `Portal INMO <info@serendipiaagency.com>`. Ningún
+  template lo lleva escrito: sale de `platformEmailConfig()`.
 - **Responder-a:** independiente del remitente.
 - **Templates:**
   - activos: `company_registration_welcome`, `admin_company_registered`,
@@ -183,14 +184,13 @@ con su propia identidad (`resolveOrgEmailIdentity`, ver `docs/resend-email.md`).
 
 | Email | Remitente |
 |---|---|
-| Alta y estado de empresas (`company_*`, `admin_company_*`), bienvenida e invitación | **INMO <info@serendipiaagency.com>** (`platform.ts`) |
-| Cuenta: bienvenida de usuario (`user_welcome`), recuperar contraseña (`password_reset`), avisos técnicos del dominio web (`domain_check_*`) | **INMO <info@serendipiaagency.com>** siempre (`SYSTEM_SENDER_TEMPLATES` en `orgSender.ts`), con la marca de la empresa en el cuerpo |
-| Todo lo que la empresa envía a SUS clientes y a SU equipo (leads, citas, contratos, depósitos, avisos internos…) | **El remitente de la empresa** (abajo) |
+| Alta y estado de empresas (`company_*`, `admin_company_*`), bienvenida e invitación | **Portal INMO <info@serendipiaagency.com>** (`platform.ts`), plantilla maestra |
+| Cuenta (`user_welcome`, `password_reset`), avisos de la web (`domain_check_*`) y avisos internos al equipo (`lead_created`, `contact_message`, `complaint`, `contract_accepted`, `whatsapp_message_received`) | **Portal INMO <info@serendipiaagency.com>** siempre (`isPortalInmoTemplate` en `render.ts`), plantilla maestra |
+| Lo que la empresa envía a SUS clientes (citas, contratos, depósitos, cobros, alertas, respuestas) | **El remitente de la empresa** (abajo), con su marca |
 
 ## Remitente propio de cada empresa
 
-Cada empresa puede enviar a sus clientes y a su equipo desde **su propia
-dirección**. El código está en `server/utils/email/orgSender.ts` y la pantalla
+Cada empresa puede enviar a sus clientes desde **su propia dirección**. El código está en `server/utils/email/orgSender.ts` y la pantalla
 en `components/admin/email/OrgEmailSenderPanel.vue`. La configura su
 administrador en **Sistema → Emails**; el super admin, desde Empresas → ficha →
 Email.

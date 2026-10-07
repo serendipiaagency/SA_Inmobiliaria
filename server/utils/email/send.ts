@@ -1,9 +1,10 @@
 import { eq } from 'drizzle-orm'
 import * as schema from '../../db/schema'
-import { htmlToText, renderEmailLayout, type EmailLocale } from './layout'
+import { htmlToText, type EmailLocale } from './layout'
 import { TEMPLATES, type TemplateKey } from './templates'
 import { callResendApi } from './resendClient'
-import { SYSTEM_SENDER_TEMPLATES, resolveEffectiveOrgSender } from './orgSender'
+import { resolveEffectiveOrgSender } from './orgSender'
+import { isPortalInmoTemplate, recipientNames, renderTemplateEmail } from './render'
 import { platformEmailConfig } from './platformConfig'
 import { DEMO_BLOCKED_MESSAGE, isDemoOrg } from '../demo/tenant'
 
@@ -97,10 +98,13 @@ export interface SendTransactionalEmailResult {
  */
 export async function sendTransactionalEmail(db: any, env: Record<string, any>, opts: SendTransactionalEmailOpts): Promise<SendTransactionalEmailResult[]> {
   const identity = await resolveOrgEmailIdentity(db, env, opts.organizationId)
-  // Cuenta y avisos del sistema (bienvenida, recuperar contraseña…): siempre
-  // desde el remitente de la plataforma, con la marca de la empresa en el cuerpo.
-  if (SYSTEM_SENDER_TEMPLATES.has(opts.template)) {
-    const platform = platformEmailConfig(env)
+  const platform = platformEmailConfig(env)
+  // Emails propios de Portal INMO (cuenta, avisos del sistema y notificaciones
+  // al equipo): remitente de la plataforma y plantilla maestra, aunque la
+  // empresa tenga su propio dominio. Lo que la empresa manda a SUS clientes
+  // sale con su identidad (resolveOrgEmailIdentity).
+  const portal = isPortalInmoTemplate(opts.template)
+  if (portal) {
     identity.fromHeader = platform.fromHeader
     identity.replyTo = platform.replyTo
   }
@@ -108,20 +112,16 @@ export async function sendTransactionalEmail(db: any, env: Record<string, any>, 
   const template = TEMPLATES[opts.template]
   const locale = opts.locale || identity.locale
   const recipients = (Array.isArray(opts.to) ? opts.to : [opts.to]).filter(Boolean)
-
-  const subject = template.subject(opts.data, locale)
-  const bodyHtml = template.body(opts.data, locale)
-  const html = renderEmailLayout({
-    branding: identity.branding,
-    locale,
-    title: subject,
-    bodyHtml,
-    kind: template.kind,
-    unsubscribeUrl: template.kind === 'commercial' ? opts.unsubscribeUrl : null,
-  })
+  const names = portal ? await recipientNames(db, recipients) : new Map<string, string>()
 
   const results: SendTransactionalEmailResult[] = []
   for (const recipient of recipients) {
+    const { subject, html } = renderTemplateEmail(opts.template, opts.data, locale, {
+      branding: identity.branding,
+      contactEmail: platform.contactAddress,
+      recipientName: names.get(recipient.toLowerCase()) ?? null,
+      unsubscribeUrl: opts.unsubscribeUrl,
+    })
     const createdAt = nowIso()
     const [logRow] = await db
       .insert(schema.emailLog)

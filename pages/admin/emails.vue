@@ -20,6 +20,9 @@
          clientes y equipo, y la verificación de su dominio. -->
     <AdminEmailOrgEmailSenderPanel :can-edit="canEdit" class="mb-8" />
 
+    <!-- Plantilla maestra de los emails de Portal INMO (sólo super admin). -->
+    <AdminEmailPortalEmailPreview v-if="isSuperAdmin" class="mb-8" />
+
     <h2 class="mb-3 text-lg font-semibold tracking-tight">Historial de envíos</h2>
     <div v-if="!rows.length" class="rounded-xl border border-dashed border-line px-6 py-10 text-center text-sm text-stone-500">Sin envíos todavía.</div>
 
@@ -61,7 +64,7 @@
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Emails — M&M Real Estate' })
 const dt = useDash()
-const { canWrite } = useAdminPermissions()
+const { canWrite, isSuperAdmin } = useAdminPermissions()
 const canEdit = computed(() => canWrite('system'))
 
 const { data } = await useFetch<any[]>('/api/admin/saas/email-log')

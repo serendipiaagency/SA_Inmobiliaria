@@ -1,23 +1,25 @@
 import { and, eq } from 'drizzle-orm'
 import * as schema from '../../db/schema'
-import { renderEmailLayout, type EmailLocale } from './layout'
-import { TEMPLATES, type TemplateKey } from './templates'
+import type { EmailLocale } from './layout'
+import type { TemplateKey } from './templates'
+import { recipientNames, renderTemplateEmail } from './render'
 import { attemptSend } from './send'
 import { EMAIL_RE, clean, platformEmailConfig } from './platformConfig'
 
 export { PLATFORM_EMAIL_DEFAULTS, platformEmailConfig, type PlatformEmailConfig } from './platformConfig'
 
 /**
- * Email de PLATAFORMA: lo que INMO (la plataforma) envía a las empresas y al
+ * Email de PLATAFORMA: lo que Portal INMO envía a las empresas y al
  * super admin sobre el alta y el estado de las empresas. Es distinto del
  * email de cada empresa (server/utils/email/send.ts → resolveOrgEmailIdentity),
  * que sale con la identidad que cada inmobiliaria configura para sus clientes.
  *
  * Remitente corporativo CENTRAL — ningún template lo lleva escrito:
  *
- *   PLATFORM_EMAIL_FROM_NAME     (por defecto "INMO")
+ *   PLATFORM_EMAIL_FROM_NAME     (por defecto "Portal INMO")
  *   PLATFORM_EMAIL_FROM_ADDRESS  (por defecto "info@serendipiaagency.com")
  *   PLATFORM_EMAIL_REPLY_TO      (por defecto, la misma dirección; independiente del FROM)
+ *   PLATFORM_EMAIL_CONTACT       (el correo del bloque «¿Hablamos?»; por defecto info@serendipiaagency.com)
  *   PLATFORM_ADMIN_NOTIFY_EMAILS (destinatarios del super admin, separados por comas;
  *                                 si no se define, los usuarios con rol super_admin)
  *
@@ -84,21 +86,18 @@ export interface SendPlatformEmailOpts {
 
 export async function sendPlatformEmail(db: any, env: Record<string, any>, opts: SendPlatformEmailOpts): Promise<PlatformEmailResult[]> {
   const config = platformEmailConfig(env)
-  const template = TEMPLATES[opts.template]
   const locale = opts.locale || 'es'
   const recipients = [...new Set((Array.isArray(opts.to) ? opts.to : [opts.to]).map((r) => clean(r).toLowerCase()).filter((r) => EMAIL_RE.test(r)))]
-
-  const subject = template.subject(opts.data, locale)
-  const html = renderEmailLayout({
-    branding: { companyName: config.fromName, logo: null, brandColor: '#111827' },
-    locale,
-    title: subject,
-    bodyHtml: template.body(opts.data, locale),
-    kind: 'transactional',
-  })
+  const names = await recipientNames(db, recipients)
 
   const results: PlatformEmailResult[] = []
   for (const recipient of recipients) {
+    // Plantilla maestra de Portal INMO; el saludo lleva el nombre de la cuenta si la hay.
+    const { subject, html } = renderTemplateEmail(opts.template, opts.data, locale, {
+      branding: { companyName: config.fromName },
+      contactEmail: config.contactAddress,
+      recipientName: names.get(recipient) ?? null,
+    })
     if (opts.once) {
       const [prev] = await db
         .select({ id: schema.emailLog.id })

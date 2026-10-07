@@ -1,6 +1,7 @@
 import { requireOrgScope } from '../../../utils/auth'
 import { now } from '../../../utils/db'
 import { handleOrgSenderWrite } from '../../../utils/email/orgSenderHttp'
+import { handleEmailPreviewSend } from '../../../utils/email/previewHttp'
 import { normalizeCurrency } from '../../../../utils/currency'
 
 const ALLOWED = ['company_name', 'currency', 'locale', 'timezone', 'brand_color', 'notify_email', 'weekly_report']
@@ -16,6 +17,8 @@ export default defineEventHandler(async (event) => {
   // Remitente de los emails de la empresa (Sistema → Emails): no es un ajuste
   // clave/valor, va a sus columnas de `organizations` y a Resend.
   if (body?.section === 'email-sender') return handleOrgSenderWrite(event, body)
+  // Envío de prueba de una plantilla de Portal INMO al correo del propio super admin.
+  if (body?.section === 'email-preview') return handleEmailPreviewSend(event, body)
   const { orgId } = await requireOrgScope(event)
   // La moneda es la de los importes de toda la agencia (utils/currency.ts):
   // sólo un código que la plataforma sabe pintar y convertir, normalizado.

@@ -4,11 +4,12 @@ import * as schema from '../../server/db/schema'
 import { PLATFORM_EMAIL_DEFAULTS, PLATFORM_TEMPLATES, platformAdminRecipients, platformEmailConfig, sendPlatformEmail, summarizeEmailResults } from '../../server/utils/email/platform'
 import { TEMPLATES } from '../../server/utils/email/templates'
 import { htmlToText } from '../../server/utils/email/layout'
+import { renderTemplateEmail } from '../../server/utils/email/render'
 import { createTestDb, seedTenant, type TenantFixture } from './helpers/tenantFixtures'
 
 /**
  * Email de PLATAFORMA (alta y estado de empresas): sale siempre con el
- * remitente corporativo central `INMO <info@serendipiaagency.com>` — nunca
+ * remitente corporativo central `Portal INMO <info@serendipiaagency.com>` — nunca
  * con la identidad que cada empresa configura para sus clientes —, deja
  * rastro en email_log, no se repite si se pide `once`, y un fallo del
  * proveedor no se disfraza de envío.
@@ -40,15 +41,16 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('platformEmailConfig', () => {
-  it('por defecto: INMO <info@serendipiaagency.com>, y responder-a la misma dirección', () => {
-    expect(PLATFORM_EMAIL_DEFAULTS).toEqual({ fromName: 'INMO', fromAddress: 'info@serendipiaagency.com' })
-    expect(platformEmailConfig({})).toEqual({ fromName: 'INMO', fromAddress: 'info@serendipiaagency.com', fromHeader: 'INMO <info@serendipiaagency.com>', replyTo: 'info@serendipiaagency.com' })
+  it('por defecto: Portal INMO <info@serendipiaagency.com>, y responder-a y contacto la misma dirección', () => {
+    expect(PLATFORM_EMAIL_DEFAULTS).toEqual({ fromName: 'Portal INMO', fromAddress: 'info@serendipiaagency.com', contactAddress: 'info@serendipiaagency.com' })
+    expect(platformEmailConfig({})).toEqual({ fromName: 'Portal INMO', fromAddress: 'info@serendipiaagency.com', fromHeader: 'Portal INMO <info@serendipiaagency.com>', replyTo: 'info@serendipiaagency.com', contactAddress: 'info@serendipiaagency.com' })
   })
 
   it('el responder-a se configura aparte, sin tocar el remitente', () => {
     const c = platformEmailConfig({ PLATFORM_EMAIL_REPLY_TO: 'soporte@serendipiaagency.com' })
-    expect(c.fromHeader).toBe('INMO <info@serendipiaagency.com>')
+    expect(c.fromHeader).toBe('Portal INMO <info@serendipiaagency.com>')
     expect(c.replyTo).toBe('soporte@serendipiaagency.com')
+    expect(c.contactAddress).toBe('info@serendipiaagency.com')
   })
 
   it('un valor configurado mal formado no se usa: se queda el remitente corporativo', () => {
@@ -59,7 +61,7 @@ describe('platformEmailConfig', () => {
 })
 
 describe('sendPlatformEmail', () => {
-  it('TODOS los templates de plataforma salen de INMO <info@serendipiaagency.com>, nunca con la identidad de la empresa', async () => {
+  it('TODOS los templates de plataforma salen de Portal INMO <info@serendipiaagency.com>, nunca con la identidad de la empresa', async () => {
     stubResend()
     const data = { companyName: 'Empresa Propia', name: 'Ana', email: 'ana@empresa-propia.es', loginUrl: 'https://inmo.test/admin/login', setPasswordUrl: 'https://inmo.test/reset-password/tok', adminUrl: 'https://inmo.test/admin/organizations/1', previousStatus: 'Activa', newStatus: 'Suspendida', registeredAt: '2026-10-02 10:00:00', source: 'Registro web', accessStatus: 'Activa' }
     for (const template of PLATFORM_TEMPLATES) {
@@ -68,20 +70,20 @@ describe('sendPlatformEmail', () => {
     }
     expect(sent).toHaveLength(PLATFORM_TEMPLATES.length)
     for (const body of sent) {
-      expect(body.from).toBe('INMO <info@serendipiaagency.com>')
+      expect(body.from).toBe('Portal INMO <info@serendipiaagency.com>')
       expect(body.reply_to).toBe('info@serendipiaagency.com')
       expect(body.from).not.toContain('empresa-propia')
       expect(body.text).toBeTruthy() // versión de texto plano
     }
     const rows = await db.select().from(schema.emailLog).where(eq(schema.emailLog.organizationId, org.orgId))
     expect(rows).toHaveLength(PLATFORM_TEMPLATES.length)
-    expect(rows.every((r: any) => r.fromHeader === 'INMO <info@serendipiaagency.com>' && r.status === 'sent' && r.kind === 'transactional')).toBe(true)
+    expect(rows.every((r: any) => r.fromHeader === 'Portal INMO <info@serendipiaagency.com>' && r.status === 'sent' && r.kind === 'transactional')).toBe(true)
   })
 
   it('ningún template de plataforma imprime una contraseña aunque llegue en los datos', () => {
     for (const template of PLATFORM_TEMPLATES) {
       const data = { companyName: 'X', name: 'Y', email: 'y@x.es', password: 'Contraseña-Secreta-123', passwordHash: 'pbkdf2$1$abc$def' }
-      const html = TEMPLATES[template].body(data, 'es') + TEMPLATES[template].subject(data, 'es')
+      const html = renderTemplateEmail(template, data, 'es', { branding: { companyName: 'X' }, contactEmail: 'info@serendipiaagency.com' }).html + TEMPLATES[template].subject(data, 'es')
       expect(html).not.toContain('Contraseña-Secreta-123')
       expect(html).not.toContain('pbkdf2$')
     }
@@ -115,7 +117,7 @@ describe('sendPlatformEmail', () => {
     expect(summarizeEmailResults(results)).toBe('queued')
     const [row] = await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, results[0]!.logId!))
     expect(row.status).toBe('queued')
-    expect(row.fromHeader).toBe('INMO <info@serendipiaagency.com>') // no se cambia el remitente para «arreglarlo»
+    expect(row.fromHeader).toBe('Portal INMO <info@serendipiaagency.com>') // no se cambia el remitente para «arreglarlo»
     expect(row.errorMessage).toContain('not verified')
   })
 

@@ -7,6 +7,7 @@ import { buildStructuredKey } from '../../../../utils/media'
 import { registerGeneratedFile } from '../../../../utils/mediaAssets'
 import { assertQuotaAvailable } from '../../../../utils/mediaQuota'
 import { sendInternalNotification } from '../../../../utils/email/send'
+import { platformBaseUrl } from '../../../../utils/email/links'
 import { getRequestId } from '../../../../utils/requestId'
 
 interface Body {
@@ -86,7 +87,7 @@ export default defineEventHandler(async (event) => {
   await dispatchWebhook(event, contract.organizationId, 'contract.accepted', { id: contract.id, title: contract.title, clientName: contract.clientName, acceptedAt })
 
   try {
-    await sendInternalNotification(db, cfEnv(event), contract.organizationId, 'contract_accepted', { title: contract.title, clientName: contract.clientName, acceptedAt }, getRequestId(event))
+    await sendInternalNotification(db, cfEnv(event), contract.organizationId, 'contract_accepted', { title: contract.title, clientName: contract.clientName, acceptedAt, adminUrl: `${platformBaseUrl(event)}/admin/contratos` }, getRequestId(event))
   } catch {
     // The acceptance is already saved — a notification failure must never undo that.
   }

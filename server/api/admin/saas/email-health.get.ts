@@ -3,6 +3,7 @@ import { requireOrgScope } from '../../../utils/auth'
 import { cfEnv, useDb, schema } from '../../../utils/db'
 import { EMAIL_HEALTH_WINDOW_DAYS, summarizeEmailHealth } from '../../../utils/email/health'
 import { handleOrgSenderView } from '../../../utils/email/orgSenderHttp'
+import { handleEmailPreview } from '../../../utils/email/previewHttp'
 
 /**
  * GET /api/admin/saas/email-health — estado real del canal de email de esta
@@ -20,6 +21,8 @@ const MAX_ROWS = 1000
 export default defineEventHandler(async (event) => {
   // Remitente de la empresa y verificación de su dominio (Sistema → Emails).
   if (getQuery(event).view === 'sender') return handleOrgSenderView(event)
+  // Vista previa de la plantilla maestra de Portal INMO (sólo super admin; no envía nada).
+  if (getQuery(event).view === 'preview') return handleEmailPreview(event)
   const { orgId } = await requireOrgScope(event)
   const db = useDb(event)
 

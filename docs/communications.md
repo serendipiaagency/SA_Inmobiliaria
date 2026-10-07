@@ -557,8 +557,9 @@ los que la bandeja envía email (`replyToWebThread()`, plantilla
    truncado a 20 caracteres hexadecimales (80 bits; hexadecimal porque las
    direcciones de email no distinguen mayúsculas de forma fiable). **Sólo
    cambia el Reply-To**: el remitente (From) sigue siendo el de siempre
-   (`INMO <info@serendipiaagency.com>` con el nombre de la agencia, o su
-   dominio verificado — `server/utils/email/orgSender.ts`); nunca se envía como
+   (el nombre de la agencia con la dirección de la plataforma,
+   `Agencia <info@serendipiaagency.com>`, o su dominio verificado —
+   `server/utils/email/orgSender.ts`); nunca se envía como
    otra dirección. La dirección queda en `email_log.reply_to`, así que un
    reintento de la cola sale con la misma. **Sin las dos variables (o con un
    secreto de menos de 32 caracteres) no cambia nada**: el Reply-To es el de la

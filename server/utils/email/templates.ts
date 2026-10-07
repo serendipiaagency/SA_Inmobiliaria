@@ -1,4 +1,5 @@
 import { emailButton, emailHeading, emailInfoTable, emailParagraph, escapeHtml, type EmailLocale } from './layout'
+import type { MasterEmailContent } from './master'
 
 export type TemplateKey =
   | 'lead_created'
@@ -32,13 +33,25 @@ export type TemplateKey =
   | 'company_pending'
   | 'company_admin_invite'
 
-export interface TemplateDef {
+interface TemplateBase {
   kind: 'transactional' | 'commercial'
   /** Recipients this template is meant for — informational, not enforced. */
   audience: 'client' | 'internal' | 'user'
   subject: (data: any, locale: EmailLocale) => string
-  body: (data: any, locale: EmailLocale) => string
 }
+
+/**
+ * Dos familias, una sola por template:
+ *
+ *  - `master`: email PROPIO de Portal INMO (alta y estado de empresas, cuenta
+ *    de usuario, avisos del sistema y notificaciones al equipo de cada
+ *    inmobiliaria). Sólo aporta el contenido; la presentación es la plantilla
+ *    maestra (master.ts) y el remitente, el de la plataforma.
+ *  - `body`: email que la inmobiliaria manda a SUS clientes (citas, contratos,
+ *    cobros, alertas, respuestas). Lleva su identidad y su marca (layout.ts).
+ */
+export type TemplateDef = TemplateBase &
+  ({ master: (data: any, locale: EmailLocale) => MasterEmailContent; body?: never } | { body: (data: any, locale: EmailLocale) => string; master?: never })
 
 /**
  * Importe de un cobro con SU moneda (`d.currency`, la del depósito de Stripe):
@@ -55,48 +68,71 @@ const money = (n: number | null | undefined, locale: EmailLocale, currency?: str
   }
 }
 
+const en = (l: EmailLocale) => l === 'en'
+/** Antetítulos de la plantilla maestra (se pintan en mayúsculas). */
+const EYEBROW = {
+  activity: (l: EmailLocale) => (en(l) ? 'Connected to your activity' : 'Conectados con tu actividad'),
+  platform: (l: EmailLocale) => (en(l) ? 'New activity in Portal INMO' : 'Nueva actividad en Portal INMO'),
+  company: (l: EmailLocale) => (en(l) ? 'Your company' : 'Estado de tu empresa'),
+  security: (l: EmailLocale) => (en(l) ? 'Your account security' : 'Seguridad de tu cuenta'),
+  website: (l: EmailLocale) => (en(l) ? 'Your website' : 'Estado de tu web'),
+}
+const ACTIVITY_LINE = (l: EmailLocale) => (en(l) ? 'You will find everything related to your activity in Portal INMO.' : 'Aquí encontrarás la información relacionada con tu actividad en Portal INMO.')
+const GO_PLATFORM = (l: EmailLocale) => (en(l) ? 'Go to the platform' : 'Acceder a la plataforma')
+const GO_ACCOUNT = (l: EmailLocale) => (en(l) ? 'Go to my account' : 'Acceder a mi cuenta')
+const cta = (label: string, url: unknown) => (typeof url === 'string' && /^https?:\/\//i.test(url) ? { label, url } : null)
+
 export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
   lead_created: {
     kind: 'transactional',
     audience: 'internal',
-    subject: (d, l) => (l === 'en' ? `New lead: ${d.name}` : `Nuevo lead: ${d.name}`),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? 'New lead' : 'Nuevo lead') +
-      emailParagraph(l === 'en' ? 'A new prospect just reached out.' : 'Un nuevo posible cliente acaba de contactar.') +
-      emailInfoTable([
-        [l === 'en' ? 'Name' : 'Nombre', d.name || '—'],
-        ['Email', d.email || '—'],
-        [l === 'en' ? 'Source' : 'Origen', d.source || '—'],
-        ...(d.propertyName ? [[l === 'en' ? 'Property' : 'Propiedad', d.propertyName] as [string, string]] : []),
-      ]),
+    subject: (d, l) => (en(l) ? `New lead: ${d.name}` : `Nuevo lead: ${d.name}`),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.activity(l),
+      title: en(l) ? 'You have a\nnew lead' : 'Tienes un\nnuevo lead',
+      paragraphs: [en(l) ? 'A new prospect just reached out.' : 'Un nuevo posible cliente acaba de contactar.'],
+      details: [
+        [en(l) ? 'Name' : 'Nombre', d.name],
+        ['Email', d.email],
+        [en(l) ? 'Source' : 'Origen', d.source],
+        [en(l) ? 'Property' : 'Propiedad', d.propertyName],
+      ],
+      cta: cta(GO_PLATFORM(l), d.adminUrl),
+    }),
   },
 
   contact_message: {
     kind: 'transactional',
     audience: 'internal',
-    subject: (d, l) => (l === 'en' ? `New message: ${d.subject || d.name}` : `Nuevo mensaje: ${d.subject || d.name}`),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? 'New contact message' : 'Nuevo mensaje de contacto') +
-      emailInfoTable([
-        [l === 'en' ? 'Name' : 'Nombre', d.name || '—'],
-        ['Email', d.email || '—'],
-        ...(d.phone ? [[l === 'en' ? 'Phone' : 'Teléfono', d.phone] as [string, string]] : []),
-      ]) +
-      emailParagraph(d.message || ''),
+    subject: (d, l) => (en(l) ? `New message: ${d.subject || d.name}` : `Nuevo mensaje: ${d.subject || d.name}`),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.activity(l),
+      title: en(l) ? 'You have a new\nmessage' : 'Tienes una nueva\ncomunicación',
+      paragraphs: [String(d.message || ''), ACTIVITY_LINE(l)],
+      details: [
+        [en(l) ? 'From' : 'De', d.name],
+        ['Email', d.email],
+        [en(l) ? 'Phone' : 'Teléfono', d.phone],
+      ],
+      cta: cta(GO_PLATFORM(l), d.adminUrl),
+    }),
   },
 
   complaint: {
     kind: 'transactional',
     audience: 'internal',
-    subject: (d, l) => (l === 'en' ? `New complaint from ${d.name}` : `Nueva reclamación de ${d.name}`),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? 'New complaint' : 'Nueva reclamación') +
-      emailInfoTable([
-        [l === 'en' ? 'Name' : 'Nombre', d.name || '—'],
-        ['Email', d.email || '—'],
-        ...(d.phone ? [[l === 'en' ? 'Phone' : 'Teléfono', d.phone] as [string, string]] : []),
-      ]) +
-      emailParagraph(d.message || ''),
+    subject: (d, l) => (en(l) ? `New complaint from ${d.name}` : `Nueva reclamación de ${d.name}`),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.activity(l),
+      title: en(l) ? 'You have a new\ncomplaint' : 'Tienes una nueva\nreclamación',
+      paragraphs: [String(d.message || ''), ACTIVITY_LINE(l)],
+      details: [
+        [en(l) ? 'From' : 'De', d.name],
+        ['Email', d.email],
+        [en(l) ? 'Phone' : 'Teléfono', d.phone],
+      ],
+      cta: cta(GO_PLATFORM(l), d.adminUrl),
+    }),
   },
 
   appointment_created: {
@@ -168,14 +204,18 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
   contract_accepted: {
     kind: 'transactional',
     audience: 'internal',
-    subject: (d, l) => (l === 'en' ? `Contract accepted: ${d.title}` : `Contrato aceptado: ${d.title}`),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? 'Contract accepted' : 'Contrato aceptado') +
-      emailInfoTable([
-        [l === 'en' ? 'Contract' : 'Contrato', d.title || '—'],
-        [l === 'en' ? 'Client' : 'Cliente', d.clientName || '—'],
-        [l === 'en' ? 'Accepted at' : 'Aceptado el', d.acceptedAt || '—'],
-      ]),
+    subject: (d, l) => (en(l) ? `Contract accepted: ${d.title}` : `Contrato aceptado: ${d.title}`),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.activity(l),
+      title: en(l) ? 'A contract has\nbeen accepted' : 'Se ha aceptado\nun contrato',
+      paragraphs: [ACTIVITY_LINE(l)],
+      details: [
+        [en(l) ? 'Contract' : 'Contrato', d.title],
+        [en(l) ? 'Client' : 'Cliente', d.clientName],
+        [en(l) ? 'Accepted at' : 'Aceptado el', d.acceptedAt],
+      ],
+      cta: cta(GO_PLATFORM(l), d.adminUrl),
+    }),
   },
 
   deposit_received: {
@@ -205,29 +245,32 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
   user_welcome: {
     kind: 'transactional',
     audience: 'user',
-    subject: (d, l) => (l === 'en' ? 'Your account is ready' : 'Tu cuenta está lista'),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? `Welcome, ${d.name}` : `Bienvenido/a, ${d.name}`) +
-      emailParagraph(
-        l === 'en'
-          ? `An account was created for you (${d.email}). Set your password to get started:`
-          : `Se ha creado una cuenta para ti (${d.email}). Define tu contraseña para empezar:`,
-      ) +
-      (d.setPasswordUrl ? emailButton(l === 'en' ? 'Set password' : 'Definir contraseña', d.setPasswordUrl) : ''),
+    subject: (d, l) => (en(l) ? 'Your account is ready' : 'Tu cuenta está lista'),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.activity(l),
+      title: en(l) ? 'Welcome to\nPortal INMO' : 'Te damos la bienvenida a\nPortal INMO',
+      greetingName: d.name,
+      paragraphs: [
+        en(l)
+          ? `An account was created for you (${d.email}). Set your password to start managing your real estate activity.`
+          : `Se ha creado una cuenta para ti (${d.email}). Define tu contraseña para empezar a gestionar tu actividad inmobiliaria.`,
+      ],
+      cta: cta(en(l) ? 'Set my password' : 'Definir mi contraseña', d.setPasswordUrl),
+    }),
   },
 
   password_reset: {
     kind: 'transactional',
     audience: 'user',
-    subject: (d, l) => (l === 'en' ? 'Reset your password' : 'Restablece tu contraseña'),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? 'Reset your password' : 'Restablece tu contraseña') +
-      emailParagraph(
-        l === 'en'
-          ? 'We received a request to reset your password. This link expires in 1 hour. If you did not request this, you can ignore this email.'
-          : 'Hemos recibido una solicitud para restablecer tu contraseña. Este enlace caduca en 1 hora. Si no lo has solicitado, puedes ignorar este mensaje.',
-      ) +
-      (d.resetUrl ? emailButton(l === 'en' ? 'Reset password' : 'Restablecer contraseña', d.resetUrl) : ''),
+    subject: (d, l) => (en(l) ? 'Reset your password' : 'Restablece tu contraseña'),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.security(l),
+      title: en(l) ? 'Reset your\npassword' : 'Restablece tu\ncontraseña',
+      greetingName: d.name,
+      paragraphs: [en(l) ? 'We received a request to reset your password. The link expires in 1 hour.' : 'Hemos recibido una solicitud para restablecer tu contraseña. El enlace caduca en 1 hora.'],
+      cta: cta(en(l) ? 'Reset password' : 'Restablecer contraseña', d.resetUrl),
+      footnote: en(l) ? 'If you did not request this, you can ignore this email: your password stays the same.' : 'Si no lo has solicitado, puedes ignorar este mensaje: tu contraseña no cambia.',
+    }),
   },
 
   saved_search_alert: {
@@ -252,37 +295,39 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
   domain_check_failed: {
     kind: 'transactional',
     audience: 'internal',
-    subject: (d, l) => (l === 'en' ? `Your website is not responding: ${d.domain}` : `Tu web no responde: ${d.domain}`),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? 'Website not reachable' : 'La web no está accesible') +
-      emailParagraph(
-        l === 'en'
+    subject: (d, l) => (en(l) ? `Your website is not responding: ${d.domain}` : `Tu web no responde: ${d.domain}`),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.website(l),
+      title: en(l) ? 'Your website is\nnot responding' : 'Tu web no\nresponde',
+      paragraphs: [
+        en(l)
           ? `The automatic check of ${d.domain} failed. Visitors and your own team may not be able to reach the site or sign in until this is fixed.`
           : `La comprobación automática de ${d.domain} ha fallado. Puede que ni los visitantes ni tu equipo lleguen a la web ni puedan iniciar sesión hasta que se arregle.`,
-      ) +
-      emailInfoTable([
-        [l === 'en' ? 'Domain' : 'Dominio', d.domain || '—'],
-        [l === 'en' ? 'Organisation' : 'Agencia', d.organizationName || '—'],
-        [l === 'en' ? 'What failed' : 'Qué ha fallado', d.error || '—'],
-        [l === 'en' ? 'Checked at (UTC)' : 'Comprobado a las (UTC)', d.checkedAt || '—'],
-      ]) +
-      emailParagraph(
-        l === 'en'
-          ? 'Usual causes: the DNS record was changed, the custom domain was removed in Cloudflare, or the domain was edited in the platform. You will get one more email when it is back.'
-          : 'Causas habituales: se cambió el registro DNS, se retiró el dominio personalizado en Cloudflare, o se editó el dominio en la plataforma. Recibirás un único correo más cuando vuelva a funcionar.',
-      ),
+      ],
+      details: [
+        [en(l) ? 'Domain' : 'Dominio', d.domain],
+        [en(l) ? 'Agency' : 'Agencia', d.organizationName],
+        [en(l) ? 'What failed' : 'Qué ha fallado', d.error],
+        [en(l) ? 'Checked at (UTC)' : 'Comprobado a las (UTC)', d.checkedAt],
+      ],
+      footnote: en(l)
+        ? 'Usual causes: the DNS record was changed, the custom domain was removed in Cloudflare, or the domain was edited in the platform. You will get one more email when it is back.'
+        : 'Causas habituales: se cambió el registro DNS, se retiró el dominio personalizado en Cloudflare o se editó el dominio en la plataforma. Recibirás un único correo más cuando vuelva a funcionar.',
+    }),
   },
   domain_check_recovered: {
     kind: 'transactional',
     audience: 'internal',
-    subject: (d, l) => (l === 'en' ? `Your website is back: ${d.domain}` : `Tu web vuelve a responder: ${d.domain}`),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? 'Website reachable again' : 'La web vuelve a estar accesible') +
-      emailParagraph(
-        l === 'en'
+    subject: (d, l) => (en(l) ? `Your website is back: ${d.domain}` : `Tu web vuelve a responder: ${d.domain}`),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.website(l),
+      title: en(l) ? 'Your website is\nback online' : 'Tu web vuelve a\nresponder',
+      paragraphs: [
+        en(l)
           ? `${d.domain} answered correctly again at ${d.checkedAt} UTC and serves ${d.organizationName}. No action needed.`
           : `${d.domain} ha vuelto a responder correctamente a las ${d.checkedAt} UTC y sirve ${d.organizationName}. No hace falta hacer nada.`,
-      ),
+      ],
+    }),
   },
 
   // Centro de Comunicaciones: primera vez que un número escribe por WhatsApp
@@ -290,15 +335,17 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
   whatsapp_message_received: {
     kind: 'transactional',
     audience: 'internal',
-    subject: (d, l) => (l === 'en' ? `New WhatsApp conversation: ${d.contactName}` : `Nueva conversación de WhatsApp: ${d.contactName}`),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? 'New WhatsApp message' : 'Nuevo mensaje de WhatsApp') +
-      emailInfoTable([
-        [l === 'en' ? 'From' : 'De', d.contactName || '—'],
-        [l === 'en' ? 'Phone' : 'Teléfono', d.phone || '—'],
-      ]) +
-      emailParagraph(d.preview || '') +
-      (d.inboxUrl ? emailButton(l === 'en' ? 'Open in Communications' : 'Abrir en Comunicaciones', d.inboxUrl) : ''),
+    subject: (d, l) => (en(l) ? `New WhatsApp conversation: ${d.contactName}` : `Nueva conversación de WhatsApp: ${d.contactName}`),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.activity(l),
+      title: en(l) ? 'You have a new\nmessage' : 'Tienes una nueva\ncomunicación',
+      paragraphs: [String(d.preview || ''), ACTIVITY_LINE(l)],
+      details: [
+        [en(l) ? 'From' : 'De', d.contactName],
+        [en(l) ? 'Phone' : 'Teléfono', d.phone],
+      ],
+      cta: cta(en(l) ? 'Open in Communications' : 'Abrir en Comunicaciones', d.inboxUrl),
+    }),
   },
 
   // Núcleo N8a — el comercial responde por email a quien escribió por un
@@ -319,81 +366,92 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
   company_registration_welcome: {
     kind: 'transactional',
     audience: 'user',
-    subject: (_d, l) => (l === 'en' ? 'Welcome to INMO — your company is registered' : 'Bienvenido a INMO — Tu empresa ya está registrada'),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? `Hello, ${d.companyName}` : `Hola, ${d.companyName}`) +
-      emailParagraph(
-        l === 'en'
-          ? 'Your INMO registration is complete. Your company is ready to use the platform.'
-          : 'Tu registro en INMO se ha completado correctamente. Tu empresa ya está preparada para acceder a la plataforma.',
-      ) +
-      emailInfoTable([[l === 'en' ? 'Company' : 'Empresa', d.companyName || '—']]) +
-      emailParagraph(
-        l === 'en'
-          ? `Sign in with ${d.email} and the password you chose during registration.`
-          : `Puedes iniciar sesión con ${d.email} y la contraseña que elegiste durante el registro.`,
-      ) +
-      (d.loginUrl ? emailButton(l === 'en' ? 'Go to INMO' : 'Acceder a INMO', d.loginUrl) : '') +
-      emailParagraph(l === 'en' ? 'If you did not make this registration, please contact our team.' : 'Si no has realizado este registro, contacta con nuestro equipo.'),
+    subject: (_d, l) => (en(l) ? 'Welcome to Portal INMO — your company is registered' : 'Te damos la bienvenida a Portal INMO'),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.activity(l),
+      title: en(l) ? 'Welcome to\nPortal INMO' : 'Te damos la bienvenida a\nPortal INMO',
+      greetingName: d.name,
+      paragraphs: [
+        en(l)
+          ? 'Your account is ready. Go to the platform to start managing your real estate activity.'
+          : 'Tu cuenta ya está preparada. Accede a la plataforma para empezar a gestionar tu actividad inmobiliaria.',
+      ],
+      details: [
+        [en(l) ? 'Company' : 'Empresa', d.companyName],
+        [en(l) ? 'Your user' : 'Tu usuario', d.email],
+      ],
+      cta: cta(GO_ACCOUNT(l), d.loginUrl),
+      footnote: en(l) ? 'If you did not make this registration, please contact our team.' : 'Si no has realizado este registro, contacta con nuestro equipo.',
+    }),
   },
 
   admin_company_registered: {
     kind: 'transactional',
     audience: 'internal',
-    subject: (d, l) => (l === 'en' ? `New company registered in INMO: ${d.companyName}` : 'Nueva empresa registrada en INMO'),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? 'New company registered' : 'Se ha registrado una nueva empresa en INMO') +
-      emailInfoTable([
-        [l === 'en' ? 'Company' : 'Empresa', d.companyName || '—'],
-        ['Email', d.email || '—'],
-        [l === 'en' ? 'Date' : 'Fecha', d.registeredAt || '—'],
-        [l === 'en' ? 'Source' : 'Origen', d.source || '—'],
-        [l === 'en' ? 'Current status' : 'Estado actual', d.accessStatus || '—'],
-      ]) +
-      (d.adminUrl ? emailButton(l === 'en' ? 'View company' : 'Ver empresa', d.adminUrl) : ''),
+    subject: (d, l) => (en(l) ? `New company registered in Portal INMO: ${d.companyName}` : 'Nueva empresa registrada en Portal INMO'),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.platform(l),
+      title: en(l) ? 'New company\nregistered' : 'Nueva empresa\nregistrada',
+      paragraphs: [en(l) ? 'A new company has registered in Portal INMO.' : 'Se ha registrado una nueva empresa en Portal INMO.'],
+      details: [
+        [en(l) ? 'Company' : 'Empresa', d.companyName],
+        [en(l) ? 'Email' : 'Correo', d.email],
+        [en(l) ? 'Date' : 'Fecha', d.registeredAt],
+        [en(l) ? 'Source' : 'Origen', d.source],
+        [en(l) ? 'Status' : 'Estado', d.accessStatus],
+      ],
+      cta: cta(en(l) ? 'View company' : 'Ver empresa', d.adminUrl),
+    }),
   },
 
   company_status_changed: {
     kind: 'transactional',
     audience: 'user',
-    subject: (d, l) => (l === 'en' ? `${d.companyName} is active again in INMO` : `${d.companyName} vuelve a estar activa en INMO`),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? 'Your company is active again' : 'Tu empresa vuelve a estar activa') +
-      emailParagraph(
-        l === 'en'
-          ? `Access to INMO for ${d.companyName} has been restored. Your team can sign in again with their usual credentials.`
-          : `Se ha restablecido el acceso de ${d.companyName} a INMO. Tu equipo puede volver a entrar con sus credenciales de siempre.`,
-      ) +
-      (d.loginUrl ? emailButton(l === 'en' ? 'Go to INMO' : 'Acceder a INMO', d.loginUrl) : ''),
+    subject: (d, l) => (en(l) ? `${d.companyName} is active again in Portal INMO` : `${d.companyName} vuelve a estar activa en Portal INMO`),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.company(l),
+      title: en(l) ? 'Your company is\nactive again' : 'Tu empresa vuelve a\nestar activa',
+      paragraphs: [
+        en(l)
+          ? `Access to Portal INMO for ${d.companyName} has been restored. Your team can sign in again with their usual credentials.`
+          : `Se ha restablecido el acceso de ${d.companyName} a Portal INMO. Tu equipo puede volver a entrar con sus credenciales de siempre.`,
+      ],
+      cta: cta(GO_ACCOUNT(l), d.loginUrl),
+    }),
   },
 
   company_deactivated: {
     kind: 'transactional',
     audience: 'user',
-    subject: (d, l) => (l === 'en' ? `Access to INMO suspended for ${d.companyName}` : `Acceso a INMO suspendido para ${d.companyName}`),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? 'Access suspended' : 'Acceso suspendido') +
-      emailParagraph(
-        l === 'en'
-          ? `Access to INMO for ${d.companyName} has been suspended. Your data and accounts are kept; nothing has been deleted.`
-          : `Se ha suspendido el acceso de ${d.companyName} a INMO. Tus datos y las cuentas de tu equipo se conservan: no se ha borrado nada.`,
-      ) +
-      emailParagraph(l === 'en' ? 'If you think this is a mistake, please contact our team.' : 'Si crees que es un error, contacta con nuestro equipo.'),
+    subject: (d, l) => (en(l) ? `Access to Portal INMO suspended for ${d.companyName}` : `Acceso a Portal INMO suspendido para ${d.companyName}`),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.company(l),
+      title: en(l) ? 'Access\nsuspended' : 'Acceso\nsuspendido',
+      paragraphs: [
+        en(l)
+          ? `Access to Portal INMO for ${d.companyName} has been suspended. Your data and accounts are kept; nothing has been deleted.`
+          : `Se ha suspendido el acceso de ${d.companyName} a Portal INMO. Tus datos y las cuentas de tu equipo se conservan: no se ha borrado nada.`,
+      ],
+      footnote: en(l) ? 'If you think this is a mistake, please contact our team.' : 'Si crees que es un error, contacta con nuestro equipo.',
+    }),
   },
 
   admin_company_status_changed: {
     kind: 'transactional',
     audience: 'internal',
-    subject: (d, l) => (l === 'en' ? `Company status updated: ${d.companyName}` : `Estado de empresa actualizado: ${d.companyName}`),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? 'Company status updated' : 'Estado de empresa actualizado') +
-      emailInfoTable([
-        [l === 'en' ? 'Company' : 'Empresa', d.companyName || '—'],
-        [l === 'en' ? 'Previous status' : 'Estado anterior', d.previousStatus || '—'],
-        [l === 'en' ? 'New status' : 'Nuevo estado', d.newStatus || '—'],
-        [l === 'en' ? 'Date' : 'Fecha', d.changedAt || '—'],
-      ]) +
-      (d.adminUrl ? emailButton(l === 'en' ? 'View company' : 'Ver empresa', d.adminUrl) : ''),
+    subject: (d, l) => (en(l) ? `Company status updated: ${d.companyName}` : `Estado de empresa actualizado: ${d.companyName}`),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.platform(l),
+      title: en(l) ? 'Company status\nupdated' : 'Estado de empresa\nactualizado',
+      paragraphs: [en(l) ? 'The status of a company in Portal INMO has changed.' : 'Ha cambiado el estado de una empresa en Portal INMO.'],
+      details: [
+        [en(l) ? 'Company' : 'Empresa', d.companyName],
+        [en(l) ? 'Previous status' : 'Estado anterior', d.previousStatus],
+        [en(l) ? 'New status' : 'Nuevo estado', d.newStatus],
+        [en(l) ? 'Date' : 'Fecha', d.changedAt],
+      ],
+      cta: cta(en(l) ? 'View company' : 'Ver empresa', d.adminUrl),
+    }),
   },
 
   // Preparadas para la aprobación previa (SELF_REGISTRATION_POLICY): hoy
@@ -401,37 +459,47 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
   company_approved: {
     kind: 'transactional',
     audience: 'user',
-    subject: (d, l) => (l === 'en' ? `${d.companyName} has been approved` : `Tu empresa ${d.companyName} ha sido aprobada`),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? 'Your company has been approved' : 'Tu empresa ha sido aprobada') +
-      emailParagraph(l === 'en' ? 'You can now sign in to INMO.' : 'Ya puedes acceder a INMO.') +
-      (d.loginUrl ? emailButton(l === 'en' ? 'Go to INMO' : 'Acceder a INMO', d.loginUrl) : ''),
+    subject: (d, l) => (en(l) ? `${d.companyName} has been approved` : `Tu empresa ${d.companyName} ha sido aprobada`),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.company(l),
+      title: en(l) ? 'Your company is\nnow active' : 'Tu empresa ya está\nactiva',
+      paragraphs: [en(l) ? `${d.companyName} has been approved. You can now sign in to Portal INMO.` : `${d.companyName} ha sido aprobada. Ya puedes acceder a Portal INMO.`],
+      cta: cta(GO_ACCOUNT(l), d.loginUrl),
+    }),
   },
 
   company_pending: {
     kind: 'transactional',
     audience: 'user',
-    subject: (d, l) => (l === 'en' ? `We have received ${d.companyName}'s registration` : `Hemos recibido el registro de ${d.companyName}`),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? 'Registration received' : 'Registro recibido') +
-      emailParagraph(
-        l === 'en'
-          ? 'Your registration is pending review. We will email you as soon as your company can access INMO.'
-          : 'Tu registro está pendiente de revisión. Te escribiremos en cuanto tu empresa pueda acceder a INMO.',
-      ),
+    subject: (d, l) => (en(l) ? `We have received ${d.companyName}'s registration` : `Hemos recibido el registro de ${d.companyName}`),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.company(l),
+      title: en(l) ? 'We have received\nyour registration' : 'Hemos recibido\ntu registro',
+      paragraphs: [
+        en(l)
+          ? 'Your registration is pending review. We will email you as soon as your company can access Portal INMO.'
+          : 'Tu registro está pendiente de revisión. Te escribiremos en cuanto tu empresa pueda acceder a Portal INMO.',
+      ],
+    }),
   },
 
   company_admin_invite: {
     kind: 'transactional',
     audience: 'user',
-    subject: (d, l) => (l === 'en' ? `Your access to ${d.companyName} in INMO` : `Tu acceso a ${d.companyName} en INMO`),
-    body: (d, l) =>
-      emailHeading(l === 'en' ? `Welcome, ${d.name}` : `Bienvenido/a, ${d.name}`) +
-      emailParagraph(
-        l === 'en'
-          ? `You are the administrator of ${d.companyName} in INMO (${d.email}). Set your password to get started — the link expires in 1 hour; after that, use "Forgot password" on the sign-in page.`
-          : `Eres administrador/a de ${d.companyName} en INMO (${d.email}). Define tu contraseña para empezar — el enlace caduca en 1 hora; después, usa «¿Olvidaste tu contraseña?» en la pantalla de acceso.`,
-      ) +
-      (d.setPasswordUrl ? emailButton(l === 'en' ? 'Set password' : 'Definir contraseña', d.setPasswordUrl) : ''),
+    subject: (d, l) => (en(l) ? `Your access to ${d.companyName} in Portal INMO` : `Tu acceso a ${d.companyName} en Portal INMO`),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.activity(l),
+      title: en(l) ? 'Welcome to\nPortal INMO' : 'Te damos la bienvenida a\nPortal INMO',
+      greetingName: d.name,
+      paragraphs: [
+        en(l)
+          ? `You are the administrator of ${d.companyName} in Portal INMO (${d.email}). Set your password to get started.`
+          : `Eres administrador/a de ${d.companyName} en Portal INMO (${d.email}). Define tu contraseña para empezar.`,
+      ],
+      cta: cta(en(l) ? 'Set my password' : 'Definir mi contraseña', d.setPasswordUrl),
+      footnote: en(l)
+        ? 'The link expires in 1 hour; after that, use "Forgot password" on the sign-in page.'
+        : 'El enlace caduca en 1 hora; después, usa «¿Olvidaste tu contraseña?» en la pantalla de acceso.',
+    }),
   },
 }

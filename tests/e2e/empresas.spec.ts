@@ -9,7 +9,7 @@ import { STATE_A, STATE_B, TENANT_A } from './global-setup'
  *     al administrador, doble envío, éxito, listado, ficha por secciones,
  *     suspensión con aviso, empresa antigua, y permisos.
  *  B. Landing → Registro empresa: formulario público, éxito honesto, emails
- *     de plataforma desde INMO <info@serendipiaagency.com> sin contraseña,
+ *     de plataforma desde Portal INMO <info@serendipiaagency.com> sin contraseña,
  *     login normal (sin autologin), aislamiento de tenant, sin acceso a
  *     Empresas, campos prohibidos, duplicados, doble envío simultáneo,
  *     límite por IP y política de acceso (suspender corta la sesión).
@@ -156,9 +156,9 @@ test.describe('Empresas A — Sistemas > Empresas > + Nuevo', () => {
     expect(detail.row.logo).toBeTruthy()
     expect(detail.overview.users).toEqual([expect.objectContaining({ email: ADMIN_EMAIL, role: 'admin' })])
 
-    // La invitación sale de INMO <info@serendipiaagency.com>, con enlace para definir contraseña.
+    // La invitación sale de Portal INMO <info@serendipiaagency.com>, con enlace para definir contraseña.
     const [invite] = await emailsTo(ADMIN_EMAIL)
-    expect(invite.from).toBe('INMO <info@serendipiaagency.com>')
+    expect(invite.from).toBe('Portal INMO <info@serendipiaagency.com>')
     expect(invite.html).toContain('/reset-password/')
 
     await page.getByTestId('org-wizard-open').click()
@@ -199,7 +199,7 @@ test.describe('Empresas A — Sistemas > Empresas > + Nuevo', () => {
     await expect(page.getByTestId('org-editor-status')).toHaveText('Suspendida')
     await expect.poll(async () => (await emailsTo(ADMIN_EMAIL)).some((e) => /suspendido/i.test(e.subject))).toBe(true)
     const notice = (await emailsTo(TENANT_A.email)).find((e) => String(e.subject).includes(`Marca ${RUN}`))
-    expect(notice?.from).toBe('INMO <info@serendipiaagency.com>')
+    expect(notice?.from).toBe('Portal INMO <info@serendipiaagency.com>')
 
     await page.getByTestId('org-edit-status-active').check()
     await page.getByTestId('org-editor-save').click()
@@ -285,11 +285,11 @@ test.describe('Empresas B — Landing → Registro empresa', () => {
 
     // Emails de plataforma: remitente central, sin contraseña.
     const [welcome] = await emailsTo(EMAIL)
-    expect(welcome.from).toBe('INMO <info@serendipiaagency.com>')
-    expect(welcome.subject).toBe('Bienvenido a INMO — Tu empresa ya está registrada')
+    expect(welcome.from).toBe('Portal INMO <info@serendipiaagency.com>')
+    expect(welcome.subject).toBe('Te damos la bienvenida a Portal INMO')
     expect(JSON.stringify(welcome)).not.toContain(PASSWORD)
-    const adminNotice = (await emailsTo(TENANT_A.email)).find((e) => e.subject === 'Nueva empresa registrada en INMO' && String(e.html).includes(EMAIL))
-    expect(adminNotice?.from).toBe('INMO <info@serendipiaagency.com>')
+    const adminNotice = (await emailsTo(TENANT_A.email)).find((e) => e.subject === 'Nueva empresa registrada en Portal INMO' && String(e.html).includes(EMAIL))
+    expect(adminNotice?.from).toBe('Portal INMO <info@serendipiaagency.com>')
     expect(JSON.stringify(adminNotice)).not.toContain(PASSWORD)
 
     // Sin autologin: no hay sesión hasta pasar por el login.
