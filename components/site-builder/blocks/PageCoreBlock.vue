@@ -50,11 +50,13 @@
           <div>
             <h1 class="heading-serif text-4xl">{{ sample.name }}</h1>
             <p class="mt-2 text-2xl font-semibold">{{ sample.price }}</p>
-            <div class="mt-6 space-y-2">
-              <div class="h-3 w-full rounded bg-stone-100" />
-              <div class="h-3 w-11/12 rounded bg-stone-100" />
-              <div class="h-3 w-4/5 rounded bg-stone-100" />
-            </div>
+            <!-- Las secciones de la ficha en el orden y con la visibilidad de la zona (#110), como saldrán en la web. -->
+            <ol class="mt-6 space-y-1.5" data-testid="page-core-sections-preview">
+              <li v-for="s in fichaSections.visible" :key="s.key" class="flex items-center gap-2 rounded-lg bg-stone-50 px-3 py-2 text-[12.5px] text-stone-600" :data-section="s.key">
+                <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-stone-300" />{{ s.label }}
+              </li>
+            </ol>
+            <p v-if="fichaSections.hidden" class="mt-2 text-[11.5px] text-stone-400">{{ fichaSections.hidden === 1 ? '1 sección oculta' : `${fichaSections.hidden} secciones ocultas` }} en esta web.</p>
           </div>
           <div class="h-40 rounded-2xl border border-line bg-paper p-5 text-sm text-stone-500">Precio, «Atendido por» con el comercial de cada propiedad y su formulario</div>
         </div>
@@ -87,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { PAGE_CORE_LABELS, PAGE_CORE_SOURCES, type PageCoreKind } from '~/utils/siteBuilder/pages'
+import { FICHA_SECTIONS, PAGE_CORE_LABELS, PAGE_CORE_SOURCES, normalizeFichaSections, type PageCoreKind } from '~/utils/siteBuilder/pages'
 
 const props = defineProps<{
   content: Record<string, any>
@@ -107,4 +109,10 @@ function card(p: any) {
 const cards = computed(() => (props.projects || []).slice(0, 6).map(card))
 const sample = computed(() => (props.projects?.length ? card(props.projects[0]) : null))
 const articles = computed(() => (props.blogs || []).slice(0, 3))
+
+const SECTION_LABELS = Object.fromEntries(FICHA_SECTIONS.map((x) => [x.key, x.label]))
+const fichaSections = computed(() => {
+  const list = normalizeFichaSections(props.content.sections)
+  return { visible: list.filter((x) => x.visible).map((x) => ({ key: x.key, label: SECTION_LABELS[x.key] })), hidden: list.filter((x) => !x.visible).length }
+})
 </script>

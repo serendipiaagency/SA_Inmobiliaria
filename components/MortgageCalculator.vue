@@ -1,136 +1,146 @@
 <template>
-  <div class="grid gap-8 rounded-2xl border border-emerald-100 bg-emerald-50/30 p-6 sm:p-8 lg:grid-cols-2">
-    <!-- Mortgage -->
-    <div>
-      <h3 class="filter-title">{{ t('mortgage.title', 'Hipoteca') }}</h3>
-      <div class="space-y-5">
-        <div>
-          <div class="mb-1 flex justify-between text-sm">
-            <span class="text-stone-500">{{ t('mortgage.downPayment', 'Entrada') }}</span>
-            <span class="font-semibold">{{ downPct }}% · {{ money(downPayment) }}</span>
-          </div>
-          <input v-model.number="downPct" type="range" min="10" max="60" step="5" class="range" >
-        </div>
-        <div>
-          <div class="mb-1 flex justify-between text-sm">
-            <span class="text-stone-500">{{ t('mortgage.interestRate', 'Interés anual') }}</span>
-            <span class="font-semibold">{{ rate }}%</span>
-          </div>
-          <input v-model.number="rate" type="range" min="1" max="8" step="0.1" class="range" >
-        </div>
-        <div>
-          <div class="mb-1 flex justify-between text-sm">
-            <span class="text-stone-500">{{ t('mortgage.term', 'Plazo') }}</span>
-            <span class="font-semibold">{{ years }} {{ t('mortgage.years', 'años') }}</span>
-          </div>
-          <input v-model.number="years" type="range" min="5" max="35" step="1" class="range" >
-        </div>
+  <div class="pcard" data-testid="mortgage-calculator">
+    <h3 class="pcard-title">{{ t('mortgage.heading', 'Calcula cuánto necesitas para comprar esta vivienda') }}</h3>
+
+    <!-- Las dos cifras que importan -->
+    <div class="mt-4 grid gap-3 sm:grid-cols-2">
+      <div class="rounded-xl bg-[#1f3a30] p-5 text-white">
+        <p class="text-[11px] uppercase tracking-widest text-white/65">{{ t('mortgage.cashNeeded', 'Cuánto necesitas para comprar') }}</p>
+        <p class="mt-1 text-3xl font-bold" data-testid="mortgage-cash-needed">{{ money(r.cashNeeded) }}</p>
+        <p class="mt-1 text-[12px] text-white/70">{{ t('mortgage.cashNeededHint', 'Entrada + impuestos + gastos') }}</p>
       </div>
-      <div class="mt-6 rounded-2xl bg-emerald-800 p-6 text-white">
-        <p class="text-[11px] uppercase tracking-widest2 text-white/60">{{ t('mortgage.estimatedMonthly', 'Cuota mensual estimada') }}</p>
-        <p class="mt-1 font-serif text-4xl">{{ money(monthly) }}</p>
-        <p class="mt-2 text-[13px] text-white/70">
-          {{ t('mortgage.financing', 'Financias') }} {{ money(loan) }} · {{ t('mortgage.totalInterest', 'Total intereses') }} {{ money(totalInterest) }}
-        </p>
+      <div class="rounded-xl border border-[#ece8e1] bg-[#faf8f4] p-5">
+        <p class="text-[11px] uppercase tracking-widest text-stone-500">{{ t('mortgage.monthlyPay', 'Cuánto pagarías al mes') }}</p>
+        <p class="mt-1 text-3xl font-bold text-ink" data-testid="mortgage-monthly">{{ money(r.monthly) }}</p>
+        <p class="mt-1 text-[12px] text-stone-500">{{ t('mortgage.monthlyHint', 'Cuota de la hipoteca') }} · {{ years }} {{ t('mortgage.years', 'años') }} · {{ fmtPct(ratePct) }}</p>
       </div>
     </div>
 
-    <!-- Costs + rentability -->
-    <div class="space-y-8">
-      <div>
-        <h3 class="filter-title">{{ t('mortgage.costsTitle', 'Costes de compra en Dubái (estimados)') }}</h3>
-        <ul class="divide-y divide-line border-y border-line bg-white/60">
-          <li v-for="c in costs" :key="c.label" class="flex items-center justify-between px-1 py-3.5 text-sm">
-            <span class="text-stone-500">{{ c.label }}<span v-if="c.pct" class="text-stone-400"> · {{ c.pct }}%</span></span>
-            <span class="font-medium">{{ money(c.value) }}</span>
-          </li>
-          <li class="flex items-center justify-between px-1 py-3.5 text-sm font-semibold">
-            <span>{{ t('mortgage.totalWithCosts', 'Total aproximado con gastos') }}</span>
-            <span>{{ money(price + totalCosts) }}</span>
-          </li>
-        </ul>
-        <p class="mt-3 text-[12px] leading-relaxed text-stone-400">
-          {{ t('mortgage.disclaimer', 'A diferencia de España, en Dubái no existe un impuesto anual sobre la propiedad (equivalente al IBI) ni IVA sobre el precio de venta de vivienda residencial. Los gastos de comunidad (service charge) del edificio son un coste anual recurrente que varía según el edificio y no está incluido aquí.') }}
-        </p>
+    <!-- Reparto: entrada / financiado / impuestos y gastos -->
+    <div class="mt-5" aria-hidden="true">
+      <div class="flex h-2.5 overflow-hidden rounded-full bg-[#f1eee8]">
+        <span class="bg-[#1f3a30]" :style="{ width: `${share.down}%` }" />
+        <span class="bg-[#c2622d]" :style="{ width: `${share.costs}%` }" />
+        <span class="bg-[#d6cfc4]" :style="{ width: `${share.loan}%` }" />
+      </div>
+      <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11.5px] text-stone-500">
+        <span><i class="mr-1 inline-block h-2 w-2 rounded-full bg-[#1f3a30]" />{{ t('mortgage.downPayment', 'Entrada') }}</span>
+        <span><i class="mr-1 inline-block h-2 w-2 rounded-full bg-[#c2622d]" />{{ t('mortgage.taxesAndFees', 'Impuestos y gastos') }}</span>
+        <span><i class="mr-1 inline-block h-2 w-2 rounded-full bg-[#d6cfc4]" />{{ t('mortgage.financed', 'Financiado') }}</span>
+      </div>
+    </div>
+
+    <div class="mt-6 grid gap-8 lg:grid-cols-2">
+      <!-- Lo que se puede cambiar -->
+      <div class="space-y-5">
+        <label class="block">
+          <span class="mb-1 flex justify-between text-sm"><span class="text-stone-500">{{ t('mortgage.downPayment', 'Entrada') }}</span><span class="font-semibold">{{ downPct }} % · {{ money(r.downPayment) }}</span></span>
+          <input v-model.number="downPct" type="range" min="0" max="100" step="5" class="range" data-testid="mortgage-down" :aria-label="t('mortgage.downPayment', 'Entrada')" >
+        </label>
+        <label class="block">
+          <span class="mb-1 flex justify-between text-sm"><span class="text-stone-500">{{ t('mortgage.interestRate', 'Interés anual') }}</span><span class="font-semibold">{{ fmtPct(ratePct) }}</span></span>
+          <input v-model.number="ratePct" type="range" min="0" max="10" step="0.1" class="range" data-testid="mortgage-rate" :aria-label="t('mortgage.interestRate', 'Interés anual')" >
+        </label>
+        <label class="block">
+          <span class="mb-1 flex justify-between text-sm"><span class="text-stone-500">{{ t('mortgage.term', 'Plazo') }}</span><span class="font-semibold">{{ years }} {{ t('mortgage.years', 'años') }}</span></span>
+          <input v-model.number="years" type="range" min="5" max="40" step="1" class="range" data-testid="mortgage-years" :aria-label="t('mortgage.term', 'Plazo')" >
+        </label>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block text-[12.5px] text-stone-500">
+            {{ assumptions.taxLabel }} (%)
+            <input v-model.number="taxPct" type="number" min="0" max="50" step="0.1" class="mc-input" data-testid="mortgage-tax" >
+          </label>
+          <!-- Con gastos fijos (Dubái), el % es lo que se añada aparte; los fijos ya van en el desglose. -->
+          <label class="block text-[12.5px] text-stone-500">
+            {{ assumptions.feesFixed ? t('mortgage.otherFees', 'Otros gastos') : assumptions.feesLabel }} (%)
+            <input v-model.number="feesPct" type="number" min="0" max="20" step="0.1" class="mc-input" data-testid="mortgage-fees" >
+          </label>
+        </div>
       </div>
 
-      <div v-if="rentalYield">
-        <h3 class="filter-title">{{ t('mortgage.rentability.title', 'Rentabilidad estimada') }}</h3>
-        <div class="grid grid-cols-3 gap-3 text-center">
-          <div class="rounded-xl border border-line bg-white p-4">
-            <p class="font-serif text-2xl">{{ rentalYield }}%</p>
-            <p class="mt-1 text-[11px] uppercase tracking-widest text-stone-400">{{ t('mortgage.rentability.grossAnnual', 'Bruta anual') }}</p>
-          </div>
-          <div class="rounded-xl border border-line bg-white p-4">
-            <p class="font-serif text-2xl">{{ money(annualRent) }}</p>
-            <p class="mt-1 text-[11px] uppercase tracking-widest text-stone-400">{{ t('mortgage.rentability.rentPerYear', 'Renta / año') }}</p>
-          </div>
-          <div class="rounded-xl border border-line bg-white p-4">
-            <p class="font-serif text-2xl">{{ money(Math.round(annualRent / 12)) }}</p>
-            <p class="mt-1 text-[11px] uppercase tracking-widest text-stone-400">{{ t('mortgage.rentability.rentPerMonth', 'Renta / mes') }}</p>
-          </div>
+      <!-- Desglose -->
+      <dl class="text-sm" data-testid="mortgage-breakdown">
+        <div v-for="row in breakdown" :key="row.key" class="flex items-center justify-between gap-4 border-b border-[#f1eee8] py-2.5 last:border-0" :class="{ 'font-semibold text-ink': row.strong }">
+          <dt :class="row.strong ? '' : 'text-stone-500'">{{ row.label }}</dt>
+          <dd class="whitespace-nowrap font-medium">{{ money(row.value) }}</dd>
         </div>
+      </dl>
+    </div>
+
+    <p class="mt-5 text-[12px] leading-relaxed text-stone-500" data-testid="mortgage-assumptions">
+      <strong class="font-semibold text-stone-600">{{ t('mortgage.estimate', 'Estimación orientativa, no es una oferta de financiación.') }}</strong>
+      {{ assumptions.note }}
+      {{ t('mortgage.formula', 'Cuota con la fórmula de préstamo francés (cuota constante).') }}
+    </p>
+
+    <div v-if="rentalYield" class="mt-6 grid grid-cols-3 gap-3 text-center">
+      <div class="rounded-xl border border-[#ece8e1] bg-white p-3">
+        <p class="text-xl font-bold">{{ rentalYield }}%</p>
+        <p class="mt-1 text-[11px] uppercase tracking-widest text-stone-400">{{ t('mortgage.rentability.grossAnnual', 'Rentabilidad bruta') }}</p>
+      </div>
+      <div class="rounded-xl border border-[#ece8e1] bg-white p-3">
+        <p class="text-xl font-bold">{{ money(annualRent) }}</p>
+        <p class="mt-1 text-[11px] uppercase tracking-widest text-stone-400">{{ t('mortgage.rentability.rentPerYear', 'Renta / año') }}</p>
+      </div>
+      <div class="rounded-xl border border-[#ece8e1] bg-white p-3">
+        <p class="text-xl font-bold">{{ money(Math.round(annualRent / 12)) }}</p>
+        <p class="mt-1 text-[11px] uppercase tracking-widest text-stone-400">{{ t('mortgage.rentability.rentPerMonth', 'Renta / mes') }}</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { MORTGAGE_DEFAULTS, computeMortgage, purchaseAssumptions } from '~/utils/mortgage'
+
+/**
+ * «Hipoteca y costes» (#110): cuánto hay que tener para comprar (entrada +
+ * impuestos + gastos) y cuánto se pagaría al mes. Los impuestos y gastos de
+ * partida dependen del mercado de la agencia (utils/mortgage.ts) y se pueden
+ * cambiar: no hay un tipo universal. Los importes, en la moneda de la agencia.
+ */
 const props = defineProps<{ price: number; rentalYield?: number | null; status?: string | null }>()
 const { t } = useI18n()
-const isOffPlan = computed(() => props.status === 'new' || props.status === 'under_construction')
+const { format: money, base: baseCurrency } = useCurrency()
 
-const downPct = ref(20)
-const rate = ref(4.5)
-const years = ref(25)
+const offPlan = computed(() => props.status === 'new' || props.status === 'under_construction')
+const assumptions = computed(() => purchaseAssumptions(baseCurrency.value, offPlan.value))
 
-const price = computed(() => props.price || 0)
-const downPayment = computed(() => Math.round((price.value * downPct.value) / 100))
-const loan = computed(() => price.value - downPayment.value)
-const monthly = computed(() => {
-  const r = rate.value / 100 / 12
-  const n = years.value * 12
-  if (r === 0) return Math.round(loan.value / n)
-  return Math.round((loan.value * r) / (1 - Math.pow(1 + r, -n)))
+const downPct = ref<number>(MORTGAGE_DEFAULTS.downPct)
+const ratePct = ref<number>(MORTGAGE_DEFAULTS.ratePct)
+const years = ref<number>(MORTGAGE_DEFAULTS.years)
+const taxPct = ref<number>(assumptions.value.taxPct)
+const feesPct = ref<number>(assumptions.value.feesPct)
+watch(assumptions, (a) => {
+  taxPct.value = a.taxPct
+  feesPct.value = a.feesPct
 })
-const totalInterest = computed(() => Math.max(0, monthly.value * years.value * 12 - loan.value))
 
-// Real Dubai Land Department cost structure — never Spanish tax terms (ITP,
-// notaría, IBI) on a Dubai-market site. Off-plan and ready-unit purchases go
-// through different registration processes (Oqood + trustee vs. DLD title
-// registration), so the breakdown branches on the property's real status.
-const costs = computed(() => {
-  const rows: { label: string; pct?: number; value: number }[] = [{ label: t('mortgage.cost.transferFee', 'Tasa de transferencia (DLD)'), pct: 4, value: Math.round(price.value * 0.04) }]
-  if (isOffPlan.value) {
-    rows.push({ label: t('mortgage.cost.oqoodRegistration', 'Registro Oqood'), value: 3000 })
-    rows.push({ label: t('mortgage.cost.trustee', 'Fideicomiso (trustee)'), value: 4500 })
-  } else {
-    rows.push({ label: t('mortgage.cost.dldRegistration', 'Registro DLD (título de propiedad)'), value: 4200 })
-    rows.push({ label: t('mortgage.cost.titleDeedIssuance', 'Emisión del title deed'), value: 580 })
-    rows.push({ label: t('mortgage.cost.agencyCommission', 'Comisión de agencia (+ IVA 5%)'), pct: 2.1, value: Math.round(price.value * 0.021) })
-  }
-  if (loan.value > 0) {
-    rows.push({ label: t('mortgage.cost.mortgageRegistration', 'Registro de hipoteca'), value: Math.round(loan.value * 0.0025) + 290 })
-  }
-  return rows
+const r = computed(() => computeMortgage({ price: props.price, downPct: downPct.value, ratePct: ratePct.value, years: years.value, taxPct: taxPct.value || 0, feesPct: feesPct.value || 0, feesFixed: assumptions.value.feesFixed }))
+
+const breakdown = computed(() => [
+  { key: 'price', label: t('mortgage.price', 'Precio de la vivienda'), value: r.value.price },
+  { key: 'down', label: t('mortgage.downPayment', 'Entrada'), value: r.value.downPayment },
+  { key: 'taxes', label: `${t('mortgage.taxesEstimated', 'Impuestos estimados')} (${assumptions.value.taxLabel})`, value: r.value.taxes },
+  { key: 'fees', label: assumptions.value.feesLabel, value: r.value.fees },
+  { key: 'loan', label: t('mortgage.loan', 'Importe a financiar'), value: r.value.loan },
+  { key: 'interest', label: t('mortgage.totalInterest', 'Intereses totales'), value: r.value.totalInterest },
+  { key: 'cash', label: t('mortgage.cashNeeded', 'Cuánto necesitas para comprar'), value: r.value.cashNeeded, strong: true },
+])
+
+// Reparto para la barra: entrada, impuestos+gastos y financiado, sobre el total que se mueve.
+const share = computed(() => {
+  const costs = r.value.taxes + r.value.fees
+  const total = r.value.downPayment + costs + r.value.loan || 1
+  return { down: (r.value.downPayment / total) * 100, costs: (costs / total) * 100, loan: (r.value.loan / total) * 100 }
 })
-const totalCosts = computed(() => costs.value.reduce((a, c) => a + c.value, 0))
 
-const annualRent = computed(() => (props.rentalYield ? Math.round((price.value * props.rentalYield) / 100) : 0))
+const fmtPct = (v: number) => `${Number(v).toLocaleString('es-ES', { maximumFractionDigits: 2 })} %`
+const annualRent = computed(() => (props.rentalYield ? Math.round((props.price * props.rentalYield) / 100) : 0))
 const rentalYield = computed(() => props.rentalYield)
-
-const { format: money } = useCurrency()
 </script>
 
 <style scoped>
-.filter-title {
-  margin-bottom: 1rem;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #78716c;
-}
 .range {
   width: 100%;
   height: 3px;
@@ -147,7 +157,7 @@ const { format: money } = useCurrency()
   height: 20px;
   width: 20px;
   border-radius: 9999px;
-  background: #065f46;
+  background: #1f3a30;
   cursor: pointer;
   border: 3px solid #fff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
@@ -156,8 +166,19 @@ const { format: money } = useCurrency()
   height: 20px;
   width: 20px;
   border-radius: 9999px;
-  background: #065f46;
+  background: #1f3a30;
   cursor: pointer;
   border: 3px solid #fff;
+}
+.mc-input {
+  margin-top: 4px;
+  display: block;
+  width: 100%;
+  border: 1px solid #e7e3dc;
+  border-radius: 9px;
+  padding: 7px 10px;
+  font-size: 14px;
+  color: #1c1b19;
+  background: #fff;
 }
 </style>

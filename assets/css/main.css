@@ -89,6 +89,21 @@
   .heading-serif {
     @apply font-serif font-bold tracking-tight text-ink;
   }
+  /* Tarjetas de la ficha de la propiedad (#110): blanco, borde muy claro,
+     radio 14, sombra mínima — el lenguaje de la referencia del rediseño. */
+  .pcard {
+    border: 1px solid #ece8e1;
+    border-radius: 14px;
+    background: #fff;
+    padding: 20px;
+    box-shadow: 0 1px 2px rgba(28, 27, 25, 0.04);
+  }
+  .pcard-title {
+    @apply text-[17px] font-bold text-ink;
+  }
+  .pcard-icon-btn {
+    @apply inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] border border-[#ece8e1] bg-white text-stone-600 transition hover:border-ink hover:text-ink;
+  }
   .hairline {
     @apply border-t border-line;
   }

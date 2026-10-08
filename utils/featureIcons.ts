@@ -31,6 +31,21 @@ const PATHS: Record<string, string> = {
   orientation: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
   pets: '<circle cx="9" cy="5.5" r="1.8"/><circle cx="15" cy="5.5" r="1.8"/><circle cx="5" cy="10.5" r="1.8"/><circle cx="19" cy="10.5" r="1.8"/><path d="M12 12c-2.5 0-5 3-5 5.5 0 1.7 1.3 2.5 2.7 2.5.9 0 1.5-.5 2.3-.5s1.4.5 2.3.5c1.4 0 2.7-.8 2.7-2.5C17 15 14.5 12 12 12z"/>',
   accessible: '<circle cx="16" cy="4" r="1.2"/><path d="m18 19 1-7-6 1"/><path d="m5 8 3-3 5.5 3-2.4 3.5"/><path d="M4.2 14.5a5 5 0 0 0 6.9 6"/><path d="M13.8 17.5a5 5 0 0 0-6.9-6"/>',
+  // Estado del inmueble y edificio (#110).
+  kitchen: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><circle cx="7.5" cy="6" r=".6"/><circle cx="11" cy="6" r=".6"/><rect x="7" y="12.5" width="10" height="5" rx="1"/>',
+  windows: '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M12 3v18M4 12h16"/>',
+  flooring: '<path d="M3 20h18"/><path d="M3 15.5 12 11l9 4.5"/><path d="M7.5 13.2V20M16.5 13.2V20M12 11v9"/>',
+  installations: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  renovation: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',
+  hotWater: '<path d="M12 2.5s-6 6.7-6 11a6 6 0 0 0 12 0c0-4.3-6-11-6-11z"/><path d="M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5"/>',
+  furnished: '<path d="M4 11V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3"/><path d="M2 13a2 2 0 0 1 4 0v2h12v-2a2 2 0 0 1 4 0v5H2z"/><path d="M5 18v2M19 18v2"/>',
+  ceiling: '<path d="M3 4h18M3 20h18"/><path d="M12 7v10"/><path d="m9 9.5 3-3 3 3M9 14.5l3 3 3-3"/>',
+  building: '<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M9 7h1M14 7h1M9 11h1M14 11h1M9 15h1M14 15h1M10.5 21v-3h3v3"/>',
+  units: '<rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>',
+  commonAreas: '<circle cx="8" cy="8" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M2.5 20a5.5 5.5 0 0 1 11 0M13 20a4 4 0 0 1 8 0"/>',
+  concierge: '<circle cx="12" cy="7" r="3.5"/><path d="M5 21a7 7 0 0 1 14 0"/><path d="M9.5 14.5 12 17l2.5-2.5"/>',
+  facade: '<path d="M3 21h18M5 21V8l7-5 7 5v13"/><path d="M9 21v-6h6v6M9 10h6"/>',
+  community: '<circle cx="12" cy="12" r="9"/><path d="M15 9.2A3.5 3.5 0 1 0 15 14.8M7.8 11h5M7.8 13h5"/>',
 }
 
 export const FEATURE_ICON_KEYS = Object.keys(PATHS)

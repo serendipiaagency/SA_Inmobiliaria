@@ -17,28 +17,42 @@
           :social-media="socialMediaForGallery"
           :media="publicMedia"
           :virtual-tour-url="virtualTourUrl"
+          :floor-plans="floorPlans"
         />
       </section>
 
       <!-- Sticky section nav -->
       <nav class="no-print sticky top-[73px] z-30 mt-6 border-y border-line bg-paper/95 backdrop-blur">
-        <div class="mx-auto flex max-w-screen-2xl items-center gap-6 overflow-x-auto px-6 lg:px-10 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <a
-            v-for="s in sections"
-            :key="s.id"
-            :href="`#${s.id}`"
-            class="relative whitespace-nowrap py-4 text-[12px] font-semibold uppercase tracking-widest transition"
-            :class="activeSection === s.id ? 'text-ink' : 'text-stone-500 hover:text-ink'"
-          >
-            {{ s.label }}
-            <span v-if="activeSection === s.id" class="absolute inset-x-0 -bottom-px h-[2px] bg-ink" />
-          </a>
+        <div class="mx-auto flex max-w-screen-2xl items-center gap-6 px-6 lg:px-10">
+          <!-- Los enlaces se desplazan; el CTA queda fuera, siempre a la vista aunque haya muchas secciones. -->
+          <div class="flex min-w-0 flex-1 items-center gap-6 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <a
+              v-for="s in sections"
+              :key="s.id"
+              :href="`#${s.id}`"
+              class="relative whitespace-nowrap py-4 text-[12px] font-semibold uppercase tracking-widest transition"
+              :class="activeSection === s.id ? 'text-ink' : 'text-stone-500 hover:text-ink'"
+            >
+              {{ s.label }}
+              <span v-if="activeSection === s.id" class="absolute inset-x-0 -bottom-px h-[2px] bg-ink" />
+            </a>
+          </div>
+          <!-- CTA fijo en escritorio (#110): aparece al pasar la galería, sin tapar contenido. -->
+          <div v-if="heroPassed" class="hidden shrink-0 items-center gap-4 border-l border-line py-2 pl-6 lg:flex" data-testid="ficha-desktop-cta">
+            <span class="min-w-0 text-right leading-tight">
+              <span class="block max-w-[240px] truncate text-[13px] font-semibold text-ink">{{ data.project.name }}</span>
+              <span v-if="publicLocation" class="block max-w-[240px] truncate text-[12px] text-stone-500">{{ publicLocation }}</span>
+            </span>
+            <span class="whitespace-nowrap text-[15px] font-bold text-ink">{{ formatPrice(data.project.price) }}</span>
+            <button type="button" class="btn-primary whitespace-nowrap !px-5 !py-2.5" data-testid="ficha-request-visit" @click="requestVisit">{{ t('propertyStickyBar.requestVisit', 'Solicitar visita') }}</button>
+          </div>
         </div>
       </nav>
 
       <div class="mx-auto max-w-screen-2xl px-6 py-10 lg:px-10">
-        <div class="grid gap-14 lg:grid-cols-3">
-          <div class="space-y-20 lg:col-span-2">
+        <div class="grid grid-cols-1 gap-14 lg:grid-cols-3">
+          <!-- Orden y visibilidad de las secciones: los del Constructor (#110, PAGE_CORE_OPTIONS.sections). La cabecera va siempre primera. -->
+          <div class="flex min-w-0 flex-col gap-20 lg:col-span-2" data-testid="ficha-main">
             <!-- Header -->
             <header>
               <div class="flex flex-wrap items-start justify-between gap-4">
@@ -47,7 +61,7 @@
                     <span class="border border-line bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest2 text-stone-600">{{ statusLabel }}</span>
                     <span v-if="data.project.rentalYield" class="rounded-full bg-paper px-3 py-1.5 text-[11px] font-semibold ring-1 ring-line">{{ data.project.rentalYield }}% {{ t('propertyDetails.facts.profitability', 'rentabilidad') }}</span>
                   </div>
-                  <h1 class="heading-serif mt-4 text-4xl leading-tight md:text-5xl">{{ data.project.name }}</h1>
+                  <h1 class="heading-serif mt-4 text-4xl leading-tight [overflow-wrap:anywhere] md:text-5xl">{{ data.project.name }}</h1>
                   <p class="mt-2 text-[15px] text-stone-500">
                     <span v-if="data.project.community">{{ data.project.community }}</span>
                     <span v-if="data.developer" class="mx-2 text-stone-300">·</span>
@@ -63,22 +77,31 @@
               <div class="hairline mt-8 flex flex-wrap gap-x-14 gap-y-5 pt-9">
                 <div v-for="f in facts" :key="f.label"><p class="text-xl font-semibold">{{ f.value }}</p><p class="mt-0.5 text-[11px] font-medium uppercase tracking-widest text-stone-450">{{ f.label }}</p></div>
               </div>
+              <!-- Móvil y tableta (#110): el precio y «Solicitar visita» justo después de la
+              información principal; en escritorio están en el panel lateral. -->
+              <div class="no-print mt-8 flex items-center justify-between gap-4 rounded-2xl border border-line bg-white p-4 lg:hidden" data-testid="ficha-mobile-price">
+                <div class="min-w-0">
+                  <p class="text-[11px] font-medium uppercase tracking-widest text-stone-450">{{ t('propertyStickyBar.price', 'Precio') }}</p>
+                  <p class="truncate text-2xl font-bold text-ink">{{ formatPrice(data.project.price) }}</p>
+                </div>
+                <button type="button" class="btn-primary shrink-0 !px-5 !py-2.5" data-testid="ficha-mobile-request-visit" @click="requestVisit">{{ t('propertyStickyBar.requestVisit', 'Solicitar visita') }}</button>
+              </div>
             </header>
 
             <!-- Serendipia Score -->
-            <section id="score">
+            <section v-if="show('score')" id="score" :style="at('score')">
               <LazySerendipiaScore hydrate-on-visible :slug="String(route.params.slug)" />
             </section>
 
             <!-- Datos clave -->
-            <section v-if="hasQuickFacts" id="datos">
+            <section v-if="hasQuickFacts && show('datos')" id="datos" :style="at('datos')">
               <p class="eyebrow !text-amber-700">{{ t('propertyDetails.quickFacts.eyebrow', 'A simple vista') }}</p>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.quickFacts.heading', 'Datos clave') }}</h2>
               <div class="mt-7"><QuickFacts :project="data.project" :details="data.details" /></div>
             </section>
 
             <!-- Resumen IA -->
-            <section id="resumen">
+            <section v-if="show('resumen')" id="resumen" :style="at('resumen')">
               <div class="flex items-center gap-2">
                 <p class="eyebrow !text-indigo-600">{{ t('propertyDetails.aiSummary.eyebrow', 'Resumen inteligente') }}</p>
               </div>
@@ -101,7 +124,7 @@
             </section>
 
             <!-- Análisis de inversión IA -->
-            <section id="analisis">
+            <section v-if="show('analisis')" id="analisis" :style="at('analisis')">
               <p class="eyebrow !text-emerald-700">{{ t('propertyDetails.investment.eyebrow', 'Para inversores') }}</p>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.investment.heading', 'Análisis de inversión') }}</h2>
               <div class="mt-7">
@@ -116,19 +139,19 @@
             </section>
 
             <!-- Evolución de precio -->
-            <section id="precio">
+            <section v-if="show('precio')" id="precio" :style="at('precio')">
               <p class="eyebrow !text-emerald-700">{{ t('propertyDetails.priceHistory.eyebrow', 'Histórico') }}</p>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.priceHistory.heading', 'Evolución de precio') }}</h2>
               <div class="mt-7"><LazyPriceChart hydrate-on-visible :slug="String(route.params.slug)" /></div>
             </section>
 
             <!-- Ask AI -->
-            <section class="no-print">
+            <section v-if="show('preguntar')" class="no-print" :style="at('preguntar')">
               <LazyAskAI hydrate-on-visible :slug="String(route.params.slug)" />
             </section>
 
             <!-- Descripción -->
-            <section v-if="data.project.description">
+            <section v-if="data.project.description && show('descripcion')" id="descripcion" :style="at('descripcion')">
               <p class="eyebrow">{{ t('propertyDetails.description.eyebrow', 'Descripción') }}</p>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.description.heading', 'Sobre esta propiedad') }}</h2>
               <!-- whitespace-pre-line keeps line breaks from descriptions written before the
@@ -142,7 +165,7 @@
             </section>
 
             <!-- Amenities -->
-            <section v-if="data.amenities.length">
+            <section v-if="data.amenities.length && show('comodidades')" id="comodidades" :style="at('comodidades')">
               <p class="eyebrow">{{ t('propertyDetails.amenities.eyebrow', 'Servicios del edificio') }}</p>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.amenities.heading', 'Comodidades') }}</h2>
               <ul class="mt-7 grid gap-x-10 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -150,8 +173,22 @@
               </ul>
             </section>
 
+            <!-- Plano de la vivienda y Estado del inmueble (#110): los planos del
+            editor (sin recortar, con visor a pantalla completa) y el estado
+            real de la ficha ampliada. Lo que no hay no sale. -->
+            <div v-if="(floorPlans.length || conditionFacts.length) && show('plano-estado')" class="grid grid-cols-1 items-start gap-5" :class="{ 'xl:grid-cols-[1.2fr_1fr]': floorPlans.length && conditionFacts.length }" :style="at('plano-estado')">
+              <PropertyFloorPlans :plans="floorPlans" :facts="{ area: p.area, bedrooms: p.bedrooms, bathrooms: p.bathrooms, hasTerrace: p.hasTerrace }" />
+              <PropertyFactsCard anchor="estado" testid="property-condition" :title="t('facts.conditionHeading', 'Estado del inmueble')" :rows="conditionFacts" />
+            </div>
+
+            <!-- El edificio (separado de la vivienda) y Documentación disponible (#110). -->
+            <div v-if="(buildingFacts.length || publicDocs.length) && show('edificio-documentacion')" class="grid grid-cols-1 items-start gap-5" :class="{ 'xl:grid-cols-2': buildingFacts.length && publicDocs.length }" :style="at('edificio-documentacion')">
+              <PropertyFactsCard anchor="edificio" testid="property-building" :title="t('facts.buildingHeading', 'El edificio')" :rows="buildingFacts" :columns="publicDocs.length ? 1 : 2" />
+              <PropertyDocumentsCard :documents="publicDocs" />
+            </div>
+
             <!-- Campos personalizados que la agencia marcó «visible en la web pública» (FASE 0). Los internos nunca llegan aquí. -->
-            <section v-if="data.customFields?.length" id="mas-informacion" data-testid="property-public-custom-fields">
+            <section v-if="data.customFields?.length && show('mas-informacion')" id="mas-informacion" data-testid="property-public-custom-fields" :style="at('mas-informacion')">
               <p class="eyebrow">{{ t('propertyDetails.customFields.eyebrow', 'Más detalles') }}</p>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.customFields.heading', 'Más información') }}</h2>
               <dl class="mt-7 grid gap-x-10 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -163,7 +200,7 @@
             </section>
 
             <!-- Units -->
-            <section v-if="data.unitTypes.length">
+            <section v-if="data.unitTypes.length && show('tipologias')" id="tipologias" :style="at('tipologias')">
               <p class="eyebrow">{{ t('propertyDetails.units.eyebrow', 'Residencias') }}</p>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.units.heading', 'Tipologías disponibles') }}</h2>
               <div class="mt-7 overflow-hidden rounded-2xl border border-line bg-white">
@@ -174,23 +211,8 @@
               </div>
             </section>
 
-            <!-- Documentación pública (FASE 6-7): PDF publicables y documentos públicos, sólo con la propiedad publicada. -->
-            <section v-if="publicFiles.length" id="documentacion" data-testid="public-property-documents">
-              <p class="eyebrow">{{ t('propertyDetails.documents.eyebrow', 'Documentación') }}</p>
-              <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.documents.heading', 'Folletos y documentos') }}</h2>
-              <ul class="mt-7 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white">
-                <li v-for="f in publicFiles" :key="f.key" class="flex items-center justify-between gap-4 px-6 py-4 text-[15px]">
-                  <span class="min-w-0">
-                    <span class="block truncate font-medium text-ink">{{ f.title }}</span>
-                    <span v-if="f.sub" class="block text-[12px] text-stone-500">{{ f.sub }}</span>
-                  </span>
-                  <a :href="f.url" target="_blank" rel="noopener" class="shrink-0 text-[12px] font-semibold uppercase tracking-widest2 text-ink hover:underline">{{ t('propertyDetails.documents.download', 'Descargar') }}</a>
-                </li>
-              </ul>
-            </section>
-
             <!-- Servicios cercanos -->
-            <section id="servicios">
+            <section v-if="show('servicios')" id="servicios" :style="at('servicios')">
               <p class="eyebrow !text-teal-700">{{ t('propertyDetails.lifestyle.eyebrow', 'El entorno') }}</p>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.lifestyle.heading', 'Estilo de vida') }}</h2>
               <p class="mt-3 max-w-2xl text-[13px] text-stone-500">{{ t('propertyDetails.lifestyle.subtitle', 'Datos reales del entorno, obtenidos de OpenStreetMap dentro de un radio de 2 km.') }}</p>
@@ -198,7 +220,7 @@
             </section>
 
             <!-- Ubicación / mapa -->
-            <section id="ubicacion">
+            <section v-if="show('ubicacion')" id="ubicacion" :style="at('ubicacion')">
               <p class="eyebrow !text-blue-700">{{ t('propertyDetails.location.eyebrow', 'Ubicación') }}</p>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.location.heading', 'Dónde está') }}</h2>
               <div class="relative mt-7 h-80 overflow-hidden rounded-2xl border border-line">
@@ -222,7 +244,7 @@
             </section>
 
             <!-- Sol y orientación -->
-            <section id="orientacion">
+            <section v-if="show('orientacion')" id="orientacion" :style="at('orientacion')">
               <p class="eyebrow !text-amber-700">{{ t('propertyDetails.orientation.eyebrow', 'Luz natural') }}</p>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.orientation.heading', 'Sol y orientación') }}</h2>
               <div class="mt-7 rounded-2xl border border-amber-100 bg-amber-50/40 p-6 sm:p-8">
@@ -231,7 +253,7 @@
             </section>
 
             <!-- Decoración / Home Staging IA -->
-            <section class="no-print">
+            <section v-if="show('staging')" class="no-print" :style="at('staging')">
               <p class="eyebrow !text-indigo-600">{{ t('propertyDetails.staging.eyebrow', 'Imagina tu hogar') }}</p>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.staging.heading', 'Visualiza el potencial') }}</h2>
               <div class="mt-7 grid gap-5 sm:grid-cols-2">
@@ -246,14 +268,14 @@
             </section>
 
             <!-- Hipoteca -->
-            <section id="hipoteca">
+            <section v-if="show('hipoteca')" id="hipoteca" :style="at('hipoteca')">
               <p class="eyebrow !text-emerald-700">{{ t('propertyDetails.mortgage.eyebrow', 'Financiación') }}</p>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.mortgage.heading', 'Hipoteca y costes') }}</h2>
               <div class="mt-7"><LazyMortgageCalculator hydrate-on-visible :price="data.project.price || 0" :rental-yield="data.project.rentalYield" :status="data.project.status" /></div>
             </section>
 
             <!-- Historia / timeline -->
-            <section id="historia">
+            <section v-if="show('historia')" id="historia" :style="at('historia')">
               <p class="eyebrow">{{ t('propertyDetails.history.eyebrow', 'Trayectoria') }}</p>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.history.heading', 'Historia del inmueble') }}</h2>
               <div class="mt-10">
@@ -269,10 +291,12 @@
           </div>
 
           <!-- Sidebar -->
-          <aside>
-            <div class="space-y-6 lg:sticky lg:top-32">
+          <!-- No es sticky entero (#110): es más alto que la pantalla y su final quedaba
+          inalcanzable. La llamada a «Solicitar visita» queda fija en la barra de secciones. -->
+          <aside class="min-w-0">
+            <div class="space-y-6">
               <div id="contacto" ref="contactRef">
-                <PropertyDecisionPanel :slug="String(route.params.slug)" :project="data.project" :agent="data.agent" />
+                <PropertyDecisionPanel :slug="String(route.params.slug)" :project="data.project" :agent="data.agent" :details="(data as any).details" />
               </div>
               <div v-if="data.developer" class="rounded-2xl border border-line bg-white p-8">
                 <p class="eyebrow mb-4">{{ t('propertyDetails.developer.eyebrow', 'Promotora') }}</p>
@@ -297,7 +321,7 @@
         <div class="mt-8"><LazySimilarProperties hydrate-on-visible :slug="String(route.params.slug)" :show-featured="coreOptions.showFeatured !== false" :featured-title="coreOptions.featuredTitle || ''" /></div>
       </div>
 
-      <PropertyStickyBar :price="formatPrice(data.project.price)" :visible="showMobileBar" />
+      <PropertyStickyBar :price="formatPrice(data.project.price)" :visible="showMobileBar" @request="requestVisit" />
     </div>
   </SitePageLayout>
 </template>
@@ -307,7 +331,9 @@ import { hasValidCoords } from '~/utils/maps/coords'
 import { formatDisplayPrice } from '~/utils/currency'
 import { PROPERTY_TYPE_LABELS } from '~/utils/propertySheet'
 import { buildQuickFacts } from '~/utils/quickFacts'
-import { PAGE_CORE_TYPE } from '~/utils/siteBuilder/pages'
+import { buildingRows, conditionRows, type PublicDocument } from '~/utils/propertyFacts'
+import type { PublicFloorPlan } from '~/utils/floorPlans'
+import { PAGE_CORE_TYPE, fichaSectionLayout } from '~/utils/siteBuilder/pages'
 
 const route = useRoute()
 const { t } = useI18n()
@@ -319,7 +345,8 @@ if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Project no
 // siendo el de cada propiedad.
 const { page: sitePage, homeData: sitePageData } = await useSitePage('ficha-propiedad')
 // Lo ajustable de la zona dinámica en el Constructor (utils/siteBuilder/pages.ts,
-// PAGE_CORE_OPTIONS): por ahora, las propiedades destacadas. Sin versión publicada, lo de siempre.
+// PAGE_CORE_OPTIONS): las propiedades destacadas y el orden y la visibilidad
+// de las secciones. Sin versión publicada, lo de partida.
 const coreOptions = computed<Record<string, any>>(() => (sitePage.value?.published ? sitePage.value.blocks?.find((b: any) => b.type === PAGE_CORE_TYPE)?.content : null) || {})
 
 // property_social_media.platform is a free-form DB column; MediaGallery only
@@ -423,10 +450,15 @@ const photos = computed<string[]>(() => galleryRows.value.map((g) => mediaUrl(g.
 const photoAlts = computed<string[]>(() => galleryRows.value.map((g, i) => g.alt || g.title || `${data.value?.project.name || ''} ${i + 1}`.trim()))
 const publicMedia = computed<any[]>(() => ((data.value as any)?.media as any[]) || [])
 const virtualTourUrl = computed<string | null>(() => ((data.value as any)?.details?.virtualTourUrl as string) || null)
-const publicFiles = computed(() => [
-  ...publicMedia.value.filter((m) => m.mediaType === 'pdf').map((m) => ({ key: `m${m.id}`, title: m.title || t('propertyDetails.documents.brochure', 'Folleto'), sub: m.caption || '', url: m.url })),
-  ...((((data.value as any)?.documents as any[]) || []).map((d) => ({ key: `d${d.id}`, title: d.title, sub: d.docTypeLabel, url: d.url }))),
+// Documentación disponible (#110): los PDF publicables de la multimedia y los documentos «Público» (sin caducar).
+const publicDocs = computed<PublicDocument[]>(() => [
+  ...publicMedia.value.filter((m) => m.mediaType === 'pdf').map((m) => ({ key: `m${m.id}`, title: m.title || t('propertyDetails.documents.brochure', 'Folleto'), typeLabel: m.caption || null, mimeType: 'application/pdf', url: m.url })),
+  ...((((data.value as any)?.documents as any[]) || []).map((d) => ({ key: `d${d.id}`, title: d.title, typeLabel: d.docTypeLabel, mimeType: d.mimeType, sizeBytes: d.sizeBytes, url: d.url, isDocument: true }))),
 ])
+// Planos (paso «Planos» del editor), estado del inmueble y edificio (#110).
+const floorPlans = computed<PublicFloorPlan[]>(() => (((data.value as any)?.floorPlans as PublicFloorPlan[]) || []).filter((f) => !!f.image))
+const conditionFacts = computed(() => conditionRows(p.value, (data.value as any)?.details, t))
+const buildingFacts = computed(() => buildingRows(p.value, (data.value as any)?.details, t, formatPrice))
 const masterPlan = computed(() => (data.value?.project.masterPlanImage ? mediaUrl(data.value.project.masterPlanImage) : null))
 const dronePhoto = computed(() => (data.value?.project.dronePhoto ? mediaUrl(data.value.project.dronePhoto) : null))
 const nightPhoto = computed(() => (data.value?.project.nightPhoto ? mediaUrl(data.value.project.nightPhoto) : null))
@@ -437,21 +469,37 @@ const aiStagedPhoto = computed(() => (data.value?.project.aiStagedPhoto ? mediaU
 const p = computed(() => data.value!.project)
 const statusLabel = computed(() => ({ new: t('propertyDetails.status.new', 'Obra nueva'), under_construction: t('propertyDetails.status.underConstruction', 'En construcción'), ready: t('propertyDetails.status.ready', 'Listo para entrar') }[p.value.status as string] || p.value.status))
 
+// Orden y visibilidad de las secciones que se configuran en el Constructor
+// (#110). Sin configuración, el orden de partida de FICHA_SECTIONS.
+const layout = computed(() => fichaSectionLayout(coreOptions.value.sections))
+const show = (key: string) => !layout.value.hidden.has(key)
+const at = (key: string) => ({ order: layout.value.order[key] })
+
+// La barra de secciones sigue el mismo orden: Fotos primero y Similares al final.
 const sections = computed(() => {
-  const s = [{ id: 'fotos', label: t('propertyDetails.nav.photos', 'Fotos') }, { id: 'score', label: t('propertyDetails.nav.score', 'Score') }]
-  if (hasQuickFacts.value) s.push({ id: 'datos', label: t('propertyDetails.nav.quickFacts', 'Datos clave') })
-  s.push(
-    { id: 'resumen', label: t('propertyDetails.nav.aiSummary', 'Resumen IA') },
-    { id: 'analisis', label: t('propertyDetails.nav.analysis', 'Análisis') },
-    { id: 'precio', label: t('propertyDetails.nav.price', 'Precio') },
-    { id: 'servicios', label: t('propertyDetails.nav.services', 'Servicios') },
-    { id: 'ubicacion', label: t('propertyDetails.nav.location', 'Ubicación') },
-    { id: 'orientacion', label: t('propertyDetails.nav.sun', 'Sol') },
-    { id: 'hipoteca', label: t('propertyDetails.nav.mortgage', 'Hipoteca') },
-    { id: 'historia', label: t('propertyDetails.nav.history', 'Historia') },
+  const items: { id: string; key: string; label: string; when?: boolean }[] = [
+    { id: 'score', key: 'score', label: t('propertyDetails.nav.score', 'Score') },
+    { id: 'datos', key: 'datos', label: t('propertyDetails.nav.quickFacts', 'Datos clave'), when: hasQuickFacts.value },
+    { id: 'resumen', key: 'resumen', label: t('propertyDetails.nav.aiSummary', 'Resumen IA') },
+    { id: 'analisis', key: 'analisis', label: t('propertyDetails.nav.analysis', 'Análisis') },
+    { id: 'precio', key: 'precio', label: t('propertyDetails.nav.price', 'Precio') },
+    { id: 'plano', key: 'plano-estado', label: t('propertyDetails.nav.floorPlan', 'Plano'), when: floorPlans.value.length > 0 },
+    { id: 'estado', key: 'plano-estado', label: t('propertyDetails.nav.condition', 'Estado'), when: conditionFacts.value.length > 0 },
+    { id: 'edificio', key: 'edificio-documentacion', label: t('propertyDetails.nav.building', 'Edificio'), when: buildingFacts.value.length > 0 },
+    { id: 'documentacion', key: 'edificio-documentacion', label: t('propertyDetails.nav.documents', 'Documentación'), when: publicDocs.value.length > 0 },
+    { id: 'servicios', key: 'servicios', label: t('propertyDetails.nav.services', 'Servicios') },
+    { id: 'ubicacion', key: 'ubicacion', label: t('propertyDetails.nav.location', 'Ubicación') },
+    { id: 'orientacion', key: 'orientacion', label: t('propertyDetails.nav.sun', 'Sol') },
+    { id: 'hipoteca', key: 'hipoteca', label: t('propertyDetails.nav.mortgage', 'Hipoteca') },
+    { id: 'historia', key: 'historia', label: t('propertyDetails.nav.history', 'Historia') },
+  ]
+  const { order, hidden } = layout.value
+  const middle = items.filter((s) => s.when !== false && !hidden.has(s.key)).sort((a, b) => (order[a.key] || 0) - (order[b.key] || 0))
+  return [
+    { id: 'fotos', label: t('propertyDetails.nav.photos', 'Fotos') },
+    ...middle.map(({ id, label }) => ({ id, label })),
     { id: 'similares', label: t('propertyDetails.nav.similar', 'Similares') },
-  )
-  return s
+  ]
 })
 
 // Los mismos datos que pinta QuickFacts: sin ninguno, ni sección ni pestaña.
@@ -503,14 +551,24 @@ const scale = '<svg width="18" height="18" fill="none" stroke="currentColor" str
 const activeSection = ref('fotos')
 let sectionObserver: IntersectionObserver | null = null
 
-// Barra CTA sticky en móvil: visible tras pasar el hero, hasta que aparece la tarjeta de contacto real
+// Barra CTA fija en móvil: visible tras pasar el hero, salvo mientras la
+// tarjeta de contacto real está a la vista (antes, una vez vista, no volvía).
 const heroRef = ref<HTMLElement | null>(null)
 const contactRef = ref<HTMLElement | null>(null)
 const heroPassed = ref(false)
-const contactSeen = ref(false)
+const contactInView = ref(false)
 let heroObserver: IntersectionObserver | null = null
 let contactObserver: IntersectionObserver | null = null
-const showMobileBar = computed(() => heroPassed.value && !contactSeen.value)
+const showMobileBar = computed(() => heroPassed.value && !contactInView.value)
+// «Solicitar visita» (#110): con comercial y agenda, abre la reserva real de
+// «Atendido por» (PropertyDecisionPanel); sin ella, lleva al formulario.
+const visitRequest = useState<number>('ficha-visit-request', () => 0)
+function requestVisit() {
+  if ((data.value as any)?.agent?.slug) visitRequest.value++
+  else document.getElementById('contacto')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+// Ubicación pública (la privacidad ya quitó portal, planta y número en el servidor).
+const publicLocation = computed(() => [data.value?.project.community, (data.value?.project as any)?.city].filter(Boolean).join(', '))
 
 onMounted(() => {
   sectionObserver = new IntersectionObserver(
@@ -529,7 +587,7 @@ onMounted(() => {
     heroObserver.observe(heroRef.value)
   }
   if (contactRef.value) {
-    contactObserver = new IntersectionObserver(([e]) => { if (e.isIntersecting) contactSeen.value = true }, { threshold: 0 })
+    contactObserver = new IntersectionObserver(([e]) => { contactInView.value = e.isIntersecting }, { threshold: 0 })
     contactObserver.observe(contactRef.value)
   }
 })

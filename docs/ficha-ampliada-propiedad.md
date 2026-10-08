@@ -382,6 +382,29 @@ El resumen de la ficha (`?view=summary`) devuelve `createdBy`, `createdAt` y
 resuelve si el usuario es de la agencia o super_admin (como el histórico de
 precios); las fichas anteriores a N1 no tienen autor y lo dicen.
 
+### Estado del inmueble y edificio en la ficha pública (#110)
+
+La migración 0091 añade a `property_details` cinco campos, con sus reglas en
+`PropertySchemaRegistry`: `kitchen_equipment` (equipada / semiequipada / sin
+equipar), `bathrooms_condition` y `installations_condition` (nuevos,
+reformados, buen estado, para actualizar), `building_condition` (obra nueva,
+excelente, buen estado, necesita reformas) y `units_per_floor`. Son públicos.
+
+La ficha pública los pinta en dos tarjetas separadas, «Estado del inmueble» y
+«El edificio» (`utils/propertyFacts.ts`: `conditionRows` y `buildingRows`),
+con estas reglas:
+
+- Sólo lo que consta. Nada se deduce de las fotos ni se inventa; sin filas,
+  no hay tarjeta ni pestaña en la barra de secciones.
+- Desconocido no es «No». Un sí/no de la ficha ampliada vale 1, 0 o NULL: el
+  0 es un «No» marcado y se enseña. Las casillas de la propiedad (ascensor,
+  accesible) valen 0 por defecto, así que ahí sólo sale el «Sí»; «Amueblado»
+  (yes / no / partially) enseña también su «No».
+- Una fuente por concepto: la calefacción va en el inmueble; el año de
+  construcción, en el edificio. Si no hay estado físico guardado y la
+  promoción es obra nueva o está en construcción, el estado general es «Obra
+  nueva» (es un dato de la ficha, no una suposición).
+
 ## Deriva conocida de producción
 
 La tabla `leads` de producción tiene una columna `converted_contact_id` que

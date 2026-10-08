@@ -69,24 +69,81 @@ export const PAGE_CORE_SOURCES: Record<PageCoreKind, { label: string; to: string
 
 /**
  * Lo poco que se puede ajustar de una zona dinámica (sin tocar sus datos,
- * que siguen saliendo de Property Core): de momento, en la ficha, la
- * sección «Propiedades destacadas» bajo las similares — mostrarla u
- * ocultarla y su título. Todo lo demás del contenido de la zona se descarta
- * al guardar.
+ * que siguen saliendo de Property Core): en la ficha, la sección
+ * «Propiedades destacadas» bajo las similares —mostrarla u ocultarla y su
+ * título— y el orden y la visibilidad de sus secciones (#110). Todo lo demás
+ * del contenido de la zona se descarta al guardar.
  */
-export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, 'boolean' | 'text'>>> = {
-  'property-detail': { showFeatured: 'boolean', featuredTitle: 'text' },
+export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, 'boolean' | 'text' | 'sections'>>> = {
+  'property-detail': { showFeatured: 'boolean', featuredTitle: 'text', sections: 'sections' },
+}
+
+/**
+ * Las secciones de la ficha que el Constructor puede ordenar u ocultar (#110),
+ * en su orden de partida: la jerarquía del encargo (datos clave, descripción,
+ * características, plano y estado, edificio y documentación, hipoteca,
+ * ubicación) y, después, el resto, que se mantiene. La galería, la cabecera
+ * de la propiedad, el contacto y las similares no se mueven. Una sección sin
+ * datos no sale aunque esté visible: el Constructor decide la presentación,
+ * Property Core los datos.
+ */
+export const FICHA_SECTIONS: { key: string; label: string }[] = [
+  { key: 'datos', label: 'Datos clave' },
+  { key: 'descripcion', label: 'Descripción' },
+  { key: 'comodidades', label: 'Comodidades' },
+  { key: 'mas-informacion', label: 'Más información' },
+  { key: 'tipologias', label: 'Tipologías' },
+  { key: 'plano-estado', label: 'Plano y estado del inmueble' },
+  { key: 'edificio-documentacion', label: 'El edificio y documentación' },
+  { key: 'hipoteca', label: 'Hipoteca y costes' },
+  { key: 'ubicacion', label: 'Ubicación' },
+  { key: 'score', label: 'Serendipia Score' },
+  { key: 'resumen', label: 'Lo que debes saber' },
+  { key: 'analisis', label: 'Análisis de inversión' },
+  { key: 'precio', label: 'Evolución de precio' },
+  { key: 'preguntar', label: 'Pregúntale' },
+  { key: 'servicios', label: 'Estilo de vida' },
+  { key: 'orientacion', label: 'Sol y orientación' },
+  { key: 'staging', label: 'Visualiza el potencial' },
+  { key: 'historia', label: 'Historia del inmueble' },
+]
+const FICHA_SECTION_KEYS = new Set(FICHA_SECTIONS.map((x) => x.key))
+
+export interface FichaSectionSetting {
+  key: string
+  visible: boolean
+}
+
+/** La lista completa y en orden: las conocidas que vengan (sin repetir) y, detrás, las que falten, visibles. */
+export function normalizeFichaSections(value: unknown): FichaSectionSetting[] {
+  const out: FichaSectionSetting[] = []
+  const seen = new Set<string>()
+  for (const item of Array.isArray(value) ? value : []) {
+    const key = typeof item?.key === 'string' ? item.key : ''
+    if (!FICHA_SECTION_KEYS.has(key) || seen.has(key)) continue
+    seen.add(key)
+    out.push({ key, visible: item.visible !== false })
+  }
+  for (const x of FICHA_SECTIONS) if (!seen.has(x.key)) out.push({ key: x.key, visible: true })
+  return out
+}
+
+/** Para pintar la ficha: el puesto de cada sección y cuáles están ocultas. */
+export function fichaSectionLayout(value: unknown): { order: Record<string, number>; hidden: Set<string> } {
+  const list = normalizeFichaSections(value)
+  return { order: Object.fromEntries(list.map((x, i) => [x.key, i + 1])), hidden: new Set(list.filter((x) => !x.visible).map((x) => x.key)) }
 }
 
 const CORE_TEXT_MAX = 120
 
-export function sanitizeCoreOptions(core: PageCoreKind, content: Record<string, any> | null | undefined): Record<string, boolean | string> {
+export function sanitizeCoreOptions(core: PageCoreKind, content: Record<string, any> | null | undefined): Record<string, boolean | string | FichaSectionSetting[]> {
   const spec = PAGE_CORE_OPTIONS[core] || {}
-  const out: Record<string, boolean | string> = {}
+  const out: Record<string, boolean | string | FichaSectionSetting[]> = {}
   for (const [key, type] of Object.entries(spec)) {
     const v = content?.[key]
     if (type === 'boolean' && typeof v === 'boolean') out[key] = v
     if (type === 'text' && typeof v === 'string' && v.trim()) out[key] = v.trim().slice(0, CORE_TEXT_MAX)
+    if (type === 'sections' && Array.isArray(v)) out[key] = normalizeFichaSections(v)
   }
   return out
 }

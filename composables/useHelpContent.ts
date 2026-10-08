@@ -97,6 +97,16 @@ const PROPERTY_SEARCH_N7B_HELP_STEPS: string[] = [
  * exportación sin tope y autor de la ficha. Ver docs/ficha-ampliada-propiedad.md
  * y docs/property-search.md.
  */
+/** Ficha pública ampliada (#110): planos, estado, edificio, documentación, reserva y calculadora. */
+const PROPERTY_FICHA_110_HELP_STEPS: string[] = [
+  'Planos: en el paso «Planos» del editor cada plano tiene título (por ejemplo «Planta baja» o «Planta alta»), imagen y la casilla «Visible en la web». Ordénalos con las flechas ← → de cada tarjeta. Un plano oculto lleva la marca «Oculto en la web» y no sale en la ficha. La ficha pública enseña los visibles en «Plano de la vivienda», sin recortar, con una pestaña por plano y «Ampliar», que abre un visor a pantalla completa con zoom (botones, rueda, doble clic o pellizco) y arrastre. Los mismos planos salen en la pestaña «Plano» de la galería. Sin planos visibles, la sección no aparece.',
+  '«Estado del inmueble» y «El edificio» se rellenan con la ficha ampliada; no hay textos que escribir en la web. Para el inmueble: estado general, reformado, cocina (con «Equipamiento de la cocina»), baños («Estado de los baños»), ventanas, suelos, instalaciones («Estado de las instalaciones»: electricidad, fontanería y gas), calefacción, agua caliente, climatización, altura de techos, amueblado y año de la última reforma. Para el edificio: año de construcción, plantas, «Viviendas por planta», viviendas en total, ascensor, accesibilidad, zonas comunes, conserje y seguridad, «Estado del edificio», fachada, estructura y comunidad. Sólo sale lo que consta: un dato vacío no aparece, y un «No» que hayas marcado sí se enseña. Sin ningún dato, no hay tarjeta.',
+  '«Documentación disponible» reúne los PDF publicables de Multimedia y los documentos de la propiedad con visibilidad «Público». Los caducados no salen. «Ver» abre un PDF o una imagen en el navegador; el icono de flecha lo descarga. El permiso se vuelve a comprobar en cada descarga.',
+  'Reserva de visitas desde la ficha: «Próxima visita disponible» enseña el primer hueco libre real de la agenda del comercial responsable (su horario, duración, citas, bloqueos y tope diario, en su zona horaria). Al pulsarlo, la reserva se abre ya con esa hora elegida. Quien reserva tiene que aceptar la política de privacidad. La cita entra en Visitas con la propiedad y el contacto del lead, y el comercial recibe el aviso en la campana del panel. El cliente recibe el enlace para confirmar su asistencia, y la cita queda «pendiente» hasta entonces. Si alguien ocupa la hora mientras tanto, se avisa y se recargan los huecos. Un comercial de baja u oculto en la web no recibe reservas. Si no hay comercial con agenda, «Solicitar visita» lleva al formulario de contacto, sin prometer ninguna hora.',
+  '«Solicitar visita» está siempre a mano: en escritorio aparece en la barra de secciones al bajar de la galería, con el nombre, la zona y el precio; en móvil, el precio y el botón van justo debajo de la información principal y en la barra inferior.',
+  '«Hipoteca y costes» calcula cuánto hace falta para comprar (entrada, impuestos y gastos) y la cuota mensual. Parte de supuestos según la moneda de tu agencia: en euros, IVA del 10 % más un AJD estimado del 1,5 % y alrededor de un 1 % de notaría, registro y gestoría; en dírhams, la tasa del DLD y las de registro. Los supuestos se dicen en la propia calculadora y el visitante puede cambiarlos. Es una estimación, nunca una oferta. El «Coste mensual» del panel lateral usa el mismo cálculo y suma la comunidad, el IBI y la tasa de basuras (prorrateados) si están en la ficha.',
+]
+
 const PROPERTY_D1P_HELP_STEPS: string[] = [
   'Tres datos distintos, cada uno con su nombre: el «Estado comercial» (disponible, reservada, vendida, alquilada, retirada o borrador) es el que gestiona la agencia y es igual en los dos catálogos; el «Estado de la obra» (obra nueva, en construcción, lista) es sólo la fase de construcción de Propiedades (web); y la «Disponibilidad» (disponible o vendida) es la de 2ª mano, la que mira el matching.',
   'En el listado, el desplegable «Todo estado comercial» (junto al de estado de la obra o disponibilidad) filtra por estado comercial, también «sin indicar». En la vista Lista, la columna «Estado comercial» enseña el chip y, con permiso de escritura, se cambia haciendo clic en él (como el precio). En bloque: marca las propiedades y elige «Cambiar estado comercial»; queda en la auditoría como el resto de acciones masivas.',
@@ -463,6 +473,7 @@ export function useHelpContent() {
         '"Quitar" en una parada agendada la saca de la ruta: pide un motivo y su cita queda "Cancelada" con ese motivo (no se borra: sigue en el tour, tachada, para que se vea qué pasó), se avisa al cliente y el resto de la ruta no se mueve. Una parada ya hecha no se quita, y la única parada activa de un tour tampoco — un tour no se queda vacío; si esa visita ya no se hace, ábrela con "Ver" y cancélala.',
         'La ficha de la cita tiene también el panel «Campos personalizados» con los campos que tu agencia haya creado para citas (CRM → Campos personalizados): rellénalos ahí y pulsa «Guardar campos».',
         'Cada cita avisa al cliente por email y, si tiene teléfono, por WhatsApp (confirmación, recordatorios 24 h y 1 h antes, cancelación y cambios); la ficha dice si los recordatorios están pendientes o enviados. El WhatsApp sale de verdad cuando la plataforma tiene conectado Twilio — Sistema → Estado del sistema lo dice; si no, el aviso queda registrado como "no conectado". El teléfono necesita prefijo internacional (+34…).',
+        'Las reservas que hacen los visitantes desde la ficha de una propiedad («Próxima visita disponible» o «Solicitar visita») entran aquí como cita del comercial responsable, con la propiedad y el contacto de su lead, y el comercial recibe el aviso en la campana del panel. Quien reserva ha aceptado la política de privacidad, y la cita queda «pendiente» hasta que confirma su asistencia desde su enlace.',
       ],
     },
     {
@@ -596,6 +607,7 @@ export function useHelpContent() {
         ...PROPERTY_SEARCH_N7B_HELP_STEPS,
         ...PROPERTY_INLINE_EDIT_HELP_STEPS,
         ...PROPERTY_D1P_HELP_STEPS,
+        ...PROPERTY_FICHA_110_HELP_STEPS,
       ],
     },
     {
@@ -621,7 +633,7 @@ export function useHelpContent() {
         'Nosotros y Contacto se abren con lo que tu web ya enseña (los textos de Nosotros, el formulario de Contacto), listos para cambiarlos; tu web no cambia hasta que publiques. Servicios es una página nueva: empieza con una estructura de ejemplo y existe en tu web (en /servicios) desde que la publicas.',
         'Propiedades, Ficha de propiedad y Blog tienen una "zona dinámica" (con un candado): el buscador y el listado, la ficha de cada propiedad o los artículos, que se rellenan solos con tus datos. Puedes añadir secciones encima o debajo y moverla con las flechas, pero no borrarla, duplicarla ni ocultarla. La Ficha de propiedad es la plantilla de todas las fichas: lo que añadas ahí sale en todas; en el lienzo se ve con tu propiedad más reciente como ejemplo.',
         'La cabecera de tu web lleva el menú de Portal INMO: «Comprar Propiedad» (tu catálogo, sólo lo que está en venta), «Vender Propiedad», «Mapa», «Sobre nosotros» (tu página Nosotros) y «Blog»; a la derecha, idioma, moneda, favoritos y el botón «Contacto». Es la misma en todas las páginas, en el móvil (menú desplegable) y en el lienzo. «Vender Propiedad» es una página más de la lista «Páginas»: tu web la enseña desde el primer día con un texto y un formulario para propietarios, y puedes cambiarla y publicarla cuando quieras.',
-        'La «Ficha de propiedad» es la plantilla de todas las fichas: cada una enseña los datos de su propiedad (Propiedades (web)) y, en la columna derecha, la tarjeta «Atendido por» con el comercial responsable de esa propiedad (su foto, nombre, puesto, WhatsApp y teléfono, si los tiene y está marcado «Mostrar este comercial en la web»; si no, tu empresa) y el formulario «Cuéntanos qué necesitas». Pulsa la zona dinámica de la ficha para ocultar o renombrar «Propiedades destacadas», la sección bajo «Propiedades similares» con tus propiedades marcadas «Exclusiva» (nunca la que se está viendo ni las similares; si no hay ninguna, no aparece).',
+        'La «Ficha de propiedad» es la plantilla de todas las fichas: cada una enseña los datos de su propiedad (Propiedades (web)) y, en la columna derecha, la tarjeta «Atendido por» con el comercial responsable de esa propiedad (su foto, nombre, puesto, WhatsApp y teléfono, si los tiene y está marcado «Mostrar este comercial en la web»; si no, tu empresa) y el formulario «Cuéntanos qué necesitas». Pulsa la zona dinámica de la ficha para ocultar o renombrar «Propiedades destacadas», la sección bajo «Propiedades similares» con tus propiedades marcadas «Exclusiva» (nunca la que se está viendo ni las similares; si no hay ninguna, no aparece). En esa misma zona, «Secciones de la ficha» ordena con flechas y oculta con su casilla las secciones de todas las fichas (Datos clave, Descripción, Plano y estado, El edificio y documentación, Hipoteca y costes, Ubicación…); la barra de secciones de la ficha sigue ese orden y «Volver al orden de partida» lo deshace.',
         '"Volver a la página original" (debajo de la lista de páginas) deshace lo publicado en esa página: tu web vuelve a enseñar la de siempre (Servicios deja de existir) y el borrador vuelve al contenido de partida. Las versiones que publicaste siguen en el historial, por si quieres recuperar alguna. La página de Inicio no tiene esta opción.',
         'Para añadir una sección, pasa el ratón entre dos secciones (en la lista de Estructura o directamente sobre el lienzo) y pulsa "+ Añadir sección aquí" — se abre la biblioteca y la sección elegida se inserta exactamente en esa posición, se selecciona sola y su panel de opciones se abre listo para editar. El botón "+" de la cabecera de Estructura, o "+ Añadir sección" al final de la lista, añaden al final.',
         'La biblioteca de secciones tiene buscador, categorías, una miniatura real de cada sección (no solo un icono) y guarda tus favoritos y usados recientemente — pulsa el corazón para marcar una sección como favorita.',
@@ -1607,6 +1619,20 @@ export function useHelpContent() {
       answer:
         'Entra en tu CRM como un lead de captación: origen «web», detalle «Vender propiedad», con su mensaje tal cual, y su contacto queda con el rol «Vendedor» (Contactos). Si esa persona ya te había escrito como compradora, no se mezcla: su lead de comprador sigue aparte y el de captación es otro, del mismo contacto. También aparece como hilo «Formulario web» en Comunicaciones. Cualquier formulario de captación del Constructor puede funcionar así: en su pestaña «Contenido», «Quién escribe» → «Propietarios que venden».',
       tags: ['vender', 'captacion', 'propietarios', 'leads', 'constructor web', 'menu'],
+    },
+    {
+      id: 'faq-ficha-secciones',
+      question: '¿Puedo cambiar el orden de las secciones de la ficha o quitar alguna?',
+      answer:
+        'Sí, para todas las fichas a la vez: Constructor Web → Páginas → Ficha de propiedad → pulsa la zona dinámica. En «Secciones de la ficha» ordénalas con las flechas y desmarca las que no quieras enseñar; «Volver al orden de partida» lo deshace. La barra de secciones de la ficha sigue el mismo orden. La galería, la cabecera, el contacto y las similares se quedan en su sitio, y una sección sin datos en una propiedad no aparece aunque esté marcada. Se aplica al publicar la página.',
+      tags: ['ficha', 'constructor web', 'secciones', 'orden', 'ocultar'],
+    },
+    {
+      id: 'faq-ficha-plano-no-sale',
+      question: 'He subido un plano y no sale en la ficha pública. ¿Por qué?',
+      answer:
+        'La ficha sólo enseña los planos con imagen y con la casilla «Visible en la web» marcada (paso «Planos» del editor; un plano oculto lleva la marca «Oculto en la web»). Revisa también el orden con las flechas: el primero es el que se ve al abrir la sección.',
+      tags: ['planos', 'ficha', 'web', 'visible'],
     },
     {
       id: 'faq-ficha-destacadas',

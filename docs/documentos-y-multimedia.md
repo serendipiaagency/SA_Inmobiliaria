@@ -103,13 +103,38 @@ denegada).
 `decideDocumentAccess()` con quien lo pide — equipo (organización activa y
 lectura de propiedades), cliente de «Mi cuenta» (su email, dentro de su
 agencia) o anónimo. Se sirve `no-store` y como descarga con el nombre del
-fichero.
+fichero. Con `?ver=1` (#110), un PDF o una imagen (`INLINE_DOCUMENT_TYPES`:
+pdf, jpeg, png, webp) se sirve `inline`, para el «Ver» de «Documentación
+disponible» de la ficha pública; el permiso se decide igual. Otro tipo se
+descarga siempre.
 
 ### Caducidad
 
 `documentExpiryState()`: caducado si la fecha ya pasó, «caduca pronto» en los
 próximos 30 días, vigente o sin caducidad. La ficha lo avisa en el paso
-«Documentos» y en el resumen de la cabecera.
+«Documentos» y en el resumen de la cabecera. Un documento «Público» caducado
+deja de salir en la ficha pública (`listPublicPropertyDocuments`, #110).
+
+### Planos (#110)
+
+Los planos son las filas del paso «Planos» del editor: `floor_plans` (obra
+nueva) y `agent_property_floor_plans` (2ª mano). La migración 0091 les añade
+`title`, `sort_order` e `is_public` (por defecto 1: los que ya había siguen
+visibles, como ya lo eran por la API). `normalizeFloorPlan`
+(`server/utils/properties/floorPlans.ts`, el `prepare` del recurso genérico)
+recorta el título a 120 caracteres, deja el orden en un entero ≥ 0 y la
+visibilidad en 0/1. Lo que no llega en un `PUT` no se toca. En el editor,
+`ChildCardManager` ordena por `sortOrder` con flechas ← → y marca «Oculto en
+la web».
+
+La API pública (`listPublicFloorPlans`) devuelve sólo los visibles con
+imagen, por `sort_order` e `id`, y sólo `id`, `title`, `image`, `sizes` y
+`floorDetails`; antes devolvía la fila entera. El título que se lee es el
+suyo, o la categoría, el tipo de unidad o «Plano N» (`floorPlanTitle`). La
+ficha los pinta en «Plano de la vivienda» (`components/property/FloorPlans.vue`,
+sin recortar) y en la pestaña «Plano» de la galería, con el mismo visor
+(`FloorPlanViewer.vue`: zoom con botones, rueda, doble clic y pellizco,
+arrastre, teclado y bloqueo del scroll). Es el mismo recurso, no una copia.
 
 ### Ficha del contacto y «Mi cuenta»
 

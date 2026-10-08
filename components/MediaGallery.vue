@@ -8,6 +8,7 @@
         type="button"
         class="gtab"
         :class="{ 'gtab-on': tab === tabItem.key }"
+        :data-gallery-tab="tabItem.key"
         @click="tab = tabItem.key"
       >
         <span class="mr-1.5" v-html="tabItem.icon" />{{ tabItem.label }}
@@ -146,10 +147,15 @@
       </div>
     </div>
 
-    <!-- Plano -->
-    <div v-show="tab === 'plano'" class="flex h-[540px] items-center justify-center overflow-hidden rounded-2xl border border-line bg-white">
-      <img v-if="masterPlan" :src="masterPlan" :alt="`${name} ${t('mediaGallery.plan.alt', 'plano')}`" class="max-h-full max-w-full cursor-zoom-in object-contain p-4" @click="openFull('plano')" >
-      <p v-else class="text-stone-400">{{ t('mediaGallery.plan.unavailable', 'Plano no disponible') }}</p>
+    <!-- Plano: los planos de la vivienda (#110) y el de la promoción; el visor amplía sin recortar. -->
+    <div v-show="tab === 'plano'" class="relative flex h-[540px] flex-col overflow-hidden rounded-2xl border border-line bg-white" data-testid="gallery-plans">
+      <div v-if="planItems.length > 1" class="flex flex-wrap gap-1.5 border-b border-line p-3">
+        <button v-for="(pl, i) in planItems" :key="pl.id" type="button" class="rounded-full border px-3 py-1 text-[12px]" :class="i === planIndex ? 'border-ink bg-ink text-white' : 'border-line text-stone-600'" @click="planIndex = i">{{ pl.title }}</button>
+      </div>
+      <button v-if="planItems[planIndex]" type="button" class="flex min-h-0 flex-1 items-center justify-center p-4" :aria-label="t('floorPlans.openFull', 'Ver el plano a pantalla completa')" @click="planViewer = true">
+        <img :src="mediaUrl(planItems[planIndex].image)" :alt="`${name} — ${planItems[planIndex].title}`" class="max-h-full max-w-full cursor-zoom-in object-contain" >
+      </button>
+      <PropertyFloorPlanViewer v-if="planViewer" :plans="planItems" :start="planIndex" @close="planViewer = false" />
     </div>
 
     <!-- Fullscreen viewer -->
@@ -191,6 +197,7 @@
 </template>
 
 <script setup lang="ts">
+import type { PublicFloorPlan } from '~/utils/floorPlans'
 interface PublicMediaItem {
   id?: number
   mediaType: string
@@ -221,6 +228,8 @@ const props = defineProps<{
   media?: PublicMediaItem[]
   /** Enlace del tour virtual de la ficha ampliada (si lo hay). */
   virtualTourUrl?: string | null
+  /** Planos de la vivienda (#110, paso «Planos» del editor): el mismo recurso que la sección «Plano de la vivienda». */
+  floorPlans?: PublicFloorPlan[]
 }>()
 
 function isExternal(url: string) {
@@ -257,21 +266,30 @@ const droneIndex = ref(0)
 
 const { t } = useI18n()
 
+// Sólo las pestañas con contenido de verdad (#110): antes Redes, Vídeo, Drone,
+// Noche y Decoración salían siempre y, vacías, invitaban a «Solicitar…».
 const tabs = computed(() => {
   const tb: { key: string; label: string; icon: string }[] = [
     { key: 'fotos', label: t('mediaGallery.tabs.photos', 'Fotos'), icon: ic('grid') },
   ]
-  tb.push({ key: 'redes', label: t('mediaGallery.tabs.social', 'Redes'), icon: ic('social') })
-  tb.push({ key: 'video', label: videos.value.length > 1 ? `${t('mediaGallery.tabs.videos', 'Vídeos')} (${videos.value.length})` : t('mediaGallery.tabs.video', 'Vídeo'), icon: ic('play') })
+  if (props.socialMedia?.length) tb.push({ key: 'redes', label: t('mediaGallery.tabs.social', 'Redes'), icon: ic('social') })
+  if (videos.value.length) tb.push({ key: 'video', label: videos.value.length > 1 ? `${t('mediaGallery.tabs.videos', 'Vídeos')} (${videos.value.length})` : t('mediaGallery.tabs.video', 'Vídeo'), icon: ic('play') })
   if (hasReal360.value) tb.push({ key: '360', label: t('mediaGallery.tabs.tour360', '360°'), icon: ic('globe') })
+  if (planItems.value.length) tb.push({ key: 'plano', label: planItems.value.length > 1 ? `${t('mediaGallery.tabs.plans', 'Planos')} (${planItems.value.length})` : t('mediaGallery.tabs.plan', 'Plano'), icon: ic('plan') })
   if (renders.value.length) tb.push({ key: 'renders', label: t('mediaGallery.tabs.renders', 'Renders'), icon: ic('sparkle') })
-  tb.push({ key: 'drone', label: t('mediaGallery.tabs.drone', 'Drone'), icon: ic('drone') })
-  tb.push({ key: 'noche', label: t('mediaGallery.tabs.night', 'Noche'), icon: ic('night') })
+  if (drones.value.length) tb.push({ key: 'drone', label: t('mediaGallery.tabs.drone', 'Drone'), icon: ic('drone') })
+  if (props.nightPhoto) tb.push({ key: 'noche', label: t('mediaGallery.tabs.night', 'Noche'), icon: ic('night') })
   if (props.beforePhoto && props.afterPhoto) tb.push({ key: 'antes-despues', label: t('mediaGallery.tabs.beforeAfter', 'Antes / Después'), icon: ic('compare') })
-  tb.push({ key: 'decoracion-ia', label: t('mediaGallery.tabs.aiDecor', 'Decoración IA'), icon: ic('sparkle') })
-  if (props.masterPlan) tb.push({ key: 'plano', label: t('mediaGallery.tabs.plan', 'Plano'), icon: ic('plan') })
+  if (props.aiStagedPhoto) tb.push({ key: 'decoracion-ia', label: t('mediaGallery.tabs.aiDecor', 'Decoración IA'), icon: ic('sparkle') })
   return tb
 })
+// Pestaña «Plano»: los planos de la vivienda y, al final, el plano de la promoción.
+const planItems = computed<PublicFloorPlan[]>(() => [
+  ...(props.floorPlans || []),
+  ...(props.masterPlan ? [{ id: -1, title: t('mediaGallery.plan.masterPlan', 'Plano de la promoción'), image: props.masterPlan, sizes: null, floorDetails: null }] : []),
+])
+const planIndex = ref(0)
+const planViewer = ref(false)
 const tab = ref('fotos')
 
 

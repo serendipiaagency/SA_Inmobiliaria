@@ -26,6 +26,11 @@
           <li v-for="(r, i) in paymentRows" :key="i" class="flex justify-between text-sm"><span class="text-stone-500">{{ r.label }}</span><span class="font-semibold">{{ r.value }}</span></li>
         </ul>
       </div>
+
+      <!-- Próxima visita disponible (#110): el primer hueco real de la agenda del comercial; abre la reserva. -->
+      <div class="no-print mt-5">
+        <PropertyNextVisitSlot :agent-slug="agent?.slug" @book="(start) => openVisit('in_person', start)" />
+      </div>
     </div>
 
     <!-- ATENDIDO POR: comercial responsable real + formulario que crea el lead -->
@@ -106,22 +111,27 @@
           <span class="text-stone-500">{{ t('decisionPanel.monthlyCost.mortgage', 'Hipoteca estimada') }}</span>
           <span class="font-semibold">{{ formatPrice(monthlyCost.mortgage) }}</span>
         </li>
-        <li class="flex items-center justify-between py-3 text-sm">
-          <span class="text-stone-500">{{ t('decisionPanel.monthlyCost.serviceCharge', 'Comunidad (service charge)') }}</span>
-          <span class="font-semibold">{{ monthlyCost.serviceCharge != null ? formatPrice(monthlyCost.serviceCharge) : t('decisionPanel.monthlyCost.consult', 'Consultar') }}</span>
+        <li v-if="monthlyCost.community != null" class="flex items-center justify-between py-3 text-sm">
+          <span class="text-stone-500">{{ t('decisionPanel.monthlyCost.community', 'Comunidad') }}</span>
+          <span class="font-semibold">{{ formatPrice(monthlyCost.community) }}</span>
         </li>
-        <li class="flex items-center justify-between py-3 text-sm">
-          <span class="text-stone-500">{{ t('decisionPanel.monthlyCost.insurance', 'Seguro (estimado)') }}</span>
-          <span class="font-semibold">{{ formatPrice(monthlyCost.insurance) }}</span>
+        <li v-if="monthlyCost.ibi != null" class="flex items-center justify-between py-3 text-sm">
+          <span class="text-stone-500">{{ t('decisionPanel.monthlyCost.ibi', 'IBI (prorrateado)') }}</span>
+          <span class="font-semibold">{{ formatPrice(monthlyCost.ibi) }}</span>
+        </li>
+        <li v-if="monthlyCost.garbage != null" class="flex items-center justify-between py-3 text-sm">
+          <span class="text-stone-500">{{ t('decisionPanel.monthlyCost.garbage', 'Tasa de basuras (prorrateada)') }}</span>
+          <span class="font-semibold">{{ formatPrice(monthlyCost.garbage) }}</span>
         </li>
         <li class="flex items-center justify-between py-3.5 text-sm font-semibold">
-          <span>{{ t('decisionPanel.monthlyCost.total', 'Total mensual') }}{{ monthlyCost.serviceCharge == null ? '*' : '' }}</span>
+          <span>{{ t('decisionPanel.monthlyCost.total', 'Total mensual') }}</span>
           <span>{{ formatPrice(monthlyCost.total) }}</span>
         </li>
       </ul>
       <p class="mt-2 text-[11px] leading-relaxed text-stone-400">
-        {{ t('decisionPanel.monthlyCost.disclaimer', 'Estimado con 20% de entrada, 4.5% de interés y 25 años · sin IBI ni impuesto anual sobre la propiedad, que no existen en Dubái.') }}
-        {{ monthlyCost.serviceCharge == null ? t('decisionPanel.monthlyCost.missingServiceCharge', '*Falta el dato de gastos de comunidad de este edificio.') : '' }}
+        {{ t('decisionPanel.monthlyCost.assumptions', 'Estimado con 20 % de entrada, 3,5 % de interés y 25 años.') }}
+        {{ monthlyCost.community == null && monthlyCost.ibi == null ? t('decisionPanel.monthlyCost.missingCosts', 'No incluye comunidad ni IBI: esta vivienda no los tiene indicados.') : '' }}
+        <a href="#hipoteca" class="underline">{{ t('decisionPanel.monthlyCost.calculate', 'Calcúlalo a tu medida') }}</a>
       </p>
     </div>
 
@@ -134,24 +144,34 @@
       :property-id="project.id"
       :property-name="project.name"
       :channel="visitModal.channel"
+      :initial-slot="visitModal.slot"
       @close="visitModal.open = false"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{ slug: string; project: any; agent?: any }>()
+import { MORTGAGE_DEFAULTS, computeMortgage } from '~/utils/mortgage'
+
+const props = defineProps<{ slug: string; project: any; agent?: any; details?: Record<string, any> | null }>()
 const project = computed(() => props.project)
 const agent = computed(() => props.agent || null)
 
 const { t } = useI18n()
 const { format: formatPrice } = useCurrency()
 
-const visitModal = reactive<{ open: boolean; channel: 'in_person' | 'video' }>({ open: false, channel: 'in_person' })
-function openVisit(channel: 'in_person' | 'video') {
+const visitModal = reactive<{ open: boolean; channel: 'in_person' | 'video'; slot: string | null }>({ open: false, channel: 'in_person', slot: null })
+// `slot`: la hora de «Próxima visita disponible», para abrir ya con ella elegida.
+function openVisit(channel: 'in_person' | 'video', slot: string | null = null) {
   visitModal.channel = channel
+  visitModal.slot = slot
   visitModal.open = true
 }
+// «Solicitar visita» de la barra fija de la ficha (#110) pide abrir esta misma reserva.
+const visitRequest = useState<number>('ficha-visit-request', () => 0)
+watch(visitRequest, () => {
+  if (agent.value?.slug) openVisit('in_person')
+})
 
 // --- PRECIO ---
 // En la moneda que ve el visitante, como el resto de importes de la ficha (utils/currency.ts).
@@ -223,16 +243,16 @@ onMounted(() => {
 })
 
 // --- COSTE MENSUAL ---
+// Coste mensual (#110): la misma cuota que la calculadora de la ficha
+// (utils/mortgage.ts, con sus valores de partida) más la comunidad y el IBI
+// de esta vivienda si constan. Nada inventado: sin seguro supuesto.
 const monthlyCost = computed(() => {
-  const price = project.value.price || 0
-  const loan = price * 0.8
-  const r = 0.045 / 12
-  const n = 25 * 12
-  const mortgage = r === 0 ? Math.round(loan / n) : Math.round((loan * r) / (1 - Math.pow(1 + r, -n)))
-  const serviceCharge = project.value.serviceChargeAnnual ? Math.round(project.value.serviceChargeAnnual / 12) : null
-  const insurance = Math.round((price * 0.002) / 12)
-  const total = mortgage + insurance + (serviceCharge || 0)
-  return { mortgage, serviceCharge, insurance, total }
+  const mortgage = computeMortgage({ price: project.value.price || 0, downPct: MORTGAGE_DEFAULTS.downPct, ratePct: MORTGAGE_DEFAULTS.ratePct, years: MORTGAGE_DEFAULTS.years, taxPct: 0, feesPct: 0 }).monthly
+  const d = props.details || {}
+  const community = Number(d.communityFeeMonthly) > 0 ? Math.round(Number(d.communityFeeMonthly)) : project.value.serviceChargeAnnual ? Math.round(project.value.serviceChargeAnnual / 12) : null
+  const ibi = Number(d.ibiAnnual) > 0 ? Math.round(Number(d.ibiAnnual) / 12) : null
+  const garbage = Number(d.garbageTaxAnnual) > 0 ? Math.round(Number(d.garbageTaxAnnual) / 12) : null
+  return { mortgage, community, ibi, garbage, total: mortgage + (community || 0) + (ibi || 0) + (garbage || 0) }
 })
 </script>
 

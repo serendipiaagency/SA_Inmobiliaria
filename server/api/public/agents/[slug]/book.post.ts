@@ -33,6 +33,8 @@ interface BookAppointmentBody {
   interest?: string
   /** Idioma de quien reserva (selector de la web o navegador). */
   language?: string
+  /** Casilla «Acepto la política de privacidad» (#110): obligatoria. */
+  privacyAccepted?: boolean
 }
 
 /** Books a real appointment with an agent — re-validates the slot server-side, never trusts the client's picker state. */
@@ -50,6 +52,7 @@ export default defineEventHandler(async (event) => {
   if (body.email && !isValidEmail(body.email)) throw createError({ statusCode: 422, statusMessage: 'Email inválido' })
   if (body.phone && !isValidPhone(body.phone)) throw createError({ statusCode: 422, statusMessage: 'Teléfono inválido' })
   const channel = (VALID_CHANNELS as readonly string[]).includes(body.channel || '') ? (body.channel as string) : 'in_person'
+  if (body.privacyAccepted !== true) throw createError({ statusCode: 422, statusMessage: 'Acepta la política de privacidad para reservar' })
 
   const db = useDb(event)
   const orgId = resolvePublicOrgId(event)
@@ -61,9 +64,12 @@ export default defineEventHandler(async (event) => {
       slotDurationMinutes: schema.teamMembers.slotDurationMinutes,
       bufferMinutes: schema.teamMembers.bufferMinutes,
       maxAppointmentsPerDay: schema.teamMembers.maxAppointmentsPerDay,
+      userId: schema.teamMembers.userId,
     })
     .from(schema.teamMembers)
-    .where(and(eq(schema.teamMembers.slug, slug), eq(schema.teamMembers.organizationId, orgId)))
+    // Sólo un comercial activo y publicado en la web (#110), como en su ficha
+    // pública y en «Atendido por»: uno de baja u oculto no recibe reservas.
+    .where(and(eq(schema.teamMembers.slug, slug), eq(schema.teamMembers.organizationId, orgId), eq(schema.teamMembers.employmentStatus, 'active'), eq(schema.teamMembers.showOnWeb, 1)))
     .limit(1)
   const agent = agentRows[0]
   if (!agent) throw createError({ statusCode: 404, statusMessage: 'Agent not found' })
@@ -112,6 +118,7 @@ export default defineEventHandler(async (event) => {
         organizationId: orgId,
         clientName: name,
         propertyId,
+        propertyKind: propertyId ? 'developer' : null,
         propertyName,
         agentId: agent.id,
         agentName: agent.name,
@@ -168,6 +175,8 @@ export default defineEventHandler(async (event) => {
 
   const bookedLeadId = (await db.select({ leadId: schema.visits.leadId }).from(schema.visits).where(eq(schema.visits.id, visit.id)).limit(1))[0]?.leadId ?? null
   const bookedContact = bookedLeadId ? (await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(eq(schema.leads.id, bookedLeadId)).limit(1))[0]?.contactId ?? null : null
+  // La persona de la cita (#110): el Contact del lead, para que la cita salga en su ficha.
+  if (bookedContact) await db.update(schema.visits).set({ contactId: bookedContact }).where(eq(schema.visits.id, visit.id))
   await recordActivity(db, orgId, {
     eventType: 'APPOINTMENT_CREATED',
     entityType: 'visit',
@@ -211,9 +220,10 @@ export default defineEventHandler(async (event) => {
       type: 'confirmation',
       recipientEmail: body.email || null,
       recipientPhone: body.phone || null,
-      message: `Cita confirmada con ${agent.name} el ${body.startAt}. Gestiona tu cita aquí: ${manageUrl}`,
+      message: `Cita reservada con ${agent.name} el ${body.startAt}. Confirma o gestiona tu cita aquí: ${manageUrl}`,
       scheduledAt: body.startAt,
       agentName: agent.name,
+      propertyName,
       manageUrl,
       videoLink,
       requestId: getRequestId(event),
@@ -221,6 +231,22 @@ export default defineEventHandler(async (event) => {
     })
   } catch {
     // La cita ya quedó guardada — un fallo al notificar nunca debe deshacerla.
+  }
+  // Aviso al comercial (#110) por el canal interno que existe: la campana del
+  // panel, para su usuario si está vinculado (si no, para el equipo). Nunca
+  // sale de la agencia.
+  try {
+    await db.insert(schema.publicationNotifications).values({
+      organizationId: orgId,
+      userId: agent.userId ?? null,
+      type: 'visit_booked',
+      channel: 'internal',
+      delivered: 1,
+      message: `Nueva visita reservada desde la web: ${name}, ${body.startAt.slice(0, 16)}${propertyName ? ` · ${propertyName}` : ''} (con ${agent.name}).`.slice(0, 300),
+      createdAt: nowTs,
+    })
+  } catch {
+    // La cita ya quedó guardada: el aviso interno nunca la bloquea.
   }
   await dispatchWebhook(event, orgId, 'visit.booked', { id: visit.id, agentName: agent.name, scheduledAt: visit.scheduledAt, clientName: name })
 

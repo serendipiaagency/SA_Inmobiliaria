@@ -4,13 +4,18 @@
     <template v-else>
       <p v-if="!rows.length" class="mb-3 text-sm text-stone-400">Todavía no hay elementos.</p>
       <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-        <div v-for="row in rows" :key="row.id" class="group relative flex flex-col overflow-hidden rounded-lg border border-line bg-white transition hover:border-ink">
+        <div v-for="(row, i) in rows" :key="row.id" class="group relative flex flex-col overflow-hidden rounded-lg border border-line bg-white transition hover:border-ink" :class="{ 'opacity-60': isHidden(row) }" :data-child-id="row.id">
           <div class="relative aspect-[4/3] w-full overflow-hidden bg-stone-50">
-            <img v-if="imageField && row[imageField]" :src="mediaUrl(row[imageField])" class="h-full w-full object-cover" loading="lazy" >
+            <img v-if="imageField && row[imageField]" :src="mediaUrl(row[imageField])" class="h-full w-full" :class="orderField ? 'object-contain' : 'object-cover'" loading="lazy" >
             <div v-else class="flex h-full w-full items-center justify-center text-stone-300">
               <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2 2 7l10 5 10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>
             </div>
-            <div class="absolute inset-x-0 bottom-0 flex items-center justify-end gap-1 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition group-hover:opacity-100">
+            <span v-if="isHidden(row)" class="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">Oculto en la web</span>
+            <div class="absolute inset-x-0 bottom-0 flex items-center justify-end gap-1 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
+              <template v-if="orderField">
+                <button type="button" class="mr-auto flex h-6 w-6 items-center justify-center rounded bg-white/90 text-ink hover:bg-white disabled:opacity-40" :disabled="i === 0 || moving" title="Mover antes" aria-label="Mover antes" @click="move(i, -1)">←</button>
+                <button type="button" class="flex h-6 w-6 items-center justify-center rounded bg-white/90 text-ink hover:bg-white disabled:opacity-40" :disabled="i === rows.length - 1 || moving" title="Mover después" aria-label="Mover después" @click="move(i, 1)">→</button>
+              </template>
               <button type="button" class="rounded bg-white/90 px-1.5 py-0.5 text-[10px] font-semibold text-ink hover:bg-white" @click="openEdit(row)">Editar</button>
               <button type="button" class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-black/60 text-white hover:bg-red-600" title="Eliminar" @click="remove(row.id)">
                 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
@@ -80,7 +85,16 @@
 import type { FieldSpec } from '~/composables/usePropertyBuilderConfig'
 import PropertyBuilderField from './PropertyBuilderField.vue'
 
-const props = defineProps<{ childResource: string; parentField: string; parentId: number | null; columns: FieldSpec[] }>()
+const props = defineProps<{
+  childResource: string
+  parentField: string
+  parentId: number | null
+  columns: FieldSpec[]
+  /** Columna de orden: las tarjetas salen por ella y se mueven con ← → (planos, #110). */
+  orderField?: string
+  /** Columna 0/1 «visible en la web»: oculta = tarjeta atenuada con su aviso; una nueva nace visible. */
+  visibleField?: string
+}>()
 const { confirm } = useConfirm()
 const toast = useToast()
 
@@ -93,13 +107,45 @@ async function load() {
     rows.value = []
     return
   }
-  const res = await $fetch<{ rows: any[] }>(`/api/admin/${props.childResource}`, { query: { perPage: 100 } })
-  rows.value = res.rows.filter((r) => r[props.parentField] === props.parentId)
+  // Las de esta ficha (el recurso filtra por su `filterFields`); el filtro de
+  // aquí abajo se queda por si un recurso todavía no lo declara.
+  const res = await $fetch<{ rows: any[] }>(`/api/admin/${props.childResource}`, { query: { perPage: 100, [props.parentField]: props.parentId } })
+  const own = res.rows.filter((r) => r[props.parentField] === props.parentId)
+  const key = props.orderField
+  rows.value = key ? own.sort((a, b) => (Number(a[key]) || 0) - (Number(b[key]) || 0) || a.id - b.id) : own
 }
+
+const isHidden = (row: Record<string, any>) => !!props.visibleField && !row[props.visibleField] && row[props.visibleField] !== undefined
 
 function cardTitle(row: Record<string, any>): string {
   const key = titleField.value
-  return (key && row[key]) || 'Sin nombre'
+  // Un plano sin título se lee por su categoría o su tipo de unidad, como en la web.
+  return (key && row[key]) || row.category || row.unitType || 'Sin nombre'
+}
+
+// Mover una tarjeta: el orden de todas queda 0, 1, 2… y sólo se guardan las que cambian.
+const moving = ref(false)
+async function move(index: number, delta: number) {
+  const key = props.orderField
+  const target = index + delta
+  if (!key || target < 0 || target >= rows.value.length) return
+  const next = [...rows.value]
+  const [item] = next.splice(index, 1)
+  next.splice(target, 0, item)
+  moving.value = true
+  try {
+    for (const [i, row] of next.entries()) {
+      if (Number(row[key]) === i) continue
+      await $fetch(`/api/admin/${props.childResource}/${row.id}`, { method: 'PUT', body: { [key]: i } })
+      row[key] = i
+    }
+    rows.value = next
+  } catch {
+    toast.error('No se pudo cambiar el orden')
+    await load()
+  } finally {
+    moving.value = false
+  }
 }
 function cardSubtitle(row: Record<string, any>): string {
   return props.columns
@@ -118,7 +164,9 @@ const saving = ref(false)
 
 function openCreate() {
   const draft: Record<string, any> = {}
-  for (const col of props.columns) draft[col.key] = col.type === 'checkbox' ? false : null
+  for (const col of props.columns) draft[col.key] = col.key === props.visibleField ? true : col.type === 'checkbox' ? false : null
+  // Al final de la lista.
+  if (props.orderField) draft[props.orderField] = rows.value.reduce((m, r) => Math.max(m, (Number(r[props.orderField!]) || 0) + 1), 0)
   editing.value = { id: null, draft }
   editError.value = ''
 }

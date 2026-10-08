@@ -55,7 +55,7 @@ test.describe('Agenda de citas con agentes', () => {
   test('reservar un hueco real funciona, enlaza la cita al lead creado (FASE 17), y repetirlo devuelve 409', async ({ request }) => {
     const { start } = randomFutureSlot()
     const first = await request.post(`/api/public/agents/${AGENT_SLUG}/book`, {
-      data: { name: 'E2E Cliente', email: 'e2e-cliente@example.com', startAt: start },
+      data: { name: 'E2E Cliente', email: 'e2e-cliente@example.com', startAt: start, privacyAccepted: true },
     })
     expect(first.status()).toBe(200)
     const { visitId } = await first.json()
@@ -70,7 +70,7 @@ test.describe('Agenda de citas con agentes', () => {
     await admin.dispose()
 
     const second = await request.post(`/api/public/agents/${AGENT_SLUG}/book`, {
-      data: { name: 'E2E Cliente Duplicado', email: 'e2e-duplicado@example.com', startAt: start },
+      data: { name: 'E2E Cliente Duplicado', email: 'e2e-duplicado@example.com', startAt: start, privacyAccepted: true },
     })
     expect(second.status()).toBe(409)
   })
@@ -78,7 +78,7 @@ test.describe('Agenda de citas con agentes', () => {
   test('reservar fuera de la ventana de trabajo devuelve 409', async ({ request }) => {
     const { dateStr } = randomFutureSlot()
     const res = await request.post(`/api/public/agents/${AGENT_SLUG}/book`, {
-      data: { name: 'Fuera de horario', email: 'fuera-horario@example.com', startAt: `${dateStr} 23:00:00` },
+      data: { name: 'Fuera de horario', email: 'fuera-horario@example.com', startAt: `${dateStr} 23:00:00`, privacyAccepted: true },
     })
     expect(res.status()).toBe(409)
   })
@@ -87,7 +87,7 @@ test.describe('Agenda de citas con agentes', () => {
     const nextSlot = new Date()
     nextSlot.setUTCDate(nextSlot.getUTCDate() + 21)
     const res = await request.post(`/api/public/agents/${AGENT_SLUG}/book`, {
-      data: { name: 'Sin contacto', startAt: `${nextSlot.toISOString().slice(0, 10)} 09:00:00` },
+      data: { name: 'Sin contacto', startAt: `${nextSlot.toISOString().slice(0, 10)} 09:00:00`, privacyAccepted: true },
     })
     expect(res.status()).toBe(422)
   })
@@ -95,7 +95,7 @@ test.describe('Agenda de citas con agentes', () => {
   test('la página de gestión de cita permite confirmar la asistencia (FASE 17)', async ({ page, request }) => {
     const { start } = randomFutureSlot()
     const res = await request.post(`/api/public/agents/${AGENT_SLUG}/book`, {
-      data: { name: 'E2E Confirmación', email: 'e2e-confirmacion@example.com', startAt: start },
+      data: { name: 'E2E Confirmación', email: 'e2e-confirmacion@example.com', startAt: start, privacyAccepted: true },
     })
     expect(res.status()).toBe(200)
     const { manageUrl } = await res.json()
@@ -110,7 +110,7 @@ test.describe('Agenda de citas con agentes', () => {
   test('reprogramar una cita ya confirmada exige volver a confirmarla (FASE 17)', async ({ request }) => {
     const { start } = randomFutureSlot()
     const booked = await request.post(`/api/public/agents/${AGENT_SLUG}/book`, {
-      data: { name: 'E2E Reprogramación', email: 'e2e-reprogramacion@example.com', startAt: start },
+      data: { name: 'E2E Reprogramación', email: 'e2e-reprogramacion@example.com', startAt: start, privacyAccepted: true },
     })
     expect(booked.status()).toBe(200)
     const { manageUrl } = await booked.json()
@@ -138,8 +138,12 @@ test.describe('Agenda de citas con agentes', () => {
 
     await page.getByLabel(/nombre/i).fill('E2E Playwright UI')
     await page.getByLabel(/email/i).fill('e2e-ui@example.com')
-    await page.getByRole('button', { name: /confirmar cita/i }).click()
+    // Sin propiedad es una cita con el comercial (#110): casilla de privacidad obligatoria y «reservada», no «confirmada».
+    await expect(page.getByTestId('book-submit')).toBeDisabled()
+    await page.getByTestId('book-privacy').locator('input').check()
+    await expect(page.getByTestId('book-submit')).toHaveText('Reservar cita')
+    await page.getByTestId('book-submit').click()
 
-    await expect(page.getByText(/cita confirmada/i)).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByTestId('book-success')).toHaveText('¡Cita reservada!', { timeout: 10_000 })
   })
 })

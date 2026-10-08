@@ -65,7 +65,11 @@ export default defineEventHandler(async (event) => {
         await logMediaAccess(db, event, { organizationId: asset.organizationId, mediaAssetId: asset.id, r2Key: key, action: 'download', visibility: 'public' })
       }
       if (!decision.allowed) throw createError({ statusCode: 404, statusMessage: 'Not found' })
-      return serveObject(event, key, asset.mimeType, { cacheable: false, restricted: true, noStore: true, fileName: asset.originalFilename })
+      // «Ver» en la ficha (#110): un PDF o una imagen se puede abrir en el
+      // navegador (`?ver=1`) en vez de descargarse. Mismo permiso, decidido
+      // arriba; cualquier otro tipo sigue siendo sólo descarga.
+      const inline = getQuery(event).ver === '1' && INLINE_DOCUMENT_TYPES.has(String(asset.mimeType || ''))
+      return serveObject(event, key, asset.mimeType, { cacheable: false, restricted: true, noStore: true, fileName: asset.originalFilename, inline })
     }
 
     if (asset.visibility === 'public') {
@@ -137,11 +141,14 @@ function dispositionFileName(name: string | null | undefined): string | null {
   return clean || null
 }
 
+/** Tipos de documento que «Ver» puede abrir en el navegador; el resto sólo se descarga. */
+const INLINE_DOCUMENT_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+
 async function serveObject(
   event: H3Event,
   key: string,
   knownMimeType: string | undefined,
-  opts: { cacheable: boolean; restricted: boolean; noStore?: boolean; fileName?: string | null },
+  opts: { cacheable: boolean; restricted: boolean; noStore?: boolean; fileName?: string | null; inline?: boolean },
 ) {
   // Range support matters most for video: without it, browsers can't seek
   // (scrub the timeline) and some refuse to start playback of a large file
@@ -168,7 +175,8 @@ async function serveObject(
   }
   if (opts.restricted) {
     const fileName = dispositionFileName(opts.fileName)
-    setHeader(event, 'Content-Disposition', fileName ? `attachment; filename="${fileName}"` : 'attachment')
+    const kind = opts.inline ? 'inline' : 'attachment'
+    setHeader(event, 'Content-Disposition', fileName ? `${kind}; filename="${fileName}"` : kind)
   }
   if (obj.httpEtag) setHeader(event, 'ETag', obj.httpEtag)
 

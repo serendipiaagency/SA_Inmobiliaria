@@ -31,6 +31,7 @@ import {
 import { LEAD_PRIORITIES, LEAD_PRIORITY_LABELS, LEAD_SOURCES, LEAD_SOURCE_LABELS, ROUTING_SCOPES, ROUTING_SCOPE_LABELS } from '../../utils/leadCatalog'
 import { MEDIA_LANGUAGES, MEDIA_LANGUAGE_LABELS, PROPERTY_MEDIA_TYPES, PROPERTY_MEDIA_TYPE_LABELS } from '../../utils/propertyMediaCatalog'
 import { normalizeMediaMetadata } from './properties/media'
+import { normalizeFloorPlan } from './properties/floorPlans'
 import { decorateDocumentRows } from './properties/documents'
 import { CUSTOM_FIELD_ENTITY_LABELS, CUSTOM_FIELD_ENTITY_TYPES, CUSTOM_FIELD_TYPES, CUSTOM_FIELD_TYPE_LABELS } from '../../utils/customFieldCatalog'
 import { countValuesByDefinition } from './customFields/service'
@@ -658,9 +659,12 @@ export const adminResources: Record<string, ResourceDef> = {
       sizes: { type: 'text', label: 'Superficies' },
       type: { type: 'text', label: 'Tipo' },
       image: { type: 'image', label: 'Imagen' },
+      title: { type: 'text', label: 'Título' },
+      sortOrder: { type: 'number', label: 'Orden' },
+      isPublic: { type: 'number', label: 'Visible en la web' },
     },
-    listFields: ['id', 'developerPropertyId', 'category', 'unitType', 'type'],
-    searchFields: ['category', 'unitType', 'type'],
+    listFields: ['id', 'developerPropertyId', 'title', 'category', 'unitType', 'type', 'sortOrder', 'isPublic'],
+    searchFields: ['title', 'category', 'unitType', 'type'],
     hasTimestamps: true,
     tenantPolicy: {
       type: 'parent',
@@ -668,6 +672,9 @@ export const adminResources: Record<string, ResourceDef> = {
       parentTable: schema.developerProperties,
       parentLabel: 'Proyecto',
     },
+    // Los planos de UNA propiedad (antes el editor pedía 100 de toda la agencia y filtraba en el navegador).
+    filterFields: ['developerPropertyId'],
+    prepare: async (data) => normalizeFloorPlan(data),
   },
 
   'property-types': {
@@ -776,9 +783,12 @@ export const adminResources: Record<string, ResourceDef> = {
       sizes: { type: 'text', label: 'Superficies' },
       type: { type: 'text', label: 'Tipo' },
       image: { type: 'image', label: 'Imagen' },
+      title: { type: 'text', label: 'Título' },
+      sortOrder: { type: 'number', label: 'Orden' },
+      isPublic: { type: 'number', label: 'Visible en la web' },
     },
-    listFields: ['id', 'propertyId', 'category', 'unitType', 'type'],
-    searchFields: ['category', 'unitType', 'type'],
+    listFields: ['id', 'propertyId', 'title', 'category', 'unitType', 'type', 'sortOrder', 'isPublic'],
+    searchFields: ['title', 'category', 'unitType', 'type'],
     hasTimestamps: true,
     tenantPolicy: {
       type: 'parent',
@@ -786,6 +796,8 @@ export const adminResources: Record<string, ResourceDef> = {
       parentTable: schema.agentProperties,
       parentLabel: 'Propiedad',
     },
+    filterFields: ['propertyId'],
+    prepare: async (data) => normalizeFloorPlan(data),
   },
 
   'agent-property-rooms': {
