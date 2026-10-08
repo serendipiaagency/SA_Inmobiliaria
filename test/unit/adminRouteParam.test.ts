@@ -53,6 +53,19 @@ describe('useAdminRouteParam', () => {
     expect(p.onThisRoute.value).toBe(false)
   })
 
+  it('la lista de recursos no se pierde al pasar rápido entre páginas genéricas', () => {
+    // La causa real del 404 en producción: Nuxt (3.17+) vaciaba la respuesta
+    // compartida de /api/admin/resources al desmontarse la página anterior.
+    expect(readFileSync(join(ROOT, 'nuxt.config.ts'), 'utf8')).toMatch(/purgeCachedData:\s*false/)
+    for (const file of ['pages/admin/[resource]/index.vue', 'pages/admin/[resource]/[id].vue']) {
+      const src = readFileSync(join(ROOT, file), 'utf8')
+      expect(src, `${file}: no vuelve a pedir los recursos si llegan vacíos`).toContain('if (!resources.value) await refreshResources()')
+      // Y nunca un 404 por una lista que no ha llegado.
+      const line = src.split('\n').find((l) => l.includes('onThisRoute.value') && l.includes('meta.value'))
+      expect(line, file).toContain('resources.value &&')
+    }
+  })
+
   it('las dos páginas genéricas sólo lanzan «Recurso desconocido» en su propia ruta', () => {
     for (const file of ['pages/admin/[resource]/index.vue', 'pages/admin/[resource]/[id].vue']) {
       const src = readFileSync(join(ROOT, file), 'utf8')
