@@ -66,15 +66,18 @@ import { loadRelationOptions, invalidateRelationOptions } from '~/composables/us
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
-const route = useRoute()
-const resource = computed(() => String(route.params.resource))
+// Estable al salir de la página (composables/useAdminRouteParam.ts).
+const resourceParam = useAdminRouteParam('resource')
+const resource = resourceParam.value
 const q = ref('')
 const page = ref(1)
 const trashed = ref(false)
 
 const { data: resources } = await useFetch<Record<string, any>>('/api/admin/resources')
 const meta = computed(() => resources.value?.[resource.value])
-if (!meta.value) {
+// Sólo es un 404 si la ruta es de verdad de esta página: al salir de ella
+// hacia otra, la ruta nueva no trae `resource` y no hay nada que reportar.
+if (!meta.value && resourceParam.onThisRoute.value) {
   throw createError({ statusCode: 404, statusMessage: 'Recurso desconocido', fatal: true })
 }
 useHead({ title: computed(() => `${meta.value?.label || 'Admin'} — M&M Real Estate`) })
@@ -87,6 +90,8 @@ const { canWrite } = useAdminPermissions()
 const canEdit = computed(() => (meta.value?.area ? canWrite(meta.value.area) : true))
 
 const { data, refresh } = await useFetch<any>(() => `/api/admin/${resource.value}`, {
+  // Sin recurso (componente que se está retirando) no hay listado que pedir.
+  immediate: !!meta.value,
   query: computed(() => ({ page: page.value, q: q.value, trashed: trashed.value ? 1 : undefined })),
 })
 const totalPages = computed(() => Math.ceil((data.value?.total || 0) / (data.value?.perPage || 20)))

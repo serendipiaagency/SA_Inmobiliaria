@@ -98,18 +98,21 @@ const { confirm } = useConfirm()
 const { data: articles, refresh: refreshArticles } = await useFetch<any>('/api/admin/cms/articles', { query: { trashed: 1, perPage: 100 } })
 const { data: comments, refresh: refreshComments } = await useFetch<any>('/api/admin/cms-comments', { query: { status: 'trash', perPage: 100 } })
 
-// useFetch's request getter is typed as `() => NitroFetchRequest` with no
-// "skip the fetch" case in its own type — but nothing in its actual
-// implementation special-cases a falsy request either (see
-// node_modules/nuxt/dist/app/composables/fetch.js), so this doesn't skip
-// anything at runtime: the 'articles'/'comments' tabs' one wasted initial
-// fetch to an empty URL is pre-existing behavior, silently caught into
-// `error` and never surfaced (genericRows/genericData are only rendered for
-// the other tabs). The cast below only fixes the type mismatch, not that.
-const genericUrl = (() => (tab.value !== 'articles' && tab.value !== 'comments' ? `/api/admin/${tab.value}` : undefined)) as () => string
+// Las pestañas «genéricas» (categorías, etiquetas, autores, medios) piden su
+// recurso con trashed=1. Artículos y Comentarios tienen su propia petición,
+// así que en ellas no se pide nada: antes el getter devolvía `undefined` y
+// useFetch lo pedía igual, como URL relativa («/admin/cms/undefined», un 404
+// en cada visita a la Papelera). Ahora sólo se pide al estar en una pestaña
+// genérica, y al cambiar a otra.
+const isGenericTab = computed(() => tab.value !== 'articles' && tab.value !== 'comments')
+const genericUrl = (() => `/api/admin/${tab.value}`) as () => string
 const { data: genericData, refresh: refreshGeneric } = await useFetch<{ rows: any[] }>(genericUrl, {
   query: computed(() => ({ trashed: 1, perPage: 100 })),
-  watch: [tab],
+  immediate: isGenericTab.value,
+  watch: false,
+})
+watch(tab, () => {
+  if (isGenericTab.value) refreshGeneric()
 })
 const genericRows = computed(() => genericData.value?.rows || [])
 

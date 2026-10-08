@@ -130,10 +130,11 @@ definePageMeta({ layout: 'admin', middleware: 'admin' })
 const { user } = useAuth()
 const isSuperAdmin = computed(() => user.value?.role === 'super_admin')
 
-const route = useRoute()
 const router = useRouter()
-const resource = computed(() => String(route.params.resource))
-const id = computed(() => String(route.params.id))
+// Estables al salir de la página (composables/useAdminRouteParam.ts).
+const resourceParam = useAdminRouteParam('resource')
+const resource = resourceParam.value
+const id = useAdminRouteParam('id').value
 const isNew = computed(() => id.value === 'new')
 const isPropertyBuilderResource = computed(() => resource.value === 'developer-properties' || resource.value === 'properties')
 const propertyBuilderResource = computed(() => resource.value as 'developer-properties' | 'properties')
@@ -142,7 +143,9 @@ const isRoutingRule = computed(() => resource.value === 'lead-routing-rules')
 
 const { data: resources } = await useFetch<Record<string, any>>('/api/admin/resources')
 const meta = computed(() => resources.value?.[resource.value])
-if (!meta.value) throw createError({ statusCode: 404, statusMessage: 'Recurso desconocido', fatal: true })
+// Sólo es un 404 si la ruta es de verdad de esta página: al salir de ella
+// hacia otra, la ruta nueva no trae `resource` y no hay nada que reportar.
+if (!meta.value && resourceParam.onThisRoute.value) throw createError({ statusCode: 404, statusMessage: 'Recurso desconocido', fatal: true })
 useHead({ title: computed(() => `${meta.value?.label || 'Admin'} — M&M Real Estate`) })
 
 // Granular RBAC (bloque 01): read access to the area shows the record,
@@ -159,7 +162,7 @@ const translations = reactive([
 
 // PropertyBuilder (and the organizations editor) do their own data loading —
 // skip the generic form's fetch entirely rather than duplicating the request.
-if (!isNew.value && !isPropertyBuilderResource.value && !isOrganization.value && !isRoutingRule.value) {
+if (meta.value && !isNew.value && !isPropertyBuilderResource.value && !isOrganization.value && !isRoutingRule.value) {
   // `useRequestFetch()` y no `$fetch` a secas: en SSR, un `$fetch` suelto
   // arranca una petición nueva que no hereda nada del evento en curso — ni la
   // cookie de sesión ni los bindings de Cloudflare (D1, R2)—, así que esta
