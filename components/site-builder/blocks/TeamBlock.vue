@@ -8,9 +8,12 @@
       <SbLink v-if="content.cta && content.ctaTo" field="cta" link-field="ctaTo" label="Botón" :to="content.ctaTo" class="btn-quiet hidden shrink-0 md:inline-flex" :text="content.cta" />
     </div>
 
-    <!-- layout: cards — misma tarjeta que /equipo, para que la portada y la
-         página del equipo no parezcan dos sitios distintos -->
-    <div v-if="layout === 'cards'" class="mt-8 grid gap-x-6 gap-y-12" :class="gridClasses">
+    <!-- layout: cards — tarjeta de equipo compacta: foto CUADRADA y más
+         pequeña que la columna (≈ 3/4 de su ancho, con tope), recortada sin
+         deformar y encuadrada arriba para no cortar caras; debajo, nombre,
+         puesto y lo que se active. Antes, un retrato 3:4 a todo el ancho que
+         convertía la sección en una galería de fotos. -->
+    <div v-if="layout === 'cards'" class="mt-8 grid gap-x-6 gap-y-10" :class="gridClasses" data-testid="team-cards">
       <SbBox
         v-for="m in items"
         :key="m.id"
@@ -22,8 +25,8 @@
         :source-href="SOURCES.team.href"
         class="group block"
       >
-        <div class="aspect-[3/4] overflow-hidden rounded-2xl bg-stone-100">
-          <SbImage field="card.image" label="Foto del comercial" :dynamic="dynamicLabel('team', 'Foto')" :source-href="SOURCES.team.href" :src="mediaUrl(m.image)" :alt="m.name" class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" loading="lazy" />
+        <div class="aspect-square w-3/4 max-w-[16rem] overflow-hidden rounded-2xl bg-stone-100" data-testid="team-card-photo">
+          <SbImage field="card.image" label="Foto del comercial" :dynamic="dynamicLabel('team', 'Foto')" :source-href="SOURCES.team.href" :src="mediaUrl(m.image)" :alt="m.name" class="h-full w-full object-cover object-[50%_20%] transition duration-500 group-hover:scale-[1.03]" loading="lazy" />
         </div>
         <SbText tag="h3" field="card.name" kind="heading" label="Nombre" :dynamic="dynamicLabel('team', 'Nombre')" :source-href="SOURCES.team.href" class="mt-4 font-serif text-xl font-medium group-hover:underline group-hover:underline-offset-4" :text="m.name" />
         <SbText v-if="cardFields.position" tag="p" field="card.position" kind="eyebrow" label="Puesto" :dynamic="dynamicLabel('team', 'Puesto')" :source-href="SOURCES.team.href" class="eyebrow mt-1.5" :text="m.position || ''" />
