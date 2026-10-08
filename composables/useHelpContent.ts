@@ -620,6 +620,7 @@ export function useHelpContent() {
         'Cada página tiene su propio borrador, su botón "Publicar cambios" y su historial, y al cambiar de página lo pendiente de la que dejas se guarda antes. Junto a cada nombre ves su estado: "Publicada", "Cambios" (hay cambios sin publicar), "Original" (tu web sigue enseñando la página de siempre) o "Sin publicar". La dirección de la página abierta queda en la barra del navegador, así que puedes recargar o guardar el enlace y vuelves a ella.',
         'Nosotros y Contacto se abren con lo que tu web ya enseña (los textos de Nosotros, el formulario de Contacto), listos para cambiarlos; tu web no cambia hasta que publiques. Servicios es una página nueva: empieza con una estructura de ejemplo y existe en tu web (en /servicios) desde que la publicas.',
         'Propiedades, Ficha de propiedad y Blog tienen una "zona dinámica" (con un candado): el buscador y el listado, la ficha de cada propiedad o los artículos, que se rellenan solos con tus datos. Puedes añadir secciones encima o debajo y moverla con las flechas, pero no borrarla, duplicarla ni ocultarla. La Ficha de propiedad es la plantilla de todas las fichas: lo que añadas ahí sale en todas; en el lienzo se ve con tu propiedad más reciente como ejemplo.',
+        'La «Ficha de propiedad» es la plantilla de todas las fichas: cada una enseña los datos de su propiedad (Propiedades (web)) y, en la columna derecha, la tarjeta «Atendido por» con el comercial responsable de esa propiedad (su foto, nombre, puesto, WhatsApp y teléfono, si los tiene y está marcado «Mostrar este comercial en la web»; si no, tu empresa) y el formulario «Cuéntanos qué necesitas». Pulsa la zona dinámica de la ficha para ocultar o renombrar «Propiedades destacadas», la sección bajo «Propiedades similares» con tus propiedades marcadas «Exclusiva» (nunca la que se está viendo ni las similares; si no hay ninguna, no aparece).',
         '"Volver a la página original" (debajo de la lista de páginas) deshace lo publicado en esa página: tu web vuelve a enseñar la de siempre (Servicios deja de existir) y el borrador vuelve al contenido de partida. Las versiones que publicaste siguen en el historial, por si quieres recuperar alguna. La página de Inicio no tiene esta opción.',
         'Para añadir una sección, pasa el ratón entre dos secciones (en la lista de Estructura o directamente sobre el lienzo) y pulsa "+ Añadir sección aquí" — se abre la biblioteca y la sección elegida se inserta exactamente en esa posición, se selecciona sola y su panel de opciones se abre listo para editar. El botón "+" de la cabecera de Estructura, o "+ Añadir sección" al final de la lista, añaden al final.',
         'La biblioteca de secciones tiene buscador, categorías, una miniatura real de cada sección (no solo un icono) y guarda tus favoritos y usados recientemente — pulsa el corazón para marcar una sección como favorita.',
@@ -1589,8 +1590,22 @@ export function useHelpContent() {
       id: 'faq-lead-source',
       question: '¿De dónde salen los leads que veo en el CRM?',
       answer:
-        'Se crean automáticamente desde el formulario de contacto público, la reserva de una visita, el envío del programa de referidos, o la API pública (v1) si tienes una integración externa. También puedes crear uno manualmente desde Leads.',
+        'Se crean automáticamente desde el formulario de contacto público, el formulario «Atendido por» de la ficha de cada propiedad (origen «web», detalle «Ficha de propiedad», ya vinculado a esa propiedad), la reserva de una visita, el envío del programa de referidos, o la API pública (v1) si tienes una integración externa. También puedes crear uno manualmente desde Leads.',
       tags: ['leads', 'crm', 'referidos'],
+    },
+    {
+      id: 'faq-lead-ficha-propiedad',
+      question: '¿Qué pasa cuando alguien escribe desde la ficha de una propiedad?',
+      answer:
+        'Entra en tu CRM, no sólo en el correo: se busca a la persona por email y teléfono (si ya existe no se duplica el contacto), se crea un lead de ESA propiedad con su mensaje tal cual, origen «web» y detalle «Ficha de propiedad», y se asigna con tus reglas de Enrutamiento; si ninguna aplica, va al comercial responsable de la propiedad, el que la ficha enseña como «Atendido por». Lo verás en Leads, en la actividad de la propiedad y del contacto, y como hilo «Formulario web» en Comunicaciones, con la fecha en que aceptó la política de privacidad. Si la misma persona vuelve a preguntar por la misma propiedad se reutiliza su lead; si pregunta por otra, es otro lead del mismo contacto. Un doble clic no crea nada dos veces. En la vista previa de tu web (sin dominio propio) el formulario no envía nada, para no llenarte el CRM de pruebas.',
+      tags: ['leads', 'ficha', 'web', 'formulario', 'atendido por', 'privacidad', 'crm'],
+    },
+    {
+      id: 'faq-ficha-destacadas',
+      question: '¿Cómo elijo qué sale en «Propiedades destacadas» de la ficha?',
+      answer:
+        'Son las propiedades que tienes marcadas como «Exclusiva» en Propiedades (web) → Comercial/Inversión (la misma marca que usa la selección «Destacadas» del bloque Propiedades del Constructor). La ficha enseña hasta tres, las más recientes, sin repetir la propiedad que se está viendo ni las que ya salen en «Propiedades similares»; si no queda ninguna, la sección no aparece. Para ocultarla o cambiarle el título: Constructor Web → Páginas → Ficha de propiedad → pulsa la zona dinámica.',
+      tags: ['ficha', 'destacadas', 'exclusiva', 'constructor web', 'similares'],
     },
     {
       id: 'faq-lead-fase-vs-estado',

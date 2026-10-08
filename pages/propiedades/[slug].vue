@@ -74,13 +74,12 @@
             <section v-if="hasQuickFacts" id="datos">
               <p class="eyebrow !text-amber-700">{{ t('propertyDetails.quickFacts.eyebrow', 'A simple vista') }}</p>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.quickFacts.heading', 'Datos clave') }}</h2>
-              <div class="mt-7"><QuickFacts :project="data.project" /></div>
+              <div class="mt-7"><QuickFacts :project="data.project" :details="data.details" /></div>
             </section>
 
             <!-- Resumen IA -->
             <section id="resumen">
               <div class="flex items-center gap-2">
-                <span class="rounded-full bg-indigo-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">{{ t('propertyDetails.badge.ai', 'IA') }}</span>
                 <p class="eyebrow !text-indigo-600">{{ t('propertyDetails.aiSummary.eyebrow', 'Resumen inteligente') }}</p>
               </div>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.aiSummary.heading', 'Lo que debes saber') }}</h2>
@@ -233,7 +232,7 @@
 
             <!-- Decoración / Home Staging IA -->
             <section class="no-print">
-              <div class="flex items-center gap-2"><span class="rounded-full bg-indigo-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">{{ t('propertyDetails.badge.ai', 'IA') }}</span><p class="eyebrow !text-indigo-600">{{ t('propertyDetails.staging.eyebrow', 'Imagina tu hogar') }}</p></div>
+              <p class="eyebrow !text-indigo-600">{{ t('propertyDetails.staging.eyebrow', 'Imagina tu hogar') }}</p>
               <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.staging.heading', 'Visualiza el potencial') }}</h2>
               <div class="mt-7 grid gap-5 sm:grid-cols-2">
                 <div v-for="s in staging" :key="s.title" class="group relative overflow-hidden rounded-2xl border border-line bg-white">
@@ -273,7 +272,7 @@
           <aside>
             <div class="space-y-6 lg:sticky lg:top-32">
               <div id="contacto" ref="contactRef">
-                <PropertyDecisionPanel :slug="String(route.params.slug)" :project="data.project" />
+                <PropertyDecisionPanel :slug="String(route.params.slug)" :project="data.project" :agent="data.agent" />
               </div>
               <div v-if="data.developer" class="rounded-2xl border border-line bg-white p-8">
                 <p class="eyebrow mb-4">{{ t('propertyDetails.developer.eyebrow', 'Promotora') }}</p>
@@ -295,7 +294,7 @@
       <div id="similares" class="no-print hairline mx-auto max-w-screen-2xl px-6 py-14 pt-14 lg:px-10">
         <p class="eyebrow">{{ t('propertyDetails.similar.eyebrow', 'Alternativas') }}</p>
         <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.similar.heading', 'Propiedades similares') }}</h2>
-        <div class="mt-8"><LazySimilarProperties hydrate-on-visible :slug="String(route.params.slug)" /></div>
+        <div class="mt-8"><LazySimilarProperties hydrate-on-visible :slug="String(route.params.slug)" :show-featured="coreOptions.showFeatured !== false" :featured-title="coreOptions.featuredTitle || ''" /></div>
       </div>
 
       <PropertyStickyBar :price="formatPrice(data.project.price)" :visible="showMobileBar" />
@@ -307,6 +306,8 @@
 import { hasValidCoords } from '~/utils/maps/coords'
 import { formatDisplayPrice } from '~/utils/currency'
 import { PROPERTY_TYPE_LABELS } from '~/utils/propertySheet'
+import { buildQuickFacts } from '~/utils/quickFacts'
+import { PAGE_CORE_TYPE } from '~/utils/siteBuilder/pages'
 
 const route = useRoute()
 const { t } = useI18n()
@@ -317,6 +318,9 @@ if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Project no
 // secciones que se le añadan van encima o debajo en todas. El SEO sigue
 // siendo el de cada propiedad.
 const { page: sitePage, homeData: sitePageData } = await useSitePage('ficha-propiedad')
+// Lo ajustable de la zona dinámica en el Constructor (utils/siteBuilder/pages.ts,
+// PAGE_CORE_OPTIONS): por ahora, las propiedades destacadas. Sin versión publicada, lo de siempre.
+const coreOptions = computed<Record<string, any>>(() => (sitePage.value?.published ? sitePage.value.blocks?.find((b: any) => b.type === PAGE_CORE_TYPE)?.content : null) || {})
 
 // property_social_media.platform is a free-form DB column; MediaGallery only
 // knows how to render the two platforms it actually embeds, so narrow here
@@ -327,7 +331,9 @@ const socialMediaForGallery = computed(() =>
     .map((s) => ({ platform: s.platform, url: s.url, caption: s.caption })),
 )
 
-const seoTitle = `${data.value.project.name} — M&M Real Estate`
+// El nombre de la inmobiliaria de esta web, no uno fijo.
+const { tenant } = useTenant()
+const seoTitle = computed(() => [data.value?.project.name, tenant.value?.companyName || tenant.value?.name].filter(Boolean).join(' — '))
 // SEO y schema.org van en la moneda en la que está guardado el precio (la de
 // la agencia), nunca en la que eligió un visitante (utils/currency.ts).
 const { format: formatPrice, base: baseCurrency } = useCurrency()
@@ -448,22 +454,9 @@ const sections = computed(() => {
   return s
 })
 
-const hasQuickFacts = computed(() => {
-  const q = p.value
-  return !!(
-    q.propertyType ||
-    q.yearBuilt ||
-    q.status ||
-    q.street ||
-    q.hasElevator ||
-    q.hasGarage ||
-    q.hasTerrace ||
-    q.hasGarden ||
-    q.hasPool ||
-    q.petsAllowed ||
-    q.accessible
-  )
-})
+// Los mismos datos que pinta QuickFacts: sin ninguno, ni sección ni pestaña.
+const typeLabel = usePropertyTypeLabel()
+const hasQuickFacts = computed(() => buildQuickFacts(p.value, (data.value as any)?.details, t, typeLabel).length > 0)
 
 const facts = computed(() => {
   const out: { label: string; value: string }[] = []

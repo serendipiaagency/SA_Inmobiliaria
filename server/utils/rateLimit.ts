@@ -46,3 +46,24 @@ export async function rateLimit(event: H3Event, name: string, opts: { limit: num
     })
   }
 }
+
+/**
+ * «¿Es la primera vez que llega esta clave?» — para que un doble clic, un
+ * reintento del navegador o una red lenta no creen dos veces lo mismo. Usa
+ * la tabla de `rateLimit`, sin IP ni ventana en la clave: la clave ya es
+ * única por envío (la genera el formulario) y así no hay un cambio de
+ * ventana entre los dos clics que deje pasar el segundo. Una sola sentencia
+ * (`RETURNING`), sin la carrera de leer después de escribir. Devuelve false
+ * si la clave ya se había reclamado.
+ */
+export async function claimOnce(event: H3Event, key: string): Promise<boolean> {
+  const row = await cfEnv(event)
+    .DB.prepare(
+      `INSERT INTO rate_limits (bucket, window_start, count) VALUES (?1, 0, 1)
+       ON CONFLICT(bucket, window_start) DO UPDATE SET count = count + 1
+       RETURNING count`,
+    )
+    .bind(`once:${key}`)
+    .first<{ count: number }>()
+  return (row?.count ?? 1) <= 1
+}

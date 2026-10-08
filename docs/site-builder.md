@@ -313,11 +313,18 @@ página trae además `pages`: el estado de todas para la lista («Publicada»,
 «Cambios», «Original», «Sin publicar»), calculado sin crear filas. El
 lienzo recibe `pageKey` para poner la cabecera superpuesta sólo en Inicio.
 
-Restablecer es un `DELETE` y el estado va dentro del `GET` —y no en rutas
-propias— a propósito: cada ruta de la API es una clave más en el tipado de
-`$fetch` de Nitro y el proyecto está en el límite de lo que TypeScript
-resuelve (con una ruta nueva, TS2589 en decenas de llamadas con URL de
-plantilla). Un método nuevo sobre una ruta existente no añade clave.
+Restablecer es un `DELETE` y el estado va dentro del `GET`. Se hizo así
+cuando cada ruta nueva rompía el typecheck (TS2589); desde #155
+(`scripts/patch-nitro-route-types.mjs`) ese límite ya no existe.
+
+**Opciones de una zona dinámica.** La zona no tiene datos que editar, pero
+`PAGE_CORE_OPTIONS` (`utils/siteBuilder/pages.ts`) admite unas pocas
+opciones por zona, que `validatePageDocument` guarda y valida (lo demás se
+descarta). Hoy, la ficha: `showFeatured` y `featuredTitle` para la sección
+«Propiedades destacadas» bajo las similares (las propiedades marcadas
+`isExclusive`, sin la actual ni las similares; vienen en
+`/api/public/properties/<slug>/similar` como `featured`). Se editan en
+`PageCoreInspector.vue` y la ficha publicada las lee de su zona.
 
 Todas estas rutas caen bajo el patrón `site-pages` de
 `server/utils/adminRouteMatrix.ts` (área `web`), igual que las que ya había:

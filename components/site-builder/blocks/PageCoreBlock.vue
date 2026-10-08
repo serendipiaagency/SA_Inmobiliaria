@@ -56,7 +56,14 @@
               <div class="h-3 w-4/5 rounded bg-stone-100" />
             </div>
           </div>
-          <div class="h-40 rounded-2xl border border-line bg-paper p-5 text-sm text-stone-500">Contacto con el comercial, visita y precio</div>
+          <div class="h-40 rounded-2xl border border-line bg-paper p-5 text-sm text-stone-500">Precio, «Atendido por» con el comercial de cada propiedad y su formulario</div>
+        </div>
+        <div class="mt-8 grid gap-3 border-t border-line pt-6 text-[12px] text-stone-500 sm:grid-cols-2">
+          <p><strong class="text-ink">Propiedades similares</strong> · se calculan solas para cada ficha.</p>
+          <p data-testid="page-core-featured-note">
+            <strong class="text-ink">{{ content.featuredTitle || 'Propiedades destacadas' }}</strong>
+            · {{ content.showFeatured === false ? 'ocultas en esta web.' : 'las marcadas como Exclusiva, debajo de las similares.' }}
+          </p>
         </div>
       </template>
       <p v-else class="py-16 text-center font-serif text-xl text-stone-400">Cuando publiques una propiedad, su ficha se verá aquí.</p>

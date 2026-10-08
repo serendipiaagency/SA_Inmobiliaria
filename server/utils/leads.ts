@@ -6,7 +6,7 @@ import { sendInternalNotification } from './email/send'
 import { platformBaseUrl } from './email/links'
 import { getRequestId } from './requestId'
 import { resolveContact, orgDefaultCountryPrefix } from './contacts/service'
-import { routeLead, assignLead, buildRoutingContextFromProperty } from './leads/routing'
+import { routeLead, assignLead, buildRoutingContextFromProperty, resolvePropertyResponsible } from './leads/routing'
 import { recordActivity } from './activity/service'
 import { recomputeLeadScore } from './leads/score'
 import { parseLeadPropertyKind, type LeadPropertyKind } from './leads/property'
@@ -70,9 +70,13 @@ export interface UpsertLeadInput {
 export async function findReusableLead(
   db: any,
   orgId: number,
-  input: { email?: string | null; externalId?: string | null; source?: string | null; contactId?: number | null },
+  input: { email?: string | null; externalId?: string | null; source?: string | null; contactId?: number | null; sameProperty?: { id: number; kind: LeadPropertyKind | null } | null },
 ): Promise<{ id: number; matchedOn: 'external_id' | 'email' | 'contact' } | null> {
   const base = [eq(schema.leads.organizationId, orgId), isNull(schema.leads.deletedAt)]
+  // Una consulta desde la ficha de una propiedad es un interés por ESA
+  // propiedad: sólo se reutiliza el lead de la misma persona sobre la misma
+  // propiedad. Si pregunta por otra, es otro lead (el Contact sí es el mismo).
+  if (input.sameProperty) base.push(eq(schema.leads.propertyId, input.sameProperty.id))
   if (input.externalId && input.source) {
     const [row] = await db
       .select({ id: schema.leads.id })
@@ -113,7 +117,14 @@ export async function findReusableLead(
  * Antes de esta fase, `contactId` se quedaba NULL en todo lead creado después del
  * backfill de la migración 0066 — esto lo corrige hacia delante.
  */
-export async function upsertLead(event: H3Event, rawInput: UpsertLeadInput) {
+export interface UpsertLeadOptions {
+  /** 'same_property': reutilizar sólo un lead de la misma propiedad (consultas desde su ficha). */
+  reuse?: 'default' | 'same_property'
+  /** Si ninguna regla de enrutado asigna el lead, dárselo al comercial responsable de la propiedad. */
+  routingFallback?: 'property_responsible'
+}
+
+export async function upsertLead(event: H3Event, rawInput: UpsertLeadInput, opts: UpsertLeadOptions = {}) {
   const db = useDb(event)
   const nowTs = now()
   // FASE 15: el idioma, siempre del catálogo — así la regla «Idioma» del
@@ -137,7 +148,8 @@ export async function upsertLead(event: H3Event, rawInput: UpsertLeadInput) {
     }
   }
 
-  const reusable = await findReusableLead(db, input.organizationId, { email: input.email, externalId: input.externalId, source: input.source, contactId })
+  const sameProperty = opts.reuse === 'same_property' && input.propertyId ? { id: input.propertyId, kind: parseLeadPropertyKind(input.propertyKind) } : null
+  const reusable = await findReusableLead(db, input.organizationId, { email: input.email, externalId: input.externalId, source: input.source, contactId, sameProperty })
   if (reusable) {
     const [current] = await db.select().from(schema.leads).where(and(eq(schema.leads.id, reusable.id), eq(schema.leads.organizationId, input.organizationId))).limit(1)
     await db
@@ -162,7 +174,7 @@ export async function upsertLead(event: H3Event, rawInput: UpsertLeadInput) {
     return { id: reusable.id, created: false, matchedOn: reusable.matchedOn }
   }
 
-  return insertLead(event, input, contactId)
+  return insertLead(event, input, contactId, { routingFallback: opts.routingFallback })
 }
 
 /**
@@ -171,7 +183,7 @@ export async function upsertLead(event: H3Event, rawInput: UpsertLeadInput) {
  * manual del panel cuando alguien decide «crear igualmente» pese a un
  * duplicado (server/utils/leads/admin.ts).
  */
-export async function insertLead(event: H3Event, rawInput: UpsertLeadInput, contactId: number | null, opts: { skipRouting?: boolean } = {}) {
+export async function insertLead(event: H3Event, rawInput: UpsertLeadInput, contactId: number | null, opts: { skipRouting?: boolean; routingFallback?: UpsertLeadOptions['routingFallback'] } = {}) {
   const db = useDb(event)
   const nowTs = now()
   const input: UpsertLeadInput = { ...rawInput, language: normalizeLanguage(rawInput.language) }
@@ -230,8 +242,11 @@ export async function insertLead(event: H3Event, rawInput: UpsertLeadInput, cont
     entityId: row.id,
     leadId: row.id,
     contactId,
+    // Con la propiedad, el «Lead recibido» sale también en la actividad de la propiedad.
+    propertyId: row.propertyId ?? null,
+    propertyKind: row.propertyId ? propertyKind : null,
     actorType: contactId ? 'contact' : 'system',
-    metadata: { source: row.source },
+    metadata: { source: row.source, ...(row.sourceDetail ? { sourceDetail: row.sourceDetail } : {}) },
   })
 
   try {
@@ -251,7 +266,18 @@ export async function insertLead(event: H3Event, rawInput: UpsertLeadInput, cont
       // ya trae acota el reparto a esa oficina.
       ctx.language = input.language || null
       ctx.officeId = input.officeId ?? null
-      const decision = await routeLead(event, input.organizationId, ctx)
+      let decision = await routeLead(event, input.organizationId, ctx)
+      // La consulta llegó desde la ficha de la propiedad, que enseña a su
+      // comercial como «Atendido por»: si ninguna regla de la agencia la
+      // asigna, va a ese comercial y no se queda sin dueño.
+      if (!decision.commercialId && opts.routingFallback === 'property_responsible' && input.propertyId) {
+        const responsible = await resolvePropertyResponsible(event, input.organizationId, input.propertyId, propertyKind)
+        // Sólo si sigue siendo un comercial activo de esta agencia (agent_id no tiene FK).
+        const active = responsible
+          ? (await db.select({ id: schema.teamMembers.id }).from(schema.teamMembers).where(and(eq(schema.teamMembers.id, responsible), eq(schema.teamMembers.organizationId, input.organizationId), eq(schema.teamMembers.employmentStatus, 'active'))).limit(1))[0]
+          : null
+        if (active) decision = { commercialId: responsible, ruleId: null, explanation: 'Sin regla aplicable: comercial responsable de la propiedad consultada (formulario de su ficha)' }
+      }
       if (decision.commercialId) await assignLead(event, input.organizationId, row.id, decision)
     } catch {
       // El lead ya está guardado — un fallo del routing nunca debe deshacerlo; queda sin asignar, recuperable a mano.

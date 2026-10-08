@@ -1,7 +1,6 @@
 <template>
   <div class="rounded-2xl border border-emerald-100 bg-emerald-50/30 p-6 sm:p-8">
     <div class="flex items-center gap-2">
-      <span class="rounded-full bg-indigo-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">{{ t('aiAnalysis.badge', 'IA') }}</span>
       <p class="eyebrow !text-emerald-700">{{ t('aiAnalysis.eyebrow', 'Análisis de inversión') }}</p>
     </div>
 

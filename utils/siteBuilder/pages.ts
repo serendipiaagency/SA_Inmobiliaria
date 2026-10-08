@@ -66,6 +66,30 @@ export const PAGE_CORE_SOURCES: Record<PageCoreKind, { label: string; to: string
   'blog-index': { label: 'Artículos', to: '/admin/cms/articles' },
 }
 
+/**
+ * Lo poco que se puede ajustar de una zona dinámica (sin tocar sus datos,
+ * que siguen saliendo de Property Core): de momento, en la ficha, la
+ * sección «Propiedades destacadas» bajo las similares — mostrarla u
+ * ocultarla y su título. Todo lo demás del contenido de la zona se descarta
+ * al guardar.
+ */
+export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, 'boolean' | 'text'>>> = {
+  'property-detail': { showFeatured: 'boolean', featuredTitle: 'text' },
+}
+
+const CORE_TEXT_MAX = 120
+
+export function sanitizeCoreOptions(core: PageCoreKind, content: Record<string, any> | null | undefined): Record<string, boolean | string> {
+  const spec = PAGE_CORE_OPTIONS[core] || {}
+  const out: Record<string, boolean | string> = {}
+  for (const [key, type] of Object.entries(spec)) {
+    const v = content?.[key]
+    if (type === 'boolean' && typeof v === 'boolean') out[key] = v
+    if (type === 'text' && typeof v === 'string' && v.trim()) out[key] = v.trim().slice(0, CORE_TEXT_MAX)
+  }
+  return out
+}
+
 interface SeedBlock {
   id: string
   type: string

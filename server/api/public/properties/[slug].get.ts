@@ -6,6 +6,7 @@ import { listPublicGallery, listPublicPropertyMedia } from '../../../utils/prope
 import { listPublicPropertyDocuments } from '../../../utils/properties/documents'
 import { loadPropertySheet } from '../../../utils/properties/extendedSheet'
 import { publicCustomFieldsFor } from '../../../utils/customFields/service'
+import { PUBLIC_TEAM_COLUMNS } from '../../../utils/publicTeam'
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug')
@@ -25,7 +26,25 @@ export default defineEventHandler(async (event) => {
   // privados y no ocultos, en su orden; los documentos públicos sólo si la
   // propiedad está publicada; y de la ficha ampliada sólo los publicFields
   // del PropertySchemaRegistry (FASE 26).
-  const [developer, galleryByProperty, floorPlans, unitTypes, amenityLinks, locationLinks, socialMedia, media, documents, sheet] = await Promise.all([
+  // «Atendido por»: el comercial responsable de la propiedad (`agent_id`, sin
+  // FK), sólo si es de esta agencia, está activo y publicado en la web, y
+  // sólo con sus columnas públicas (server/utils/publicTeam.ts). Si no, la
+  // ficha enseña a la empresa.
+  const agentQuery = project.agentId
+    ? db
+        .select(PUBLIC_TEAM_COLUMNS)
+        .from(schema.teamMembers)
+        .where(
+          and(
+            eq(schema.teamMembers.id, project.agentId),
+            eq(schema.teamMembers.organizationId, project.organizationId),
+            eq(schema.teamMembers.employmentStatus, 'active'),
+            eq(schema.teamMembers.showOnWeb, 1),
+          ),
+        )
+        .limit(1)
+    : Promise.resolve([])
+  const [developer, galleryByProperty, floorPlans, unitTypes, amenityLinks, locationLinks, socialMedia, media, documents, sheet, agentRows] = await Promise.all([
     db.select().from(schema.developers).where(eq(schema.developers.id, project.developerId)).limit(1),
     listPublicGallery(db, 'developer', [project.id]),
     db.select().from(schema.floorPlans).where(eq(schema.floorPlans.developerPropertyId, project.id)),
@@ -46,6 +65,7 @@ export default defineEventHandler(async (event) => {
     listPublicPropertyMedia(db, project.organizationId, 'developer', project.id),
     listPublicPropertyDocuments(db, project.organizationId, 'developer', project.id),
     loadPropertySheet(db, project.organizationId, 'developer', project.id),
+    agentQuery,
   ])
   const gallery = galleryByProperty.get(project.id) || []
 
@@ -78,5 +98,6 @@ export default defineEventHandler(async (event) => {
     locations: projectLocations.map((l) => ({ ...l, distance: distances[l.id] ?? null })),
     socialMedia,
     customFields,
+    agent: agentRows[0] || null,
   }
 })

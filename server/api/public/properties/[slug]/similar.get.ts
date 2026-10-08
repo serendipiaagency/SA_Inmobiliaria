@@ -1,4 +1,4 @@
-import { and, eq, ne, sql } from 'drizzle-orm'
+import { and, desc, eq, ne, notInArray, sql } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../../../utils/db'
 import { attachPhotos } from '../../../../utils/photos'
 import { explainSimilarity, type SimilarityFacts } from '../../../../utils/ai'
@@ -11,6 +11,16 @@ import { livePropertyCond } from '../../../../utils/properties/trash'
  * actual catalog — never a fabricated "similar" list. The one-line rationale
  * per result is generated from those same real facts (Claude if configured,
  * otherwise the rules-based fallback), through the shared AI engine.
+ *
+ * `featured` — «Propiedades destacadas», debajo de las similares en la ficha:
+ * otro concepto (no «parecidas a esta», sino las que la inmobiliaria
+ * destaca). La marca que ya existe para eso es `isExclusive` («Exclusiva»:
+ * la misma que usa la selección «Destacadas» del bloque Propiedades del
+ * Constructor, utils/siteBuilder/pickItems.ts). Sin la propiedad que se está
+ * viendo ni las similares, de esta agencia y vivas; si no hay ninguna, la
+ * lista va vacía y la ficha no pinta la sección. Va en esta respuesta y no
+ * en una ruta propia para poder excluir las similares sin calcularlas dos
+ * veces.
  */
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug')
@@ -70,5 +80,16 @@ export default defineEventHandler(async (event) => {
     }),
   )
 
-  return { results }
+  const FEATURED_LIMIT = 3
+  const excluded = [base.id, ...scored.map((s) => s.project.id)]
+  const featuredRows = await db
+    .select({ project: P, developerName: schema.developers.name })
+    .from(P)
+    .leftJoin(schema.developers, eq(P.developerId, schema.developers.id))
+    .where(and(eq(P.organizationId, orgId), eq(P.isExclusive, 1), notInArray(P.id, excluded), livePropertyCond(P)))
+    .orderBy(desc(P.id))
+    .limit(FEATURED_LIMIT)
+  const featured = (await attachPhotos(db, featuredRows.map((r: any) => ({ ...r.project, developerName: r.developerName })))).map((p: any) => toPublicProperty(p))
+
+  return { results, featured }
 })
