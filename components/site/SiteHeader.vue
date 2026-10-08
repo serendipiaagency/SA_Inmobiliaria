@@ -102,7 +102,19 @@ import type { TenantBranding } from '~/composables/useTenant'
  * que resuelve el host del panel — le pasa la marca de esa organización en
  * vez de la del dominio. Fuera del lienzo no se usa.
  */
-const props = withDefaults(defineProps<{ tenantOverride?: TenantBranding | null }>(), { tenantOverride: null })
+const props = withDefaults(
+  defineProps<{
+    tenantOverride?: TenantBranding | null
+    /**
+     * Sólo el lienzo: si la cabecera va superpuesta sobre el hero (como en la
+     * portada) o fija y sólida (como en el resto de páginas). En la web lo
+     * decide la página con `transparentHero`; el lienzo es una sola ruta que
+     * enseña cualquier página, así que se lo dice la página que se edita.
+     */
+    overlay?: boolean | null
+  }>(),
+  { tenantOverride: null, overlay: null },
+)
 
 const open = ref(false)
 const { t } = useI18n()
@@ -116,7 +128,7 @@ const tenant = computed(() => props.tenantOverride ?? hostTenant.value)
 // Pages that opt in (e.g. the home page, via definePageMeta({ transparentHero: true }))
 // get a nav that starts transparent over a fullscreen hero and solidifies on scroll.
 const route = useRoute()
-const overlayNav = computed(() => route.meta.transparentHero === true)
+const overlayNav = computed(() => (props.overlay ?? route.meta.transparentHero) === true)
 const scrolled = ref(false)
 const navLight = computed(() => overlayNav.value && !scrolled.value)
 function onScroll() {

@@ -34,7 +34,7 @@ es lo que el builder edita y autoguarda. `site_pages.published_json` es lo
 site_pages
 ├─ id
 ├─ organizationId     ← el tenant dueño (tenantPolicy: direct, igual que el resto del CRUD)
-├─ pageKey             'home' hoy — el modelo admite más páginas, aún sin UI
+├─ pageKey             una de utils/siteBuilder/pages.ts: home, propiedades, ficha-propiedad, nosotros, servicios, contacto, blog
 ├─ draftJson            { blocks: SiteBlock[], seo: {title, description}, styles?: {fontHeading, fontBody, buttonRadius} }
 ├─ publishedJson         mismo shape, o null si nunca se publicó
 ├─ version               se incrementa en cada Publish
@@ -200,12 +200,9 @@ El panel izquierdo (`pages/admin/site-builder/index.vue`) muestra una tarjeta
 por bloque — número, nombre y un subtítulo real generado por
 `blockSubtitle()` (`composables/useSiteBuilderRegistry.ts`, p. ej. "4
 propiedades · Fila") — en vez de una lista plana donde varios bloques del
-mismo tipo son indistinguibles entre sí. Debajo, la sección "Páginas" separa
-visualmente la Estructura (los bloques de Inicio) de las páginas reales del
-sitio; hoy solo Inicio es editable con el Constructor Web
-(`server/utils/sitePages.ts` rechaza cualquier otro `pageKey`), así que el
-resto se lista solo para orientar — deliberadamente sin un CRUD de páginas
-que el backend no soporta todavía.
+mismo tipo son indistinguibles entre sí. Debajo, la lista "Páginas" abre
+cada página de la web en el editor (ver «Páginas» más abajo); la Estructura
+es siempre la de la página abierta.
 
 **"+ Añadir sección aquí"** aparece tanto entre las tarjetas de la Estructura
 como entre los bloques renderizados en el propio lienzo
@@ -256,6 +253,75 @@ grande solo para llenar la biblioteca visualmente — el catálogo real (9
 tipos, ver más abajo) es el que existe hoy; los tipos con modelo de datos
 propio (Testimonios, FAQ, Vídeo, etc.) siguen en la lista de "Decisión de
 alcance deliberadamente diferida" de más arriba.
+
+## Páginas
+
+El catálogo vive en `utils/siteBuilder/pages.ts` (`SITE_PAGES`) y es la
+única lista: la usan el panel «Páginas» del editor, `requireValidPageKey()`
+(cualquier otra clave es un 404) y las páginas públicas. Cada página es una
+fila propia de `site_pages` (`organizationId` + `pageKey`), con su borrador,
+su publicación y su historial — lo mismo que ya tenía Inicio.
+
+| Clave | Página | Dirección | Clase |
+|---|---|---|---|
+| `home` | Inicio | `/` | portada (sólo secciones) |
+| `propiedades` | Propiedades | `/propiedades` | funcional · `properties-listing` |
+| `ficha-propiedad` | Ficha de propiedad | `/propiedades/:slug` | funcional · `property-detail` |
+| `nosotros` | Nosotros | `/nosotros` | contenido |
+| `servicios` | Servicios | `/servicios` | contenido (nueva) |
+| `contacto` | Contacto | `/contacto` | contenido |
+| `blog` | Blog | `/blog` | funcional · `blog-index` |
+
+**Siembra.** La primera vez que se abre una página, `getOrCreateSitePage()`
+crea su borrador con `seedPageBlocks()`: lo que la web ya enseña en esa
+dirección hecho secciones (Nosotros: los textos de `i18n/messages.ts` en un
+bloque Texto y sus dos botones en una Llamada a la acción; Contacto: el
+formulario como Formulario de captación, que crea un lead real igual que el
+de antes). Servicios no existía y empieza con una estructura de ejemplo.
+Inicio sigue empezando vacía.
+
+**Zona dinámica.** Las páginas funcionales llevan un bloque `page-core`
+(`{ core: 'properties-listing' | 'property-detail' | 'blog-index' }`): el
+núcleo que se rellena solo. `validatePageDocument(doc, pageKey)` exige
+exactamente uno, el de esa página, y le quita estilo, visibilidad y
+`nodeStyles` (no hay nada que editar en él); en el resto de páginas no puede
+haber ninguno. En el editor sólo se mueve: el lienzo, la Estructura, los
+atajos y la barra flotante no lo duplican, ocultan ni borran. En el lienzo
+lo pinta `PageCoreBlock.vue` —una vista previa con datos reales de la
+empresa (`preview-data`) y sin nodos editables—; en la web publicada
+`SiteBlockRenderer` pinta en su lugar el slot `core`, que es la página real.
+
+**Web pública.** `composables/useSitePage.ts` pide
+`/api/public/site-pages/<clave>` (ahora con `published: boolean`) y
+`components/site/SitePageLayout.vue` decide: con versión publicada, las
+secciones con la página real en el hueco de la zona dinámica; sin ella, la
+página de siempre tal cual. Así nada cambia en ninguna web hasta que alguien
+publique esa página. `/servicios` es un 404 hasta que se publica. El SEO de
+la página (título y descripción) sustituye al de siempre al publicar, salvo
+en la Ficha, que conserva el SEO de cada propiedad.
+
+**Volver a la original.** `DELETE /api/admin/site-pages/<clave>`
+(`resetSitePage()`): borrador = siembra y `publishedJson = null`, así que la
+web vuelve a la página de siempre. Las versiones se conservan y se pueden
+restaurar; ninguna figura como «actual» mientras no se publique. Inicio no
+lo admite (422): sin versión publicada se quedaría en blanco.
+
+**Editor.** La página abierta va en la URL (`?pagina=nosotros`). Cambiar de
+página guarda antes lo pendiente (si no se puede guardar, no se cambia) y
+carga la otra sin selección ni historial de deshacer. El `GET` de cada
+página trae además `pages`: el estado de todas para la lista («Publicada»,
+«Cambios», «Original», «Sin publicar»), calculado sin crear filas. El
+lienzo recibe `pageKey` para poner la cabecera superpuesta sólo en Inicio.
+
+Restablecer es un `DELETE` y el estado va dentro del `GET` —y no en rutas
+propias— a propósito: cada ruta de la API es una clave más en el tipado de
+`$fetch` de Nitro y el proyecto está en el límite de lo que TypeScript
+resuelve (con una ruta nueva, TS2589 en decenas de llamadas con URL de
+plantilla). Un método nuevo sobre una ruta existente no añade clave.
+
+Todas estas rutas caen bajo el patrón `site-pages` de
+`server/utils/adminRouteMatrix.ts` (área `web`), igual que las que ya había:
+no cambia ningún permiso.
 
 ## Autoguardado, deshacer/rehacer, Publicar
 

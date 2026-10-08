@@ -1,6 +1,6 @@
 import { useDb } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
-import { getOrCreateSitePage, parsePageJson, requireValidPageKey } from '../../../utils/sitePages'
+import { getOrCreateSitePage, listSitePageStatuses, parsePageJson, requireValidPageKey } from '../../../utils/sitePages'
 
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireOrgScope(event)
@@ -22,5 +22,9 @@ export default defineEventHandler(async (event) => {
     // by diffing on the client — draft and published are compared here,
     // once, from the same read.
     hasUnpublishedChanges: JSON.stringify(draft) !== JSON.stringify(published),
+    // El estado de todas las páginas, para la lista «Páginas» del editor:
+    // viaja aquí, con la página que se abre, en vez de en una ruta propia
+    // (ver la nota de [pageKey].delete.ts sobre el tipado de rutas).
+    pages: await listSitePageStatuses(db, orgId),
   }
 })

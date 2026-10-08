@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   const db = useDb(event)
 
   const body = await readBody(event)
-  const doc = validatePageDocument(body)
+  const doc = validatePageDocument(body, pageKey)
   await saveDraft(db, orgId, pageKey, doc)
 
   return { ok: true }

@@ -158,7 +158,17 @@ describe('los bloques con efecto real no disparan nada desde el editor', () => {
  */
 describe('todos los bloques exponen nodos editables', () => {
   const dir = join(ROOT, 'components/site-builder/blocks')
-  const files = readdirSync(dir).filter((f) => f.endsWith('.vue'))
+  // La única excepción: la vista previa de la zona dinámica de una página
+  // (Propiedades, Ficha, Blog — utils/siteBuilder/pages.ts). No tiene nada
+  // que editar —se rellena sola— y sus estilos no se guardarían
+  // (validatePageDocument se los quita), así que no expone ningún nodo.
+  const NO_NODES = ['PageCoreBlock.vue']
+  const files = readdirSync(dir).filter((f) => f.endsWith('.vue') && !NO_NODES.includes(f))
+
+  it('la zona dinámica no expone nodos: pulsarla selecciona la zona entera', () => {
+    const source = readFileSync(join(dir, 'PageCoreBlock.vue'), 'utf8')
+    expect(source).not.toMatch(/<Sb(Text|Link|Image|Box|Button)\b/)
+  })
   // El hero y la fila de propiedades delegan en componentes compartidos; sus
   // nodos viven allí.
   const DELEGATES: Record<string, string> = { 'HeroBlock.vue': 'components/HeroSearch.vue', 'PropertiesBlock.vue': 'components/SectionRow.vue' }
