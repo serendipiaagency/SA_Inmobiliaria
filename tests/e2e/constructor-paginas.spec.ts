@@ -132,7 +132,7 @@ test.describe('Constructor Web — páginas editables', () => {
     await pub.goto(`/propiedades?vista_previa=${orgId}`)
     const cta = pub.getByText(`Vende con nosotros ${RUN}`)
     await expect(cta).toBeVisible()
-    const filters = pub.getByRole('button', { name: /Filtros/ }).first()
+    const filters = pub.getByTestId('catalog-bar')
     await expect(filters).toBeVisible()
     const top = (el: Element) => el.getBoundingClientRect().top + window.scrollY
     expect(await cta.evaluate(top), 'la sección va encima del listado').toBeLessThan(await filters.evaluate(top))

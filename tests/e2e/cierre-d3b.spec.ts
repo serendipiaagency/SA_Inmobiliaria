@@ -114,7 +114,8 @@ test.describe('Cierre D3b — moneda de la agencia, web pública y catálogo de 
     const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
     const page = await context.newPage()
     await page.goto('/propiedades')
-    await page.getByRole('button', { name: /Filtros/ }).first().click()
+    // Panel de filtros del catálogo (#109): el grupo «Tipo de propiedad».
+    await page.getByTestId('catalog-aside').locator('[data-group="type"] > button').click()
     await expect(page.getByTestId('public-filter-type-Penthouse')).toHaveText('Ático')
     // Nada de las claves internas en inglés.
     await expect(page.getByTestId('public-filter-type-Penthouse')).not.toHaveText('Penthouse')
@@ -131,26 +132,27 @@ test.describe('Cierre D3b — moneda de la agencia, web pública y catálogo de 
     expect((await anon.get('/api/public/properties', { params: { lat: '10', lng: '-40', radiusKm: '0' } })).status()).toBe(422)
   })
 
-  test('FASE 2 — el código postal en el modal de filtros cuenta en la insignia, y el radio también (uno)', async ({ browser }) => {
+  test('FASE 2 — el código postal en el panel de filtros y el radio: sus chips, y el modal de «Más filtros» los sigue enseñando', async ({ browser }) => {
     const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
     const page = await context.newPage()
     await page.goto('/propiedades')
-    await page.getByRole('button', { name: /Filtros/ }).first().click()
-    await page.getByTestId('public-filter-postal-code').fill(POSTAL)
-    await page.getByTestId('public-filters-apply').click()
+    const aside = page.getByTestId('catalog-aside')
+    await aside.getByRole('button', { name: 'Código postal' }).click()
+    await aside.getByTestId('catalog-location').selectOption(POSTAL)
     await expect(page).toHaveURL(new RegExp(`postalCode=${POSTAL}`))
-    await expect(page.getByTestId('public-filters-badge')).toHaveText('1')
+    await expect(page.locator('[data-chip="postalCode"]')).toHaveText(`CP ${POSTAL}`)
     await expect(page.getByText(devName).first()).toBeVisible()
 
-    // Con radio: 2 filtros (CP + radio, que cuenta como uno). El modal lo enseña y lo quita.
+    // Con radio: su chip (uno) y el modal de «Más filtros» lo enseña y lo quita.
     await page.goto(`/propiedades?postalCode=${POSTAL}&lat=${SPOT.lat}&lng=${SPOT.lng}&radiusKm=5`)
-    await expect(page.getByTestId('public-filters-badge')).toHaveText('2')
-    await page.getByRole('button', { name: /Filtros/ }).first().click()
+    await expect(page.locator('[data-chip="nearby"]')).toHaveText('Radio 5 km')
+    await page.getByTestId('catalog-aside').getByTestId('catalog-more-filters').click()
     await expect(page.getByTestId('public-filter-nearby')).toBeVisible()
     await page.getByTestId('public-filter-nearby-remove').click()
     await page.getByTestId('public-filters-apply').click()
     await expect(page).not.toHaveURL(/radiusKm=/)
-    await expect(page.getByTestId('public-filters-badge')).toHaveText('1')
+    await expect(page.locator('[data-chip="nearby"]')).toHaveCount(0)
+    await expect(page.locator('[data-chip="postalCode"]')).toBeVisible()
     await context.close()
   })
 
