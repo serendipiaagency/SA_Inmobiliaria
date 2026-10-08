@@ -45,8 +45,9 @@ export default defineEventHandler(async (event) => {
   // FASE 28 §94 — el histórico de precios (PropertyPriceHistory) de cada
   // catálogo, que la edición manual y la acción en bloque ya escriben pero
   // ningún endpoint del panel leía. Va aquí, en la ficha que el editor ya
-  // pide, y no en una ruta nueva (margen de claves de ruta = 0, ver
-  // docs/property-schema-registry.md). La fila ya está autorizada arriba.
+  // pide, y no en una ruta nueva (entonces el margen de claves de ruta era 0;
+  // ese límite ya no existe, ver P1-14 en docs/production-hardening-audit.md).
+  // La fila ya está autorizada arriba.
   if (key === 'developer-properties' || key === 'properties') {
     // Precio anterior, quién lo cambió y por qué (migración 0086). `changedBy`
     // sólo lo escribe el servidor con el usuario de la sesión que editó esta

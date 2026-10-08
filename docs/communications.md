@@ -203,11 +203,11 @@ el envío ya hecho: el mensaje de WhatsApp es lo que de verdad importa.
 
 Un saliente `failed` se reintenta con `POST
 /api/admin/comms/conversations/:id/messages` y `{ type: 'retry', messageId }`
-— una rama más del endpoint de envío, **no una ruta nueva**: el margen de
-claves de ruta de Nitro frente al TS2589 está en cero
-(`docs/property-schema-registry.md`, P1-14 en
-`docs/production-hardening-audit.md`), y una ruta `/messages/:id/retry`
-rompía `npm run typecheck` en un componente sin relación. La lógica vive en
+— una rama más del endpoint de envío, **no una ruta nueva**: cuando se
+escribió, el margen de claves de ruta de Nitro frente al TS2589 estaba en
+cero y una ruta `/messages/:id/retry` rompía `npm run typecheck` en un
+componente sin relación (ese límite ya no existe desde 2026-10-08, ver P1-14
+en `docs/production-hardening-audit.md`). La lógica vive en
 `retryOutboundMessage()` (`server/utils/comms/admin.ts`):
 
 - Sólo un `direction = 'out'` con `status = 'failed'` (409 si no). Como
@@ -293,8 +293,8 @@ llamadas en la pestaña «Comunicaciones» y en la cronología («WhatsApp
 recibido/enviado», «Llamada realizada/recibida»), con enlace al hilo.
 
 Desde FASE 29 (§139-142) las mismas comunicaciones aparecen fuera de la
-ficha del cliente, siempre por vínculo guardado y sin ruta nueva (margen de
-TS2589 en cero, ver «Reintentos»):
+ficha del cliente, siempre por vínculo guardado y sin ruta nueva (entonces
+el margen de TS2589 estaba en cero, ver «Reintentos»):
 
 | Dónde | Qué | De dónde sale |
 | --- | --- | --- |

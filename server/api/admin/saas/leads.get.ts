@@ -11,8 +11,10 @@ export default defineEventHandler(async (event) => {
   const q = getQuery(event)
 
   // FASE 32 — «¿Por qué tiene este score?»: desglose vigente + historial de
-  // un lead, como rama de lectura de este listado (margen de claves de ruta
-  // = 0). Acotado por organización como todo lo demás aquí.
+  // un lead, como rama de lectura de este listado (entonces el margen de
+  // claves de ruta era 0; ese límite ya no existe, ver P1-14 en
+  // docs/production-hardening-audit.md). Acotado por organización como todo
+  // lo demás aquí.
   if (q.scoreFor !== undefined) {
     const leadId = parseInt(String(q.scoreFor), 10)
     if (!leadId) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })

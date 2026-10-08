@@ -52,9 +52,10 @@ para `process-next`, interceptando con un cuerpo `{}`/vacío antes de que
 la lógica genérica de `buildPayload()` intente tratarlo como una edición
 de campos) — mismo criterio de coste-cero-de-ruta que ya usa
 `property-saved-views` (FASE 27), documentado en
-`docs/property-schema-registry.md`: el margen de Nitro frente al TS2589
-sigue en cero, así que ningún archivo de ruta nuevo es seguro sin volver
-a medirlo.
+`docs/property-schema-registry.md`: entonces el margen de Nitro frente al
+TS2589 estaba en cero, así que ningún archivo de ruta nuevo era seguro sin
+volver a medirlo (ya no es así desde 2026-10-08, ver P1-14 en
+`docs/production-hardening-audit.md`).
 
 ## Selección: manual, página, o todos los filtrados
 
@@ -173,8 +174,8 @@ y "Exportar seleccionadas" (§92):
   - Nadie leía el histórico desde el panel. `GET /api/admin/{properties,
     developer-properties}/:id` devuelve ya `priceHistory` (las 50 más
     recientes; la fila ya está autorizada por organización) y el editor lo
-    enseña en el panel «Histórico de precios» — sin ruta nueva (margen de
-    claves de ruta = 0).
+    enseña en el panel «Histórico de precios» — sin ruta nueva (entonces el
+    margen de claves de ruta era 0).
 - **Exportar seleccionadas** (§92) — sin acción masiva nueva del lado
   servidor: `[resource]/index.get.ts` gana un filtro `ids` (sólo para
   `properties`/`developer-properties`, opt-in, nunca cambia el

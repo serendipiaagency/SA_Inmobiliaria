@@ -42,6 +42,15 @@ sesión — coste de ruta: cero. El prefijo `__` lo distingue visualmente de
 las claves de recurso (`Record<resourceKey, ResourceMeta>`), que nunca
 empiezan por `__`.
 
+> **Actualización 2026-10-08 — esta restricción ya no está en vigor.** La
+> causa del TS2589 se arregló de raíz (`scripts/patch-nitro-route-types.mjs`,
+> P1-14 en `docs/production-hardening-audit.md`): el coste de tipar las rutas
+> de Nitro era cuadrático en el número de claves y ahora es lineal, y
+> `npm run typecheck` aguanta +300 rutas medidas. Una capacidad nueva puede
+> tener su propio fichero de ruta cuando sea el diseño correcto; la lista de
+> abajo queda como registro de por qué el código de FASE 25-33 tiene la forma
+> que tiene, no como regla.
+
 **Consecuencia importante para el resto del bloque FASE 25-29**: el margen
 de rutas nuevas de Nitro es ahora 0, no +1 como al cerrar FASE 24. Cualquier
 capacidad nueva de FASE 27 (Saved Views, export) o FASE 28 (Bulk Actions)

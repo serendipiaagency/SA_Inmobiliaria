@@ -10,7 +10,8 @@ import { AGENT_PROPERTY_TYPE_TO_SCHEMA, DEVELOPER_SCHEMA_VARIANTS, listPropertyS
  * TS2589 margin for new Nitro route keys was down to a single one at the
  * time PropertySchemaRegistry was built (see docs/deals.md, P1-14) and this
  * endpoint is already fetched once per admin session — adding a field here
- * costs zero route keys where a new file costs one. The `__` prefix keeps
+ * costs zero route keys where a new file costs one. (Ese límite ya no existe:
+ * ver P1-14 en docs/production-hardening-audit.md.) The `__` prefix keeps
  * it visually apart from the `Record<resourceKey, ResourceMeta>` shape the
  * rest of this object has (a resource key is never `__`-prefixed).
  */

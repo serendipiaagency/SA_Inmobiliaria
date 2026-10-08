@@ -12,7 +12,9 @@ import { applyDashboardVisibility, dashboardFilterOptions, dashboardVisibilityFo
  */
 export default defineEventHandler(async (event) => {
   // FASE 33 — Dashboard comercial sobre datos reales (server/utils/dashboard/commercial.ts),
-  // como rama de esta ruta y no como una nueva (margen de claves de ruta = 0).
+  // como rama de esta ruta y no como una nueva (entonces el margen de claves de
+  // ruta era 0; ese límite ya no existe, ver P1-14 en
+  // docs/production-hardening-audit.md).
   // Son datos de CRM: además del área de esta ruta, exige lectura de CRM.
   // Núcleo N8a: cada comercial ve sólo lo suyo (dashboardVisibilityFor —
   // administrador/gerente: todo; usuario restringido con ficha: su comercial,

@@ -9,7 +9,8 @@ import { leadScoreSettings } from '../../../../utils/leads/score'
  *
  * `?scope=score` (FASE 32): las reglas efectivas del Lead Score, con la
  * fuente de cada señal — en esta misma ruta de configuración de leads, no
- * en una nueva (margen de claves de ruta = 0).
+ * en una nueva (entonces el margen de claves de ruta era 0; ese límite ya no
+ * existe, ver P1-14 en docs/production-hardening-audit.md).
  */
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireOrgScope(event)

@@ -100,7 +100,10 @@ cualquier cambio:
 - el cron horario `leads:sla-check`: sólo los leads con `score_expires_at` vencido (la primera señal temporal que caduca);
 - a mano: «Recalcular» en el detalle, la acción en bloque «Recalcular puntuación», o «Recalcular todos los leads» tras cambiar las reglas (framework de acciones en bloque, hasta 2000 por job).
 
-## API (sin rutas nuevas — margen de claves de ruta = 0)
+## API (sin rutas nuevas — entonces el margen de claves de ruta era 0)
+
+Ese límite ya no existe (P1-14 en `docs/production-hardening-audit.md`); la
+API se queda con esta forma porque funciona.
 
 | Qué | Dónde |
 | --- | --- |

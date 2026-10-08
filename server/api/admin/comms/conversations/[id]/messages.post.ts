@@ -18,9 +18,10 @@ import { loadWebThreadForOrg, parseWebThreadKey, replyToWebThread } from '../../
  *   { type: 'image' | 'document', mediaKey, caption?, filename? }   (un archivo subido por /api/admin/upload)
  *   { type: 'retry', messageId }   (FASE 29 §136 — reenvía un saliente que quedó `failed`)
  *
- * `retry` vive aquí y no en `/messages/:id/retry` porque el margen de claves
- * de ruta de Nitro frente al TS2589 está en cero (docs/property-schema-registry.md,
- * P1-14): una ruta nueva rompe `npm run typecheck`.
+ * `retry` vive aquí y no en `/messages/:id/retry` porque, cuando se escribió,
+ * el margen de claves de ruta de Nitro frente al TS2589 estaba en cero y una
+ * ruta nueva rompía `npm run typecheck`. Ese límite ya no existe
+ * (docs/production-hardening-audit.md, P1-14).
  *
  * La ventana de 24 h y el consentimiento se comprueban en sendOutbound()
  * ANTES de llamar al proveedor; un rechazo llega como 422 con `code`.

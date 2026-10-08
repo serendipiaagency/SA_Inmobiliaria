@@ -10,7 +10,8 @@ const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8788'
  * `?id=` para la ficha, POST con `action` en el body para transicionar
  * (ver el comentario en `server/api/admin/saas/deal-operations.get.ts` y
  * docs/deals.md sobre por qué: el margen de `npm run typecheck` frente al
- * TS2589 de Nitro estaba agotado a una sola clave de ruta nueva). Ruta
+ * TS2589 de Nitro estaba agotado a una sola clave de ruta nueva; ya
+ * resuelto, ver P1-14 en docs/production-hardening-audit.md). Ruta
  * deliberadamente distinta de `saas/deals*`, que es la tabla legacy de
  * cierres para comisiones. Comercial e inmuebles propios de este spec,
  * mismo patrón que offers.spec.ts/tasks.spec.ts.
