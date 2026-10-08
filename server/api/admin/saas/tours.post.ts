@@ -38,7 +38,8 @@ const durationOrNull = (v: unknown) => (v === undefined || v === null || v === '
 
 /**
  * POST /api/admin/saas/tours (pages/admin/visitas.vue, pestaña Tours) — un
- * único endpoint con cinco acciones (margen de rutas de Nitro = 0):
+ * único endpoint con cinco acciones (entonces el margen de rutas de Nitro era
+ * 0; ese límite ya no existe, ver P1-14 en docs/production-hardening-audit.md):
  *  - crear un tour con todas sus paradas de una vez (cada parada con su
  *    hora y duración, inmueble de obra nueva o de 2ª mano, lead/contacto y notas);
  *  - `action: 'update'` + `tourId`: editar cliente, lead, contacto y notas;

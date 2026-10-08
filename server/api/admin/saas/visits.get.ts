@@ -14,7 +14,8 @@ const positiveInt = (v: unknown) => {
  * relacionadas, más los contadores por estado.
  *
  * `?id=<cita>` devuelve la ficha de UNA cita (`{ row }`) — mismo endpoint,
- * modo lectura (margen de rutas de Nitro = 0). 404 si no es de esta agencia
+ * modo lectura (entonces el margen de rutas de Nitro era 0; ese límite ya no
+ * existe, ver P1-14 en docs/production-hardening-audit.md). 404 si no es de esta agencia
  * o si está en la papelera.
  *
  * Cierre D3a: `?trashed=1` lista SÓLO la papelera (lo último eliminado

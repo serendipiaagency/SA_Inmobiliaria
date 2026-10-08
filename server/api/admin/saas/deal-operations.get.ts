@@ -9,9 +9,11 @@ import { PROPERTY_KINDS, type PropertyKind } from '../../../utils/matching/servi
  * (FASE 24), o su ficha completa con `?id=` — no confundir con `saas/deals`
  * (cierres legacy para comisiones).
  *
- * Ficha bajo query, no bajo `/deal-operations/:id`: el margen real de
- * `npm run typecheck` frente al TS2589 de Nitro (ver `nitro-fetch-warmup.ts`
- * y docs/production-hardening-audit.md, P1-14) se agotó con el crecimiento
+ * Ficha bajo query, no bajo `/deal-operations/:id`. Motivo histórico — el
+ * límite ya no existe (scripts/patch-nitro-route-types.mjs y
+ * docs/production-hardening-audit.md, P1-14), y la forma se queda porque
+ * funciona, no porque haga falta: el margen real de
+ * `npm run typecheck` frente al TS2589 de Nitro se agotó con el crecimiento
  * acumulado de las FASE 15-23 — a día de escribir esto sólo admite UNA clave
  * de ruta nueva en todo el proyecto antes de romperse, medido añadiendo
  * rutas una a una en un worktree limpio. Una ruta dinámica `/[id]` adicional

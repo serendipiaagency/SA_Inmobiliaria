@@ -41,8 +41,9 @@ function optionalId(v: unknown): number | null | undefined {
  *    y sacarla de ella.
  *
  * Todo bajo una única clave de ruta a propósito — ver el comentario en
- * `deal-operations.get.ts` sobre el margen agotado de `npm run typecheck`
- * frente al TS2589 de Nitro (docs/production-hardening-audit.md, P1-14).
+ * `deal-operations.get.ts` sobre el margen que entonces tenía
+ * `npm run typecheck` frente al TS2589 de Nitro, ya resuelto
+ * (docs/production-hardening-audit.md, P1-14).
  */
 export default defineEventHandler(async (event) => {
   const { user, orgId } = await requireOrgScope(event)

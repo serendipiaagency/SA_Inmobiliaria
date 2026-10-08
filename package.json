@@ -24,7 +24,7 @@
     "test:e2e": "bash scripts/e2e.sh",
     "release": "wrangler d1 migrations apply sa_inmobiliaria --remote --env=\"\" && nuxt build && wrangler deploy --env=\"\"",
     "release:staging": "wrangler d1 migrations apply sa_inmobiliaria_staging --remote --env staging && nuxt build && wrangler deploy --env staging",
-    "postinstall": "nuxt prepare",
+    "postinstall": "node scripts/patch-nitro-route-types.mjs && nuxt prepare",
     "create-super-admin": "node scripts/create-super-admin.mjs"
   },
   "dependencies": {

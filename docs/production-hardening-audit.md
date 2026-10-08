@@ -670,7 +670,9 @@ Eso hace que el fallo sea especialmente engañoso:
   respuesta cortocircuite. Medido: `$fetch<Shape>('/api/admin/stats')` como
   primera sentencia paga igual.
 
-**Resuelto**: `nitro-fetch-warmup.ts` en la raíz del proyecto. Una única
+**Primer arreglo (septiembre 2026, retirado el 2026-10-08 — ver «Causa raíz
+y arreglo definitivo» más abajo)**: `nitro-fetch-warmup.ts` en la raíz del
+proyecto. Una única
 llamada, silenciada con `@ts-ignore`, que se comprueba antes que ninguna otra
 (TypeScript recorre los ficheros de un directorio antes que sus
 subdirectorios) y por tanto es la que paga. Con el resultado ya memorizado,
@@ -691,21 +693,114 @@ Medido en este repositorio, contando claves en
 | 347 | — | limpio |
 | 597 | — | vuelve a fallar |
 
-Es decir: el margen pasa de **1 ruta a más de 150**.
+Es decir: el margen pasó de **1 ruta a más de 150**. No duró: el coste no
+dependía sólo del número de claves sino de su cuadrado, y para octubre, con
+274 claves, el margen volvía a ser de **una ruta** (con dos rutas nuevas
+fallaban 108 llamadas en ~60 ficheros). Varias features se diseñaron
+alrededor de ese límite (Deal Operation en una sola clave, `retry` como rama
+del envío de mensajes, el registro de esquemas dentro de
+`/api/admin/resources`, el Lead Score sin rutas propias…).
 
-**Cómo volver a medir el techo** (cuando haga falta subir la constante del
-test): crear N ficheros `server/api/_cliffprobe/pN.get.ts` con
-`export default defineEventHandler(() => ({ probe: N }))`, `npx nuxi prepare`,
-`npm run typecheck`, y **borrar el directorio al terminar**. El contador de
-rutas es `grep -cE "^    '/" .nuxt/types/nitro-routes.d.ts`.
+#### Causa raíz y arreglo definitivo (2026-10-08)
 
-**Verificado más allá de typecheck/test/build/migrations:check**: 4 tests en
-`test/unit/nitroFetchWarmup.test.ts` que protegen las invariantes de las que
-depende el arreglo —el fichero existe en la raíz, conserva la llamada
-silenciada, es el único fichero de la raíz que llama a `$fetch`/`useFetch`, y
-el número de rutas sigue dentro de lo comprobado a mano—. La tercera se probó
-en negativo (creando un fichero de raíz con `$fetch` y confirmando que el test
-falla nombrándolo), para que no sea una comprobación vacía.
+Medido con la API de TypeScript sobre este repositorio, llamada a llamada y
+con una copia de TypeScript sin límite de presupuesto para obtener cifras
+exactas:
+
+- Emparejar **una** URL contra las 274 claves cuesta ~40.000
+  instanciaciones. Es lineal y no es el problema.
+- El problema es **un único tipo**, `AvailableRouterMethod<NitroFetchRequest>`:
+  **~10 millones** de instanciaciones (17 s), el doble del presupuesto de una
+  sentencia. `NitroFetchRequest` es la unión de todas las claves más
+  `string`; el condicional distributivo reparte la unión y calcula
+  `MatchedRoutes` de cada clave contra todas las demás — coste
+  **cuadrático**. Lo instancian dos caminos:
+  1. `R` concreto e igual a la unión completa: `$fetch<T>(…)`/`useFetch<T>(…)`
+     con genérico explícito (TypeScript no hace inferencia parcial, así que
+     `R` toma su valor por defecto) — 290 + 104 llamadas en el proyecto.
+  2. `R` genérico: al calcular la varianza de la interfaz
+     `NitroFetchOptions<R, M extends AvailableRouterMethod<R>>`, cosa que hace
+     la primera llamada a `$fetch` del programa con o sin genérico,
+     TypeScript pide la restricción base de `AvailableRouterMethod<R>` y la
+     obtiene instanciando el condicional distributivo con la restricción de
+     `R`: otra vez la unión completa. Por eso un helper sólo para las
+     llamadas con genérico (la primera opción que se valoró) no habría
+     bastado.
+- `$fetch<any>`/`useFetch<any>` (88 + 74 llamadas) hacen lo mismo a través de
+  `TypedInternalResponse<NitroFetchRequest, any>`, que además serializa la
+  respuesta de todas las rutas.
+- Y el resultado de todo ese trabajo es trivial:
+  `AvailableRouterMethod<NitroFetchRequest>` = `RouterMethod` (los 9
+  métodos) y `TypedInternalResponse<NitroFetchRequest, D>` = `D`, lo mismo
+  que con `string`. En cuanto la unión contiene `string`, ese miembro aporta
+  el resultado que absorbe a los demás.
+
+**Arreglo**: `scripts/patch-nitro-route-types.mjs`, en `postinstall` antes de
+`nuxt prepare`, reescribe esos dos alias en los `.d.ts` de nitropack (sólo
+tipos: nada de lo que se ejecuta cambia) con el mismo resultado y sin el
+reparto:
+
+- `string extends R ? <resultado> :` delante — arregla el camino 1.
+- `[R] extends [infer U] ? (U extends string ? … U …) : never` en lugar de
+  `R extends string ? … R …`: con `R` concreto es lo mismo; con `R` genérico
+  el condicional queda diferido, `U` vale `unknown` y la restricción sale
+  `RouterMethod` sin recorrer ninguna clave — arregla el camino 2.
+
+Con una URL literal o de plantilla `string extends R` es falso y se evalúa
+exactamente lo mismo que antes, así que no se pierde tipado de respuestas ni
+de métodos permitidos. Comprobado comparando alias original y parcheado
+(igualdad estricta de tipos) para 544 URL —las 274 claves, su variante de
+plantilla (`/api/x/${string}`), una concreta (`/api/x/abc123`) y casos
+límite: `string`, la unión completa, `Request`, `any`, `never`, uniones de
+literales, URL con `?query`, una ruta inexistente— × 3 métodos × 3 genéricos
+de respuesta: **5.439 de 5.440 iguales**. La única diferencia es
+`TypedInternalResponse<NitroFetchRequest, unknown, 'post'>`, que antes daba
+`any` (algún handler POST devuelve `any` y contaminaba la unión de todas las
+respuestas) y ahora `unknown`, igual que ya daba con `'get'` o con `string`.
+Sólo se alcanza escribiendo `$fetch<unknown>(…)` o `useFetch<void>(…)`, y no
+hay ninguna en el proyecto.
+
+| | antes (con `nitro-fetch-warmup.ts`) | después (parche, sin calentamiento) |
+|---|---|---|
+| `AvailableRouterMethod<NitroFetchRequest>` | ~10.000.000 inst. | 853 inst. |
+| primera llamada a `$fetch` del programa | ~10.100.000 inst. | ~232.000 inst. (casi todo, la respuesta) |
+| typecheck, 274 claves (hoy) | limpio · 17,8 M inst. · 119 s de comprobación | limpio · 8,6 M inst. · 69 s |
+| +2 rutas (276 claves) | **TS2589** | limpio |
+| +10 rutas (284), con `npm run typecheck` | — | limpio |
+| +100 rutas (374) | — | limpio · 11,1 M inst. · 91 s |
+| +300 rutas (574) | — | limpio · 16,0 M inst. · 116 s |
+
+Las rutas de prueba eran realistas (`server/api/admin/zz-sonda/rN/[id]/reset.post.ts`,
+`[id].get.ts`, `index.get.ts`, `[id]/items/[itemId].put.ts`, borradas al
+terminar). El coste crece ahora de forma lineal, ~25.000 instanciaciones por
+ruta repartidas entre todas las llamadas; una sola llamada cuesta ~40.000 con
+274 claves, así que el presupuesto de una sentencia no se alcanzaría hasta
+decenas de miles de rutas.
+
+Se valoraron y descartaron:
+
+- **Un helper `apiFetch<T>(url: string)` sin tipado de rutas** y migrar a él
+  las llamadas que fallaban: no arregla el camino 2 (cualquier `$fetch`
+  restante vuelve a pagar los 10 M), y migrar también las llamadas sin
+  genérico les quitaría el tipo de respuesta inferido de la ruta.
+- **El hook `types:extend`**: sólo permite quitar o cambiar claves de
+  `InternalApi`, no los alias de nitropack. Quitar claves compra margen
+  (cuadrático) a cambio de perder el tipado de esas rutas; no arregla nada.
+- **Actualizar**: nitropack 2.13.4 ya es la última versión y sus tipos de
+  rutas no han cambiado; Nuxt 3.21.11 tampoco los toca. TypeScript 7 (nativo)
+  ya no exporta `typescript/lib/tsc`, que es lo que carga `vue-tsc` 3.3, así
+  que hoy no sirve para `npm run typecheck`; y el coste es del propio tipo,
+  no del compilador.
+
+**Si nitropack cambia esas líneas**, el script no encuentra qué sustituir,
+avisa por consola y termina con código 0 (no rompe `npm ci` ni los
+despliegues); quien para es `test/unit/nitroRouteTypes.test.ts`, que falla en
+`npm test` explicando qué revisar. Si una versión nueva trae un arreglo
+equivalente, se borran el script, su línea en `postinstall` y el test.
+
+La regla «si declaras el tipo de una respuesta, declara su forma real, nunca
+`any`» sigue siendo buena práctica, pero ya no es una cuestión de estabilidad
+del typecheck.
 
 ### P1-15 — Un email que no salía no se veía en ninguna parte — ✅ resuelto
 
@@ -941,7 +1036,7 @@ aparezca en `.output/` tras compilar.
 | P1-11 | ~~El pipeline de CI no valida que `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID`/`PRODUCTION_URL` existan y sean válidos antes de desplegar~~ — ✅ resuelto en FASE 1 | `.github/workflows/ci.yml` | Jobs `staging-preflight`/`production-preflight` (comentario de cabecera desactualizado corregido aquí, la corrección ya estaba hecha en el commit `0c36a43`). **Nota**: esos jobs existían pero no podían funcionar — ver P1-19 |
 | P1-19 | ~~Los jobs de preflight no declaraban `environment:`, así que no podían leer los secretos del Environment que existen para comprobar, y fallaban siempre~~ — ✅ resuelto | `.github/workflows/ci.yml` | `deploy-production` nunca llegó a correr: ni backup, ni migraciones remotas, ni smoke test — ver detalle arriba |
 | P1-12 | ~~Sin request-ID / correlación entre `error_logs`/`webhook_deliveries`/`email_log` para una misma petición~~ — ✅ resuelto | `server/plugins/error-logging.ts` | `error_logs`, `webhook_deliveries` y `email_log` (migración 0060) correlacionados — ver detalle abajo |
-| P1-14 | ~~`npm run typecheck` se rompía con 2 rutas más (TS2589 de Nitro), señalando un fichero sin relación con el cambio~~ — ✅ resuelto | `nitro-fetch-warmup.ts` | Margen de 1 ruta → más de 150, con guardas en `test/unit/nitroFetchWarmup.test.ts` — ver detalle arriba |
+| P1-14 | ~~`npm run typecheck` se rompía con 2 rutas más (TS2589 de Nitro), señalando un fichero sin relación con el cambio~~ — ✅ resuelto de raíz (2026-10-08) | `scripts/patch-nitro-route-types.mjs` (sustituye a `nitro-fetch-warmup.ts`) | Coste de tipar rutas de cuadrático a lineal; +300 rutas medidas en verde, guarda en `test/unit/nitroRouteTypes.test.ts` — ver detalle arriba |
 | P1-15 | ~~Un email que no salía quedaba anotado en `email_log` y ahí se moría: nadie sumaba esas filas ni avisaba~~ — ✅ resuelto | `server/utils/email/health.ts` | `GET /api/admin/saas/email-health` + aviso en el Dashboard y en /admin/emails, sólo cuando hay algo roto — ver detalle arriba |
 | P1-16 | ~~No había forma de saber qué commit estaba vivo, y el smoke test no comprobaba que el build desplegado fuera el recién publicado~~ — ✅ resuelto | `scripts/build-info.mjs` | `version` en `/api/health/ready` (incluido **quién** lo construyó) + verificación en `scripts/smoke-test.mjs` — ver detalle arriba |
 | P1-17 | ~~Nada impedía que un endpoint nuevo se olvidara de acotar por `organizationId`, igual que 147 se olvidaron del área~~ — ✅ resuelto | `test/unit/tenantScopeCoverage.test.ts` | Recorre los 224 handlers; ningún agujero real encontrado, y las exenciones se protegen a sí mismas — ver detalle arriba |

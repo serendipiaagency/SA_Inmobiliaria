@@ -69,8 +69,15 @@ nuevas a una lo hizo. De ahí que todo el pipeline de Deal Operation quepa
 en una sola clave (`GET`/`POST /api/admin/saas/deal-operations`) — no
 porque el diseño REST con `/:id/acción` fuera incorrecto, sino porque el
 margen real del pipeline de CI no daba para las seis claves que ese diseño
-necesitaba. Ver P1-14 para el mecanismo completo y cómo volver a medir el
-techo cuando haga falta.
+necesitaba. Ver P1-14 para el mecanismo completo.
+
+> **Actualización 2026-10-08:** el límite que motivó esta forma ya no existe.
+> La causa era un coste cuadrático en los tipos de rutas de Nitro, arreglado
+> de raíz en `scripts/patch-nitro-route-types.mjs` (P1-14 en
+> `docs/production-hardening-audit.md`); `nitro-fetch-warmup.ts` se ha
+> retirado. La API de Deal Operation se queda como está porque funciona y
+> está cubierta por `tests/e2e/deals.spec.ts`, no porque una ruta `/:id`
+> nueva siga siendo un riesgo.
 
 ## El puente, una sola dirección
 

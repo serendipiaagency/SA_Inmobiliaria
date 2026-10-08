@@ -30,8 +30,9 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<{ stage?: string; status?: string; reason?: string; lost?: boolean; lostReason?: string; note?: string; score?: 'recalculate' }>(event)
 
   // FASE 32 — «Recalcular» del Lead Score explicable, como rama de esta ruta
-  // y no como una nueva (margen de claves de ruta = 0, ver
-  // docs/property-schema-registry.md). Vuelve a leer las señales reales del
+  // y no como una nueva (entonces el margen de claves de ruta era 0; ese
+  // límite ya no existe, ver P1-14 en docs/production-hardening-audit.md).
+  // Vuelve a leer las señales reales del
   // lead; el desglose sólo-lectura se pide por GET (leads.get.ts?scoreFor=).
   if (body?.score === 'recalculate') {
     const db = useDb(event)
