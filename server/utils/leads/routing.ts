@@ -179,7 +179,7 @@ export async function buildRoutingContextFromProperty(
  * desde la migración 0047). Sin catálogo en el contexto (quien llama a
  * `routeLead()` sólo con el id) se mira 2ª mano, como siempre.
  */
-async function resolvePropertyResponsible(event: H3Event, orgId: number, propertyId: number, kind: LeadPropertyKind | null | undefined): Promise<number | null> {
+export async function resolvePropertyResponsible(event: H3Event, orgId: number, propertyId: number, kind: LeadPropertyKind | null | undefined): Promise<number | null> {
   const db = useDb(event)
   const t = (kind === 'developer' ? schema.developerProperties : schema.agentProperties) as any
   const row = (

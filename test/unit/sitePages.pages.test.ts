@@ -143,6 +143,19 @@ describe('zona dinámica: ni se quita, ni se repite, ni se lleva a otra página'
     expect(z.nodeStyles).toBeUndefined()
   })
 
+  it('la ficha guarda sólo sus opciones (destacadas: mostrar y título); lo demás se descarta', () => {
+    const doc = validatePageDocument(
+      { blocks: [{ id: PAGE_CORE_TYPE, type: PAGE_CORE_TYPE, version: 1, content: { core: 'property-detail', showFeatured: false, featuredTitle: '  Nuestra selección  ', price: 1, html: '<b>x</b>' } }] },
+      'ficha-propiedad',
+    )
+    expect(doc.blocks[0].content).toEqual({ core: 'property-detail', showFeatured: false, featuredTitle: 'Nuestra selección' })
+    // Tipos equivocados o textos vacíos, fuera; y en otra página funcional esas opciones no existen.
+    const bad = validatePageDocument({ blocks: [{ id: PAGE_CORE_TYPE, type: PAGE_CORE_TYPE, version: 1, content: { core: 'property-detail', showFeatured: 'no', featuredTitle: '   ' } }] }, 'ficha-propiedad')
+    expect(bad.blocks[0].content).toEqual({ core: 'property-detail' })
+    const listing = validatePageDocument({ blocks: [core('properties-listing', { content: { core: 'properties-listing', showFeatured: false } })] }, 'propiedades')
+    expect(listing.blocks[0].content).toEqual({ core: 'properties-listing' })
+  })
+
   it('en la portada y en las páginas de contenido no puede haber zona dinámica', () => {
     for (const key of ['home', 'nosotros', 'servicios', 'contacto']) {
       expect(statusCode(() => validatePageDocument({ blocks: [core('properties-listing')] }, key)), key).toBe(422)

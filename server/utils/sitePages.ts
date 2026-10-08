@@ -3,7 +3,7 @@ import { createError } from 'h3'
 import { schema, now } from './db'
 import { sanitizeNodeStyles, type NodeStyle } from '../../utils/siteBuilder/nodes'
 import { sanitizeGlobalStyles, type SiteGlobalStyles } from '../../utils/siteBuilder/globalStyles'
-import { PAGE_CORE_TYPE, SITE_PAGES, SITE_PAGE_KEYS, seedPageBlocks, sitePageDef } from '../../utils/siteBuilder/pages'
+import { PAGE_CORE_TYPE, SITE_PAGES, SITE_PAGE_KEYS, sanitizeCoreOptions, seedPageBlocks, sitePageDef } from '../../utils/siteBuilder/pages'
 
 /**
  * The Constructor Web's data model. A page is a flat, ordered array of
@@ -379,9 +379,10 @@ export function validatePageDocument(input: unknown, pageKey?: string): SitePage
   })
 
   // La zona dinámica de una página funcional (utils/siteBuilder/pages.ts):
-  // exactamente una, la de esa página, sin contenido ni opciones propias
-  // (no hay nada que editar en ella: se rellena sola). En el resto de
-  // páginas no puede haber ninguna.
+  // exactamente una, la de esa página, sin estilos ni visibilidad propios y
+  // con sólo las opciones que admite (PAGE_CORE_OPTIONS: el resto se
+  // descarta; los datos se rellenan solos). En el resto de páginas no puede
+  // haber ninguna.
   if (pageKey) {
     const def = sitePageDef(pageKey)
     const cores = blocks.filter((b) => b.type === PAGE_CORE_TYPE)
@@ -389,7 +390,7 @@ export function validatePageDocument(input: unknown, pageKey?: string): SitePage
       if (cores.length !== 1) throw createError({ statusCode: 422, statusMessage: 'La zona dinámica de esta página no se puede quitar ni repetir' })
       const core = cores[0]
       if (core.content.core !== def.core) throw createError({ statusCode: 422, statusMessage: 'Zona dinámica de otra página' })
-      core.content = { core: def.core }
+      core.content = { core: def.core, ...sanitizeCoreOptions(def.core!, core.content) }
       delete core.style
       delete core.visibility
       delete core.nodeStyles

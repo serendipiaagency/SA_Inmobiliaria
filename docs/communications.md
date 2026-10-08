@@ -419,9 +419,21 @@ falla por esto):
 | --- | --- | --- | --- |
 | Contacto (`/contacto`, portada) | `POST /api/public/contact` | `contact` | con `propertySlug` (obra nueva, viva, de la agencia) |
 | Formulario de captación del Constructor Web | `POST /api/public/contact` (`form: 'lead_form'`) | `lead_form` | igual |
+| «Atendido por» de la ficha de una propiedad | `POST /api/public/contact` (`form: 'property'`) | `property` | obligatoria (422 si no es de la agencia, pública y viva); exige `privacyAccepted` y guarda `privacyAcceptedAt` en los campos del hilo |
 | Solicitud de visita (reserva con un comercial) | `POST /api/public/agents/:slug/book` | `visit_request` | la de la cita |
 | Verificación de visitante | `POST /api/public/visitor` | `visitor` | — (los PDF KYC no se copian: sólo se dice cuántos hay) |
 | Referidos | `POST /api/public/referrals` | `referral` | — (agencia = la del enlace) |
+
+El formulario de la ficha (`form: 'property'`) llama a `upsertLead()` con
+`reuse: 'same_property'` (sólo reutiliza el lead de esa persona sobre ESA
+propiedad: preguntar por otra es otro lead del mismo Contact) y
+`routingFallback: 'property_responsible'` (si ninguna regla de enrutado lo
+asigna, va al comercial responsable de la propiedad, si sigue activo en la
+agencia). `sourceDetail` = «Ficha de propiedad». Como el lead nuevo ya avisa
+con `lead_created`, no se manda además `contact_message`. Para todos los
+formularios de este endpoint: campo trampa `website`, `submissionId` (un doble
+clic no crea nada dos veces: `claimOnce()` en `server/utils/rateLimit.ts`) y
+tope de 32 KB del cuerpo.
 
 Las reclamaciones (`type: complaint`) no son hilos: no crean lead. El lead lo
 crea `upsertLead()` como siempre; el hilo guarda ese lead, el Contact de ese

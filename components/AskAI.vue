@@ -1,7 +1,6 @@
 <template>
   <div class="rounded-2xl border border-indigo-100 bg-indigo-50/30 p-6 sm:p-7">
     <div class="flex items-center gap-2">
-      <span class="rounded-full bg-indigo-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white">{{ t('askAI.badge', 'IA') }}</span>
       <h3 class="font-serif text-xl font-medium">{{ t('askAI.title', 'Pregúntale a la IA sobre esta propiedad') }}</h3>
     </div>
 
