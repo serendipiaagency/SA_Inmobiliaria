@@ -878,6 +878,63 @@ test.describe('Constructor Web — edición directa sobre el lienzo', () => {
     expect(await slides.first().evaluate((el) => getComputedStyle(el).opacity)).toBe('1')
   })
 
+  test('Comerciales › «Tarjetas»: foto cuadrada y más pequeña que la columna, igual en el lienzo y en la web; «Compacto» no cambia', async ({ page }) => {
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64')
+    const upload = await a.post('/api/admin/upload', { multipart: { file: { name: 'retrato.png', mimeType: 'image/png', buffer: png }, folder: 'agents' } })
+    expect(upload.ok(), await upload.text()).toBeTruthy()
+    const { key } = await upload.json()
+    const ids: number[] = []
+    for (const [i, image] of [key, null].entries()) {
+      const res = await a.post('/api/admin/team', { data: { name: `Tarjeta ${i} ${Date.now()}`, email: `tarjeta-${i}-${Date.now()}@mm.test`, position: 'Directora comercial · Oviedo', slug: `tarjeta-${i}-${Date.now()}`, showOnWeb: 1, image } })
+      expect(res.ok(), await res.text()).toBeTruthy()
+      ids.push((await res.json()).id)
+    }
+    try {
+      const block = (layout: string) => [{ id: 'team-cards', type: 'team', version: 1, content: { title: 'Habla con un comercial', source: 'manual', manualIds: ids, limit: 4, layout, cardFields: { position: true } } }]
+      // Mide en píxeles CSS reales (el lienzo va escalado): foto, su tarjeta y el radio.
+      const measure = (loc: any) => loc.evaluateAll((els: HTMLElement[]) => els.map((el) => ({ w: el.offsetWidth, h: el.offsetHeight, card: (el.closest('a') as HTMLElement)?.offsetWidth ?? 0, radius: getComputedStyle(el).borderRadius })))
+      const expectSquareAndSmaller = (boxes: Array<{ w: number; h: number; card: number }>) => {
+        expect(boxes).toHaveLength(2)
+        for (const b of boxes) {
+          expect(Math.abs(b.w - b.h), `cuadrada: ${b.w}×${b.h}`).toBeLessThanOrEqual(1)
+          expect(b.w / b.card, `más pequeña que la tarjeta: ${b.w} de ${b.card}`).toBeLessThanOrEqual(0.8)
+          expect(b.w / b.card).toBeGreaterThanOrEqual(0.5)
+          expect(b.w).toBeLessThanOrEqual(256)
+        }
+      }
+
+      await setDraft(block('cards'))
+      await page.goto('/admin/site-builder')
+      const canvas = page.frameLocator(CANVAS)
+      const photos = canvas.locator('[data-site-block-id="team-cards"] [data-testid="team-card-photo"]')
+      await expect(photos).toHaveCount(2, { timeout: 10_000 })
+      // También sin foto (el segundo comercial): el hueco es el mismo cuadrado.
+      expectSquareAndSmaller(await measure(photos))
+      expect(await photos.first().locator('img').evaluate((img) => getComputedStyle(img).objectFit)).toBe('cover')
+      await expect(canvas.getByText('Directora comercial · Oviedo').first()).toBeVisible()
+
+      // La web publicada usa el mismo bloque: mismas medidas.
+      expect((await a.post('/api/admin/site-pages/home/publish')).ok()).toBeTruthy()
+      await page.goto('/?vista_previa=1')
+      const publicPhotos = page.locator('[data-testid="team-cards"] [data-testid="team-card-photo"]')
+      await expect(publicPhotos).toHaveCount(2, { timeout: 10_000 })
+      expectSquareAndSmaller(await measure(publicPhotos))
+
+      // «Compacto» sigue siendo la fila de retratos redondos de 64 px.
+      await setDraft(block('compact'))
+      await page.goto('/admin/site-builder')
+      const round = page.frameLocator(CANVAS).locator('[data-site-block-id="team-cards"] img')
+      await expect(round).toHaveCount(2, { timeout: 10_000 })
+      const r = await round.first().evaluate((el) => ({ w: (el as HTMLElement).offsetWidth, h: (el as HTMLElement).offsetHeight, radius: getComputedStyle(el).borderRadius }))
+      expect(r.w).toBe(64)
+      expect(r.h).toBe(64)
+      expect(r.radius).toMatch(/9999px|50%/)
+      await expect(page.frameLocator(CANVAS).locator('[data-testid="team-card-photo"]')).toHaveCount(0)
+    } finally {
+      for (const id of ids) await a.delete(`/api/admin/team/${id}`)
+    }
+  })
+
   test('«Tipo de propiedad» ofrece todo el catálogo en castellano con su recuento, y filtra por la clave guardada', async ({ page }) => {
     const devRes = await a.post('/api/admin/developers', { data: { name: `Tipos dev ${Date.now()}`, email: `tipos-${Date.now()}@mm.test`, status: 'active' } })
     expect(devRes.ok()).toBeTruthy()
