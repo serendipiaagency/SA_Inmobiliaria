@@ -296,7 +296,9 @@ empresa (`preview-data`) y sin nodos editables—; en la web publicada
 `components/site/SitePageLayout.vue` decide: con versión publicada, las
 secciones con la página real en el hueco de la zona dinámica; sin ella, la
 página de siempre tal cual. Así nada cambia en ninguna web hasta que alguien
-publique esa página. `/servicios` es un 404 hasta que se publica. El SEO de
+publique esa página. `SiteBlockRenderer` se importa de forma estática: con
+`defineAsyncComponent` el SSR no pintaba las secciones y la página llegaba
+vacía hasta hidratar (e2e `web-ssr-movil.spec.ts`). `/servicios` es un 404 hasta que se publica. El SEO de
 la página (título y descripción) sustituye al de siempre al publicar, salvo
 en la Ficha, que conserva el SEO de cada propiedad.
 

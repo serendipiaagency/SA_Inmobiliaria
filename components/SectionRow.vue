@@ -7,7 +7,7 @@
       </div>
       <SbLink v-if="to" field="cta" link-field="ctaTo" label="Botón" :to="to" class="btn-quiet hidden shrink-0 md:inline-flex" :text="cta || 'Ver todas'" />
     </div>
-    <div v-if="items.length" class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div v-if="items.length" class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       <ProjectCard v-for="p in items" :key="p.id" :project="p" />
     </div>
     <p v-else class="text-stone-500">Próximamente.</p>
