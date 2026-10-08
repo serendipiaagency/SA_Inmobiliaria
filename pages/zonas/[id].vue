@@ -42,7 +42,7 @@
       <section v-if="data.projects.length">
         <p class="eyebrow">{{ t('community.portfolio.eyebrow', 'Portafolio') }}</p>
         <h2 class="heading-serif mt-3 text-3xl">{{ t('community.portfolio.title', 'Proyectos en') }} {{ data.community.name }}</h2>
-        <div class="mt-8 grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="mt-8 grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
           <ProjectCard v-for="p in data.projects" :key="p.id" :project="p" />
         </div>
       </section>

@@ -1,13 +1,13 @@
 <template>
   <div>
-    <div v-if="loading" class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-if="loading" class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
       <div v-for="i in 3" :key="i" class="overflow-hidden rounded-2xl">
         <div class="skeleton aspect-[4/3] rounded-2xl" />
         <div class="skeleton mt-4 h-4 w-2/3 rounded" />
         <div class="skeleton mt-2 h-5 w-1/2 rounded" />
       </div>
     </div>
-    <div v-else-if="results.length" class="grid gap-x-6 gap-y-6 sm:grid-cols-2 lg:grid-cols-3" data-testid="similar-properties">
+    <div v-else-if="results.length" class="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2 lg:grid-cols-3" data-testid="similar-properties">
       <div v-for="r in results" :key="r.id">
         <ProjectCard :project="r" />
         <p v-if="r.similarityReason" class="mt-3 rounded-xl bg-paper px-3.5 py-2.5 text-[12px] leading-relaxed text-stone-600">{{ r.similarityReason }}</p>
@@ -20,7 +20,7 @@
     <section v-if="showFeatured && featured.length" id="destacadas" class="hairline mt-14 pt-14" data-testid="featured-properties">
       <p class="eyebrow">{{ t('featuredProperties.eyebrow', 'Selección de la agencia') }}</p>
       <h2 class="heading-serif mt-3 text-3xl">{{ featuredTitle || t('featuredProperties.heading', 'Propiedades destacadas') }}</h2>
-      <div class="mt-8 grid gap-x-6 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="mt-8 grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
         <ProjectCard v-for="r in featured" :key="r.id" :project="r" />
       </div>
     </section>

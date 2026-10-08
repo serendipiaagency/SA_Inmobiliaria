@@ -11,10 +11,11 @@
 <script setup lang="ts">
 import type { PublishedSitePage } from '~/server/utils/sitePages'
 
-// Asíncrono: el renderizador del Constructor (con todos sus bloques) sólo se
-// descarga en las páginas que tienen una versión publicada; el resto de la
-// web pesa lo mismo que antes.
-const SiteBlockRenderer = defineAsyncComponent(() => import('~/components/site-builder/SiteBlockRenderer.vue'))
+// Import estático, a propósito: con `defineAsyncComponent` el SSR no pintaba
+// las secciones (la página llegaba vacía y el navegador la rellenaba al
+// hidratar, con aviso de desajuste: mala primera carga y mal SEO). La portada
+// ya lo importa igual, así que el trozo de JS es el mismo.
+import SiteBlockRenderer from '~/components/site-builder/SiteBlockRenderer.vue'
 
 defineProps<{ page: PublishedSitePage | null | undefined; homeData?: any }>()
 </script>

@@ -7,10 +7,10 @@
       </div>
     </header>
     <div class="mx-auto max-w-screen-2xl px-6 py-14 lg:px-10">
-      <div v-if="loading" class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div v-if="loading" class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <div v-for="i in 4" :key="i" class="skeleton aspect-[4/3] rounded-2xl" />
       </div>
-      <div v-else-if="saved.length" class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div v-else-if="saved.length" class="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <ProjectCard v-for="p in saved" :key="p.id" :project="p" />
       </div>
       <div v-else class="py-24 text-center">
