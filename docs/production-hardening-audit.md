@@ -495,7 +495,8 @@ ejecuta `npm run lint` en el job `validate`, justo después de `typecheck`.
     `vue/no-multiple-template-root` señalaba un `<slot v-else />` desnudo
     como raíz y comentarios HTML como nodos raíz junto a elementos
     condicionales — relevante de verdad en este proyecto porque
-    `nuxt.config.ts` tiene `pageTransition` activado, y `<Transition>`
+    `nuxt.config.ts` tenía `pageTransition` activado (hasta #106: ahora el
+    fundido lo hace `plugins/page-enter.client.ts`), y `<Transition>`
     exige poder identificar sin ambigüedad exactamente un nodo raíz por
     render; un `<slot>` desnudo puede expandirse a 0 o varios nodos según
     lo que reciba. Envuelto en un `<div>`; comentarios movidos fuera de
