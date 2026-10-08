@@ -337,6 +337,10 @@ export const agentPropertyFloorPlans = sqliteTable('agent_property_floor_plans',
   sizes: text('sizes'),
   type: text('type'),
   image: text('image'),
+  // Migración 0091 (#110): título que se lee en la ficha, orden y si sale en la web.
+  title: text('title'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  isPublic: integer('is_public').notNull().default(1),
   createdAt: text('created_at').notNull().default(''),
 })
 
@@ -757,6 +761,10 @@ export const floorPlans = sqliteTable('floor_plans', {
   sizes: text('sizes'),
   type: text('type'),
   image: text('image'),
+  // Migración 0091 (#110): título que se lee en la ficha, orden y si sale en la web.
+  title: text('title'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  isPublic: integer('is_public').notNull().default(1),
   createdAt: text('created_at').notNull().default(''),
 })
 
@@ -4007,6 +4015,12 @@ export const propertyDetails = sqliteTable(
     hasPatio: integer('has_patio'),
     hasBalcony: integer('has_balcony'),
     virtualTourUrl: text('virtual_tour_url'),
+    // Migración 0091 (#110): estado del inmueble y del edificio en la ficha pública.
+    kitchenEquipment: text('kitchen_equipment'), // equipped | semi_equipped | unequipped
+    bathroomsCondition: text('bathrooms_condition'), // new | renovated | good | to_update
+    installationsCondition: text('installations_condition'), // new | renovated | good | to_update
+    buildingCondition: text('building_condition'), // new | excellent | good | to_renovate
+    unitsPerFloor: integer('units_per_floor'),
     createdBy: integer('created_by'),
     updatedBy: integer('updated_by'),
     createdAt: text('created_at').notNull().default(''),

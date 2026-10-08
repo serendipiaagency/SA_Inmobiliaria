@@ -7,6 +7,7 @@ import { listPublicPropertyDocuments } from '../../../utils/properties/documents
 import { loadPropertySheet } from '../../../utils/properties/extendedSheet'
 import { publicCustomFieldsFor } from '../../../utils/customFields/service'
 import { PUBLIC_TEAM_COLUMNS } from '../../../utils/publicTeam'
+import { listPublicFloorPlans } from '../../../utils/properties/floorPlans'
 
 export default defineEventHandler(async (event) => {
   const slug = getRouterParam(event, 'slug')
@@ -47,7 +48,8 @@ export default defineEventHandler(async (event) => {
   const [developer, galleryByProperty, floorPlans, unitTypes, amenityLinks, locationLinks, socialMedia, media, documents, sheet, agentRows] = await Promise.all([
     db.select().from(schema.developers).where(eq(schema.developers.id, project.developerId)).limit(1),
     listPublicGallery(db, 'developer', [project.id]),
-    db.select().from(schema.floorPlans).where(eq(schema.floorPlans.developerPropertyId, project.id)),
+    // Planos (#110): sólo los visibles en la web, con imagen, en su orden y con sus columnas públicas.
+    listPublicFloorPlans(db, project.id),
     db.select().from(schema.propertyTypes).where(eq(schema.propertyTypes.developerPropertyId, project.id)),
     db
       .select()

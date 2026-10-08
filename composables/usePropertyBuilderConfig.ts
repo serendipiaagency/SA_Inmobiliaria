@@ -107,6 +107,10 @@ export interface ChildTableSection extends BaseSection {
   childResource: string
   parentField: string
   columns: FieldSpec[]
+  /** Columna de orden: las tarjetas salen por ella y se mueven con ← → (planos, #110). */
+  orderField?: string
+  /** Columna 0/1 «visible en la web»: la tarjeta lo dice y se ve atenuada si está oculta. */
+  visibleField?: string
 }
 
 export interface SocialSection extends BaseSection {
@@ -564,17 +568,21 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       key: 'floorplans',
       label: 'Planos',
       icon: 'layers',
-      description: 'Planos por categoría y tipo de unidad.',
+      description: 'Los planos de la vivienda: se ven en la ficha pública («Plano de la vivienda» y la pestaña «Plano» de la galería), en este orden, con su título. Desmarca «Visible en la web» para guardar uno sólo en el panel.',
       kind: 'child-table',
       childResource: 'floor-plans',
       parentField: 'developerPropertyId',
+      orderField: 'sortOrder',
+      visibleField: 'isPublic',
       columns: [
+        { key: 'title', label: 'Título', type: 'text', hint: 'Lo que se lee en la web: «Planta baja», «Primera planta», «Ático»…' },
+        { key: 'image', label: 'Imagen del plano', type: 'image' },
+        { key: 'isPublic', label: 'Visible en la web', type: 'checkbox' },
         { key: 'category', label: 'Categoría', type: 'text' },
         { key: 'unitType', label: 'Tipo de unidad', type: 'text' },
         { key: 'floorDetails', label: 'Detalles', type: 'text' },
         { key: 'sizes', label: 'Tamaños', type: 'text' },
         { key: 'type', label: 'Tipo', type: 'text' },
-        { key: 'image', label: 'Imagen', type: 'image' },
       ],
     },
     {
@@ -804,17 +812,21 @@ export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
       key: 'floorplans',
       label: 'Planos',
       icon: 'layers',
-      description: 'Planos de la vivienda, si están disponibles.',
+      description: 'Planos de la vivienda, si están disponibles, en este orden y con su título.',
       kind: 'child-table',
       childResource: 'agent-property-floor-plans',
       parentField: 'propertyId',
+      orderField: 'sortOrder',
+      visibleField: 'isPublic',
       columns: [
+        { key: 'title', label: 'Título', type: 'text', hint: 'Por ejemplo «Planta baja» o «Ático».' },
+        { key: 'image', label: 'Imagen del plano', type: 'image' },
+        { key: 'isPublic', label: 'Visible en la web', type: 'checkbox' },
         { key: 'category', label: 'Categoría', type: 'text' },
         { key: 'unitType', label: 'Tipo de unidad', type: 'text' },
         { key: 'floorDetails', label: 'Detalles', type: 'text' },
         { key: 'sizes', label: 'Tamaños', type: 'text' },
         { key: 'type', label: 'Tipo', type: 'text' },
-        { key: 'image', label: 'Imagen', type: 'image' },
       ],
     },
     {

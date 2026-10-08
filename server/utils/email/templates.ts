@@ -138,10 +138,13 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
   appointment_created: {
     kind: 'transactional',
     audience: 'client',
-    subject: (d, l) => (l === 'en' ? 'Your appointment is confirmed' : 'Tu cita está confirmada'),
+    // «Reservada», no «confirmada» (#110): el hueco queda guardado en la agenda,
+    // pero la asistencia la confirma el cliente desde su enlace (estado
+    // `confirmation_status`); el email no promete más de lo que hay.
+    subject: (d, l) => (l === 'en' ? 'Your appointment is booked' : 'Tu cita está reservada'),
     body: (d, l) =>
-      emailHeading(l === 'en' ? 'Appointment confirmed' : 'Cita confirmada') +
-      emailParagraph(l === 'en' ? 'Here are the details of your appointment:' : 'Estos son los datos de tu cita:') +
+      emailHeading(l === 'en' ? 'Appointment booked' : 'Cita reservada') +
+      emailParagraph(l === 'en' ? 'Here are the details of your appointment. Please confirm you can attend from the link below.' : 'Estos son los datos de tu cita. Confirma tu asistencia desde el enlace de abajo.') +
       emailInfoTable([
         [l === 'en' ? 'Date & time' : 'Fecha y hora', d.scheduledAt || '—'],
         ...(d.agentName ? [[l === 'en' ? 'Agent' : 'Agente', d.agentName] as [string, string]] : []),

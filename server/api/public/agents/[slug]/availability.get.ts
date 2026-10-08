@@ -2,7 +2,7 @@ import { and, eq } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../../../utils/db'
 import { computeAvailableSlots } from '../../../../utils/appointments/availability'
 import { rateLimit } from '../../../../utils/rateLimit'
-import { agendaNowWall } from '../../../../utils/appointments/timezone'
+import { agendaNowWall, createTimezoneResolver } from '../../../../utils/appointments/timezone'
 
 const MAX_DAYS = 30
 
@@ -24,7 +24,8 @@ export default defineEventHandler(async (event) => {
       maxAppointmentsPerDay: schema.teamMembers.maxAppointmentsPerDay,
     })
     .from(schema.teamMembers)
-    .where(and(eq(schema.teamMembers.slug, slug), eq(schema.teamMembers.organizationId, orgId)))
+    // Sólo un comercial activo y publicado en la web (#110), igual que al reservar.
+    .where(and(eq(schema.teamMembers.slug, slug), eq(schema.teamMembers.organizationId, orgId), eq(schema.teamMembers.employmentStatus, 'active'), eq(schema.teamMembers.showOnWeb, 1)))
     .limit(1)
   const agent = agentRows[0]
   if (!agent) throw createError({ statusCode: 404, statusMessage: 'Agent not found' })
@@ -46,5 +47,7 @@ export default defineEventHandler(async (event) => {
     results.push({ date: dateStr, slots })
   }
 
-  return { agent: { id: agent.id, name: agent.name, slotDurationMinutes: agent.slotDurationMinutes }, days: results }
+  // La zona de la agenda (oficina del comercial o agencia): las horas de arriba son hora de pared en ella.
+  const timezone = await (await createTimezoneResolver(db, orgId)).resolve({ agentId: agent.id })
+  return { agent: { id: agent.id, name: agent.name, slotDurationMinutes: agent.slotDurationMinutes }, timezone, days: results }
 })

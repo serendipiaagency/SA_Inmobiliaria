@@ -1,6 +1,7 @@
 <template>
   <transition name="fade">
-    <div v-if="open" class="fixed inset-0 z-50 flex items-end justify-center sm:items-center" @click.self="close">
+    <div v-if="open" class="fixed inset-0 z-[60] flex items-end justify-center sm:items-center" @click.self="close">
+      <!-- z-[60]: por encima del aviso de cookies (z-50), que si no tapa el botón de reservar. -->
       <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <transition name="sheet" appear>
         <div class="relative flex max-h-[92vh] w-full flex-col bg-white sm:max-h-[86vh] sm:w-[520px] sm:rounded-2xl">
@@ -17,7 +18,9 @@
               {{ t('bookAppointment.with', 'con') }} <span class="font-medium text-ink">{{ agentName }}</span>{{ propertyName ? ` · ${propertyName}` : '' }}
             </p>
 
+            <p v-if="slotGone" class="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-[13px] text-amber-800" data-testid="book-slot-gone">{{ t('bookAppointment.slotGone', 'Esa hora acaba de ocuparse. Elige otra, por favor.') }}</p>
             <div v-if="loadingDays" class="py-10 text-center text-sm text-stone-400">{{ t('bookAppointment.loading', 'Cargando disponibilidad…') }}</div>
+            <p v-else-if="loadError" class="py-10 text-center text-sm text-stone-500" data-testid="book-unavailable">{{ t('bookAppointment.unavailable', 'Ahora mismo no podemos mostrar la agenda. Escríbenos y te proponemos una hora.') }}</p>
             <template v-else>
               <div class="mb-4 flex gap-1.5 overflow-x-auto pb-1">
                 <button
@@ -44,6 +47,7 @@
                 </button>
               </div>
               <p v-else class="py-10 text-center text-sm text-stone-400">{{ t('bookAppointment.noSlots', 'Sin huecos disponibles ese día — prueba otra fecha.') }}</p>
+              <p v-if="timezoneLabel" class="mt-4 text-[12px] text-stone-400" data-testid="book-timezone">{{ t('bookAppointment.timezone', 'Horas en') }} {{ timezoneLabel }}</p>
             </template>
           </div>
 
@@ -81,13 +85,19 @@
               <label class="label" for="book-appt-notes">{{ t('scheduleVisit.form.notesLabel', 'Notas') }}</label>
               <textarea id="book-appt-notes" v-model="form.notes" class="input" rows="2" />
             </div>
-            <button type="submit" class="btn-primary w-full" :disabled="sending">{{ sending ? t('scheduleVisit.form.sending', 'Enviando…') : t('bookAppointment.confirm', 'Confirmar cita') }}</button>
+            <label class="flex items-start gap-2 text-[12.5px] text-stone-600" data-testid="book-privacy">
+              <input v-model="privacyAccepted" type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-ink" required >
+              <span>{{ t('contactCard.privacyPrefix', 'Acepto la') }} <NuxtLink to="/privacidad" target="_blank" class="underline">{{ t('contactCard.privacyLink', 'política de privacidad') }}</NuxtLink> {{ propertyId ? t('bookAppointment.privacySuffix', 'y que me contactéis por esta visita.') : t('bookAppointment.privacySuffixAppointment', 'y que me contactéis por esta cita.') }}</span>
+            </label>
+            <button type="submit" class="btn-primary w-full" :disabled="sending || !privacyAccepted" data-testid="book-submit">{{ sending ? t('scheduleVisit.form.sending', 'Enviando…') : propertyId ? t('bookAppointment.request', 'Reservar visita') : t('bookAppointment.requestAppointment', 'Reservar cita') }}</button>
             <p v-if="error" class="text-center text-sm font-medium text-red-600">{{ error }}</p>
           </form>
 
           <div v-else class="flex-1 px-6 py-14 text-center">
-            <p class="font-serif text-2xl">{{ t('bookAppointment.success.title', '¡Cita confirmada!') }}</p>
+            <p class="font-serif text-2xl" data-testid="book-success">{{ propertyId ? t('bookAppointment.success.booked', '¡Visita reservada!') : t('bookAppointment.success.bookedAppointment', '¡Cita reservada!') }}</p>
             <p class="mt-2 text-[14px] text-stone-500">{{ selectedSlotLabel }} — {{ agentName }}</p>
+            <!-- La hora queda guardada en la agenda; la asistencia la confirma el cliente desde su enlace (estado «pendiente» hasta entonces). -->
+            <p class="mt-3 text-[13px] text-stone-500">{{ form.email ? t('bookAppointment.success.emailHint', 'Te hemos enviado los datos por email. Confirma tu asistencia desde el enlace.') : t('bookAppointment.success.confirmHint', 'Confirma tu asistencia desde el enlace de abajo.') }}</p>
             <a v-if="videoLink" :href="videoLink" target="_blank" rel="noopener" class="mt-4 inline-block text-sm font-medium text-blue-600 underline">{{ t('bookAppointment.joinVideo', 'Enlace de la videollamada') }}</a>
             <p v-if="manageUrl" class="mt-4 text-[12px] text-stone-400">
               {{ t('bookAppointment.manageHint', 'Guarda este enlace para cancelar o cambiar la hora:') }}
@@ -106,7 +116,9 @@ import { convertAmount } from '~/utils/currency'
 interface Slot { start: string; end: string }
 interface DaySlots { date: string; slots: Slot[] }
 
-const props = defineProps<{ open: boolean; agentSlug: string; agentName: string; propertyId?: number; propertyName?: string; channel?: 'in_person' | 'video' | 'phone' }>()
+// `initialSlot` (#110): la hora que ya eligió el visitante en «Próxima visita
+// disponible»; si sigue libre, el modal abre directamente en sus datos.
+const props = defineProps<{ open: boolean; agentSlug: string; agentName: string; propertyId?: number; propertyName?: string; channel?: 'in_person' | 'video' | 'phone'; initialSlot?: string | null }>()
 const emit = defineEmits<{ close: [] }>()
 const { t } = useI18n()
 // Cierre del núcleo (FASE 15): el lead de la reserva llega con el idioma de quien reserva.
@@ -128,6 +140,12 @@ const form = reactive({ name: '', email: '', phone: '', notes: '', budget: null 
 const sending = ref(false)
 const sent = ref(false)
 const error = ref('')
+const privacyAccepted = ref(false)
+const slotGone = ref(false)
+const loadError = ref(false)
+const timezone = ref('')
+// «Europe/Madrid» → «Madrid»: la zona de la agenda, legible.
+const timezoneLabel = computed(() => (timezone.value ? timezone.value.split('/').pop()!.replace(/_/g, ' ') : ''))
 const videoLink = ref('')
 const manageUrl = ref('')
 
@@ -136,12 +154,20 @@ const selectedSlotLabel = computed(() => (selectedSlot.value ? `${dayLabel(selec
 
 async function loadAvailability() {
   loadingDays.value = true
+  loadError.value = false
   try {
-    const res = await $fetch<{ days: DaySlots[] }>(`/api/public/agents/${props.agentSlug}/availability`, { query: { days: 14 } })
+    const res = await $fetch<{ days: DaySlots[]; timezone?: string }>(`/api/public/agents/${props.agentSlug}/availability`, { query: { days: 14 } })
     days.value = res.days
+    timezone.value = res.timezone || ''
     selectedDate.value = res.days.find((d) => d.slots.length)?.date || res.days[0]?.date || ''
+    const wanted = props.initialSlot ? res.days.flatMap((d) => d.slots).find((s) => s.start === props.initialSlot) : null
+    if (wanted) {
+      selectedDate.value = wanted.start.slice(0, 10)
+      chooseSlot(wanted)
+    }
   } catch {
     days.value = []
+    loadError.value = true
   } finally {
     loadingDays.value = false
   }
@@ -161,6 +187,8 @@ watch(
       form.notes = ''
       form.budget = null
       form.interest = ''
+      privacyAccepted.value = false
+      slotGone.value = false
       videoLink.value = ''
       manageUrl.value = ''
       loadAvailability()
@@ -170,6 +198,7 @@ watch(
 
 function chooseSlot(s: Slot) {
   selectedSlot.value = s
+  slotGone.value = false
   step.value = 'details'
 }
 
@@ -190,12 +219,20 @@ async function submit() {
   try {
     const res = await $fetch<{ videoLink?: string; manageUrl?: string }>(`/api/public/agents/${props.agentSlug}/book`, {
       method: 'POST',
-      body: { ...form, budget: budgetInBase(form.budget), startAt: selectedSlot.value.start, propertyId: props.propertyId, channel: props.channel, language: visitorLanguage() },
+      body: { ...form, budget: budgetInBase(form.budget), startAt: selectedSlot.value.start, propertyId: props.propertyId, channel: props.channel, language: visitorLanguage(), privacyAccepted: privacyAccepted.value },
     })
     videoLink.value = res.videoLink || ''
     manageUrl.value = res.manageUrl || ''
     sent.value = true
   } catch (e: any) {
+    // La hora la cogió otra persona entre que se pintó y se envió: de vuelta a los huecos, ya actualizados.
+    if (e?.statusCode === 409 || e?.response?.status === 409) {
+      slotGone.value = true
+      selectedSlot.value = null
+      step.value = 'slot'
+      await loadAvailability()
+      return
+    }
     error.value = e?.data?.statusMessage || t('scheduleVisit.error', 'No se pudo enviar. Inténtalo de nuevo.')
   } finally {
     sending.value = false

@@ -5,19 +5,21 @@
       class="no-print fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 backdrop-blur lg:hidden"
       style="padding-bottom: env(safe-area-inset-bottom)"
     >
-      <div class="mx-auto flex max-w-screen-2xl items-center justify-between gap-4 px-5 py-3">
+      <div class="mx-auto flex max-w-screen-2xl items-center justify-between gap-3 px-4 py-3">
         <div class="min-w-0">
-          <p class="text-[11px] font-medium uppercase tracking-widest text-stone-450">{{ t('propertyStickyBar.from', 'Desde') }}</p>
-          <p class="heading-serif truncate text-xl leading-tight">{{ price }}</p>
+          <p class="text-[11px] font-medium uppercase tracking-widest text-stone-450">{{ t('propertyStickyBar.price', 'Precio') }}</p>
+          <p class="heading-serif truncate text-lg leading-tight">{{ price }}</p>
         </div>
-        <a href="#contacto" class="btn-primary shrink-0">{{ t('propertyStickyBar.contact', 'Contactar') }}</a>
+        <button type="button" class="btn-primary shrink-0 !px-5" data-testid="sticky-request-visit" @click="emit('request')">{{ t('propertyStickyBar.requestVisit', 'Solicitar visita') }}</button>
       </div>
     </div>
   </Transition>
 </template>
 
 <script setup lang="ts">
+// Móvil (#110): precio y «Solicitar visita», que abre la reserva real (o lleva al formulario si no hay agenda).
 const props = defineProps<{ price: string; visible: boolean }>()
+const emit = defineEmits<{ request: [] }>()
 const { t } = useI18n()
 const { register } = useBottomBar()
 watchEffect(() => register('property-sticky', props.visible))

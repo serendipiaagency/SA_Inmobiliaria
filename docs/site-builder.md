@@ -337,6 +337,21 @@ descarta). Hoy, la ficha: `showFeatured` y `featuredTitle` para la sección
 `/api/public/properties/<slug>/similar` como `featured`). Se editan en
 `PageCoreInspector.vue` y la ficha publicada las lee de su zona.
 
+**Secciones de la ficha (#110).** La tercera opción de la ficha es
+`sections` (tipo `'sections'`): la lista ordenada `{ key, visible }` de las
+secciones que se pueden mover u ocultar (`FICHA_SECTIONS`, con su orden de
+partida). `normalizeFichaSections` la deja siempre completa: descarta claves
+desconocidas o repetidas y añade al final, visibles, las que falten (una
+sección nueva del código aparece sola). La ficha (`pages/propiedades/[slug].vue`)
+la convierte con `fichaSectionLayout` en un `order` CSS por sección dentro
+de una columna flex (la cabecera siempre primera) y un `v-if` para las
+ocultas; la barra de secciones se ordena y filtra igual. La galería, la
+cabecera, el contacto y las similares no se mueven, y una sección sin datos
+no sale aunque esté visible: el Constructor decide la presentación y Property
+Core los datos. En el inspector, flechas ↑/↓, una casilla por sección y
+«Volver al orden de partida» (quita la opción). Como el resto de opciones,
+llega a la web al publicar.
+
 Todas estas rutas caen bajo el patrón `site-pages` de
 `server/utils/adminRouteMatrix.ts` (área `web`), igual que las que ya había:
 no cambia ningún permiso.

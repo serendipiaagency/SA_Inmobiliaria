@@ -355,6 +355,28 @@ etiqueta «Cita: …» de una tarea que ya apuntaba a ella (historia).
   `withCreatorNames()` (`server/utils/crm/labels.ts`, en lote y troceado).
   Sin autor (reserva pública) sólo dice cuándo.
 
+## Reserva desde la ficha pública (#110)
+
+`POST /api/public/agents/:slug/book` y `GET …/availability` sólo atienden a
+un comercial activo (`employmentStatus = 'active'`) y publicado en la web
+(`showOnWeb = 1`), como «Atendido por»; si no, 404. La disponibilidad
+devuelve además la zona horaria de la agenda (`createTimezoneResolver`), que
+el modal enseña.
+
+La reserva exige `privacyAccepted === true` (422 si no). Con una propiedad,
+la cita se guarda con `propertyKind: 'developer'` y, tras crear o reutilizar
+el lead, con su `contactId`. El comercial recibe un aviso interno
+(`publicationNotifications`, tipo `visit_booked`): para su usuario del panel si lo tiene vinculado; si no, para el equipo.
+El email al cliente dice «Cita reservada» y le pide confirmar su asistencia:
+la cita queda pendiente hasta entonces. Si la hora se ocupó entre medias, el
+servidor responde 409 y el modal recarga los huecos con un aviso.
+
+En la ficha, «Próxima visita disponible»
+(`components/property/NextVisitSlot.vue`) pide la misma disponibilidad y
+enseña el primer hueco libre. Al pulsarlo, el modal se abre con esa hora ya
+elegida (`initialSlot`). Sin comercial con agenda o sin huecos en 14 días,
+«Solicitar visita» lleva al formulario de contacto, sin prometer una hora.
+
 ## Pruebas
 
 - `test/unit/appointmentsNucleoN5.test.ts`:

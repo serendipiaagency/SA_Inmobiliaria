@@ -175,6 +175,10 @@ const CARPENTRY = { aluminium: 'Aluminio', aluminium_thermal_break: 'Aluminio co
 const GLAZING = { single: 'Simple', double: 'Doble (climalit)', triple: 'Triple', low_emissive: 'Bajo emisivo', acoustic: 'Acústico' }
 const HEATING = { none: 'Sin calefacción', central: 'Central', individual_gas: 'Individual de gas', electric: 'Eléctrica', heat_pump: 'Bomba de calor', radiant_floor: 'Suelo radiante', biomass: 'Biomasa', diesel: 'Gasóleo', other: 'Otra' }
 const HOT_WATER = { gas: 'Gas', electric: 'Termo eléctrico', heat_pump: 'Aerotermia / bomba de calor', solar: 'Solar', central: 'Central', other: 'Otro' }
+const KITCHEN_EQUIPMENT = { equipped: 'Equipada', semi_equipped: 'Semiequipada', unequipped: 'Sin equipar' }
+const BATHROOMS_CONDITION = { new: 'Nuevos', renovated: 'Reformados', good: 'En buen estado', to_update: 'Para actualizar' }
+const INSTALLATIONS_CONDITION = { new: 'Nuevas', renovated: 'Renovadas', good: 'En buen estado', to_update: 'Para actualizar' }
+const BUILDING_CONDITION = { new: 'Obra nueva', excellent: 'Excelente', good: 'Buen estado', to_renovate: 'Necesita reformas' }
 const VIEWS = { sea: 'Mar', mountain: 'Montaña', city: 'Ciudad', golf: 'Golf', park: 'Parque', river: 'Río', lake: 'Lago', open: 'Despejadas', street: 'Calle', courtyard: 'Patio interior' }
 const COMMISSION_TYPE = { percentage: 'Porcentaje', fixed: 'Importe fijo' }
 const REGISTRY_STATUS = { registered: 'Inscrita', pending: 'Pendiente de inscripción', not_registered: 'No inscrita', unknown: 'Sin verificar' }
@@ -247,6 +251,8 @@ export const PROPERTY_SHEET_GROUPS: { key: string; label: string; fields: SheetF
       d('renovationYear', 'Año de reforma', 'integer', { min: 1800, max: 2100 }),
       d('buildingFloors', 'Plantas del edificio', 'integer', { min: 0 }),
       d('buildingUnits', 'Nº de vecinos', 'integer', { min: 0 }),
+      d('unitsPerFloor', 'Viviendas por planta', 'integer', { min: 0 }),
+      sel('buildingCondition', 'Estado del edificio', 'details', BUILDING_CONDITION),
       sel('facade', 'Fachada', 'details', FACADE),
       sel('structure', 'Estructura', 'details', STRUCTURE),
       d('hasConcierge', 'Conserje', 'bool'),
@@ -259,6 +265,8 @@ export const PROPERTY_SHEET_GROUPS: { key: string; label: string; fields: SheetF
     fields: [
       sel('exteriorInterior', 'Exterior / interior', 'details', EXT_INT),
       sel('kitchenType', 'Tipo de cocina', 'details', KITCHEN),
+      sel('kitchenEquipment', 'Equipamiento de la cocina', 'details', KITCHEN_EQUIPMENT),
+      sel('bathroomsCondition', 'Estado de los baños', 'details', BATHROOMS_CONDITION),
       sel('flooring', 'Suelos', 'details', FLOORING),
       sel('carpentry', 'Carpintería exterior', 'details', CARPENTRY),
       sel('glazing', 'Cristales', 'details', GLAZING),
@@ -273,6 +281,7 @@ export const PROPERTY_SHEET_GROUPS: { key: string; label: string; fields: SheetF
     fields: [
       sel('heating', 'Calefacción', 'details', HEATING),
       sel('hotWater', 'Agua caliente (ACS)', 'details', HOT_WATER),
+      sel('installationsCondition', 'Estado de las instalaciones', 'details', INSTALLATIONS_CONDITION, { hint: 'Electricidad, fontanería y gas.' }),
       d('hasAirConditioning', 'Aire acondicionado', 'bool'),
       d('hasUnderfloorHeating', 'Suelo radiante', 'bool'),
       d('hasFireplace', 'Chimenea', 'bool'),

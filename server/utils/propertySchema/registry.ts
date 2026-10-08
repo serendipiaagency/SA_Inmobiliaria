@@ -168,6 +168,8 @@ const BUILDING_FIELDS: PropertyFieldRule[] = [
   rule('renovationYear'),
   rule('buildingFloors'),
   rule('buildingUnits'),
+  rule('unitsPerFloor'),
+  rule('buildingCondition'),
   rule('hasConcierge'),
   rule('hasDoorman'),
   rule('facade'),
@@ -177,6 +179,8 @@ const BUILDING_FIELDS: PropertyFieldRule[] = [
 const DWELLING_FIELDS: PropertyFieldRule[] = [
   rule('exteriorInterior'),
   rule('kitchenType'),
+  rule('kitchenEquipment'),
+  rule('bathroomsCondition'),
   rule('flooring'),
   rule('carpentry'),
   rule('glazing'),
@@ -188,6 +192,7 @@ const DWELLING_FIELDS: PropertyFieldRule[] = [
 const INSTALLATION_FIELDS: PropertyFieldRule[] = [
   rule('heating'),
   rule('hotWater'),
+  rule('installationsCondition'),
   rule('hasAirConditioning'),
   rule('hasUnderfloorHeating'),
   rule('hasFireplace'),

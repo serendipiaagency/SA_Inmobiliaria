@@ -643,8 +643,11 @@ export async function listPublicPropertyDocuments(db: any, orgId: number, kind: 
       ),
     )
     .orderBy(desc(schema.propertyDocuments.id))
+  // Un documento caducado (un certificado energético vencido…) no se ofrece en
+  // la web como si estuviera vigente (#110); en el panel sigue, marcado.
+  const today = new Date().toISOString().slice(0, 10)
   return rows
-    .filter((r: any) => !!r.r2Key)
+    .filter((r: any) => !!r.r2Key && !(r.expiresAt && String(r.expiresAt).slice(0, 10) < today))
     .map(({ r2Key, ...r }: any) => ({ ...r, docTypeLabel: PROPERTY_DOCUMENT_TYPE_LABELS[r.docType] || r.docType, url: `/api/media/${r2Key}` }))
 }
 
