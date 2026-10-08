@@ -1,127 +1,173 @@
 <template>
   <SitePageLayout :page="sitePage" :home-data="sitePageData">
-    <div>
-      <!-- Search header -->
-      <header class="sticky top-[73px] z-30 border-b border-line bg-paper/95 backdrop-blur">
-        <div class="mx-auto max-w-screen-2xl px-6 py-4 lg:px-10">
-          <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
-            <div class="lg:flex-1">
-              <SmartSearch
-                v-model="q"
-                rounded
-                :placeholder="t('search.placeholder', 'Ciudad, barrio, calle o referencia…')"
-                @select="onSelect"
-                @enter="applySearch"
-              />
+    <div class="cat-page">
+      <div class="mx-auto max-w-screen-2xl px-4 pb-16 pt-6 sm:px-6 lg:px-10">
+        <!-- Barra: buscador, orden y Galería / Mapa -->
+        <div class="flex flex-wrap items-center gap-3 lg:flex-nowrap" data-testid="catalog-bar">
+          <div class="min-w-0 flex-1 basis-full sm:basis-auto">
+            <SmartSearch v-model="q" rounded :placeholder="t('search.placeholder', 'Ciudad, barrio, calle o referencia…')" @select="onSelect" @enter="applySearch" />
+          </div>
+          <!-- En un contenedor: `.cat-btn` fija su display y le ganaría a `lg:hidden`. -->
+          <div class="lg:hidden">
+            <button type="button" class="cat-btn" data-testid="catalog-open-drawer" @click="drawer = true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
+              {{ t('catalog.filters', 'Filtros') }}
+              <span v-if="chips.length" class="cat-count">{{ chips.length }}</span>
+            </button>
+          </div>
+          <label class="cat-sort">
+            <span class="sr-only">{{ t('catalog.sortBy', 'Ordenar') }}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
+            <select v-model="sort" data-testid="catalog-sort" @change="applyPatch({ sort: sort || undefined, page: undefined })">
+              <option value="">{{ t('properties.sort.recommended', 'Recomendado') }}</option>
+              <option value="price_asc">{{ t('properties.sort.priceAsc', 'Precio ↑') }}</option>
+              <option value="price_desc">{{ t('properties.sort.priceDesc', 'Precio ↓') }}</option>
+            </select>
+          </label>
+          <div class="flex gap-2" role="group" :aria-label="t('catalog.view', 'Vista')">
+            <button type="button" class="cat-view" :class="{ 'cat-view-on': !isMap }" :aria-pressed="!isMap" data-testid="catalog-view-gallery" @click="setView('galeria')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
+              {{ t('catalog.gallery', 'Galería') }}
+            </button>
+            <button type="button" class="cat-view" :class="{ 'cat-view-on': isMap }" :aria-pressed="isMap" data-testid="catalog-view-map" @click="setView('mapa')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20z" /><path d="M9 4v13.5M15 6.5V20" /></svg>
+              {{ t('catalog.map', 'Mapa') }}
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-6 flex items-start gap-6">
+          <!-- Panel de filtros (escritorio) -->
+          <aside v-if="!collapsed" class="hidden w-[335px] shrink-0 lg:block" data-testid="catalog-aside">
+            <div class="sticky top-[92px]">
+              <CatalogFilters :query="route.query" :facets="facets" :total="total" :items="data?.rows || []" collapsible @patch="applyPatch" @clear="clearAll" @open-map="setView('mapa')" @show-results="showResults" @collapse="collapsed = true" @more="modalOpen = true" />
             </div>
-            <div class="flex items-center gap-2">
-              <button class="filters-btn" @click="modalOpen = true">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" d="M3 5h18M6 12h12M10 19h4" />
-                </svg>
-                {{ t('filters.button', 'Filtros') }}
-                <span v-if="activeCount" class="badge" data-testid="public-filters-badge">{{ activeCount }}</span>
+          </aside>
+
+          <section ref="resultsEl" class="min-w-0 flex-1" data-testid="catalog-results">
+            <!-- Cabecera del catálogo: total real y filtros activos -->
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <button v-if="collapsed" type="button" class="cat-btn hidden lg:inline-flex" data-testid="catalog-expand" @click="collapsed = false">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+                {{ t('catalog.filters', 'Filtros') }}
               </button>
-              <div class="relative">
-                <button class="filters-btn" @click="savingSearch = !savingSearch">🔔 Avísame</button>
-                <div v-if="savingSearch" class="absolute right-0 top-full z-40 mt-2 w-72 rounded-xl border border-line bg-white p-3 shadow-lg">
-                  <p class="mb-2 text-xs text-stone-500">Te avisamos por email cuando aparezca una propiedad nueva que coincida con esta búsqueda.</p>
-                  <input v-model="savedSearchEmail" type="email" placeholder="tu@email.com" class="w-full rounded-lg border border-line px-3 py-2 text-sm" >
-                  <button type="button" class="mt-2 w-full rounded-lg bg-ink py-2 text-xs font-medium text-white disabled:opacity-50" :disabled="savingSearchPending" @click="subscribeSearchAlert">
-                    {{ savingSearchPending ? 'Guardando…' : 'Guardar búsqueda' }}
+              <p class="mr-1 text-[15px] text-stone-500" data-testid="catalog-total">
+                <strong class="font-bold text-ink">{{ total.toLocaleString('es-ES') }}</strong>
+                {{ total === 1 ? t('properties.count.singular', 'propiedad') : t('properties.count.plural', 'propiedades') }}
+              </p>
+              <button v-for="c in chips" :key="c.key" type="button" class="cat-chip" :data-chip="c.key" :aria-label="`${t('catalog.removeFilter', 'Quitar')} ${c.label}`" @click="removeChip(c)">
+                {{ c.label }}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              </button>
+              <button v-if="chips.length" type="button" class="text-[13px] font-medium text-ink underline underline-offset-4" data-testid="catalog-clear" @click="clearAll">
+                {{ t('properties.clearFilters', 'Limpiar filtros') }}
+              </button>
+              <div class="ml-auto flex items-center gap-4">
+                <button
+                  v-if="chips.length"
+                  type="button"
+                  class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest transition"
+                  :class="searchIsSaved ? 'text-ink' : 'text-stone-400 hover:text-ink'"
+                  @click="onSaveSearch"
+                >
+                  <svg class="h-3.5 w-3.5" :fill="searchIsSaved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
+                  {{ searchIsSaved ? t('search.saved') : t('search.save') }}
+                </button>
+                <div class="relative">
+                  <button type="button" class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-ink" @click="savingSearch = !savingSearch">
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0" /></svg>
+                    {{ t('catalog.alert', 'Avísame') }}
                   </button>
-                  <p v-if="savedSearchDone" class="mt-2 text-xs font-medium text-emerald-700">¡Listo! Te avisaremos por email.</p>
+                  <div v-if="savingSearch" class="absolute right-0 top-full z-40 mt-2 w-72 rounded-xl border border-line bg-white p-3 shadow-lg">
+                    <p class="mb-2 text-xs text-stone-500">Te avisamos por email cuando aparezca una propiedad nueva que coincida con esta búsqueda.</p>
+                    <input v-model="savedSearchEmail" type="email" placeholder="tu@email.com" class="w-full rounded-lg border border-line px-3 py-2 text-sm" >
+                    <button type="button" class="mt-2 w-full rounded-lg bg-ink py-2 text-xs font-medium text-white disabled:opacity-50" :disabled="savingSearchPending" @click="subscribeSearchAlert">
+                      {{ savingSearchPending ? 'Guardando…' : 'Guardar búsqueda' }}
+                    </button>
+                    <p v-if="savedSearchDone" class="mt-2 text-xs font-medium text-emerald-700">¡Listo! Te avisaremos por email.</p>
+                  </div>
                 </div>
               </div>
-              <div class="relative">
-                <select v-model="sort" class="sort-select" @change="applyPatch({ sort: sort || undefined, page: undefined })">
-                  <option value="">{{ t('properties.sort.recommended', 'Recomendado') }}</option>
-                  <option value="price_asc">{{ t('properties.sort.priceAsc', 'Precio ↑') }}</option>
-                  <option value="price_desc">{{ t('properties.sort.priceDesc', 'Precio ↓') }}</option>
-                </select>
+            </div>
+
+            <!-- Galería: 3 columnas en escritorio -->
+            <template v-if="!isMap">
+              <div class="results-fade mt-5" :class="{ 'is-loading': pending }">
+                <div
+                  v-if="data?.rows?.length"
+                  class="grid grid-cols-1 gap-5 sm:grid-cols-2"
+                  :class="collapsed ? 'lg:grid-cols-3' : 'xl:grid-cols-3'"
+                  data-testid="catalog-grid"
+                >
+                  <ProjectCard v-for="p in data.rows" :key="p.id" :project="p" variant="catalog" />
+                </div>
+                <div v-else-if="!pending" class="py-24 text-center">
+                  <p class="font-serif text-2xl text-stone-500">{{ t('properties.empty.title', 'No hay propiedades que coincidan.') }}</p>
+                  <button class="btn-quiet mt-6" @click="clearAll">{{ t('properties.clearFilters', 'Limpiar filtros') }}</button>
+                </div>
+                <div v-else class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+                  <div v-for="i in 6" :key="i" class="overflow-hidden rounded-xl border border-line bg-white">
+                    <div class="skeleton aspect-[33/20]" />
+                    <div class="p-4"><div class="skeleton h-4 w-2/3 rounded" /><div class="skeleton mt-2 h-4 w-1/2 rounded" /></div>
+                  </div>
+                </div>
               </div>
+
+              <div v-if="totalPages > 1" class="mt-12 flex items-center justify-center gap-4">
+                <button class="btn-quiet" :disabled="page <= 1" @click="applyPatch({ page: String(page - 1) })">← {{ t('properties.pagination.prev', 'Anterior') }}</button>
+                <span class="text-[11px] font-semibold uppercase tracking-widest text-stone-450">
+                  {{ t('properties.pagination.page', 'Página') }} {{ page }} {{ t('properties.pagination.of', 'de') }} {{ totalPages }}
+                </span>
+                <button class="btn-quiet" :disabled="page >= totalPages" @click="applyPatch({ page: String(page + 1) })">{{ t('properties.pagination.next', 'Siguiente') }} →</button>
+              </div>
+            </template>
+
+            <!-- Mapa: las mismas propiedades filtradas, sobre el mapa de /mapa -->
+            <div v-else class="mt-5 h-[70vh] min-h-[420px] overflow-hidden rounded-2xl border border-line" data-testid="catalog-map">
+              <ClientOnly>
+                <MapExplorer :items="mapItems" :fit-to-items="!hasArea && !nearby" search-area nearby :nearby-circle="nearby" @marker-click="onMarkerClick" @search-area="onSearchArea" @search-nearby="onSearchNearby" />
+                <template #fallback>
+                  <div class="flex h-full items-center justify-center bg-stone-100 text-stone-400">{{ t('mapa.loading', 'Cargando mapa…') }}</div>
+                </template>
+              </ClientOnly>
             </div>
-          </div>
-
-          <!-- Quick chips -->
-          <div class="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <button
-              v-for="c in quickChips"
-              :key="c.key"
-              type="button"
-              class="quick-chip"
-              :class="{ 'quick-on': isChipOn(c) }"
-              @click="toggleChip(c)"
-            >
-              {{ c.label }}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div class="mx-auto max-w-screen-2xl px-6 py-8 lg:px-10">
-        <div class="mb-6 flex items-baseline justify-between">
-          <p class="text-sm text-stone-500">
-            <span class="font-semibold text-ink">{{ data?.total ?? 0 }}</span>
-            {{ (data?.total ?? 0) === 1 ? t('properties.count.singular', 'propiedad') : t('properties.count.plural', 'propiedades') }}
-            <span v-if="q"> · “{{ q }}”</span>
-          </p>
-          <div class="flex items-center gap-4">
-            <button
-              v-if="activeCount || q"
-              type="button"
-              class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest transition"
-              :class="searchIsSaved ? 'text-ink' : 'text-stone-400 hover:text-ink'"
-              @click="onSaveSearch"
-            >
-              <svg class="h-3.5 w-3.5" :fill="searchIsSaved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
-              {{ searchIsSaved ? t('search.saved') : t('search.save') }}
-            </button>
-            <button v-if="activeCount || q" class="text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-ink" @click="clearAll">
-              {{ t('hero.clear') }}
-            </button>
-          </div>
-        </div>
-
-        <div class="results-fade" :class="{ 'is-loading': pending }">
-          <transition-group
-            v-if="data?.rows?.length"
-            name="grid"
-            tag="div"
-            class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-          >
-            <ProjectCard v-for="p in data.rows" :key="p.id" :project="p" />
-          </transition-group>
-          <div v-else-if="!pending" class="py-24 text-center">
-            <p class="font-serif text-2xl text-stone-500">{{ t('properties.empty.title', 'No hay propiedades que coincidan.') }}</p>
-            <button class="btn-quiet mt-6" @click="clearAll">{{ t('properties.clearFilters', 'Limpiar filtros') }}</button>
-          </div>
-          <div v-else class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            <div v-for="i in 8" :key="i" class="overflow-hidden rounded-2xl">
-              <div class="skeleton aspect-[4/3] rounded-2xl" />
-              <div class="skeleton mt-4 h-4 w-2/3 rounded" />
-              <div class="skeleton mt-2 h-5 w-1/2 rounded" />
-            </div>
-          </div>
-        </div>
-
-        <div v-if="totalPages > 1" class="mt-14 flex items-center justify-center gap-4">
-          <button class="btn-quiet" :disabled="page <= 1" @click="applyPatch({ page: String(page - 1) })">← {{ t('properties.pagination.prev', 'Anterior') }}</button>
-          <span class="text-[11px] font-semibold uppercase tracking-widest text-stone-450">
-            {{ t('properties.pagination.page', 'Página') }} {{ page }} {{ t('properties.pagination.of', 'de') }} {{ totalPages }}
-          </span>
-          <button class="btn-quiet" :disabled="page >= totalPages" @click="applyPatch({ page: String(page + 1) })">{{ t('properties.pagination.next', 'Siguiente') }} →</button>
+          </section>
         </div>
       </div>
 
+      <!-- «Más filtros»: el modal de siempre, con los que el panel no enseña -->
       <FiltersModal :open="modalOpen" :model-value="modalSeed" :q="q" @close="modalOpen = false" @apply="onApplyFilters" />
+
+      <!-- Tablet y móvil: el mismo panel, en un cajón -->
+      <Teleport to="body">
+        <div v-if="drawer" class="fixed inset-0 z-[1000] lg:hidden" role="dialog" aria-modal="true" :aria-label="t('catalog.filters', 'Filtros')" data-testid="catalog-drawer">
+          <div class="absolute inset-0 bg-black/40" @click="drawer = false" />
+          <div class="absolute inset-y-0 left-0 w-[min(92vw,380px)] overflow-y-auto bg-[#f7f4ee] p-3" style="padding-bottom: max(12px, env(safe-area-inset-bottom))">
+            <div class="mb-1 flex justify-end">
+              <button type="button" class="rounded-full p-2 text-stone-500 hover:text-ink" :aria-label="t('catalog.close', 'Cerrar')" @click="drawer = false">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <CatalogFilters :query="route.query" :facets="facets" :total="total" :items="data?.rows || []" @patch="applyPatch" @clear="clearAll" @open-map="openMapFromDrawer" @show-results="showResults" @more="openMoreFromDrawer" />
+          </div>
+        </div>
+      </Teleport>
     </div>
   </SitePageLayout>
 </template>
 
 <script setup lang="ts">
-import { countActivePublicFilters, nearbyFromQuery } from '~/utils/publicSearch'
+import { nearbyFromQuery, nearbyQuery, withoutNearby } from '~/utils/publicSearch'
+import { withValidCoords } from '~/utils/maps/coords'
+import { catalogChips, type CatalogChip } from '~/utils/catalogChips'
 
+/**
+ * Catálogo público (#109): barra de búsqueda con orden y Galería / Mapa,
+ * panel de filtros a la izquierda (components/catalog/CatalogFilters.vue),
+ * total real con chips de los filtros activos y la rejilla de tres columnas.
+ * Todo vive en la URL: cada filtro cambia la consulta y el servidor filtra el
+ * catálogo real de la agencia (server/api/public/properties.get.ts).
+ */
 const { t } = useI18n()
 const { tenant, load: loadTenant } = useTenant()
 await loadTenant()
@@ -132,21 +178,25 @@ const { page: sitePage, homeData: sitePageData } = await useSitePage('propiedade
 useHead(
   seoHead({
     title: sitePage.value?.seo?.title || `${t('properties.head.title', 'Buscar propiedades')} — ${tenant.value?.companyName || tenant.value?.name}`,
-    description: sitePage.value?.seo?.description || 'Explora proyectos off-plan y propiedades de segunda venta en Dubái con filtros avanzados por comunidad, precio y tipo.',
+    description: sitePage.value?.seo?.description || `Las propiedades de ${tenant.value?.companyName || tenant.value?.name}: busca por ubicación, precio, superficie, habitaciones y características.`,
   }),
 )
 const toast = useToast()
 const { save: saveSearch, isSaved } = useSavedSearches()
 const route = useRoute()
 const router = useRouter()
+const { format: formatPrice } = useCurrency()
+const typeLabel = usePropertyTypeLabel()
 
 const q = ref(String(route.query.q || ''))
 const sort = ref(String(route.query.sort || ''))
+watch(
+  () => route.query.q,
+  (v) => (q.value = String(v || '')),
+)
 
-// "Avísame" — server-side email alert for new matching listings, distinct
-// from useSavedSearches() above (client-only localStorage bookmarks with no
-// alerting). Named to avoid colliding with the `saveSearch` binding already
-// destructured from useSavedSearches().
+// "Avísame" — alerta por email del servidor para nuevas propiedades que encajen
+// (distinto de useSavedSearches(), marcadores locales sin aviso).
 const savingSearch = ref(false)
 const savedSearchEmail = ref('')
 const savingSearchPending = ref(false)
@@ -163,64 +213,75 @@ async function subscribeSearchAlert() {
     savingSearchPending.value = false
   }
 }
-const modalOpen = ref(false)
-
-watch(
-  () => route.query.q,
-  (v) => (q.value = String(v || '')),
-)
 
 const page = computed(() => Math.max(1, parseInt(String(route.query.page || '1'), 10) || 1))
+// La vista va en la URL (`vista=mapa`) y no viaja a la API como filtro.
+const isMap = computed(() => route.query.vista === 'mapa')
+const apiQuery = computed(() => {
+  const { vista: _vista, ...rest } = route.query
+  return rest
+})
 
 const { data, pending } = await useFetch('/api/public/properties', {
-  query: computed(() => ({ ...route.query, page: page.value })),
+  query: computed(() => ({ ...apiQuery.value, page: page.value, perPage: 12 })),
 })
-const totalPages = computed(() => Math.ceil((data.value?.total || 0) / (data.value?.perPage || 12)))
+const total = computed(() => data.value?.total ?? 0)
+const totalPages = computed(() => Math.ceil(total.value / (data.value?.perPage || 12)))
 
-// Filtros activos de la insignia: los del modal (con el código postal) y el
-// radio «cerca de un punto», que cuenta como uno (utils/publicSearch.ts).
-const activeCount = computed(() => countActivePublicFilters(route.query))
+// Lo que hay publicado, para los selectores del panel (no encoge al filtrar).
+const { data: facetData } = await useFetch('/api/public/properties', { key: 'catalog-facets', query: { countOnly: '1', facets: 'filters' } })
+const facets = computed(() => (facetData.value as any)?.facets ?? null)
 
+// Mapa: hasta 300 propiedades con los mismos filtros, sólo cuando se mira.
+const { data: mapData, execute: loadMap } = useLazyFetch('/api/public/properties', {
+  key: 'catalog-map',
+  query: computed(() => ({ ...apiQuery.value, view: 'map', perPage: 300 })),
+  immediate: false,
+  watch: false,
+})
+watch(
+  [isMap, apiQuery],
+  ([v]) => {
+    if (v) loadMap()
+  },
+  { immediate: true },
+)
+const mapItems = computed(() => withValidCoords((mapData.value?.rows as any[]) || []))
+
+const chips = computed(() => catalogChips(route.query as Record<string, unknown>, t, (n) => formatPrice(n), typeLabel))
 const searchIsSaved = computed(() => isSaved(route.query as Record<string, any>))
-const typeLabel = usePropertyTypeLabel()
-function searchLabel() {
-  return describePublicSearch({ ...route.query, q: q.value }, t, typeLabel)
-}
 function onSaveSearch() {
   if (searchIsSaved.value) return
-  saveSearch(searchLabel(), route.query as Record<string, any>)
+  saveSearch(chips.value.map((c) => c.label).join(' · ') || t('search.allProperties', 'Todas las propiedades'), route.query as Record<string, any>)
   toast.success(t('search.saved'))
 }
 
-// Seed for the modal from current URL query
+const modalOpen = ref(false)
+// Lo que ya hay en la URL, para abrir el modal con ello.
 const modalSeed = computed(() => {
   const s: Record<string, any> = {}
-  for (const k of ['minPrice','maxPrice','minArea','maxArea','bedrooms','bathrooms','minYear'])
-    if (route.query[k]) s[k] = Number(route.query[k])
-  for (const k of ['municipality','neighborhood','postalCode','type','status','orientation','energy']) if (route.query[k]) s[k] = String(route.query[k])
-  for (const k of ['elevator','pool','garage','terrace','garden','pets','accessible'])
-    if (route.query[k] === '1') s[k] = true
-  const nearby = nearbyFromQuery(route.query)
-  if (nearby) Object.assign(s, nearby)
+  for (const k of ['minPrice', 'maxPrice', 'minArea', 'maxArea', 'bedrooms', 'bathrooms', 'minYear']) if (route.query[k]) s[k] = Number(route.query[k])
+  for (const k of ['municipality', 'neighborhood', 'postalCode', 'type', 'status', 'orientation', 'energy']) if (route.query[k]) s[k] = String(route.query[k])
+  for (const k of ['elevator', 'pool', 'garage', 'terrace', 'garden', 'pets', 'accessible']) if (route.query[k] === '1') s[k] = true
+  const near = nearbyFromQuery(route.query)
+  if (near) Object.assign(s, near)
   return s
 })
+// El modal devuelve todos sus filtros: sustituyen a los de la URL; búsqueda, orden, operación y vista se quedan.
+function onApplyFilters(qy: Record<string, string>) {
+  modalOpen.value = false
+  const keep: Record<string, any> = {}
+  for (const k of ['q', 'sort', 'operacion', 'vista']) if (route.query[k]) keep[k] = route.query[k]
+  router.push({ query: { ...keep, ...qy } })
+}
+function openMoreFromDrawer() {
+  drawer.value = false
+  modalOpen.value = true
+}
 
-// Quick chips
-const quickChips = computed(() => [
-  { key: 'status', value: 'new', label: t('filters.status.new', 'Obra nueva') },
-  { key: 'pool', value: '1', label: t('filters.feature.pool', 'Piscina') },
-  { key: 'garage', value: '1', label: t('filters.feature.garage', 'Garaje') },
-  { key: 'terrace', value: '1', label: t('filters.feature.terrace', 'Terraza') },
-  { key: 'garden', value: '1', label: t('filters.feature.garden', 'Jardín') },
-])
-function isChipOn(c: { key: string; value: string }) {
-  return String(route.query[c.key] || '') === c.value
-}
-function toggleChip(c: { key: string; value: string }) {
-  const patch: Record<string, any> = { page: undefined }
-  patch[c.key] = isChipOn(c) ? undefined : c.value
-  applyPatch(patch)
-}
+const collapsed = ref(false)
+const drawer = ref(false)
+const resultsEl = ref<HTMLElement | null>(null)
 
 function applyPatch(patch: Record<string, any>) {
   const merged: Record<string, any> = { ...route.query, ...patch }
@@ -229,6 +290,23 @@ function applyPatch(patch: Record<string, any>) {
     if (merged[k] != null && merged[k] !== '') query[k] = merged[k]
   }
   router.push({ query })
+}
+function removeChip(c: CatalogChip) {
+  const patch: Record<string, any> = { page: undefined }
+  for (const k of c.clear) patch[k] = undefined
+  if (c.clear.includes('q')) q.value = ''
+  applyPatch(patch)
+}
+function setView(v: 'galeria' | 'mapa') {
+  applyPatch({ vista: v === 'mapa' ? 'mapa' : undefined })
+}
+function openMapFromDrawer() {
+  drawer.value = false
+  setView('mapa')
+}
+function showResults() {
+  drawer.value = false
+  resultsEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
 function onSelect(sel: { type: string; value: string; slug?: string }) {
@@ -243,107 +321,119 @@ function applySearch() {
   applyPatch({ q: q.value || undefined, page: undefined })
 }
 
-function onApplyFilters(qy: Record<string, string>) {
-  modalOpen.value = false
-  // Preserve q & sort, replace advanced filters entirely with modal output
-  const query: Record<string, any> = { ...qy }
-  if (sort.value) query.sort = sort.value
-  router.push({ query })
-}
-
 function clearAll() {
   q.value = ''
   sort.value = ''
-  router.push({ query: {} })
+  router.push({ query: isMap.value ? { vista: 'mapa' } : {} })
+}
+
+// Vista Mapa: zona visible y radio, igual que /mapa (no se combinan).
+const AREA_KEYS = ['north', 'south', 'east', 'west'] as const
+const hasArea = computed(() => AREA_KEYS.every((k) => typeof route.query[k] === 'string' && route.query[k]))
+const nearby = computed(() => nearbyFromQuery(route.query))
+function withoutArea(query: Record<string, any>) {
+  return Object.fromEntries(Object.entries(query).filter(([k]) => !(AREA_KEYS as readonly string[]).includes(k)))
+}
+function onSearchArea(b: { north: number; south: number; east: number; west: number }) {
+  router.push({ query: { ...withoutNearby(route.query), north: String(b.north), south: String(b.south), east: String(b.east), west: String(b.west) } })
+}
+function onSearchNearby(p: { lat: number; lng: number; radiusKm: number }) {
+  router.push({ query: { ...withoutArea(withoutNearby(route.query)), ...nearbyQuery(p.lat, p.lng, p.radiusKm) } })
+}
+function onMarkerClick(id: number) {
+  const p = mapItems.value.find((x: any) => x.id === id)
+  if (p) router.push(`/propiedades/${p.slug || p.id}`)
 }
 </script>
 
 <style scoped>
-.filters-btn {
+.cat-page {
+  background: #fbfaf7;
+}
+.cat-btn {
   display: inline-flex;
+  height: 46px;
   align-items: center;
-  gap: 0.5rem;
-  border: 1px solid #16150f;
-  border-radius: 9999px;
-  padding: 0.65rem 1.1rem;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: #16150f;
-  transition: all 0.2s;
+  gap: 8px;
+  border: 1px solid #e3ded6;
+  border-radius: 12px;
+  background: #fff;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1c1b19;
 }
-.filters-btn:hover {
-  background: #16150f;
-  color: #fff;
-}
-.filters-btn:active {
-  transform: scale(0.96);
-}
-.badge {
+.cat-count {
   display: inline-flex;
-  height: 1.25rem;
-  min-width: 1.25rem;
+  height: 20px;
+  min-width: 20px;
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
   background: #16150f;
-  padding: 0 0.35rem;
+  padding: 0 6px;
   font-size: 11px;
   color: #fff;
 }
-.filters-btn:hover .badge {
+.cat-sort {
+  position: relative;
+  display: inline-flex;
+  height: 46px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #e3ded6;
+  border-radius: 12px;
   background: #fff;
-  color: #16150f;
+  padding: 0 12px 0 16px;
+  color: #1c1b19;
 }
-.sort-select {
-  border: 1px solid #e7e4de;
-  border-radius: 9999px;
-  padding: 0.65rem 1.1rem;
-  font-size: 13px;
-  color: #16150f;
+.cat-sort select {
+  appearance: auto;
+  border: 0;
+  background: transparent;
+  padding-right: 6px;
+  font-size: 14px;
+  color: #1c1b19;
+  outline: none;
+}
+.cat-view {
+  display: inline-flex;
+  height: 46px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #e3ded6;
+  border-radius: 12px;
   background: #fff;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1c1b19;
 }
-.sort-select:focus {
+.cat-view-on {
   border-color: #16150f;
-}
-.sort-select:focus-visible {
-  outline: 2px solid #16150f;
-  outline-offset: 2px;
-}
-.quick-chip {
-  flex-shrink: 0;
-  white-space: nowrap;
-  border: 1px solid #e7e4de;
-  border-radius: 9999px;
-  padding: 0.5rem 1rem;
-  font-size: 13px;
-  color: #57534e;
-  background: #fff;
-  transition: all 0.18s;
-}
-.quick-chip:hover {
-  border-color: #16150f;
-  color: #16150f;
-}
-.quick-chip:active {
-  transform: scale(0.95);
-}
-.quick-on {
   background: #16150f;
-  border-color: #16150f;
   color: #fff;
 }
-
-.grid-enter-active {
-  transition: opacity 0.4s ease, transform 0.4s ease;
+.cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #e3ded6;
+  border-radius: 9999px;
+  background: #fff;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  color: #1c1b19;
 }
-.grid-enter-from {
-  opacity: 0;
-  transform: translateY(12px);
+.cat-chip:hover {
+  border-color: #1c1b19;
 }
-.grid-leave-active {
-  position: absolute;
+.cat-btn:focus-visible,
+.cat-view:focus-visible,
+.cat-chip:focus-visible,
+.cat-sort:focus-within {
+  outline: 2px solid #16150f;
+  outline-offset: 2px;
 }
 .results-fade {
   transition: opacity 0.25s var(--ease-out);

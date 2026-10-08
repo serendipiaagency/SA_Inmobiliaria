@@ -1,7 +1,7 @@
 <template>
-  <SbBox field="card" kind="card" label="Tarjeta de propiedad" :dynamic="dynamicLabel('property', 'Ficha')" :source-href="SOURCES.property.href" class="group relative" @mouseenter="onEnter" @mouseleave="onLeave">
+  <SbBox field="card" kind="card" label="Tarjeta de propiedad" :dynamic="dynamicLabel('property', 'Ficha')" :source-href="SOURCES.property.href" class="group relative" :class="{ 'pc-catalog': catalog }" :data-card-variant="variant" @mouseenter="onEnter" @mouseleave="onLeave">
     <!-- Media -->
-    <div class="relative aspect-[4/3] overflow-hidden rounded-2xl bg-stone-100">
+    <div class="pc-media relative overflow-hidden bg-stone-100" :class="catalog ? 'aspect-[33/20] rounded-[12px]' : 'aspect-[4/3] rounded-2xl'">
       <!-- Slides -->
       <div
         v-for="(ph, i) in photos"
@@ -33,14 +33,14 @@
         playsinline
         preload="none"
       />
-      <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-black/10" />
+      <div v-if="!catalog" class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-black/10" />
 
       <!-- Stretched navigation link -->
       <NuxtLink :to="to" class="absolute inset-0 z-10" :aria-label="project.name" />
 
       <!-- Badges (top-left) -->
       <div class="pointer-events-none absolute left-3 top-3 z-20 flex max-w-[75%] flex-wrap gap-1.5">
-        <span v-for="b in badges" :key="b.text" class="badge" :class="b.cls">{{ b.text }}</span>
+        <span v-for="b in shownBadges" :key="b.text" class="badge" :class="b.cls">{{ b.text }}</span>
       </div>
 
       <!-- Actions (top-right) -->
@@ -55,7 +55,8 @@
         <Tooltip text="Comparar" side="bottom">
           <button type="button" class="act" :class="{ 'act-on': inCompare }" aria-label="Comparar" @click="onCompare">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M15 3v18M4 8h5M15 8h5M4 16h5M15 16h5" />
+              <path v-if="catalog" stroke-linecap="round" stroke-linejoin="round" d="M5 9h14M5 15h14M10 3 8 21M16 3l-2 18" />
+              <path v-else stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M15 3v18M4 8h5M15 8h5M4 16h5M15 16h5" />
             </svg>
           </button>
         </Tooltip>
@@ -69,7 +70,7 @@
             </svg>
           </button>
         </Tooltip>
-        <Tooltip :text="t('card.quickView')" side="bottom">
+        <Tooltip v-if="!catalog" :text="t('card.quickView')" side="bottom">
           <button type="button" class="act" :aria-label="t('card.quickView')" @click="quickViewOpen = true">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12S6 5 12 5s9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7z" /><circle cx="12" cy="12" r="3" />
@@ -93,7 +94,7 @@
       </template>
 
       <!-- Meta chips (bottom-left) -->
-      <div class="pointer-events-none absolute bottom-3 left-3 z-20 flex gap-1.5">
+      <div v-if="!catalog" class="pointer-events-none absolute bottom-3 left-3 z-20 flex gap-1.5">
         <span v-if="project.hasTour" class="chip-glass"><span class="mr-1">◐</span>{{ t('badge.tour') }}</span>
         <span v-if="project.videoUrl" class="chip-glass">
           <svg class="mr-1 -mt-px inline h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>{{ t('badge.video') }}
@@ -102,8 +103,37 @@
       </div>
     </div>
 
+    <!-- Info: la del catálogo sigue el orden de la referencia (#109) -->
+    <div v-if="catalog" class="pc-info">
+      <SbText tag="p" field="card.price" label="Precio" :dynamic="dynamicLabel('property', 'Precio')" :source-href="SOURCES.property.href" class="pc-price" :text="formatPrice(project.price)" />
+      <p class="pc-m2">{{ pricePerM2 ? `${pricePerM2} / m²` : '\u00a0' }}</p>
+      <SbText tag="h3" field="card.name" kind="heading" label="Nombre de la propiedad" :dynamic="dynamicLabel('property', 'Nombre')" :source-href="SOURCES.property.href" class="pc-title" :text="project.name" />
+      <p v-if="locationLine" class="pc-loc">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.3a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.7" r="2.5" /></svg>
+        <SbText tag="span" field="card.community" kind="caption" label="Comunidad y promotora" :dynamic="dynamicLabel('property', 'Comunidad')" :source-href="SOURCES.property.href" class="truncate" :text="locationLine" />
+      </p>
+      <div class="pc-meta">
+        <span v-if="project.bedrooms != null">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4v16" /><path d="M2 8h18a2 2 0 0 1 2 2v10" /><path d="M2 17h20" /><path d="M6 8v9" /></svg>
+          {{ project.bedrooms || t('card.studio') }}<template v-if="project.bedrooms">{{ ' ' + t('card.beds') }}</template>
+        </span>
+        <span v-if="project.bathrooms != null">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6 6.5 3.5a1.5 1.5 0 0 0-1-.5C4.7 3 4 3.7 4 4.5V17a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" /><path d="M2 12h20" /><path d="M7 19v2M17 19v2" /></svg>
+          {{ project.bathrooms }} {{ t('card.baths') }}
+        </span>
+        <span v-if="project.area">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M8 16 16 8" /><path d="M11 8h5v5" /><path d="M13 16H8v-5" /></svg>
+          {{ Math.round(project.area) }} m²
+        </span>
+      </div>
+      <div class="pc-foot">
+        <span class="pc-age">{{ publishedLabel }}</span>
+        <SbLink field="card.cta" kind="link" label="Enlace a la ficha" :dynamic="dynamicLabel('site', 'Ver propiedad')" :source-href="SOURCES.site.href" :to="to" class="pc-cta" :text="t('card.viewDetails')" />
+      </div>
+    </div>
+
     <!-- Info -->
-    <div class="pt-4">
+    <div v-else class="pt-4">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <p class="flex items-baseline gap-2">
@@ -158,7 +188,9 @@ import SbText from '~/components/site-builder/nodes/SbText.vue'
 import SbLink from '~/components/site-builder/nodes/SbLink.vue'
 import { SOURCES, dynamicLabel } from '~/utils/siteBuilder/sources'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
+  /** 'catalog': la tarjeta del catálogo de Propiedades (#109) — tarjeta blanca, foto panorámica, una sola etiqueta y tres acciones. */
+  variant?: 'default' | 'catalog'
   project: {
     id: number
     slug?: string | null
@@ -181,7 +213,8 @@ const props = defineProps<{
     aiSummary?: string | null
     videoUrl?: string | null
   }
-}>()
+}>(), { variant: 'default' })
+const catalog = computed(() => props.variant === 'catalog')
 
 const { isFavorite, toggle: toggleFav } = useFavorites()
 const { has: hasCompare, toggle: toggleCompare, full: compareFull } = useCompare()
@@ -279,10 +312,21 @@ const badges = computed(() => {
   return out.slice(0, 3)
 })
 
+// En el catálogo, una sola etiqueta, la más importante: reservado, exclusiva, obra nueva.
+const shownBadges = computed(() => {
+  if (!catalog.value) return badges.value
+  const order = ['badge-dark', 'badge-gold', 'badge-accent', 'badge-green']
+  return [...badges.value].sort((a, b) => order.indexOf(a.cls) - order.indexOf(b.cls)).slice(0, 1)
+})
+
 const publishedLabel = computed(() => {
   const d = props.project.publishedAt
   if (!d) return ''
-  const days = Math.max(0, Math.floor((Date.now() - new Date(d.replace(' ', 'T') + 'Z').getTime()) / 86400000))
+  // «2026-10-08 10:00:00» (lo que guarda el panel, en UTC) o ISO ya con su zona («…Z», «+02:00»).
+  const raw = String(d)
+  const at = new Date(/[zZ]$|[+-]\d\d:?\d\d$/.test(raw) ? raw : `${raw.replace(' ', 'T')}Z`).getTime()
+  if (!Number.isFinite(at)) return ''
+  const days = Math.max(0, Math.floor((Date.now() - at) / 86400000))
   if (days <= 1) return t('badge.newToday')
   if (days < 7) return `${days} d`
   if (days < 30) return `${Math.floor(days / 7)} sem.`
@@ -291,13 +335,103 @@ const publishedLabel = computed(() => {
 </script>
 
 <style scoped>
+.pc-catalog {
+  border: 1px solid #ece8e1;
+  border-radius: 14px;
+  background: #fff;
+  padding: 8px;
+  box-shadow: 0 1px 3px rgba(28, 27, 25, 0.05);
+}
+.pc-catalog:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px -18px rgba(28, 27, 25, 0.35);
+}
+.pc-info {
+  padding: 12px 8px 4px;
+}
+.pc-price {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #16150f;
+}
+.pc-m2 {
+  margin-top: 1px;
+  font-size: 12px;
+  color: #8a857d;
+}
+.pc-title {
+  margin-top: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #16150f;
+}
+.pc-loc {
+  margin-top: 4px;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  color: #78716c;
+}
+.pc-meta {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 12.5px;
+  color: #57534e;
+}
+.pc-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pc-meta svg {
+  color: #a8a29e;
+}
+.pc-foot {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #f1eee8;
+  padding-top: 10px;
+}
+.pc-age {
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #a8a29e;
+}
+.pc-cta {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #16150f;
+}
+.pc-catalog .badge {
+  border-radius: 6px;
+  padding: 0.35rem 0.6rem;
+}
+.pc-catalog .act {
+  height: 2.2rem;
+  width: 2.2rem;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(28, 27, 25, 0.12);
+}
 .group {
   transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .group:hover {
   transform: translateY(-4px);
 }
-.group:hover .aspect-\[4\/3\] {
+.group:not(.pc-catalog):hover .aspect-\[4\/3\] {
   box-shadow: 0 22px 45px -22px rgba(0, 0, 0, 0.4);
 }
 

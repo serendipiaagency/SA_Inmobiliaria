@@ -330,6 +330,21 @@ desde el primer día con su siembra (`pages/vender.vue`). Su formulario es un
 («Vender propiedad»), rol `seller` en el Contact y sin juntarse con un lead
 de comprador de la misma persona (`reuse: 'same_source_detail'`).
 
+**Catálogo de Propiedades (#109).** La zona `properties-listing` es
+`pages/propiedades/index.vue`: barra (`SmartSearch`, orden, Galería / Mapa
+con `vista=mapa`), panel de filtros a la izquierda
+(`components/catalog/CatalogFilters.vue`, 335 px, ocho grupos con Ubicación
+abierto) y rejilla de `ProjectCard variant="catalog"` en 3 columnas (2 en
+tablet, 1 en el móvil, donde el panel va en un cajón). Todo filtro vive en la
+URL y lo resuelve `/api/public/properties` contra el catálogo real del tenant;
+las opciones de Ubicación, Tipo y Estado salen de `facets=filters` (sólo lo
+publicado). Los chips de filtros activos los genera `utils/catalogChips.ts`.
+«Más filtros» abre el `FiltersModal` de siempre (eficiencia, orientación, año,
+radio…), así que no se pierde ningún criterio anterior. En el lienzo,
+`PageCoreBlock.vue` pinta la misma composición con datos reales e inerte
+(sin `SITE_BLOCK_KEY` los nodos no se seleccionan). El panel de filtros no
+tiene opciones en el Constructor: la zona dinámica no expone ninguna.
+
 **Opciones de una zona dinámica.** La zona no tiene datos que editar, pero
 `PAGE_CORE_OPTIONS` (`utils/siteBuilder/pages.ts`) admite unas pocas
 opciones por zona, que `validatePageDocument` guarda y valida (lo demás se

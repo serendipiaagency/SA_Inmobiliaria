@@ -12,25 +12,27 @@
       <p>Se rellena sola{{ source ? ` desde ${source.label}` : '' }}. Añade secciones encima o debajo.</p>
     </div>
 
-    <!-- Listado de propiedades: buscador + tarjetas -->
-    <div v-if="core === 'properties-listing'" class="mx-auto max-w-screen-2xl px-6 py-8 lg:px-10">
-      <div class="flex flex-wrap items-center gap-2">
-        <div class="h-11 min-w-[14rem] flex-1 rounded-full border border-line bg-paper px-5 py-3 text-sm text-stone-400">Ciudad, barrio, calle o referencia…</div>
-        <span class="rounded-full border border-line px-4 py-2.5 text-sm text-stone-500">Filtros</span>
-        <span class="rounded-full border border-line px-4 py-2.5 text-sm text-stone-500">Recomendado</span>
+    <!-- Listado de propiedades: la misma composición que la web (pages/propiedades/index.vue):
+         barra, panel de filtros y tarjetas del catálogo con datos reales. Aquí no filtra nada. -->
+    <div v-if="core === 'properties-listing'" class="bg-[#fbfaf7] px-6 py-6 lg:px-10" data-testid="page-core-catalog">
+      <div class="flex items-center gap-3">
+        <div class="h-[46px] flex-1 rounded-full border border-line bg-white px-5 py-3 text-sm text-stone-400">Ciudad, barrio, calle o referencia…</div>
+        <span class="inline-flex h-[46px] items-center rounded-xl border border-[#e3ded6] bg-white px-4 text-sm">Recomendado</span>
+        <span class="inline-flex h-[46px] items-center rounded-xl bg-[#16150f] px-4 text-sm text-white">Galería</span>
+        <span class="inline-flex h-[46px] items-center rounded-xl border border-[#e3ded6] bg-white px-4 text-sm">Mapa</span>
       </div>
-      <div v-if="cards.length" class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        <div v-for="p in cards" :key="p.id" class="overflow-hidden rounded-2xl border border-line bg-white">
-          <div class="aspect-[4/3] bg-stone-100">
-            <img v-if="p.image" :src="mediaUrl(p.image)" alt="" class="h-full w-full object-cover" loading="lazy" >
+      <div class="mt-6 flex items-start gap-6">
+        <div class="hidden w-[335px] shrink-0 lg:block">
+          <CatalogFilters :query="{}" :facets="null" :total="(projects || []).length" :items="projects || []" />
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-[15px] text-stone-500"><strong class="font-bold text-ink">{{ (projects || []).length }}</strong> propiedades</p>
+          <div v-if="(projects || []).length" class="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <ProjectCard v-for="p in (projects || []).slice(0, 6)" :key="p.id" :project="p" variant="catalog" />
           </div>
-          <div class="p-4">
-            <p class="text-lg font-semibold tracking-tight">{{ p.price }}</p>
-            <p class="mt-1 truncate font-serif text-xl">{{ p.name }}</p>
-          </div>
+          <p v-else class="py-16 text-center font-serif text-xl text-stone-400">Aquí aparecerán tus propiedades publicadas.</p>
         </div>
       </div>
-      <p v-else class="py-16 text-center font-serif text-xl text-stone-400">Aquí aparecerán tus propiedades publicadas.</p>
     </div>
 
     <!-- Ficha: la de la propiedad más reciente, como ejemplo -->
@@ -90,6 +92,7 @@
 
 <script setup lang="ts">
 import { FICHA_SECTIONS, PAGE_CORE_LABELS, PAGE_CORE_SOURCES, normalizeFichaSections, type PageCoreKind } from '~/utils/siteBuilder/pages'
+import { SITE_BLOCK_KEY, type SiteBlockContext } from '~/composables/useSiteEditor'
 
 const props = defineProps<{
   content: Record<string, any>
@@ -98,6 +101,9 @@ const props = defineProps<{
 }>()
 
 const { format: formatPrice } = useCurrency()
+// La zona entera es un solo elemento del lienzo: las tarjetas y el panel de
+// muestra (los mismos componentes que la web) no exponen nodos editables.
+provide(SITE_BLOCK_KEY, null as unknown as SiteBlockContext)
 
 const core = computed(() => props.content.core as PageCoreKind)
 const label = computed(() => PAGE_CORE_LABELS[core.value] || 'Contenido de la página')
@@ -106,7 +112,6 @@ const source = computed(() => PAGE_CORE_SOURCES[core.value] || null)
 function card(p: any) {
   return { id: p.id, name: p.name, price: p.price ? formatPrice(p.price) : '', image: p.photos?.[0] || p.coverImage || null }
 }
-const cards = computed(() => (props.projects || []).slice(0, 6).map(card))
 const sample = computed(() => (props.projects?.length ? card(props.projects[0]) : null))
 const articles = computed(() => (props.blogs || []).slice(0, 3))
 

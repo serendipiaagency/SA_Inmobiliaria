@@ -26,7 +26,8 @@ const MAP_MAX_PER_PAGE = 300
  *   visible del mapa) y lat/lng/radiusKm (radio).
  * Params: sort (price_asc|price_desc|newest), page, perPage, countOnly,
  *   view=map (hasta 300 por página, para el mapa), facets=types (los tipos que
- *   la agencia tiene publicados, para los filtros de la web).
+ *   la agencia tiene publicados, para los filtros de la web) o facets=filters
+ *   (además municipios, zonas, códigos postales y estados: el panel del catálogo).
  */
 export default defineEventHandler(async (event) => {
   const db = useDb(event)
@@ -162,9 +163,45 @@ export default defineEventHandler(async (event) => {
   // la portada sólo ofrezcan lo que existe. Sobre la misma base que el
   // listado (agencia del host + fuera de la papelera) y SIN el resto de
   // filtros: la lista no encoge según se filtra.
+  // `facets=filters` (panel de filtros del catálogo, #109): además, los
+  // municipios, zonas, códigos postales y estados que hay publicados, para
+  // que los selectores sólo ofrezcan lo que existe. Columnas públicas de la
+  // propiedad (la privacidad de la ubicación quita número, portal y planta,
+  // nunca ciudad, zona ni código postal).
+  const facetMode = String(query.facets || '')
+  const base = and(eq(P.organizationId, orgId), livePropertyCond(P))
+  // Las mismas columnas que miran los filtros `municipality` y `neighborhood`
+  // de arriba: la de la propiedad y la de su ficha ampliada. Si no, una
+  // propiedad con el municipio sólo en la ficha filtraría bien pero su
+  // municipio no saldría como opción. Las columnas de la propiedad van con su
+  // tabla escrita a mano: en la lista del `select` Drizzle las pone sin ella,
+  // y dentro de la subconsulta `organization_id` e `id` serían las de la
+  // propia ficha ampliada (nunca coincidían y la opción no salía).
+  const detail = (col: 'municipality' | 'neighborhood') =>
+    sql<string | null>`(select pd.${sql.raw(col)} from property_details pd where pd.organization_id = "developer_properties"."organization_id" and pd.property_kind = 'developer' and pd.property_id = "developer_properties"."id" limit 1)`
+  const distinct = async (...cols: any[]): Promise<string[]> => {
+    const seen = new Map<string, string>()
+    for (const col of cols) {
+      for (const r of (await db.selectDistinct({ v: col }).from(P).where(base)) as { v: string | null }[]) {
+        const v = r.v == null ? '' : String(r.v).trim()
+        if (v && !seen.has(v.toLocaleLowerCase('es'))) seen.set(v.toLocaleLowerCase('es'), v)
+      }
+    }
+    return [...seen.values()].sort((x, y) => x.localeCompare(y, 'es'))
+  }
   const facets =
-    String(query.facets || '') === 'types'
-      ? { types: orderPropertyTypes((await db.selectDistinct({ type: P.propertyType }).from(P).where(and(eq(P.organizationId, orgId), livePropertyCond(P)))).map((r: { type: string | null }) => r.type)) }
+    facetMode === 'types' || facetMode === 'filters'
+      ? {
+          types: orderPropertyTypes((await db.selectDistinct({ type: P.propertyType }).from(P).where(base)).map((r: { type: string | null }) => r.type)),
+          ...(facetMode === 'filters'
+            ? {
+                municipalities: await distinct(P.city, detail('municipality')),
+                neighborhoods: await distinct(P.community, detail('neighborhood')),
+                postalCodes: await distinct(P.postalCode),
+                statuses: await distinct(P.status),
+              }
+            : {}),
+        }
       : undefined
 
   const countRows = await db.select({ count: sql<number>`count(*)` }).from(P).where(where as any)
