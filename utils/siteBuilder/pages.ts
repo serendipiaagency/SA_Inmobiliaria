@@ -41,6 +41,7 @@ export const SITE_PAGES: SitePageDef[] = [
   { key: 'home', label: 'Inicio', path: '/', kind: 'home', hint: 'La portada de tu web.' },
   { key: 'propiedades', label: 'Propiedades', path: '/propiedades', kind: 'functional', core: 'properties-listing', hint: 'El listado con buscador y filtros se rellena solo; añade secciones encima o debajo.' },
   { key: 'ficha-propiedad', label: 'Ficha de propiedad', path: '/propiedades/…', kind: 'functional', core: 'property-detail', hint: 'La plantilla de todas las fichas: la ficha se rellena sola con cada propiedad; añade secciones encima o debajo.' },
+  { key: 'vender', label: 'Vender Propiedad', path: '/vender', kind: 'content', hint: 'Para propietarios que quieren vender: su formulario crea el lead de captación en tu CRM.' },
   { key: 'nosotros', label: 'Nosotros', path: '/nosotros', kind: 'content', hint: 'Tu historia y tu equipo.' },
   { key: 'servicios', label: 'Servicios', path: '/servicios', kind: 'content', hint: 'Una página nueva: existe en tu web desde que la publicas.' },
   { key: 'contacto', label: 'Contacto', path: '/contacto', kind: 'content', hint: 'El formulario crea un lead real en tu CRM.' },
@@ -159,6 +160,45 @@ export function seedPageBlocks(key: string): SeedBlock[] {
             messagePlaceholder: '',
             successMessage: es('contact.form.success'),
             subject: 'Página de contacto',
+            privacyNote: '',
+            showPhone: true,
+            layout: 'centered',
+          },
+        },
+      ]
+    case 'vender':
+      // «Vender Propiedad» del menú (utils/siteNav.ts). La web la enseña desde
+      // el primer día con este contenido; la inmobiliaria lo cambia y lo
+      // publica cuando quiera. El formulario es de captación (`purpose: 'seller'`).
+      return [
+        {
+          id: 'text-vender',
+          type: 'text',
+          version: 1,
+          content: {
+            eyebrow: 'Vender Propiedad',
+            title: '¿Quieres vender tu vivienda?',
+            subtitle: '',
+            body: 'Cuéntanos qué quieres vender y te ayudamos con todo el proceso: el precio, la presentación del inmueble, las visitas y la negociación con los compradores.\n\nDéjanos tus datos y te llamamos para conocer tu propiedad, sin compromiso.',
+            align: 'left',
+            maxWidth: 'md',
+            columns: 1,
+          },
+        },
+        {
+          id: 'lead-form-vender',
+          type: 'lead-form',
+          version: 1,
+          content: {
+            eyebrow: '',
+            title: 'Cuéntanos qué quieres vender',
+            description: 'Te contactamos para conocer tu propiedad.',
+            submitLabel: 'Quiero vender',
+            messageLabel: 'Tu propiedad',
+            messagePlaceholder: 'Tipo de vivienda, zona o dirección, metros, habitaciones…',
+            successMessage: 'Gracias. Te llamaremos lo antes posible para hablar de tu propiedad.',
+            subject: 'Vender propiedad',
+            purpose: 'seller',
             privacyNote: '',
             showPhone: true,
             layout: 'centered',

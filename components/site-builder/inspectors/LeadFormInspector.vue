@@ -7,6 +7,15 @@
     </InspectorSection>
 
     <InspectorSection title="Formulario">
+      <SegmentedField
+        label="Quién escribe"
+        :model-value="content.purpose === 'seller' ? 'seller' : 'contact'"
+        :options="[{ value: 'contact', label: 'Interesados' }, { value: 'seller', label: 'Propietarios que venden' }]"
+        @update:model-value="(v) => (content.purpose = v)"
+      />
+      <p v-if="content.purpose === 'seller'" class="-mt-1 mb-3 text-[11px] text-stone-500">
+        Cada envío entra como lead de <strong>captación</strong> («Vender propiedad») y su contacto queda con el rol «Vendedor».
+      </p>
       <TextField label="Texto del botón" :model-value="content.submitLabel || ''" placeholder="Enviar" @update:model-value="(v) => (content.submitLabel = v)" />
       <TextField label="Etiqueta del mensaje" :model-value="content.messageLabel || ''" placeholder="¿Qué estás buscando?" @update:model-value="(v) => (content.messageLabel = v)" />
       <TextField label="Pista dentro del mensaje" :model-value="content.messagePlaceholder || ''" placeholder="Zona, presupuesto, número de habitaciones…" @update:model-value="(v) => (content.messagePlaceholder = v)" />
@@ -55,6 +64,7 @@ import InspectorSection from '../inspector/InspectorSection.vue'
 import TextField from '../inspector/fields/TextField.vue'
 import ToggleField from '../inspector/fields/ToggleField.vue'
 import LayoutPickerField from '../inspector/fields/LayoutPickerField.vue'
+import SegmentedField from '../inspector/fields/SegmentedField.vue'
 
 defineProps<{ content: Record<string, any> }>()
 </script>

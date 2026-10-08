@@ -146,7 +146,7 @@ test.describe('Constructor Web — páginas editables', () => {
     expect((await a.delete('/api/admin/site-pages/home')).status()).toBe(422)
 
     const home = await (await a.get('/api/admin/site-pages/home')).json()
-    expect(home.pages.map((p: any) => p.pageKey)).toEqual(['home', 'propiedades', 'ficha-propiedad', 'nosotros', 'servicios', 'contacto', 'blog'])
+    expect(home.pages.map((p: any) => p.pageKey)).toEqual(['home', 'propiedades', 'ficha-propiedad', 'vender', 'nosotros', 'servicios', 'contacto', 'blog'])
 
     expect((await a.get(`/servicios?vista_previa=${orgId}`)).status()).toBe(404)
     expect((await a.post('/api/admin/site-pages/servicios/publish')).ok()).toBeTruthy()

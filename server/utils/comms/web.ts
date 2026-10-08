@@ -47,7 +47,7 @@ import { inJsonList } from '../sqlChunks'
 export const WEB_THREAD_KINDS = ['form', 'chat'] as const
 export type WebThreadKind = (typeof WEB_THREAD_KINDS)[number]
 
-export const WEB_FORM_TYPES = ['contact', 'lead_form', 'visit_request', 'visitor', 'referral', 'property'] as const
+export const WEB_FORM_TYPES = ['contact', 'lead_form', 'visit_request', 'visitor', 'referral', 'property', 'seller'] as const
 export type WebFormType = (typeof WEB_FORM_TYPES)[number]
 export const WEB_FORM_TYPE_LABELS: Record<WebFormType, string> = {
   contact: 'Formulario de contacto',
@@ -57,6 +57,8 @@ export const WEB_FORM_TYPE_LABELS: Record<WebFormType, string> = {
   referral: 'Referido',
   // El formulario «Atendido por» de la ficha pública de una propiedad.
   property: 'Ficha de propiedad',
+  // Propietarios que quieren vender (página «Vender Propiedad»): captación.
+  seller: 'Vender propiedad',
 }
 
 export const WEB_CHANNEL_LABELS: Record<WebThreadKind, string> = { form: 'Formulario web', chat: 'Chat web' }

@@ -419,6 +419,7 @@ falla por esto):
 | --- | --- | --- | --- |
 | Contacto (`/contacto`, portada) | `POST /api/public/contact` | `contact` | con `propertySlug` (obra nueva, viva, de la agencia) |
 | Formulario de captación del Constructor Web | `POST /api/public/contact` (`form: 'lead_form'`) | `lead_form` | igual |
+| «Vender Propiedad» (y cualquier formulario de captación con «Quién escribe: Propietarios que venden») | `POST /api/public/contact` (`form: 'seller'`) | `seller` | — (lead de captación, rol «Vendedor» en el Contact) |
 | «Atendido por» de la ficha de una propiedad | `POST /api/public/contact` (`form: 'property'`) | `property` | obligatoria (422 si no es de la agencia, pública y viva); exige `privacyAccepted` y guarda `privacyAcceptedAt` en los campos del hilo |
 | Solicitud de visita (reserva con un comercial) | `POST /api/public/agents/:slug/book` | `visit_request` | la de la cita |
 | Verificación de visitante | `POST /api/public/visitor` | `visitor` | — (los PDF KYC no se copian: sólo se dice cuántos hay) |
