@@ -11,6 +11,8 @@ import { STATE_A, STATE_B } from './global-setup'
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8788'
 const RUN = `${Date.now()}-${Math.floor(Math.random() * 1000)}`
+// Sólo las cifras: con un aleatorio de una cifra, `RUN.slice(-2, -1)` era el guion y la hora salía «1NaN:00:00».
+const RUN_DIGITS = RUN.replace(/\D/g, '')
 const DISTRICT = `N4-${RUN}`
 const visible = (page: import('@playwright/test').Page, testId: string) => page.locator(`[data-testid="${testId}"]:visible`)
 
@@ -136,7 +138,7 @@ test.describe('N4 — necesidades del comprador y matching con acciones', () => 
     const agents = (await (await a.get('/api/admin/saas/agents')).json()).rows
     if (agents.length) {
       const visit = await a.post('/api/admin/saas/matching/matches', {
-        data: { action: 'visit', buyerRequirementId: requirementId, propertyId, propertyKind: 'agent', agentId: agents[0].id, scheduledAt: `2031-0${1 + (Number(RUN.slice(-1)) % 8)}-15 1${Number(RUN.slice(-2, -1)) % 8}:00:00` },
+        data: { action: 'visit', buyerRequirementId: requirementId, propertyId, propertyKind: 'agent', agentId: agents[0].id, scheduledAt: `2031-0${1 + (Number(RUN_DIGITS.slice(-1)) % 8)}-15 1${Number(RUN_DIGITS.slice(-2, -1)) % 8}:00:00` },
       })
       expect([200, 409], await visit.text()).toContain(visit.status())
       if (visit.ok()) {
