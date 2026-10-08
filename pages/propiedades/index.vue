@@ -1,120 +1,122 @@
 <template>
-  <div>
-    <!-- Search header -->
-    <header class="sticky top-[73px] z-30 border-b border-line bg-paper/95 backdrop-blur">
-      <div class="mx-auto max-w-screen-2xl px-6 py-4 lg:px-10">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <div class="lg:flex-1">
-            <SmartSearch
-              v-model="q"
-              rounded
-              :placeholder="t('search.placeholder', 'Ciudad, barrio, calle o referencia…')"
-              @select="onSelect"
-              @enter="applySearch"
-            />
-          </div>
-          <div class="flex items-center gap-2">
-            <button class="filters-btn" @click="modalOpen = true">
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" d="M3 5h18M6 12h12M10 19h4" />
-              </svg>
-              {{ t('filters.button', 'Filtros') }}
-              <span v-if="activeCount" class="badge" data-testid="public-filters-badge">{{ activeCount }}</span>
-            </button>
-            <div class="relative">
-              <button class="filters-btn" @click="savingSearch = !savingSearch">🔔 Avísame</button>
-              <div v-if="savingSearch" class="absolute right-0 top-full z-40 mt-2 w-72 rounded-xl border border-line bg-white p-3 shadow-lg">
-                <p class="mb-2 text-xs text-stone-500">Te avisamos por email cuando aparezca una propiedad nueva que coincida con esta búsqueda.</p>
-                <input v-model="savedSearchEmail" type="email" placeholder="tu@email.com" class="w-full rounded-lg border border-line px-3 py-2 text-sm" >
-                <button type="button" class="mt-2 w-full rounded-lg bg-ink py-2 text-xs font-medium text-white disabled:opacity-50" :disabled="savingSearchPending" @click="subscribeSearchAlert">
-                  {{ savingSearchPending ? 'Guardando…' : 'Guardar búsqueda' }}
-                </button>
-                <p v-if="savedSearchDone" class="mt-2 text-xs font-medium text-emerald-700">¡Listo! Te avisaremos por email.</p>
+  <SitePageLayout :page="sitePage" :home-data="sitePageData">
+    <div>
+      <!-- Search header -->
+      <header class="sticky top-[73px] z-30 border-b border-line bg-paper/95 backdrop-blur">
+        <div class="mx-auto max-w-screen-2xl px-6 py-4 lg:px-10">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div class="lg:flex-1">
+              <SmartSearch
+                v-model="q"
+                rounded
+                :placeholder="t('search.placeholder', 'Ciudad, barrio, calle o referencia…')"
+                @select="onSelect"
+                @enter="applySearch"
+              />
+            </div>
+            <div class="flex items-center gap-2">
+              <button class="filters-btn" @click="modalOpen = true">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" d="M3 5h18M6 12h12M10 19h4" />
+                </svg>
+                {{ t('filters.button', 'Filtros') }}
+                <span v-if="activeCount" class="badge" data-testid="public-filters-badge">{{ activeCount }}</span>
+              </button>
+              <div class="relative">
+                <button class="filters-btn" @click="savingSearch = !savingSearch">🔔 Avísame</button>
+                <div v-if="savingSearch" class="absolute right-0 top-full z-40 mt-2 w-72 rounded-xl border border-line bg-white p-3 shadow-lg">
+                  <p class="mb-2 text-xs text-stone-500">Te avisamos por email cuando aparezca una propiedad nueva que coincida con esta búsqueda.</p>
+                  <input v-model="savedSearchEmail" type="email" placeholder="tu@email.com" class="w-full rounded-lg border border-line px-3 py-2 text-sm" >
+                  <button type="button" class="mt-2 w-full rounded-lg bg-ink py-2 text-xs font-medium text-white disabled:opacity-50" :disabled="savingSearchPending" @click="subscribeSearchAlert">
+                    {{ savingSearchPending ? 'Guardando…' : 'Guardar búsqueda' }}
+                  </button>
+                  <p v-if="savedSearchDone" class="mt-2 text-xs font-medium text-emerald-700">¡Listo! Te avisaremos por email.</p>
+                </div>
+              </div>
+              <div class="relative">
+                <select v-model="sort" class="sort-select" @change="applyPatch({ sort: sort || undefined, page: undefined })">
+                  <option value="">{{ t('properties.sort.recommended', 'Recomendado') }}</option>
+                  <option value="price_asc">{{ t('properties.sort.priceAsc', 'Precio ↑') }}</option>
+                  <option value="price_desc">{{ t('properties.sort.priceDesc', 'Precio ↓') }}</option>
+                </select>
               </div>
             </div>
-            <div class="relative">
-              <select v-model="sort" class="sort-select" @change="applyPatch({ sort: sort || undefined, page: undefined })">
-                <option value="">{{ t('properties.sort.recommended', 'Recomendado') }}</option>
-                <option value="price_asc">{{ t('properties.sort.priceAsc', 'Precio ↑') }}</option>
-                <option value="price_desc">{{ t('properties.sort.priceDesc', 'Precio ↓') }}</option>
-              </select>
+          </div>
+
+          <!-- Quick chips -->
+          <div class="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <button
+              v-for="c in quickChips"
+              :key="c.key"
+              type="button"
+              class="quick-chip"
+              :class="{ 'quick-on': isChipOn(c) }"
+              @click="toggleChip(c)"
+            >
+              {{ c.label }}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div class="mx-auto max-w-screen-2xl px-6 py-8 lg:px-10">
+        <div class="mb-6 flex items-baseline justify-between">
+          <p class="text-sm text-stone-500">
+            <span class="font-semibold text-ink">{{ data?.total ?? 0 }}</span>
+            {{ (data?.total ?? 0) === 1 ? t('properties.count.singular', 'propiedad') : t('properties.count.plural', 'propiedades') }}
+            <span v-if="q"> · “{{ q }}”</span>
+          </p>
+          <div class="flex items-center gap-4">
+            <button
+              v-if="activeCount || q"
+              type="button"
+              class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest transition"
+              :class="searchIsSaved ? 'text-ink' : 'text-stone-400 hover:text-ink'"
+              @click="onSaveSearch"
+            >
+              <svg class="h-3.5 w-3.5" :fill="searchIsSaved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
+              {{ searchIsSaved ? t('search.saved') : t('search.save') }}
+            </button>
+            <button v-if="activeCount || q" class="text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-ink" @click="clearAll">
+              {{ t('hero.clear') }}
+            </button>
+          </div>
+        </div>
+
+        <div class="results-fade" :class="{ 'is-loading': pending }">
+          <transition-group
+            v-if="data?.rows?.length"
+            name="grid"
+            tag="div"
+            class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+          >
+            <ProjectCard v-for="p in data.rows" :key="p.id" :project="p" />
+          </transition-group>
+          <div v-else-if="!pending" class="py-24 text-center">
+            <p class="font-serif text-2xl text-stone-500">{{ t('properties.empty.title', 'No hay propiedades que coincidan.') }}</p>
+            <button class="btn-quiet mt-6" @click="clearAll">{{ t('properties.clearFilters', 'Limpiar filtros') }}</button>
+          </div>
+          <div v-else class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div v-for="i in 8" :key="i" class="overflow-hidden rounded-2xl">
+              <div class="skeleton aspect-[4/3] rounded-2xl" />
+              <div class="skeleton mt-4 h-4 w-2/3 rounded" />
+              <div class="skeleton mt-2 h-5 w-1/2 rounded" />
             </div>
           </div>
         </div>
 
-        <!-- Quick chips -->
-        <div class="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <button
-            v-for="c in quickChips"
-            :key="c.key"
-            type="button"
-            class="quick-chip"
-            :class="{ 'quick-on': isChipOn(c) }"
-            @click="toggleChip(c)"
-          >
-            {{ c.label }}
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <div class="mx-auto max-w-screen-2xl px-6 py-8 lg:px-10">
-      <div class="mb-6 flex items-baseline justify-between">
-        <p class="text-sm text-stone-500">
-          <span class="font-semibold text-ink">{{ data?.total ?? 0 }}</span>
-          {{ (data?.total ?? 0) === 1 ? t('properties.count.singular', 'propiedad') : t('properties.count.plural', 'propiedades') }}
-          <span v-if="q"> · “{{ q }}”</span>
-        </p>
-        <div class="flex items-center gap-4">
-          <button
-            v-if="activeCount || q"
-            type="button"
-            class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest transition"
-            :class="searchIsSaved ? 'text-ink' : 'text-stone-400 hover:text-ink'"
-            @click="onSaveSearch"
-          >
-            <svg class="h-3.5 w-3.5" :fill="searchIsSaved ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
-            {{ searchIsSaved ? t('search.saved') : t('search.save') }}
-          </button>
-          <button v-if="activeCount || q" class="text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-ink" @click="clearAll">
-            {{ t('hero.clear') }}
-          </button>
+        <div v-if="totalPages > 1" class="mt-14 flex items-center justify-center gap-4">
+          <button class="btn-quiet" :disabled="page <= 1" @click="applyPatch({ page: String(page - 1) })">← {{ t('properties.pagination.prev', 'Anterior') }}</button>
+          <span class="text-[11px] font-semibold uppercase tracking-widest text-stone-450">
+            {{ t('properties.pagination.page', 'Página') }} {{ page }} {{ t('properties.pagination.of', 'de') }} {{ totalPages }}
+          </span>
+          <button class="btn-quiet" :disabled="page >= totalPages" @click="applyPatch({ page: String(page + 1) })">{{ t('properties.pagination.next', 'Siguiente') }} →</button>
         </div>
       </div>
 
-      <div class="results-fade" :class="{ 'is-loading': pending }">
-        <transition-group
-          v-if="data?.rows?.length"
-          name="grid"
-          tag="div"
-          class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-        >
-          <ProjectCard v-for="p in data.rows" :key="p.id" :project="p" />
-        </transition-group>
-        <div v-else-if="!pending" class="py-24 text-center">
-          <p class="font-serif text-2xl text-stone-500">{{ t('properties.empty.title', 'No hay propiedades que coincidan.') }}</p>
-          <button class="btn-quiet mt-6" @click="clearAll">{{ t('properties.clearFilters', 'Limpiar filtros') }}</button>
-        </div>
-        <div v-else class="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          <div v-for="i in 8" :key="i" class="overflow-hidden rounded-2xl">
-            <div class="skeleton aspect-[4/3] rounded-2xl" />
-            <div class="skeleton mt-4 h-4 w-2/3 rounded" />
-            <div class="skeleton mt-2 h-5 w-1/2 rounded" />
-          </div>
-        </div>
-      </div>
-
-      <div v-if="totalPages > 1" class="mt-14 flex items-center justify-center gap-4">
-        <button class="btn-quiet" :disabled="page <= 1" @click="applyPatch({ page: String(page - 1) })">← {{ t('properties.pagination.prev', 'Anterior') }}</button>
-        <span class="text-[11px] font-semibold uppercase tracking-widest text-stone-450">
-          {{ t('properties.pagination.page', 'Página') }} {{ page }} {{ t('properties.pagination.of', 'de') }} {{ totalPages }}
-        </span>
-        <button class="btn-quiet" :disabled="page >= totalPages" @click="applyPatch({ page: String(page + 1) })">{{ t('properties.pagination.next', 'Siguiente') }} →</button>
-      </div>
+      <FiltersModal :open="modalOpen" :model-value="modalSeed" :q="q" @close="modalOpen = false" @apply="onApplyFilters" />
     </div>
-
-    <FiltersModal :open="modalOpen" :model-value="modalSeed" :q="q" @close="modalOpen = false" @apply="onApplyFilters" />
-  </div>
+  </SitePageLayout>
 </template>
 
 <script setup lang="ts">
@@ -123,10 +125,14 @@ import { countActivePublicFilters, nearbyFromQuery } from '~/utils/publicSearch'
 const { t } = useI18n()
 const { tenant, load: loadTenant } = useTenant()
 await loadTenant()
+// Página «Propiedades» del Constructor Web: el buscador y el listado son su
+// zona dinámica; con una versión publicada, las secciones que se le añadan
+// van encima o debajo.
+const { page: sitePage, homeData: sitePageData } = await useSitePage('propiedades')
 useHead(
   seoHead({
-    title: `${t('properties.head.title', 'Buscar propiedades')} — ${tenant.value?.companyName || tenant.value?.name}`,
-    description: 'Explora proyectos off-plan y propiedades de segunda venta en Dubái con filtros avanzados por comunidad, precio y tipo.',
+    title: sitePage.value?.seo?.title || `${t('properties.head.title', 'Buscar propiedades')} — ${tenant.value?.companyName || tenant.value?.name}`,
+    description: sitePage.value?.seo?.description || 'Explora proyectos off-plan y propiedades de segunda venta en Dubái con filtros avanzados por comunidad, precio y tipo.',
   }),
 )
 const toast = useToast()

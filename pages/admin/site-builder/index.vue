@@ -83,7 +83,10 @@
                 <p class="truncate font-semibold text-ink">{{ pad2(i + 1) }} · {{ blockLabel(block.type) }}</p>
                 <p class="truncate text-[12px] text-stone-450">{{ blockSubtitle(block) }}</p>
               </div>
-              <div class="flex shrink-0 items-center gap-0.5">
+              <span v-if="isCore(block)" class="mt-0.5 shrink-0 text-stone-400" title="Zona dinámica: se rellena sola y no se puede borrar">
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2" /><path stroke-linecap="round" d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+              </span>
+              <div v-else class="flex shrink-0 items-center gap-0.5">
                 <button type="button" class="structure-icon-btn opacity-0 group-hover:opacity-100" title="Ocultar en este dispositivo" @click.stop="toggleHide(block)">
                   <svg v-if="isHiddenOnDevice(block)" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a20.4 20.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" /></svg>
                   <svg v-else class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
@@ -110,24 +113,43 @@
           <button type="button" class="btn-quiet mt-3 w-full !py-2 !text-[11px]" @click="openLibraryAt(null)">+ Añadir sección</button>
         </div>
 
-        <!-- Páginas: distinta de la Estructura (bloques de Inicio) — hoy solo
-             Inicio es editable con el Constructor Web; el resto son páginas
-             reales del sitio, gestionadas en sus propias secciones del panel,
-             listadas aquí solo para orientar, no como CRUD que no existe. -->
-        <div v-show="!structureCollapsed" class="shrink-0 border-t border-line p-3">
+        <!-- Páginas de la web (utils/siteBuilder/pages.ts): cada una se abre
+             aquí mismo para editarla, con su propio borrador, publicación e
+             historial. La Estructura de arriba es la de la página abierta. -->
+        <div v-show="!structureCollapsed" class="shrink-0 border-t border-line p-3" data-testid="site-pages">
           <p class="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-stone-400">Páginas</p>
-          <div class="flex items-center gap-2 rounded-lg bg-paper px-2.5 py-1.5 text-[13px] font-medium text-ink">
-            <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9.5 12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" /></svg>
-            Inicio
+          <nav aria-label="Páginas de la web" class="max-h-56 overflow-y-auto">
+            <button
+              v-for="p in SITE_PAGES"
+              :key="p.key"
+              type="button"
+              class="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition disabled:cursor-wait"
+              :class="p.key === currentPageKey ? 'bg-paper font-medium text-ink' : 'text-stone-600 hover:bg-stone-50 hover:text-ink'"
+              :aria-current="p.key === currentPageKey ? 'page' : undefined"
+              :data-testid="`site-page-${p.key}`"
+              :disabled="switchingPage"
+              @click="switchPage(p.key)"
+            >
+              <svg v-if="p.kind === 'home'" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9.5 12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z" /></svg>
+              <svg v-else-if="p.kind === 'functional'" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2" /><path stroke-linecap="round" d="M3 9h18M8 14h8" /></svg>
+              <svg v-else class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path stroke-linecap="round" stroke-linejoin="round" d="M14 3v6h6M8 13h8M8 17h5" /></svg>
+              <span class="min-w-0 flex-1 truncate">{{ p.label }}</span>
+              <span class="shrink-0 text-[10px]" :class="pageStatus(p.key).tone" :data-testid="`site-page-status-${p.key}`">{{ pageStatus(p.key).label }}</span>
+            </button>
+          </nav>
+          <div v-if="currentPageDef" class="mt-2 rounded-lg bg-stone-50 px-2.5 py-2 text-[11px] leading-snug text-stone-500" data-testid="site-page-info">
+            <p>{{ currentPageDef.hint }}</p>
+            <p class="mt-1 font-mono text-[10px] text-stone-400">{{ currentPageDef.path }}</p>
+            <button
+              v-if="currentPageDef.kind !== 'home' && !pageStatus(currentPageKey).untouched"
+              type="button"
+              class="mt-1.5 text-[11px] font-semibold text-stone-600 underline-offset-2 hover:text-ink hover:underline"
+              data-testid="site-page-reset"
+              @click="resetPage"
+            >
+              Volver a la página original
+            </button>
           </div>
-          <p
-            v-for="p in OTHER_PAGES"
-            :key="p"
-            class="cursor-default truncate px-2.5 py-1.5 text-[13px] text-stone-400"
-            title="Aún no es editable desde el Constructor Web"
-          >
-            {{ p }}
-          </p>
         </div>
       </aside>
 
@@ -261,7 +283,7 @@
               <p class="truncate text-[11px] text-stone-500">{{ selectedNode ? (selectedNode.dynamic ? `Contenido dinámico · ${selectedNode.dynamic}` : nodeKindLabel(selectedNode.kind)) : blockSubtitle(selectedBlock) }}</p>
             </div>
           </div>
-          <div class="flex gap-1 rounded-lg bg-stone-100 p-1">
+          <div v-if="!isCore(selectedBlock)" class="flex gap-1 rounded-lg bg-stone-100 p-1">
             <button
               v-for="t in INSPECTOR_TABS"
               :key="t.key"
@@ -298,7 +320,7 @@
             <p v-else-if="inspectorTab === 'content'" class="text-sm text-stone-400">Este tipo de bloque no tiene opciones adicionales todavía.</p>
           </template>
 
-          <InspectorSection :title="selectedNode ? 'Avanzado de la sección' : 'Avanzado'" tab="advanced">
+          <InspectorSection v-if="!isCore(selectedBlock)" :title="selectedNode ? 'Avanzado de la sección' : 'Avanzado'" tab="advanced">
             <CommonBlockSettings :block="selectedBlock" />
           </InspectorSection>
         </div>
@@ -312,7 +334,7 @@
     </div>
 
     <!-- Historial de versiones publicadas -->
-    <VersionHistory v-if="historyOpen" page-key="home" @close="historyOpen = false" @restored="onRestored" />
+    <VersionHistory v-if="historyOpen" :page-key="currentPageKey" @close="historyOpen = false" @restored="onRestored" />
 
     <!-- Estilos globales -->
     <GlobalStylesPanel v-if="stylesOpen" :styles="styles" :brand-fonts="brandFonts" @close="stylesOpen = false" />
@@ -350,6 +372,7 @@ import { nodeKindLabel, normalizeColor, type NodeKind } from '~/utils/siteBuilde
 import { isKnownFont } from '~/utils/siteBuilder/fonts'
 import type { SiteNodeRef } from '~/composables/useSiteEditor'
 import { BLOCK_PRESETS, BLOCK_CATEGORIES, BLOCK_INSPECTORS, RECOMMENDED_PRESET_IDS, blockLabel, blockSubtitle, newBlockId, type BlockPreset } from '~/composables/useSiteBuilderRegistry'
+import { PAGE_CORE_TYPE, SITE_PAGES, sitePageDef } from '~/utils/siteBuilder/pages'
 import InspectorSection from '~/components/site-builder/inspector/InspectorSection.vue'
 import CommonBlockSettings from '~/components/site-builder/inspector/CommonBlockSettings.vue'
 import NodeInspector from '~/components/site-builder/inspector/NodeInspector.vue'
@@ -395,10 +418,52 @@ const dragOverId = ref<string | null>(null)
 function pad2(n: number): string {
   return String(n).padStart(2, '0')
 }
-// Real routes this site already has — only "Inicio" is backed by site_pages
-// today (server/utils/sitePages.ts hard-rejects any other pageKey), so the
-// rest are listed for orientation, not as a page CRUD that doesn't exist yet.
-const OTHER_PAGES = ['Propiedades', 'Ficha de propiedad', 'Nosotros', 'Servicios', 'Contacto', 'Blog']
+// ---------------------------------------------------------------------------
+// Páginas (utils/siteBuilder/pages.ts). La abierta va en la URL
+// (`?pagina=nosotros`), así que recargar o compartir el enlace vuelve a ella.
+// Cada página tiene su borrador, su publicación y su historial; cambiar de
+// página guarda antes lo pendiente de la que se deja.
+// ---------------------------------------------------------------------------
+const route = useRoute()
+const router = useRouter()
+const currentPageKey = ref(sitePageDef(String(route.query.pagina || ''))?.key || 'home')
+const currentPageDef = computed(() => sitePageDef(currentPageKey.value))
+const switchingPage = ref(false)
+
+interface PageStatus {
+  pageKey: string
+  published: boolean
+  version: number
+  publishedAt: string | null
+  hasUnpublishedChanges: boolean
+  untouched: boolean
+}
+// Llega con cada página que se abre (GET de la página); entre medias se
+// actualiza aquí la de la página abierta al editar y al publicar.
+const pageStatuses = ref<PageStatus[]>([])
+function patchCurrentStatus(patch: Partial<PageStatus>) {
+  pageStatuses.value = pageStatuses.value.map((p) => (p.pageKey === currentPageKey.value ? { ...p, untouched: false, ...patch } : p))
+}
+function pageStatus(key: string): { label: string; tone: string; untouched: boolean } {
+  const st = pageStatuses.value.find((p) => p.pageKey === key)
+  const def = sitePageDef(key)
+  if (!st?.published) {
+    // Sin publicar, la web sigue con lo de siempre en esa dirección (y
+    // Servicios, que no existía, no existe todavía).
+    const label = def?.kind === 'home' || key === 'servicios' ? 'Sin publicar' : 'Original'
+    return { label, tone: 'text-stone-400', untouched: st?.untouched ?? true }
+  }
+  if (st.hasUnpublishedChanges) return { label: 'Cambios', tone: 'text-amber-600', untouched: false }
+  return { label: 'Publicada', tone: 'text-emerald-600', untouched: false }
+}
+
+/** La zona dinámica de una página funcional: sólo se mueve. */
+function isCore(block: SiteBlock | null | undefined): boolean {
+  return block?.type === PAGE_CORE_TYPE
+}
+function refuseCore(action: string) {
+  toast.error(`La zona dinámica no se puede ${action}: es lo que hace funcionar esta página.`)
+}
 
 // ---------------------------------------------------------------------------
 // Selección — un solo modelo para todo el editor (Selection Manager):
@@ -466,9 +531,24 @@ const publishing = ref(false)
 // server/api/public/tenant.get.ts) — without one there's no public URL to
 // open a preview of.
 const { data: orgInfo } = await useFetch<any>('/api/admin/active-org-info')
+// La dirección pública de la página abierta. La ficha no tiene una sola: se
+// abre la de la propiedad más reciente, la misma que enseña el lienzo.
+const pagePublicPath = computed(() => {
+  const def = currentPageDef.value
+  if (!def || def.kind === 'home') return '/'
+  if (def.key === 'ficha-propiedad') {
+    const first = previewData.value?.projects?.[0]
+    return first ? `/propiedades/${first.slug || first.id}` : '/propiedades'
+  }
+  return def.path
+})
 // Sin dominio propio, la vista previa del dominio principal (server/utils/sitePreview.ts), sólo para tu equipo.
 const publishedSiteUrl = computed(() =>
-  orgInfo.value?.domain ? `https://${orgInfo.value.domain}/?preview=${pageVersion.value}` : orgInfo.value?.id ? `/?vista_previa=${orgInfo.value.id}` : null,
+  orgInfo.value?.domain
+    ? `https://${orgInfo.value.domain}${pagePublicPath.value}?preview=${pageVersion.value}`
+    : orgInfo.value?.id
+      ? `${pagePublicPath.value}?vista_previa=${orgInfo.value.id}`
+      : null,
 )
 
 const selectedBlock = computed(() => blocks.value.find((b) => b.id === selectedBlockId.value) || null)
@@ -615,6 +695,7 @@ function isHiddenOnDevice(block: SiteBlock, d: 'desktop' | 'tablet' | 'mobile' =
   return block.visibility?.[d] === false
 }
 function setVisible(block: SiteBlock, d: 'desktop' | 'tablet' | 'mobile', visible: boolean) {
+  if (isCore(block)) return refuseCore('ocultar')
   pushUndo()
   block.visibility = { ...block.visibility, [d]: visible }
 }
@@ -743,14 +824,16 @@ function moveBlock(id: string, dir: -1 | 1) {
 function duplicateBlock(id: string) {
   const idx = blocks.value.findIndex((b) => b.id === id)
   if (idx === -1) return
-  pushUndo()
   const original = blocks.value[idx]
+  if (isCore(original)) return refuseCore('duplicar')
+  pushUndo()
   // Copia completa: contenido, opciones comunes y estilos de sus elementos.
   const copy: SiteBlock = { ...JSON.parse(JSON.stringify(original)), id: newBlockId(original.type) }
   blocks.value.splice(idx + 1, 0, copy)
   selectBlock(copy.id)
 }
 async function deleteBlock(id: string) {
+  if (isCore(blockById(id))) return refuseCore('eliminar')
   const ok = await confirm('Esta acción se puede deshacer con Ctrl+Z / el botón Deshacer, pero no se puede recuperar después de publicar.', {
     title: '¿Eliminar este bloque?',
     confirmLabel: 'Eliminar',
@@ -815,6 +898,7 @@ interface DraftResponse {
   version: number
   publishedAt: string | null
   hasUnpublishedChanges: boolean
+  pages: PageStatus[]
 }
 
 onMounted(async () => {
@@ -827,21 +911,88 @@ onMounted(async () => {
     // Corrupted/foreign localStorage value — start clean rather than break the builder over a UI preference.
   }
 
-  const data = await $fetch<DraftResponse>('/api/admin/site-pages/home')
+  // Una `?pagina=` que no está en el catálogo ya se resolvió a la portada.
+  await loadPage(currentPageKey.value)
+})
+
+/**
+ * Carga el borrador de una página en el editor, como si se abriera por
+ * primera vez: sin selección, sin historial de deshacer (es de otra página)
+ * y sin disparar el autoguardado — `loaded` vuelve a true cuando el watcher
+ * ya ha visto los valores nuevos.
+ */
+async function loadPage(key: string) {
+  const data = await $fetch<DraftResponse>(`/api/admin/site-pages/${key}`)
+  loaded = false
+  currentPageKey.value = key
   blocks.value = data.blocks as SiteBlock[]
   seo.title = data.seo?.title || ''
   seo.description = data.seo?.description || ''
-  Object.assign(styles, data.styles || {})
+  replaceStyles(data.styles)
   pageVersion.value = data.version || 0
+  selectBlock(null)
+  closeLibrary()
+  historyOpen.value = false
+  undoStack.length = 0
+  redoStack.length = 0
+  canUndo.value = false
+  canRedo.value = false
+  if (key === 'ficha-propiedad') ensurePreviewData()
+  await nextTick()
   hasUnpublishedChanges.value = data.hasUnpublishedChanges
+  pageStatuses.value = data.pages || []
+  saveState.value = 'idle'
   loaded = true
-})
+}
+
+async function switchPage(key: string) {
+  if (key === currentPageKey.value || switchingPage.value) return
+  switchingPage.value = true
+  try {
+    // Lo pendiente de la página que se deja se guarda antes de irse; si no
+    // se puede guardar, no se cambia de página (no se pierde nada).
+    await flushSave()
+    await loadPage(key)
+    await router.replace({ query: { ...route.query, pagina: key === 'home' ? undefined : key } })
+  } catch {
+    toast.error('No se pudo abrir la página')
+  } finally {
+    switchingPage.value = false
+  }
+}
+
+async function resetPage() {
+  const def = currentPageDef.value
+  if (!def || def.kind === 'home') return
+  const what =
+    def.key === 'servicios'
+      ? '«Servicios» deja de existir en tu web y el borrador vuelve al contenido de partida.'
+      : `Tu web vuelve a enseñar la página «${def.label}» de siempre y el borrador vuelve a ese contenido.`
+  const ok = await confirm(`${what} Las versiones publicadas siguen en el historial.`, {
+    title: '¿Volver a la página original?',
+    confirmLabel: 'Volver a la original',
+    danger: true,
+  })
+  if (!ok) return
+  try {
+    if (saveTimer) {
+      clearTimeout(saveTimer)
+      saveTimer = null
+    }
+    await $fetch<{ ok: true }>(`/api/admin/site-pages/${def.key}`, { method: 'DELETE' })
+    await loadPage(def.key)
+    toast.success('Página restablecida')
+  } catch {
+    toast.error('No se pudo restablecer la página')
+  }
+}
 
 watch(
   [blocks, seo, styles],
   () => {
     if (!loaded) return
     hasUnpublishedChanges.value = true
+    patchCurrentStatus({ hasUnpublishedChanges: true })
     scheduleSave()
   },
   { deep: true },
@@ -857,7 +1008,7 @@ function scheduleSave() {
   saveTimer = setTimeout(async () => {
     saveTimer = null
     try {
-      await $fetch<{ ok: true }>('/api/admin/site-pages/home', { method: 'PUT', body: draftBody() })
+      await $fetch<{ ok: true }>(`/api/admin/site-pages/${currentPageKey.value}`, { method: 'PUT', body: draftBody() })
       saveState.value = 'saved'
     } catch {
       saveState.value = 'error'
@@ -866,19 +1017,25 @@ function scheduleSave() {
   }, 1000)
 }
 
+/** Guarda ya lo que el autoguardado tenga pendiente (antes de publicar o de cambiar de página). */
+async function flushSave() {
+  if (!saveTimer) return
+  clearTimeout(saveTimer)
+  saveTimer = null
+  await $fetch<{ ok: true }>(`/api/admin/site-pages/${currentPageKey.value}`, { method: 'PUT', body: draftBody() })
+  saveState.value = 'saved'
+}
+
 async function publish() {
   publishing.value = true
   try {
     // Flush any pending autosave first so Publish never ships a stale draft.
-    if (saveTimer) {
-      clearTimeout(saveTimer)
-      saveTimer = null
-      await $fetch('/api/admin/site-pages/home', { method: 'PUT', body: draftBody() })
-    }
-    const res = await $fetch<{ ok: true; version: number }>('/api/admin/site-pages/home/publish', { method: 'POST' })
+    await flushSave()
+    const res = await $fetch<{ ok: true; version: number }>(`/api/admin/site-pages/${currentPageKey.value}/publish`, { method: 'POST' })
     pageVersion.value = res.version
     hasUnpublishedChanges.value = false
     saveState.value = 'saved'
+    patchCurrentStatus({ published: true, hasUnpublishedChanges: false, version: res.version })
     toast.success('Publicado')
   } catch {
     toast.error('No se pudo publicar')
@@ -990,11 +1147,12 @@ function sendState() {
       selectedNodeField: previewMode.value ? null : (selectedNode.value?.field ?? null),
       selectedGlobal: previewMode.value ? null : (selectedGlobal.value?.zone ?? null),
       mode: previewMode.value ? 'preview' : 'builder',
+      pageKey: currentPageKey.value,
     },
     window.location.origin,
   )
 }
-watch([blocks, styles, device, selectedBlockId, selectedNode, selectedGlobal, previewMode], sendState, { deep: true })
+watch([blocks, styles, device, selectedBlockId, selectedNode, selectedGlobal, previewMode, currentPageKey], sendState, { deep: true })
 
 function handleMessage(e: MessageEvent) {
   if (e.origin !== window.location.origin) return

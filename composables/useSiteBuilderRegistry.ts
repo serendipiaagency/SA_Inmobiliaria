@@ -10,6 +10,8 @@ import CtaInspector from '~/components/site-builder/inspectors/CtaInspector.vue'
 import TeamInspector from '~/components/site-builder/inspectors/TeamInspector.vue'
 import LeadFormInspector from '~/components/site-builder/inspectors/LeadFormInspector.vue'
 import BookVisitInspector from '~/components/site-builder/inspectors/BookVisitInspector.vue'
+import PageCoreInspector from '~/components/site-builder/inspectors/PageCoreInspector.vue'
+import { PAGE_CORE_LABELS, PAGE_CORE_TYPE, type PageCoreKind } from '~/utils/siteBuilder/pages'
 
 /**
  * The Constructor Web's block catalogue — the single list that drives the
@@ -243,6 +245,10 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
 }
 
 export function blockLabel(type: string): string {
+  // La zona dinámica de una página (utils/siteBuilder/pages.ts) no es un
+  // bloque de la biblioteca —no se añade, viene con la página— y por eso no
+  // está en BLOCK_TYPE_LABELS, que es la lista de lo que se puede añadir.
+  if (type === PAGE_CORE_TYPE) return 'Zona dinámica'
   return BLOCK_TYPE_LABELS[type] || type
 }
 
@@ -294,6 +300,8 @@ export function blockSubtitle(block: { type: string; content?: Record<string, an
       return c.title || 'Bloque de texto libre'
     case 'cta':
       return c.ctaPrimary ? `Botón: "${c.ctaPrimary}"` : 'Llamada a la acción'
+    case PAGE_CORE_TYPE:
+      return `${PAGE_CORE_LABELS[c.core as PageCoreKind] || 'Contenido de la página'} · se rellena solo`
     default:
       return ''
   }
@@ -326,4 +334,5 @@ export const BLOCK_INSPECTORS: Record<string, BlockInspectorEntry> = {
   'book-visit': { component: BookVisitInspector, needsPreviewData: true },
   text: { component: TextInspector },
   cta: { component: CtaInspector },
+  [PAGE_CORE_TYPE]: { component: PageCoreInspector },
 }

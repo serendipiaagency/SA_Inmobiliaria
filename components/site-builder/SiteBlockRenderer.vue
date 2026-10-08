@@ -6,6 +6,10 @@
     <component :is="'style'" v-if="pageCss" :key="cspNonce || 'no-nonce'" :nonce="cspNonce" data-site-page-css :innerHTML="pageCss" />
     <component :is="'link'" v-if="fontsHref" rel="stylesheet" :href="fontsHref" />
     <template v-for="(block, index) in visibleBlocks" :key="block.id">
+      <!-- La zona dinámica de una página funcional (utils/siteBuilder/pages.ts):
+           en la web publicada es la página real que pasa quien nos usa
+           (slot `core`), sin marco ni opciones; en el lienzo, su vista previa. -->
+      <slot v-if="isLiveCore(block)" name="core" />
       <!-- Insert-between affordance — builder-only, zero layout impact when
            not hovered (see .site-gap below), mirrors the "+ Añadir sección
            aquí" insertion point in the Estructura panel so either surface
@@ -24,6 +28,7 @@
       </div>
 
       <SiteBlockFrame
+        v-if="!isLiveCore(block)"
         :block="block"
         :index="index"
         :count="visibleBlocks.length"
@@ -53,6 +58,7 @@
         <BookVisitBlock v-else-if="block.type === 'book-visit'" :content="block.content" :team="homeData?.team || []" :mode="mode" />
         <TextBlock v-else-if="block.type === 'text'" :content="block.content" />
         <CtaBlock v-else-if="block.type === 'cta'" :content="block.content" />
+        <PageCoreBlock v-else-if="block.type === PAGE_CORE_TYPE" :content="block.content" :projects="homeData?.projects || []" :blogs="homeData?.blogs || []" />
         <div v-else-if="mode !== 'production'" class="mx-auto max-w-screen-2xl px-6 py-10 text-sm text-red-500">
           Tipo de bloque desconocido: {{ block.type }}
         </div>
@@ -101,6 +107,8 @@ import LeadFormBlock from './blocks/LeadFormBlock.vue'
 import BookVisitBlock from './blocks/BookVisitBlock.vue'
 import TextBlock from './blocks/TextBlock.vue'
 import CtaBlock from './blocks/CtaBlock.vue'
+import PageCoreBlock from './blocks/PageCoreBlock.vue'
+import { PAGE_CORE_TYPE } from '~/utils/siteBuilder/pages'
 
 /**
  * The one component that turns a page's block array into markup — used
@@ -152,6 +160,11 @@ const emit = defineEmits<{
   'edit-node': [node: SiteNodeRef, text: string]
   'node-action': [node: SiteNodeRef, action: string]
 }>()
+
+/** En la web publicada, la zona dinámica es la página real (slot `core`). */
+function isLiveCore(block: SiteBlock): boolean {
+  return props.mode === 'production' && block.type === PAGE_CORE_TYPE
+}
 
 const visibleBlocks = computed(() =>
   (props.blocks || []).filter((b) => {

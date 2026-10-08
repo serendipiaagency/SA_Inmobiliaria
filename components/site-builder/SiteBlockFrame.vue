@@ -25,15 +25,17 @@
       <button type="button" class="canvas-toolbar-btn" title="Añadir debajo" @click="emit('add-below', block.id)">
         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
       </button>
-      <button type="button" class="canvas-toolbar-btn" title="Duplicar" @click="emit('duplicate', block.id)">
+      <!-- La zona dinámica de una página (utils/siteBuilder/pages.ts) sólo se
+           mueve: no se duplica, no se oculta y no se borra. -->
+      <button v-if="!locked" type="button" class="canvas-toolbar-btn" title="Duplicar" @click="emit('duplicate', block.id)">
         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
       </button>
-      <button type="button" class="canvas-toolbar-btn" :title="hiddenOnDevice ? 'Mostrar' : 'Ocultar en este dispositivo'" @click="emit('toggle-hide', block.id)">
+      <button v-if="!locked" type="button" class="canvas-toolbar-btn" :title="hiddenOnDevice ? 'Mostrar' : 'Ocultar en este dispositivo'" @click="emit('toggle-hide', block.id)">
         <svg v-if="hiddenOnDevice" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.3 20.3 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a20.4 20.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" /></svg>
         <svg v-else class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
       </button>
-      <span class="mx-0.5 h-4 w-px bg-line" />
-      <button type="button" class="canvas-toolbar-btn hover:!bg-red-50 hover:!text-red-600" title="Eliminar" @click="emit('delete', block.id)">
+      <span v-if="!locked" class="mx-0.5 h-4 w-px bg-line" />
+      <button v-if="!locked" type="button" class="canvas-toolbar-btn hover:!bg-red-50 hover:!text-red-600" title="Eliminar" @click="emit('delete', block.id)">
         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16z" /></svg>
       </button>
     </div>
@@ -45,6 +47,7 @@
 <script setup lang="ts">
 import type { SiteBlock } from '~/server/utils/sitePages'
 import { blockLabel } from '~/composables/useSiteBuilderRegistry'
+import { PAGE_CORE_TYPE } from '~/utils/siteBuilder/pages'
 import { NODE_KINDS, nodeId } from '~/utils/siteBuilder/nodes'
 import { SITE_BLOCK_KEY, SITE_EDITOR_KEY, nodeRefFromElement, type SiteNodeRef } from '~/composables/useSiteEditor'
 
@@ -96,6 +99,7 @@ provide(SITE_BLOCK_KEY, {
 })
 
 const hiddenOnDevice = computed(() => props.block.visibility?.[props.device] === false)
+const locked = computed(() => props.block.type === PAGE_CORE_TYPE)
 
 const BACKGROUND_CLASS: Record<string, string> = { paper: 'bg-paper', white: 'bg-white', surface: 'bg-surface', ink: 'bg-ink' }
 const SPACING_REM: Record<string, string> = { sm: '1.5rem', lg: '3rem' }

@@ -3,6 +3,7 @@ import { createError } from 'h3'
 import { schema, now } from './db'
 import { sanitizeNodeStyles, type NodeStyle } from '../../utils/siteBuilder/nodes'
 import { sanitizeGlobalStyles, type SiteGlobalStyles } from '../../utils/siteBuilder/globalStyles'
+import { PAGE_CORE_TYPE, SITE_PAGES, SITE_PAGE_KEYS, seedPageBlocks, sitePageDef } from '../../utils/siteBuilder/pages'
 
 /**
  * The Constructor Web's data model. A page is a flat, ordered array of
@@ -49,6 +50,15 @@ export const DEFAULT_PAGE_KEY = 'home'
 
 export const EMPTY_PAGE: SitePageDocument = { blocks: [], seo: {} }
 
+/**
+ * El primer borrador de una página (utils/siteBuilder/pages.ts): vacío para
+ * la portada, y para las demás lo que la web ya enseña en esa dirección —
+ * así quien abre «Nosotros» en el editor ve su página, no una en blanco.
+ */
+export function seedPageDocument(pageKey: string): SitePageDocument {
+  return { blocks: seedPageBlocks(pageKey) as SiteBlock[], seo: {} }
+}
+
 export function parsePageJson(json: string | null | undefined): SitePageDocument {
   if (!json) return { blocks: [], seo: {} }
   try {
@@ -85,7 +95,7 @@ export async function getOrCreateSitePage(db: any, orgIdInput: number | null, pa
   if (rows[0]) return rows[0]
 
   const nowTs = now()
-  const seedJson = JSON.stringify(EMPTY_PAGE)
+  const seedJson = JSON.stringify(seedPageDocument(pageKey))
   await db.insert(schema.sitePages).values({
     organizationId: orgId,
     pageKey,
@@ -196,7 +206,8 @@ export async function listPageVersions(db: any, orgIdInput: number | null, pageK
     // restorable, so it must still be listed.
     blockCount: r.blockCount ?? 0,
     seoTitle: r.seoTitle ?? null,
-    isCurrent: r.version === page.version,
+    // Una página restablecida (resetSitePage) no sirve ninguna versión.
+    isCurrent: page.publishedJson != null && r.version === page.version,
   }))
 }
 
@@ -236,15 +247,90 @@ export async function restorePageVersion(
   return doc
 }
 
+export interface PublishedSitePage extends SitePageDocument {
+  /**
+   * Si la página tiene una versión publicada. Sin ella, las páginas que ya
+   * existían en la web (Nosotros, Contacto, Propiedades…) siguen con su
+   * contenido de siempre, y Servicios no existe todavía.
+   */
+  published: boolean
+}
+
 /** Public read: only ever the published document, for the resolved tenant. Never falls back to draft. */
-export async function getPublishedPage(db: any, orgIdInput: number | null, pageKey: string): Promise<SitePageDocument> {
+export async function getPublishedPage(db: any, orgIdInput: number | null, pageKey: string): Promise<PublishedSitePage> {
   const orgId = requireOrgId(orgIdInput)
   const rows = await db
     .select({ publishedJson: schema.sitePages.publishedJson })
     .from(schema.sitePages)
     .where(and(eq(schema.sitePages.organizationId, orgId), eq(schema.sitePages.pageKey, pageKey)))
     .limit(1)
-  return parsePageJson(rows[0]?.publishedJson)
+  return { ...parsePageJson(rows[0]?.publishedJson), published: rows[0]?.publishedJson != null }
+}
+
+/**
+ * «Volver a la página original»: el borrador vuelve a la siembra y la web
+ * deja de servir lo publicado (vuelve al contenido de siempre de esa
+ * dirección). Las versiones publicadas se conservan en el historial y se
+ * pueden restaurar. La portada no: sin versión publicada se quedaría en
+ * blanco, porque no tiene un contenido de siempre al que volver.
+ */
+export async function resetSitePage(db: any, orgIdInput: number | null, pageKey: string): Promise<SitePageDocument> {
+  if (sitePageDef(pageKey)?.kind === 'home') {
+    throw createError({ statusCode: 422, statusMessage: 'La portada no tiene una versión original a la que volver' })
+  }
+  const page = await getOrCreateSitePage(db, orgIdInput, pageKey)
+  const doc = seedPageDocument(pageKey)
+  await db
+    .update(schema.sitePages)
+    .set({ draftJson: JSON.stringify(doc), publishedJson: null, publishedAt: null, updatedAt: now() })
+    .where(and(eq(schema.sitePages.organizationId, page.organizationId), eq(schema.sitePages.pageKey, pageKey)))
+  return doc
+}
+
+export interface SitePageStatus {
+  pageKey: string
+  /** Hay una versión publicada sirviéndose en la web. */
+  published: boolean
+  version: number
+  publishedAt: string | null
+  /** El borrador difiere de lo publicado (o hay borrador y nada publicado). */
+  hasUnpublishedChanges: boolean
+  /** Nunca se ha abierto en el editor: su borrador aún no existe. */
+  untouched: boolean
+}
+
+/**
+ * El estado de cada página del catálogo para el panel «Páginas» del editor,
+ * en una sola lectura y sin crear filas: una página que nadie ha abierto
+ * todavía sigue sin fila hasta que se abre.
+ */
+export async function listSitePageStatuses(db: any, orgIdInput: number | null): Promise<SitePageStatus[]> {
+  const orgId = requireOrgId(orgIdInput)
+  const rows = await db
+    .select({
+      pageKey: schema.sitePages.pageKey,
+      draftJson: schema.sitePages.draftJson,
+      publishedJson: schema.sitePages.publishedJson,
+      version: schema.sitePages.version,
+      publishedAt: schema.sitePages.publishedAt,
+    })
+    .from(schema.sitePages)
+    .where(eq(schema.sitePages.organizationId, orgId))
+  const byKey = new Map<string, any>(rows.map((r: any) => [r.pageKey, r]))
+  return SITE_PAGES.map((def) => {
+    const row = byKey.get(def.key)
+    if (!row) return { pageKey: def.key, published: false, version: 0, publishedAt: null, hasUnpublishedChanges: false, untouched: true }
+    const draft = parsePageJson(row.draftJson)
+    const published = row.publishedJson != null ? parsePageJson(row.publishedJson) : null
+    return {
+      pageKey: def.key,
+      published: published != null,
+      version: row.version || 0,
+      publishedAt: row.publishedJson != null ? row.publishedAt : null,
+      hasUnpublishedChanges: JSON.stringify(draft) !== JSON.stringify(published),
+      untouched: false,
+    }
+  })
 }
 
 const MAX_BLOCKS = 200
@@ -256,7 +342,7 @@ const MAX_JSON_BYTES = 500_000
  * page document and not, say, a client bug sending `undefined` or a string.
  * Thrown errors are 422s the builder's autosave surfaces as "no se pudo guardar".
  */
-export function validatePageDocument(input: unknown): SitePageDocument {
+export function validatePageDocument(input: unknown, pageKey?: string): SitePageDocument {
   if (!input || typeof input !== 'object') {
     throw createError({ statusCode: 422, statusMessage: 'Página inválida' })
   }
@@ -292,6 +378,26 @@ export function validatePageDocument(input: unknown): SitePageDocument {
     return block
   })
 
+  // La zona dinámica de una página funcional (utils/siteBuilder/pages.ts):
+  // exactamente una, la de esa página, sin contenido ni opciones propias
+  // (no hay nada que editar en ella: se rellena sola). En el resto de
+  // páginas no puede haber ninguna.
+  if (pageKey) {
+    const def = sitePageDef(pageKey)
+    const cores = blocks.filter((b) => b.type === PAGE_CORE_TYPE)
+    if (def?.kind === 'functional') {
+      if (cores.length !== 1) throw createError({ statusCode: 422, statusMessage: 'La zona dinámica de esta página no se puede quitar ni repetir' })
+      const core = cores[0]
+      if (core.content.core !== def.core) throw createError({ statusCode: 422, statusMessage: 'Zona dinámica de otra página' })
+      core.content = { core: def.core }
+      delete core.style
+      delete core.visibility
+      delete core.nodeStyles
+    } else if (cores.length) {
+      throw createError({ statusCode: 422, statusMessage: 'Esta página no tiene zona dinámica' })
+    }
+  }
+
   const seo: SitePageSeo = {}
   if (raw.seo && typeof raw.seo === 'object') {
     if (raw.seo.title !== undefined) seo.title = String(raw.seo.title).slice(0, 200)
@@ -307,10 +413,10 @@ export function validatePageDocument(input: unknown): SitePageDocument {
   return doc
 }
 
+/** Sólo las páginas del catálogo (utils/siteBuilder/pages.ts); cualquier otra clave es un 404. */
 export function requireValidPageKey(pageKey: string | undefined | null): string {
   const key = String(pageKey || '')
-  // Multi-page is designed for but not built yet — 'home' is the only real key today.
-  if (key !== DEFAULT_PAGE_KEY) {
+  if (!SITE_PAGE_KEYS.includes(key)) {
     throw createError({ statusCode: 404, statusMessage: 'Página no encontrada' })
   }
   return key

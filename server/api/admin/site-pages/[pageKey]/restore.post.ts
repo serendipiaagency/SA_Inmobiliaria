@@ -33,5 +33,5 @@ export default defineEventHandler(async (event) => {
     detail: `restore v${version} al borrador`,
   })
 
-  return { ok: true, version, blocks: doc.blocks, seo: doc.seo }
+  return { ok: true, version, blocks: doc.blocks, seo: doc.seo, styles: doc.styles }
 })

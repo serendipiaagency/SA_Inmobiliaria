@@ -4,7 +4,7 @@
          página y pie, con el mismo fondo — lo que se ve editando es la página
          real, no una versión sin cabecera. -->
     <SiteGlobalZone zone="header" :mode="mode" :selected="selectedGlobal === 'header'" @select="onSelectGlobal">
-      <SiteHeader :tenant-override="tenantOverride" />
+      <SiteHeader :tenant-override="tenantOverride" :overlay="pageKey === 'home'" />
     </SiteGlobalZone>
     <main class="flex-1">
       <SiteBlockRenderer
@@ -56,7 +56,8 @@ import type { SiteNodeRef } from '~/composables/useSiteEditor'
  *
  * `transparentHero` como en la portada pública: la cabecera empieza
  * transparente sobre el hero y se vuelve sólida al hacer scroll, igual que
- * en producción.
+ * en producción. Las demás páginas (`pageKey` distinto de «home») la llevan
+ * fija y sólida, también como en producción.
  */
 definePageMeta({ layout: false, middleware: 'admin', transparentHero: true })
 
@@ -69,6 +70,9 @@ const selectedBlockId = ref<string | null>(null)
 const selectedNodeField = ref<string | null>(null)
 const selectedGlobal = ref<'header' | 'footer' | null>(null)
 const mode = ref<'builder' | 'preview'>('builder')
+// La página que se edita (utils/siteBuilder/pages.ts): sólo la portada lleva
+// la cabecera superpuesta sobre el hero, como en la web publicada.
+const pageKey = ref('home')
 
 // La marca de la organización que se está editando (no la del host del
 // panel): es lo que la cabecera y el pie enseñan en la web publicada.
@@ -122,6 +126,11 @@ function handleMessage(e: MessageEvent) {
     selectedNodeField.value = msg.selectedNodeField ?? null
     selectedGlobal.value = msg.selectedGlobal ?? null
     mode.value = msg.mode === 'preview' ? 'preview' : 'builder'
+    if (typeof msg.pageKey === 'string' && msg.pageKey !== pageKey.value) {
+      pageKey.value = msg.pageKey
+      // Otra página: se empieza por arriba, como al abrirla en la web.
+      window.scrollTo(0, 0)
+    }
   } else if (msg.type === 'scroll-to') {
     // Tras insertar un bloque o elegirlo en Estructura: se lleva a la vista
     // con el DOM ya actualizado, no con el estado de antes.
