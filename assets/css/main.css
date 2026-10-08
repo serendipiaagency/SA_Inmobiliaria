@@ -208,18 +208,10 @@
   }
 }
 
-/* Route transitions — short fade + lift, never a jarring cut */
-.page-enter-active,
-.page-leave-active {
-  transition:
-    opacity 0.22s var(--ease-out),
-    transform 0.22s var(--ease-out);
-}
-.page-enter-from,
-.page-leave-to {
-  opacity: 0;
-  transform: translateY(6px);
-}
+/* El fundido entre páginas (opacidad + 6 px, 0,22 s) ya no es una
+   <Transition> con estas clases: lo hace plugins/page-enter.client.ts con
+   Web Animations, porque la <Transition> out-in dejaba páginas en blanco
+   al navegar rápido (#106). */
 
 /* Mapa oscuro sin clave de CARTO (utils/maps/tiles.ts): las teselas de
    OpenStreetMap invertidas, con el tono girado para que el agua siga siendo

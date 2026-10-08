@@ -72,7 +72,10 @@ export default defineNuxtConfig({
   // for why (docs/production-hardening-audit.md).
   css: ['~/assets/css/main.css'],
   app: {
-    pageTransition: { name: 'page', mode: 'out-in' },
+    // Sin <Transition> entre páginas: con `mode: 'out-in'` y el <Suspense> de
+    // las páginas, navegar mientras otra carga dejaba la nueva sin montar
+    // (página en blanco). El fundido lo hace plugins/page-enter.client.ts.
+    pageTransition: false,
     head: {
       // Static build-time fallback only — every real page overrides this via
       // its own useHead() with the resolved tenant's name (useTenant()).
