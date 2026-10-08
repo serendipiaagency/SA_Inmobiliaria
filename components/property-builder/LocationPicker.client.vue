@@ -6,7 +6,7 @@
 
 <script setup lang="ts">
 import L from 'leaflet'
-import { useLeafletMap, createTileLayer } from '~/composables/useLeafletMap'
+import { useLeafletMap, createTileLayer, createPinIcon } from '~/composables/useLeafletMap'
 
 const props = defineProps<{ lat: number | null | undefined; lng: number | null | undefined }>()
 const emit = defineEmits<{ 'update:lat': [number]; 'update:lng': [number] }>()
@@ -52,7 +52,7 @@ function ensureMarker(latlng: L.LatLng) {
   if (marker) {
     marker.setLatLng(latlng)
   } else {
-    marker = L.marker(latlng, { draggable: true }).addTo(map.value)
+    marker = L.marker(latlng, { draggable: true, icon: createPinIcon(), title: 'Arrastra para ajustar la ubicación' }).addTo(map.value)
     marker.on('dragend', () => emitPosition(marker!.getLatLng()))
   }
 }

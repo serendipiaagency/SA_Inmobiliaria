@@ -1,4 +1,7 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, request as pwRequest } from '@playwright/test'
+import { STATE_A } from './global-setup'
+
+const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8788'
 
 /**
  * Capas base de los mapas (utils/maps/tiles.ts, docs/maps.md). Desde sep-2026
@@ -54,5 +57,38 @@ test.describe('Mapas — capas base sin clave de CARTO', () => {
     expect(requested.some((u) => u.includes('cartocdn'))).toBe(false)
     expect(blockedByCsp).toEqual([])
     await context.close()
+  })
+})
+
+test.describe('Mapas — marcador de un punto', () => {
+  test.use({ storageState: STATE_A })
+
+  test('el editor de ubicación pinta el marcador propio (SVG), nunca la imagen rota «Marker» de Leaflet, y se puede colocar con un clic', async ({ page }) => {
+    const a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
+    const dev = await a.post('/api/admin/developers', { data: { name: `Marcador dev ${Date.now()}`, email: `marcador-${Date.now()}@mm.test`, status: 'active' } })
+    expect(dev.ok()).toBeTruthy()
+    const prop = await a.post('/api/admin/developer-properties', { data: { developerId: (await dev.json()).id, name: `Marcador ${Date.now()}`, status: 'new', price: 500000, lat: 36.5101, lng: -4.9605 } })
+    expect(prop.ok(), await prop.text()).toBeTruthy()
+    const { id } = await prop.json()
+    await a.dispose()
+
+    await page.context().route(/^https:\/\/(tile\.openstreetmap\.org|server\.arcgisonline\.com)\//, (route) => route.fulfill({ status: 200, contentType: 'image/png', body: PNG }))
+    await page.goto(`/admin/developer-properties/${id}`)
+    await page.locator('aside').getByRole('button', { name: 'Ubicación' }).click()
+    await expect(page.locator('.leaflet-container')).toBeVisible({ timeout: 10_000 })
+
+    const pin = page.locator('.leaflet-marker-icon.pi-pin')
+    await expect(pin).toHaveCount(1)
+    await expect(pin.locator('svg')).toBeVisible()
+    await expect(page.locator('img.leaflet-marker-icon')).toHaveCount(0)
+    // Ocupa su sitio de verdad (30×42), no un hueco de imagen rota.
+    const box = (await pin.boundingBox())!
+    expect(Math.round(box.width)).toBe(30)
+    expect(Math.round(box.height)).toBe(42)
+    await expect(pin).toHaveClass(/leaflet-marker-draggable/)
+
+    // Un clic en el mapa mueve el mismo marcador; no aparece otro.
+    await page.locator('.leaflet-container').click({ position: { x: 40, y: 40 } })
+    await expect(pin).toHaveCount(1)
   })
 })

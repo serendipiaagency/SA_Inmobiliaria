@@ -82,6 +82,12 @@ el mismo comentario) en cada componente de mapa:
 - **`createTileLayer(key)`** — las tres capas base (`light`, `dark`,
   `satellite`), con la URL y la atribución que dé `tileSpec` (ver
   «Proveedor»).
+- **`createPinIcon()`** — el marcador de un punto (ficha pública de la
+  propiedad, editor de ubicación): un SVG en línea (`.pi-pin`). **Nunca** el
+  icono por defecto de Leaflet: busca `marker-icon.png` en una ruta que deduce
+  de su CSS, y con los nombres con hash del build la deduce mal. El resultado
+  era una imagen rota con el texto «Marker» (oct-2026). Los mapas con precio
+  (`/mapa`, teaser, `/embed`) ya usaban `divIcon` propios.
 
 `utils/maps/coords.ts` es la segunda pieza — validación de coordenadas, con
 importación explícita porque cruza la frontera servidor/cliente (Nitro no

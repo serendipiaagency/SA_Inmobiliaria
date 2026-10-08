@@ -12,7 +12,7 @@
  * ha comprobado que hay una ubicación real que enseñar.
  */
 import L from 'leaflet'
-import { useLeafletMap, createTileLayer } from '~/composables/useLeafletMap'
+import { useLeafletMap, createTileLayer, createPinIcon } from '~/composables/useLeafletMap'
 
 const props = defineProps<{ lat: number; lng: number; label?: string | null }>()
 
@@ -23,7 +23,7 @@ const { map, onMapReady } = useLeafletMap(el, { zoomControl: true, scrollWheelZo
 onMapReady(() => {
   if (!map.value) return
   createTileLayer('light').addTo(map.value)
-  const marker = L.marker([props.lat, props.lng]).addTo(map.value)
+  const marker = L.marker([props.lat, props.lng], { icon: createPinIcon(), title: props.label || undefined }).addTo(map.value)
   if (props.label) marker.bindPopup(props.label)
 })
 </script>

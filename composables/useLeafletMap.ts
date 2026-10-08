@@ -91,6 +91,24 @@ export function useLeafletMap(container: Ref<HTMLElement | null>, options: L.Map
   return { map, onMapReady }
 }
 
+/**
+ * El marcador de un punto (ficha pública de la propiedad, editor de
+ * ubicación): un SVG en línea, no el icono por defecto de Leaflet. Ese busca
+ * `marker-icon.png` en una ruta que deduce de su CSS, y con los nombres con
+ * hash del build (`marker-icon.2b3e1faf.png`) la deduce mal: el mapa enseñaba
+ * una imagen rota con el texto «Marker». Sin ficheros que cargar, no puede
+ * romperse ni lo bloquea la CSP.
+ */
+export function createPinIcon(): L.DivIcon {
+  return L.divIcon({
+    className: 'pi-pin',
+    html: '<svg width="30" height="42" viewBox="0 0 30 42" aria-hidden="true"><path d="M15 40.5S28 25.6 28 15a13 13 0 1 0-26 0c0 10.6 13 25.5 13 25.5Z" fill="#16150f" stroke="#fff" stroke-width="2"/><circle cx="15" cy="15" r="5" fill="#fff"/></svg>',
+    iconSize: [30, 42],
+    iconAnchor: [15, 41],
+    popupAnchor: [0, -36],
+  })
+}
+
 export type { TileKey }
 
 /**

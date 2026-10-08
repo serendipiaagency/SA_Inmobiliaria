@@ -227,3 +227,14 @@
 .pi-tiles-dark {
   filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.6);
 }
+
+/* Marcador de un punto en los mapas (createPinIcon, composables/useLeafletMap.ts):
+   sin el fondo y el borde blancos que Leaflet pone a sus divIcon. */
+.pi-pin {
+  background: none;
+  border: 0;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+}
+.pi-pin svg {
+  display: block;
+}
