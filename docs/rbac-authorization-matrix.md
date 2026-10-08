@@ -122,10 +122,25 @@ queda fuera: es de la plataforma, no de una empresa. Ver `docs/empresas.md`.
 ## 4. Alineación de menú, páginas y botones
 
 - `utils/adminNav.ts` contiene la navegación **y** el mapa página → área. Lo
-  consumen `layouts/admin.vue` (oculta los grupos sin lectura) y
-  `middleware/admin.ts` (redirige a una página permitida si se escribe la URL
-  a mano). Antes la navegación vivía dentro del layout y no había forma de
-  que el guard de ruta usara la misma tabla.
+  consumen `layouts/admin.vue` (oculta las entradas sin lectura y las
+  categorías que se quedan vacías) y `middleware/admin.ts` (redirige a una
+  página permitida si se escribe la URL a mano). Antes la navegación vivía
+  dentro del layout y no había forma de que el guard de ruta usara la misma
+  tabla.
+- **Categoría ≠ permiso (oct-2026).** Al reorganizar el menú en categorías
+  desplegables, cinco entradas cambiaron de categoría sin cambiar de área:
+  - «Comerciales» está en CRM con área `web`;
+  - «Widgets» está en Portal Web con área `finance`;
+  - «API» y «Marketplace» están en Sistema con área `finance`;
+  - «Blog (legacy)» está en Blog & CMS con área `content`.
+
+  Cada entrada lleva su `area` cuando no es la de su categoría (`itemArea`),
+  así que la tabla de arriba, el guard y el servidor no cambiaron. Una cuenta
+  con sólo `finance` ve, por tanto, «Sistema» con «API» y «Marketplace». La
+  categoría «Contenido» se quedó sin entradas y ya no se pinta, pero el área
+  `content` sigue existiendo. `test/unit/adminNav.test.ts` fija el inventario
+  anterior (67 entradas, cada una con su área) y comprueba que no se pierde
+  ninguna ni cambia de permiso.
 - `composables/useAdminPermissions.ts` expone `canRead` / `canWrite` con las
   mismas funciones del servidor.
 - Las páginas genéricas de recurso ocultan «+ New» y «Delete», y muestran la
