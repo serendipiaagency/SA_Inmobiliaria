@@ -14,6 +14,18 @@ export default defineNuxtConfig({
     buildInfo: resolveBuildInfo(),
   },
   devtools: { enabled: false },
+  experimental: {
+    // Desde Nuxt 3.17, cuando el último componente que usa una clave de
+    // useFetch/useAsyncData se desmonta, Nuxt borra sus datos en el siguiente
+    // tick y desactiva su recarga. Las páginas genéricas del panel
+    // (pages/admin/[resource]) comparten la petición de /api/admin/resources:
+    // pasando rápido de Oficinas a Equipos, al desmontarse Oficinas Nuxt
+    // vaciaba también la de Equipos, que se quedaba sin lista de recursos y
+    // daba «Esta página no existe» (sólo en producción, por la latencia).
+    // Sin la purga, los datos se quedan en memoria hasta la siguiente
+    // petición, como antes de la 3.17.
+    purgeCachedData: false,
+  },
   modules: ['@nuxtjs/tailwindcss', 'nitro-cloudflare-dev', '@nuxt/eslint'],
   // Real bundle-size visibility (P2, docs/production-hardening-audit.md) —
   // opt-in via `npm run analyze` (ANALYZE=1) so a normal build/deploy never

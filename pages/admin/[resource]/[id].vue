@@ -141,11 +141,15 @@ const propertyBuilderResource = computed(() => resource.value as 'developer-prop
 const isOrganization = computed(() => resource.value === 'organizations')
 const isRoutingRule = computed(() => resource.value === 'lead-routing-rules')
 
-const { data: resources } = await useFetch<Record<string, any>>('/api/admin/resources')
+const { data: resources, refresh: refreshResources } = await useFetch<Record<string, any>>('/api/admin/resources')
+// Si la respuesta compartida llega vacía (Nuxt la descartó al desmontarse la
+// página anterior, ver nuxt.config.ts › purgeCachedData), se pide otra vez
+// antes de decidir que el recurso no existe.
+if (!resources.value) await refreshResources()
 const meta = computed(() => resources.value?.[resource.value])
 // Sólo es un 404 si la ruta es de verdad de esta página: al salir de ella
 // hacia otra, la ruta nueva no trae `resource` y no hay nada que reportar.
-if (!meta.value && resourceParam.onThisRoute.value) throw createError({ statusCode: 404, statusMessage: 'Recurso desconocido', fatal: true })
+if (!meta.value && resources.value && resourceParam.onThisRoute.value) throw createError({ statusCode: 404, statusMessage: 'Recurso desconocido', fatal: true })
 useHead({ title: computed(() => `${meta.value?.label || 'Admin'} — M&M Real Estate`) })
 
 // Granular RBAC (bloque 01): read access to the area shows the record,
