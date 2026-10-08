@@ -297,13 +297,21 @@ const collapsed = ref(false)
 const drawer = ref(false)
 const resultsEl = ref<HTMLElement | null>(null)
 
+// Dos cambios seguidos (el precio mínimo y, enseguida, el máximo) no pueden
+// partir de `route.query`: mientras la primera navegación no termina, aún no
+// tiene el primer cambio y el segundo lo pisaba. Cada cambio parte del último
+// pedido.
+let pendingQuery: Record<string, any> | null = null
 function applyPatch(patch: Record<string, any>) {
-  const merged: Record<string, any> = { ...route.query, ...patch }
+  const merged: Record<string, any> = { ...(pendingQuery || route.query), ...patch }
   const query: Record<string, any> = {}
   for (const k of Object.keys(merged)) {
     if (merged[k] != null && merged[k] !== '') query[k] = merged[k]
   }
-  router.push({ query })
+  pendingQuery = query
+  router.push({ query }).finally(() => {
+    if (pendingQuery === query) pendingQuery = null
+  })
 }
 function removeChip(c: CatalogChip) {
   const patch: Record<string, any> = { page: undefined }
