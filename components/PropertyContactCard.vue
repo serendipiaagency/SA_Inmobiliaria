@@ -35,19 +35,28 @@
 
         <div class="pc-field">
           <label class="pc-label" :for="ids.name">{{ t('contactCard.name', 'Nombre') }} <span class="pc-req" aria-hidden="true">*</span></label>
-          <input :id="ids.name" v-model="form.name" class="pc-input" type="text" name="name" autocomplete="name" maxlength="200" required :placeholder="t('contactCard.namePlaceholder', 'Tu nombre')" :aria-invalid="!!errors.name" :aria-describedby="errors.name ? `${ids.name}-e` : undefined" >
+          <span class="pc-input-wrap">
+            <svg class="pc-input-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+            <input :id="ids.name" v-model="form.name" class="pc-input pc-input-with-icon" type="text" name="name" autocomplete="name" maxlength="200" required :placeholder="t('contactCard.namePlaceholder', 'Tu nombre')" :aria-invalid="!!errors.name" :aria-describedby="errors.name ? `${ids.name}-e` : undefined" >
+          </span>
           <p v-if="errors.name" :id="`${ids.name}-e`" class="pc-error">{{ errors.name }}</p>
         </div>
 
         <div class="pc-field pc-row">
           <div>
             <label class="pc-label" :for="ids.email">{{ t('contactCard.email', 'Email') }} <span class="pc-req" aria-hidden="true">*</span></label>
-            <input :id="ids.email" v-model="form.email" class="pc-input" type="email" name="email" autocomplete="email" maxlength="200" required :placeholder="t('contactCard.emailPlaceholder', 'tu@email.com')" :aria-invalid="!!errors.email" :aria-describedby="errors.email ? `${ids.email}-e` : undefined" >
+            <span class="pc-input-wrap">
+              <svg class="pc-input-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3.5 6.5 8.5 6.5 8.5-6.5" /></svg>
+              <input :id="ids.email" v-model="form.email" class="pc-input pc-input-with-icon" type="email" name="email" autocomplete="email" maxlength="200" required :placeholder="t('contactCard.emailPlaceholder', 'tu@email.com')" :aria-invalid="!!errors.email" :aria-describedby="errors.email ? `${ids.email}-e` : undefined" >
+            </span>
             <p v-if="errors.email" :id="`${ids.email}-e`" class="pc-error">{{ errors.email }}</p>
           </div>
           <div>
             <label class="pc-label" :for="ids.phone">{{ t('contactCard.phone', 'Teléfono') }}</label>
-            <input :id="ids.phone" v-model="form.phone" class="pc-input" type="tel" name="phone" autocomplete="tel" maxlength="25" :placeholder="t('contactCard.phonePlaceholder', 'Tu número de teléfono')" :aria-invalid="!!errors.phone" :aria-describedby="errors.phone ? `${ids.phone}-e` : undefined" >
+            <span class="pc-input-wrap">
+              <svg class="pc-input-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
+              <input :id="ids.phone" v-model="form.phone" class="pc-input pc-input-with-icon" type="tel" name="phone" autocomplete="tel" maxlength="25" :placeholder="t('contactCard.phonePlaceholder', 'Tu número de teléfono')" :aria-invalid="!!errors.phone" :aria-describedby="errors.phone ? `${ids.phone}-e` : undefined" >
+            </span>
             <p v-if="errors.phone" :id="`${ids.phone}-e`" class="pc-error">{{ errors.phone }}</p>
           </div>
         </div>
@@ -78,8 +87,8 @@
             {{ t('contactCard.sending', 'Enviando…') }}
           </template>
           <template v-else>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 2.5 10.5 13.5" /><path d="M21.5 2.5 14.5 21.5l-4-8-8-4z" /></svg>
             {{ t('contactCard.submit', 'Enviar mensaje') }}
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 2.5 10.5 13.5" /><path d="M21.5 2.5 14.5 21.5l-4-8-8-4z" /></svg>
           </template>
         </button>
         <p v-if="submitError" class="pc-error pc-error-submit" role="alert" data-testid="property-contact-error">{{ submitError }}</p>
@@ -104,22 +113,21 @@
       </div>
     </template>
 
-    <div class="pc-sep pc-sep-actions" />
     <div class="pc-actions no-print">
       <button type="button" class="pc-action" data-testid="property-contact-pdf" @click="printSheet">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" /></svg>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></svg>
         <span>PDF</span>
       </button>
       <button type="button" class="pc-action" data-testid="property-contact-share" @click="share">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></svg>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" /></svg>
         <span>{{ shared ? t('contactCard.copied', 'Copiado') : t('contactCard.share', 'Compartir') }}</span>
       </button>
       <button type="button" class="pc-action" :class="{ 'pc-action-on': fav }" :aria-pressed="fav" data-testid="property-contact-save" @click="toggleFav(project.id)">
-        <svg width="15" height="15" viewBox="0 0 24 24" :fill="fav ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-4.5-9.3-9.2C1.2 8.7 2.7 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.3 0 4.8 3.2 3.3 6.3C19 16.5 12 21 12 21z" /></svg>
+        <svg width="17" height="17" viewBox="0 0 24 24" :fill="fav ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-4.5-9.3-9.2C1.2 8.7 2.7 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.3 0 4.8 3.2 3.3 6.3C19 16.5 12 21 12 21z" /></svg>
         <span>{{ fav ? t('contactCard.saved', 'Guardada') : t('contactCard.save', 'Guardar') }}</span>
       </button>
       <button type="button" class="pc-action" :class="{ 'pc-action-on': inCompare }" :aria-pressed="inCompare" data-testid="property-contact-compare" @click="compare">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9h14M5 15h14M10 3 8 21M16 3l-2 18" /></svg>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M7 4 4 7M7 4l3 3M17 20V4M17 20l-3-3M17 20l3-3" /></svg>
         <span>{{ t('contactCard.compare', 'Comparar') }}</span>
       </button>
     </div>
@@ -337,8 +345,8 @@ function reset() {
   gap: 12px;
 }
 .pc-avatar {
-  height: 46px;
-  width: 46px;
+  height: 56px;
+  width: 56px;
   flex-shrink: 0;
   border-radius: 9999px;
   object-fit: cover;
@@ -424,7 +432,7 @@ function reset() {
 }
 .pc-input {
   display: block;
-  height: 34px;
+  height: 40px;
   width: 100%;
   border: 1px solid #e3e0d9;
   border-radius: 8px;
@@ -433,6 +441,21 @@ function reset() {
   font-size: 12px;
   color: #1c1b19;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.pc-input-wrap {
+  position: relative;
+  display: block;
+}
+.pc-input-icon {
+  pointer-events: none;
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #a8a39b;
+}
+.pc-input.pc-input-with-icon {
+  padding-left: 34px;
 }
 .pc-input::placeholder {
   font-size: 11px;
@@ -447,7 +470,7 @@ function reset() {
   border-color: #c0573f;
 }
 .pc-textarea {
-  height: 68px;
+  height: 96px;
   min-height: 68px;
   padding: 8px 10px;
   line-height: 1.5;
@@ -494,20 +517,20 @@ function reset() {
 .pc-cta {
   margin-top: 16px;
   display: flex;
-  height: 36px;
+  height: 42px;
   width: 100%;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  border-radius: 8px;
-  background: #1c1b19;
+  border-radius: 9px;
+  background: #1f3a30;
   font-size: 13px;
   font-weight: 600;
   color: #fff;
   transition: background-color 0.15s ease, opacity 0.15s ease;
 }
 .pc-cta:hover:not(:disabled) {
-  background: #000;
+  background: #172d25;
 }
 .pc-cta:disabled {
   cursor: not-allowed;
@@ -564,7 +587,7 @@ function reset() {
 }
 .pc-btn {
   display: flex;
-  height: 36px;
+  height: 40px;
   align-items: center;
   justify-content: center;
   gap: 8px;
@@ -590,9 +613,13 @@ function reset() {
   border-color: #1c1b19;
 }
 .pc-actions {
-  margin-top: 12px;
+  margin-top: 14px;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid #f0e9e0;
+  border-radius: 10px;
+  background: #fdfaf6;
+  padding: 6px 0;
 }
 .pc-action {
   display: flex;

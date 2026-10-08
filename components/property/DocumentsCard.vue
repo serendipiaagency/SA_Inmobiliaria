@@ -1,12 +1,12 @@
 <template>
   <section v-if="files.length" id="documentacion" class="pcard min-w-0" data-testid="public-property-documents">
-    <h2 class="pcard-title">{{ t('propertyDetails.documents.available', 'Documentación disponible') }}</h2>
+    <h2 class="pcard-title">{{ t('ficha.documents', 'Documentación') }}</h2>
     <ul class="mt-2">
-      <li v-for="f in files" :key="f.key" class="flex items-center gap-3 border-b border-[#f1eee8] py-2.5 last:border-0" :data-doc="f.key">
-        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold" :class="f.isImage ? 'bg-sky-50 text-sky-700' : 'bg-[#fbe9dd] text-[#a14f22]'" aria-hidden="true">{{ f.badge }}</span>
+      <li v-for="f in files" :key="f.key" class="flex items-center gap-3 border-b border-[#f1eee8] py-2 last:border-0" :data-doc="f.key">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[9.5px] font-bold" :class="f.isImage ? 'bg-sky-50 text-sky-700' : 'bg-[#fbe9dd] text-[#a14f22]'" aria-hidden="true">{{ f.badge }}</span>
         <span class="min-w-0 flex-1">
-          <span class="block truncate text-[13.5px] font-semibold text-ink">{{ f.title }}</span>
-          <span v-if="f.sub" class="block truncate text-[12px] text-stone-500">{{ f.sub }}</span>
+          <span class="block truncate text-[13px] font-medium text-ink">{{ f.title }}</span>
+          <span v-if="f.sub" class="block truncate text-[11.5px] text-stone-500">{{ f.sub }}</span>
         </span>
         <a v-if="f.viewUrl" :href="f.viewUrl" target="_blank" rel="noopener" class="doc-action" :aria-label="`${t('propertyDetails.documents.view', 'Ver')}: ${f.title}`" data-testid="document-view">{{ t('propertyDetails.documents.view', 'Ver') }}</a>
         <a :href="f.url" :download="f.fileName || ''" rel="noopener" class="doc-action doc-action-icon" :aria-label="`${t('propertyDetails.documents.download', 'Descargar')}: ${f.title}`" :title="t('propertyDetails.documents.download', 'Descargar')" data-testid="document-download">

@@ -52,11 +52,11 @@
           <div v-else-if="g.key === 'price' || g.key === 'area'" class="cf-range">
             <label>
               <span class="cf-mini">{{ t('catalog.min', 'Mínimo') }}</span>
-              <input class="cf-input" type="number" inputmode="numeric" min="0" :placeholder="g.key === 'price' ? '0 €' : '0 m²'" :value="query[g.key === 'price' ? 'minPrice' : 'minArea'] || ''" :data-testid="`catalog-${g.key}-min`" @change="onNumber(g.key === 'price' ? 'minPrice' : 'minArea', ($event.target as HTMLInputElement).value)" >
+              <input v-model="drafts[g.key === 'price' ? 'minPrice' : 'minArea']" class="cf-input" type="number" inputmode="numeric" min="0" :placeholder="g.key === 'price' ? '0 €' : '0 m²'" :data-testid="`catalog-${g.key}-min`" @change="onNumber(g.key === 'price' ? 'minPrice' : 'minArea', ($event.target as HTMLInputElement).value)" >
             </label>
             <label>
               <span class="cf-mini">{{ t('catalog.max', 'Máximo') }}</span>
-              <input class="cf-input" type="number" inputmode="numeric" min="0" :placeholder="t('catalog.noLimit', 'Sin límite')" :value="query[g.key === 'price' ? 'maxPrice' : 'maxArea'] || ''" :data-testid="`catalog-${g.key}-max`" @change="onNumber(g.key === 'price' ? 'maxPrice' : 'maxArea', ($event.target as HTMLInputElement).value)" >
+              <input v-model="drafts[g.key === 'price' ? 'maxPrice' : 'maxArea']" class="cf-input" type="number" inputmode="numeric" min="0" :placeholder="t('catalog.noLimit', 'Sin límite')" :data-testid="`catalog-${g.key}-max`" @change="onNumber(g.key === 'price' ? 'maxPrice' : 'maxArea', ($event.target as HTMLInputElement).value)" >
             </label>
           </div>
 
@@ -219,6 +219,21 @@ function onLocation(v: string) {
 const circle = computed(() => nearbyFromQuery(props.query))
 
 // --- Números ---
+// Lo que se escribe en mínimo/máximo vive aquí hasta confirmarlo. Antes el
+// campo iba ligado a la URL con `:value` y Vue lo reescribe en cada repintado:
+// si llegaban los resultados del mínimo mientras se tecleaba el máximo, lo
+// tecleado se borraba y ese filtro se perdía. Sólo se copia de la URL el
+// valor que cambia en ella (quitar un chip, «Limpiar todo»…).
+const RANGE_KEYS = ['minPrice', 'maxPrice', 'minArea', 'maxArea'] as const
+const drafts = reactive<Record<string, string>>(Object.fromEntries(RANGE_KEYS.map((k) => [k, String(props.query[k] || '')])))
+watch(
+  () => RANGE_KEYS.map((k) => String(props.query[k] || '')),
+  (now, before) => {
+    RANGE_KEYS.forEach((k, i) => {
+      if (now[i] !== before?.[i]) drafts[k] = now[i]
+    })
+  },
+)
 function onNumber(key: string, raw: string) {
   const n = Math.round(Number(raw))
   emit('patch', { [key]: Number.isFinite(n) && n > 0 ? String(n) : undefined, page: undefined })

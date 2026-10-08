@@ -160,6 +160,7 @@
 import { nearbyFromQuery, nearbyQuery, withoutNearby } from '~/utils/publicSearch'
 import { withValidCoords } from '~/utils/maps/coords'
 import { catalogChips, type CatalogChip } from '~/utils/catalogChips'
+import { saveCatalogContext } from '~/utils/catalogContext'
 
 /**
  * Catálogo público (#109): barra de búsqueda con orden y Galería / Mapa,
@@ -228,6 +229,19 @@ const { data, pending } = await useFetch('/api/public/properties', {
 const total = computed(() => data.value?.total ?? 0)
 const totalPages = computed(() => Math.ceil(total.value / (data.value?.perPage || 12)))
 
+// La búsqueda que se está viendo, para «‹ Anterior / Siguiente ›» de la ficha
+// (#111, utils/catalogContext.ts): en esta pestaña y sólo slugs y nombres.
+watch(
+  () => data.value?.rows,
+  (rows) => {
+    if (!import.meta.client || !rows?.length) return
+    const perPage = data.value?.perPage || 12
+    const query = Object.fromEntries(Object.entries(apiQuery.value).filter(([k, v]) => k !== 'page' && typeof v === 'string')) as Record<string, string>
+    saveCatalogContext({ href: route.fullPath, query, perPage, total: total.value, start: (page.value - 1) * perPage, items: (rows as any[]).map((r) => ({ slug: String(r.slug), name: String(r.name || '') })) })
+  },
+  { immediate: true },
+)
+
 // Lo que hay publicado, para los selectores del panel (no encoge al filtrar).
 const { data: facetData } = await useFetch('/api/public/properties', { key: 'catalog-facets', query: { countOnly: '1', facets: 'filters' } })
 const facets = computed(() => (facetData.value as any)?.facets ?? null)
@@ -283,13 +297,21 @@ const collapsed = ref(false)
 const drawer = ref(false)
 const resultsEl = ref<HTMLElement | null>(null)
 
+// Dos cambios seguidos (el precio mínimo y, enseguida, el máximo) no pueden
+// partir de `route.query`: mientras la primera navegación no termina, aún no
+// tiene el primer cambio y el segundo lo pisaba. Cada cambio parte del último
+// pedido.
+let pendingQuery: Record<string, any> | null = null
 function applyPatch(patch: Record<string, any>) {
-  const merged: Record<string, any> = { ...route.query, ...patch }
+  const merged: Record<string, any> = { ...(pendingQuery || route.query), ...patch }
   const query: Record<string, any> = {}
   for (const k of Object.keys(merged)) {
     if (merged[k] != null && merged[k] !== '') query[k] = merged[k]
   }
-  router.push({ query })
+  pendingQuery = query
+  router.push({ query }).finally(() => {
+    if (pendingQuery === query) pendingQuery = null
+  })
 }
 function removeChip(c: CatalogChip) {
   const patch: Record<string, any> = { page: undefined }

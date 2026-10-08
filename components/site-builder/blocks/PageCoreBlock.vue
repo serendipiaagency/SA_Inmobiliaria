@@ -39,28 +39,34 @@
     <div v-else-if="core === 'property-detail'" class="mx-auto max-w-screen-2xl px-6 py-8 lg:px-10">
       <template v-if="sample">
         <p class="text-[12px] text-stone-500">Ejemplo con «{{ sample.name }}»: cada ficha enseña su propiedad.</p>
-        <div class="mt-4 grid gap-3 lg:grid-cols-[2fr_1fr]">
-          <div class="aspect-[16/10] overflow-hidden rounded-2xl bg-stone-100">
-            <img v-if="sample.image" :src="mediaUrl(sample.image)" alt="" class="h-full w-full object-cover" loading="lazy" >
+        <!-- La composición de la ficha (#111): dos columnas desde arriba, como en la web. -->
+        <div class="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.44fr)]">
+          <div class="min-w-0">
+            <div class="aspect-[2.2/1] overflow-hidden rounded-[14px] bg-stone-100">
+              <img v-if="sample.image" :src="mediaUrl(sample.image)" alt="" class="h-full w-full object-cover" loading="lazy" >
+            </div>
+            <div class="mt-2 grid grid-cols-5 gap-2" aria-hidden="true">
+              <div v-for="i in 4" :key="i" class="aspect-[4/3] rounded-lg bg-stone-100" />
+              <div class="aspect-[4/3] rounded-lg bg-[#1f3a30]" />
+            </div>
+            <div class="mt-4 rounded-xl border border-[#ece8e1] bg-white px-4 py-3 text-[12px] text-stone-500">Fotos · Score · Datos clave · Plano · … · Similares</div>
+            <div class="pcard mt-4">
+              <h1 class="heading-serif text-3xl">{{ sample.name }}</h1>
+              <p class="mt-2 text-xl font-semibold">{{ sample.price }}</p>
+              <!-- Las secciones de la ficha en el orden y con la visibilidad de la zona (#110), como saldrán en la web. -->
+              <ol class="mt-5 space-y-1.5" data-testid="page-core-sections-preview">
+                <li v-for="s in fichaSections.visible" :key="s.key" class="flex items-center gap-2 rounded-lg bg-stone-50 px-3 py-2 text-[12.5px] text-stone-600" :data-section="s.key">
+                  <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-stone-300" />{{ s.label }}
+                </li>
+              </ol>
+              <p v-if="fichaSections.hidden" class="mt-2 text-[11.5px] text-stone-400">{{ fichaSections.hidden === 1 ? '1 sección oculta' : `${fichaSections.hidden} secciones ocultas` }} en esta web.</p>
+            </div>
           </div>
-          <div class="hidden gap-3 lg:grid">
-            <div class="rounded-2xl bg-stone-100" />
-            <div class="rounded-2xl bg-stone-100" />
+          <div class="space-y-3 text-[13px] text-stone-500">
+            <div class="pcard"><strong class="text-ink">Precio</strong> y próxima visita disponible</div>
+            <div class="pcard"><strong class="text-ink">Atendido por</strong>, con el comercial de cada propiedad y su formulario</div>
+            <div class="pcard"><strong class="text-ink">Indicadores</strong> y <strong class="text-ink">Decisión rápida</strong>, sólo con datos</div>
           </div>
-        </div>
-        <div class="mt-6 grid gap-8 lg:grid-cols-[2fr_1fr]">
-          <div>
-            <h1 class="heading-serif text-4xl">{{ sample.name }}</h1>
-            <p class="mt-2 text-2xl font-semibold">{{ sample.price }}</p>
-            <!-- Las secciones de la ficha en el orden y con la visibilidad de la zona (#110), como saldrán en la web. -->
-            <ol class="mt-6 space-y-1.5" data-testid="page-core-sections-preview">
-              <li v-for="s in fichaSections.visible" :key="s.key" class="flex items-center gap-2 rounded-lg bg-stone-50 px-3 py-2 text-[12.5px] text-stone-600" :data-section="s.key">
-                <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-stone-300" />{{ s.label }}
-              </li>
-            </ol>
-            <p v-if="fichaSections.hidden" class="mt-2 text-[11.5px] text-stone-400">{{ fichaSections.hidden === 1 ? '1 sección oculta' : `${fichaSections.hidden} secciones ocultas` }} en esta web.</p>
-          </div>
-          <div class="h-40 rounded-2xl border border-line bg-paper p-5 text-sm text-stone-500">Precio, «Atendido por» con el comercial de cada propiedad y su formulario</div>
         </div>
         <div class="mt-8 grid gap-3 border-t border-line pt-6 text-[12px] text-stone-500 sm:grid-cols-2">
           <p><strong class="text-ink">Propiedades similares</strong> · se calculan solas para cada ficha.</p>

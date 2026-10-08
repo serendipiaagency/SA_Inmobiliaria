@@ -120,6 +120,30 @@ test.describe('Catálogo de propiedades', () => {
     await expect(page).toHaveURL(/\/propiedades\/[^?]+$/)
   })
 
+  test('lo que se está escribiendo en un mínimo o máximo no se borra cuando cambia otro filtro', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.goto(`/propiedades?municipality=${encodeURIComponent(CITY)}`)
+    const aside = page.getByTestId('catalog-aside')
+    await expect(page.getByTestId('catalog-total')).toContainText('4')
+    await aside.locator('[data-group="features"] > button').click()
+    await aside.locator('[data-group="price"] > button').click()
+    // El máximo a medio escribir (con el foco en el campo) y, mientras, llega otro filtro que repinta
+    // el panel: un clic por programa marca Terraza sin quitarle el foco al máximo.
+    const max = aside.getByTestId('catalog-price-max')
+    await max.fill('600000')
+    await aside.getByTestId('catalog-feature-terrace').evaluate((el) => (el as HTMLInputElement).click())
+    await expect(page).toHaveURL(/terrace=1/)
+    await expect(page.getByTestId('catalog-total')).toContainText('3')
+    await expect(max).toBeFocused()
+    await expect(max, 'el máximo tecleado sigue ahí').toHaveValue('600000')
+    await max.press('Tab')
+    await expect(page).toHaveURL(/maxPrice=600000/)
+    await expect(page.getByTestId('catalog-total')).toContainText('2')
+    // Quitar el chip del precio vacía el campo.
+    await page.locator('[data-chip="price"] button, [data-chip="price"]').first().click()
+    await expect(aside.getByTestId('catalog-price-max')).toHaveValue('')
+  })
+
   test('panel contraíble (sigue en tres columnas) y vista Mapa con los mismos filtros', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 })
     await page.goto(`/propiedades?municipality=${encodeURIComponent(CITY)}`)

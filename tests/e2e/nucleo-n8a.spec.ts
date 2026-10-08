@@ -35,7 +35,8 @@ test.describe('N8a — comunicaciones web, aperturas, matching exploratorio y da
     a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
     b = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_B })
     // El visitante de la web: sin sesión de nadie.
-    visitor = await pwRequest.newContext({ baseURL: BASE_URL })
+    // IP propia: las visitas a fichas de otras pruebas comparten el límite por IP de /view (#111).
+    visitor = await pwRequest.newContext({ baseURL: BASE_URL, extraHTTPHeaders: { 'cf-connecting-ip': `198.51.100.${(Date.now() % 250) + 3}` } })
     const settings = await (await a.get('/api/admin/comms/settings')).json()
     chatWasEnabled = Boolean(settings.webChatEnabled)
   })

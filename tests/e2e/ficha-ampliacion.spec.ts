@@ -5,7 +5,7 @@ import { buildPng, buildValidPdf } from '../../test/unit/helpers/mediaFixtures'
 /**
  * Ficha pública ampliada (#110): planos del editor (orden, título y
  * visibilidad) con su visor, «Estado del inmueble» y «El edificio» sólo con lo
- * que consta, «Documentación disponible» (Ver / Descargar), la reserva de
+ * que consta, «Documentación» (Ver / Descargar), la reserva de
  * visita desde la ficha (privacidad, «Visita reservada», lead y cita con su
  * propiedad, hora ocupada), la llamada fija a «Solicitar visita», las pestañas
  * de la galería sólo con contenido y las secciones del Constructor.
@@ -191,7 +191,7 @@ test.describe('Ficha ampliada: planos, estado, edificio, documentos y reserva', 
 
     await page.goto(`/propiedades/${full.slug}`)
     const card = page.getByTestId('public-property-documents')
-    await expect(card).toContainText('Documentación disponible')
+    await expect(card).toContainText('Documentación')
     const row = card.locator('li', { hasText: doc.title })
     await expect(row.getByTestId('document-view')).toHaveAttribute('href', /\?ver=1$/)
     await expect(row.getByTestId('document-download')).toHaveAttribute('download', '')
@@ -209,9 +209,10 @@ test.describe('Ficha ampliada: planos, estado, edificio, documentos y reserva', 
     await page.setExtraHTTPHeaders({ 'cf-connecting-ip': ip() })
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(`/propiedades/${full.slug}`)
-    const next = page.getByTestId('next-visit-slot')
+    // En escritorio, la de la columna derecha (la tarjeta de precio del móvil está oculta, #111).
+    const next = page.getByTestId('ficha-aside').getByTestId('next-visit-slot')
     await expect(next).toBeVisible()
-    await expect(page.getByTestId('next-visit-when')).toContainText(first.start.slice(11, 16))
+    await expect(page.getByTestId('ficha-aside').getByTestId('next-visit-when')).toContainText(first.start.slice(11, 16))
     await next.click()
     // Abre ya con esa hora elegida: directamente los datos.
     await expect(page.locator('#book-appt-name')).toBeVisible()
@@ -252,14 +253,14 @@ test.describe('Ficha ampliada: planos, estado, edificio, documentos y reserva', 
     expect((await anon.post(`/api/public/agents/${row.slug}/book`, { headers: { 'cf-connecting-ip': ip() }, data: { name: 'X', email: `x-${RUN}@example.com`, startAt: `${tomorrow} 10:00:00`, privacyAccepted: true } })).status()).toBe(404)
   })
 
-  test('«Solicitar visita» fija: en escritorio al pasar la galería; en móvil, precio y botón bajo la cabecera, sin desbordes', async ({ page }) => {
+  test('«Solicitar visita» fija: en escritorio al final de la columna derecha; en móvil, precio y botón bajo la cabecera, sin desbordes', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(`/propiedades/${full.slug}`)
     await expect(page.locator('h1')).toBeVisible()
-    await expect(page.getByTestId('ficha-desktop-cta')).toHaveCount(0)
-    await page.locator('#ubicacion').scrollIntoViewIfNeeded()
     const cta = page.getByTestId('ficha-desktop-cta')
-    await expect(cta).toBeVisible()
+    // Al bajar por la ficha, la llamada se queda a la vista en la columna derecha.
+    await page.locator('#ubicacion').scrollIntoViewIfNeeded()
+    await expect(cta).toBeInViewport()
     await expect(cta).toContainText(`Ampliación completa ${RUN}`)
     await page.getByTestId('ficha-request-visit').click()
     await expect(page.getByRole('heading', { name: 'Reservar cita' })).toBeVisible()
@@ -329,12 +330,13 @@ test.describe('Ficha ampliada: planos, estado, edificio, documentos y reserva', 
     await expect(web.locator('h1')).toBeVisible()
     await expect(web.locator('#hipoteca')).toHaveCount(0)
     const firstSection = await web.getByTestId('ficha-main').evaluate((main) => {
-      const kids = [...main.children].filter((el) => el.tagName !== 'HEADER' && (el as HTMLElement).offsetHeight > 0)
+      // Las secciones del Constructor: sin la galería, la barra de apartados ni la tarjeta principal (#111).
+      const kids = [...main.children].filter((el) => el.tagName !== 'HEADER' && el.tagName !== 'NAV' && el.id !== 'fotos' && (el as HTMLElement).offsetHeight > 0)
       kids.sort((x, y) => x.getBoundingClientRect().top - y.getBoundingClientRect().top)
       return kids[0]?.id || kids[0]?.querySelector('[id]')?.id || ''
     })
     expect(firstSection, 'Ubicación, la primera tras la cabecera').toBe('ubicacion')
-    const nav = (await web.locator('nav a[href^="#"]').allTextContents()).map((s) => s.trim())
+    const nav = (await web.getByTestId('ficha-section-nav').locator('a[href^="#"]').allTextContents()).map((s) => s.trim())
     expect(nav.slice(0, 2)).toEqual(['Fotos', 'Ubicación'])
     expect(nav).not.toContain('Hipoteca')
     await web.close()
