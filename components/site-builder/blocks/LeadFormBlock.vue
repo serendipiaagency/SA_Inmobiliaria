@@ -73,7 +73,9 @@ import SbButton from '../nodes/SbButton.vue'
  *
  * `subject` lo fija la inmobiliaria en el inspector y viaja con cada envío,
  * así que en el CRM se distingue un lead de este bloque de uno del formulario
- * de contacto general. Es lo único que el bloque añade al payload.
+ * de contacto general. Con «Quién escribe: Propietarios que venden»
+ * (`purpose: 'seller'`) va como `form: 'seller'`: el lead es de captación y
+ * el Contact recibe el rol «Vendedor» (server/api/public/contact.post.ts).
  *
  * El campo de mensaje es obligatorio porque lo es en el endpoint: un
  * formulario que lo escondiera tendría que inventarse un texto para que la
@@ -117,9 +119,10 @@ async function submit() {
       body: {
         ...form,
         type: 'contact',
-        // En la bandeja de Comunicaciones el hilo se etiqueta «Formulario de captación» (núcleo N8a).
-        form: 'lead_form',
-        subject: props.content.subject || 'Formulario de captación',
+        // En la bandeja de Comunicaciones el hilo se etiqueta «Formulario de captación» (núcleo N8a);
+        // el de propietarios que quieren vender, «Vender propiedad»: su lead es de captación.
+        form: props.content.purpose === 'seller' ? 'seller' : 'lead_form',
+        subject: props.content.subject || (props.content.purpose === 'seller' ? 'Vender propiedad' : 'Formulario de captación'),
         language: visitorLanguage(),
       },
     })

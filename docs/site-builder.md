@@ -317,6 +317,17 @@ Restablecer es un `DELETE` y el estado va dentro del `GET`. Se hizo así
 cuando cada ruta nueva rompía el typecheck (TS2589); desde #155
 (`scripts/patch-nitro-route-types.mjs`) ese límite ya no existe.
 
+**Menú de la cabecera.** `utils/siteNav.ts` (`PUBLIC_NAV`) es la única
+lista del menú principal: la usan la cabecera de escritorio, el menú del
+móvil y el lienzo (que pinta el mismo `SiteHeader.vue`). Comprar Propiedad
+lleva a `/propiedades?operacion=venta` (lo que no está en alquiler,
+`server/api/public/properties.get.ts`); Vender Propiedad a `/vender`, una
+página `content` del catálogo que, a diferencia de Servicios, se enseña
+desde el primer día con su siembra (`pages/vender.vue`). Su formulario es un
+`lead-form` con `purpose: 'seller'` → `form: 'seller'`: lead de captación
+(«Vender propiedad»), rol `seller` en el Contact y sin juntarse con un lead
+de comprador de la misma persona (`reuse: 'same_source_detail'`).
+
 **Opciones de una zona dinámica.** La zona no tiene datos que editar, pero
 `PAGE_CORE_OPTIONS` (`utils/siteBuilder/pages.ts`) admite unas pocas
 opciones por zona, que `validatePageDocument` guarda y valida (lo demás se

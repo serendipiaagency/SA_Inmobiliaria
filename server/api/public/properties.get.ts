@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, like, lte, or, sql, type SQL } from 'drizzle-orm'
+import { and, asc, desc, eq, gte, inArray, isNull, like, lte, or, sql, type SQL } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { attachPhotos } from '../../utils/photos'
 import { toPublicProperties } from '../../utils/propertyPrivacy'
@@ -64,6 +64,11 @@ export default defineEventHandler(async (event) => {
   if (postalCode) conds.push(like(P.postalCode, `${postalCode}%`))
   if (query.status) conds.push(eq(P.status, String(query.status)))
   if (String(query.new || '') === '1') conds.push(eq(P.status, 'new'))
+  // Operación (enlace «Comprar Propiedad» de la cabecera, utils/siteNav.ts):
+  // «venta» es lo que no está en alquiler — una promoción sin operación
+  // indicada es una venta, como siempre se ha publicado la obra nueva.
+  if (query.operacion === 'venta') conds.push(or(isNull(P.transactionType), eq(P.transactionType, 'sale'))!)
+  else if (query.operacion === 'alquiler') conds.push(eq(P.transactionType, 'rent'))
   if (query.developerId) conds.push(eq(P.developerId, Number(query.developerId)))
   if (query.type) conds.push(eq(P.propertyType, String(query.type)))
   if (query.orientation) conds.push(eq(P.orientation, String(query.orientation)))

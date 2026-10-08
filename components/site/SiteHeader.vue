@@ -12,16 +12,14 @@
         <Logo size="md" :dark="navLight" :company-name="tenant?.companyName || tenant?.name" :logo-url="mediaUrl(tenant?.logo)" />
       </NuxtLink>
 
-      <nav class="hidden items-center gap-9 text-[11px] font-semibold uppercase tracking-widest2 lg:flex" :class="navLight ? 'text-white/85' : 'text-stone-500'">
-        <NuxtLink to="/propiedades" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.offplan') }}</NuxtLink>
-        <NuxtLink to="/mapa" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.map') }}</NuxtLink>
-        <NuxtLink to="/zonas" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.communities') }}</NuxtLink>
-        <NuxtLink to="/promotoras" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.developers') }}</NuxtLink>
-        <NuxtLink to="/equipo" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.team') }}</NuxtLink>
-        <NuxtLink to="/blog" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'">{{ t('nav.journal') }}</NuxtLink>
+      <!-- Menú principal (utils/siteNav.ts): centrado entre el logo y las acciones.
+           Con los textos completos sólo cabe en una fila desde 1280 px; por debajo,
+           el menú del móvil, sin encoger la letra. -->
+      <nav class="hidden min-w-0 flex-1 items-center justify-center gap-7 whitespace-nowrap text-[11px] font-semibold uppercase tracking-widest2 xl:flex 2xl:gap-9" :class="navLight ? 'text-white/85' : 'text-stone-500'" data-testid="site-nav">
+        <NuxtLink v-for="item in PUBLIC_NAV" :key="item.key" :to="item.to" class="transition" :class="navLight ? 'hover:text-white' : 'hover:text-ink'" :data-nav="item.key">{{ t(item.i18nKey, item.label) }}</NuxtLink>
       </nav>
 
-      <div class="flex items-center gap-4">
+      <div class="flex shrink-0 items-center gap-4">
         <LocaleSwitcher class="hidden md:flex" :dark="navLight" />
         <NuxtLink
           to="/favoritos"
@@ -67,7 +65,7 @@
         >
           {{ t('nav.signin') }}
         </NuxtLink>
-        <button class="lg:hidden" :class="navLight ? 'text-white' : 'text-ink'" aria-label="Menu" @click="open = !open">
+        <button class="xl:hidden" :class="navLight ? 'text-white' : 'text-ink'" aria-label="Menu" :aria-expanded="open" data-testid="site-nav-toggle" @click="open = !open">
           <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
             <path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16" />
           </svg>
@@ -75,14 +73,9 @@
       </div>
     </div>
 
-    <nav v-if="open" class="border-t border-line bg-white px-6 py-5 lg:hidden">
+    <nav v-if="open" class="border-t border-line bg-white px-6 py-5 xl:hidden" data-testid="site-nav-mobile">
       <div class="flex flex-col gap-4 text-[11px] font-semibold uppercase tracking-widest2 text-stone-600">
-        <NuxtLink to="/propiedades" @click="open = false">{{ t('nav.offplan') }}</NuxtLink>
-        <NuxtLink to="/mapa" @click="open = false">{{ t('nav.map') }}</NuxtLink>
-        <NuxtLink to="/zonas" @click="open = false">{{ t('nav.communities') }}</NuxtLink>
-        <NuxtLink to="/promotoras" @click="open = false">{{ t('nav.developers') }}</NuxtLink>
-        <NuxtLink to="/equipo" @click="open = false">{{ t('nav.team') }}</NuxtLink>
-        <NuxtLink to="/blog" @click="open = false">{{ t('nav.journal') }}</NuxtLink>
+        <NuxtLink v-for="item in PUBLIC_NAV" :key="item.key" :to="item.to" :data-nav="item.key" @click="open = false">{{ t(item.i18nKey, item.label) }}</NuxtLink>
         <NuxtLink to="/contacto" @click="open = false">{{ t('nav.contact') }}</NuxtLink>
         <NuxtLink :to="isStaff ? '/admin' : user ? '/mi-cuenta' : '/login'" @click="open = false">
           {{ isStaff ? t('nav.admin') : user ? t('nav.myAccount', 'Mi cuenta') : t('nav.signin') }}
@@ -95,6 +88,7 @@
 
 <script setup lang="ts">
 import type { TenantBranding } from '~/composables/useTenant'
+import { PUBLIC_NAV } from '~/utils/siteNav'
 
 /**
  * `tenantOverride`: el lienzo del Constructor Web pinta esta misma cabecera

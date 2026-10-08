@@ -47,7 +47,7 @@ function statusCode(fn: () => unknown): number | null {
 
 describe('catálogo de páginas', () => {
   it('las siete páginas de la lista del editor, con la portada primero y claves únicas', () => {
-    expect(SITE_PAGES.map((p) => p.label)).toEqual(['Inicio', 'Propiedades', 'Ficha de propiedad', 'Nosotros', 'Servicios', 'Contacto', 'Blog'])
+    expect(SITE_PAGES.map((p) => p.label)).toEqual(['Inicio', 'Propiedades', 'Ficha de propiedad', 'Vender Propiedad', 'Nosotros', 'Servicios', 'Contacto', 'Blog'])
     expect(new Set(SITE_PAGE_KEYS).size).toBe(SITE_PAGE_KEYS.length)
     expect(SITE_PAGES[0].key).toBe('home')
   })
@@ -70,6 +70,7 @@ describe('catálogo de páginas', () => {
     const files: Record<string, string> = {
       propiedades: 'pages/propiedades/index.vue',
       'ficha-propiedad': 'pages/propiedades/[slug].vue',
+      vender: 'pages/vender.vue',
       nosotros: 'pages/nosotros.vue',
       servicios: 'pages/servicios.vue',
       contacto: 'pages/contacto.vue',

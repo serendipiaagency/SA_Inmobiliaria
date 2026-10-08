@@ -70,13 +70,16 @@ export interface UpsertLeadInput {
 export async function findReusableLead(
   db: any,
   orgId: number,
-  input: { email?: string | null; externalId?: string | null; source?: string | null; contactId?: number | null; sameProperty?: { id: number; kind: LeadPropertyKind | null } | null },
+  input: { email?: string | null; externalId?: string | null; source?: string | null; contactId?: number | null; sameProperty?: { id: number; kind: LeadPropertyKind | null } | null; sameSourceDetail?: string | null },
 ): Promise<{ id: number; matchedOn: 'external_id' | 'email' | 'contact' } | null> {
   const base = [eq(schema.leads.organizationId, orgId), isNull(schema.leads.deletedAt)]
   // Una consulta desde la ficha de una propiedad es un interés por ESA
   // propiedad: sólo se reutiliza el lead de la misma persona sobre la misma
   // propiedad. Si pregunta por otra, es otro lead (el Contact sí es el mismo).
   if (input.sameProperty) base.push(eq(schema.leads.propertyId, input.sameProperty.id))
+  // Un propietario que quiere vender es una captación, no una compra: sólo se
+  // reutiliza otra captación suya abierta, nunca su lead de comprador.
+  if (input.sameSourceDetail) base.push(eq(schema.leads.sourceDetail, input.sameSourceDetail))
   if (input.externalId && input.source) {
     const [row] = await db
       .select({ id: schema.leads.id })
@@ -118,8 +121,11 @@ export async function findReusableLead(
  * backfill de la migración 0066 — esto lo corrige hacia delante.
  */
 export interface UpsertLeadOptions {
-  /** 'same_property': reutilizar sólo un lead de la misma propiedad (consultas desde su ficha). */
-  reuse?: 'default' | 'same_property'
+  /**
+   * 'same_property': reutilizar sólo un lead de la misma propiedad (consultas desde su ficha).
+   * 'same_source_detail': sólo uno con el mismo `sourceDetail` (captaciones: «Vender propiedad»).
+   */
+  reuse?: 'default' | 'same_property' | 'same_source_detail'
   /** Si ninguna regla de enrutado asigna el lead, dárselo al comercial responsable de la propiedad. */
   routingFallback?: 'property_responsible'
 }
@@ -149,7 +155,8 @@ export async function upsertLead(event: H3Event, rawInput: UpsertLeadInput, opts
   }
 
   const sameProperty = opts.reuse === 'same_property' && input.propertyId ? { id: input.propertyId, kind: parseLeadPropertyKind(input.propertyKind) } : null
-  const reusable = await findReusableLead(db, input.organizationId, { email: input.email, externalId: input.externalId, source: input.source, contactId, sameProperty })
+  const sameSourceDetail = opts.reuse === 'same_source_detail' ? input.sourceDetail || null : null
+  const reusable = await findReusableLead(db, input.organizationId, { email: input.email, externalId: input.externalId, source: input.source, contactId, sameProperty, sameSourceDetail })
   if (reusable) {
     const [current] = await db.select().from(schema.leads).where(and(eq(schema.leads.id, reusable.id), eq(schema.leads.organizationId, input.organizationId))).limit(1)
     await db

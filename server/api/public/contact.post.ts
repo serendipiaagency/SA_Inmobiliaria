@@ -1,3 +1,4 @@
+import { and, eq } from 'drizzle-orm'
 import { getRequestHeader } from 'h3'
 import { useDb, schema, now, resolvePublicOrgId, cfEnv } from '../../utils/db'
 import { upsertLead } from '../../utils/leads'
@@ -9,6 +10,7 @@ import { getRequestId } from '../../utils/requestId'
 import { readFirstTouch } from '../../utils/firstTouch'
 import { recordWebFormSubmission } from '../../utils/comms/web'
 import { handlePublicWebChat, publicPropertyBySlug, samePagePath } from '../../utils/comms/webPublic'
+import { ensureContactRole } from '../../utils/contacts/crm'
 import { publicLeadLanguage } from '../../utils/leads/captureLanguage'
 
 /**
@@ -39,11 +41,17 @@ import { publicLeadLanguage } from '../../utils/leads/captureLanguage'
  *   - si ninguna regla de enrutado lo asigna, va al comercial responsable de
  *     la propiedad, el que la ficha enseña como «Atendido por».
  *
+ * Formulario de propietarios que quieren vender (`form: 'seller'`, página
+ * «Vender Propiedad»): un lead de captación («Vender propiedad») que sólo se
+ * junta con otra captación abierta de la misma persona —nunca con su lead de
+ * comprador— y el rol «Vendedor» en su Contact.
+ *
  * Para todos los formularios: campo trampa `website` (un bot lo rellena, una
  * persona no lo ve), `submissionId` para que un doble clic no cree dos veces
  * lo mismo, y un tope de tamaño del cuerpo antes de leerlo.
  */
 const MAX_BODY_BYTES = 32 * 1024
+const SELLER_DETAIL = 'Vender propiedad'
 const SUBMISSION_ID = /^[A-Za-z0-9_-]{8,64}$/
 export default defineEventHandler(async (event) => {
   if (getQuery(event).channel === 'chat') return handlePublicWebChat(event)
@@ -63,7 +71,7 @@ export default defineEventHandler(async (event) => {
   }
   const email = requireValidEmail(body.email)
   const type = body.type === 'complaint' ? 'complaint' : 'contact'
-  const form: 'contact' | 'lead_form' | 'property' = body.form === 'lead_form' ? 'lead_form' : body.form === 'property' ? 'property' : 'contact'
+  const form: 'contact' | 'lead_form' | 'property' | 'seller' = body.form === 'lead_form' ? 'lead_form' : body.form === 'property' ? 'property' : body.form === 'seller' ? 'seller' : 'contact'
   if (form === 'property' && body.privacyAccepted !== true) {
     throw createError({ statusCode: 422, statusMessage: 'Tienes que aceptar la política de privacidad' })
   }
@@ -107,15 +115,20 @@ export default defineEventHandler(async (event) => {
         email: String(email).slice(0, 200),
         phone: body.phone ? String(body.phone).slice(0, 50) : null,
         source: 'web',
-        ...(form === 'property' ? { sourceDetail: 'Ficha de propiedad' } : {}),
+        ...(form === 'property' ? { sourceDetail: 'Ficha de propiedad' } : form === 'seller' ? { sourceDetail: SELLER_DETAIL } : {}),
         notes: body.subject ? String(body.subject).slice(0, 300) : null,
         originalMessage: String(message).slice(0, 5000),
         language: publicLeadLanguage(event, body.language),
         ...(property ? { propertyId: property.id, propertyKind: 'developer' as const, propertyName: property.name } : {}),
         ...firstTouch,
-      }, form === 'property' ? { reuse: 'same_property', routingFallback: 'property_responsible' } : {})
+      }, form === 'property' ? { reuse: 'same_property', routingFallback: 'property_responsible' } : form === 'seller' ? { reuse: 'same_source_detail' } : {})
       leadId = lead?.id ?? null
       leadCreated = !!lead?.created
+      // Captación: la persona queda en el CRM como «Vendedor» (rol del Contact, el mismo de Contactos).
+      if (form === 'seller' && leadId) {
+        const [row] = await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId))).limit(1)
+        if (row?.contactId) await ensureContactRole(db, orgId, row.contactId, 'seller', null)
+      }
     } catch {
       // Lead pipeline must never block the visitor's message from being saved.
     }
@@ -142,7 +155,7 @@ export default defineEventHandler(async (event) => {
     }
     // Un lead nuevo ya avisa por su cuenta («lead_created», server/utils/leads.ts):
     // desde la ficha no se manda además el aviso genérico de mensaje.
-    if (!(form === 'property' && leadCreated)) {
+    if (!((form === 'property' || form === 'seller') && leadCreated)) {
       try {
         await sendInternalNotification(db, cfEnv(event), orgId, 'contact_message', { name, email, phone: body.phone, subject: body.subject, message, adminUrl: `${platformBaseUrl(event)}/admin/comunicaciones` }, getRequestId(event))
       } catch {
