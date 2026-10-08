@@ -1,176 +1,131 @@
 <template>
   <SitePageLayout :page="sitePage" :home-data="sitePageData">
-    <div v-if="data" class="bg-paper">
-      <!-- Gallery -->
-      <section id="fotos" ref="heroRef" class="mx-auto max-w-screen-2xl px-6 pt-6 lg:px-10">
-        <MediaGallery
-          :photos="photos"
-          :photo-alts="photoAlts"
-          :name="data.project.name"
-          :master-plan="masterPlan"
-          :video-url="data.project.videoUrl"
-          :drone-photo="dronePhoto"
-          :night-photo="nightPhoto"
-          :before-photo="beforePhoto"
-          :after-photo="afterPhoto"
-          :ai-staged-photo="aiStagedPhoto"
-          :social-media="socialMediaForGallery"
-          :media="publicMedia"
-          :virtual-tour-url="virtualTourUrl"
-          :floor-plans="floorPlans"
-        />
-      </section>
+    <div v-if="data" class="bg-[#faf8f4]">
+      <div class="mx-auto max-w-screen-2xl px-4 pb-14 pt-5 sm:px-6 lg:px-10">
+        <!-- Migas, compartir, comparar y Anterior / Siguiente en el contexto del catálogo (#111). -->
+        <PropertyBreadcrumbs :slug="slug" :name="data.project.name" :project="data.project" />
 
-      <!-- Sticky section nav -->
-      <nav class="no-print sticky top-[73px] z-30 mt-6 border-y border-line bg-paper/95 backdrop-blur">
-        <div class="mx-auto flex max-w-screen-2xl items-center gap-6 px-6 lg:px-10">
-          <!-- Los enlaces se desplazan; el CTA queda fuera, siempre a la vista aunque haya muchas secciones. -->
-          <div class="flex min-w-0 flex-1 items-center gap-6 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <a
-              v-for="s in sections"
-              :key="s.id"
-              :href="`#${s.id}`"
-              class="relative whitespace-nowrap py-4 text-[12px] font-semibold uppercase tracking-widest transition"
-              :class="activeSection === s.id ? 'text-ink' : 'text-stone-500 hover:text-ink'"
-            >
-              {{ s.label }}
-              <span v-if="activeSection === s.id" class="absolute inset-x-0 -bottom-px h-[2px] bg-ink" />
-            </a>
-          </div>
-          <!-- CTA fijo en escritorio (#110): aparece al pasar la galería, sin tapar contenido. -->
-          <div v-if="heroPassed" class="hidden shrink-0 items-center gap-4 border-l border-line py-2 pl-6 lg:flex" data-testid="ficha-desktop-cta">
-            <span class="min-w-0 text-right leading-tight">
-              <span class="block max-w-[240px] truncate text-[13px] font-semibold text-ink">{{ data.project.name }}</span>
-              <span v-if="publicLocation" class="block max-w-[240px] truncate text-[12px] text-stone-500">{{ publicLocation }}</span>
-            </span>
-            <span class="whitespace-nowrap text-[15px] font-bold text-ink">{{ formatPrice(data.project.price) }}</span>
-            <button type="button" class="btn-primary whitespace-nowrap !px-5 !py-2.5" data-testid="ficha-request-visit" @click="requestVisit">{{ t('propertyStickyBar.requestVisit', 'Solicitar visita') }}</button>
-          </div>
-        </div>
-      </nav>
-
-      <div class="mx-auto max-w-screen-2xl px-6 py-10 lg:px-10">
-        <div class="grid grid-cols-1 gap-14 lg:grid-cols-3">
-          <!-- Orden y visibilidad de las secciones: los del Constructor (#110, PAGE_CORE_OPTIONS.sections). La cabecera va siempre primera. -->
-          <div class="flex min-w-0 flex-col gap-20 lg:col-span-2" data-testid="ficha-main">
-            <!-- Header -->
-            <header>
-              <div class="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <div class="flex flex-wrap items-center gap-2">
-                    <span class="border border-line bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest2 text-stone-600">{{ statusLabel }}</span>
-                    <span v-if="data.project.rentalYield" class="rounded-full bg-paper px-3 py-1.5 text-[11px] font-semibold ring-1 ring-line">{{ data.project.rentalYield }}% {{ t('propertyDetails.facts.profitability', 'rentabilidad') }}</span>
-                  </div>
-                  <h1 class="heading-serif mt-4 text-4xl leading-tight [overflow-wrap:anywhere] md:text-5xl">{{ data.project.name }}</h1>
-                  <p class="mt-2 text-[15px] text-stone-500">
-                    <span v-if="data.project.community">{{ data.project.community }}</span>
-                    <span v-if="data.developer" class="mx-2 text-stone-300">·</span>
-                    <span v-if="data.developer">{{ data.developer.name }}</span>
-                  </p>
-                </div>
-                <div class="no-print flex gap-2">
-                  <button class="act2" :class="{ 'act2-on': fav }" @click="toggleFav(data.project.id)"><span v-html="heart" /></button>
-                  <button class="act2" :class="{ 'act2-on': inCompare }" @click="doCompare"><span v-html="scale" /></button>
-                  <button class="act2" @click="doShare">{{ shared ? '✓' : '↗' }}</button>
-                </div>
-              </div>
-              <div class="hairline mt-8 flex flex-wrap gap-x-14 gap-y-5 pt-9">
-                <div v-for="f in facts" :key="f.label"><p class="text-xl font-semibold">{{ f.value }}</p><p class="mt-0.5 text-[11px] font-medium uppercase tracking-widest text-stone-450">{{ f.label }}</p></div>
-              </div>
-              <!-- Móvil y tableta (#110): el precio y «Solicitar visita» justo después de la
-              información principal; en escritorio están en el panel lateral. -->
-              <div class="no-print mt-8 flex items-center justify-between gap-4 rounded-2xl border border-line bg-white p-4 lg:hidden" data-testid="ficha-mobile-price">
-                <div class="min-w-0">
-                  <p class="text-[11px] font-medium uppercase tracking-widest text-stone-450">{{ t('propertyStickyBar.price', 'Precio') }}</p>
-                  <p class="truncate text-2xl font-bold text-ink">{{ formatPrice(data.project.price) }}</p>
-                </div>
-                <button type="button" class="btn-primary shrink-0 !px-5 !py-2.5" data-testid="ficha-mobile-request-visit" @click="requestVisit">{{ t('propertyStickyBar.requestVisit', 'Solicitar visita') }}</button>
-              </div>
-            </header>
-
-            <!-- Serendipia Score -->
-            <section v-if="show('score')" id="score" :style="at('score')">
-              <LazySerendipiaScore hydrate-on-visible :slug="String(route.params.slug)" />
-            </section>
-
-            <!-- Datos clave -->
-            <section v-if="hasQuickFacts && show('datos')" id="datos" :style="at('datos')">
-              <p class="eyebrow !text-amber-700">{{ t('propertyDetails.quickFacts.eyebrow', 'A simple vista') }}</p>
-              <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.quickFacts.heading', 'Datos clave') }}</h2>
-              <div class="mt-7"><QuickFacts :project="data.project" :details="data.details" /></div>
-            </section>
-
-            <!-- Resumen IA -->
-            <section v-if="show('resumen')" id="resumen" :style="at('resumen')">
-              <div class="flex items-center gap-2">
-                <p class="eyebrow !text-indigo-600">{{ t('propertyDetails.aiSummary.eyebrow', 'Resumen inteligente') }}</p>
-              </div>
-              <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.aiSummary.heading', 'Lo que debes saber') }}</h2>
-              <p v-if="data.project.aiSummary" class="mt-5 max-w-3xl text-[15px] leading-[1.9] text-stone-600">{{ data.project.aiSummary }}</p>
-              <div class="mt-7 grid gap-5 sm:grid-cols-2">
-                <div class="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-7">
-                  <p class="mb-4 text-[11px] font-semibold uppercase tracking-widest text-emerald-700">{{ t('propertyDetails.aiSummary.pros', 'Lo mejor') }}</p>
-                  <ul class="space-y-3">
-                    <li v-for="pro in pros" :key="pro" class="flex items-start gap-2.5 text-sm text-stone-700"><span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />{{ pro }}</li>
-                  </ul>
-                </div>
-                <div class="rounded-2xl border border-amber-100 bg-amber-50/50 p-7">
-                  <p class="mb-4 text-[11px] font-semibold uppercase tracking-widest text-amber-700">{{ t('propertyDetails.aiSummary.cons', 'A considerar') }}</p>
-                  <ul class="space-y-3">
-                    <li v-for="c in cons" :key="c" class="flex items-start gap-2.5 text-sm text-stone-700"><span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />{{ c }}</li>
-                  </ul>
-                </div>
-              </div>
-            </section>
-
-            <!-- Análisis de inversión IA -->
-            <section v-if="show('analisis')" id="analisis" :style="at('analisis')">
-              <p class="eyebrow !text-emerald-700">{{ t('propertyDetails.investment.eyebrow', 'Para inversores') }}</p>
-              <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.investment.heading', 'Análisis de inversión') }}</h2>
-              <div class="mt-7">
-                <LazyAIAnalysis
-                  hydrate-on-visible
-                  :slug="String(route.params.slug)"
-                  :price="data.project.price"
-                  :area="data.project.area"
-                  :rental-yield="data.project.rentalYield"
-                />
-              </div>
-            </section>
-
-            <!-- Evolución de precio -->
-            <section v-if="show('precio')" id="precio" :style="at('precio')">
-              <p class="eyebrow !text-emerald-700">{{ t('propertyDetails.priceHistory.eyebrow', 'Histórico') }}</p>
-              <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.priceHistory.heading', 'Evolución de precio') }}</h2>
-              <div class="mt-7"><LazyPriceChart hydrate-on-visible :slug="String(route.params.slug)" /></div>
-            </section>
-
-            <!-- Ask AI -->
-            <section v-if="show('preguntar')" class="no-print" :style="at('preguntar')">
-              <LazyAskAI hydrate-on-visible :slug="String(route.params.slug)" />
-            </section>
-
-            <!-- Descripción -->
-            <section v-if="data.project.description && show('descripcion')" id="descripcion" :style="at('descripcion')">
-              <p class="eyebrow">{{ t('propertyDetails.description.eyebrow', 'Descripción') }}</p>
-              <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.description.heading', 'Sobre esta propiedad') }}</h2>
-              <!-- whitespace-pre-line keeps line breaks from descriptions written before the
-              rich-text editor existed (plain text, no tags); v-html renders real formatting
-              for anything saved since (bold/italic/lists/links) — both read correctly here. -->
-              <!-- eslint-disable-next-line vue/no-v-html -->
-              <div
-                class="prose-description mt-5 max-w-3xl whitespace-pre-line text-[15px] leading-[1.9] text-stone-600 [&_a]:text-accent-700 [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_ul]:list-disc [&_ul]:pl-5"
-                v-html="data.project.description"
+        <!-- Dos columnas desde arriba (#111): el contenido a la izquierda (≈⅔) y la información comercial a la derecha (≈⅓). -->
+        <div class="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.44fr)] lg:gap-8">
+          <!-- Orden y visibilidad de las secciones: los del Constructor (#110, PAGE_CORE_OPTIONS.sections) con `order`.
+          Galería, barra de apartados y tarjeta principal van siempre delante; en el móvil, el precio y
+          «Solicitar visita» se intercalan como pide la referencia. -->
+          <div class="flex min-w-0 flex-col gap-5" data-testid="ficha-main">
+            <section id="fotos" ref="heroRef" class="order-[-6] scroll-mt-28">
+              <MediaGallery
+                :photos="photos"
+                :photo-alts="photoAlts"
+                :name="data.project.name"
+                :status-label="statusLabel"
+                :master-plan="masterPlan"
+                :video-url="data.project.videoUrl"
+                :drone-photo="dronePhoto"
+                :night-photo="nightPhoto"
+                :before-photo="beforePhoto"
+                :after-photo="afterPhoto"
+                :ai-staged-photo="aiStagedPhoto"
+                :social-media="socialMediaForGallery"
+                :media="publicMedia"
+                :virtual-tour-url="virtualTourUrl"
+                :floor-plans="floorPlans"
               />
             </section>
 
-            <!-- Amenities -->
-            <section v-if="data.amenities.length && show('comodidades')" id="comodidades" :style="at('comodidades')">
-              <p class="eyebrow">{{ t('propertyDetails.amenities.eyebrow', 'Servicios del edificio') }}</p>
-              <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.amenities.heading', 'Comodidades') }}</h2>
-              <ul class="mt-7 grid gap-x-10 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-                <li v-for="a in data.amenities" :key="a.id" class="flex items-center gap-3 text-[15px] text-stone-600"><span class="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />{{ a.name }}</li>
+            <!-- Móvil y tableta: el precio y la próxima visita justo después de la galería. -->
+            <div class="order-[-5] lg:hidden" data-testid="ficha-mobile-price">
+              <PropertyPriceCard :slug="slug" :project="data.project" :agent-slug="agentSlug" @book="(start) => openVisit('in_person', start)" @video="openVisit('video')" />
+            </div>
+
+            <!-- Tarjeta principal: estado, título, ubicación pública, cifras y características destacadas. -->
+            <header id="principal" class="pcard order-[-4] scroll-mt-28 !p-5 sm:!p-6" data-testid="ficha-summary">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="eyebrow">{{ statusLabel }}</span>
+                <span v-if="data.project.rentalYield" class="rounded-full bg-[#eef6f0] px-3 py-1 text-[11px] font-semibold text-emerald-800">{{ data.project.rentalYield }}% {{ t('propertyDetails.facts.profitability', 'rentabilidad') }}</span>
+              </div>
+              <h1 class="mt-3 text-[28px] font-bold leading-[1.15] tracking-tight text-ink [overflow-wrap:anywhere] sm:text-[34px] xl:text-[40px]">{{ data.project.name }}</h1>
+              <p v-if="locationLine" class="mt-3 flex items-start gap-2 text-[14px] text-stone-500" data-testid="ficha-location">
+                <svg class="mt-0.5 shrink-0 text-stone-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.3a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.7" r="2.5" /></svg>
+                <span class="min-w-0 [overflow-wrap:anywhere]">{{ locationLine }}</span>
+              </p>
+
+              <ul v-if="keyFacts.length" class="ficha-facts mt-6" data-testid="ficha-key-facts">
+                <li v-for="f in keyFacts" :key="f.key" class="ficha-fact" :data-fact="f.key">
+                  <!-- SVG fijo de utils/featureIcons.ts, nunca datos -->
+                  <span class="shrink-0 text-stone-400" aria-hidden="true" v-html="featureIconSvg(f.key, 22)" />
+                  <span class="min-w-0">
+                    <span class="block text-[16px] font-bold leading-tight text-ink">{{ f.value }}</span>
+                    <span class="mt-0.5 block text-[11.5px] leading-snug text-stone-500">{{ f.label }}</span>
+                  </span>
+                </li>
               </ul>
+
+              <div v-if="datosInHeader" id="datos" class="mt-6 scroll-mt-28 border-t border-[#f1eee8] pt-6">
+                <h2 class="pcard-title">{{ t('ficha.features', 'Características destacadas') }}</h2>
+                <div class="mt-4"><QuickFacts :project="data.project" :details="data.details" variant="features" :exclude="['propertyType', 'yearBuilt']" /></div>
+              </div>
+            </header>
+
+            <!-- Móvil: «Solicitar visita» después de los datos clave. -->
+            <div class="order-[-3] lg:hidden">
+              <button type="button" class="btn-visit w-full" data-testid="ficha-mobile-request-visit" @click="requestVisit">{{ t('propertyStickyBar.requestVisit', 'Solicitar visita') }}</button>
+            </div>
+
+            <!-- Barra de apartados: debajo de las miniaturas en escritorio; fija al desplazarse. -->
+            <nav class="no-print sticky top-[73px] z-30 order-[-3] rounded-xl border border-[#ece8e1] bg-white/95 px-2 shadow-[0_1px_2px_rgba(28,27,25,0.04)] backdrop-blur lg:order-[-5]" :aria-label="t('ficha.sections', 'Apartados de la ficha')" data-testid="ficha-section-nav">
+              <div class="flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <a
+                  v-for="s in sections"
+                  :key="s.id"
+                  :href="`#${s.id}`"
+                  class="relative whitespace-nowrap px-2 py-3.5 text-[12.5px] transition"
+                  :class="activeSection === s.id ? 'font-semibold text-ink' : 'text-stone-500 hover:text-ink'"
+                  :aria-current="activeSection === s.id ? 'location' : undefined"
+                >
+                  {{ s.label }}
+                  <span v-if="activeSection === s.id" class="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-ink" />
+                </a>
+              </div>
+            </nav>
+
+            <!-- Características destacadas en su propia tarjeta, si en el Constructor se colocaron más abajo. -->
+            <section v-if="hasQuickFacts && show('datos') && !datosInHeader" id="datos" class="pcard min-w-0 scroll-mt-28" :style="at('datos')">
+              <h2 class="pcard-title">{{ t('ficha.features', 'Características destacadas') }}</h2>
+              <div class="mt-4"><QuickFacts :project="data.project" :details="data.details" variant="features" :exclude="['propertyType', 'yearBuilt']" /></div>
+            </section>
+
+            <!-- Descripción con «Ver más» y los puntos destacados (editoriales o de datos reales). -->
+            <section v-if="data.project.description && show('descripcion')" id="descripcion" class="pcard min-w-0 scroll-mt-28" :style="at('descripcion')" data-testid="ficha-description">
+              <div class="grid grid-cols-1 gap-6" :class="{ 'xl:grid-cols-[minmax(0,1fr)_minmax(0,0.42fr)]': highlights.items.length }">
+                <div class="min-w-0">
+                  <h2 class="pcard-title">{{ t('propertyDetails.description.eyebrow', 'Descripción') }}</h2>
+                  <!-- whitespace-pre-line keeps line breaks from descriptions written before the
+                  rich-text editor existed (plain text, no tags); v-html renders real formatting
+                  for anything saved since (bold/italic/lists/links) — both read correctly here. -->
+                  <!-- eslint-disable-next-line vue/no-v-html -->
+                  <div
+                    ref="descEl"
+                    class="desc mt-3 whitespace-pre-line text-[14px] leading-[1.8] text-stone-500 [&_a]:text-accent-700 [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5"
+                    :class="{ 'desc-clamped': !descOpen && descOverflows }"
+                    data-testid="ficha-description-text"
+                    v-html="data.project.description"
+                  />
+                  <button v-if="descOverflows" type="button" class="peach-btn mt-4" :aria-expanded="descOpen" data-testid="ficha-description-more" @click="descOpen = !descOpen">
+                    {{ descOpen ? t('ficha.readLess', 'Ver menos') : t('ficha.readMore', 'Ver más') }}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                  </button>
+                </div>
+                <ul v-if="highlights.items.length" class="self-start rounded-xl border border-[#dcefe2] bg-[#f1f9f3] p-5" :data-source="highlights.source" data-testid="ficha-highlights">
+                  <li v-for="h in highlights.items" :key="h" class="flex items-start gap-3 py-1.5 text-[13.5px] text-stone-600">
+                    <svg class="mt-0.5 shrink-0 text-emerald-600" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m8 12.3 2.7 2.7L16 9.7" /></svg>
+                    <span class="min-w-0 [overflow-wrap:anywhere]">{{ h }}</span>
+                  </li>
+                </ul>
+              </div>
+            </section>
+
+            <!-- Serendipia Score -->
+            <section v-if="show('score')" id="score" class="min-w-0 scroll-mt-28" :style="at('score')">
+              <SerendipiaScore :slug="slug" />
             </section>
 
             <!-- Plano de la vivienda y Estado del inmueble (#110): los planos del
@@ -181,49 +136,76 @@
               <PropertyFactsCard anchor="estado" testid="property-condition" :title="t('facts.conditionHeading', 'Estado del inmueble')" :rows="conditionFacts" />
             </div>
 
-            <!-- El edificio (separado de la vivienda) y Documentación disponible (#110). -->
-            <div v-if="(buildingFacts.length || publicDocs.length) && show('edificio-documentacion')" class="grid grid-cols-1 items-start gap-5" :class="{ 'xl:grid-cols-2': buildingFacts.length && publicDocs.length }" :style="at('edificio-documentacion')">
-              <PropertyFactsCard anchor="edificio" testid="property-building" :title="t('facts.buildingHeading', 'El edificio')" :rows="buildingFacts" :columns="publicDocs.length ? 1 : 2" />
+            <!-- El edificio (separado de la vivienda) y Documentación (#110). -->
+            <div v-if="(buildingFacts.length || publicDocs.length) && show('edificio-documentacion')" class="grid grid-cols-1 items-start gap-5" :class="{ 'xl:grid-cols-[1.25fr_1fr]': buildingFacts.length && publicDocs.length }" :style="at('edificio-documentacion')">
+              <PropertyFactsCard anchor="edificio" testid="property-building" :title="t('facts.buildingHeading', 'El edificio')" :rows="buildingFacts" :columns="2" />
               <PropertyDocumentsCard :documents="publicDocs" />
             </div>
 
+            <!-- Amenities -->
+            <PropertySectionCard v-if="data.amenities.length && show('comodidades')" id="comodidades" :title="t('propertyDetails.amenities.heading', 'Comodidades')" :style="at('comodidades')">
+              <ul class="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+                <li v-for="a in data.amenities" :key="a.id" class="flex items-center gap-3 text-[14px] text-stone-600"><span class="h-1.5 w-1.5 shrink-0 rounded-full bg-[#e8792b]" />{{ a.name }}</li>
+              </ul>
+            </PropertySectionCard>
+
             <!-- Campos personalizados que la agencia marcó «visible en la web pública» (FASE 0). Los internos nunca llegan aquí. -->
-            <section v-if="data.customFields?.length && show('mas-informacion')" id="mas-informacion" data-testid="property-public-custom-fields" :style="at('mas-informacion')">
-              <p class="eyebrow">{{ t('propertyDetails.customFields.eyebrow', 'Más detalles') }}</p>
-              <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.customFields.heading', 'Más información') }}</h2>
-              <dl class="mt-7 grid gap-x-10 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+            <PropertySectionCard v-if="data.customFields?.length && show('mas-informacion')" id="mas-informacion" data-testid="property-public-custom-fields" :title="t('propertyDetails.customFields.heading', 'Más información')" :style="at('mas-informacion')">
+              <dl class="grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div v-for="f in data.customFields" :key="f.key">
-                  <dt class="text-[12px] uppercase tracking-wide text-stone-400">{{ f.label }}</dt>
-                  <dd class="mt-1 text-[15px] text-stone-700">{{ f.display }}</dd>
+                  <dt class="text-[12px] text-stone-400">{{ f.label }}</dt>
+                  <dd class="mt-0.5 text-[14px] font-medium text-ink">{{ f.display }}</dd>
                 </div>
               </dl>
-            </section>
+            </PropertySectionCard>
 
             <!-- Units -->
-            <section v-if="data.unitTypes.length && show('tipologias')" id="tipologias" :style="at('tipologias')">
-              <p class="eyebrow">{{ t('propertyDetails.units.eyebrow', 'Residencias') }}</p>
-              <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.units.heading', 'Tipologías disponibles') }}</h2>
-              <div class="mt-7 overflow-hidden rounded-2xl border border-line bg-white">
+            <PropertySectionCard v-if="data.unitTypes.length && show('tipologias')" id="tipologias" :title="t('propertyDetails.units.heading', 'Tipologías disponibles')" :style="at('tipologias')">
+              <div class="overflow-x-auto rounded-xl border border-[#ece8e1]">
                 <table class="w-full text-left text-sm">
-                  <thead><tr class="border-b border-line bg-paper text-[11px] uppercase tracking-widest text-stone-450"><th class="px-6 py-4 font-semibold">{{ t('propertyDetails.units.type', 'Tipo') }}</th><th class="px-6 py-4 font-semibold">{{ t('propertyDetails.units.unit', 'Unidad') }}</th><th class="px-6 py-4 font-semibold">{{ t('propertyDetails.units.size', 'Superficie') }}</th></tr></thead>
-                  <tbody><tr v-for="u in data.unitTypes" :key="u.id" class="border-b border-line/60 last:border-0"><td class="px-6 py-4 font-medium">{{ u.propertyType }}</td><td class="px-6 py-4 text-stone-600">{{ u.unitType }}</td><td class="px-6 py-4 text-stone-600">{{ u.size }}</td></tr></tbody>
+                  <thead><tr class="border-b border-[#ece8e1] bg-[#faf8f4] text-[11px] uppercase tracking-widest text-stone-450"><th class="px-5 py-3 font-semibold">{{ t('propertyDetails.units.type', 'Tipo') }}</th><th class="px-5 py-3 font-semibold">{{ t('propertyDetails.units.unit', 'Unidad') }}</th><th class="px-5 py-3 font-semibold">{{ t('propertyDetails.units.size', 'Superficie') }}</th></tr></thead>
+                  <tbody><tr v-for="u in data.unitTypes" :key="u.id" class="border-b border-[#f1eee8] last:border-0"><td class="px-5 py-3 font-medium">{{ u.propertyType }}</td><td class="px-5 py-3 text-stone-600">{{ u.unitType }}</td><td class="px-5 py-3 text-stone-600">{{ u.size }}</td></tr></tbody>
                 </table>
               </div>
-            </section>
+            </PropertySectionCard>
+
+            <!-- Lo que debes saber: el resumen guardado y lo que dicen los datos (sin frases de relleno). -->
+            <PropertySectionCard v-if="hasResumen && show('resumen')" id="resumen" :title="t('propertyDetails.aiSummary.heading', 'Lo que debes saber')" :style="at('resumen')">
+              <p v-if="data.project.aiSummary" class="max-w-3xl text-[14px] leading-[1.8] text-stone-600">{{ data.project.aiSummary }}</p>
+              <div v-if="pros.length || cons.length" class="grid gap-4 sm:grid-cols-2" :class="{ 'mt-5': data.project.aiSummary }">
+                <div v-if="pros.length" class="rounded-xl border border-[#dcefe2] bg-[#f1f9f3] p-5">
+                  <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-emerald-700">{{ t('propertyDetails.aiSummary.pros', 'Lo mejor') }}</p>
+                  <ul class="space-y-2.5">
+                    <li v-for="pro in pros" :key="pro" class="flex items-start gap-2.5 text-sm text-stone-700"><span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />{{ pro }}</li>
+                  </ul>
+                </div>
+                <div v-if="cons.length" class="rounded-xl border border-[#f6e3cf] bg-[#fdf6ee] p-5">
+                  <p class="mb-3 text-[12px] font-semibold uppercase tracking-widest text-[#b4572a]">{{ t('propertyDetails.aiSummary.cons', 'A considerar') }}</p>
+                  <ul class="space-y-2.5">
+                    <li v-for="c in cons" :key="c" class="flex items-start gap-2.5 text-sm text-stone-700"><span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#e8792b]" />{{ c }}</li>
+                  </ul>
+                </div>
+              </div>
+            </PropertySectionCard>
+
+            <!-- Análisis de inversión -->
+            <PropertySectionCard v-if="show('analisis')" id="analisis" :title="t('propertyDetails.investment.heading', 'Análisis de inversión')" :style="at('analisis')">
+              <LazyAIAnalysis hydrate-on-visible :slug="slug" :price="data.project.price" :area="data.project.area" :rental-yield="data.project.rentalYield" />
+            </PropertySectionCard>
+
+            <!-- Evolución de precio -->
+            <PropertySectionCard v-if="show('precio')" id="precio" :title="t('propertyDetails.priceHistory.heading', 'Evolución de precio')" :style="at('precio')">
+              <LazyPriceChart hydrate-on-visible :slug="slug" />
+            </PropertySectionCard>
 
             <!-- Servicios cercanos -->
-            <section v-if="show('servicios')" id="servicios" :style="at('servicios')">
-              <p class="eyebrow !text-teal-700">{{ t('propertyDetails.lifestyle.eyebrow', 'El entorno') }}</p>
-              <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.lifestyle.heading', 'Estilo de vida') }}</h2>
-              <p class="mt-3 max-w-2xl text-[13px] text-stone-500">{{ t('propertyDetails.lifestyle.subtitle', 'Datos reales del entorno, obtenidos de OpenStreetMap dentro de un radio de 2 km.') }}</p>
-              <div class="mt-7"><LazyLifestyleBlock hydrate-on-visible :slug="String(route.params.slug)" /></div>
-            </section>
+            <PropertySectionCard v-if="show('servicios')" id="servicios" :title="t('propertyDetails.lifestyle.heading', 'Estilo de vida')" :subtitle="t('propertyDetails.lifestyle.subtitle', 'Datos reales del entorno, obtenidos de OpenStreetMap dentro de un radio de 2 km.')" :style="at('servicios')">
+              <LazyLifestyleBlock hydrate-on-visible :slug="slug" />
+            </PropertySectionCard>
 
             <!-- Ubicación / mapa -->
-            <section v-if="show('ubicacion')" id="ubicacion" :style="at('ubicacion')">
-              <p class="eyebrow !text-blue-700">{{ t('propertyDetails.location.eyebrow', 'Ubicación') }}</p>
-              <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.location.heading', 'Dónde está') }}</h2>
-              <div class="relative mt-7 h-80 overflow-hidden rounded-2xl border border-line">
+            <PropertySectionCard v-if="show('ubicacion')" id="ubicacion" :title="t('propertyDetails.location.heading', 'Dónde está')" :style="at('ubicacion')">
+              <div class="relative h-80 overflow-hidden rounded-xl border border-[#ece8e1]">
                 <ClientOnly>
                   <PropertyLocationMap v-if="hasValidCoords(data.project)" :lat="data.project.lat" :lng="data.project.lng" :label="data.project.community || data.project.name" />
                   <template v-else>
@@ -241,87 +223,101 @@
                   </template>
                 </ClientOnly>
               </div>
-            </section>
+            </PropertySectionCard>
 
             <!-- Sol y orientación -->
-            <section v-if="show('orientacion')" id="orientacion" :style="at('orientacion')">
-              <p class="eyebrow !text-amber-700">{{ t('propertyDetails.orientation.eyebrow', 'Luz natural') }}</p>
-              <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.orientation.heading', 'Sol y orientación') }}</h2>
-              <div class="mt-7 rounded-2xl border border-amber-100 bg-amber-50/40 p-6 sm:p-8">
-                <LazySunOrientation hydrate-on-visible :orientation="data.project.orientation" :lat="data.project.lat" :lng="data.project.lng" />
-              </div>
+            <PropertySectionCard v-if="show('orientacion')" id="orientacion" :title="t('propertyDetails.orientation.heading', 'Sol y orientación')" :style="at('orientacion')">
+              <LazySunOrientation hydrate-on-visible :orientation="data.project.orientation" :lat="data.project.lat" :lng="data.project.lng" />
+            </PropertySectionCard>
+
+            <!-- Hipoteca y costes: la calculadora y el coste mensual estimado de esta vivienda. -->
+            <PropertySectionCard v-if="show('hipoteca')" id="hipoteca" :title="t('propertyDetails.mortgage.heading', 'Hipoteca y costes')" :style="at('hipoteca')">
+              <LazyMortgageCalculator hydrate-on-visible :price="data.project.price || 0" :rental-yield="data.project.rentalYield" :status="data.project.status" />
+              <PropertyMonthlyCost class="mt-5" :price="data.project.price" :service-charge-annual="data.project.serviceChargeAnnual" :details="data.details" />
+            </PropertySectionCard>
+
+            <!-- Pregúntale -->
+            <section v-if="show('preguntar')" class="no-print min-w-0" :style="at('preguntar')">
+              <LazyAskAI hydrate-on-visible :slug="slug" />
             </section>
 
-            <!-- Decoración / Home Staging IA -->
-            <section v-if="show('staging')" class="no-print" :style="at('staging')">
-              <p class="eyebrow !text-indigo-600">{{ t('propertyDetails.staging.eyebrow', 'Imagina tu hogar') }}</p>
-              <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.staging.heading', 'Visualiza el potencial') }}</h2>
-              <div class="mt-7 grid gap-5 sm:grid-cols-2">
-                <div v-for="s in staging" :key="s.title" class="group relative overflow-hidden rounded-2xl border border-line bg-white">
-                  <div class="aspect-[16/10] overflow-hidden bg-stone-100"><img :src="photos[s.i % photos.length]" class="h-full w-full object-cover transition duration-700 group-hover:scale-105" ></div>
-                  <div class="flex items-center justify-between p-5">
-                    <div><p class="font-serif text-lg font-medium">{{ s.title }}</p><p class="text-[13px] text-stone-500">{{ s.desc }}</p></div>
-                    <NuxtLink to="/contacto" class="shrink-0 rounded-full bg-indigo-600 px-4 py-2 text-[11px] font-semibold uppercase tracking-widest text-white">{{ t('propertyDetails.staging.generate', 'Generar') }}</NuxtLink>
+            <!-- Visualiza el potencial -->
+            <PropertySectionCard v-if="show('staging') && photos.length" class="no-print" :title="t('propertyDetails.staging.heading', 'Visualiza el potencial')" :style="at('staging')">
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div v-for="s in staging" :key="s.title" class="group relative overflow-hidden rounded-xl border border-[#ece8e1] bg-white">
+                  <div class="aspect-[16/10] overflow-hidden bg-stone-100"><img :src="photos[s.i % photos.length]" alt="" class="h-full w-full object-cover transition duration-700 group-hover:scale-105" loading="lazy" ></div>
+                  <div class="flex items-center justify-between gap-3 p-4">
+                    <div class="min-w-0"><p class="text-[15px] font-semibold">{{ s.title }}</p><p class="text-[13px] text-stone-500">{{ s.desc }}</p></div>
+                    <NuxtLink to="/contacto" class="shrink-0 rounded-full bg-[#fdf1e7] px-4 py-2 text-[12px] font-semibold text-[#b4572a]">{{ t('propertyDetails.staging.generate', 'Generar') }}</NuxtLink>
                   </div>
                 </div>
               </div>
-            </section>
-
-            <!-- Hipoteca -->
-            <section v-if="show('hipoteca')" id="hipoteca" :style="at('hipoteca')">
-              <p class="eyebrow !text-emerald-700">{{ t('propertyDetails.mortgage.eyebrow', 'Financiación') }}</p>
-              <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.mortgage.heading', 'Hipoteca y costes') }}</h2>
-              <div class="mt-7"><LazyMortgageCalculator hydrate-on-visible :price="data.project.price || 0" :rental-yield="data.project.rentalYield" :status="data.project.status" /></div>
-            </section>
+            </PropertySectionCard>
 
             <!-- Historia / timeline -->
-            <section v-if="show('historia')" id="historia" :style="at('historia')">
-              <p class="eyebrow">{{ t('propertyDetails.history.eyebrow', 'Trayectoria') }}</p>
-              <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.history.heading', 'Historia del inmueble') }}</h2>
-              <div class="mt-10">
-                <LazyPropertyTimeline
-                  hydrate-on-visible
-                  :published-at="data.project.publishedAt"
-                  :status="data.project.status"
-                  :construction-percentage="data.project.constructionPercentage"
-                  :handover-date="data.project.handoverDate"
-                />
-              </div>
-            </section>
+            <PropertySectionCard v-if="show('historia')" id="historia" :title="t('propertyDetails.history.heading', 'Historia del inmueble')" :style="at('historia')">
+              <LazyPropertyTimeline hydrate-on-visible :published-at="data.project.publishedAt" :status="data.project.status" :construction-percentage="data.project.constructionPercentage" :handover-date="data.project.handoverDate" />
+            </PropertySectionCard>
           </div>
 
-          <!-- Sidebar -->
-          <!-- No es sticky entero (#110): es más alto que la pantalla y su final quedaba
-          inalcanzable. La llamada a «Solicitar visita» queda fija en la barra de secciones. -->
-          <aside class="min-w-0">
-            <div class="space-y-6">
-              <div id="contacto" ref="contactRef">
-                <PropertyDecisionPanel :slug="String(route.params.slug)" :project="data.project" :agent="data.agent" :details="(data as any).details" />
-              </div>
-              <div v-if="data.developer" class="rounded-2xl border border-line bg-white p-8">
-                <p class="eyebrow mb-4">{{ t('propertyDetails.developer.eyebrow', 'Promotora') }}</p>
-                <div class="flex items-center gap-4">
-                  <div class="flex h-14 w-14 items-center justify-center border border-line bg-paper">
-                    <img v-if="data.developer.logo" :src="mediaUrl(data.developer.logo)" class="max-h-10 object-contain" >
-                    <span v-else class="font-serif text-xl">{{ data.developer.name.charAt(0) }}</span>
-                  </div>
-                  <p class="font-serif text-lg font-medium leading-tight">{{ data.developer.name }}</p>
+          <!-- Columna derecha (#111): precio y próxima visita, «Atendido por» con el formulario,
+          indicadores, decisión rápida y promotora. Al final, la llamada a «Solicitar visita»
+          queda fija mientras se lee el resto de la ficha (sin tapar nada de la columna). -->
+          <aside class="flex min-w-0 flex-col gap-5" data-testid="ficha-aside">
+            <div class="hidden lg:block">
+              <PropertyPriceCard :slug="slug" :project="data.project" :agent-slug="agentSlug" @book="(start) => openVisit('in_person', start)" @video="openVisit('video')" />
+            </div>
+            <div id="contacto" ref="contactRef" class="scroll-mt-28">
+              <PropertyContactCard :project="data.project" :agent="data.agent" />
+            </div>
+            <PropertyIndicatorsCard :slug="slug" />
+            <PropertyQuickDecisionCard :slug="slug" />
+            <div v-if="data.developer" class="pcard" data-testid="ficha-developer">
+              <span class="eyebrow">{{ t('propertyDetails.developer.eyebrow', 'Promotora') }}</span>
+              <div class="mt-4 flex items-center gap-4">
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-[#ece8e1] bg-[#faf8f4]">
+                  <img v-if="data.developer.logo" :src="mediaUrl(data.developer.logo)" :alt="data.developer.name" class="max-h-8 max-w-[40px] object-contain" >
+                  <span v-else class="text-lg font-bold">{{ data.developer.name.charAt(0) }}</span>
                 </div>
-                <p v-if="data.developer.description" class="mt-4 text-[13px] leading-relaxed text-stone-500">{{ data.developer.description }}</p>
+                <p class="min-w-0 text-[16px] font-bold leading-tight [overflow-wrap:anywhere]">{{ data.developer.name }}</p>
+              </div>
+              <p v-if="data.developer.description" class="mt-3 text-[13px] leading-relaxed text-stone-500">{{ data.developer.description }}</p>
+            </div>
+            <div class="no-print sticky top-[89px] hidden lg:block" data-testid="ficha-desktop-cta">
+              <div class="pcard flex items-center gap-4 !p-4">
+                <span class="min-w-0 flex-1 leading-tight">
+                  <span class="block truncate text-[13px] font-semibold text-ink">{{ data.project.name }}</span>
+                  <span class="mt-0.5 block text-[16px] font-bold text-ink">{{ formatPrice(data.project.price) }}</span>
+                </span>
+                <button type="button" class="btn-visit shrink-0 !px-5" data-testid="ficha-request-visit" @click="requestVisit">{{ t('propertyStickyBar.requestVisit', 'Solicitar visita') }}</button>
               </div>
             </div>
           </aside>
         </div>
       </div>
 
-      <!-- Propiedades similares -->
-      <div id="similares" class="no-print hairline mx-auto max-w-screen-2xl px-6 py-14 pt-14 lg:px-10">
-        <p class="eyebrow">{{ t('propertyDetails.similar.eyebrow', 'Alternativas') }}</p>
-        <h2 class="heading-serif mt-3 text-3xl">{{ t('propertyDetails.similar.heading', 'Propiedades similares') }}</h2>
-        <div class="mt-8"><LazySimilarProperties hydrate-on-visible :slug="String(route.params.slug)" :show-featured="coreOptions.showFeatured !== false" :featured-title="coreOptions.featuredTitle || ''" /></div>
+      <!-- Propiedades similares (y, debajo, las destacadas) -->
+      <div id="similares" class="no-print mx-auto max-w-screen-2xl scroll-mt-28 px-4 pb-16 sm:px-6 lg:px-10">
+        <div class="pcard !p-6">
+          <h2 class="pcard-title">{{ t('propertyDetails.similar.heading', 'Propiedades similares') }}</h2>
+          <div class="mt-5"><LazySimilarProperties hydrate-on-visible :slug="slug" :show-featured="coreOptions.showFeatured !== false" :featured-title="coreOptions.featuredTitle || ''" /></div>
+        </div>
       </div>
 
       <PropertyStickyBar :price="formatPrice(data.project.price)" :visible="showMobileBar" @request="requestVisit" />
+
+      <BookAppointmentModal
+        v-if="agentSlug"
+        class="no-print"
+        :open="visitModal.open"
+        :agent-slug="agentSlug"
+        :agent-name="data.agent?.name"
+        :property-id="data.project.id"
+        :property-name="data.project.name"
+        :channel="visitModal.channel"
+        :initial-slot="visitModal.slot"
+        @close="visitModal.open = false"
+      />
     </div>
   </SitePageLayout>
 </template>
@@ -333,10 +329,13 @@ import { PROPERTY_TYPE_LABELS } from '~/utils/propertySheet'
 import { buildQuickFacts } from '~/utils/quickFacts'
 import { buildingRows, conditionRows, type PublicDocument } from '~/utils/propertyFacts'
 import type { PublicFloorPlan } from '~/utils/floorPlans'
+import { featureIconSvg } from '~/utils/featureIcons'
+import { derivedPros, fichaHighlights } from '~/utils/fichaHighlights'
 import { PAGE_CORE_TYPE, fichaSectionLayout } from '~/utils/siteBuilder/pages'
 
 const route = useRoute()
 const { t } = useI18n()
+const slug = computed(() => String(route.params.slug))
 const { data } = await useFetch(`/api/public/properties/${route.params.slug}`)
 if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Project not found', fatal: true })
 // Página «Ficha de propiedad» del Constructor Web: la plantilla de todas las
@@ -399,35 +398,17 @@ useHead({
   script: [{ type: 'application/ld+json', innerHTML: JSON.stringify(jsonLd.value) }],
 })
 
-const { isFavorite, toggle: toggleFav, load: loadFav } = useFavorites()
-const { has: hasCompare, toggle: toggleCompare, load: loadCompare } = useCompare()
-onMounted(() => { loadFav(); loadCompare() })
+// La visita a la ficha se cuenta al pintarse en el navegador (#111): es lo
+// que enseñan los Indicadores («visitas esta semana»). Antes sólo se llamaba
+// con un enlace personal y las visitas normales no se contaban. El servidor
+// no repite la misma persona en 30 minutos y limita por IP.
 // Núcleo N8a (FASE 32): una ficha abierta desde el enlace personal que se le
-// envió a alguien por email o por el chat (`?f=<token>`) lo registra al
-// pintarse en el navegador; el servidor sólo lo cuenta si el token es de esta
-// agencia y de esta propiedad. Sin `f`, nada cambia.
+// envió a alguien por email o por el chat (`?f=<token>`) lo registra además;
+// el servidor sólo lo cuenta si el token es de esta agencia y de esta propiedad.
 onMounted(() => {
   const f = typeof route.query.f === 'string' ? route.query.f : ''
-  if (f) $fetch(`/api/public/properties/${encodeURIComponent(String(route.params.slug))}/view`, { method: 'POST', body: { f } }).catch(() => {})
+  $fetch(`/api/public/properties/${encodeURIComponent(slug.value)}/view`, { method: 'POST', body: f ? { f } : {} }).catch(() => {})
 })
-const fav = computed(() => isFavorite(data.value!.project.id))
-const inCompare = computed(() => hasCompare(data.value!.project.id))
-function doCompare() {
-  const p = data.value!.project
-  toggleCompare({ id: p.id, slug: p.slug, name: p.name, cover: p.coverImage, price: p.price })
-}
-const shared = ref(false)
-async function doShare() {
-  const url = location.href
-  try {
-    if (navigator.share) await navigator.share({ title: data.value!.project.name, url })
-    else await navigator.clipboard.writeText(url)
-    shared.value = true
-    setTimeout(() => (shared.value = false), 1600)
-  } catch {
-    // Share sheet cancelled by the user, or clipboard permission denied — not an error to surface.
-  }
-}
 
 // La galería ya llega filtrada del servidor: sólo fotos publicables, no
 // privadas y no ocultas, en su orden (FASE 7). El alt de cada foto, si lo
@@ -450,7 +431,7 @@ const photos = computed<string[]>(() => galleryRows.value.map((g) => mediaUrl(g.
 const photoAlts = computed<string[]>(() => galleryRows.value.map((g, i) => g.alt || g.title || `${data.value?.project.name || ''} ${i + 1}`.trim()))
 const publicMedia = computed<any[]>(() => ((data.value as any)?.media as any[]) || [])
 const virtualTourUrl = computed<string | null>(() => ((data.value as any)?.details?.virtualTourUrl as string) || null)
-// Documentación disponible (#110): los PDF publicables de la multimedia y los documentos «Público» (sin caducar).
+// Documentación (#110): los PDF publicables de la multimedia y los documentos «Público» (sin caducar).
 const publicDocs = computed<PublicDocument[]>(() => [
   ...publicMedia.value.filter((m) => m.mediaType === 'pdf').map((m) => ({ key: `m${m.id}`, title: m.title || t('propertyDetails.documents.brochure', 'Folleto'), typeLabel: m.caption || null, mimeType: 'application/pdf', url: m.url })),
   ...((((data.value as any)?.documents as any[]) || []).map((d) => ({ key: `d${d.id}`, title: d.title, typeLabel: d.docTypeLabel, mimeType: d.mimeType, sizeBytes: d.sizeBytes, url: d.url, isDocument: true }))),
@@ -468,65 +449,64 @@ const aiStagedPhoto = computed(() => (data.value?.project.aiStagedPhoto ? mediaU
 
 const p = computed(() => data.value!.project)
 const statusLabel = computed(() => ({ new: t('propertyDetails.status.new', 'Obra nueva'), under_construction: t('propertyDetails.status.underConstruction', 'En construcción'), ready: t('propertyDetails.status.ready', 'Listo para entrar') }[p.value.status as string] || p.value.status))
+// La ubicación pública (la privacidad ya quitó portal, planta y número en el
+// servidor) y la promotora, como en la referencia: «Residencial … · Promotora».
+const locationLine = computed(() => [p.value.community || (p.value as any).city, data.value?.developer?.name].filter(Boolean).join(' · '))
+const agentSlug = computed<string | null>(() => (data.value as any)?.agent?.slug || null)
 
 // Orden y visibilidad de las secciones que se configuran en el Constructor
-// (#110). Sin configuración, el orden de partida de FICHA_SECTIONS.
+// (#110). Sin configuración, el orden de partida de FICHA_SECTIONS (#111).
 const layout = computed(() => fichaSectionLayout(coreOptions.value.sections))
 const show = (key: string) => !layout.value.hidden.has(key)
 const at = (key: string) => ({ order: layout.value.order[key] })
 
-// La barra de secciones sigue el mismo orden: Fotos primero y Similares al final.
-const sections = computed(() => {
-  const items: { id: string; key: string; label: string; when?: boolean }[] = [
-    { id: 'score', key: 'score', label: t('propertyDetails.nav.score', 'Score') },
-    { id: 'datos', key: 'datos', label: t('propertyDetails.nav.quickFacts', 'Datos clave'), when: hasQuickFacts.value },
-    { id: 'resumen', key: 'resumen', label: t('propertyDetails.nav.aiSummary', 'Resumen IA') },
-    { id: 'analisis', key: 'analisis', label: t('propertyDetails.nav.analysis', 'Análisis') },
-    { id: 'precio', key: 'precio', label: t('propertyDetails.nav.price', 'Precio') },
-    { id: 'plano', key: 'plano-estado', label: t('propertyDetails.nav.floorPlan', 'Plano'), when: floorPlans.value.length > 0 },
-    { id: 'estado', key: 'plano-estado', label: t('propertyDetails.nav.condition', 'Estado'), when: conditionFacts.value.length > 0 },
-    { id: 'edificio', key: 'edificio-documentacion', label: t('propertyDetails.nav.building', 'Edificio'), when: buildingFacts.value.length > 0 },
-    { id: 'documentacion', key: 'edificio-documentacion', label: t('propertyDetails.nav.documents', 'Documentación'), when: publicDocs.value.length > 0 },
-    { id: 'servicios', key: 'servicios', label: t('propertyDetails.nav.services', 'Servicios') },
-    { id: 'ubicacion', key: 'ubicacion', label: t('propertyDetails.nav.location', 'Ubicación') },
-    { id: 'orientacion', key: 'orientacion', label: t('propertyDetails.nav.sun', 'Sol') },
-    { id: 'hipoteca', key: 'hipoteca', label: t('propertyDetails.nav.mortgage', 'Hipoteca') },
-    { id: 'historia', key: 'historia', label: t('propertyDetails.nav.history', 'Historia') },
-  ]
+// Los mismos datos que pinta QuickFacts (sin el tipo ni el año, que van en la fila de cifras).
+const typeLabel = usePropertyTypeLabel()
+const hasQuickFacts = computed(() => buildQuickFacts(p.value, (data.value as any)?.details, t, typeLabel).some((f) => f.key !== 'propertyType' && f.key !== 'yearBuilt'))
+// «Características destacadas» va dentro de la tarjeta principal, como en la
+// referencia, mientras sea la primera sección; si en el Constructor se movió
+// más abajo, sale en su propia tarjeta en ese puesto.
+const datosInHeader = computed(() => {
+  if (!hasQuickFacts.value || !show('datos')) return false
   const { order, hidden } = layout.value
-  const middle = items.filter((s) => s.when !== false && !hidden.has(s.key)).sort((a, b) => (order[a.key] || 0) - (order[b.key] || 0))
-  return [
-    { id: 'fotos', label: t('propertyDetails.nav.photos', 'Fotos') },
-    ...middle.map(({ id, label }) => ({ id, label })),
-    { id: 'similares', label: t('propertyDetails.nav.similar', 'Similares') },
-  ]
+  return Object.keys(order).every((k) => k === 'datos' || hidden.has(k) || order[k] > order.datos)
 })
 
-// Los mismos datos que pinta QuickFacts: sin ninguno, ni sección ni pestaña.
-const typeLabel = usePropertyTypeLabel()
-const hasQuickFacts = computed(() => buildQuickFacts(p.value, (data.value as any)?.details, t, typeLabel).length > 0)
-
-const facts = computed(() => {
-  const out: { label: string; value: string }[] = []
-  if (p.value.bedrooms != null) out.push({ label: t('propertyDetails.facts.bedrooms', 'Habitaciones'), value: p.value.bedrooms ? String(p.value.bedrooms) : t('card.studio', 'Estudio') })
-  if (p.value.bathrooms != null) out.push({ label: t('propertyDetails.facts.bathrooms', 'Baños'), value: String(p.value.bathrooms) })
-  if (p.value.area) out.push({ label: t('propertyDetails.facts.area', 'Superficie'), value: `${Math.round(p.value.area)} m²` })
-  if (p.value.energyRating) out.push({ label: t('propertyDetails.facts.energyRating', 'Eficiencia'), value: p.value.energyRating })
-  if (p.value.orientation) out.push({ label: t('propertyDetails.facts.orientation', 'Orientación'), value: p.value.orientation })
+// Las cifras bajo el título (#111): icono, valor y etiqueta; sólo lo que consta.
+const keyFacts = computed(() => {
+  const out: { key: string; value: string; label: string }[] = []
+  const pr = p.value
+  if (pr.bedrooms != null) out.push({ key: 'bedrooms', value: pr.bedrooms ? String(pr.bedrooms) : t('card.studio', 'Estudio'), label: pr.bedrooms === 1 ? t('ficha.bedroom', 'Habitación') : t('propertyDetails.facts.bedrooms', 'Habitaciones') })
+  if (pr.bathrooms != null) out.push({ key: 'bathrooms', value: String(pr.bathrooms), label: pr.bathrooms === 1 ? t('ficha.bathroom', 'Baño') : t('propertyDetails.facts.bathrooms', 'Baños') })
+  if (pr.area) out.push({ key: 'area', value: `${Math.round(pr.area)} m²`, label: t('propertyDetails.facts.area', 'Superficie') })
+  if (pr.energyRating) out.push({ key: 'energyRating', value: pr.energyRating, label: t('ficha.energyRating', 'Eficiencia energética') })
+  if (pr.orientation) out.push({ key: 'orientation', value: pr.orientation, label: t('propertyDetails.facts.orientation', 'Orientación') })
+  if (pr.propertyType) out.push({ key: 'propertyType', value: typeLabel(pr.propertyType), label: t('quickFacts.type', 'Tipo') })
+  if (pr.yearBuilt) out.push({ key: 'yearBuilt', value: String(pr.yearBuilt), label: t('quickFacts.yearBuilt', 'Año de construcción') })
   return out
 })
 
+// Descripción: «Ver más» sólo si el texto no cabe en las líneas de partida.
+const descEl = ref<HTMLElement | null>(null)
+const descOpen = ref(false)
+const descOverflows = ref(false)
+function measureDescription() {
+  const el = descEl.value
+  if (!el) return
+  const prev = el.classList.contains('desc-clamped')
+  el.classList.add('desc-clamped')
+  descOverflows.value = el.scrollHeight > el.clientHeight + 2
+  if (!prev) el.classList.remove('desc-clamped')
+}
+// Los puntos destacados del bloque verde: los «Puntos clave» de la agencia o, sin ellos, los de datos reales.
+const highlights = computed(() => fichaHighlights(p.value as any, t))
+
+// «Lo que debes saber»: sólo lo que dicen los datos (antes, sin datos, salían
+// frases de relleno como «Ubicación privilegiada»); sin nada, no hay sección.
+// Sin repetir lo que ya enseña el recuadro verde de la descripción.
 const pros = computed(() => {
-  const o: string[] = []
-  if (p.value.hasPool) o.push(t('propertyDetails.pros.pool', 'Piscina en la comunidad'))
-  if (p.value.orientation && ['S', 'SW', 'SE'].includes(p.value.orientation)) o.push(t('propertyDetails.pros.southFacing', 'Muy luminoso — orientación sur'))
-  if (p.value.energyRating && ['A', 'B'].includes(p.value.energyRating)) o.push(`${t('propertyDetails.pros.energyEfficient', 'Alta eficiencia energética')} (${p.value.energyRating})`)
-  if (p.value.rentalYield != null && p.value.rentalYield >= 6.5) o.push(`${t('propertyDetails.pros.yield', 'Rentabilidad destacada')} (${p.value.rentalYield}%)`)
-  if (p.value.hasGarage) o.push(t('propertyDetails.pros.garage', 'Plaza de garaje incluida'))
-  if (p.value.hasGarden) o.push(t('propertyDetails.pros.garden', 'Jardín privado'))
-  if (p.value.status === 'ready') o.push(t('propertyDetails.pros.readyToMoveIn', 'Listo para entrar a vivir'))
-  if (p.value.accessible) o.push(t('propertyDetails.pros.accessible', 'Vivienda accesible'))
-  return o.length ? o.slice(0, 6) : [t('propertyDetails.pros.defaultLocation', 'Ubicación privilegiada'), t('propertyDetails.pros.defaultFinishes', 'Acabados de calidad')]
+  const shown = new Set(highlights.value.source === 'data' && show('descripcion') && data.value?.project.description ? highlights.value.items : [])
+  return derivedPros(p.value as any, t).filter((x) => !shown.has(x))
 })
 const cons = computed(() => {
   const o: string[] = []
@@ -535,24 +515,49 @@ const cons = computed(() => {
   if (!p.value.hasElevator && (p.value.bedrooms || 0) >= 2) o.push(t('propertyDetails.cons.checkElevator', 'Consulta disponibilidad de ascensor'))
   if (p.value.energyRating && ['D', 'E', 'F', 'G'].includes(p.value.energyRating)) o.push(t('propertyDetails.cons.improvableEfficiency', 'Eficiencia energética mejorable'))
   if (p.value.orientation === 'N') o.push(t('propertyDetails.cons.northFacing', 'Orientación norte — menos luz directa'))
-  return o.length ? o.slice(0, 4) : [t('propertyDetails.cons.defaultVisit', 'Recomendamos visita para valorar acabados')]
+  return o.slice(0, 4)
 })
+const hasResumen = computed(() => !!data.value?.project.aiSummary || pros.value.length > 0 || cons.value.length > 0)
 
-// Nearby (deterministic demo POIs by project id)
 const staging = computed(() => [
   { title: t('propertyDetails.staging.decorTitle', 'Decoración IA'), desc: t('propertyDetails.staging.decorDesc', 'Reimagina los espacios en tu estilo'), i: 1 },
   { title: t('propertyDetails.staging.homeStagingTitle', 'Home Staging IA'), desc: t('propertyDetails.staging.homeStagingDesc', 'Amuebla virtualmente cada estancia'), i: 2 },
 ])
 
-const heart = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-9.3-9.2C1.2 8.7 2.7 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.3 0 4.8 3.2 3.3 6.3C19 16.5 12 21 12 21z"/></svg>'
-const scale = '<svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3v18M15 3v18M4 8h5M15 8h5M4 16h5M15 16h5"/></svg>'
+// La barra de apartados (#111): los de la referencia, en el orden de la ficha;
+// Fotos primero y Similares al final; nunca una pestaña a algo que no hay.
+const sections = computed(() => {
+  const plano = floorPlans.value.length ? { id: 'plano', label: t('propertyDetails.nav.floorPlan', 'Plano') } : conditionFacts.value.length ? { id: 'estado', label: t('propertyDetails.nav.condition', 'Estado') } : null
+  const items: { id: string; key: string; label: string; when?: boolean }[] = [
+    { id: 'score', key: 'score', label: t('propertyDetails.nav.score', 'Score') },
+    { id: hasQuickFacts.value && show('datos') ? 'datos' : 'principal', key: hasQuickFacts.value && show('datos') ? 'datos' : '', label: t('propertyDetails.nav.quickFacts', 'Datos clave') },
+    { id: plano?.id || 'plano', key: 'plano-estado', label: plano?.label || '', when: !!plano },
+    { id: 'resumen', key: 'resumen', label: t('propertyDetails.nav.aiSummary', 'Resumen IA'), when: hasResumen.value },
+    { id: 'analisis', key: 'analisis', label: t('propertyDetails.nav.analysis', 'Análisis') },
+    { id: 'precio', key: 'precio', label: t('propertyDetails.nav.price', 'Precio') },
+    { id: 'servicios', key: 'servicios', label: t('propertyDetails.nav.services', 'Servicios') },
+    { id: 'ubicacion', key: 'ubicacion', label: t('propertyDetails.nav.location', 'Ubicación') },
+    { id: 'orientacion', key: 'orientacion', label: t('propertyDetails.nav.sun', 'Sol') },
+    { id: 'hipoteca', key: 'hipoteca', label: t('propertyDetails.nav.mortgage', 'Hipoteca') },
+    { id: 'historia', key: 'historia', label: t('propertyDetails.nav.history', 'Historia') },
+  ]
+  const { order, hidden } = layout.value
+  // La tarjeta principal (sin clave) va antes que cualquier sección.
+  const rank = (s: { key: string }) => (s.key && !(s.key === 'datos' && datosInHeader.value) ? order[s.key] || 0 : 0)
+  const middle = items.filter((s) => s.when !== false && !(s.key && hidden.has(s.key))).sort((a, b) => rank(a) - rank(b))
+  return [
+    { id: 'fotos', label: t('propertyDetails.nav.photos', 'Fotos') },
+    ...middle.map(({ id, label }) => ({ id, label })),
+    { id: 'similares', label: t('propertyDetails.nav.similar', 'Similares') },
+  ]
+})
 
-// Scroll-spy: resalta la sección activa en el nav sticky
+// Scroll-spy: resalta la sección activa en la barra de apartados
 const activeSection = ref('fotos')
 let sectionObserver: IntersectionObserver | null = null
 
-// Barra CTA fija en móvil: visible tras pasar el hero, salvo mientras la
-// tarjeta de contacto real está a la vista (antes, una vez vista, no volvía).
+// Barra CTA fija en móvil: visible tras pasar la galería, salvo mientras la
+// tarjeta de contacto real está a la vista.
 const heroRef = ref<HTMLElement | null>(null)
 const contactRef = ref<HTMLElement | null>(null)
 const heroPassed = ref(false)
@@ -560,20 +565,31 @@ const contactInView = ref(false)
 let heroObserver: IntersectionObserver | null = null
 let contactObserver: IntersectionObserver | null = null
 const showMobileBar = computed(() => heroPassed.value && !contactInView.value)
-// «Solicitar visita» (#110): con comercial y agenda, abre la reserva real de
-// «Atendido por» (PropertyDecisionPanel); sin ella, lleva al formulario.
-const visitRequest = useState<number>('ficha-visit-request', () => 0)
-function requestVisit() {
-  if ((data.value as any)?.agent?.slug) visitRequest.value++
-  else document.getElementById('contacto')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+// Reserva de visita (#110): con comercial y agenda, la reserva real (con la
+// hora de «Próxima visita disponible» ya elegida si se pulsó ahí); sin ella,
+// el formulario de «Atendido por».
+const visitModal = reactive<{ open: boolean; channel: 'in_person' | 'video'; slot: string | null }>({ open: false, channel: 'in_person', slot: null })
+function openVisit(channel: 'in_person' | 'video', slot: string | null = null) {
+  if (!agentSlug.value) {
+    document.getElementById('contacto')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    return
+  }
+  visitModal.channel = channel
+  visitModal.slot = slot
+  visitModal.open = true
 }
-// Ubicación pública (la privacidad ya quitó portal, planta y número en el servidor).
-const publicLocation = computed(() => [data.value?.project.community, (data.value?.project as any)?.city].filter(Boolean).join(', '))
+function requestVisit() {
+  openVisit('in_person')
+}
 
 onMounted(() => {
+  measureDescription()
   sectionObserver = new IntersectionObserver(
     (entries) => {
-      entries.forEach((e) => { if (e.isIntersecting) activeSection.value = e.target.id })
+      entries.forEach((e) => {
+        if (e.isIntersecting) activeSection.value = e.target.id
+      })
     },
     { rootMargin: '-140px 0px -70% 0px', threshold: 0 },
   )
@@ -583,11 +599,11 @@ onMounted(() => {
   })
 
   if (heroRef.value) {
-    heroObserver = new IntersectionObserver(([e]) => { heroPassed.value = !e.isIntersecting }, { threshold: 0 })
+    heroObserver = new IntersectionObserver(([e]) => (heroPassed.value = !e.isIntersecting), { threshold: 0 })
     heroObserver.observe(heroRef.value)
   }
   if (contactRef.value) {
-    contactObserver = new IntersectionObserver(([e]) => { contactInView.value = e.isIntersecting }, { threshold: 0 })
+    contactObserver = new IntersectionObserver(([e]) => (contactInView.value = e.isIntersecting), { threshold: 0 })
     contactObserver.observe(contactRef.value)
   }
 })
@@ -602,27 +618,80 @@ onUnmounted(() => {
 :global(html) {
   scroll-behavior: smooth;
 }
-section[id] {
-  scroll-margin-top: 130px;
+.ficha-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 12px;
 }
-.act2 {
+.ficha-fact {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+@media (min-width: 640px) {
+  .ficha-facts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+/* Escritorio: una fila con separadores verticales, como la referencia. */
+@media (min-width: 1280px) {
+  .ficha-facts {
+    display: flex;
+    gap: 0;
+  }
+  .ficha-fact {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0 14px;
+  }
+  .ficha-fact:first-child {
+    padding-left: 0;
+  }
+  .ficha-fact + .ficha-fact {
+    border-left: 1px solid #efebe5;
+  }
+}
+.desc-clamped {
+  max-height: 7.2em;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, #000 60%, transparent);
+  mask-image: linear-gradient(180deg, #000 60%, transparent);
+}
+.peach-btn {
   display: inline-flex;
-  height: 2.6rem;
-  width: 2.6rem;
+  height: 38px;
+  align-items: center;
+  gap: 8px;
+  border-radius: 9999px;
+  background: #fdf1e7;
+  padding: 0 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #b4572a;
+  transition: background 0.15s;
+}
+.peach-btn:hover {
+  background: #fbe6d5;
+}
+.btn-visit {
+  display: inline-flex;
+  height: 44px;
   align-items: center;
   justify-content: center;
-  border-radius: 9999px;
-  border: 1px solid #e7e4de;
-  background: #fff;
-  color: #16150f;
-  transition: all 0.2s;
-}
-.act2:hover {
-  border-color: #16150f;
-}
-.act2-on {
-  background: #16150f;
-  border-color: #16150f;
+  border-radius: 10px;
+  background: #1f3a30;
+  padding: 0 20px;
+  font-size: 14px;
+  font-weight: 600;
   color: #fff;
+  transition: background 0.15s;
+}
+.btn-visit:hover {
+  background: #172d25;
+}
+.peach-btn:focus-visible,
+.btn-visit:focus-visible {
+  outline: 2px solid #1c1b19;
+  outline-offset: 2px;
 }
 </style>

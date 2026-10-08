@@ -101,10 +101,21 @@ const PROPERTY_SEARCH_N7B_HELP_STEPS: string[] = [
 const PROPERTY_FICHA_110_HELP_STEPS: string[] = [
   'Planos: en el paso «Planos» del editor cada plano tiene título (por ejemplo «Planta baja» o «Planta alta»), imagen y la casilla «Visible en la web». Ordénalos con las flechas ← → de cada tarjeta. Un plano oculto lleva la marca «Oculto en la web» y no sale en la ficha. La ficha pública enseña los visibles en «Plano de la vivienda», sin recortar, con una pestaña por plano y «Ampliar», que abre un visor a pantalla completa con zoom (botones, rueda, doble clic o pellizco) y arrastre. Los mismos planos salen en la pestaña «Plano» de la galería. Sin planos visibles, la sección no aparece.',
   '«Estado del inmueble» y «El edificio» se rellenan con la ficha ampliada; no hay textos que escribir en la web. Para el inmueble: estado general, reformado, cocina (con «Equipamiento de la cocina»), baños («Estado de los baños»), ventanas, suelos, instalaciones («Estado de las instalaciones»: electricidad, fontanería y gas), calefacción, agua caliente, climatización, altura de techos, amueblado y año de la última reforma. Para el edificio: año de construcción, plantas, «Viviendas por planta», viviendas en total, ascensor, accesibilidad, zonas comunes, conserje y seguridad, «Estado del edificio», fachada, estructura y comunidad. Sólo sale lo que consta: un dato vacío no aparece, y un «No» que hayas marcado sí se enseña. Sin ningún dato, no hay tarjeta.',
-  '«Documentación disponible» reúne los PDF publicables de Multimedia y los documentos de la propiedad con visibilidad «Público». Los caducados no salen. «Ver» abre un PDF o una imagen en el navegador; el icono de flecha lo descarga. El permiso se vuelve a comprobar en cada descarga.',
+  '«Documentación» reúne los PDF publicables de Multimedia y los documentos de la propiedad con visibilidad «Público». Los caducados no salen. «Ver» abre un PDF o una imagen en el navegador; el icono de flecha lo descarga. El permiso se vuelve a comprobar en cada descarga.',
   'Reserva de visitas desde la ficha: «Próxima visita disponible» enseña el primer hueco libre real de la agenda del comercial responsable (su horario, duración, citas, bloqueos y tope diario, en su zona horaria). Al pulsarlo, la reserva se abre ya con esa hora elegida. Quien reserva tiene que aceptar la política de privacidad. La cita entra en Visitas con la propiedad y el contacto del lead, y el comercial recibe el aviso en la campana del panel. El cliente recibe el enlace para confirmar su asistencia, y la cita queda «pendiente» hasta entonces. Si alguien ocupa la hora mientras tanto, se avisa y se recargan los huecos. Un comercial de baja u oculto en la web no recibe reservas. Si no hay comercial con agenda, «Solicitar visita» lleva al formulario de contacto, sin prometer ninguna hora.',
-  '«Solicitar visita» está siempre a mano: en escritorio aparece en la barra de secciones al bajar de la galería, con el nombre, la zona y el precio; en móvil, el precio y el botón van justo debajo de la información principal y en la barra inferior.',
-  '«Hipoteca y costes» calcula cuánto hace falta para comprar (entrada, impuestos y gastos) y la cuota mensual. Parte de supuestos según la moneda de tu agencia: en euros, IVA del 10 % más un AJD estimado del 1,5 % y alrededor de un 1 % de notaría, registro y gestoría; en dírhams, la tasa del DLD y las de registro. Los supuestos se dicen en la propia calculadora y el visitante puede cambiarlos. Es una estimación, nunca una oferta. El «Coste mensual» del panel lateral usa el mismo cálculo y suma la comunidad, el IBI y la tasa de basuras (prorrateados) si están en la ficha.',
+  '«Solicitar visita» está siempre a mano: en escritorio, al final de la columna derecha, con el nombre y el precio, se queda fija mientras se baja por la ficha; en móvil, el precio va justo después de la galería, el botón debajo de los datos clave y, además, en la barra inferior.',
+  '«Hipoteca y costes» calcula cuánto hace falta para comprar (entrada, impuestos y gastos) y la cuota mensual. Parte de supuestos según la moneda de tu agencia: en euros, IVA del 10 % más un AJD estimado del 1,5 % y alrededor de un 1 % de notaría, registro y gestoría; en dírhams, la tasa del DLD y las de registro. Los supuestos se dicen en la propia calculadora y el visitante puede cambiarlos. Es una estimación, nunca una oferta. El «Coste mensual estimado», debajo de la calculadora, usa el mismo cálculo y suma la comunidad, el IBI y la tasa de basuras (prorrateados) si están en la ficha.',
+]
+
+/** Rediseño de la ficha pública (#111): dos columnas, galería, migas, Score, precio y decisión rápida. */
+const PROPERTY_FICHA_111_HELP_STEPS: string[] = [
+  'La ficha pública va a dos columnas desde arriba: a la izquierda la galería, la barra de apartados, la tarjeta principal (estado, título, ubicación pública, las cifras —habitaciones, baños, superficie, eficiencia energética, orientación, tipo y año— y «Características destacadas»), la descripción, el Serendipia Score, el plano y el estado del inmueble, el edificio y la documentación, y el resto de secciones; a la derecha el precio con la próxima visita, «Atendido por» con el formulario, los indicadores, la decisión rápida y la promotora. En el móvil va en una columna: galería, precio, datos clave, «Solicitar visita» y el resto.',
+  'Arriba de la ficha, «Inicio › Propiedades › nombre» y, a la derecha, Compartir, Comparar y «‹ Anterior» / «Siguiente ›». Si el visitante llega desde Propiedades, Anterior y Siguiente recorren esa misma búsqueda (sus filtros, su orden y sus páginas) y «Propiedades» vuelve a ella; si entra por un enlace directo, recorren tu catálogo en su orden por defecto (las más recientes primero).',
+  'Galería: la foto principal en grande con la etiqueta de estado, flechas y el contador «1 / N»; debajo, cinco casillas con las miniaturas y, si hay más fotos, «+N fotos», que abre la galería completa a pantalla completa. El orden es el de la galería del editor (la portada primero). Las pestañas Vídeo, 360°, Plano, Renders, Drone… sólo salen si la propiedad tiene ese contenido.',
+  'El recuadro verde junto a la descripción enseña los «Puntos clave» que escribas en el editor (uno por línea); sin ellos, lo que dicen los datos de la propiedad (orientación sur, eficiencia A o B, piscina, garaje, terraza…). Nunca frases de relleno: sin datos, no sale. «Ver más» despliega una descripción larga.',
+  'El Serendipia Score es el índice de siempre, calculado con datos reales (precio frente a la zona, rentabilidad, comodidades y eficiencia, certeza de entrega): el anillo con la nota, su valoración, un resumen con el factor más fuerte y el más flojo, y una barra por factor. «Ver análisis completo» dice de qué dato sale cada uno. Un factor sin dato no aparece.',
+  'La tarjeta PRECIO enseña el precio, el precio por m² y, sólo si el precio ha cambiado de verdad (historial de precios o «precio anterior»), cuánto ha cambiado y desde cuándo. Debajo, la próxima visita disponible y, si el comercial tiene agenda, la opción de verla por videollamada.',
+  'Indicadores y Decisión rápida sólo salen con datos: los indicadores, con las visitas a la ficha de la última semana, las visitas reservadas y las personas que la tienen guardada (lo que está a cero no aparece); la decisión rápida, con Comprar, Inversión, Revalorización y Liquidez en estrellas, y «Cómo se calcula» explica cada una. No se enseña ningún «responde en menos de X minutos»: no hay un dato público que lo respalde.',
 ]
 
 const PROPERTY_D1P_HELP_STEPS: string[] = [
@@ -610,6 +621,7 @@ export function useHelpContent() {
         ...PROPERTY_INLINE_EDIT_HELP_STEPS,
         ...PROPERTY_D1P_HELP_STEPS,
         ...PROPERTY_FICHA_110_HELP_STEPS,
+        ...PROPERTY_FICHA_111_HELP_STEPS,
       ],
     },
     {
@@ -1633,7 +1645,7 @@ export function useHelpContent() {
       id: 'faq-ficha-secciones',
       question: '¿Puedo cambiar el orden de las secciones de la ficha o quitar alguna?',
       answer:
-        'Sí, para todas las fichas a la vez: Constructor Web → Páginas → Ficha de propiedad → pulsa la zona dinámica. En «Secciones de la ficha» ordénalas con las flechas y desmarca las que no quieras enseñar; «Volver al orden de partida» lo deshace. La barra de secciones de la ficha sigue el mismo orden. La galería, la cabecera, el contacto y las similares se quedan en su sitio, y una sección sin datos en una propiedad no aparece aunque esté marcada. Se aplica al publicar la página.',
+        'Sí, para todas las fichas a la vez: Constructor Web → Páginas → Ficha de propiedad → pulsa la zona dinámica. En «Secciones de la ficha» ordénalas con las flechas y desmarca las que no quieras enseñar; «Volver al orden de partida» lo deshace. La barra de apartados de la ficha sigue el mismo orden. La galería, la tarjeta principal, la columna derecha y las similares se quedan en su sitio; «Características destacadas» va dentro de la tarjeta principal mientras sea la primera y, si la bajas, sale en su propia tarjeta. Una sección sin datos en una propiedad no aparece aunque esté marcada. Se aplica al publicar la página.',
       tags: ['ficha', 'constructor web', 'secciones', 'orden', 'ocultar'],
     },
     {
@@ -1642,6 +1654,20 @@ export function useHelpContent() {
       answer:
         'La ficha sólo enseña los planos con imagen y con la casilla «Visible en la web» marcada (paso «Planos» del editor; un plano oculto lleva la marca «Oculto en la web»). Revisa también el orden con las flechas: el primero es el que se ve al abrir la sección.',
       tags: ['planos', 'ficha', 'web', 'visible'],
+    },
+    {
+      id: 'faq-ficha-anterior-siguiente',
+      question: '¿Qué propiedad abren «Anterior» y «Siguiente» en la ficha?',
+      answer:
+        'La de al lado en la búsqueda desde la que llegó el visitante: si venía de Propiedades con filtros (por ejemplo, Oviedo y 3 habitaciones), recorren esos resultados en su orden y pasan de página solas, y «Propiedades» en las migas vuelve a esa búsqueda. Si entró por un enlace directo, recorren tu catálogo en su orden por defecto, las más recientes primero. En la primera o la última, el botón queda apagado. Sólo salen propiedades publicadas de tu agencia.',
+      tags: ['ficha', 'anterior', 'siguiente', 'catálogo', 'navegación'],
+    },
+    {
+      id: 'faq-ficha-puntos-destacados',
+      question: '¿De dónde salen los puntos del recuadro verde junto a la descripción?',
+      answer:
+        'De «Puntos clave», en el editor de la propiedad (uno por línea). Si no hay ninguno, la ficha enseña lo que dicen sus datos —orientación sur, eficiencia A o B, piscina, garaje, terraza, ascensor…— y, si tampoco hay datos, el recuadro no aparece. Nunca se inventan frases.',
+      tags: ['ficha', 'descripción', 'puntos clave', 'destacados'],
     },
     {
       id: 'faq-ficha-destacadas',

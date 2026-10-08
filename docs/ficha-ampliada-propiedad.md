@@ -405,6 +405,36 @@ con estas reglas:
   promoción es obra nueva o está en construcción, el estado general es «Obra
   nueva» (es un dato de la ficha, no una suposición).
 
+### La ficha pública rediseñada (#111)
+
+`pages/propiedades/[slug].vue` va a dos columnas desde arriba, como la
+referencia `REdiseñoficha.png`. Cada tarjeta lee un dato real y, sin él, no
+sale:
+
+| Tarjeta | De dónde sale |
+| --- | --- |
+| Migas, Anterior / Siguiente | `components/property/Breadcrumbs.vue`. El catálogo guarda en `sessionStorage` sus resultados con sus filtros y su posición (`utils/catalogContext.ts`); al llegar al borde se pide la página de al lado con los mismos filtros. Sin contexto, `/api/public/properties/<slug>/neighbors` (orden por defecto del catálogo, `desc(id)`, misma agencia y fuera de la papelera). |
+| Galería | `MediaGallery.vue`: foto principal 2,2:1, cinco casillas (cuatro miniaturas y «+N fotos» si hay más de cinco). Pestañas sólo con más de un tipo de contenido. |
+| Cifras | Habitaciones, baños, superficie, eficiencia, orientación, tipo y año de la propiedad. |
+| Características destacadas | `QuickFacts` (`variant="features"`), sin el tipo ni el año. Iconos con la paleta de #107, no de un solo tono. |
+| Puntos destacados | `utils/fichaHighlights.ts`: «Puntos clave» (`keyHighlights`) o, sin ellos, ventajas que dicen los datos. Sin frases de relleno; «Lo que debes saber» ya no inventa «Ubicación privilegiada». |
+| Serendipia Score | `server/utils/score.ts` (sin cambios): anillo, valoración, resumen con el factor más fuerte y el más flojo, y «Ver análisis completo» con el `detail` de cada factor. |
+| PRECIO | `components/property/PriceCard.vue`: €/m² y evolución sólo con cambios reales (`price_history`, que ahora devuelve también `previousPrice`, o el «precio anterior» de la propiedad). |
+| Indicadores | `/engagement`: visitas a la ficha de 7 días, citas reservadas y favoritos; lo que está a cero no sale. |
+| Decisión rápida | `computeDecisionScores`: Comprar, Inversión, Revalorización y Liquidez; «Cómo se calcula» enseña el `detail`. |
+
+El Score, la Decisión rápida, los indicadores y el historial de precio se
+piden una vez por propiedad y se comparten entre tarjetas
+(`composables/usePropertyInsight.ts`); la agenda de «Próxima visita
+disponible», también (la tarjeta de precio sale dos veces: arriba en el
+móvil y en la columna derecha en escritorio).
+
+Conflictos con la referencia, resueltos a favor de lo pedido por escrito:
+el formulario no lleva «Asunto» y sí la casilla de privacidad (#107), y los
+iconos de las características mantienen la paleta de colores de #107. Sin
+dato público que lo respalde, no se enseña «Responde en menos de 15 min» ni
+el punto verde de «disponible».
+
 ## Deriva conocida de producción
 
 La tabla `leads` de producción tiene una columna `converted_contact_id` que

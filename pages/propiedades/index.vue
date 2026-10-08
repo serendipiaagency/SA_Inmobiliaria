@@ -160,6 +160,7 @@
 import { nearbyFromQuery, nearbyQuery, withoutNearby } from '~/utils/publicSearch'
 import { withValidCoords } from '~/utils/maps/coords'
 import { catalogChips, type CatalogChip } from '~/utils/catalogChips'
+import { saveCatalogContext } from '~/utils/catalogContext'
 
 /**
  * Catálogo público (#109): barra de búsqueda con orden y Galería / Mapa,
@@ -227,6 +228,19 @@ const { data, pending } = await useFetch('/api/public/properties', {
 })
 const total = computed(() => data.value?.total ?? 0)
 const totalPages = computed(() => Math.ceil(total.value / (data.value?.perPage || 12)))
+
+// La búsqueda que se está viendo, para «‹ Anterior / Siguiente ›» de la ficha
+// (#111, utils/catalogContext.ts): en esta pestaña y sólo slugs y nombres.
+watch(
+  () => data.value?.rows,
+  (rows) => {
+    if (!import.meta.client || !rows?.length) return
+    const perPage = data.value?.perPage || 12
+    const query = Object.fromEntries(Object.entries(apiQuery.value).filter(([k, v]) => k !== 'page' && typeof v === 'string')) as Record<string, string>
+    saveCatalogContext({ href: route.fullPath, query, perPage, total: total.value, start: (page.value - 1) * perPage, items: (rows as any[]).map((r) => ({ slug: String(r.slug), name: String(r.name || '') })) })
+  },
+  { immediate: true },
+)
 
 // Lo que hay publicado, para los selectores del panel (no encoge al filtrar).
 const { data: facetData } = await useFetch('/api/public/properties', { key: 'catalog-facets', query: { countOnly: '1', facets: 'filters' } })

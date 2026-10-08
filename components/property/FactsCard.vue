@@ -2,11 +2,12 @@
   <section v-if="rows.length" :id="anchor" class="pcard min-w-0" :data-testid="testid">
     <h2 class="pcard-title">{{ title }}</h2>
     <dl class="mt-3 grid gap-x-8" :class="columns === 2 ? 'sm:grid-cols-2' : ''">
-      <div v-for="r in rows" :key="r.key" class="flex items-center gap-3 border-b border-[#f1eee8] py-2.5 last:border-0" :data-fact="r.key">
+      <!-- Tabla compacta (#111): icono, etiqueta y, en su columna, el valor. -->
+      <div v-for="r in rows" :key="r.key" class="grid grid-cols-[18px_minmax(0,1fr)_minmax(0,1fr)] items-center gap-x-3 border-b border-[#f1eee8] py-2.5 last:border-0" :data-fact="r.key">
         <!-- SVG fijo de utils/featureIcons.ts, nunca datos -->
-        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f6f2ec] text-stone-500" aria-hidden="true" v-html="featureIconSvg(r.icon, 16)" />
-        <dt class="min-w-0 flex-1 text-[13px] text-stone-500">{{ r.label }}</dt>
-        <dd class="text-right text-[13.5px] font-semibold text-ink">{{ r.value }}</dd>
+        <span class="flex text-stone-400" aria-hidden="true" v-html="featureIconSvg(r.icon, 16)" />
+        <dt class="min-w-0 text-[13px] text-stone-500">{{ r.label }}</dt>
+        <dd class="min-w-0 text-[13px] font-semibold text-ink [overflow-wrap:anywhere]">{{ r.value }}</dd>
       </div>
     </dl>
   </section>

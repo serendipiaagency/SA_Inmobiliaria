@@ -16,8 +16,10 @@ export default defineEventHandler(async (event) => {
   const project = rows[0]
   if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
 
+  // `previousPrice`: el precio público que tenía antes de cada cambio, para
+  // que la ficha (#111) diga cuánto ha cambiado desde el primero.
   const history = await db
-    .select({ price: schema.priceHistory.price, recordedAt: schema.priceHistory.recordedAt })
+    .select({ price: schema.priceHistory.price, previousPrice: schema.priceHistory.previousPrice, recordedAt: schema.priceHistory.recordedAt })
     .from(schema.priceHistory)
     .where(eq(schema.priceHistory.developerPropertyId, project.id))
 

@@ -182,7 +182,10 @@ test.describe('Ficha pública: Datos clave, destacadas y «Atendido por» → CR
     const tiles = page.getByTestId('quick-facts').locator('[data-fact]')
     await expect(tiles.first()).toBeVisible()
     const facts = await tiles.evaluateAll((els) => els.map((e) => ({ key: e.getAttribute('data-fact'), svg: !!e.querySelector('svg path, svg circle, svg rect'), color: getComputedStyle(e.querySelector('.qf-icon') as Element).color })))
-    for (const k of ['elevator', 'garage', 'terrace', 'pool', 'garden', 'yearBuilt']) expect(facts.map((f) => f.key)).toContain(k)
+    for (const k of ['elevator', 'garage', 'terrace', 'pool', 'garden']) expect(facts.map((f) => f.key)).toContain(k)
+    // El año y el tipo van en la fila de cifras bajo el título (#111), no se repiten en las características.
+    expect(facts.map((f) => f.key)).not.toContain('yearBuilt')
+    await expect(page.getByTestId('ficha-key-facts').locator('[data-fact="yearBuilt"]')).toBeVisible()
     expect(facts.every((f) => f.svg), 'ningún icono vacío').toBeTruthy()
     expect(new Set(facts.map((f) => f.color)).size, 'no todos del mismo color').toBeGreaterThanOrEqual(4)
 

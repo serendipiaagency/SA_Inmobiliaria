@@ -145,7 +145,8 @@ describe('secciones de la ficha en el Constructor', () => {
     const list = normalizeFichaSections(undefined)
     expect(list.map((x) => x.key)).toEqual(FICHA_SECTIONS.map((x) => x.key))
     expect(list.every((x) => x.visible)).toBe(true)
-    expect(list.slice(0, 3).map((x) => x.key)).toEqual(['datos', 'descripcion', 'comodidades'])
+    // El orden de la referencia del rediseño (#111): características, descripción, Score, plano y estado, edificio y documentación.
+    expect(list.slice(0, 5).map((x) => x.key)).toEqual(['datos', 'descripcion', 'score', 'plano-estado', 'edificio-documentacion'])
   })
 
   it('respeta el orden guardado, descarta claves desconocidas y repetidas y completa las que falten', () => {

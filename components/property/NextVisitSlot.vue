@@ -5,7 +5,7 @@
     </span>
     <span class="min-w-0 flex-1 text-left">
       <span class="block text-[12px] text-stone-500">{{ t('nextVisit.label', 'Próxima visita disponible') }}</span>
-      <span class="block truncate text-[14px] font-semibold text-ink" data-testid="next-visit-when">{{ whenLabel }}</span>
+      <span class="block text-[14px] font-semibold text-ink" data-testid="next-visit-when">{{ whenLabel }}</span>
     </span>
     <svg class="shrink-0 text-stone-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
   </button>
@@ -20,6 +20,21 @@
     </span>
   </a>
 </template>
+
+<script lang="ts">
+// En la ficha la tarjeta de precio sale dos veces (arriba en el móvil y en la
+// columna derecha en escritorio, #111): una sola consulta de agenda para las
+// dos, que se repite pasado un minuto por si alguien ha reservado ese hueco.
+const requests = new Map<string, { at: number; request: Promise<{ start: string; end: string } | null> }>()
+function firstSlot(agentSlug: string): Promise<{ start: string; end: string } | null> {
+  const cached = requests.get(agentSlug)
+  if (cached && Date.now() - cached.at < 60_000) return cached.request
+  const request = $fetch<{ days: { date: string; slots: { start: string; end: string }[] }[] }>(`/api/public/agents/${agentSlug}/availability`, { query: { days: 14 } }).then((res) => res.days.flatMap((d) => d.slots)[0] || null)
+  requests.set(agentSlug, { at: Date.now(), request })
+  request.catch(() => requests.delete(agentSlug))
+  return request
+}
+</script>
 
 <script setup lang="ts">
 /**
@@ -43,8 +58,7 @@ onMounted(async () => {
     return
   }
   try {
-    const res = await $fetch<{ days: { date: string; slots: { start: string; end: string }[] }[] }>(`/api/public/agents/${props.agentSlug}/availability`, { query: { days: 14 } })
-    slot.value = res.days.flatMap((d) => d.slots)[0] || null
+    slot.value = await firstSlot(props.agentSlug)
     state.value = slot.value ? 'slot' : 'none'
   } catch {
     state.value = 'none'

@@ -88,22 +88,25 @@ export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, 'boo
  * Property Core los datos.
  */
 export const FICHA_SECTIONS: { key: string; label: string }[] = [
-  { key: 'datos', label: 'Datos clave' },
+  // El orden de partida es el de la ficha de la referencia (#111): bajo la
+  // galería y la tarjeta principal, las características, la descripción, el
+  // Score, plano y estado, edificio y documentación; después, el resto.
+  { key: 'datos', label: 'Características destacadas' },
   { key: 'descripcion', label: 'Descripción' },
+  { key: 'score', label: 'Serendipia Score' },
+  { key: 'plano-estado', label: 'Plano y estado del inmueble' },
+  { key: 'edificio-documentacion', label: 'El edificio y documentación' },
   { key: 'comodidades', label: 'Comodidades' },
   { key: 'mas-informacion', label: 'Más información' },
   { key: 'tipologias', label: 'Tipologías' },
-  { key: 'plano-estado', label: 'Plano y estado del inmueble' },
-  { key: 'edificio-documentacion', label: 'El edificio y documentación' },
-  { key: 'hipoteca', label: 'Hipoteca y costes' },
-  { key: 'ubicacion', label: 'Ubicación' },
-  { key: 'score', label: 'Serendipia Score' },
   { key: 'resumen', label: 'Lo que debes saber' },
   { key: 'analisis', label: 'Análisis de inversión' },
   { key: 'precio', label: 'Evolución de precio' },
-  { key: 'preguntar', label: 'Pregúntale' },
   { key: 'servicios', label: 'Estilo de vida' },
+  { key: 'ubicacion', label: 'Ubicación' },
   { key: 'orientacion', label: 'Sol y orientación' },
+  { key: 'hipoteca', label: 'Hipoteca y costes' },
+  { key: 'preguntar', label: 'Pregúntale' },
   { key: 'staging', label: 'Visualiza el potencial' },
   { key: 'historia', label: 'Historia del inmueble' },
 ]
