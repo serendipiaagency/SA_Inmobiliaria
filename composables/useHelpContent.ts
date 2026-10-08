@@ -143,6 +143,7 @@ export function useHelpContent() {
         'Al entrar en el panel de administración, esta es la primera pantalla que ves.',
         'Los números y listados se calculan en tiempo real sobre tus propios datos — no son de ejemplo.',
         'Usa los accesos rápidos del dashboard para saltar directamente a Leads, Visitas o Propiedades.',
+        'El menú de la izquierda se organiza en categorías desplegables (General, CRM, Portal Web, Finanzas & Growth, Blog & CMS, Bandeja, Ayuda y Sistema): pulsa el nombre de una categoría para abrirla o cerrarla, y puedes tener varias abiertas a la vez. Al entrar sólo están abiertas General y la categoría de la pantalla en la que estás, con esa pantalla resaltada; el panel recuerda en este navegador las que abras o cierres. Sólo ves las categorías en las que tienes alguna pantalla permitida.',
       ],
     },
     {
@@ -674,7 +675,7 @@ export function useHelpContent() {
     },
     {
       key: 'agents',
-      group: 'Portal Web',
+      group: 'CRM',
       title: 'Comerciales',
       route: '/admin/comerciales',
       summary: 'Ficha profesional completa de cada comercial: datos laborales, especialización, propiedades asignadas, rendimiento y perfil público.',
@@ -859,7 +860,7 @@ export function useHelpContent() {
     },
     {
       key: 'widgets',
-      group: 'Finanzas & Growth',
+      group: 'Portal Web',
       title: 'Widgets',
       route: '/admin/widgets',
       summary: 'Fragmentos embebibles (buscador de propiedades, formulario de contacto) para insertar en otras webs.',
@@ -867,7 +868,7 @@ export function useHelpContent() {
     },
     {
       key: 'marketplace',
-      group: 'Finanzas & Growth',
+      group: 'Sistema',
       title: 'Marketplace',
       route: '/admin/marketplace',
       summary: 'Catálogo honesto de integraciones: lo que la plataforma conecta hoy de verdad, con un enlace a la pantalla donde se configura cada cosa, y lo que todavía no existe.',
@@ -878,7 +879,7 @@ export function useHelpContent() {
     },
     {
       key: 'api',
-      group: 'Finanzas & Growth',
+      group: 'Sistema',
       title: 'API',
       route: '/admin/api',
       summary: 'Claves de API para integrar tu catálogo y tus leads con herramientas externas (API v1 pública).',
@@ -974,7 +975,7 @@ export function useHelpContent() {
     // --- Contenido -----------------------------------------------------------
     {
       key: 'blogs-legacy',
-      group: 'Contenido',
+      group: 'Blog & CMS',
       title: 'Blog (legacy)',
       route: '/admin/blogs',
       summary: 'Sistema de blog anterior, mantenido solo por compatibilidad con contenido antiguo.',
@@ -1194,6 +1195,13 @@ export function useHelpContent() {
       answer:
         'En la ficha: bajo el nombre del lead o del contacto, y debajo del editor de la propiedad. La × quita una etiqueta y «+ Etiqueta» añade otra (nueva o existente). Los listados de propiedades, leads y contactos las enseñan en cada fila y se pueden filtrar por etiqueta. Los contactos también se pueden etiquetar.',
       tags: ['etiqueta', 'tag', 'filtrar', 'contacto', 'lead', 'propiedad'],
+    },
+    {
+      id: 'faq-menu-reorganizado',
+      question: 'No encuentro una pantalla en el menú, ¿dónde está ahora?',
+      answer:
+        'El menú se reorganizó en categorías desplegables sin quitar ninguna pantalla ni cambiar ninguna dirección: tus enlaces guardados siguen funcionando. Cinco pantallas cambiaron de categoría: «Comerciales» está ahora en CRM (junto a Oficinas y Equipos), «Widgets» en Portal Web, «API» y «Marketplace» en Sistema, y «Blog (legacy)» en Blog & CMS. Quién puede abrir cada una no ha cambiado: sigue dependiendo del mismo permiso que antes (por ejemplo, «API» sigue siendo de Finanzas & Growth). Si no ves una categoría, es que no tienes permiso para ninguna de sus pantallas.',
+      tags: ['menú', 'navegación', 'categorías', 'dónde está', 'comerciales', 'api', 'widgets', 'marketplace', 'blog'],
     },
     {
       id: 'faq-busqueda-mapa',

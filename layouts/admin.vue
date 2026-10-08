@@ -23,25 +23,43 @@
         </select>
       </div>
 
-      <nav class="flex-1 overflow-y-auto px-2.5 py-3">
-        <template v-for="group in visibleNav" :key="group.label">
-          <p class="px-2.5 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-stone-400">{{ group.label }}</p>
-          <NuxtLink
-            v-for="item in group.items"
-            :key="item.to"
-            :to="item.to"
-            class="nav-item group"
-            :class="isActive(item.to) ? 'nav-active' : ''"
-            @click="open = false"
+      <!-- Categorías desplegables (utils/adminNav.ts): cerradas al entrar salvo
+           «General» y la de la página actual; se pueden abrir varias. -->
+      <nav class="flex-1 overflow-y-auto px-2.5 py-3" aria-label="Menú del panel" data-testid="admin-nav">
+        <div v-for="group in visibleNav" :key="group.id" class="mb-0.5">
+          <button
+            type="button"
+            class="nav-group"
+            :class="group.id === activeGroupId ? 'nav-group-active' : ''"
+            :aria-expanded="isGroupOpen(group.id)"
+            :aria-controls="`nav-group-${group.id}`"
+            :data-testid="`nav-group-${group.id}`"
+            @click="toggleGroup(group.id)"
           >
-            <svg class="h-[17px] w-[17px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <path :d="icons[item.icon]" />
+            <span class="flex-1 truncate text-left">{{ group.label }}</span>
+            <svg class="nav-chevron" :class="isGroupOpen(group.id) ? 'rotate-90' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m9 6 6 6-6 6" />
             </svg>
-            <span class="flex-1 truncate">{{ item.label }}</span>
-            <span v-if="item.badge" class="rounded-full bg-ink px-1.5 py-0.5 text-[10px] font-semibold text-white">{{ item.badge }}</span>
-            <span v-else-if="item.tag" class="rounded bg-stone-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-stone-400">{{ item.tag }}</span>
-          </NuxtLink>
-        </template>
+          </button>
+          <div v-show="isGroupOpen(group.id)" :id="`nav-group-${group.id}`" class="space-y-px pb-2 pl-2" :data-testid="`nav-group-items-${group.id}`">
+            <NuxtLink
+              v-for="item in group.items"
+              :key="item.to"
+              :to="item.to"
+              class="nav-item group"
+              :class="item.to === activeItemTo ? 'nav-active' : ''"
+              :aria-current="item.to === activeItemTo ? 'page' : undefined"
+              @click="open = false"
+            >
+              <svg class="h-[17px] w-[17px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path :d="icons[item.icon]" />
+              </svg>
+              <span class="flex-1 truncate">{{ item.label }}</span>
+              <span v-if="item.badge" class="rounded-full bg-ink px-1.5 py-0.5 text-[10px] font-semibold text-white">{{ item.badge }}</span>
+              <span v-else-if="item.tag" class="rounded bg-stone-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-stone-400">{{ item.tag }}</span>
+            </NuxtLink>
+          </div>
+        </div>
       </nav>
 
       <div class="border-t border-line p-3">
@@ -130,7 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import { ADMIN_NAV, type NavGroup } from '~/utils/adminNav'
+import { ADMIN_NAV, navMatchForPath, visibleAdminNav, type NavGroup } from '~/utils/adminNav'
 
 const { user, devAuthBypass, logout } = useAuth()
 const { canRead } = useAdminPermissions()
@@ -197,13 +215,63 @@ onMounted(() => {
 onBeforeUnmount(() => comms.stopPolling())
 
 // Granular RBAC (utils/permissions.ts) — a restricted admin only sees the nav
-// groups whose area they have at least read access to. Unrestricted accounts
-// (every account that has never been given an explicit permissions array, and
-// always super_admin) see everything, exactly like before this feature
-// existed. "Ayuda" has no `area` and stays visible to everyone regardless.
-const visibleNav = computed(() => {
-  const allowed = allowedAreas(user.value || { role: 'user', permissions: null })
-  return nav.value.filter((group) => !group.area || allowed.includes(group.area))
+// entries whose area they have at least read access to (each entry's own
+// area: one that moved category keeps its permission), and never an empty
+// category. Unrestricted accounts (every account that has never been given an
+// explicit permissions array, and always super_admin) see everything.
+// "Ayuda" has no `area` and stays visible to everyone regardless.
+const visibleNav = computed(() =>
+  visibleAdminNav(nav.value, { isSuperAdmin: isSuperAdmin.value, allowed: allowedAreas(user.value || { role: 'user', permissions: null }) }),
+)
+
+// Categorías desplegables. La entrada activa es la de ruta más larga que
+// contiene la URL (utils/adminNav.ts `navMatchForPath`): sólo una marcada.
+// Al entrar, abiertas «General» y la categoría de la página actual; lo que
+// abra o cierre el usuario se recuerda en este navegador, pero la categoría
+// de la página actual se abre siempre al llegar a ella.
+const NAV_OPEN_KEY = 'sa_admin_nav_open'
+const activeMatch = computed(() => navMatchForPath(route.path, visibleNav.value))
+const activeGroupId = computed(() => activeMatch.value?.group.id ?? null)
+const activeItemTo = computed(() => activeMatch.value?.item.to ?? null)
+const openGroups = ref<string[]>(
+  [...ADMIN_NAV.filter((g) => g.defaultOpen).map((g) => g.id), navMatchForPath(route.path)?.group.id].filter((id, i, all): id is string => !!id && all.indexOf(id) === i),
+)
+function isGroupOpen(id: string) {
+  return openGroups.value.includes(id)
+}
+function saveOpenGroups() {
+  try {
+    localStorage.setItem(NAV_OPEN_KEY, JSON.stringify(openGroups.value))
+  } catch {
+    // Sin almacenamiento (modo privado, bloqueado): el menú funciona igual, sólo no se recuerda.
+  }
+}
+function toggleGroup(id: string) {
+  const opening = !isGroupOpen(id)
+  openGroups.value = opening ? [...openGroups.value, id] : openGroups.value.filter((g) => g !== id)
+  saveOpenGroups()
+  // Una categoría abierta al final del menú (Sistema) quedaría por debajo del
+  // borde: se desplaza lo justo para que se vean sus entradas.
+  if (opening) nextTick(() => document.getElementById(`nav-group-${id}`)?.scrollIntoView({ block: 'nearest' }))
+}
+watch(activeGroupId, (id) => {
+  if (id && !isGroupOpen(id)) {
+    openGroups.value = [...openGroups.value, id]
+    saveOpenGroups()
+  }
+})
+onMounted(() => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(NAV_OPEN_KEY) || 'null')
+    if (Array.isArray(stored)) {
+      const ids = new Set(ADMIN_NAV.map((g) => g.id))
+      openGroups.value = [...new Set([...stored.filter((id): id is string => typeof id === 'string' && ids.has(id)), ...(activeGroupId.value ? [activeGroupId.value] : [])])]
+    }
+  } catch {
+    // Valor corrupto o almacenamiento bloqueado: se queda el estado por defecto.
+  }
+  // La entrada de la página actual, a la vista aunque esté al final del menú.
+  nextTick(() => document.querySelector('[data-testid="admin-nav"] [aria-current="page"]')?.scrollIntoView({ block: 'nearest' }))
 })
 
 const orgs = ref<{ id: number; name: string }[]>([])
@@ -271,11 +339,6 @@ async function switchOrg() {
   router.go(0) // reload so every already-fetched page re-queries under the new org
 }
 
-function isActive(to: string) {
-  if (to === '/admin') return route.path === '/admin'
-  return route.path === to || route.path.startsWith(to + '/')
-}
-
 async function doLogout() {
   await logout()
   router.push('/admin/login')
@@ -297,6 +360,38 @@ async function doLogout() {
 .nav-item:hover {
   background: #f5f5f4;
   color: #16150f;
+}
+.nav-group {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #a8a29e;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.nav-group:hover {
+  background: #f5f5f4;
+  color: #44403c;
+}
+.nav-group:focus-visible,
+.nav-item:focus-visible {
+  outline: 2px solid #16150f;
+  outline-offset: 1px;
+}
+.nav-group-active {
+  color: #16150f;
+}
+.nav-chevron {
+  height: 0.85rem;
+  width: 0.85rem;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
 }
 .nav-active {
   background: #16150f;
