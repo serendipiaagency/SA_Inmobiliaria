@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
-import { STATE_A } from './global-setup'
+import { STATE_A, ANON_STATE } from './global-setup'
 
 /**
  * Cabecera de las webs (#108): el menú principal es «Comprar Propiedad»,
@@ -121,7 +121,7 @@ test.describe('Cabecera: el nuevo menú', () => {
     expect(asBuyer.ok(), await asBuyer.text()).toBeTruthy()
 
     // …y luego quiere vender, desde la página del menú.
-    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, extraHTTPHeaders: ip(2) })
+    const ctx = await browser.newContext({ storageState: ANON_STATE, extraHTTPHeaders: ip(2) })
     const page = await ctx.newPage()
     await page.goto('/vender')
     const form = page.locator('form').filter({ hasText: 'Tu propiedad' })

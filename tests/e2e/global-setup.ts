@@ -1,6 +1,7 @@
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { request } from '@playwright/test'
+import { allChoices, buildConsent, consentStorageKey, NO_COOKIE_PROVIDERS } from '../../utils/cookieConsent'
 
 /**
  * Signs each test tenant in once and saves its session cookie, so the API
@@ -21,6 +22,32 @@ export const TENANT_B = { email: 'admin@skyline-estates.com', password: 'ChangeM
 
 export const STATE_A = 'tests/e2e/.auth/tenant-a.json'
 export const STATE_B = 'tests/e2e/.auth/tenant-b.json'
+/**
+ * Visitante sin sesión que YA decidió en el aviso de cookies (rechazó lo
+ * opcional). Es el `storageState` por defecto de la suite (playwright.config.ts):
+ * el aviso es un modal que tapa la web hasta que se decide, y las pruebas que no
+ * van de cookies no tienen que atravesarlo. Las que sí (cookies.spec.ts) parten
+ * de un contexto vacío.
+ */
+export const ANON_STATE = 'tests/e2e/.auth/anon.json'
+
+/**
+ * La decisión «Rechazar» guardada en el navegador para la web del dominio
+ * principal (organización 1, la que sirve localhost) y para la vista previa
+ * de cualquier empresa: misma forma que guarda el aviso (utils/cookieConsent.ts).
+ */
+export function consentOrigins(baseURL: string) {
+  const rejected = (org: number) => JSON.stringify(buildConsent(org, NO_COOKIE_PROVIDERS, allChoices(false)))
+  return [
+    {
+      origin: new URL(baseURL).origin,
+      localStorage: [
+        { name: consentStorageKey(false), value: rejected(1) },
+        { name: consentStorageKey(true), value: rejected(0) },
+      ],
+    },
+  ]
+}
 
 async function saveSession(baseURL: string, creds: { email: string; password: string }, path: string) {
   const ctx = await request.newContext({ baseURL })
@@ -38,7 +65,8 @@ async function saveSession(baseURL: string, creds: { email: string; password: st
   }
   if (!res.ok()) throw new Error(`global-setup: login failed for ${creds.email} (${res.status()})`)
   mkdirSync(dirname(path), { recursive: true })
-  await ctx.storageState({ path })
+  const state = await ctx.storageState()
+  writeFileSync(path, JSON.stringify({ ...state, origins: consentOrigins(baseURL) }, null, 2))
   await ctx.dispose()
 }
 
@@ -46,4 +74,6 @@ export default async function globalSetup() {
   const baseURL = process.env.E2E_BASE_URL || 'http://localhost:8788'
   await saveSession(baseURL, TENANT_A, STATE_A)
   await saveSession(baseURL, TENANT_B, STATE_B)
+  mkdirSync(dirname(ANON_STATE), { recursive: true })
+  writeFileSync(ANON_STATE, JSON.stringify({ cookies: [], origins: consentOrigins(baseURL) }, null, 2))
 }

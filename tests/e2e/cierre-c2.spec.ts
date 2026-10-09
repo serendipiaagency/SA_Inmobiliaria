@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
-import { STATE_A, STATE_B } from './global-setup'
+import { STATE_A, STATE_B, ANON_STATE } from './global-setup'
 
 /**
  * Cierre C2 de la auditoría del núcleo inmobiliario, sobre HTTP real y el panel:
@@ -49,7 +49,7 @@ test.describe('Cierre C2 — paradas de un tour ya creado y vista propia de una 
     a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
     b = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_B })
     // Dentro de este describe, newContext() sin storageState heredaría la sesión de A.
-    anon = await pwRequest.newContext({ baseURL: BASE_URL, storageState: { cookies: [], origins: [] } })
+    anon = await pwRequest.newContext({ baseURL: BASE_URL, storageState: ANON_STATE })
 
     const agent = await a.post('/api/admin/team', { data: { name: `Comercial C2 ${RUN}`, email: `c2-comercial-${RUN}@example.com`, position: 'Comercial', slug: `c2-comercial-${RUN}` } })
     expect(agent.ok(), await agent.text()).toBeTruthy()

@@ -12,6 +12,8 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['list'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://localhost:8788',
+    // Visitante que ya decidió en el aviso de cookies (tests/e2e/global-setup.ts › ANON_STATE).
+    storageState: 'tests/e2e/.auth/anon.json',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

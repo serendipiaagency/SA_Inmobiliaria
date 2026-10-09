@@ -1,6 +1,5 @@
 <template>
   <div v-if="tenant?.isCustomDomain" class="flex min-h-screen flex-col bg-paper text-ink">
-    <SitePreviewBar />
     <SiteHeader />
     <main class="flex-1">
       <slot />
@@ -25,6 +24,7 @@
 const { tenant, load: loadTenant } = useTenant()
 await loadTenant()
 const { load: loadCompare } = useCompare()
+useDemoOrgFlag()
 onMounted(() => {
   if (tenant.value?.isCustomDomain) loadCompare()
 })

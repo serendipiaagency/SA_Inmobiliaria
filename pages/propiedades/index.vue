@@ -288,11 +288,12 @@ const modalSeed = computed(() => {
   if (near) Object.assign(s, near)
   return s
 })
-// El modal devuelve todos sus filtros: sustituyen a los de la URL; búsqueda, orden, operación y vista se quedan.
+// El modal devuelve todos sus filtros: sustituyen a los de la URL; búsqueda, orden, operación, vista
+// y lo que el modal no tiene (obra nueva e inversión, del buscador del Hero) se quedan.
 function onApplyFilters(qy: Record<string, string>) {
   modalOpen.value = false
   const keep: Record<string, any> = {}
-  for (const k of ['q', 'sort', 'operacion', 'vista']) if (route.query[k]) keep[k] = route.query[k]
+  for (const k of ['q', 'sort', 'operacion', 'vista', 'obra', 'minYield']) if (route.query[k]) keep[k] = route.query[k]
   router.push({ query: { ...keep, ...qy } })
 }
 function openMoreFromDrawer() {

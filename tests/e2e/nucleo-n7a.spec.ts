@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
-import { STATE_A, STATE_B } from './global-setup'
+import { STATE_A, STATE_B, ANON_STATE } from './global-setup'
 import { buildFakePdfHtml, buildPng, buildValidPdf } from '../../test/unit/helpers/mediaFixtures'
 
 /**
@@ -33,7 +33,7 @@ test.describe('N7a — documentos, multimedia, resumen y portales', () => {
     b = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_B })
     // Sin sesión de verdad: dentro de un describe con `test.use({ storageState })`,
     // Playwright copia esa sesión a los contextos de `request.newContext()`.
-    anon = await pwRequest.newContext({ baseURL: BASE_URL, storageState: { cookies: [], origins: [] } })
+    anon = await pwRequest.newContext({ baseURL: BASE_URL, storageState: ANON_STATE })
     const devs = await (await a.get('/api/admin/developers', { params: { perPage: '1' } })).json()
     const created = await a.post('/api/admin/developer-properties', { data: { developerId: devs.rows[0].id, name: `N7a Torre ${RUN}`, status: 'new', price: 410000, area: 95, city: 'Valencia', country: 'España' } })
     expect(created.ok(), await created.text()).toBeTruthy()
@@ -127,7 +127,7 @@ test.describe('N7a — documentos, multimedia, resumen y portales', () => {
     const user = await a.post('/api/admin/users', { data: { name: 'Propietaria N7a', email: ownerEmail, password, role: 'user' } })
     expect(user.ok(), await user.text()).toBeTruthy()
     cleanup.push(async () => a.delete(`/api/admin/users/${(await user.json()).id}`))
-    const client = await pwRequest.newContext({ baseURL: BASE_URL, storageState: { cookies: [], origins: [] } })
+    const client = await pwRequest.newContext({ baseURL: BASE_URL, storageState: ANON_STATE })
     try {
       // Su propia IP de pruebas (TEST-NET-2): el login está limitado por IP y
       // toda la suite sale de la misma dirección (ver tests/e2e/empresas.spec.ts).

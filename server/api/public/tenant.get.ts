@@ -3,6 +3,8 @@ import { useDb, schema, resolvePublicOrgId } from '../../utils/db'
 import { getCommsSettings } from '../../utils/comms/inbox'
 import { organizationCurrency } from '../../utils/currency'
 import { isDemoOrg } from '../../utils/demo/tenant'
+import { getCookieProviders } from '../../utils/siteSettings'
+import { NO_COOKIE_PROVIDERS } from '../../../utils/cookieConsent'
 
 /**
  * Public branding for the resolved tenant — consumed by useTenant() to
@@ -45,12 +47,15 @@ export default defineEventHandler(async (event) => {
   // público por naturaleza — cada precio publicado ya la lleva.
   const currency = await organizationCurrency(db, orgId)
   return {
-    // Vista previa de una empresa sin dominio (server/utils/sitePreview.ts): la web enseña una franja para salir.
+    // Vista previa de una empresa sin dominio (server/utils/sitePreview.ts). La web se ve tal cual, sin
+    // franjas; sólo el aviso de cookies cambia: guarda la elección en una clave aparte y no carga analítica.
     preview: Boolean((event.context as any).sitePreview),
     // Cuenta demo: la web neutraliza los enlaces que llamarían o escribirían de verdad (plugins/demo-links.client.ts).
     isDemo: await isDemoOrg(db, orgId).catch(() => false),
     webChat: { enabled: Boolean(chat?.webChatEnabled), greeting: chat?.webChatGreeting ?? null },
     currency,
+    // Proveedores sujetos al aviso de cookies (Constructor Web → Cookies). IDs públicos: acaban en el HTML.
+    cookies: await getCookieProviders(db, orgId).catch(() => NO_COOKIE_PROVIDERS),
     ...(rows[0] || {
       id: 1,
       name: 'M&M Real Estate',

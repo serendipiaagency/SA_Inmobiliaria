@@ -77,6 +77,11 @@ const EXEMPT: Record<string, Exemption> = {
   'auth/totp/status.get.ts': { reason: 'Sólo la PROPIA cuenta (requireUser + user.id): no consulta datos de nadie más.', requires: /requireUser\(event\)/ },
   'auth/totp/setup.post.ts': { reason: 'Sólo la PROPIA cuenta (requireUser + user.id): genera el secreto de quien llama.', requires: /requireUser\(event\)/ },
 
+  // Aviso de cookies: al rechazar o retirar «Analíticas» se borra la cookie
+  // httpOnly `sa_visitor` del propio navegador. No lee ni escribe datos de
+  // ninguna organización.
+  'public/visitor.delete.ts': { reason: 'Sólo borra la cookie de visitante del propio navegador (deleteCookie); no consulta datos de nadie.', requires: /clearVisitorId\(event\)/ },
+
   'twilio/status.post.ts': { reason: 'Servidor a servidor: la firma X-Twilio-Signature (HMAC con el auth token) es la credencial, y sólo actualiza la fila cuyo SID de Twilio coincide.', requires: /verifyTwilioSignature\(/ },
 
   // Centro de Comunicaciones: los webhooks de los proveedores. La organización

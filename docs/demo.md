@@ -102,9 +102,11 @@ actúan sobre lo que haga quien use la demo.
 La demo no tiene dominio propio. «Vista previa del sitio» (pie del menú) y el
 icono «Abrir sitio publicado» del Constructor Web abren `/?vista_previa=<id>`
 en el dominio principal: sólo con sesión en esa empresa (o de super admin) esa
-navegación se sirve como ella, con una franja para salir, `Cache-Control:
-private, no-store` y `noindex` (`server/utils/sitePreview.ts`). Sirve igual para
-cualquier empresa sin dominio.
+navegación se sirve como ella, `Cache-Control: private, no-store` y `noindex`
+(`server/utils/sitePreview.ts`). Se ve igual que la web publicada, sin franja
+(desde 2026-10): se abre en otra pestaña y se vuelve cerrándola; la dirección
+`/?vista_previa=salir` la cierra en ese navegador. Sirve igual para cualquier
+empresa sin dominio.
 
 ## Restablecer
 

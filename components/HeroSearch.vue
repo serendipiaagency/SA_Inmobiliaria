@@ -29,16 +29,8 @@
         </h1>
         <SbText tag="p" field="subtitle" label="Subtítulo" multiline class="rise mt-8 max-w-md text-base leading-relaxed text-white/80 md:text-lg" :style="delay(2)" :text="heroSubtitle" />
 
-        <!-- Secondary CTAs -->
-        <div class="rise mt-8 flex flex-wrap items-center gap-x-7 gap-y-3" :class="contentAlign === 'center' ? 'justify-center' : ''" :style="delay(2)">
-          <SbLink field="exploreCta" link-field="exploreCtaTo" label="Botón principal" :to="heroExploreCtaTo" class="hero-cta-outline group" :text="heroExploreCta">
-            <svg class="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6" /></svg>
-          </SbLink>
-          <SbLink field="advisorCta" link-field="advisorCtaTo" label="Botón secundario" kind="link" :to="heroAdvisorCtaTo" class="hero-cta-ghost" :text="heroAdvisorCta" />
-        </div>
-
-        <!-- Search — the protagonist -->
-        <div class="rise mt-12 w-full max-w-5xl" :style="delay(3)">
+        <!-- Search — the protagonist. Sin botones encima: el buscador es la acción del Hero. -->
+        <div class="rise mt-10 w-full max-w-5xl" :style="delay(3)">
           <!-- Category tabs -->
           <div class="tabs-fade -mx-1 mb-4 flex gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button
@@ -267,6 +259,18 @@
                 </select>
               </label>
               <label class="pop-label">
+                {{ t('hero.investment', 'Inversión') }}
+                <!-- Rentabilidad bruta declarada en la ficha (rentalYield), nunca estimada -->
+                <select v-model="form.minYield" class="pop-select" data-testid="hero-min-yield">
+                  <option value="">{{ t('hero.any', 'Cualquiera') }}</option>
+                  <option v-for="y in [3, 4, 5, 6, 8]" :key="y" :value="y">{{ t('hero.minYield', 'Rentabilidad desde {n} %').replace('{n}', String(y)) }}</option>
+                </select>
+              </label>
+              <label class="pop-label flex-row items-center gap-2 self-end pb-2">
+                <input v-model="form.newBuild" type="checkbox" class="h-4 w-4 accent-ink" data-testid="hero-new-build" >
+                {{ t('hero.newBuild', 'Sólo obra nueva') }}
+              </label>
+              <label class="pop-label">
                 Ordenar por
                 <select v-model="form.sort" class="pop-select">
                   <option value="">Recomendado</option>
@@ -295,11 +299,12 @@
 // (via i18n) so this component keeps working standalone. They exist so the
 // Website Builder's hero block editor can override the copy per tenant
 // without forking this component — the search form/tabs logic below stays
-// shared and untouched either way. Los textos y los dos CTA son nodos
-// editables cuando el hero lo pinta el Constructor Web (doble clic sobre el
-// título para escribir); fuera de él, los mismos componentes no añaden nada.
+// shared and untouched either way. Los textos son nodos editables cuando el
+// hero lo pinta el Constructor Web (doble clic sobre el título para escribir);
+// fuera de él, los mismos componentes no añaden nada. El Hero ya no lleva los
+// dos botones «Ver propiedades» / «Hablar con un asesor»: un contenido guardado
+// con ellos (exploreCta/advisorCta) se ignora.
 import SbText from '~/components/site-builder/nodes/SbText.vue'
-import SbLink from '~/components/site-builder/nodes/SbLink.vue'
 import { PROPERTY_TYPES } from '~/utils/propertySheet'
 import { HERO_SLIDE_SECONDS, heroFrames } from '~/utils/siteBuilder/heroMedia'
 
@@ -313,10 +318,6 @@ const props = defineProps<{
   backgroundMode?: 'slideshow' | 'static'
   /** La imagen de «Imagen fija»; vacía = la primera del bucle. */
   backgroundImage?: string
-  exploreCta?: string
-  exploreCtaTo?: string
-  advisorCta?: string
-  advisorCtaTo?: string
   /** Website Builder-only additive options — all default to today's fixed look. */
   overlayOpacity?: number
   backgroundPosition?: string
@@ -362,10 +363,6 @@ const heroEyebrow = computed(() => props.eyebrow || t('hero.eyebrow'))
 const heroTitle1 = computed(() => props.title1 || t('hero.title1'))
 const heroTitle2 = computed(() => props.title2 || t('hero.title2'))
 const heroSubtitle = computed(() => props.subtitle || t('hero.subtitle'))
-const heroExploreCta = computed(() => props.exploreCta || t('hero.exploreCta'))
-const heroExploreCtaTo = computed(() => props.exploreCtaTo || '/propiedades')
-const heroAdvisorCta = computed(() => props.advisorCta || t('hero.advisorCta'))
-const heroAdvisorCtaTo = computed(() => props.advisorCtaTo || '/contacto')
 const overlayOpacity = computed(() => props.overlayOpacity || 0)
 const backgroundPosition = computed(() => props.backgroundPosition || 'center center')
 const contentAlign = computed(() => props.contentAlign || 'left')
@@ -389,20 +386,19 @@ const parallaxStyle = computed(() => {
   return { transform: `translate3d(0, ${offset}px, 0)` }
 })
 
+// La operación: sólo Comprar y Alquilar, excluyentes. Obra nueva, inversión y
+// los tipos (locales, garajes, terrenos, naves…) no son operaciones: están en
+// «Más filtros», cada uno con su criterio real.
 const tabs = computed(() => [
   { key: 'buy', label: t('tab.buy') },
   { key: 'rent', label: t('tab.rent') },
-  { key: 'new', label: t('tab.new') },
-  { key: 'investment', label: t('tab.investment') },
-  { key: 'commercial', label: t('tab.commercial') },
-  { key: 'garage', label: t('tab.garage') },
-  { key: 'plots', label: t('tab.plots') },
-  { key: 'land', label: t('tab.land') },
-  { key: 'warehouse', label: t('tab.warehouse') },
 ])
-const activeTab = ref('buy')
+const activeTab = ref<'buy' | 'rent'>('buy')
 function setTab(k: string) {
-  activeTab.value = k
+  activeTab.value = k === 'rent' ? 'rent' : 'buy'
+  // Venta y alquiler no comparten escala de precio: lo elegido con la otra no sirve.
+  form.priceMin = ''
+  form.priceMax = ''
 }
 const isRent = computed(() => activeTab.value === 'rent')
 
@@ -416,6 +412,8 @@ const form = reactive({
   subtype: '',
   status: '',
   sort: '',
+  newBuild: false,
+  minYield: '' as number | '',
 })
 
 const open = ref<string | null>(null)
@@ -452,7 +450,8 @@ function pickLocation(s: string) {
 
 // Price steps depend on buy/rent
 const buySteps = [250000, 500000, 750000, 1000000, 1500000, 2000000, 3000000, 5000000]
-const rentSteps = [30000, 60000, 90000, 120000, 180000, 250000, 400000]
+// Alquiler: renta MENSUAL (la misma columna `price`, utils/propertySheet.ts › renta mensual).
+const rentSteps = [400, 600, 800, 1000, 1250, 1500, 2000, 3000, 5000]
 const priceSteps = computed(() => (isRent.value ? rentSteps : buySteps))
 const priceLabel = computed(() => {
   const min = form.priceMin
@@ -464,7 +463,8 @@ const priceLabel = computed(() => {
 })
 function short(v: number) {
   if (v >= 1000000) return `${v / 1000000}M`
-  return `${v / 1000}k`
+  if (v >= 10000) return `${v / 1000}k`
+  return String(v)
 }
 
 const bedOptions = [
@@ -489,7 +489,9 @@ const hasFilters = computed(
     form.baths !== '' ||
     form.areaMin !== '' ||
     !!form.subtype ||
-    !!form.status,
+    !!form.status ||
+    form.newBuild ||
+    form.minYield !== '',
 )
 function clearAll() {
   Object.assign(form, {
@@ -502,12 +504,14 @@ function clearAll() {
     subtype: '',
     status: '',
     sort: '',
+    newBuild: false,
+    minYield: '',
   })
 }
 
 function submit() {
   open.value = null
-  const q: Record<string, string> = { mode: activeTab.value }
+  const q: Record<string, string> = { operacion: activeTab.value === 'rent' ? 'alquiler' : 'venta' }
   if (form.location) q.q = form.location
   if (form.priceMin !== '') q.minPrice = String(form.priceMin)
   if (form.priceMax !== '') q.maxPrice = String(form.priceMax)
@@ -517,6 +521,8 @@ function submit() {
   if (form.subtype) q.type = form.subtype
   if (form.status) q.status = form.status
   if (form.sort) q.sort = form.sort
+  if (form.newBuild) q.obra = 'nueva'
+  if (form.minYield !== '') q.minYield = String(form.minYield)
   router.push({ path: '/propiedades', query: q })
 }
 
@@ -583,36 +589,6 @@ function delay(i: number) {
 /* Soft radial vignette to keep focus on the centered content */
 .hero-vignette {
   background: radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.35) 100%);
-}
-
-/* Secondary CTAs */
-.hero-cta-outline {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.5);
-  padding-bottom: 3px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #fff;
-  transition: border-color 0.25s, opacity 0.25s;
-}
-.hero-cta-outline:hover {
-  border-color: #fff;
-  opacity: 0.85;
-}
-.hero-cta-ghost {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.65);
-  transition: color 0.25s;
-}
-.hero-cta-ghost:hover {
-  color: #fff;
 }
 
 /* Fade the edges of the horizontally-scrolling tab list on small screens */

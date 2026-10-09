@@ -65,6 +65,17 @@ export default defineEventHandler(async (event) => {
   if (postalCode) conds.push(like(P.postalCode, `${postalCode}%`))
   if (query.status) conds.push(eq(P.status, String(query.status)))
   if (String(query.new || '') === '1') conds.push(eq(P.status, 'new'))
+  // Obra nueva / segunda mano (Hero › Más filtros, catálogo): una promoción en
+  // lanzamiento o en construcción, o un inmueble del tipo «Promoción»
+  // (utils/propertyFacts.ts lo rotula igual). Lo demás es segunda mano — sin
+  // mirar de qué módulo del panel viene.
+  // (coalesce: un estado o tipo vacío es segunda mano, no «desconocido» que el NOT dejaría fuera.)
+  const newBuild = sql`(coalesce(${P.status}, '') in ('new', 'under_construction') or coalesce(${P.propertyType}, '') = 'Development')`
+  if (query.obra === 'nueva') conds.push(newBuild)
+  else if (query.obra === 'segunda') conds.push(sql`not (${newBuild})`)
+  // Inversión: rentabilidad bruta declarada en la ficha, desde un mínimo (%).
+  const minYield = Number(query.minYield)
+  if (Number.isFinite(minYield) && minYield > 0 && minYield <= 100) conds.push(gte(P.rentalYield, minYield))
   // Operación (enlace «Comprar Propiedad» de la cabecera, utils/siteNav.ts):
   // «venta» es lo que no está en alquiler — una promoción sin operación
   // indicada es una venta, como siempre se ha publicado la obra nueva.

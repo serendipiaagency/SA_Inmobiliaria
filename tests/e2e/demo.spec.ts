@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest } from '@playwright/test'
-import { STATE_A } from './global-setup'
+import { STATE_A, ANON_STATE } from './global-setup'
 
 /**
  * Cuenta demo «Norte Astur Inmobiliaria» sobre el Worker real (docs/demo.md):
@@ -43,7 +43,7 @@ test('cuenta demo: se genera, la gerente entra sin opciones de super admin y nad
   expect(refused.status()).toBe(422)
 
   // 2. La gerente entra con su usuario.
-  const context = await browser.newContext({ baseURL: BASE_URL, extraHTTPHeaders: DEMO_IP })
+  const context = await browser.newContext({ baseURL: BASE_URL, storageState: ANON_STATE, extraHTTPHeaders: DEMO_IP })
   const login = await context.request.post('/api/auth/login', { data: { email: DEMO_EMAIL, password: DEMO_PASSWORD } })
   expect(login.ok(), await login.text()).toBeTruthy()
   expect((await login.json()).user.role).toBe('admin')
@@ -79,15 +79,21 @@ test('cuenta demo: se genera, la gerente entra sin opciones de super admin y nad
   expect(rows.length).toBe(10)
   expect(rows.every((p: any) => Boolean(p.mainImage))).toBeTruthy()
 
-  // 4. La web de la demo en vista previa, sólo para su equipo.
+  // 4. La web de la demo en vista previa, sólo para su equipo, y tal cual se
+  // publicará: sin franja negra, sin texto de «vista previa» ni botón de salir;
+  // lo primero es la cabecera real de la inmobiliaria.
   await page.goto(`/?vista_previa=${orgId}`)
-  await expect(page.getByTestId('site-preview-bar')).toBeVisible()
   await expect(page.getByText('Encuentra tu lugar')).toBeVisible()
+  await expect(page.getByTestId('site-preview-bar')).toHaveCount(0)
+  await expect(page.getByText(/Vista previa de la web de|Salir de la vista previa/)).toHaveCount(0)
+  expect((await page.locator('header').first().boundingBox())?.y).toBe(0)
   const tenant = await (await page.request.get('/api/public/tenant')).json()
   expect(tenant.id).toBe(orgId)
   expect(tenant.isDemo).toBe(true)
+  expect(tenant.preview).toBe(true)
+  // Se sale como siempre (el parámetro), sin franja que lo ofrezca.
   await page.goto('/?vista_previa=salir')
-  await expect(page.getByTestId('site-preview-bar')).toHaveCount(0)
+  expect((await (await page.request.get('/api/public/tenant')).json()).id).not.toBe(orgId)
 
   // Un visitante sin sesión no puede ver la web de la demo con el parámetro.
   const anon = await pwRequest.newContext({ baseURL: BASE_URL })

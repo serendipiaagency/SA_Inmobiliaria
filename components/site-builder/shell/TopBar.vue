@@ -72,6 +72,9 @@
       <button type="button" class="toolbar-btn" title="Estilos globales" data-testid="open-global-styles" @click="emit('open-styles')">
         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 20 10.5 4h1L18 20M6.5 14h9M20 20v-8" /></svg>
       </button>
+      <button type="button" class="toolbar-btn" title="Cookies de la web" data-testid="open-cookie-settings" @click="emit('open-cookies')">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3a9 9 0 1 0 9 9 3 3 0 0 1-3-3 3 3 0 0 1-3-3 3 3 0 0 1-3-3Z" /><circle cx="8.5" cy="11.5" r="1" fill="currentColor" /><circle cx="12.5" cy="15.5" r="1" fill="currentColor" /><circle cx="15.5" cy="11" r="0.8" fill="currentColor" /></svg>
+      </button>
       <button type="button" class="toolbar-btn" title="SEO de la página" @click="emit('open-seo')">
         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8" /><path stroke-linecap="round" d="m21 21-4.3-4.3" /></svg>
       </button>
@@ -117,6 +120,7 @@ const emit = defineEmits<{
   'toggle-preview': []
   'open-seo': []
   'open-styles': []
+  'open-cookies': []
   'open-history': []
   publish: []
 }>()

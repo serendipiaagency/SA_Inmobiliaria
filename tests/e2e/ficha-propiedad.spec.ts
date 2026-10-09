@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
-import { STATE_A, STATE_B } from './global-setup'
+import { STATE_A, STATE_B, ANON_STATE } from './global-setup'
 
 /**
  * Ficha pública de una propiedad (#107): Datos clave con iconos y colores,
@@ -175,7 +175,7 @@ test.describe('Ficha pública: Datos clave, destacadas y «Atendido por» → CR
   })
 
   test('la web: Datos clave con iconos de colores, sin «IA», «Atendido por» con el comercial real y envío desde el formulario', async ({ browser }) => {
-    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, extraHTTPHeaders: ip() })
+    const ctx = await browser.newContext({ storageState: ANON_STATE, extraHTTPHeaders: ip() })
     const page = await ctx.newPage()
     await page.goto(`/propiedades/${props.A.slug}`)
 

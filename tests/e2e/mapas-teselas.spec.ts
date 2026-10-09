@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest } from '@playwright/test'
-import { STATE_A } from './global-setup'
+import { STATE_A, ANON_STATE } from './global-setup'
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8788'
 
@@ -18,7 +18,7 @@ const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
 
 test.describe('Mapas — capas base sin clave de CARTO', () => {
   test('/mapa pinta teselas de OpenStreetMap con su atribución, nunca las de CARTO sin clave; el oscuro y el satélite también cargan', async ({ browser }) => {
-    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+    const context = await browser.newContext({ storageState: ANON_STATE })
     const page = await context.newPage()
     const requested: string[] = []
     const blockedByCsp: string[] = []

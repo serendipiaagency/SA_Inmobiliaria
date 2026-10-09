@@ -531,7 +531,7 @@ test.describe('Constructor Web', () => {
     const panel = page.getByTestId('section-library')
     await expect(panel).toBeVisible()
     // The canvas behind it is still there and visible — not a full-screen modal.
-    await expect(page.frameLocator('iframe[title="Vista previa del Constructor Web"]').getByText('EXPLORAR CATÁLOGO')).toBeVisible()
+    await expect(page.frameLocator('iframe[title="Vista previa del Constructor Web"]').locator('section.hero')).toBeVisible()
 
     // "Recomendados" is the default shelf and does not include every preset.
     // exact: true — "Comunidades" (the category tab, later) and a preset's

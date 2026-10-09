@@ -67,3 +67,22 @@ export async function claimOnce(event: H3Event, key: string): Promise<boolean> {
     .first<{ count: number }>()
   return (row?.count ?? 1) <= 1
 }
+
+/**
+ * «¿Es la primera vez que esta IP hace `name` en esta ventana?» — sin lanzar
+ * nada. Para deduplicar algo que no lleva cookie (una visita contada sin
+ * consentimiento de analítica): usa la misma tabla anti-abuso que rateLimit,
+ * así que no guarda nada nuevo del visitante ni en su navegador.
+ */
+export async function firstInWindow(event: H3Event, name: string, windowSeconds: number): Promise<boolean> {
+  const windowStart = Math.floor(Date.now() / 1000 / windowSeconds) * windowSeconds
+  const row = await cfEnv(event)
+    .DB.prepare(
+      `INSERT INTO rate_limits (bucket, window_start, count) VALUES (?1, ?2, 1)
+       ON CONFLICT(bucket, window_start) DO UPDATE SET count = count + 1
+       RETURNING count`,
+    )
+    .bind(`${name}:${clientIp(event)}`, windowStart)
+    .first<{ count: number }>()
+  return (row?.count ?? 1) <= 1
+}

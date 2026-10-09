@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
-import { STATE_A, STATE_B, TENANT_A } from './global-setup'
+import { STATE_A, STATE_B, TENANT_A, ANON_STATE } from './global-setup'
 
 /**
  * Empresas — los dos canales de alta sobre el Worker real:
@@ -260,7 +260,7 @@ test.describe('Empresas B — Landing → Registro empresa', () => {
   }
 
   test('desde la landing, se registra, ve un éxito honesto y entra por el login normal', async ({ browser }) => {
-    const context = await browser.newContext({ extraHTTPHeaders: ip(2) })
+    const context = await browser.newContext({ storageState: ANON_STATE, extraHTTPHeaders: ip(2) })
     const page = await context.newPage()
     await page.goto('/')
     await page.getByTestId('landing-register-company').click()

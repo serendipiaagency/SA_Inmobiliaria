@@ -13,9 +13,14 @@
  *
  * Cliente únicamente: SSR no tiene document.referrer ni el historial de
  * navegación del visitante.
+ *
+ * Es una cookie de la categoría «Analíticas» del aviso de cookies: el origen
+ * se lee en la página de aterrizaje (está en su dirección), pero sólo se
+ * guarda si el visitante acepta esa categoría — en ese momento o en cualquier
+ * página posterior de la misma visita. Sin ese permiso no se escribe nada.
  */
 export default defineNuxtPlugin(() => {
-  if (!import.meta.client) return
+  if (!import.meta.client || window.location.pathname.startsWith('/admin')) return
 
   const existing = useCookie<string | null>('sa_ft', { maxAge: 60 * 60 * 24 * 30, sameSite: 'lax', path: '/' })
   if (existing.value) return
@@ -41,9 +46,19 @@ export default defineNuxtPlugin(() => {
   const hasSignal = Object.keys(utm).length > 0 || !!referrer
   if (!hasSignal) return // Nada que capturar: visita directa sin campaña ni referrer externo.
 
-  existing.value = JSON.stringify({
+  const firstTouch = JSON.stringify({
     ...utm,
     landing_page: window.location.pathname.slice(0, 300),
     referrer,
   })
+  const { choices } = useCookieConsent()
+  const stop = watch(
+    () => choices.value.analytics,
+    (allowed) => {
+      if (!allowed) return
+      if (!existing.value) existing.value = firstTouch
+      queueMicrotask(() => stop())
+    },
+    { immediate: true },
+  )
 })

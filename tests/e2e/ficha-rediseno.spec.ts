@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
-import { STATE_A, STATE_B } from './global-setup'
+import { STATE_A, STATE_B, ANON_STATE } from './global-setup'
 import { buildPng } from '../../test/unit/helpers/mediaFixtures'
 
 /**
@@ -42,7 +42,7 @@ test.describe('Ficha rediseñada (#111)', () => {
   test.beforeAll(async () => {
     a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
     b = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_B })
-    anon = await pwRequest.newContext({ baseURL: BASE_URL, storageState: { cookies: [], origins: [] } })
+    anon = await pwRequest.newContext({ baseURL: BASE_URL, storageState: ANON_STATE })
 
     const dev = await a.post('/api/admin/developers', { data: { name: `Promotora rediseño ${RUN}`, email: `red-${RUN}@mm.test`, status: 'active' } })
     expect(dev.ok(), await dev.text()).toBeTruthy()
@@ -202,7 +202,7 @@ test.describe('Ficha rediseñada (#111)', () => {
     expect((await anon.get(`/api/public/properties/no-existe-${RUN}/neighbors`)).status()).toBe(404)
 
     // Entrando por un enlace directo (sin búsqueda en esta pestaña), los botones usan esas vecinas.
-    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, viewport: { width: 1440, height: 900 } })
+    const ctx = await browser.newContext({ storageState: ANON_STATE, viewport: { width: 1440, height: 900 } })
     const page = await ctx.newPage()
     await page.goto(`/propiedades/${p.c2.slug}`)
     await expect(page.getByTestId('ficha-prev')).toHaveAttribute('href', `/propiedades/${p.c3.slug}`)
@@ -269,7 +269,7 @@ test.describe('Ficha rediseñada (#111)', () => {
     const before = await (await anon.get(`/api/public/properties/${p.c3.slug}/engagement`)).json()
     expect(before.viewsThisWeek).toBe(0)
     // IP propia: el registro de visitas tiene un límite por IP que comparten todas las pruebas.
-    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, viewport: { width: 1440, height: 900 }, extraHTTPHeaders: { 'cf-connecting-ip': `203.0.113.${(Date.now() % 250) + 3}` } })
+    const ctx = await browser.newContext({ storageState: ANON_STATE, viewport: { width: 1440, height: 900 }, extraHTTPHeaders: { 'cf-connecting-ip': `203.0.113.${(Date.now() % 250) + 3}` } })
     const page = await ctx.newPage()
     await page.goto(`/propiedades/${p.c3.slug}`)
     await expect(page.locator('h1')).toBeVisible()

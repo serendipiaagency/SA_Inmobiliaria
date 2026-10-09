@@ -26,8 +26,11 @@
         <img v-for="(img, i) in block.images" :key="i" :src="mediaUrl(img.src)" :alt="img.alt || ''" class="aspect-square rounded-lg object-cover" loading="lazy" >
       </div>
 
+      <!-- Reproductor sin cookies (el único origen de YouTube que admite la CSP) y sólo con consentimiento. -->
       <div v-else-if="block.type === 'video' && youtubeId(block.url)" class="mt-6 aspect-video overflow-hidden rounded-xl">
-        <iframe :src="`https://www.youtube.com/embed/${youtubeId(block.url)}`" class="h-full w-full" allowfullscreen loading="lazy" />
+        <ConsentGate provider="YouTube" :href="block.url" class="h-full w-full">
+          <iframe :src="`https://www.youtube-nocookie.com/embed/${youtubeId(block.url)}?rel=0`" class="h-full w-full" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin" />
+        </ConsentGate>
       </div>
 
       <a v-else-if="block.type === 'button'" :href="block.url" class="mt-6 inline-block rounded-full bg-ink px-6 py-3 text-sm font-semibold text-white transition hover:opacity-90">{{ block.text }}</a>

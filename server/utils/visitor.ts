@@ -1,4 +1,4 @@
-import { getCookie, setCookie, type H3Event } from 'h3'
+import { deleteCookie, getCookie, setCookie, type H3Event } from 'h3'
 
 const VISITOR_COOKIE = 'sa_visitor'
 const VISITOR_ID_RE = /^[0-9a-f]{32}$/
@@ -30,4 +30,15 @@ export function getOrSetVisitorId(event: H3Event): string {
     maxAge: 60 * 60 * 24 * 365 * 2, // 2 years
   })
   return id
+}
+
+/**
+ * Retira la cookie de visitante: el visitante rechazó o retiró «Analíticas»
+ * en el aviso de cookies (plugins/consent-scripts.client.ts). Es httpOnly, así
+ * que sólo el servidor puede borrarla. Sus favoritos siguen en su navegador.
+ */
+export function clearVisitorId(event: H3Event): boolean {
+  const had = Boolean(getCookie(event, VISITOR_COOKIE))
+  if (had) deleteCookie(event, VISITOR_COOKIE, { httpOnly: true, secure: true, sameSite: 'lax', path: '/' })
+  return had
 }

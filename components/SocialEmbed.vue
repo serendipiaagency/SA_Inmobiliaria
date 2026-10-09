@@ -1,15 +1,18 @@
 <template>
   <div class="social-embed shrink-0">
-    <blockquote
-      v-if="platform === 'instagram'"
-      class="instagram-media"
-      :data-instgrm-permalink="url"
-      data-instgrm-version="14"
-      style="background: #fff; border: 0; margin: 0; max-width: 340px; min-width: 280px; padding: 0; width: 100%"
-    />
-    <blockquote v-else class="tiktok-embed" :cite="url" :data-video-id="tiktokVideoId" style="max-width: 340px; min-width: 280px">
-      <section><a target="_blank" rel="noopener" :href="url">Ver en TikTok</a></section>
-    </blockquote>
+    <!-- El script de Instagram/TikTok sólo se carga con el consentimiento de «Contenido de terceros». -->
+    <ConsentGate :provider="platform === 'instagram' ? 'Instagram' : 'TikTok'" :href="url" class="min-h-[220px] w-full max-w-[340px]">
+      <blockquote
+        v-if="platform === 'instagram'"
+        class="instagram-media"
+        :data-instgrm-permalink="url"
+        data-instgrm-version="14"
+        style="background: #fff; border: 0; margin: 0; max-width: 340px; min-width: 280px; padding: 0; width: 100%"
+      />
+      <blockquote v-else class="tiktok-embed" :cite="url" :data-video-id="tiktokVideoId" style="max-width: 340px; min-width: 280px">
+        <section><a target="_blank" rel="noopener" :href="url">Ver en TikTok</a></section>
+      </blockquote>
+    </ConsentGate>
     <p v-if="caption" class="mt-2 max-w-[280px] text-[12px] text-stone-500">{{ caption }}</p>
   </div>
 </template>
@@ -56,12 +59,22 @@ const props = defineProps<{ platform: 'instagram' | 'tiktok'; url: string; capti
 // the real player, so it silently falls back to the plain link.
 const tiktokVideoId = computed(() => props.url.match(/\/video\/(\d+)/)?.[1] || '')
 
-onMounted(async () => {
-  if (props.platform === 'instagram') {
-    await ensureInstagramScript()
-    ;(window as any).instgrm?.Embeds?.process()
-  } else {
-    scheduleTikTokScript()
-  }
-})
+// Sin consentimiento no se pide nada a Instagram ni a TikTok; en cuanto se
+// concede (aquí mismo o en el aviso de cookies), se cargan y procesan.
+const { choices } = useCookieConsent()
+const mounted = ref(false)
+onMounted(() => (mounted.value = true))
+watch(
+  () => mounted.value && choices.value.thirdParty,
+  async (allowed) => {
+    if (!allowed) return
+    await nextTick()
+    if (props.platform === 'instagram') {
+      await ensureInstagramScript()
+      ;(window as any).instgrm?.Embeds?.process()
+    } else {
+      scheduleTikTokScript()
+    }
+  },
+)
 </script>
