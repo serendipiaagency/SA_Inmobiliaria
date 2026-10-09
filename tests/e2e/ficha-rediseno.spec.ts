@@ -236,8 +236,11 @@ test.describe('Ficha rediseñada (#111)', () => {
     await expect(page.getByTestId('serendipia-score-bars').locator('li')).toHaveCount(Math.min(4, api.breakdown.length))
     await expect(page.getByTestId('serendipia-score-summary')).toContainText('Destaca en')
     await page.getByTestId('serendipia-score-more').click()
+    // Cada factor dice de qué dato sale, con la frase compuesta en el idioma de la web (useScoreText).
     const detail = page.getByTestId('serendipia-score-detail')
-    for (const b of api.breakdown) await expect(detail).toContainText(b.detail)
+    expect(await detail.locator('[data-factor]').evaluateAll((els) => els.map((e) => e.getAttribute('data-factor')))).toEqual(api.breakdown.map((b: any) => b.key))
+    await expect(detail.locator('[data-factor="comodidades"] dd')).toHaveText('garaje, terraza y ascensor · eficiencia A')
+    await expect(detail.locator('[data-factor="entrega"] dd')).toHaveText('Obra nueva / sobre plano — mayor plazo hasta la entrega')
 
     // Sin frases de relleno: la sencilla no tiene recuadro de puntos destacados ni «Lo que debes saber» inventado.
     await page.goto(`/propiedades/${p.plain.slug}`)
