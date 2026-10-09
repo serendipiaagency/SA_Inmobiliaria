@@ -80,3 +80,20 @@ When the symptom appeared, three plausible-but-wrong causes were chased
 **The lesson: when a known pending item exists and a symptom shows up, check
 the known item before forming a new hypothesis.** A footnote that keeps
 reappearing is not a footnote.
+
+### Lección aprendida, 2026-10: un push a una rama ya es producción
+
+Mientras el auto-deploy de Cloudflare Workers Builds siga activo (desactivarlo
+es el paso 1 de `docs/deployment.md` y le toca al propietario, en el panel de
+Cloudflare), **cada push a cualquier rama —también a la rama de trabajo, antes
+de abrir el PR— publica ese código en producción**, sin aplicar migraciones.
+El pipeline de `main` (`deploy-production`) es el único que migra, y sólo
+corre tras fusionar. De ahí dos reglas:
+
+1. **Nada se empuja sin el gate completo en verde.** Empujar trabajo a medias
+   es desplegarlo.
+2. **Una migración va sola y primero.** Su propio PR (sólo la migración y lo
+   que no la lee todavía), fusionado y con `deploy-production` en verde, que
+   es cuando el esquema de producción la tiene. Sólo entonces se empuja el
+   código que lee las columnas o tablas nuevas. Al revés, producción ejecuta
+   código que lee un esquema que aún no existe — el incidente del 2026-09-15.
