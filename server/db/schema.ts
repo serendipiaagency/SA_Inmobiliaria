@@ -2916,6 +2916,35 @@ export const savedSearches = sqliteTable(
   (t) => [index('saved_searches_org').on(t.organizationId, t.active), uniqueIndex('saved_searches_unsubscribe_token').on(t.unsubscribeToken)],
 )
 
+// Suscripciones al newsletter de cada inmobiliaria (0093): el formulario
+// «Suscríbete» del pie de la web. Una fila por persona y empresa; los tokens
+// de baja y de confirmación (doble opt-in), sólo como SHA-256.
+export const newsletterSubscriptions = sqliteTable(
+  'newsletter_subscriptions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    email: text('email').notNull(),
+    status: text('status').notNull().default('subscribed'), // subscribed | pending | unsubscribed
+    source: text('source').notNull().default('footer'),
+    locale: text('locale'),
+    consentAt: text('consent_at').notNull(),
+    unsubscribeTokenHash: text('unsubscribe_token_hash'),
+    confirmTokenHash: text('confirm_token_hash'),
+    confirmExpiresAt: text('confirm_expires_at'),
+    confirmedAt: text('confirmed_at'),
+    unsubscribedAt: text('unsubscribed_at'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [
+    uniqueIndex('newsletter_subscriptions_org_email').on(t.organizationId, t.email),
+    index('newsletter_subscriptions_org_status').on(t.organizationId, t.status, t.createdAt),
+    uniqueIndex('newsletter_subscriptions_unsubscribe_token').on(t.unsubscribeTokenHash),
+    uniqueIndex('newsletter_subscriptions_confirm_token').on(t.confirmTokenHash),
+  ],
+)
+
 export const deals = sqliteTable(
   'deals',
   {
