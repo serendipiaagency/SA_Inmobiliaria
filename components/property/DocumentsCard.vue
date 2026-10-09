@@ -29,12 +29,12 @@ import type { PublicDocument } from '~/utils/propertyFacts'
  * Sin documentos, la sección no existe.
  */
 const props = defineProps<{ documents: PublicDocument[] }>()
-const { t } = useI18n()
+const { t, intlLocale } = useI18n()
 
 const INLINE = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
 function size(bytes?: number | null): string {
   if (!bytes) return ''
-  return bytes >= 1048576 ? `${(bytes / 1048576).toLocaleString('es-ES', { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`
+  return bytes >= 1048576 ? `${(bytes / 1048576).toLocaleString(intlLocale.value, { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`
 }
 const files = computed(() =>
   props.documents.map((d) => {

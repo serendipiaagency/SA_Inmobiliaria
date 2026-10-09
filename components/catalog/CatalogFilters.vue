@@ -135,7 +135,7 @@ const props = withDefaults(
 )
 const emit = defineEmits<{ patch: [Record<string, any>]; clear: []; 'open-map': []; 'show-results': []; collapse: []; more: [] }>()
 
-const { t } = useI18n()
+const { t, intlLocale } = useI18n()
 const typeLabel = usePropertyTypeLabel()
 const uid = useId()
 
@@ -254,7 +254,7 @@ const featureOptions = computed(() => [
   { key: 'accessible', label: t('filters.feature.accessible', 'Accesible') },
 ])
 
-const resultsLabel = computed(() => (props.total === 1 ? t('catalog.showOne', 'Ver 1 resultado') : `${t('catalog.show', 'Ver')} ${props.total.toLocaleString('es-ES')} ${t('catalog.results', 'resultados')}`))
+const resultsLabel = computed(() => (props.total === 1 ? t('catalog.showOne', 'Ver 1 resultado') : `${t('catalog.show', 'Ver')} ${props.total.toLocaleString(intlLocale.value)} ${t('catalog.results', 'resultados')}`))
 </script>
 
 <style scoped>

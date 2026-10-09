@@ -33,7 +33,7 @@
 
             <!-- Móvil y tableta: el precio y la próxima visita justo después de la galería. -->
             <div class="order-[-5] lg:hidden" data-testid="ficha-mobile-price">
-              <PropertyPriceCard :slug="slug" :project="data.project" :agent-slug="agentSlug" @book="(start) => openVisit('in_person', start)" @video="openVisit('video')" />
+              <PropertyPriceCard :slug="slug" :project="data.project" :agent-slug="agentSlug" @book="(start) => openVisit('in_person', start)" @video="openVisit('video')" @visit-state="(s) => (agendaState = s)" />
             </div>
 
             <!-- Tarjeta principal: estado, título, ubicación pública, cifras y características destacadas. -->
@@ -265,7 +265,7 @@
           queda fija mientras se lee el resto de la ficha (sin tapar nada de la columna). -->
           <aside class="flex min-w-0 flex-col gap-5" data-testid="ficha-aside">
             <div class="hidden lg:block">
-              <PropertyPriceCard :slug="slug" :project="data.project" :agent-slug="agentSlug" @book="(start) => openVisit('in_person', start)" @video="openVisit('video')" />
+              <PropertyPriceCard :slug="slug" :project="data.project" :agent-slug="agentSlug" @book="(start) => openVisit('in_person', start)" @video="openVisit('video')" @visit-state="(s) => (agendaState = s)" />
             </div>
             <div id="contacto" ref="contactRef" class="scroll-mt-28">
               <PropertyContactCard :project="data.project" :agent="data.agent" />
@@ -568,10 +568,12 @@ const showMobileBar = computed(() => heroPassed.value && !contactInView.value)
 
 // Reserva de visita (#110): con comercial y agenda, la reserva real (con la
 // hora de «Próxima visita disponible» ya elegida si se pulsó ahí); sin ella,
-// el formulario de «Atendido por».
+// o si su agenda no tiene ningún hueco en dos semanas, el formulario de
+// «Atendido por» (la reserva no tendría horas que ofrecer).
+const agendaState = ref<'loading' | 'slot' | 'none'>('loading')
 const visitModal = reactive<{ open: boolean; channel: 'in_person' | 'video'; slot: string | null }>({ open: false, channel: 'in_person', slot: null })
 function openVisit(channel: 'in_person' | 'video', slot: string | null = null) {
-  if (!agentSlug.value) {
+  if (!agentSlug.value || agendaState.value === 'none') {
     document.getElementById('contacto')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     return
   }

@@ -5,6 +5,9 @@ import { LOCALES, messages } from '~/i18n/messages'
  * against the active locale, falling back to Spanish and then the raw key.
  * Arabic switches the document to RTL (handled by the i18n plugin).
  */
+/** El formato de fechas y números de cada idioma de la web (Intl). */
+const INTL_LOCALE: Record<string, string> = { es: 'es-ES', en: 'en-GB', de: 'de-DE', pt: 'pt-PT', fr: 'fr-FR', ar: 'ar' }
+
 export function useI18n() {
   const cookie = useCookie<string>('locale', {
     default: () => 'es',
@@ -34,5 +37,8 @@ export function useI18n() {
     chosen.value = '1'
   }
 
-  return { locale, locales: LOCALES, currentLocale, isRtl, t, setLocale, localeChosen: computed(() => String(chosen.value) === '1') }
+  // Para `toLocaleDateString`/`toLocaleString`: las fechas y cifras en el idioma que se ve.
+  const intlLocale = computed(() => INTL_LOCALE[locale.value] || 'es-ES')
+
+  return { locale, locales: LOCALES, currentLocale, isRtl, t, setLocale, intlLocale, localeChosen: computed(() => String(chosen.value) === '1') }
 }

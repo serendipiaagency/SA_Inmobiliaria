@@ -46,11 +46,14 @@ function firstSlot(agentSlug: string): Promise<{ start: string; end: string } | 
  * ninguna hora.
  */
 const props = defineProps<{ agentSlug?: string | null }>()
-const emit = defineEmits<{ book: [start: string] }>()
-const { t } = useI18n()
+// `state` avisa a quien la contiene de si hay hueco real (la tarjeta de precio
+// sólo ofrece la videollamada con un hueco que la respalde).
+const emit = defineEmits<{ book: [start: string]; state: [state: 'loading' | 'slot' | 'none'] }>()
+const { t, intlLocale } = useI18n()
 
 const state = ref<'loading' | 'slot' | 'none'>('loading')
 const slot = ref<{ start: string; end: string } | null>(null)
+watch(state, (s) => emit('state', s))
 
 onMounted(async () => {
   if (!props.agentSlug) {
@@ -69,7 +72,7 @@ onMounted(async () => {
 const whenLabel = computed(() => {
   if (!slot.value) return ''
   const d = new Date(`${slot.value.start.slice(0, 10)}T00:00:00Z`)
-  const day = d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' })
+  const day = d.toLocaleDateString(intlLocale.value, { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' })
   return `${day.charAt(0).toUpperCase()}${day.slice(1)} · ${slot.value.start.slice(11, 16)} - ${slot.value.end.slice(11, 16)}`
 })
 </script>
