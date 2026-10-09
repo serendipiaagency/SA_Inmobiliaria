@@ -124,6 +124,7 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: 'Propiedades (web)', to: '/admin/developer-properties', icon: 'building' },
       { label: 'Propiedades 2ª mano', to: '/admin/properties', icon: 'layers' },
       { label: 'Constructor Web', to: '/admin/site-builder', icon: 'widget' },
+      { label: 'Suscriptores', to: '/admin/suscriptores', icon: 'mail' },
       { label: 'Comunidades', to: '/admin/communities', icon: 'store' },
       { label: 'Publicación multicanal', to: '/admin/scheduler', icon: 'bolt' },
       // Antes en Finanzas & Growth; su permiso sigue siendo el de Finanzas & Growth.
