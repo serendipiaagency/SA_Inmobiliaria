@@ -1,14 +1,17 @@
 <template>
   <transition name="st">
-    <button v-if="visible" type="button" class="st-btn no-print" :class="{ 'st-btn-raised': hasActiveBar }" aria-label="Volver arriba" @click="toTop">
+    <button v-if="visible && !footerTopVisible" type="button" class="st-btn no-print" :class="{ 'st-btn-raised': hasActiveBar }" :aria-label="t('footer.backToTop', 'Volver arriba')" data-testid="scroll-top" @click="toTop">
       <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
     </button>
   </transition>
 </template>
 
 <script setup lang="ts">
+const { t } = useI18n()
 const { hasActiveBar } = useBottomBar()
 const visible = ref(false)
+// El pie tiene su propio «volver arriba»: mientras se ve, éste se esconde (nunca dos a la vez).
+const footerTopVisible = useState<boolean>('site-footer-top-visible', () => false)
 function onScroll() {
   visible.value = window.scrollY > 640
 }

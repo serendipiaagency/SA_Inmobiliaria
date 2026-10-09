@@ -564,14 +564,97 @@ siempre sigue en pie: PROPIEDADES = DATOS, CONSTRUCTOR = PRESENTACIÓN.
 
 ### Cabecera y pie: elementos globales en el lienzo
 
-El lienzo pinta ahora `SiteHeader` y `SiteFooter` (con `tenantOverride`, la
-marca de la organización que se edita, no la del host del panel) dentro de
+El lienzo pinta `SiteHeader` y `SiteFooter` (con `tenantOverride`, la marca
+de la organización que se edita, no la del host del panel) dentro de
 `SiteGlobalZone.vue`, con `transparentHero` como la portada real: lo que se
-ve es la página completa. Son **elementos globales** del sitio, no de Inicio:
-pulsarlos los selecciona y el inspector (`GlobalZoneInspector.vue`) explica
-que aparecen en todas las páginas y dónde se cambian (logo y nombre en
-Sistema → Empresas; los datos legales en Privacidad). No se crea una copia
-divergente para Inicio.
+ve es la página completa. Son **elementos globales** del sitio, no de Inicio.
+La cabecera no se edita aquí: pulsarla la selecciona y el inspector
+(`GlobalZoneInspector.vue`) explica que aparece en todas las páginas y dónde
+se cambia (logo y nombre en Sistema → Empresas). El pie sí se edita: ver la
+sección siguiente.
+
+## El pie global: cinco columnas, newsletter real, contacto, paisaje y barra inferior
+
+El pie (`components/site/SiteFooter.vue`) es uno para toda la web y se edita
+en el Constructor pulsándolo en el lienzo (`FooterInspector.vue`, con las
+tres pestañas Contenido / Diseño / Avanzado). Su modelo, los valores de
+partida y la normalización están en **`utils/siteFooter.ts`**, compartido por
+servidor, web y editor: nada llega a la web sin pasar por
+`normalizeFooterConfig()` (textos con tope, colores `#rrggbb`, enlaces
+externos sólo `http(s)`/`mailto:`/`tel:`, redes sólo hacia el dominio de su
+red).
+
+**Dónde se guarda.** Como un documento más de `site_pages`, con la clave
+reservada `footer` (`FOOTER_PAGE_KEY`), que no es una página: no está en
+`SITE_PAGES`, `requireValidPageKey` la rechaza y no sale en la lista de
+páginas. Así tiene borrador, versión publicada e historial igual que las
+páginas, sin migración. El JSON es `{ "footer": FooterConfig }`
+(`server/utils/siteFooter.ts`: `getFooterDraft`, `saveFooterDraft`,
+`publishFooter`, `getPublishedFooter`). Sin fila o sin publicar, la web pinta
+`defaultFooterConfig()`: el pie de siempre, ordenado en cinco columnas, con
+enlaces a páginas que existen (Comprar, Alquilar, Mapa, Obra nueva,
+Comunidades / Sobre nosotros, Nuestro equipo, Blog, Servicios / Solicitar
+visita, Vender propiedad, Área de clientes, Registro de proveedor,
+Reclamaciones, Contacto). Nada de lo que había se pierde: logo y nombre
+siguen siendo los de la empresa, los legales y «Configurar cookies» siguen
+en la barra inferior (mismo `data-testid="footer-cookie-settings"`).
+
+**Rutas.** Panel: `GET/PUT /api/admin/site-footer` (borrador, datos de la
+empresa y páginas publicadas; `requireOrgScope(event, 'web', …)`) y
+`POST /api/admin/site-footer/publish` (con fila de auditoría). Web:
+`GET /api/public/site-footer` (sólo lo publicado, nunca el borrador). El
+shell (`pages/admin/site-builder/index.vue`) carga el pie al abrir, lo
+autoguarda aparte de la página (`footerConfig` / `flushFooterSave`) y
+«Publicar» publica la página y, si el pie tiene cambios, también el pie;
+`sendState` manda el borrador al lienzo (`footer`, `footerMeta`) y
+`canvas.vue` se lo pasa a `SiteFooter` como `config`/`meta`.
+
+**Enlaces internos con identificador estable.** Un enlace a una página se
+guarda como `{ kind: 'page', target: 'buy' }`, nunca como ruta escrita a
+mano: `FOOTER_TARGETS` traduce el id a su dirección y a su texto en el idioma
+del visitante. Un destino que deja de existir se conserva en lo guardado y el
+editor lo marca («Esta página ya no existe…»); la web no lo enseña
+(`footerLinkProblem`). «Servicios» lleva `requiresPublished: 'servicios'`:
+sale sólo si esa página del Constructor está publicada
+(`loadFooterAvailability`). Un enlace externo pasa por `safeExternalUrl` y se
+abre con `rel="noopener noreferrer"`.
+
+**Nada inventado.** Teléfono, ubicación y redes salen, si no se escriben, de
+la empresa (`loadFooterProfile`: teléfono del Brand Kit → teléfono legal →
+oficina principal; ciudad y provincia de la primera oficina activa; redes del
+Brand Kit con URL válida). Si no hay, el bloque no se enseña. El horario sólo
+sale si se escribe. «Ver en el mapa» abre Google Maps con la dirección de la
+oficina. Los colores de partida son blanco cálido, etiquetas melocotón y el
+color de marca (oscurecido hasta contraste AA con texto blanco:
+`footerPalette`) en el botón, los iconos y la barra inferior.
+
+**Newsletter.** `FooterNewsletter.vue` → `POST /api/public/newsletter`
+(`server/utils/newsletter.ts`, tabla `newsletter_subscriptions` de la
+migración 0093): email normalizado, `privacyAccepted` obligatorio, límite por
+IP, campo trampa, una fila por empresa y email (quien repite no se duplica y
+no recibe un token nuevo). **No se envía ningún email.** El alta devuelve
+una sola vez el token de baja (`/newsletter/baja?token=…`, que exige pulsar
+«Confirmar la baja»); en la base de datos sólo está su SHA-256. El doble
+opt-in está preparado (`doubleOptIn`, `confirmSubscription`, estado
+`pending`) y no se usa hasta que exista el email de confirmación. El panel
+lo lista en Portal Web → Suscriptores (`/api/admin/newsletter`: filtro,
+búsqueda, CSV, baja y supresión); la exportación y la supresión RGPD por
+email incluyen la tabla. En el lienzo del Constructor (`sandbox`) el
+formulario no guarda nada.
+
+**Paisaje y «volver arriba».** `FooterLandscape.vue` pinta uno de cuatro SVG
+(costa con faro, montañas, ciudad, campo) o una imagen propia, con opacidad
+y altura ajustables y fundido arriba; de partida, ninguno. El botón circular
+blanco de la barra inferior hace scroll suave (respeta
+`prefers-reduced-motion`) y, mientras se ve, el botón flotante
+`ScrollTop.vue` se esconde (`useState('site-footer-top-visible')`): nunca
+dos a la vez.
+
+**Responsive.** Escritorio (≥1024): las columnas visibles en una fila con
+anchuras `1.55fr / 1fr / 1fr / 1fr / 1.5fr`. Tableta (640–1023): identidad y
+newsletter arriba, las tres columnas de enlaces debajo. Móvil: una columna;
+Explorar/Empresa/Servicios plegadas bajo su título (`mobileAccordions`) y lo
+marcado en `hideOnMobile` no se enseña; la barra inferior en vertical.
 
 ### Rendimiento
 

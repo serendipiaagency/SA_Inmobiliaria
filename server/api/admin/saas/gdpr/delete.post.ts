@@ -40,6 +40,7 @@ export default defineEventHandler(async (event) => {
     .set({ clientName: REDACTED_NAME, clientEmail: null, updatedAt: nowTs })
     .where(and(eq(schema.contracts.organizationId, orgId), eq(schema.contracts.clientEmail, email)))
   const searchesRes = await db.delete(schema.savedSearches).where(and(eq(schema.savedSearches.organizationId, orgId), eq(schema.savedSearches.email, email)))
+  const newsletterRes = await db.delete(schema.newsletterSubscriptions).where(and(eq(schema.newsletterSubscriptions.organizationId, orgId), eq(schema.newsletterSubscriptions.email, email)))
 
   const affected = {
     leads: leadsRes.meta?.changes || 0,
@@ -47,6 +48,7 @@ export default defineEventHandler(async (event) => {
     visits: visitsRes.meta?.changes || 0,
     contracts: contractsRes.meta?.changes || 0,
     savedSearches: searchesRes.meta?.changes || 0,
+    newsletterSubscriptions: newsletterRes.meta?.changes || 0,
   }
   const rowsAffected = Object.values(affected).reduce((a, b) => a + b, 0)
 

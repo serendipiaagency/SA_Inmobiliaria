@@ -13,7 +13,7 @@
       :preview-mode="previewMode"
       :published-site-url="publishedSiteUrl"
       :publishing="publishing"
-      :has-unpublished-changes="hasUnpublishedChanges"
+      :has-unpublished-changes="hasUnpublishedChanges || footerHasUnpublished"
       @update:device="device = $event"
       @step-zoom="stepZoom"
       @zoom-auto="zoomMode = 'auto'"
@@ -244,18 +244,39 @@
         </button>
       </aside>
 
-      <!-- Right panel: cabecera/pie seleccionados (elementos globales) -->
+      <!-- Right panel: cabecera/pie seleccionados (elementos globales). El pie se edita aquí. -->
       <aside v-else-if="!previewMode && selectedGlobal" class="flex w-96 shrink-0 flex-col overflow-hidden border-l border-line bg-white">
         <div class="shrink-0 border-b border-line p-4">
           <div class="flex items-center justify-between">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-500" data-testid="inspector-title">Elemento global</p>
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-500" data-testid="inspector-title">{{ editingFooter ? 'Pie de página' : 'Elemento global' }}</p>
             <button type="button" aria-label="Cerrar inspector" class="text-stone-300 hover:text-ink" @click="selectedGlobal = null">
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
             </button>
           </div>
+          <div v-if="editingFooter" class="mt-3 flex gap-1 rounded-lg bg-stone-100 p-1" data-testid="footer-inspector-tabs">
+            <button
+              v-for="t in INSPECTOR_TABS"
+              :key="t.key"
+              type="button"
+              class="flex-1 rounded-md px-2 py-1.5 text-[12px] font-semibold transition"
+              :class="inspectorTab === t.key ? 'bg-white text-ink shadow' : 'text-stone-500 hover:text-ink'"
+              @click="inspectorTab = t.key"
+            >
+              {{ t.label }}
+            </button>
+          </div>
         </div>
         <div class="flex-1 overflow-y-auto p-4">
-          <GlobalZoneInspector :zone="selectedGlobal.zone" :element="selectedGlobal.element" />
+          <FooterInspector
+            v-if="editingFooter && footerConfig"
+            :config="footerConfig"
+            :profile="footerProfile"
+            :available="footerAvailable"
+            :brand-colors="brandColors"
+            :brand-color="orgInfo?.brandColor ?? null"
+            :company-name="orgInfo?.companyName || orgInfo?.name || ''"
+          />
+          <GlobalZoneInspector v-else :zone="selectedGlobal.zone" :element="selectedGlobal.element" />
         </div>
       </aside>
 
@@ -381,6 +402,8 @@ import InspectorSection from '~/components/site-builder/inspector/InspectorSecti
 import CommonBlockSettings from '~/components/site-builder/inspector/CommonBlockSettings.vue'
 import NodeInspector from '~/components/site-builder/inspector/NodeInspector.vue'
 import GlobalZoneInspector from '~/components/site-builder/inspector/GlobalZoneInspector.vue'
+import FooterInspector from '~/components/site-builder/inspector/FooterInspector.vue'
+import type { FooterAvailability, FooterConfig, FooterProfile } from '~/utils/siteFooter'
 import TopBar from '~/components/site-builder/shell/TopBar.vue'
 import CookieSettingsPanel from '~/components/site-builder/shell/CookieSettingsPanel.vue'
 import type { CookieProviders } from '~/utils/cookieConsent'
@@ -587,6 +610,13 @@ provide('inspectorTab', inspectorTab)
 watch(selectedBlockId, () => {
   inspectorTab.value = 'content'
 })
+watch(
+  () => selectedGlobal.value?.zone,
+  (zone) => {
+    inspectorTab.value = 'content'
+    if (zone === 'footer') ensureBrandKit()
+  },
+)
 watch(selectedNode, (node, prev) => {
   if (node?.field !== prev?.field) inspectorTab.value = 'content'
   if (node) ensureBrandKit()
@@ -1062,13 +1092,22 @@ async function publish() {
   publishing.value = true
   try {
     // Flush any pending autosave first so Publish never ships a stale draft.
-    await flushSave()
-    const res = await $fetch<{ ok: true; version: number }>(`/api/admin/site-pages/${currentPageKey.value}/publish`, { method: 'POST' })
-    pageVersion.value = res.version
-    hasUnpublishedChanges.value = false
+    await Promise.all([flushSave(), flushFooterSave()])
+    // La página se publica si tiene cambios (o si no hay nada más que
+    // publicar, como siempre); el pie, si los tiene: es de todas las páginas.
+    const publishFooterToo = footerHasUnpublished.value
+    if (hasUnpublishedChanges.value || !publishFooterToo) {
+      const res = await $fetch<{ ok: true; version: number }>(`/api/admin/site-pages/${currentPageKey.value}/publish`, { method: 'POST' })
+      pageVersion.value = res.version
+      hasUnpublishedChanges.value = false
+      patchCurrentStatus({ published: true, hasUnpublishedChanges: false, version: res.version })
+    }
+    if (publishFooterToo) {
+      await $fetch('/api/admin/site-footer/publish', { method: 'POST' })
+      footerHasUnpublished.value = false
+    }
     saveState.value = 'saved'
-    patchCurrentStatus({ published: true, hasUnpublishedChanges: false, version: res.version })
-    toast.success('Publicado')
+    toast.success(publishFooterToo ? 'Publicado (con el pie de página)' : 'Publicado')
   } catch {
     toast.error('No se pudo publicar')
   } finally {
@@ -1076,10 +1115,70 @@ async function publish() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Pie global (utils/siteFooter.ts): un borrador propio, de todas las páginas.
+// Se edita al pulsar el pie en el lienzo, se autoguarda aparte y se publica
+// con el mismo «Publicar».
+// ---------------------------------------------------------------------------
+const footerConfig = ref<FooterConfig | null>(null)
+const footerProfile = ref<FooterProfile | null>(null)
+const footerAvailable = ref<FooterAvailability | null>(null)
+const footerHasUnpublished = ref(false)
+const editingFooter = computed(() => selectedGlobal.value?.zone === 'footer' && !!footerConfig.value)
+let footerLoaded = false
+let footerSaveTimer: ReturnType<typeof setTimeout> | null = null
+
+async function loadFooter() {
+  try {
+    const res = await $fetch<{ config: FooterConfig; profile: FooterProfile; available: FooterAvailability; hasUnpublishedChanges: boolean }>('/api/admin/site-footer')
+    footerLoaded = false
+    footerConfig.value = res.config
+    footerProfile.value = res.profile
+    footerAvailable.value = res.available
+    footerHasUnpublished.value = res.hasUnpublishedChanges
+    await nextTick()
+    footerLoaded = true
+  } catch {
+    // Sin el pie, el lienzo enseña el de partida y el inspector explica de dónde sale.
+  }
+}
+onMounted(loadFooter)
+
+watch(
+  footerConfig,
+  () => {
+    if (!footerLoaded) return
+    footerHasUnpublished.value = true
+    saveState.value = 'saving'
+    if (footerSaveTimer) clearTimeout(footerSaveTimer)
+    footerSaveTimer = setTimeout(() => {
+      footerSaveTimer = null
+      saveFooterNow().catch(() => {
+        saveState.value = 'error'
+        toast.error('No se pudo guardar el pie de página')
+      })
+    }, 1000)
+  },
+  { deep: true },
+)
+
+async function saveFooterNow() {
+  if (!footerConfig.value) return
+  await $fetch('/api/admin/site-footer', { method: 'PUT', body: footerConfig.value })
+  saveState.value = 'saved'
+}
+
+async function flushFooterSave() {
+  if (!footerSaveTimer) return
+  clearTimeout(footerSaveTimer)
+  footerSaveTimer = null
+  await saveFooterNow()
+}
+
 // Un borrador sin guardar no se pierde por cerrar la pestaña: el navegador
 // pregunta. (Recargar el editor recupera siempre el último autoguardado.)
 function onBeforeUnload(e: BeforeUnloadEvent) {
-  if (saveTimer || saveState.value === 'saving' || saveState.value === 'error') {
+  if (saveTimer || footerSaveTimer || saveState.value === 'saving' || saveState.value === 'error') {
     e.preventDefault()
     e.returnValue = ''
   }
@@ -1180,11 +1279,15 @@ function sendState() {
       selectedGlobal: previewMode.value ? null : (selectedGlobal.value?.zone ?? null),
       mode: previewMode.value ? 'preview' : 'builder',
       pageKey: currentPageKey.value,
+      // Siempre copias planas: un proxy reactivo no se puede clonar por postMessage (DataCloneError) y
+      // dejaría el lienzo sin recibir ningún estado más.
+      footer: footerConfig.value ? JSON.parse(JSON.stringify(footerConfig.value)) : null,
+      footerMeta: JSON.parse(JSON.stringify({ profile: footerProfile.value, available: footerAvailable.value })),
     },
     window.location.origin,
   )
 }
-watch([blocks, styles, device, selectedBlockId, selectedNode, selectedGlobal, previewMode, currentPageKey], sendState, { deep: true })
+watch([blocks, styles, device, selectedBlockId, selectedNode, selectedGlobal, previewMode, currentPageKey, footerConfig], sendState, { deep: true })
 
 function handleMessage(e: MessageEvent) {
   if (e.origin !== window.location.origin) return

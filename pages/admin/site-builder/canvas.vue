@@ -31,7 +31,7 @@
       />
     </main>
     <SiteGlobalZone zone="footer" :mode="mode" :selected="selectedGlobal === 'footer'" @select="onSelectGlobal">
-      <SiteFooter :tenant-override="tenantOverride" />
+      <SiteFooter :tenant-override="tenantOverride" :config="footer" :meta="footerMeta" />
     </SiteGlobalZone>
     <!-- Muestra del aviso de cookies: no guarda nada ni carga ningún servicio -->
     <CookieConsent sandbox />
@@ -45,6 +45,7 @@ import type { SiteBlock, SitePageDocument } from '~/server/utils/sitePages'
 import { TENANT_BRANDING_OVERRIDE, type TenantBranding } from '~/composables/useTenant'
 import type { SiteNodeRef } from '~/composables/useSiteEditor'
 import { SITE_CANVAS_PAGE_KEY } from '~/composables/useFichaProperty'
+import type { FooterAvailability, FooterConfig, FooterProfile } from '~/utils/siteFooter'
 
 /**
  * Loaded inside the builder shell's <iframe>, sized to the exact target
@@ -85,6 +86,10 @@ const tenantOverride = ref<TenantBranding | null>(null)
 // El Hero pinta su botón con el color de marca de la empresa que se edita.
 provide(TENANT_BRANDING_OVERRIDE, tenantOverride)
 const cookieSandbox = useCookieConsent('sandbox')
+// El pie global (utils/siteFooter.ts): el borrador que edita el shell, y los
+// datos de la empresa con los que se rellena lo que no se escribe a mano.
+const footer = ref<FooterConfig | null>(null)
+const footerMeta = ref<{ profile: FooterProfile | null; available: FooterAvailability | null } | null>(null)
 
 function post(type: string, payload: Record<string, any> = {}) {
   window.parent.postMessage({ source: 'sa-builder-canvas', type, ...payload }, window.location.origin)
@@ -107,6 +112,7 @@ function onSelectGlobal(zone: 'header' | 'footer', element: string | null) {
  * no vuelve a pintar sus componentes. Sólo el bloque tocado se actualiza.
  */
 const blockJson = new Map<string, string>()
+let footerJson = ''
 function applyBlocks(incoming: SiteBlock[]) {
   const current = new Map(blocks.value.map((b) => [b.id, b]))
   const seen = new Set<string>()
@@ -134,6 +140,15 @@ function handleMessage(e: MessageEvent) {
     selectedNodeField.value = msg.selectedNodeField ?? null
     selectedGlobal.value = msg.selectedGlobal ?? null
     mode.value = msg.mode === 'preview' ? 'preview' : 'builder'
+    if (msg.footer) {
+      // Como los bloques: el mismo JSON, el mismo objeto (el pie no se repinta por cada tecla en otra parte).
+      const json = JSON.stringify(msg.footer)
+      if (json !== footerJson) {
+        footerJson = json
+        footer.value = msg.footer
+      }
+      footerMeta.value = msg.footerMeta ?? null
+    }
     if (typeof msg.pageKey === 'string' && msg.pageKey !== pageKey.value) {
       pageKey.value = msg.pageKey
       // Otra página: se empieza por arriba, como al abrirla en la web.

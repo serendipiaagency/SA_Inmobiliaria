@@ -8,12 +8,12 @@
 /**
  * Cabecera y pie dentro del lienzo, como **zonas globales**: se ven (para
  * que el lienzo se parezca a la web publicada, con la cabecera sobre el
- * hero y el pie al final) y se pueden seleccionar, pero no se editan aquí,
- * porque son de todo el sitio y no de la página de Inicio. En `builder` el
- * clic se intercepta igual que en los bloques y se le dice al shell qué
- * parte se ha pulsado (logo, menú, contacto) para que el inspector explique
- * de dónde sale y dónde se cambia. En `preview` y en producción no hace
- * nada: los enlaces navegan.
+ * hero y el pie al final) y se pueden seleccionar. Son de todo el sitio y
+ * no de la página: la cabecera no se edita aquí (el inspector explica de
+ * dónde sale) y el pie sí, con su propio inspector (FooterInspector.vue) y
+ * su propio borrador. En `builder` el clic se intercepta igual que en los
+ * bloques y se le dice al shell qué parte se ha pulsado (logo, menú,
+ * contacto). En `preview` y en producción no hace nada: los enlaces navegan.
  */
 const props = defineProps<{
   zone: 'header' | 'footer'

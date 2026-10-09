@@ -39,6 +39,12 @@ const BEFORE: Array<[to: string, label: string, area: AdminArea | null, superAdm
   ['/admin/organizations', 'Empresas', 'system', true], ['/admin/error-logs', 'Errores', 'system', true], ['/admin/estado', 'Estado del sistema', 'system', true],
 ]
 
+/** Entradas nuevas desde la reorganización (cada una con su página y su permiso). */
+const ADDED: Array<[to: string, label: string, area: AdminArea | null, superAdminOnly: boolean]> = [
+  // Megaprompt «footer»: la lista del «Suscríbete» del pie de la web.
+  ['/admin/suscriptores', 'Suscriptores', 'web', false],
+]
+
 const entries = ADMIN_NAV.flatMap((group) => group.items.map((item) => ({ group, item })))
 const ALL_AREAS = ADMIN_AREAS.map((a) => a.key)
 
@@ -49,8 +55,8 @@ function groupOf(to: string): NavGroup {
 describe('menú lateral — inventario: reubicar, nunca quitar', () => {
   it('las 67 entradas de antes siguen existiendo, con la misma ruta, etiqueta, permiso y restricción de super admin', () => {
     expect(BEFORE).toHaveLength(67)
-    expect(entries).toHaveLength(BEFORE.length)
-    for (const [to, label, area, superAdminOnly] of BEFORE) {
+    expect(entries).toHaveLength(BEFORE.length + ADDED.length)
+    for (const [to, label, area, superAdminOnly] of [...BEFORE, ...ADDED]) {
       const found = entries.find((e) => e.item.to === to && e.item.label === label)
       expect(found, `${label} (${to})`).toBeTruthy()
       expect(itemArea(found!.group, found!.item), `permiso de ${label}`).toBe(area)
@@ -109,8 +115,9 @@ describe('menú lateral — permisos', () => {
       expect(sa).toContain(label)
       expect(admin).not.toContain(label)
     }
-    expect(sa).toHaveLength(67)
-    expect(admin).toHaveLength(64)
+    const addedForAll = ADDED.filter(([, , , superAdminOnly]) => !superAdminOnly).length
+    expect(sa).toHaveLength(67 + ADDED.length)
+    expect(admin).toHaveLength(64 + addedForAll)
   })
 
   it('un comercial con sólo CRM ve el CRM (sin Comerciales, que es de Portal Web) y la Ayuda, y ninguna categoría vacía', () => {
