@@ -429,6 +429,19 @@ piden una vez por propiedad y se comparten entre tarjetas
 disponible», también (la tarjeta de precio sale dos veces: arriba en el
 móvil y en la columna derecha en escritorio).
 
+«¿Prefieres verla por videollamada?» sólo sale cuando esa agenda tiene un
+hueco libre real (`NextVisitSlot` avisa con `state` de si lo hay). Con
+comercial pero sin ningún hueco en dos semanas, ni se ofrece la
+videollamada ni «Solicitar visita» abre una reserva sin horas: lleva al
+formulario de «Atendido por», igual que sin comercial.
+
+Las fechas y cifras de la ficha y del catálogo (próxima visita, «desde» de
+la evolución del precio, días de la reserva, número de resultados) salen en
+el formato del idioma que se ve (`intlLocale` de `useI18n`), y todos los
+textos de la web pública están en los seis idiomas:
+`test/unit/i18nPublicKeys.test.ts` falla si un `t('clave', 'respaldo')`
+nuevo no tiene traducción en inglés, alemán, portugués, francés o árabe.
+
 Conflictos con la referencia, resueltos a favor de lo pedido por escrito:
 el formulario no lleva «Asunto» y sí la casilla de privacidad (#107), y los
 iconos de las características mantienen la paleta de colores de #107. Sin

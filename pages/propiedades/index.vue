@@ -52,7 +52,7 @@
                 {{ t('catalog.filters', 'Filtros') }}
               </button>
               <p class="mr-1 text-[15px] text-stone-500" data-testid="catalog-total">
-                <strong class="font-bold text-ink">{{ total.toLocaleString('es-ES') }}</strong>
+                <strong class="font-bold text-ink">{{ total.toLocaleString(intlLocale) }}</strong>
                 {{ total === 1 ? t('properties.count.singular', 'propiedad') : t('properties.count.plural', 'propiedades') }}
               </p>
               <button v-for="c in chips" :key="c.key" type="button" class="cat-chip" :data-chip="c.key" :aria-label="`${t('catalog.removeFilter', 'Quitar')} ${c.label}`" @click="removeChip(c)">
@@ -169,7 +169,7 @@ import { saveCatalogContext } from '~/utils/catalogContext'
  * Todo vive en la URL: cada filtro cambia la consulta y el servidor filtra el
  * catálogo real de la agencia (server/api/public/properties.get.ts).
  */
-const { t } = useI18n()
+const { t, intlLocale } = useI18n()
 const { tenant, load: loadTenant } = useTenant()
 await loadTenant()
 // Página «Propiedades» del Constructor Web: el buscador y el listado son su

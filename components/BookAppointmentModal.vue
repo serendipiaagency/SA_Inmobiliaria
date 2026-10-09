@@ -120,7 +120,7 @@ interface DaySlots { date: string; slots: Slot[] }
 // disponible»; si sigue libre, el modal abre directamente en sus datos.
 const props = defineProps<{ open: boolean; agentSlug: string; agentName: string; propertyId?: number; propertyName?: string; channel?: 'in_person' | 'video' | 'phone'; initialSlot?: string | null }>()
 const emit = defineEmits<{ close: [] }>()
-const { t } = useI18n()
+const { t, intlLocale } = useI18n()
 // Cierre del núcleo (FASE 15): el lead de la reserva llega con el idioma de quien reserva.
 const visitorLanguage = useVisitorLanguage()
 // El visitante escribe el presupuesto en la moneda que está viendo; se guarda
@@ -203,10 +203,10 @@ function chooseSlot(s: Slot) {
 }
 
 function weekdayLabel(dateStr: string) {
-  return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString('es-ES', { weekday: 'short', timeZone: 'UTC' })
+  return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString(intlLocale.value, { weekday: 'short', timeZone: 'UTC' })
 }
 function dayLabel(dateStr: string) {
-  return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+  return new Date(`${dateStr}T00:00:00Z`).toLocaleDateString(intlLocale.value, { day: 'numeric', month: 'short', timeZone: 'UTC' })
 }
 function timeLabel(startDateTime: string) {
   return startDateTime.slice(11, 16)

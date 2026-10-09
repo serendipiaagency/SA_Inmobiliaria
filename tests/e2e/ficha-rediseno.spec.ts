@@ -75,6 +75,12 @@ test.describe('Ficha rediseñada (#111)', () => {
       const img = await a.post('/api/admin/project-images', { data: { developerPropertyId: p.rich.id, image: await upload(`foto-${i}.png`), sortOrder: i } })
       expect(img.ok(), await img.text()).toBeTruthy()
     }
+    // Comercial publicado pero sin horario: no tiene ningún hueco que ofrecer.
+    const tmBusy = await a.post('/api/admin/team', { data: { name: `Comercial sin agenda ${RUN}`, email: `com-sin-${RUN}@mm.test`, position: 'Asesor', employmentStatus: 'active', showOnWeb: 1 } })
+    expect(tmBusy.ok(), await tmBusy.text()).toBeTruthy()
+    const busyAgentId = (await tmBusy.json()).id as number
+    cleanup.push(() => a.delete(`/api/admin/team/${busyAgentId}`))
+    p.noSlots = await createProperty(a, developerId, `Rediseño sin huecos ${RUN}`, { agentId: busyAgentId, coverImage: await upload('sin-huecos.png') })
     // La sencilla: una foto, sin comercial, sin historial de precio.
     p.plain = await createProperty(a, developerId, `Rediseño sencilla ${RUN}`, { coverImage: await upload('sencilla.png') })
     // Tres seguidas en una ciudad propia, para Anterior / Siguiente dentro del catálogo.
@@ -315,5 +321,15 @@ test.describe('Ficha rediseñada (#111)', () => {
     const plain = page.getByTestId('ficha-aside').getByTestId('ficha-price-card')
     await expect(plain.getByTestId('next-visit-request')).toBeVisible()
     await expect(plain.getByTestId('ficha-video-visit')).toHaveCount(0)
+
+    // Con comercial pero sin ningún hueco libre: tampoco se ofrece la videollamada.
+    await page.goto(`/propiedades/${p.noSlots.slug}`)
+    const noSlots = page.getByTestId('ficha-aside').getByTestId('ficha-price-card')
+    await expect(noSlots.getByTestId('next-visit-request')).toBeVisible()
+    await expect(noSlots.getByTestId('ficha-video-visit')).toHaveCount(0)
+    // «Solicitar visita» lleva al formulario en vez de a una reserva sin horas.
+    await page.getByTestId('ficha-desktop-cta').getByRole('button').first().click()
+    await expect(page.locator('#book-appt-name')).toHaveCount(0)
+    await expect(page.getByTestId('property-contact-card')).toBeInViewport()
   })
 })

@@ -24,8 +24,9 @@
 
     <!-- Próxima visita disponible: el primer hueco real de la agenda del comercial; abre la reserva. -->
     <div class="no-print mt-5">
-      <PropertyNextVisitSlot :agent-slug="agentSlug" @book="(start) => emit('book', start)" />
-      <button v-if="agentSlug" type="button" class="mt-3 inline-flex items-center gap-2 text-[12.5px] font-medium text-stone-500 hover:text-ink" data-testid="ficha-video-visit" @click="emit('video')">
+      <PropertyNextVisitSlot :agent-slug="agentSlug" @book="(start) => emit('book', start)" @state="onVisitState" />
+      <!-- La videollamada sólo con un hueco real en la agenda: sin él, la reserva no tendría horas que ofrecer. -->
+      <button v-if="agentSlug && visitState === 'slot'" type="button" class="mt-3 inline-flex items-center gap-2 text-[12.5px] font-medium text-stone-500 hover:text-ink" data-testid="ficha-video-visit" @click="emit('video')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 10l4.55-2.4A1 1 0 0 1 21 8.5v7a1 1 0 0 1-1.45.9L15 14M5 6h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z" /></svg>
         {{ t('ficha.videoVisit', '¿Prefieres verla por videollamada?') }}
       </button>
@@ -47,11 +48,17 @@ const props = defineProps<{
   project: { price?: number | null; priceOld?: number | null; area?: number | null; paymentPlan?: string | null; downPercentage?: number | string | null; constructionPercentage?: number | string | null; handoverPercentage?: number | string | null }
   agentSlug?: string | null
 }>()
-const emit = defineEmits<{ book: [start: string]; video: [] }>()
+const emit = defineEmits<{ book: [start: string]; video: []; visitState: [state: 'loading' | 'slot' | 'none'] }>()
 
-const { t } = useI18n()
+const { t, intlLocale } = useI18n()
 // En la moneda que ve el visitante, como el resto de importes de la ficha (utils/currency.ts).
 const { format: formatPrice } = useCurrency()
+
+const visitState = ref<'loading' | 'slot' | 'none'>('loading')
+function onVisitState(s: 'loading' | 'slot' | 'none') {
+  visitState.value = s
+  emit('visitState', s)
+}
 
 const pricePerM2 = computed(() => (props.project.price && props.project.area ? formatPrice(Math.round(props.project.price / props.project.area)) : ''))
 
@@ -69,7 +76,7 @@ const sinceLabel = computed(() => {
   if (!trend.value) return ''
   const d = new Date(`${trend.value.since.slice(0, 10)}T00:00:00Z`)
   if (isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('es-ES', { month: 'short', year: 'numeric', timeZone: 'UTC' }).replace('.', '')
+  return d.toLocaleDateString(intlLocale.value, { month: 'short', year: 'numeric', timeZone: 'UTC' }).replace('.', '')
 })
 
 const paymentRows = computed<{ label: string; value: string }[]>(() => {
