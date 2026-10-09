@@ -10,6 +10,7 @@
     :overlay-opacity="content.overlayOpacity"
     :background-position="content.backgroundPosition"
     :content-align="content.contentAlign"
+    :search-options="content"
   />
 </template>
 

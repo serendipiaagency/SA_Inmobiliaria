@@ -212,9 +212,9 @@ test.describe('Vista previa y Hero', () => {
 
     // Obra nueva sigue existiendo, en «Más filtros»; la rentabilidad, no (es de compra).
     await page.getByTestId('hero-more').click()
-    await expect(page.getByTestId('hero-new-build')).toBeVisible()
+    await expect(page.getByTestId('hero-estado-obra_nueva')).toBeVisible()
     await expect(page.getByTestId('hero-min-yield')).toHaveCount(0)
-    await page.getByTestId('hero-new-build').check()
+    await page.getByTestId('hero-estado-obra_nueva').click()
 
     await page.getByTestId('hero-search').click()
     await expect(page).toHaveURL(/\/propiedades\?/)
