@@ -892,13 +892,27 @@ test.describe('Constructor Web — edición directa sobre el lienzo', () => {
     await expect(slides.nth(0)).toHaveClass(/is-active/)
     await expect(slides.nth(1)).not.toHaveClass(/is-active/)
 
+    // Con el bucle ya montado se para el tiempo real: desde aquí el reloj sólo
+    // avanza con runFor. Corriendo, el reloj de Playwright 1.56 tiene una
+    // carrera (corregida en 1.57): un avance de «tiempo real» que ya estaba en
+    // curso termina después de runFor y devuelve el reloj del lienzo al
+    // instante de antes. El intervalo ya había saltado, así que el segundo
+    // runFor no llegaba a su siguiente cita (fallaba ~1 de cada 20).
+    // El segundo de margen deja la pausa por delante del reloj de cada marco
+    // (pauseAt no puede ir hacia atrás) y lejos de la primera rotación.
+    await page.clock.pauseAt(Date.now() + 1_000)
+    await expect(slides.nth(0), 'la pausa no debe llegar a la primera rotación').toHaveClass(/is-active/)
+
     await page.clock.runFor(7_000)
     await expect(slides.nth(1)).toHaveClass(/is-active/)
     await expect(slides.nth(0)).toHaveClass(/is-leaving/)
     await page.clock.runFor(7_000)
     await expect(slides.nth(0)).toHaveClass(/is-active/)
+    await expect(slides.nth(1)).toHaveClass(/is-leaving/)
 
-    // Una sola imagen en el bucle: fija, sin desvanecerse.
+    // Una sola imagen en el bucle: fija, sin desvanecerse. (El tiempo real
+    // vuelve antes de recargar, para que el editor cargue como siempre.)
+    await page.clock.resume()
     await setDraft([{ id: 'hero-bucle', type: 'hero', version: 1, content: { title1: 'Bucle', slides: [imgs[0]] } }])
     await page.reload()
     await expect(slides).toHaveCount(1, { timeout: 10_000 })
