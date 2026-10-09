@@ -69,8 +69,13 @@ dos tenants reales.
 ## Bloques disponibles hoy
 
 `hero`, `map-teaser`, `properties` (con `layout: row | dark-grid | ai-grid`),
-`communities`, `property-types`, `mortgage-calculator`, `blog-list`, `team`
-(con `layout: cards | compact`), `lead-form`, `book-visit`, `text`, `cta`.
+`communities`, `property-types`, `mortgage-calculator`, `energy-efficiency`
+(sólo en la Ficha de propiedad, ver «Ficha de propiedad: descripción,
+«Atendido por», eficiencia energética y secciones sin datos»), `blog-list`,
+`team` (con `layout: cards | compact`), `lead-form`, `book-visit`, `text`, `cta`.
+
+Un preset puede limitarse a unas páginas con `pages` (`presetsForPage()`): la
+biblioteca sólo lo ofrece ahí.
 
 El **chat de la web** (núcleo N8a) no es un bloque: es un ajuste por agencia
 (Comunicaciones → Configuración) y aparece en todas las páginas de la web
@@ -671,6 +676,62 @@ recupera esa búsqueda (`useState('last-search')`). Los enlaces antiguos
   visibilidad y «Abierto» al cargar de cada grupo. Sólo presentación: lo que
   se encuentra lo decide `buildPublicSearch`, el mismo que usan las alertas de
   búsquedas guardadas.
+
+## Ficha de propiedad: descripción, «Atendido por», eficiencia energética y secciones sin datos
+
+La zona dinámica de la Ficha (`PAGE_CORE_OPTIONS['property-detail']`,
+`fichaDisplayOptions()` en `utils/siteBuilder/pages.ts`) guarda, además de
+destacadas y secciones, sólo presentación:
+
+| Opción | De partida | Qué hace |
+|---|---|---|
+| `showReference` | sí | «Ref.» bajo la ubicación: el `commercialCode` de la ficha ampliada (público en el PropertySchemaRegistry), sólo si existe. Nunca el id ni las referencias internas o de portales. |
+| `showDescription` | sí | La descripción dentro de la tarjeta principal, bajo título, ubicación y referencia, con «Ver más»/«Ver menos» (`aria-expanded`, `aria-controls`). Ya no es una sección de la lista: una web que tenía `descripcion` oculta en su orden guardado la sigue teniendo oculta (`legacyDescriptionHidden`) y, al guardar, pasa al interruptor. |
+| `contactTone` | `brand` | Fondo de «Atendido por»: `brand` (color de marca de la empresa aclarado, `utils/contactTone.ts`; sin color, verde salvia), `white` o `#rrggbb`. Siempre se aclara hasta una luminancia mínima para el texto oscuro. |
+| `energy` | — | Presentación de la tabla energética (`utils/energyCertificate.ts`, `EnergyDisplayOptions`): título, columnas, nota, tabla completa o compacta, fondo, borde, esquinas, espaciado, tamaño del título y anchura. Se guarda compactada (sólo lo que difiere). |
+| `hideEmpty` | sí | «Ocultar automáticamente si no hay datos». |
+
+**Eficiencia energética.** `components/property/EnergyCard.vue`: tabla HTML
+accesible (caption, `th` de fila y columna) con las siete flechas A–G (colores
+fijos de la etiqueta, longitud creciente) y, sólo en la fila de la clase de la
+vivienda, la letra y la cifra de consumo y de emisiones, más «Esta vivienda»
+para lectores de pantalla. Los datos salen de Property Core
+(`energyData(project, details)`: `energyRating` de la propiedad;
+`energyConsumption`, `emissionsRating`, `emissionsValue` y
+`energyCertificateExpiry` de la ficha ampliada); el Constructor nunca guarda
+valores (`validatePageDocument` sanea el bloque `energy-efficiency` a sus
+opciones). Sale como sección `energia` de la zona (anclada tras `datos` en los
+órdenes ya guardados, `FICHA_SECTION_ANCHORS`) y como bloque de biblioteca
+`energy-efficiency` (sólo en la Ficha, `pages: ['ficha-propiedad']`), que en la
+web lee la propiedad de la ficha (`FICHA_PROPERTY_KEY`, provista por
+`pages/propiedades/[slug].vue`) y, sin datos, `SiteBlockRenderer` lo quita
+entero (también su marco).
+
+**Secciones sin datos.** `utils/fichaVisibility.ts` decide qué secciones
+tienen datos (`fichaSectionHasData`) con lo que devuelve la ficha
+(`fichaDataContext`, que cuenta con las mismas funciones que pintan cada
+tarjeta) y con `availability`, que calcula el servidor
+(`server/utils/properties/publicDetail.ts`: Score con nota, dos o más precios
+en el historial, otras propiedades vivas para similares). El entorno y las
+similares avisan al cargar si vienen vacíos (`@empty`). Con `hideEmpty`, una
+sección sin datos desaparece entera —también su pestaña en la barra de
+apartados—; sin la regla, salen con su aviso, salvo las que no tendrían nada
+que pintar (`FICHA_NEEDS_DATA`). El lienzo usa la misma función con la
+propiedad de ejemplo (`GET /api/admin/site-pages/ficha-sample`, misma carga
+que la ficha pública, `requireOrgScope`): en modo edición marca la sección con
+«Esta sección se ocultará en la web pública porque la propiedad no tiene datos
+disponibles»; en Vista previa la quita.
+
+**«Atendido por» fijo.** En escritorio la tarjeta va en un hueco
+(`.ficha-contact-rail`, `flex: 1`) que ocupa el resto de la columna derecha y
+es `position: sticky` con `top` = altura real de la cabecera (`[data-site-header]`,
+medida) + 16 px; si es más alta que la pantalla, se desplaza por dentro con la
+cabecera del comercial fija (`stickyHead`), sin bloquear el scroll de la
+página. En móvil va en el flujo. La CTA fija aparte de escritorio
+(`ficha-desktop-cta`) se quitó; «Solicitar visita» está dentro de la tarjeta
+(sólo con agenda) y en la barra inferior del móvil. El formulario añade
+«Asunto» opcional, prellenado con la propiedad, que `/api/public/contact` ya
+guarda en el mensaje, las notas del lead y el hilo.
 
 ## Vista previa de la web y aviso de cookies
 

@@ -47,8 +47,43 @@
                 <svg class="mt-0.5 shrink-0 text-stone-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.3a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.7" r="2.5" /></svg>
                 <span class="min-w-0 [overflow-wrap:anywhere]">{{ locationLine }}</span>
               </p>
+              <!-- Referencia comercial (el «Código comercial» de la ficha, Property Core): discreta, bajo la ubicación. -->
+              <p v-if="reference" class="mt-2 text-[12px] font-medium uppercase tracking-[0.08em] text-stone-400" data-testid="ficha-reference">
+                {{ t('ficha.reference', 'Ref.') }} <span class="text-stone-500">{{ reference }}</span>
+              </p>
 
-              <ul v-if="keyFacts.length" class="ficha-facts mt-6" data-testid="ficha-key-facts">
+              <!-- Descripción: justo después del título y la ubicación, antes de los datos clave, con «Ver más». -->
+              <div v-if="showDescription" id="descripcion" class="mt-5 scroll-mt-28 border-t border-[#f1eee8] pt-5" data-testid="ficha-description">
+                <div class="grid grid-cols-1 gap-6" :class="{ 'xl:grid-cols-[minmax(0,1fr)_minmax(0,0.42fr)]': highlights.items.length }">
+                  <div class="min-w-0">
+                    <h2 class="text-[11px] font-semibold uppercase tracking-[0.14em] text-stone-400">{{ t('propertyDetails.description.eyebrow', 'Descripción') }}</h2>
+                    <!-- whitespace-pre-line keeps line breaks from descriptions written before the
+                    rich-text editor existed (plain text, no tags); v-html renders real formatting
+                    for anything saved since (bold/italic/lists/links) — both read correctly here. -->
+                    <!-- eslint-disable-next-line vue/no-v-html -->
+                    <div
+                      :id="descId"
+                      ref="descEl"
+                      class="desc mt-2 whitespace-pre-line text-[14px] leading-[1.8] text-stone-600 [&_a]:text-accent-700 [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5"
+                      :class="{ 'desc-clamped': !descOpen && descOverflows }"
+                      data-testid="ficha-description-text"
+                      v-html="data.project.description"
+                    />
+                    <button v-if="descOverflows" type="button" class="peach-btn mt-3" :aria-expanded="descOpen" :aria-controls="descId" data-testid="ficha-description-more" @click="descOpen = !descOpen">
+                      {{ descOpen ? t('ficha.readLess', 'Ver menos') : t('ficha.readMore', 'Ver más') }}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+                    </button>
+                  </div>
+                  <ul v-if="highlights.items.length" class="self-start rounded-xl border border-[#dcefe2] bg-[#f1f9f3] p-5" :data-source="highlights.source" data-testid="ficha-highlights">
+                    <li v-for="h in highlights.items" :key="h" class="flex items-start gap-3 py-1.5 text-[13.5px] text-stone-600">
+                      <svg class="mt-0.5 shrink-0 text-emerald-600" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m8 12.3 2.7 2.7L16 9.7" /></svg>
+                      <span class="min-w-0 [overflow-wrap:anywhere]">{{ h }}</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <ul v-if="keyFacts.length" class="ficha-facts mt-6" :class="{ 'border-t border-[#f1eee8] pt-6': showDescription }" data-testid="ficha-key-facts">
                 <li v-for="f in keyFacts" :key="f.key" class="ficha-fact" :data-fact="f.key">
                   <!-- SVG fijo de utils/featureIcons.ts, nunca datos -->
                   <span class="shrink-0 text-stone-400" aria-hidden="true" v-html="featureIconSvg(f.key, 22)" />
@@ -93,51 +128,26 @@
               <div class="mt-4"><QuickFacts :project="data.project" :details="data.details" variant="features" :exclude="['propertyType', 'yearBuilt']" /></div>
             </section>
 
-            <!-- Descripción con «Ver más» y los puntos destacados (editoriales o de datos reales). -->
-            <section v-if="data.project.description && show('descripcion')" id="descripcion" class="pcard min-w-0 scroll-mt-28" :style="at('descripcion')" data-testid="ficha-description">
-              <div class="grid grid-cols-1 gap-6" :class="{ 'xl:grid-cols-[minmax(0,1fr)_minmax(0,0.42fr)]': highlights.items.length }">
-                <div class="min-w-0">
-                  <h2 class="pcard-title">{{ t('propertyDetails.description.eyebrow', 'Descripción') }}</h2>
-                  <!-- whitespace-pre-line keeps line breaks from descriptions written before the
-                  rich-text editor existed (plain text, no tags); v-html renders real formatting
-                  for anything saved since (bold/italic/lists/links) — both read correctly here. -->
-                  <!-- eslint-disable-next-line vue/no-v-html -->
-                  <div
-                    ref="descEl"
-                    class="desc mt-3 whitespace-pre-line text-[14px] leading-[1.8] text-stone-500 [&_a]:text-accent-700 [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5"
-                    :class="{ 'desc-clamped': !descOpen && descOverflows }"
-                    data-testid="ficha-description-text"
-                    v-html="data.project.description"
-                  />
-                  <button v-if="descOverflows" type="button" class="peach-btn mt-4" :aria-expanded="descOpen" data-testid="ficha-description-more" @click="descOpen = !descOpen">
-                    {{ descOpen ? t('ficha.readLess', 'Ver menos') : t('ficha.readMore', 'Ver más') }}
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-                  </button>
-                </div>
-                <ul v-if="highlights.items.length" class="self-start rounded-xl border border-[#dcefe2] bg-[#f1f9f3] p-5" :data-source="highlights.source" data-testid="ficha-highlights">
-                  <li v-for="h in highlights.items" :key="h" class="flex items-start gap-3 py-1.5 text-[13.5px] text-stone-600">
-                    <svg class="mt-0.5 shrink-0 text-emerald-600" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m8 12.3 2.7 2.7L16 9.7" /></svg>
-                    <span class="min-w-0 [overflow-wrap:anywhere]">{{ h }}</span>
-                  </li>
-                </ul>
-              </div>
+            <!-- Eficiencia energética: la etiqueta A–G con los valores reales de Property Core (megaprompt «ficha»). -->
+            <section v-if="show('energia') && has('energia')" id="energia" class="min-w-0 scroll-mt-28" :style="at('energia')" data-testid="ficha-energy">
+              <PropertyEnergyCard :data="energy" :options="display.energy" />
             </section>
 
             <!-- Serendipia Score -->
-            <section v-if="show('score')" id="score" class="min-w-0 scroll-mt-28" :style="at('score')">
+            <section v-if="show('score') && has('score')" id="score" class="min-w-0 scroll-mt-28" :style="at('score')">
               <SerendipiaScore :slug="slug" />
             </section>
 
             <!-- Plano de la vivienda y Estado del inmueble (#110): los planos del
             editor (sin recortar, con visor a pantalla completa) y el estado
             real de la ficha ampliada. Lo que no hay no sale. -->
-            <div v-if="(floorPlans.length || conditionFacts.length) && show('plano-estado')" class="grid grid-cols-1 items-start gap-5" :class="{ 'xl:grid-cols-[1.2fr_1fr]': floorPlans.length && conditionFacts.length }" :style="at('plano-estado')">
+            <div v-if="show('plano-estado') && has('plano-estado')" class="grid grid-cols-1 items-start gap-5" :class="{ 'xl:grid-cols-[1.2fr_1fr]': floorPlans.length && conditionFacts.length }" :style="at('plano-estado')">
               <PropertyFloorPlans :plans="floorPlans" :facts="{ area: p.area, bedrooms: p.bedrooms, bathrooms: p.bathrooms, hasTerrace: p.hasTerrace }" />
               <PropertyFactsCard anchor="estado" testid="property-condition" :title="t('facts.conditionHeading', 'Estado del inmueble')" :rows="conditionFacts" />
             </div>
 
             <!-- El edificio (separado de la vivienda) y Documentación (#110). -->
-            <div v-if="(buildingFacts.length || publicDocs.length) && show('edificio-documentacion')" class="grid grid-cols-1 items-start gap-5" :class="{ 'xl:grid-cols-[1.25fr_1fr]': buildingFacts.length && publicDocs.length }" :style="at('edificio-documentacion')">
+            <div v-if="show('edificio-documentacion') && has('edificio-documentacion')" class="grid grid-cols-1 items-start gap-5" :class="{ 'xl:grid-cols-[1.25fr_1fr]': buildingFacts.length && publicDocs.length }" :style="at('edificio-documentacion')">
               <PropertyFactsCard anchor="edificio" testid="property-building" :title="t('facts.buildingHeading', 'El edificio')" :rows="buildingFacts" :columns="2" />
               <PropertyDocumentsCard :documents="publicDocs" />
             </div>
@@ -189,22 +199,22 @@
             </PropertySectionCard>
 
             <!-- Análisis de inversión -->
-            <PropertySectionCard v-if="show('analisis')" id="analisis" :title="t('propertyDetails.investment.heading', 'Análisis de inversión')" :style="at('analisis')">
+            <PropertySectionCard v-if="show('analisis') && has('analisis')" id="analisis" :title="t('propertyDetails.investment.heading', 'Análisis de inversión')" :style="at('analisis')">
               <LazyAIAnalysis hydrate-on-visible :slug="slug" :price="data.project.price" :area="data.project.area" :rental-yield="data.project.rentalYield" />
             </PropertySectionCard>
 
             <!-- Evolución de precio -->
-            <PropertySectionCard v-if="show('precio')" id="precio" :title="t('propertyDetails.priceHistory.heading', 'Evolución de precio')" :style="at('precio')">
+            <PropertySectionCard v-if="show('precio') && has('precio')" id="precio" :title="t('propertyDetails.priceHistory.heading', 'Evolución de precio')" :style="at('precio')">
               <LazyPriceChart hydrate-on-visible :slug="slug" />
             </PropertySectionCard>
 
             <!-- Servicios cercanos -->
-            <PropertySectionCard v-if="show('servicios')" id="servicios" :title="t('propertyDetails.lifestyle.heading', 'Estilo de vida')" :subtitle="t('propertyDetails.lifestyle.subtitle', 'Datos reales del entorno, obtenidos de OpenStreetMap dentro de un radio de 2 km.')" :style="at('servicios')">
-              <LazyLifestyleBlock hydrate-on-visible :slug="slug" />
+            <PropertySectionCard v-if="show('servicios') && has('servicios')" id="servicios" :title="t('propertyDetails.lifestyle.heading', 'Estilo de vida')" :subtitle="t('propertyDetails.lifestyle.subtitle', 'Datos reales del entorno, obtenidos de OpenStreetMap dentro de un radio de 2 km.')" :style="at('servicios')">
+              <LazyLifestyleBlock hydrate-on-visible :slug="slug" @empty="markEmpty('servicios')" />
             </PropertySectionCard>
 
             <!-- Ubicación / mapa -->
-            <PropertySectionCard v-if="show('ubicacion')" id="ubicacion" :title="t('propertyDetails.location.heading', 'Dónde está')" :style="at('ubicacion')">
+            <PropertySectionCard v-if="show('ubicacion') && has('ubicacion')" id="ubicacion" :title="t('propertyDetails.location.heading', 'Dónde está')" :style="at('ubicacion')">
               <div class="relative h-80 overflow-hidden rounded-xl border border-[#ece8e1]">
                 <ClientOnly>
                   <PropertyLocationMap v-if="hasValidCoords(data.project)" :lat="data.project.lat" :lng="data.project.lng" :label="data.project.community || data.project.name" />
@@ -226,12 +236,12 @@
             </PropertySectionCard>
 
             <!-- Sol y orientación -->
-            <PropertySectionCard v-if="show('orientacion')" id="orientacion" :title="t('propertyDetails.orientation.heading', 'Sol y orientación')" :style="at('orientacion')">
+            <PropertySectionCard v-if="show('orientacion') && has('orientacion')" id="orientacion" :title="t('propertyDetails.orientation.heading', 'Sol y orientación')" :style="at('orientacion')">
               <LazySunOrientation hydrate-on-visible :orientation="data.project.orientation" :lat="data.project.lat" :lng="data.project.lng" />
             </PropertySectionCard>
 
             <!-- Hipoteca y costes: la calculadora y el coste mensual estimado de esta vivienda. -->
-            <PropertySectionCard v-if="show('hipoteca')" id="hipoteca" :title="t('propertyDetails.mortgage.heading', 'Hipoteca y costes')" :style="at('hipoteca')">
+            <PropertySectionCard v-if="show('hipoteca') && has('hipoteca')" id="hipoteca" :title="t('propertyDetails.mortgage.heading', 'Hipoteca y costes')" :style="at('hipoteca')">
               <LazyMortgageCalculator hydrate-on-visible :price="data.project.price || 0" :rental-yield="data.project.rentalYield" :status="data.project.status" />
               <PropertyMonthlyCost class="mt-5" :price="data.project.price" :service-charge-annual="data.project.serviceChargeAnnual" :details="data.details" />
             </PropertySectionCard>
@@ -242,7 +252,7 @@
             </section>
 
             <!-- Visualiza el potencial -->
-            <PropertySectionCard v-if="show('staging') && photos.length" class="no-print" :title="t('propertyDetails.staging.heading', 'Visualiza el potencial')" :style="at('staging')">
+            <PropertySectionCard v-if="show('staging') && has('staging')" class="no-print" :title="t('propertyDetails.staging.heading', 'Visualiza el potencial')" :style="at('staging')">
               <div class="grid gap-4 sm:grid-cols-2">
                 <div v-for="s in staging" :key="s.title" class="group relative overflow-hidden rounded-xl border border-[#ece8e1] bg-white">
                   <div class="aspect-[16/10] overflow-hidden bg-stone-100"><img :src="photos[s.i % photos.length]" alt="" class="h-full w-full object-cover transition duration-700 group-hover:scale-105" loading="lazy" ></div>
@@ -255,20 +265,23 @@
             </PropertySectionCard>
 
             <!-- Historia / timeline -->
-            <PropertySectionCard v-if="show('historia')" id="historia" :title="t('propertyDetails.history.heading', 'Historia del inmueble')" :style="at('historia')">
+            <PropertySectionCard v-if="show('historia') && has('historia')" id="historia" :title="t('propertyDetails.history.heading', 'Historia del inmueble')" :style="at('historia')">
               <LazyPropertyTimeline hydrate-on-visible :published-at="data.project.publishedAt" :status="data.project.status" :construction-percentage="data.project.constructionPercentage" :handover-date="data.project.handoverDate" />
             </PropertySectionCard>
           </div>
 
-          <!-- Columna derecha (#111): precio y próxima visita, «Atendido por» con el formulario,
-          indicadores, decisión rápida y promotora. Al final, la llamada a «Solicitar visita»
-          queda fija mientras se lee el resto de la ficha (sin tapar nada de la columna). -->
+          <!-- Columna derecha (#111): precio y próxima visita y «Atendido por» con el formulario, que
+          en escritorio se queda a la vista mientras se lee la ficha (megaprompt «ficha»: sticky real,
+          bajo la cabecera de la web y sin tapar nada). Su hueco ocupa la columna hasta el final del
+          contenido; indicadores, decisión rápida y promotora van debajo, sin que la tarjeta los tape. -->
           <aside class="flex min-w-0 flex-col gap-5" data-testid="ficha-aside">
             <div class="hidden lg:block">
               <PropertyPriceCard :slug="slug" :project="data.project" :agent-slug="agentSlug" @book="(start) => openVisit('in_person', start)" @video="openVisit('video')" @visit-state="(s) => (agendaState = s)" />
             </div>
-            <div id="contacto" ref="contactRef" class="scroll-mt-28">
-              <PropertyContactCard :project="data.project" :agent="data.agent" />
+            <div class="ficha-contact-rail" :style="{ '--ficha-sticky-top': `${stickyTop}px` }">
+              <div id="contacto" ref="contactRef" class="ficha-contact-sticky scroll-mt-28" data-testid="ficha-contact-sticky">
+                <PropertyContactCard :project="data.project" :agent="data.agent" :tone="contactTone" :can-book="!!agentSlug && agendaState !== 'none'" :sticky-head="contactTall" @visit="requestVisit" />
+              </div>
             </div>
             <PropertyIndicatorsCard :slug="slug" />
             <PropertyQuickDecisionCard :slug="slug" />
@@ -283,24 +296,15 @@
               </div>
               <p v-if="data.developer.description" class="mt-3 text-[13px] leading-relaxed text-stone-500">{{ data.developer.description }}</p>
             </div>
-            <div class="no-print sticky top-[89px] hidden lg:block" data-testid="ficha-desktop-cta">
-              <div class="pcard flex items-center gap-4 !p-4">
-                <span class="min-w-0 flex-1 leading-tight">
-                  <span class="block truncate text-[13px] font-semibold text-ink">{{ data.project.name }}</span>
-                  <span class="mt-0.5 block text-[16px] font-bold text-ink">{{ formatPrice(data.project.price) }}</span>
-                </span>
-                <button type="button" class="btn-visit shrink-0 !px-5" data-testid="ficha-request-visit" @click="requestVisit">{{ t('propertyStickyBar.requestVisit', 'Solicitar visita') }}</button>
-              </div>
-            </div>
           </aside>
         </div>
       </div>
 
       <!-- Propiedades similares (y, debajo, las destacadas) -->
-      <div id="similares" class="no-print mx-auto max-w-screen-2xl scroll-mt-28 px-4 pb-16 sm:px-6 lg:px-10">
+      <div v-if="has('similares')" id="similares" class="no-print mx-auto max-w-screen-2xl scroll-mt-28 px-4 pb-16 sm:px-6 lg:px-10">
         <div class="pcard !p-6">
           <h2 class="pcard-title">{{ t('propertyDetails.similar.heading', 'Propiedades similares') }}</h2>
-          <div class="mt-5"><LazySimilarProperties hydrate-on-visible :slug="slug" :show-featured="coreOptions.showFeatured !== false" :featured-title="coreOptions.featuredTitle || ''" /></div>
+          <div class="mt-5"><LazySimilarProperties hydrate-on-visible :slug="slug" :show-featured="coreOptions.showFeatured !== false" :featured-title="coreOptions.featuredTitle || ''" @empty="markEmpty('similares')" /></div>
         </div>
       </div>
 
@@ -330,8 +334,11 @@ import { buildQuickFacts } from '~/utils/quickFacts'
 import { buildingRows, conditionRows, type PublicDocument } from '~/utils/propertyFacts'
 import type { PublicFloorPlan } from '~/utils/floorPlans'
 import { featureIconSvg } from '~/utils/featureIcons'
-import { derivedPros, fichaHighlights } from '~/utils/fichaHighlights'
-import { PAGE_CORE_TYPE, fichaSectionLayout } from '~/utils/siteBuilder/pages'
+import { derivedCons, derivedPros, fichaHighlights } from '~/utils/fichaHighlights'
+import { PAGE_CORE_TYPE, fichaDisplayOptions, fichaSectionLayout } from '~/utils/siteBuilder/pages'
+import { energyData } from '~/utils/energyCertificate'
+import { fichaDataContext, fichaSectionVisible } from '~/utils/fichaVisibility'
+import { FICHA_PROPERTY_KEY } from '~/composables/useFichaProperty'
 
 const route = useRoute()
 const { t } = useI18n()
@@ -347,6 +354,15 @@ const { page: sitePage, homeData: sitePageData } = await useSitePage('ficha-prop
 // PAGE_CORE_OPTIONS): las propiedades destacadas y el orden y la visibilidad
 // de las secciones. Sin versión publicada, lo de partida.
 const coreOptions = computed<Record<string, any>>(() => (sitePage.value?.published ? sitePage.value.blocks?.find((b: any) => b.type === PAGE_CORE_TYPE)?.content : null) || {})
+// Lo demás de la zona (megaprompt «ficha»): referencia y descripción en la
+// tarjeta principal, fondo de «Atendido por», presentación de la tabla
+// energética y si las secciones sin datos se ocultan solas.
+const display = computed(() => fichaDisplayOptions(coreOptions.value))
+// Las secciones del Constructor alrededor de la zona (p. ej. «Eficiencia energética») leen esta misma propiedad.
+provide(
+  FICHA_PROPERTY_KEY,
+  computed(() => (data.value as any) || null),
+)
 
 // property_social_media.platform is a free-form DB column; MediaGallery only
 // knows how to render the two platforms it actually embeds, so narrow here
@@ -458,6 +474,13 @@ const statusLabel = computed(() => ({ new: t('propertyDetails.status.new', 'Obra
 // servidor) y la promotora, como en la referencia: «Residencial … · Promotora».
 const locationLine = computed(() => [p.value.community || (p.value as any).city, data.value?.developer?.name].filter(Boolean).join(' · '))
 const agentSlug = computed<string | null>(() => (data.value as any)?.agent?.slug || null)
+// «Ref.»: el código comercial de Property Core (público, PropertySchemaRegistry), si el Constructor no lo oculta.
+const reference = computed(() => (display.value.showReference ? String((data.value as any)?.details?.commercialCode || '').trim() : ''))
+// La descripción va en la tarjeta principal, bajo el título y la ubicación; sin texto, no hay bloque.
+const showDescription = computed(() => display.value.showDescription && !!String(data.value?.project.description || '').trim())
+const descId = `ficha-desc-${useId()}`
+// La etiqueta energética: los valores reales de la propiedad y de su ficha ampliada, nunca inventados.
+const energy = computed(() => energyData(p.value, (data.value as any)?.details))
 
 // Orden y visibilidad de las secciones que se configuran en el Constructor
 // (#110). Sin configuración, el orden de partida de FICHA_SECTIONS (#111).
@@ -510,19 +533,27 @@ const highlights = computed(() => fichaHighlights(p.value as any, t))
 // frases de relleno como «Ubicación privilegiada»); sin nada, no hay sección.
 // Sin repetir lo que ya enseña el recuadro verde de la descripción.
 const pros = computed(() => {
-  const shown = new Set(highlights.value.source === 'data' && show('descripcion') && data.value?.project.description ? highlights.value.items : [])
+  const shown = new Set(highlights.value.source === 'data' && showDescription.value ? highlights.value.items : [])
   return derivedPros(p.value as any, t).filter((x) => !shown.has(x))
 })
-const cons = computed(() => {
-  const o: string[] = []
-  if (p.value.status === 'new') o.push(t('propertyDetails.cons.offPlan', 'Entrega sobre plano — planifica la mudanza'))
-  if (p.value.status === 'under_construction' && p.value.handoverDate) o.push(`${t('propertyDetails.cons.handoverExpected', 'Entrega prevista')}: ${p.value.handoverDate}`)
-  if (!p.value.hasElevator && (p.value.bedrooms || 0) >= 2) o.push(t('propertyDetails.cons.checkElevator', 'Consulta disponibilidad de ascensor'))
-  if (p.value.energyRating && ['D', 'E', 'F', 'G'].includes(p.value.energyRating)) o.push(t('propertyDetails.cons.improvableEfficiency', 'Eficiencia energética mejorable'))
-  if (p.value.orientation === 'N') o.push(t('propertyDetails.cons.northFacing', 'Orientación norte — menos luz directa'))
-  return o.slice(0, 4)
-})
+const cons = computed(() => derivedCons(p.value as any, t))
 const hasResumen = computed(() => !!data.value?.project.aiSummary || pros.value.length > 0 || cons.value.length > 0)
+
+// Secciones sin datos (megaprompt «ficha», regla 8): con «Ocultar
+// automáticamente si no hay datos» (de partida), una sección que no tiene
+// nada real que enseñar no sale —ni su título, ni su tarjeta, ni su pestaña—.
+// Lo sabe el servidor (`availability`: Score, historial de precios,
+// similares) o el navegador al cargarla (entorno sin servicios). Sin la
+// regla, sólo se quitan las que no tendrían ni un componente que pintar.
+const emptyAtRuntime = ref(new Set<string>())
+function markEmpty(key: string) {
+  if (!emptyAtRuntime.value.has(key)) emptyAtRuntime.value = new Set([...emptyAtRuntime.value, key])
+}
+// Contado con las mismas funciones que la vista del Constructor (utils/fichaVisibility.ts).
+const dataContext = computed(() =>
+  fichaDataContext(data.value as any, { t, typeLabel, formatMoney: formatPrice, showDescription: showDescription.value, energy: display.value.energy, emptyAtRuntime: emptyAtRuntime.value }),
+)
+const has = (key: string) => fichaSectionVisible(key, dataContext.value, display.value.hideEmpty)
 
 const staging = computed(() => [
   { title: t('propertyDetails.staging.decorTitle', 'Decoración IA'), desc: t('propertyDetails.staging.decorDesc', 'Reimagina los espacios en tu estilo'), i: 1 },
@@ -534,17 +565,18 @@ const staging = computed(() => [
 const sections = computed(() => {
   const plano = floorPlans.value.length ? { id: 'plano', label: t('propertyDetails.nav.floorPlan', 'Plano') } : conditionFacts.value.length ? { id: 'estado', label: t('propertyDetails.nav.condition', 'Estado') } : null
   const items: { id: string; key: string; label: string; when?: boolean }[] = [
-    { id: 'score', key: 'score', label: t('propertyDetails.nav.score', 'Score') },
+    { id: 'score', key: 'score', label: t('propertyDetails.nav.score', 'Score'), when: has('score') },
     { id: hasQuickFacts.value && show('datos') ? 'datos' : 'principal', key: hasQuickFacts.value && show('datos') ? 'datos' : '', label: t('propertyDetails.nav.quickFacts', 'Datos clave') },
+    { id: 'energia', key: 'energia', label: t('propertyDetails.nav.energy', 'Energía'), when: has('energia') },
     { id: plano?.id || 'plano', key: 'plano-estado', label: plano?.label || '', when: !!plano },
     { id: 'resumen', key: 'resumen', label: t('propertyDetails.nav.aiSummary', 'Resumen IA'), when: hasResumen.value },
-    { id: 'analisis', key: 'analisis', label: t('propertyDetails.nav.analysis', 'Análisis') },
-    { id: 'precio', key: 'precio', label: t('propertyDetails.nav.price', 'Precio') },
-    { id: 'servicios', key: 'servicios', label: t('propertyDetails.nav.services', 'Servicios') },
-    { id: 'ubicacion', key: 'ubicacion', label: t('propertyDetails.nav.location', 'Ubicación') },
-    { id: 'orientacion', key: 'orientacion', label: t('propertyDetails.nav.sun', 'Sol') },
-    { id: 'hipoteca', key: 'hipoteca', label: t('propertyDetails.nav.mortgage', 'Hipoteca') },
-    { id: 'historia', key: 'historia', label: t('propertyDetails.nav.history', 'Historia') },
+    { id: 'analisis', key: 'analisis', label: t('propertyDetails.nav.analysis', 'Análisis'), when: has('analisis') },
+    { id: 'precio', key: 'precio', label: t('propertyDetails.nav.price', 'Precio'), when: has('precio') },
+    { id: 'servicios', key: 'servicios', label: t('propertyDetails.nav.services', 'Servicios'), when: has('servicios') },
+    { id: 'ubicacion', key: 'ubicacion', label: t('propertyDetails.nav.location', 'Ubicación'), when: has('ubicacion') },
+    { id: 'orientacion', key: 'orientacion', label: t('propertyDetails.nav.sun', 'Sol'), when: has('orientacion') },
+    { id: 'hipoteca', key: 'hipoteca', label: t('propertyDetails.nav.mortgage', 'Hipoteca'), when: has('hipoteca') },
+    { id: 'historia', key: 'historia', label: t('propertyDetails.nav.history', 'Historia'), when: has('historia') },
   ]
   const { order, hidden } = layout.value
   // La tarjeta principal (sin clave) va antes que cualquier sección.
@@ -553,7 +585,7 @@ const sections = computed(() => {
   return [
     { id: 'fotos', label: t('propertyDetails.nav.photos', 'Fotos') },
     ...middle.map(({ id, label }) => ({ id, label })),
-    { id: 'similares', label: t('propertyDetails.nav.similar', 'Similares') },
+    ...(has('similares') ? [{ id: 'similares', label: t('propertyDetails.nav.similar', 'Similares') }] : []),
   ]
 })
 
@@ -590,8 +622,31 @@ function requestVisit() {
   openVisit('in_person')
 }
 
+// «Atendido por» fijo en escritorio (megaprompt «ficha», 4.2-4.3): bajo la
+// cabecera real de la web (se mide, no se supone) y, si la tarjeta no cabe
+// en la pantalla, se desplaza por dentro con su cabecera a la vista. En el
+// móvil va en el flujo de la página: lo fijo allí es la barra inferior.
+const contactTone = computed(() => display.value.contactTone)
+const headerHeight = ref(73)
+const stickyTop = computed(() => headerHeight.value + 16)
+const contactTall = ref(false)
+function measureSticky() {
+  const header = document.querySelector<HTMLElement>('[data-site-header]')
+  const pos = header ? getComputedStyle(header).position : ''
+  headerHeight.value = header && (pos === 'sticky' || pos === 'fixed') ? Math.round(header.getBoundingClientRect().height) : 0
+  const card = contactRef.value?.firstElementChild as HTMLElement | null
+  contactTall.value = !!card && card.offsetHeight > window.innerHeight - stickyTop.value - 16
+}
+let stickyResize: ResizeObserver | null = null
+
 onMounted(() => {
   measureDescription()
+  measureSticky()
+  window.addEventListener('resize', measureSticky, { passive: true })
+  if (typeof ResizeObserver !== 'undefined' && contactRef.value?.firstElementChild) {
+    stickyResize = new ResizeObserver(() => measureSticky())
+    stickyResize.observe(contactRef.value.firstElementChild)
+  }
   sectionObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((e) => {
@@ -615,6 +670,8 @@ onMounted(() => {
   }
 })
 onUnmounted(() => {
+  window.removeEventListener('resize', measureSticky)
+  stickyResize?.disconnect()
   sectionObserver?.disconnect()
   heroObserver?.disconnect()
   contactObserver?.disconnect()
@@ -656,6 +713,23 @@ onUnmounted(() => {
   }
   .ficha-fact + .ficha-fact {
     border-left: 1px solid #efebe5;
+  }
+}
+/* «Atendido por» fijo en escritorio: su hueco ocupa el resto de la columna,
+   así la tarjeta acompaña la lectura sin tapar las tarjetas de debajo ni el
+   pie; más alta que la pantalla, se desplaza por dentro (sin bloquear el
+   scroll de la página: al llegar a su final, sigue la página). */
+@media (min-width: 1024px) {
+  .ficha-contact-rail {
+    flex: 1 1 auto;
+  }
+  .ficha-contact-sticky {
+    position: sticky;
+    top: var(--ficha-sticky-top, 89px);
+    max-height: calc(100vh - var(--ficha-sticky-top, 89px) - 16px);
+    overflow-y: auto;
+    border-radius: 16px;
+    scrollbar-width: thin;
   }
 }
 .desc-clamped {

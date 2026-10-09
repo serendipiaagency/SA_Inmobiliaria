@@ -68,11 +68,24 @@
             <div class="mt-4 rounded-xl border border-[#ece8e1] bg-white px-4 py-3 text-[12px] text-stone-500">Fotos · Score · Datos clave · Plano · … · Similares</div>
             <div class="pcard mt-4">
               <h1 class="heading-serif text-3xl">{{ sample.name }}</h1>
+              <!-- Tarjeta principal: referencia y descripción, como saldrán en la web (megaprompt «ficha»). -->
+              <p v-if="ficha.showReference && sampleReference" class="mt-2 text-[12px] font-medium uppercase tracking-[0.08em] text-stone-400" data-testid="page-core-reference-preview">Ref. <span class="text-stone-500">{{ sampleReference }}</span></p>
+              <p v-if="ficha.showDescription && sampleDescription" class="mt-3 line-clamp-3 text-[13px] leading-relaxed text-stone-500" data-testid="page-core-description-preview">{{ sampleDescription }}</p>
               <p class="mt-2 text-xl font-semibold">{{ sample.price }}</p>
-              <!-- Las secciones de la ficha en el orden y con la visibilidad de la zona (#110), como saldrán en la web. -->
+              <!-- Las secciones de la ficha en el orden y con la visibilidad de la zona (#110), como saldrán en la web.
+                   Las que no tienen datos en la propiedad de ejemplo: en el lienzo, con su aviso; en Vista previa, fuera. -->
               <ol class="mt-5 space-y-1.5" data-testid="page-core-sections-preview">
-                <li v-for="s in fichaSections.visible" :key="s.key" class="flex items-center gap-2 rounded-lg bg-stone-50 px-3 py-2 text-[12.5px] text-stone-600" :data-section="s.key">
-                  <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-stone-300" />{{ s.label }}
+                <li
+                  v-for="s in previewSections"
+                  :key="s.key"
+                  class="rounded-lg px-3 py-2 text-[12.5px]"
+                  :class="s.empty ? 'border border-dashed border-amber-300 bg-amber-50 text-stone-500' : 'bg-stone-50 text-stone-600'"
+                  :data-section="s.key"
+                  :data-empty="s.empty ? '1' : undefined"
+                >
+                  <span class="flex items-center gap-2"><span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="s.empty ? 'bg-amber-400' : 'bg-stone-300'" />{{ s.label }}</span>
+                  <span v-if="s.empty" class="mt-1 block text-[11.5px] leading-snug text-amber-800" data-testid="page-core-section-empty">Esta sección se ocultará en la web pública porque la propiedad no tiene datos disponibles.</span>
+                  <PropertyEnergyCard v-else-if="s.key === 'energia' && sampleData" class="mt-2" :data="energy" :options="ficha.energy" />
                 </li>
               </ol>
               <p v-if="fichaSections.hidden" class="mt-2 text-[11.5px] text-stone-400">{{ fichaSections.hidden === 1 ? '1 sección oculta' : `${fichaSections.hidden} secciones ocultas` }} en esta web.</p>
@@ -80,7 +93,9 @@
           </div>
           <div class="space-y-3 text-[13px] text-stone-500">
             <div class="pcard"><strong class="text-ink">Precio</strong> y próxima visita disponible</div>
-            <div class="pcard"><strong class="text-ink">Atendido por</strong>, con el comercial de cada propiedad y su formulario</div>
+            <div class="pcard" :style="contactStyle" :data-tone="ficha.contactTone" data-testid="page-core-contact-preview">
+              <strong class="text-ink">Atendido por</strong>, con el comercial de cada propiedad, «Solicitar visita» y su formulario. En escritorio se queda a la vista al bajar.
+            </div>
             <div class="pcard"><strong class="text-ink">Indicadores</strong> y <strong class="text-ink">Decisión rápida</strong>, sólo con datos</div>
           </div>
         </div>
@@ -113,8 +128,12 @@
 </template>
 
 <script setup lang="ts">
-import { CATALOG_FILTER_GROUPS, FICHA_SECTIONS, PAGE_CORE_LABELS, PAGE_CORE_SOURCES, catalogFilterKeys, normalizeFichaSections, type PageCoreKind, catalogFilterOpenKeys, catalogDisplayOptions } from '~/utils/siteBuilder/pages'
-import { SITE_BLOCK_KEY, type SiteBlockContext } from '~/composables/useSiteEditor'
+import { CATALOG_FILTER_GROUPS, FICHA_SECTIONS, PAGE_CORE_LABELS, PAGE_CORE_SOURCES, catalogFilterKeys, normalizeFichaSections, type PageCoreKind, catalogFilterOpenKeys, catalogDisplayOptions, fichaDisplayOptions } from '~/utils/siteBuilder/pages'
+import { SITE_BLOCK_KEY, SITE_EDITOR_KEY, type SiteBlockContext } from '~/composables/useSiteEditor'
+import { useFichaSample } from '~/composables/useFichaProperty'
+import { fichaDataContext, fichaEmptySections } from '~/utils/fichaVisibility'
+import { energyData } from '~/utils/energyCertificate'
+import { contactToneColors } from '~/utils/contactTone'
 import SortBar from '~/components/search/SortBar.vue'
 
 const props = defineProps<{
@@ -124,6 +143,8 @@ const props = defineProps<{
 }>()
 
 const { format: formatPrice } = useCurrency()
+// Lienzo o Vista previa: el aviso de «sin datos» sólo se enseña editando.
+const editor = inject(SITE_EDITOR_KEY, null)
 // La zona entera es un solo elemento del lienzo: las tarjetas y el panel de
 // muestra (los mismos componentes que la web) no exponen nodos editables.
 provide(SITE_BLOCK_KEY, null as unknown as SiteBlockContext)
@@ -142,6 +163,37 @@ const SECTION_LABELS = Object.fromEntries(FICHA_SECTIONS.map((x) => [x.key, x.la
 const fichaSections = computed(() => {
   const list = normalizeFichaSections(props.content.sections)
   return { visible: list.filter((x) => x.visible).map((x) => ({ key: x.key, label: SECTION_LABELS[x.key] })), hidden: list.filter((x) => !x.visible).length }
+})
+
+// Ficha (megaprompt «ficha»): las opciones de la zona y la propiedad de
+// ejemplo con lo mismo que recibe su ficha pública, contada con las mismas
+// reglas (utils/fichaVisibility.ts): lo que aquí se avisa es lo que la web oculta.
+const ficha = computed(() => fichaDisplayOptions(props.content))
+const { sample: fichaSample } = props.content.core === 'property-detail' ? useFichaSample() : { sample: ref(null) }
+const sampleData = computed(() => fichaSample.value?.property || null)
+const { t } = useI18n()
+const typeLabel = usePropertyTypeLabel()
+const sampleReference = computed(() => String(sampleData.value?.details?.commercialCode || '').trim())
+const sampleDescription = computed(() =>
+  String(sampleData.value?.project?.description || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim(),
+)
+const energy = computed(() => energyData(sampleData.value?.project, sampleData.value?.details))
+const emptySections = computed(() => {
+  const d = sampleData.value
+  if (!d) return new Set<string>()
+  const ctx = fichaDataContext(d, { t, typeLabel, formatMoney: formatPrice, showDescription: ficha.value.showDescription && !!sampleDescription.value, energy: ficha.value.energy })
+  return fichaEmptySections(FICHA_SECTIONS.map((x) => x.key), ctx, ficha.value.hideEmpty)
+})
+const previewSections = computed(() => {
+  const inPreview = editor?.mode.value === 'preview'
+  return fichaSections.value.visible.map((s) => ({ ...s, empty: emptySections.value.has(s.key) })).filter((s) => !(inPreview && s.empty))
+})
+const contactStyle = computed(() => {
+  const c = contactToneColors(ficha.value.contactTone, fichaSample.value?.brandColor)
+  return c ? { background: c.bg, borderColor: c.border } : undefined
 })
 
 const filterKeys = computed(() => catalogFilterKeys(props.content.filters))

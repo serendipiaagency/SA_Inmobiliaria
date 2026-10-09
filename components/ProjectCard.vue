@@ -23,11 +23,11 @@
       </div>
       <!-- Hover video (only when the listing has a real showcase clip attached) -->
       <video
-        v-if="project.videoUrl"
+        v-if="hoverClip"
         ref="videoEl"
         class="absolute inset-0 h-full w-full object-cover transition-opacity duration-500"
         :style="{ opacity: showVideo ? 1 : 0 }"
-        :src="project.videoUrl"
+        :src="hoverClip"
         muted
         loop
         playsinline
@@ -228,6 +228,14 @@ const photos = computed(() => (props.project.photos?.length ? props.project.phot
 const index = ref(0)
 const hovering = ref(false)
 const showVideo = ref(false)
+// Sólo un vídeo propio (subido, servido desde /api/media) se reproduce en la
+// tarjeta: un enlace de YouTube o Vimeo es una página, no un fichero de vídeo,
+// y la CSP (default-src 'self') no deja cargar medios de fuera. Esos se ven
+// en la ficha, incrustados.
+const hoverClip = computed(() => {
+  const v = String(props.project.videoUrl || '').trim()
+  return v && !/^(https?:)?\/\//i.test(v) ? mediaUrl(v) : null
+})
 const quickViewOpen = ref(false)
 const videoEl = ref<HTMLVideoElement | null>(null)
 let timer: any = null
@@ -239,7 +247,7 @@ function onEnter() {
   }
   // Small dwell delay before switching to video — avoids flashing it on a
   // quick mouse pass-through, matches the Zillow/Redfin hover-video pattern.
-  if (props.project.videoUrl) {
+  if (hoverClip.value) {
     videoDwell = setTimeout(() => {
       showVideo.value = true
       videoEl.value?.play().catch(() => {})

@@ -46,6 +46,11 @@
       </div>
     </div>
 
+    <!-- Eficiencia energética: las siete flechas de la etiqueta, de verde a rojo -->
+    <div v-else-if="type === 'energy-efficiency'" class="flex w-[70%] flex-col gap-[3px]">
+      <div v-for="(c, i) in ['#0f8a43', '#37a646', '#9cc93b', '#f2d31c', '#f0b419', '#e8742a', '#d7262b']" :key="c" class="h-[7px] rounded-r-sm" :style="{ width: `${40 + i * 10}%`, background: c }" />
+    </div>
+
     <!-- Blog list: article cards -->
     <div v-else-if="type === 'blog-list'" class="flex w-[88%] gap-1.5">
       <div v-for="i in 3" :key="i" class="flex-1 overflow-hidden rounded bg-white">

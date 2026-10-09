@@ -250,9 +250,15 @@ etiqueta (`FieldDef.optionLabels`).
 
 ## Privacidad
 
-Lo legal, el precio mínimo autorizado, el recomendado, las comisiones, el
-código comercial, la oficina y el equipo son internos (`internalRule` en el
-PropertySchemaRegistry) y no forman parte de ninguna respuesta pública.
+Lo legal, el precio mínimo autorizado, el recomendado, las comisiones, la
+oficina y el equipo son internos (`internalRule` en el PropertySchemaRegistry)
+y no forman parte de ninguna respuesta pública. El **código comercial** es
+público desde el megaprompt «ficha» (`rule('commercialCode')`): es la
+referencia con la que la agencia anuncia el inmueble y la ficha pública la
+enseña como «Ref.» (se oculta en todas las fichas desde el Constructor Web).
+El id, la referencia interna y las de portales siguen sin publicarse. Del
+certificado energético son públicos la caducidad, el consumo y la letra y el
+valor de emisiones (la tabla A–G de la ficha); el número de registro, no.
 `createdBy` y `deletedAt` de la propiedad están en la lista de columnas que
 `toPublicProperty()` elimina siempre.
 

@@ -24,7 +24,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const FILES_MUST_USE_REDACTION = [
   'server/api/public/home.get.ts',
   'server/api/public/properties.get.ts',
-  'server/api/public/properties/[slug].get.ts',
+  // La ficha (/api/public/properties/<slug>) y la propiedad de ejemplo del
+  // Constructor cargan lo mismo con server/utils/properties/publicDetail.ts.
+  'server/utils/properties/publicDetail.ts',
   'server/api/public/properties/[slug]/similar.get.ts',
   'server/api/public/communities/[id].get.ts',
 ]
@@ -34,5 +36,15 @@ describe('los endpoints públicos que devuelven properties usan propertyPrivacy'
     const source = readFileSync(join(ROOT, file), 'utf8')
     expect(source, `${file} no importa server/utils/propertyPrivacy`).toMatch(/from ['"].*propertyPrivacy['"]/)
     expect(source, `${file} no llama a toPublicProperty ni a toPublicProperties`).toMatch(/toPublicPropert(y|ies)\(/)
+  })
+})
+
+describe('la ficha pública y la propiedad de ejemplo del Constructor pasan por la misma carga redactada', () => {
+  it.each(['server/api/public/properties/[slug].get.ts', 'server/api/admin/site-pages/ficha-sample.get.ts'])('%s devuelve loadPublicPropertyDetail', (file) => {
+    const source = readFileSync(join(ROOT, file), 'utf8')
+    expect(source).toMatch(/from ['"].*properties\/publicDetail['"]/)
+    expect(source).toMatch(/loadPublicPropertyDetail\(db, project\)/)
+    // Nada de la fila sin redactar fuera de esa carga.
+    expect(source).not.toMatch(/return \{[^}]*project[,:]/)
   })
 })

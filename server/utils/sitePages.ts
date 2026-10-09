@@ -4,6 +4,7 @@ import { schema, now } from './db'
 import { sanitizeNodeStyles, type NodeStyle } from '../../utils/siteBuilder/nodes'
 import { sanitizeGlobalStyles, type SiteGlobalStyles } from '../../utils/siteBuilder/globalStyles'
 import { PAGE_CORE_TYPE, SITE_PAGES, SITE_PAGE_KEYS, sanitizeCoreOptions, seedPageBlocks, sitePageDef } from '../../utils/siteBuilder/pages'
+import { compactEnergyOptions, normalizeEnergyOptions } from '../../utils/energyCertificate'
 
 /**
  * The Constructor Web's data model. A page is a flat, ordered array of
@@ -375,6 +376,8 @@ export function validatePageDocument(input: unknown, pageKey?: string): SitePage
     // saved JSON only ever contains what utils/siteBuilder/nodes.ts allows.
     const nodeStyles = sanitizeNodeStyles(b.nodeStyles)
     if (nodeStyles) block.nodeStyles = nodeStyles
+    // «Eficiencia energética»: sólo su presentación, nunca valores (los da cada propiedad).
+    if (type === 'energy-efficiency') block.content = compactEnergyOptions(normalizeEnergyOptions(block.content))
     return block
   })
 

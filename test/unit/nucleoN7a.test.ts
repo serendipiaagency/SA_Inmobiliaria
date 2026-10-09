@@ -538,7 +538,9 @@ describe('N7a · PropertySchemaRegistry: publicFields y portalFields', () => {
   })
 
   it('los endpoints públicos y el dispatcher usan las proyecciones del registro', () => {
-    const slug = readFileSync(join(ROOT, 'server/api/public/properties/[slug].get.ts'), 'utf8')
+    // La ficha delega en server/utils/properties/publicDetail.ts (la comparte con el Constructor).
+    expect(readFileSync(join(ROOT, 'server/api/public/properties/[slug].get.ts'), 'utf8')).toMatch(/loadPublicPropertyDetail\(/)
+    const slug = readFileSync(join(ROOT, 'server/utils/properties/publicDetail.ts'), 'utf8')
     expect(slug).toMatch(/listPublicGallery\(/)
     expect(slug).toMatch(/toPublicSheet\(/)
     expect(slug).not.toMatch(/db\.select\(\)\.from\(schema\.images\)/)

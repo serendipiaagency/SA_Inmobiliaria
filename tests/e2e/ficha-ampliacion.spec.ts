@@ -76,6 +76,9 @@ test.describe('Ficha ampliada: planos, estado, edificio, documentos y reserva', 
     full = await createProperty(developerId, `Ampliación completa ${RUN}`, {
       status: 'ready',
       agentId,
+      // Con coordenadas: sin ellas, «Ubicación» no sale (secciones sin datos ocultas).
+      lat: 43.3614,
+      lng: -5.8494,
       yearBuilt: 2008,
       hasElevator: 1,
       publishedAt: '2026-10-01 10:00:00',
@@ -253,16 +256,16 @@ test.describe('Ficha ampliada: planos, estado, edificio, documentos y reserva', 
     expect((await anon.post(`/api/public/agents/${row.slug}/book`, { headers: { 'cf-connecting-ip': ip() }, data: { name: 'X', email: `x-${RUN}@example.com`, startAt: `${tomorrow} 10:00:00`, privacyAccepted: true } })).status()).toBe(404)
   })
 
-  test('«Solicitar visita» fija: en escritorio al final de la columna derecha; en móvil, precio y botón bajo la cabecera, sin desbordes', async ({ page }) => {
+  test('«Atendido por» fijo en escritorio, con «Solicitar visita» dentro; en móvil, precio y botón bajo la cabecera, sin desbordes', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(`/propiedades/${full.slug}`)
     await expect(page.locator('h1')).toBeVisible()
-    const cta = page.getByTestId('ficha-desktop-cta')
-    // Al bajar por la ficha, la llamada se queda a la vista en la columna derecha.
+    // Ya no hay una llamada fija aparte (megaprompt «ficha»): la tarjeta comercial es la que se queda.
+    await expect(page.getByTestId('ficha-desktop-cta')).toHaveCount(0)
+    const sticky = page.getByTestId('ficha-contact-sticky')
     await page.locator('#ubicacion').scrollIntoViewIfNeeded()
-    await expect(cta).toBeInViewport()
-    await expect(cta).toContainText(`Ampliación completa ${RUN}`)
-    await page.getByTestId('ficha-request-visit').click()
+    await expect(sticky).toBeInViewport()
+    await page.getByTestId('property-contact-visit').click()
     await expect(page.getByRole('heading', { name: 'Reservar cita' })).toBeVisible()
 
     await page.setViewportSize({ width: 390, height: 844 })

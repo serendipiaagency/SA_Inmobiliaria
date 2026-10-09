@@ -21,6 +21,9 @@
 
 <script setup lang="ts">
 const props = defineProps<{ slug: string }>()
+// «empty»: el entorno no tiene nada que contar; la ficha puede ocultar la
+// sección entera (Constructor → «Ocultar automáticamente si no hay datos»).
+const emit = defineEmits<{ empty: [] }>()
 const { t } = useI18n()
 
 const loading = ref(true)
@@ -51,6 +54,7 @@ onMounted(async () => {
     categories.value = []
   } finally {
     loading.value = false
+    if (!categories.value.length) emit('empty')
   }
 })
 </script>

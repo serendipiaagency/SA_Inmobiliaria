@@ -44,6 +44,7 @@ import SiteGlobalZone from '~/components/site-builder/SiteGlobalZone.vue'
 import type { SiteBlock, SitePageDocument } from '~/server/utils/sitePages'
 import type { TenantBranding } from '~/composables/useTenant'
 import type { SiteNodeRef } from '~/composables/useSiteEditor'
+import { SITE_CANVAS_PAGE_KEY } from '~/composables/useFichaProperty'
 
 /**
  * Loaded inside the builder shell's <iframe>, sized to the exact target
@@ -75,6 +76,8 @@ const mode = ref<'builder' | 'preview'>('builder')
 // La página que se edita (utils/siteBuilder/pages.ts): sólo la portada lleva
 // la cabecera superpuesta sobre el hero, como en la web publicada.
 const pageKey = ref('home')
+// Las secciones que dependen de la página (p. ej. «Eficiencia energética», sólo en la ficha) la leen de aquí.
+provide(SITE_CANVAS_PAGE_KEY, pageKey)
 
 // La marca de la organización que se está editando (no la del host del
 // panel): es lo que la cabecera y el pie enseñan en la web publicada.

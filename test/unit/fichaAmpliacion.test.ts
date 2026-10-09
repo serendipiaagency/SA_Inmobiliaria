@@ -145,8 +145,10 @@ describe('secciones de la ficha en el Constructor', () => {
     const list = normalizeFichaSections(undefined)
     expect(list.map((x) => x.key)).toEqual(FICHA_SECTIONS.map((x) => x.key))
     expect(list.every((x) => x.visible)).toBe(true)
-    // El orden de la referencia del rediseño (#111): características, descripción, Score, plano y estado, edificio y documentación.
-    expect(list.slice(0, 5).map((x) => x.key)).toEqual(['datos', 'descripcion', 'score', 'plano-estado', 'edificio-documentacion'])
+    // El orden de la referencia del rediseño (#111): características, la tabla energética (megaprompt «ficha»), Score, plano y estado, edificio y documentación.
+    // La descripción ya no es una sección: va en la tarjeta principal.
+    expect(list.slice(0, 5).map((x) => x.key)).toEqual(['datos', 'energia', 'score', 'plano-estado', 'edificio-documentacion'])
+    expect(list.map((x) => x.key)).not.toContain('descripcion')
   })
 
   it('respeta el orden guardado, descarta claves desconocidas y repetidas y completa las que falten', () => {
@@ -154,6 +156,14 @@ describe('secciones de la ficha en el Constructor', () => {
     expect(list.slice(0, 2)).toEqual([{ key: 'hipoteca', visible: true }, { key: 'datos', visible: false }])
     expect(list).toHaveLength(FICHA_SECTIONS.length)
     expect(new Set(list.map((x) => x.key)).size).toBe(FICHA_SECTIONS.length)
+  })
+
+  it('una web con su orden ya guardado recibe la tabla energética junto a las características', () => {
+    const saved = [{ key: 'hipoteca' }, { key: 'datos', visible: false }, { key: 'descripcion', visible: false }, { key: 'score' }]
+    const list = normalizeFichaSections(saved)
+    expect(list.slice(0, 4).map((x) => x.key)).toEqual(['hipoteca', 'datos', 'energia', 'score'])
+    expect(list.find((x) => x.key === 'energia')!.visible).toBe(true)
+    expect(list.map((x) => x.key)).not.toContain('descripcion')
   })
 
   it('el puesto de cada sección y las ocultas, para pintar la ficha', () => {

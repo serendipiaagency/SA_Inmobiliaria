@@ -11,6 +11,7 @@ import TeamInspector from '~/components/site-builder/inspectors/TeamInspector.vu
 import LeadFormInspector from '~/components/site-builder/inspectors/LeadFormInspector.vue'
 import BookVisitInspector from '~/components/site-builder/inspectors/BookVisitInspector.vue'
 import PageCoreInspector from '~/components/site-builder/inspectors/PageCoreInspector.vue'
+import EnergyEfficiencyInspector from '~/components/site-builder/inspectors/EnergyEfficiencyInspector.vue'
 import { PAGE_CORE_LABELS, PAGE_CORE_TYPE, type PageCoreKind } from '~/utils/siteBuilder/pages'
 
 /**
@@ -27,6 +28,8 @@ export interface BlockPreset {
   label: string
   description: string
   category: string
+  /** Sólo en estas páginas (utils/siteBuilder/pages.ts); sin la lista, en todas. */
+  pages?: string[]
   createContent: () => Record<string, any>
 }
 
@@ -116,6 +119,15 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     description: 'Rejilla de enlaces por tipo de propiedad (se genera sola a partir de tus propiedades).',
     category: 'Explora',
     createContent: () => ({ eyebrow: 'Por tipo de propiedad', title: 'Explora por tipo de vivienda', source: 'dynamic' }),
+  },
+  {
+    presetId: 'energy-efficiency',
+    type: 'energy-efficiency',
+    label: 'Eficiencia energética',
+    description: 'La etiqueta A–G con la clasificación, el consumo y las emisiones reales de cada propiedad. Sin certificado, no sale.',
+    category: 'Propiedades',
+    pages: ['ficha-propiedad'],
+    createContent: () => ({}),
   },
   {
     presetId: 'mortgage-calculator',
@@ -209,6 +221,11 @@ export const BLOCK_PRESETS: BlockPreset[] = [
   },
 ]
 
+/** Lo que la biblioteca ofrece en una página: las secciones de todas y las propias de esa página. */
+export function presetsForPage(pageKey: string): BlockPreset[] {
+  return BLOCK_PRESETS.filter((p) => !p.pages || p.pages.includes(pageKey))
+}
+
 // Curated shortlist for the library's "Recomendados" shelf — the presets
 // most home pages actually start from. Deliberately small: a shelf that
 // just repeats the full catalogue isn't a recommendation.
@@ -232,6 +249,7 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
   communities: 'Comunidades',
   'property-types': 'Tipos de propiedad',
   'mortgage-calculator': 'Calculadora de hipoteca',
+  'energy-efficiency': 'Eficiencia energética',
   'blog-list': 'Últimos artículos',
   team: 'Comerciales',
   'lead-form': 'Formulario de captación',
@@ -280,6 +298,8 @@ export function blockSubtitle(block: { type: string; content?: Record<string, an
       return 'Se genera desde tus propiedades'
     case 'mortgage-calculator':
       return 'Calculadora interactiva'
+    case 'energy-efficiency':
+      return 'Datos de cada propiedad'
     case 'blog-list':
       return `${c.limit ?? 0} artículo${c.limit === 1 ? '' : 's'}`
     case 'lead-form':
@@ -324,6 +344,7 @@ export const BLOCK_INSPECTORS: Record<string, BlockInspectorEntry> = {
   communities: { component: CommunitiesInspector, needsPreviewData: true },
   'property-types': { component: PropertyTypesInspector },
   'mortgage-calculator': { component: MortgageInspector },
+  'energy-efficiency': { component: EnergyEfficiencyInspector },
   'blog-list': { component: BlogListInspector },
   team: { component: TeamInspector, needsPreviewData: true },
   'lead-form': { component: LeadFormInspector },
