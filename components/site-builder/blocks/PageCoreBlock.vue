@@ -17,14 +17,28 @@
     <div v-if="core === 'properties-listing'" class="bg-[#fbfaf7] px-6 py-6 lg:px-10" data-testid="page-core-catalog">
       <div class="flex items-center gap-3">
         <div class="h-[46px] flex-1 rounded-full border border-line bg-white px-5 py-3 text-sm text-stone-400">Ciudad, barrio, calle o referencia…</div>
-        <span class="inline-flex h-[46px] items-center rounded-xl border border-[#e3ded6] bg-white px-4 text-sm">Recomendado</span>
         <span class="inline-flex h-[46px] items-center rounded-xl bg-[#16150f] px-4 text-sm text-white">Galería</span>
         <span class="inline-flex h-[46px] items-center rounded-xl border border-[#e3ded6] bg-white px-4 text-sm">Mapa</span>
       </div>
+      <!-- «Ordenar por» bajo la barra, como en la web -->
+      <div v-if="display.showSort" class="mt-4" data-testid="page-core-sort-preview">
+        <SortBar :model-value="''" />
+      </div>
       <div class="mt-6 flex items-start gap-6">
-        <div class="hidden w-[335px] shrink-0 lg:block">
-          <!-- Con los grupos en el orden y con la visibilidad de la zona, como saldrán en la web. -->
-          <CatalogFilters :query="{}" :facets="null" :total="(projects || []).length" :items="projects || []" :group-keys="filterKeys" />
+        <div v-if="display.showPanel" class="hidden w-[335px] shrink-0 lg:block">
+          <!-- Con los grupos en el orden, la visibilidad y los abiertos de la zona, como saldrán en la web. -->
+          <CatalogFilters
+            :key="openKeys.join(',')"
+            :query="{ operacion: display.defaultOperation }"
+            :facets="null"
+            :total="(projects || []).length"
+            :items="projects || []"
+            :group-keys="filterKeys"
+            :open-keys="openKeys"
+            :operation="display.defaultOperation"
+            :show-operation="display.showOperation"
+            :show-new-search="display.showNewSearch"
+          />
           <p v-if="hiddenFilters" class="mt-2 text-[11.5px] text-stone-400" data-testid="page-core-filters-hidden">{{ hiddenFilters === 1 ? '1 filtro oculto' : `${hiddenFilters} filtros ocultos` }} en esta web.</p>
         </div>
         <div class="min-w-0 flex-1">
@@ -99,8 +113,9 @@
 </template>
 
 <script setup lang="ts">
-import { CATALOG_FILTER_GROUPS, FICHA_SECTIONS, PAGE_CORE_LABELS, PAGE_CORE_SOURCES, catalogFilterKeys, normalizeFichaSections, type PageCoreKind } from '~/utils/siteBuilder/pages'
+import { CATALOG_FILTER_GROUPS, FICHA_SECTIONS, PAGE_CORE_LABELS, PAGE_CORE_SOURCES, catalogFilterKeys, normalizeFichaSections, type PageCoreKind, catalogFilterOpenKeys, catalogDisplayOptions } from '~/utils/siteBuilder/pages'
 import { SITE_BLOCK_KEY, type SiteBlockContext } from '~/composables/useSiteEditor'
+import SortBar from '~/components/search/SortBar.vue'
 
 const props = defineProps<{
   content: Record<string, any>
@@ -130,5 +145,7 @@ const fichaSections = computed(() => {
 })
 
 const filterKeys = computed(() => catalogFilterKeys(props.content.filters))
+const openKeys = computed(() => catalogFilterOpenKeys(props.content.filters))
+const display = computed(() => catalogDisplayOptions(props.content))
 const hiddenFilters = computed(() => CATALOG_FILTER_GROUPS.length - filterKeys.value.length)
 </script>

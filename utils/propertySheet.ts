@@ -184,6 +184,9 @@ const COMMISSION_TYPE = { percentage: 'Porcentaje', fixed: 'Importe fijo' }
 const REGISTRY_STATUS = { registered: 'Inscrita', pending: 'Pendiente de inscripción', not_registered: 'No inscrita', unknown: 'Sin verificar' }
 const MORTGAGE_STATUS = { none: 'Libre de hipoteca', mortgaged: 'Con hipoteca', subrogable: 'Hipoteca subrogable', cancellation_pending: 'Pendiente de cancelar' }
 const OCCUPANCY = { vacant: 'Libre', owner_occupied: 'Ocupada por el propietario', rented: 'Alquilada', illegally_occupied: 'Ocupada ilegalmente', unknown: 'Sin verificar' }
+// Migración 0092: lo que la agencia ANUNCIA (público, filtra el catálogo). La ocupación real es `occupancyStatus`, interna.
+const LISTING_SITUATION = { bare_ownership: 'Nuda propiedad', rented: 'Alquilada, con inquilinos', occupied: 'Ocupada' }
+const RENTAL_TERM = { long_term: 'Larga estancia', seasonal: 'De temporada' }
 const ITE_STATUS = { passed: 'Favorable', unfavourable: 'Desfavorable', pending: 'Pendiente', not_required: 'No obligatoria' }
 const LETTERS = { A: 'A', B: 'B', C: 'C', D: 'D', E: 'E', F: 'F', G: 'G' }
 
@@ -340,6 +343,7 @@ export const PROPERTY_SHEET_GROUPS: { key: string; label: string; fields: SheetF
       l('rentDeposit', 'Fianza', 'number', { min: 0 }),
       l('rentGuarantee', 'Depósito / garantía adicional', 'number', { min: 0 }),
       l('rentExpensesIncluded', 'Gastos incluidos en la renta', 'bool'),
+      sel('rentalTerm', 'Modalidad del alquiler', 'details', RENTAL_TERM, { hint: 'Se publica y filtra «Tipo de alquiler» en la web. Sin indicar cuenta como larga estancia.' }),
     ],
   },
   {
@@ -373,6 +377,9 @@ export const PROPERTY_SHEET_GROUPS: { key: string; label: string; fields: SheetF
       l('encumbrances', 'Cargas', 'textarea'),
       sel('mortgageStatus', 'Hipoteca', 'legal', MORTGAGE_STATUS),
       sel('occupancyStatus', 'Ocupación', 'legal', OCCUPANCY),
+      sel('listingSituation', 'Situación anunciada en la web', 'details', LISTING_SITUATION, {
+        hint: 'Pública: la ve el visitante y filtra «Situación de la vivienda» del catálogo. Vacía si no hay nada que anunciar. La «Ocupación» de arriba es interna y nunca se publica.',
+      }),
       l('licenses', 'Licencias', 'textarea'),
       l('habitabilityCertificate', 'Cédula de habitabilidad', 'text'),
       sel('iteStatus', 'ITE / IEE', 'legal', ITE_STATUS),

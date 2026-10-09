@@ -4,26 +4,17 @@
       <div class="mx-auto max-w-screen-2xl px-4 pb-16 pt-6 sm:px-6 lg:px-10">
         <!-- Barra: buscador, orden y Galería / Mapa -->
         <div class="flex flex-wrap items-center gap-3 lg:flex-nowrap" data-testid="catalog-bar">
-          <div class="min-w-0 flex-1 basis-full sm:basis-auto">
+          <div class="min-w-0 flex-1 basis-full sm:basis-auto" data-testid="catalog-search">
             <SmartSearch v-model="q" rounded :placeholder="t('search.placeholder', 'Ciudad, barrio, calle o referencia…')" @select="onSelect" @enter="applySearch" />
           </div>
           <!-- En un contenedor: `.cat-btn` fija su display y le ganaría a `lg:hidden`. -->
-          <div class="lg:hidden">
+          <div v-if="display.showPanel" class="lg:hidden">
             <button type="button" class="cat-btn" data-testid="catalog-open-drawer" @click="drawer = true">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
               {{ t('catalog.filters', 'Filtros') }}
               <span v-if="chips.length" class="cat-count">{{ chips.length }}</span>
             </button>
           </div>
-          <label class="cat-sort">
-            <span class="sr-only">{{ t('catalog.sortBy', 'Ordenar') }}</span>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>
-            <select v-model="sort" data-testid="catalog-sort" @change="applyPatch({ sort: sort || undefined, page: undefined })">
-              <option value="">{{ t('properties.sort.recommended', 'Recomendado') }}</option>
-              <option value="price_asc">{{ t('properties.sort.priceAsc', 'Precio ↑') }}</option>
-              <option value="price_desc">{{ t('properties.sort.priceDesc', 'Precio ↓') }}</option>
-            </select>
-          </label>
           <div class="flex gap-2" role="group" :aria-label="t('catalog.view', 'Vista')">
             <button type="button" class="cat-view" :class="{ 'cat-view-on': !isMap }" :aria-pressed="!isMap" data-testid="catalog-view-gallery" @click="setView('galeria')">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
@@ -36,18 +27,23 @@
           </div>
         </div>
 
+        <!-- Ordenar por: debajo del buscador, antes de las tarjetas (ocho ordenaciones del servidor) -->
+        <div v-if="display.showSort" class="mt-4">
+          <SortBar :model-value="sortKey" @update:model-value="onSort" />
+        </div>
+
         <div class="mt-6 flex items-start gap-6">
           <!-- Panel de filtros (escritorio) -->
-          <aside v-if="!collapsed" class="hidden w-[335px] shrink-0 lg:block" data-testid="catalog-aside">
+          <aside v-if="!collapsed && display.showPanel" class="hidden w-[335px] shrink-0 lg:block" data-testid="catalog-aside">
             <div class="sticky top-[92px]">
-              <CatalogFilters :query="route.query" :facets="facets" :total="total" :items="data?.rows || []" :group-keys="filterGroupKeys" collapsible @patch="applyPatch" @clear="clearAll" @open-map="setView('mapa')" @show-results="showResults" @collapse="collapsed = true" @more="modalOpen = true" />
+              <CatalogFilters v-bind="panelProps" collapsible @patch="applyPatch" @clear="clearAll" @open-map="setView('mapa')" @show-results="showResults" @collapse="collapsed = true" @more="modalOpen = true" @new-search="newSearch" />
             </div>
           </aside>
 
           <section ref="resultsEl" class="min-w-0 flex-1" data-testid="catalog-results">
             <!-- Cabecera del catálogo: total real y filtros activos -->
             <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <button v-if="collapsed" type="button" class="cat-btn hidden lg:inline-flex" data-testid="catalog-expand" @click="collapsed = false">
+              <button v-if="collapsed && display.showPanel" type="button" class="cat-btn hidden lg:inline-flex" data-testid="catalog-expand" @click="collapsed = false">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
                 {{ t('catalog.filters', 'Filtros') }}
               </button>
@@ -148,7 +144,7 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
               </button>
             </div>
-            <CatalogFilters :query="route.query" :facets="facets" :total="total" :items="data?.rows || []" :group-keys="filterGroupKeys" @patch="applyPatch" @clear="clearAll" @open-map="openMapFromDrawer" @show-results="showResults" @more="openMoreFromDrawer" />
+            <CatalogFilters v-bind="panelProps" @patch="applyPatch" @clear="clearAll" @open-map="openMapFromDrawer" @show-results="showResults" @more="openMoreFromDrawer" @new-search="newSearchFromDrawer" />
           </div>
         </div>
       </Teleport>
@@ -159,9 +155,11 @@
 <script setup lang="ts">
 import { nearbyFromQuery, nearbyQuery, withoutNearby } from '~/utils/publicSearch'
 import { withValidCoords } from '~/utils/maps/coords'
-import { catalogChips, type CatalogChip } from '~/utils/catalogChips'
+import { catalogChips, chipRemovalPatch, type CatalogChip } from '~/utils/catalogChips'
 import { saveCatalogContext } from '~/utils/catalogContext'
-import { PAGE_CORE_TYPE, catalogFilterKeys } from '~/utils/siteBuilder/pages'
+import { PAGE_CORE_TYPE, catalogDisplayOptions, catalogFilterKeys, catalogFilterOpenKeys } from '~/utils/siteBuilder/pages'
+import { SEARCH_PARAMS, firstString, mergeModalFilters, modalSeedFrom, parseOperation, parseSort, type SortKey } from '~/utils/searchState'
+import SortBar from '~/components/search/SortBar.vue'
 
 /**
  * Catálogo público (#109): barra de búsqueda con orden y Galería / Mapa,
@@ -179,10 +177,11 @@ await loadTenant()
 const { page: sitePage, homeData: sitePageData } = await useSitePage('propiedades')
 // Qué grupos del panel de filtros se enseñan y en qué orden (opción de la zona
 // dinámica, sólo con la página publicada); sin ella, todos en su orden.
-const filterGroupKeys = computed<string[] | null>(() => {
-  const core = sitePage.value?.published ? sitePage.value.blocks?.find((b: any) => b.type === PAGE_CORE_TYPE)?.content : null
-  return core?.filters ? catalogFilterKeys(core.filters) : null
-})
+const coreOptions = computed<Record<string, any> | null>(() => (sitePage.value?.published ? sitePage.value.blocks?.find((b: any) => b.type === PAGE_CORE_TYPE)?.content : null) ?? null)
+const filterGroupKeys = computed<string[] | null>(() => (coreOptions.value?.filters ? catalogFilterKeys(coreOptions.value.filters) : null))
+const filterOpenKeys = computed<string[] | null>(() => (coreOptions.value?.filters ? catalogFilterOpenKeys(coreOptions.value.filters) : null))
+// Qué partes del buscador se enseñan y con qué operación arranca (Constructor). Sólo presentación.
+const display = computed(() => catalogDisplayOptions(coreOptions.value))
 useHead(
   seoHead({
     title: sitePage.value?.seo?.title || `${t('properties.head.title', 'Buscar propiedades')} — ${tenant.value?.companyName || tenant.value?.name}`,
@@ -196,11 +195,10 @@ const router = useRouter()
 const { format: formatPrice } = useCurrency()
 const typeLabel = usePropertyTypeLabel()
 
-const q = ref(String(route.query.q || ''))
-const sort = ref(String(route.query.sort || ''))
+const q = ref(firstString(route.query.q))
 watch(
   () => route.query.q,
-  (v) => (q.value = String(v || '')),
+  (v) => (q.value = firstString(v)),
 )
 
 // "Avísame" — alerta por email del servidor para nuevas propiedades que encajen
@@ -225,10 +223,25 @@ async function subscribeSearchAlert() {
 const page = computed(() => Math.max(1, parseInt(String(route.query.page || '1'), 10) || 1))
 // La vista va en la URL (`vista=mapa`) y no viaja a la API como filtro.
 const isMap = computed(() => route.query.vista === 'mapa')
+// La operación vigente: la de la URL o, sin ella, la de partida de la web
+// (Constructor). Siempre viaja a la API: Comprar y Alquilar no se mezclan.
+const operation = computed(() => parseOperation(route.query.operacion) ?? display.value.defaultOperation)
+const sortKey = computed<SortKey>(() => parseSort(route.query.sort))
 const apiQuery = computed(() => {
   const { vista: _vista, ...rest } = route.query
-  return rest
+  return { ...rest, operacion: operation.value }
 })
+// La búsqueda vigente, para que el Hero la recupere al volver a Inicio (sin
+// guardar nada en el navegador: sólo mientras dura la visita).
+const lastSearch = useState<Record<string, any> | null>('last-search', () => null)
+watch(
+  () => route.query,
+  (qy) => {
+    const { vista: _v, page: _p, ...rest } = qy
+    lastSearch.value = { ...rest, operacion: operation.value }
+  },
+  { immediate: true },
+)
 
 const { data, pending } = await useFetch('/api/public/properties', {
   query: computed(() => ({ ...apiQuery.value, page: page.value, perPage: 12 })),
@@ -270,6 +283,17 @@ watch(
 const mapItems = computed(() => withValidCoords((mapData.value?.rows as any[]) || []))
 
 const chips = computed(() => catalogChips(route.query as Record<string, unknown>, t, (n) => formatPrice(n), typeLabel))
+const panelProps = computed(() => ({
+  query: route.query,
+  facets: facets.value,
+  total: total.value,
+  items: (data.value?.rows as any[]) || [],
+  groupKeys: filterGroupKeys.value,
+  openKeys: filterOpenKeys.value,
+  operation: operation.value,
+  showOperation: display.value.showOperation,
+  showNewSearch: display.value.showNewSearch,
+}))
 const searchIsSaved = computed(() => isSaved(route.query as Record<string, any>))
 function onSaveSearch() {
   if (searchIsSaved.value) return
@@ -280,21 +304,15 @@ function onSaveSearch() {
 const modalOpen = ref(false)
 // Lo que ya hay en la URL, para abrir el modal con ello.
 const modalSeed = computed(() => {
-  const s: Record<string, any> = {}
-  for (const k of ['minPrice', 'maxPrice', 'minArea', 'maxArea', 'bedrooms', 'bathrooms', 'minYear']) if (route.query[k]) s[k] = Number(route.query[k])
-  for (const k of ['municipality', 'neighborhood', 'postalCode', 'type', 'status', 'orientation', 'energy']) if (route.query[k]) s[k] = String(route.query[k])
-  for (const k of ['elevator', 'pool', 'garage', 'terrace', 'garden', 'pets', 'accessible']) if (route.query[k] === '1') s[k] = true
+  const s = modalSeedFrom(route.query)
   const near = nearbyFromQuery(route.query)
   if (near) Object.assign(s, near)
   return s
 })
-// El modal devuelve todos sus filtros: sustituyen a los de la URL; búsqueda, orden, operación, vista
-// y lo que el modal no tiene (obra nueva e inversión, del buscador del Hero) se quedan.
+// El modal sólo sustituye sus propios filtros (utils/searchState.ts › mergeModalFilters).
 function onApplyFilters(qy: Record<string, string>) {
   modalOpen.value = false
-  const keep: Record<string, any> = {}
-  for (const k of ['q', 'sort', 'operacion', 'vista', 'obra', 'minYield']) if (route.query[k]) keep[k] = route.query[k]
-  router.push({ query: { ...keep, ...qy } })
+  router.push({ query: mergeModalFilters(route.query, qy) as Record<string, any> })
 }
 function openMoreFromDrawer() {
   drawer.value = false
@@ -322,10 +340,8 @@ function applyPatch(patch: Record<string, any>) {
   })
 }
 function removeChip(c: CatalogChip) {
-  const patch: Record<string, any> = { page: undefined }
-  for (const k of c.clear) patch[k] = undefined
   if (c.clear.includes('q')) q.value = ''
-  applyPatch(patch)
+  applyPatch(chipRemovalPatch(pendingQuery || route.query, c))
 }
 function setView(v: 'galeria' | 'mapa') {
   applyPatch({ vista: v === 'mapa' ? 'mapa' : undefined })
@@ -351,10 +367,28 @@ function applySearch() {
   applyPatch({ q: q.value || undefined, page: undefined })
 }
 
+// «Limpiar todo» / «Limpiar filtros»: fuera los filtros; el contexto de la
+// búsqueda (texto, operación, orden y vista) se queda.
 function clearAll() {
+  const keep: Record<string, any> = {}
+  for (const k of ['q', 'operacion', 'sort', 'vista']) if (route.query[k]) keep[k] = route.query[k]
+  router.push({ query: keep })
+}
+// «Nueva búsqueda»: todo desde cero — texto, ubicación, filtros, orden
+// (Relevancia), página y la operación de partida de la web; se queda sólo la
+// vista (Galería/Mapa), que no es un criterio. El foco vuelve al buscador.
+function newSearch() {
   q.value = ''
-  sort.value = ''
-  router.push({ query: isMap.value ? { vista: 'mapa' } : {} })
+  const keep: Record<string, any> = {}
+  for (const [k, v] of Object.entries(route.query)) if (!(SEARCH_PARAMS as readonly string[]).includes(k)) keep[k] = v
+  router.push({ query: keep }).then(() => nextTick(() => document.querySelector<HTMLInputElement>('[data-testid="catalog-search"] input')?.focus()))
+}
+function newSearchFromDrawer() {
+  drawer.value = false
+  newSearch()
+}
+function onSort(k: SortKey) {
+  applyPatch({ sort: k || undefined, page: undefined })
 }
 
 // Vista Mapa: zona visible y radio, igual que /mapa (no se combinan).
@@ -405,27 +439,6 @@ function onMarkerClick(id: number) {
   font-size: 11px;
   color: #fff;
 }
-.cat-sort {
-  position: relative;
-  display: inline-flex;
-  height: 46px;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid #e3ded6;
-  border-radius: 12px;
-  background: #fff;
-  padding: 0 12px 0 16px;
-  color: #1c1b19;
-}
-.cat-sort select {
-  appearance: auto;
-  border: 0;
-  background: transparent;
-  padding-right: 6px;
-  font-size: 14px;
-  color: #1c1b19;
-  outline: none;
-}
 .cat-view {
   display: inline-flex;
   height: 46px;
@@ -460,8 +473,7 @@ function onMarkerClick(id: number) {
 }
 .cat-btn:focus-visible,
 .cat-view:focus-visible,
-.cat-chip:focus-visible,
-.cat-sort:focus-within {
+.cat-chip:focus-visible {
   outline: 2px solid #16150f;
   outline-offset: 2px;
 }

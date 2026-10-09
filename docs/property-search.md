@@ -369,3 +369,38 @@ llegue en la URL o en una vista guardada se descarta (`pickExtraFilters` con
 - La Domain Tool `search_properties` ya FILTRA «piscina»/«jardín» con los tres
   orígenes (usa el mismo motor), pero la lista `features` de cada resultado
   (`compactProperty`) sigue saliendo sólo de las columnas de la fila.
+
+## Web pública: un solo modelo de búsqueda (buscador del Hero y listado)
+
+`utils/searchState.ts` es el estado de búsqueda de la web pública, compartido
+por el navegador y el servidor: operación (`operacion=venta|alquiler`), orden
+(`sort`, ocho valores), ubicaciones múltiples por tipo (`province`,
+`municipality`, `neighborhood`, `postalCode`, `street`, hasta 12), tipos y
+subtipos (`type`, `subtype`), `estado` (obra nueva / segunda mano /
+conservación), `situacion`, `rentalTerm`, características (`=1`), rangos y los
+parámetros antiguos que se siguen aceptando (`obra`, `status`, `city`…). Lo
+leen el Hero, el panel, los chips y el servidor con las mismas funciones.
+
+`server/utils/properties/publicSearch.ts` (`buildPublicSearch`,
+`publicSearchOrder`) convierte ese estado en condiciones Drizzle y orden. Lo
+usan `GET /api/public/properties` y la tarea de alertas de búsquedas guardadas
+(`server/tasks/marketing/saved-search-alerts.ts`), así que una alerta encuentra
+exactamente lo que la web enseña. Siempre con la organización del host y sin
+la papelera; una ubicación que no existe en la agencia no devuelve nada (nunca
+«todo»).
+
+`server/utils/properties/locationIndex.ts` es el índice de ubicaciones reales
+de la agencia (agrupadas sin tildes ni mayúsculas, con todas sus variantes
+guardadas, su contexto y cuántas propiedades hay). Alimenta
+`GET /api/public/location-suggest` y da al filtro todas las formas en que está
+guardado un nombre; el nombre elegido se compara siempre tal cual, así que el
+filtro nunca depende de que el índice esté al día. En memoria por organización
+y aislado, se rehace cuando cambia una huella barata de los datos (cuántas
+propiedades vivas, sus ids y la última modificación, también de la ficha
+ampliada): una propiedad recién publicada se sugiere al momento. La calle sólo
+sale de propiedades con ubicación exacta.
+
+Migración 0092 (aditiva): `property_details.listing_situation` (lo que la
+agencia anuncia: nuda propiedad, alquilada con inquilinos, ocupada — distinto
+de `occupancyStatus`, interno) y `property_details.rental_term` (larga
+estancia / temporada).

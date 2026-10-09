@@ -186,31 +186,44 @@ test.describe('Vista previa y Hero', () => {
     await expect(hero).toBeVisible()
     for (const name of ['Ver propiedades', 'Explorar catálogo', 'Hablar con un asesor']) await expect(hero.getByRole('link', { name })).toHaveCount(0)
 
-    const tabs = hero.locator('button[aria-pressed]')
+    const tabs = hero.locator('button.tab')
     await expect(tabs).toHaveText(['Comprar', 'Alquilar'])
     await expect(tabs.nth(0)).toHaveAttribute('aria-pressed', 'true')
     for (const gone of ['Obra nueva', 'Inversión', 'Locales', 'Garajes', 'Solares', 'Terrenos', 'Naves']) await expect(tabs.filter({ hasText: gone })).toHaveCount(0)
 
+    // Con Comprar, la inversión está en «Más filtros»; con Alquilar no aplica.
+    await page.getByTestId('hero-more').click()
+    await expect(page.getByTestId('hero-min-yield')).toBeVisible()
+    await page.getByTestId('hero-more').click()
+
     // Alquilar cambia la escala del precio a rentas mensuales.
     await tabs.nth(1).click()
     await expect(tabs.nth(1)).toHaveAttribute('aria-pressed', 'true')
-    await hero.getByRole('button', { name: /Precio/ }).click()
-    await expect(hero.getByText('Alquiler mensual')).toBeVisible()
-    const firstStep = await hero.locator('.popover select').first().locator('option').nth(1).getAttribute('value')
-    expect(Number(firstStep)).toBeLessThan(10000)
+    await page.getByTestId('hero-cell-price').click()
+    const pop = page.getByTestId('hero-pop-price')
+    await expect(pop.getByText('Renta mensual')).toBeVisible()
+    // El primer escalón del mínimo es una renta, no un precio de venta.
+    await pop.getByTestId('price-min-handle').evaluate((el) => {
+      const input = el as HTMLInputElement
+      input.value = '100'
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('change', { bubbles: true }))
+    })
 
-    // Obra nueva e inversión siguen existiendo, en «Más filtros».
-    await hero.getByRole('button', { name: /Más filtros/ }).click()
+    // Obra nueva sigue existiendo, en «Más filtros»; la rentabilidad, no (es de compra).
+    await page.getByTestId('hero-more').click()
     await expect(page.getByTestId('hero-new-build')).toBeVisible()
-    await expect(page.getByTestId('hero-min-yield')).toBeVisible()
+    await expect(page.getByTestId('hero-min-yield')).toHaveCount(0)
     await page.getByTestId('hero-new-build').check()
 
-    await hero.getByRole('button', { name: /Buscar/ }).first().click()
+    await page.getByTestId('hero-search').click()
     await expect(page).toHaveURL(/\/propiedades\?/)
     const url = new URL(page.url())
     expect(url.searchParams.get('operacion')).toBe('alquiler')
-    expect(url.searchParams.get('obra')).toBe('nueva')
+    expect(url.searchParams.getAll('estado')).toEqual(['obra_nueva'])
+    expect(Number(url.searchParams.get('minPrice'))).toBeGreaterThan(0)
+    expect(Number(url.searchParams.get('minPrice'))).toBeLessThan(10000)
     expect(url.searchParams.get('mode')).toBeNull()
-    await expect(page.locator('[data-chip="obra"], [data-chip]').filter({ hasText: 'Obra nueva' })).toHaveCount(1)
+    await expect(page.locator('[data-chip="estado:obra_nueva"]')).toHaveText('Obra nueva')
   })
 })
