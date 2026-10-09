@@ -71,11 +71,13 @@ export const PAGE_CORE_SOURCES: Record<PageCoreKind, { label: string; to: string
  * Lo poco que se puede ajustar de una zona dinámica (sin tocar sus datos,
  * que siguen saliendo de Property Core): en la ficha, la sección
  * «Propiedades destacadas» bajo las similares —mostrarla u ocultarla y su
- * título— y el orden y la visibilidad de sus secciones (#110). Todo lo demás
- * del contenido de la zona se descarta al guardar.
+ * título— y el orden y la visibilidad de sus secciones (#110); en el
+ * catálogo, el orden y la visibilidad de los grupos del panel de filtros.
+ * Todo lo demás del contenido de la zona se descarta al guardar.
  */
-export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, 'boolean' | 'text' | 'sections'>>> = {
+export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, 'boolean' | 'text' | 'sections' | 'filters'>>> = {
   'property-detail': { showFeatured: 'boolean', featuredTitle: 'text', sections: 'sections' },
+  'properties-listing': { filters: 'filters' },
 }
 
 /**
@@ -110,25 +112,63 @@ export const FICHA_SECTIONS: { key: string; label: string }[] = [
   { key: 'staging', label: 'Visualiza el potencial' },
   { key: 'historia', label: 'Historia del inmueble' },
 ]
-const FICHA_SECTION_KEYS = new Set(FICHA_SECTIONS.map((x) => x.key))
 
 export interface FichaSectionSetting {
   key: string
   visible: boolean
 }
 
-/** La lista completa y en orden: las conocidas que vengan (sin repetir) y, detrás, las que falten, visibles. */
-export function normalizeFichaSections(value: unknown): FichaSectionSetting[] {
+/**
+ * Una lista ordenable de la zona (secciones de la ficha, grupos de filtros),
+ * completa y en orden: las conocidas que vengan (sin repetir) y, detrás, las
+ * que falten, visibles — así una sección o un filtro nuevo del código aparece
+ * solo en las webs que ya habían guardado su orden.
+ */
+function normalizeOrderedList(value: unknown, catalog: { key: string }[]): FichaSectionSetting[] {
+  const known = new Set(catalog.map((x) => x.key))
   const out: FichaSectionSetting[] = []
   const seen = new Set<string>()
   for (const item of Array.isArray(value) ? value : []) {
     const key = typeof item?.key === 'string' ? item.key : ''
-    if (!FICHA_SECTION_KEYS.has(key) || seen.has(key)) continue
+    if (!known.has(key) || seen.has(key)) continue
     seen.add(key)
     out.push({ key, visible: item.visible !== false })
   }
-  for (const x of FICHA_SECTIONS) if (!seen.has(x.key)) out.push({ key: x.key, visible: true })
+  for (const x of catalog) if (!seen.has(x.key)) out.push({ key: x.key, visible: true })
   return out
+}
+
+export function normalizeFichaSections(value: unknown): FichaSectionSetting[] {
+  return normalizeOrderedList(value, FICHA_SECTIONS)
+}
+
+/**
+ * Los grupos del panel de filtros del catálogo (components/catalog/CatalogFilters.vue)
+ * que el Constructor puede ordenar u ocultar, en su orden de partida (el de
+ * la referencia de #109). Ocultar un grupo sólo lo quita del panel: un
+ * filtro que ya venga en la dirección se sigue aplicando y se puede quitar
+ * desde su chip. «Más filtros» y el botón de resultados no se mueven.
+ */
+export const CATALOG_FILTER_GROUPS: { key: string; label: string }[] = [
+  { key: 'location', label: 'Ubicación' },
+  { key: 'price', label: 'Precio' },
+  { key: 'area', label: 'Superficie' },
+  { key: 'bedrooms', label: 'Habitaciones' },
+  { key: 'bathrooms', label: 'Baños' },
+  { key: 'type', label: 'Tipo de propiedad' },
+  { key: 'status', label: 'Estado' },
+  { key: 'features', label: 'Características' },
+]
+
+export function normalizeCatalogFilters(value: unknown): FichaSectionSetting[] {
+  return normalizeOrderedList(value, CATALOG_FILTER_GROUPS)
+}
+
+/** Para pintar el panel: las claves de los grupos visibles, en su orden. */
+export function catalogFilterKeys(value: unknown): string[] {
+  return normalizeCatalogFilters(value)
+    .filter((x) => x.visible)
+    .map((x) => x.key)
 }
 
 /** Para pintar la ficha: el puesto de cada sección y cuáles están ocultas. */
@@ -147,6 +187,7 @@ export function sanitizeCoreOptions(core: PageCoreKind, content: Record<string, 
     if (type === 'boolean' && typeof v === 'boolean') out[key] = v
     if (type === 'text' && typeof v === 'string' && v.trim()) out[key] = v.trim().slice(0, CORE_TEXT_MAX)
     if (type === 'sections' && Array.isArray(v)) out[key] = normalizeFichaSections(v)
+    if (type === 'filters' && Array.isArray(v)) out[key] = normalizeCatalogFilters(v)
   }
   return out
 }

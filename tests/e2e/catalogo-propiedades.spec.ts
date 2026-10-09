@@ -198,4 +198,81 @@ test.describe('Catálogo de propiedades', () => {
     expect(await apiTotal({ municipality: town })).toBe(1)
     expect(await apiTotal({ neighborhood: zone })).toBe(1)
   })
+
+  test.describe('desde el Constructor', () => {
+    test.use({ storageState: STATE_A })
+
+    test('ordenar y ocultar grupos de filtros se ve en el lienzo y, al publicar, en la web y en el móvil', async ({ page }) => {
+      await page.setViewportSize({ width: 1440, height: 900 })
+      const groupsOf = (root: ReturnType<typeof page.getByTestId>) => root.locator('section[data-group]').evaluateAll((els) => els.map((e) => e.getAttribute('data-group')))
+      try {
+        await page.goto('/admin/site-builder?pagina=propiedades')
+        const canvas = page.frameLocator('iframe[title="Vista previa del Constructor Web"]')
+        const preview = canvas.getByTestId('page-core-preview')
+        await expect(preview).toBeVisible({ timeout: 15_000 })
+        await preview.click()
+        const inspector = page.getByTestId('page-core-inspector')
+        const list = inspector.getByTestId('page-core-filters')
+        await expect(list.locator('li')).toHaveCount(8)
+
+        // «Características» arriba del todo y «Superficie» y «Estado» fuera.
+        for (let i = 0; i < 10; i++) {
+          const up = list.locator('li[data-section="features"]').getByTestId('page-core-section-up')
+          if (await up.isDisabled()) break
+          await up.click()
+        }
+        await list.locator('li[data-section="area"]').getByTestId('page-core-section-toggle').uncheck()
+        await list.locator('li[data-section="status"]').getByTestId('page-core-section-toggle').uncheck()
+        const expected = ['features', 'location', 'price', 'bedrooms', 'bathrooms', 'type']
+
+        // El lienzo lo enseña igual, antes de publicar.
+        const panel = canvas.getByTestId('page-core-catalog').getByTestId('catalog-filters')
+        await expect.poll(() => groupsOf(panel)).toEqual(expected)
+        await expect(canvas.getByTestId('page-core-filters-hidden')).toHaveText('2 filtros ocultos en esta web.')
+        await expect
+          .poll(
+            async () => {
+              const draft = await (await a.get('/api/admin/site-pages/propiedades')).json()
+              const core = (draft.blocks as any[]).find((blk) => blk.type === 'page-core')
+              return (core?.content?.filters || []).filter((x: any) => x.visible).map((x: any) => x.key).join()
+            },
+            { timeout: 10_000 },
+          )
+          .toBe(expected.join())
+
+        // Sin publicar, la web sigue con los 8 grupos de partida.
+        const web = await page.context().newPage()
+        await web.setViewportSize({ width: 1440, height: 900 })
+        await web.goto('/propiedades')
+        await expect(web.getByTestId('catalog-aside').locator('section[data-group]')).toHaveCount(8)
+
+        await page.getByRole('button', { name: 'Publicar cambios' }).click()
+        await expect(page.getByTestId('site-page-status-propiedades')).toHaveText('Publicada')
+
+        await web.goto('/propiedades')
+        const aside = web.getByTestId('catalog-aside')
+        await expect.poll(() => groupsOf(aside.getByTestId('catalog-filters'))).toEqual(expected)
+        // Ubicación ya no es el primero, pero sigue abriéndose de partida; los demás, cerrados.
+        expect(await aside.locator('section[data-group] > button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-expanded')))).toEqual(['false', 'true', 'false', 'false', 'false', 'false'])
+
+        // Un filtro de un grupo oculto que ya venga en la dirección se sigue aplicando y se quita con su chip.
+        await web.goto('/propiedades?minArea=100')
+        await expect(web.getByTestId('catalog-total')).toContainText((await apiTotal({ minArea: '100' })).toLocaleString('es-ES'))
+        const chip = web.locator('[data-chip="area"]')
+        await expect(chip).toContainText('m²')
+        await chip.click()
+        await expect(web).not.toHaveURL(/minArea/)
+
+        // En el móvil, el cajón de filtros enseña los mismos grupos en el mismo orden.
+        await web.setViewportSize({ width: 390, height: 844 })
+        await web.goto('/propiedades')
+        await web.getByTestId('catalog-open-drawer').click()
+        await expect.poll(() => groupsOf(web.getByTestId('catalog-drawer').getByTestId('catalog-filters'))).toEqual(expected)
+        await web.close()
+      } finally {
+        // Volver a la original, pase lo que pase: las demás pruebas cuentan con los 8 grupos.
+        expect((await a.delete('/api/admin/site-pages/propiedades')).ok()).toBeTruthy()
+      }
+    })
+  })
 })
