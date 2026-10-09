@@ -34,16 +34,22 @@
  * Liquidez en estrellas, del motor real de server/utils/score.ts
  * (computeDecisionScores): cada una sale de datos de la propiedad y de sus
  * comparables, y dice de cuáles en «Cómo se calcula». Una valoración sin dato
- * no sale; sin ninguna, la tarjeta tampoco.
+ * no sale; sin ninguna, la tarjeta tampoco. Etiqueta y explicación se
+ * componen en el idioma de la web (useScoreText).
  */
+import type { ScoreTextItem } from '~/composables/useScoreText'
+
 const props = defineProps<{ slug: string }>()
 const { t } = useI18n()
+const text = useScoreText()
 
+type Signal = ScoreTextItem & { stars: number | null }
 const KEYS = ['comprar', 'inversion', 'revalorizacion', 'liquidez']
-const state = usePropertyInsight<{ decision?: { key: string; label: string; stars: number | null; detail: string }[] }>(props.slug, 'score')
+const state = usePropertyInsight<{ decision?: Signal[] }>(props.slug, 'score')
 const rows = computed(() =>
   (state.value.data?.decision || [])
-    .filter((d): d is { key: string; label: string; stars: number; detail: string } => KEYS.includes(d.key) && typeof d.stars === 'number')
-    .sort((a, b) => KEYS.indexOf(a.key) - KEYS.indexOf(b.key)),
+    .filter((d): d is Signal & { stars: number } => KEYS.includes(d.key) && typeof d.stars === 'number')
+    .sort((a, b) => KEYS.indexOf(a.key) - KEYS.indexOf(b.key))
+    .map((d) => ({ ...d, ...text.decision(d) })),
 )
 </script>

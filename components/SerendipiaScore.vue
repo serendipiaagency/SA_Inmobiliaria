@@ -37,7 +37,7 @@
     <div v-if="open" class="mt-5 rounded-xl bg-[#faf7f2] p-4" data-testid="serendipia-score-detail">
       <p class="text-[12.5px] text-stone-500">{{ t('serendipiaScore.description', 'Índice propio calculado de forma transparente a partir de datos reales — no es una caja negra.') }}</p>
       <dl class="mt-3 space-y-2.5">
-        <div v-for="b in score.breakdown" :key="b.key">
+        <div v-for="b in factors" :key="b.key" :data-factor="b.key">
           <dt class="text-[13px] font-semibold text-ink">{{ b.label }} · {{ b.score }}/100</dt>
           <dd class="text-[12.5px] text-stone-500">{{ b.detail }}</dd>
         </div>
@@ -53,20 +53,22 @@
  * — anillo con la nota, su etiqueta, un resumen hecho con los propios
  * factores (el más fuerte y el más flojo) y las barras de cada uno. «Ver
  * análisis completo» enseña de qué dato sale cada factor. Un factor sin dato
- * no sale (el servidor no lo inventa); sin ninguno, no hay nota.
+ * no sale (el servidor no lo inventa); sin ninguno, no hay nota. Etiqueta y
+ * explicación se componen en el idioma de la web (useScoreText).
  */
-const props = defineProps<{ slug: string }>()
-const { t } = useI18n()
+import type { ScoreTextItem } from '~/composables/useScoreText'
 
-interface Factor {
-  key: string
-  label: string
+const props = defineProps<{ slug: string }>()
+const { t, locale, intlLocale } = useI18n()
+const text = useScoreText()
+
+interface Factor extends ScoreTextItem {
   score: number
-  detail: string
 }
 const state = usePropertyInsight<{ overall: number | null; breakdown: Factor[] }>(props.slug, 'score')
 const score = computed(() => state.value.data)
-const bars = computed(() => (score.value?.breakdown || []).slice(0, 4))
+const factors = computed(() => (score.value?.breakdown || []).map((b) => ({ ...b, ...text.factor(b) })))
+const bars = computed(() => factors.value.slice(0, 4))
 const open = ref(false)
 
 function qualityLabel(n: number) {
@@ -77,9 +79,10 @@ function qualityLabel(n: number) {
   return t('serendipiaScore.quality.improvable', 'Mejorable')
 }
 
-const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1)
+// En mitad de la frase, la etiqueta va en minúscula; en alemán no, que los sustantivos van en mayúscula.
+const lower = (s: string) => (locale.value === 'de' ? s : s.charAt(0).toLocaleLowerCase(intlLocale.value) + s.slice(1))
 const summary = computed(() => {
-  const list = [...(score.value?.breakdown || [])].sort((a, b) => b.score - a.score)
+  const list = [...factors.value].sort((a, b) => b.score - a.score)
   if (!list.length) return ''
   const best = list[0]
   const worst = list[list.length - 1]

@@ -418,16 +418,43 @@ sale:
 | Cifras | Habitaciones, baños, superficie, eficiencia, orientación, tipo y año de la propiedad. |
 | Características destacadas | `QuickFacts` (`variant="features"`), sin el tipo ni el año. Iconos con la paleta de #107, no de un solo tono. |
 | Puntos destacados | `utils/fichaHighlights.ts`: «Puntos clave» (`keyHighlights`) o, sin ellos, ventajas que dicen los datos. Sin frases de relleno; «Lo que debes saber» ya no inventa «Ubicación privilegiada». |
-| Serendipia Score | `server/utils/score.ts` (sin cambios): anillo, valoración, resumen con el factor más fuerte y el más flojo, y «Ver análisis completo» con el `detail` de cada factor. |
+| Serendipia Score | `server/utils/score.ts`: anillo, valoración, resumen con el factor más fuerte y el más flojo, y «Ver análisis completo» con la explicación de cada factor, en el idioma de la web (ver abajo). |
 | PRECIO | `components/property/PriceCard.vue`: €/m² y evolución sólo con cambios reales (`price_history`, que ahora devuelve también `previousPrice`, o el «precio anterior» de la propiedad). |
 | Indicadores | `/engagement`: visitas a la ficha de 7 días, citas reservadas y favoritos; lo que está a cero no sale. |
-| Decisión rápida | `computeDecisionScores`: Comprar, Inversión, Revalorización y Liquidez; «Cómo se calcula» enseña el `detail`. |
+| Decisión rápida | `computeDecisionScores`: Comprar, Inversión, Revalorización y Liquidez; «Cómo se calcula» enseña la explicación de cada una, en el idioma de la web. |
 
 El Score, la Decisión rápida, los indicadores y el historial de precio se
 piden una vez por propiedad y se comparten entre tarjetas
 (`composables/usePropertyInsight.ts`); la agenda de «Próxima visita
 disponible», también (la tarjeta de precio sale dos veces: arriba en el
 móvil y en la columna derecha en escritorio).
+
+El Score y la Decisión rápida se leen en el idioma de la web. La API
+(`/api/public/properties/<slug>/score`) sigue devolviendo de cada factor y de
+cada valoración su `label` y su `detail` en español, para quien ya los use, y
+además:
+
+- `key`: el factor (`precio`, `rentabilidad`, `comodidades`, `entrega`) o la
+  valoración (`comprar`, `inversion`, `revalorizacion`, `liquidez`,
+  `exclusividad`), como hasta ahora;
+- `reason`: por qué dice lo que dice, una clave estable dentro del factor
+  (`vsZone`, `grossYield`, `amenities` / `noAmenities`, `ready` /
+  `underConstruction` / `new`, `overall`, `market`, `exclusive` / `standard`,
+  `noData`);
+- `data`: los datos reales de la frase — `pctVsZone` (€/m² frente a la media
+  de la zona, en % con signo), `comparableCount`, `rentalYield`, `amenities`
+  (`pool`, `garage`, `terrace`, `garden`, `elevator`, `accessible`, `pets`),
+  `energyRating`, `status`, `overall`, `yieldVsZone` + `yieldDiffPts` (la
+  rentabilidad frente a la de la zona) y `isExclusive` + `priceVsZone`.
+
+`composables/useScoreText.ts` compone con eso etiqueta y explicación con
+`t()` (claves `serendipiaScore.factor.*`, `serendipiaScore.amenity.*` y
+`decisionPanel.decision.<valoración>.*`, con el español de siempre como
+respaldo), las cifras con `intlLocale` y la lista de comodidades con la
+conjunción del idioma («piscina y garaje», «pool and garage»). Un factor, un
+motivo o unos datos que el cliente no reconozca enseñan la frase en español
+del servidor, nunca un hueco. Probado en `test/unit/scoreText.test.ts` y,
+con la web en inglés, en `tests/e2e/score-idiomas.spec.ts`.
 
 «¿Prefieres verla por videollamada?» sólo sale cuando esa agenda tiene un
 hueco libre real (`NextVisitSlot` avisa con `state` de si lo hay). Con
