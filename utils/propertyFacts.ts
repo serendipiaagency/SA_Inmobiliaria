@@ -1,4 +1,5 @@
 import { PROPERTY_CONDITION_LABELS, PROPERTY_SHEET_FIELD_MAP } from './propertySheet'
+import { RENTAL_TERM_LABELS, SITUATION_LABELS } from './searchState'
 
 /**
  * «Estado del inmueble» y «El edificio» de la ficha pública (#110): qué filas
@@ -36,6 +37,8 @@ export interface FactsProject {
   accessible?: number | null
   /** yes | no | partially; NULL = sin indicar. */
   furnished?: string | null
+  /** sale | rent; NULL = venta (obra nueva sin operación indicada). */
+  transactionType?: string | null
 }
 
 const yes = (t: Translate) => t('facts.yes', 'Sí')
@@ -88,6 +91,12 @@ export function conditionRows(project: FactsProject, sheet: Sheet, t: Translate)
   push('furnished', 'furnished', t('facts.furnished', 'Amueblado'), furnished)
   const reno = num(d.renovationYear)
   push('renovationYear', 'renovation', t('facts.lastRenovation', 'Última reforma'), reno ? String(reno) : '')
+  // Lo que la agencia anuncia de la situación (nunca la ocupación interna) y,
+  // en alquiler, la modalidad que indicó: sin dato, no se supone ninguna.
+  const situation = SITUATION_LABELS[String(d.listingSituation || '') as keyof typeof SITUATION_LABELS]
+  push('situation', 'building', t('facts.situation', 'Situación'), situation ? t(situation[0], situation[1]) : '')
+  const term = RENTAL_TERM_LABELS[String(d.rentalTerm || '') as keyof typeof RENTAL_TERM_LABELS]
+  if (project.transactionType === 'rent') push('rentalTerm', 'yearBuilt', t('facts.rentalTerm', 'Tipo de alquiler'), term ? t(term[0], term[1]) : '')
   return rows
 }
 

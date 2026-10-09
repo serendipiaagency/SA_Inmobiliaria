@@ -1,16 +1,19 @@
-import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
+import { test, expect, request as pwRequest, type APIRequestContext, type Page } from '@playwright/test'
 import { STATE_A } from './global-setup'
 
 /**
- * Catálogo público de Propiedades (#109): barra con orden y Galería / Mapa,
- * panel de filtros a la izquierda (Ubicación abierto, el resto cerrado), total
- * real con chips, tres columnas en escritorio, panel contraíble y cajón en el
- * móvil. Todo filtra el catálogo real de la agencia.
+ * Catálogo público de Propiedades (#109): barra con buscador y Galería / Mapa,
+ * «Ordenar por» debajo, panel de filtros a la izquierda (Comprar | Alquilar
+ * arriba; Ubicación abierto, el resto cerrado), total real con chips, tres
+ * columnas en escritorio, panel contraíble y cajón en el móvil. Todo filtra el
+ * catálogo real de la agencia.
  */
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8788'
 const RUN = `${Date.now()}-${Math.floor(Math.random() * 1000)}`
 const CITY = `Catalogo ${RUN}`
+// Los de partida con «Comprar»: «Tipo de alquiler» sólo sale con «Alquilar» y
+// «Situación de la vivienda», sólo si alguna propiedad la anuncia.
 const GROUPS = ['Ubicación', 'Precio', 'Superficie', 'Habitaciones', 'Baños', 'Tipo de propiedad', 'Estado', 'Características']
 
 test.describe('Catálogo de propiedades', () => {
@@ -47,27 +50,43 @@ test.describe('Catálogo de propiedades', () => {
 
   const apiTotal = async (params: Record<string, string>) => (await (await anon.get('/api/public/properties', { params: { countOnly: '1', ...params } })).json()).total as number
 
-  test('escritorio: barra, panel con sus 8 grupos (Ubicación abierto) y tres columnas', async ({ page }) => {
+  /** Ubicación con sugerencias reales: se escribe y se elige la del municipio. */
+  async function pickLocation(root: ReturnType<Page['getByTestId']>, text: string, kind = 'municipality') {
+    await root.getByTestId('location-input').fill(text)
+    const option = root.locator(`[data-testid="location-option-${kind}"][data-value="${text}"]`)
+    await expect(option).toBeVisible()
+    await option.click()
+  }
+
+  test('escritorio: barra, «Ordenar por», Comprar | Alquilar, panel con sus grupos (Ubicación abierto) y tres columnas', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 })
     await page.goto('/propiedades')
     const bar = page.getByTestId('catalog-bar')
     await expect(bar.getByPlaceholder('Ciudad, barrio, calle o referencia…')).toBeVisible()
-    await expect(bar.getByTestId('catalog-sort')).toHaveValue('')
+    // Sin «Recomendado»: Relevancia | Baratos | Recientes | Más.
+    const sort = page.getByTestId('sort-bar')
+    await expect(sort.getByTestId('sort-relevance')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByText('Recomendado', { exact: true })).toHaveCount(0)
     await expect(bar.getByTestId('catalog-view-gallery')).toHaveAttribute('aria-pressed', 'true')
     await expect(bar.getByTestId('catalog-view-map')).toHaveAttribute('aria-pressed', 'false')
 
     const aside = page.getByTestId('catalog-aside')
     await expect(aside.getByRole('heading', { name: 'Filtros' })).toBeVisible()
+    await expect(aside.getByTestId('catalog-operation-venta')).toHaveAttribute('aria-checked', 'true')
+    await expect(aside.getByTestId('catalog-operation-alquiler')).toHaveAttribute('aria-checked', 'false')
     const heads = aside.locator('section[data-group] > button')
     // El nombre del grupo, sin el icono (el de Superficie lleva «m²» dentro).
-    expect((await aside.locator('section[data-group] > button .cf-group-name').allTextContents()).map((s) => s.trim())).toEqual(GROUPS)
+    const situations = (await (await anon.get('/api/public/properties', { params: { countOnly: '1', facets: 'filters' } })).json()).facets.situations as string[]
+    const groups = situations?.length ? [...GROUPS.slice(0, 7), 'Situación de la vivienda', 'Características'] : GROUPS
+    expect((await aside.locator('section[data-group] > button .cf-group-name').allTextContents()).map((s) => s.trim())).toEqual(groups)
     const expanded = await heads.evaluateAll((els) => els.map((e) => e.getAttribute('aria-expanded')))
-    expect(expanded).toEqual(['true', 'false', 'false', 'false', 'false', 'false', 'false', 'false'])
+    expect(expanded).toEqual(groups.map((_, i) => (i === 0 ? 'true' : 'false')))
     await expect(aside.locator('.leaflet-container')).toBeVisible()
 
     const cols = await page.getByTestId('catalog-grid').evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length)
     expect(cols).toBe(3)
-    const total = await apiTotal({})
+    // De partida, «Comprar»: lo que está en venta (y la obra nueva sin operación indicada).
+    const total = await apiTotal({ operacion: 'venta' })
     await expect(page.getByTestId('catalog-total')).toContainText(total.toLocaleString('es-ES'))
     await expect(aside.getByTestId('catalog-show-results')).toContainText(`Ver ${total.toLocaleString('es-ES')} resultados`)
   })
@@ -76,16 +95,16 @@ test.describe('Catálogo de propiedades', () => {
     await page.setViewportSize({ width: 1440, height: 1000 })
     await page.goto('/propiedades')
     const aside = page.getByTestId('catalog-aside')
-    await aside.getByTestId('catalog-location').selectOption(CITY)
+    await pickLocation(aside, CITY)
     await expect(page).toHaveURL(new RegExp(`municipality=${encodeURIComponent(CITY).replace(/%20/g, '(\\+|%20)')}`))
-    await expect(page.locator('[data-chip="municipality"]')).toHaveText(CITY)
+    await expect(page.locator(`[data-chip="municipality:${CITY}"]`)).toHaveText(CITY)
     await expect(page.getByTestId('catalog-total')).toContainText('4')
 
     await aside.locator('[data-group="price"] > button').click()
-    await aside.getByTestId('catalog-price-min').fill('300000')
-    await aside.getByTestId('catalog-price-min').press('Tab')
-    await aside.getByTestId('catalog-price-max').fill('600000')
-    await aside.getByTestId('catalog-price-max').press('Tab')
+    await aside.getByTestId('price-min-input').fill('300000')
+    await aside.getByTestId('price-min-input').press('Tab')
+    await aside.getByTestId('price-max-input').fill('600000')
+    await aside.getByTestId('price-max-input').press('Tab')
     // En la moneda de la agencia (la base de pruebas arranca en AED: «300,000»).
     await expect(page.locator('[data-chip="price"]')).toContainText(/300[.,]000/)
     await aside.locator('[data-group="bedrooms"] > button').click()
@@ -129,7 +148,7 @@ test.describe('Catálogo de propiedades', () => {
     await aside.locator('[data-group="price"] > button').click()
     // El máximo a medio escribir (con el foco en el campo) y, mientras, llega otro filtro que repinta
     // el panel: un clic por programa marca Terraza sin quitarle el foco al máximo.
-    const max = aside.getByTestId('catalog-price-max')
+    const max = aside.getByTestId('price-max-input')
     await max.fill('600000')
     await aside.getByTestId('catalog-feature-terrace').evaluate((el) => (el as HTMLInputElement).click())
     await expect(page).toHaveURL(/terrace=1/)
@@ -141,7 +160,7 @@ test.describe('Catálogo de propiedades', () => {
     await expect(page.getByTestId('catalog-total')).toContainText('2')
     // Quitar el chip del precio vacía el campo.
     await page.locator('[data-chip="price"] button, [data-chip="price"]').first().click()
-    await expect(aside.getByTestId('catalog-price-max')).toHaveValue('')
+    await expect(aside.getByTestId('price-max-input')).toHaveValue('')
   })
 
   test('panel contraíble (sigue en tres columnas) y vista Mapa con los mismos filtros', async ({ page }) => {
@@ -149,7 +168,7 @@ test.describe('Catálogo de propiedades', () => {
     await page.goto(`/propiedades?municipality=${encodeURIComponent(CITY)}`)
     await page.getByTestId('catalog-collapse').click()
     await expect(page.getByTestId('catalog-aside')).toHaveCount(0)
-    await expect(page.locator('[data-chip="municipality"]')).toBeVisible()
+    await expect(page.locator(`[data-chip="municipality:${CITY}"]`)).toBeVisible()
     const cols = await page.getByTestId('catalog-grid').evaluate((el) => getComputedStyle(el).gridTemplateColumns.split(' ').length)
     expect(cols).toBe(3)
     await page.getByTestId('catalog-expand').click()
@@ -213,7 +232,7 @@ test.describe('Catálogo de propiedades', () => {
         await preview.click()
         const inspector = page.getByTestId('page-core-inspector')
         const list = inspector.getByTestId('page-core-filters')
-        await expect(list.locator('li')).toHaveCount(8)
+        await expect(list.locator('li')).toHaveCount(10)
 
         // «Características» arriba del todo y «Superficie» y «Estado» fuera.
         for (let i = 0; i < 10; i++) {
@@ -223,7 +242,10 @@ test.describe('Catálogo de propiedades', () => {
         }
         await list.locator('li[data-section="area"]').getByTestId('page-core-section-toggle').uncheck()
         await list.locator('li[data-section="status"]').getByTestId('page-core-section-toggle').uncheck()
+        // Lo que se ve con «Comprar» y sin situaciones anunciadas; «Situación» y
+        // «Tipo de alquiler» siguen activados, y salen cuando aplican.
         const expected = ['features', 'location', 'price', 'bedrooms', 'bathrooms', 'type']
+        const saved = [...expected, 'situation', 'rental']
 
         // El lienzo lo enseña igual, antes de publicar.
         const panel = canvas.getByTestId('page-core-catalog').getByTestId('catalog-filters')
@@ -238,13 +260,13 @@ test.describe('Catálogo de propiedades', () => {
             },
             { timeout: 10_000 },
           )
-          .toBe(expected.join())
+          .toBe(saved.join())
 
-        // Sin publicar, la web sigue con los 8 grupos de partida.
+        // Sin publicar, la web sigue con los grupos de partida.
         const web = await page.context().newPage()
         await web.setViewportSize({ width: 1440, height: 900 })
         await web.goto('/propiedades')
-        await expect(web.getByTestId('catalog-aside').locator('section[data-group]')).toHaveCount(8)
+        await expect(web.getByTestId('catalog-aside').locator('section[data-group]')).toHaveCount(GROUPS.length)
 
         await page.getByRole('button', { name: 'Publicar cambios' }).click()
         await expect(page.getByTestId('site-page-status-propiedades')).toHaveText('Publicada')
@@ -270,7 +292,7 @@ test.describe('Catálogo de propiedades', () => {
         await expect.poll(() => groupsOf(web.getByTestId('catalog-drawer').getByTestId('catalog-filters'))).toEqual(expected)
         await web.close()
       } finally {
-        // Volver a la original, pase lo que pase: las demás pruebas cuentan con los 8 grupos.
+        // Volver a la original, pase lo que pase: las demás pruebas cuentan con los grupos de partida.
         expect((await a.delete('/api/admin/site-pages/propiedades')).ok()).toBeTruthy()
       }
     })

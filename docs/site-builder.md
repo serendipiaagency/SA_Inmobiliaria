@@ -608,18 +608,69 @@ estaba pensada para exactamente 3 imágenes:
 Ahora, con una sola imagen, el fondo queda fijo (`is-static`). Con
 `prefers-reduced-motion`, ni rota ni hace zoom.
 
-## Buscador del Hero: Comprar | Alquilar
+## Buscador del Hero: Comprar | Alquilar, ubicación con sugerencias y rango de precio
 
 El Hero no lleva botones propios (los antiguos `exploreCta` / `advisorCta` de un
 contenido guardado se ignoran): la acción es el buscador. Encima, sólo dos
-píldoras excluyentes, **Comprar** y **Alquilar**, que envían
-`operacion=venta|alquiler` a `/propiedades` (el filtro ya existente en
-`server/api/public/properties.get.ts`). Alquilar cambia la escala del precio a
-rentas mensuales. Lo que antes eran píldoras y no son operaciones vive en
-«Más filtros» con su criterio real: tipos de inmueble (locales, garajes,
-terrenos, naves…), **obra nueva** (`obra=nueva`: estado «nuevo lanzamiento» o
-«en construcción», o tipo «Promoción»; `obra=segunda` es lo demás) e
-**inversión** (`minYield`: rentabilidad bruta declarada en la ficha).
+píldoras excluyentes, **Comprar** y **Alquilar** (`operacion=venta|alquiler`).
+Debajo, una sola barra con todas sus celdas (nada se quita por falta de sitio;
+en el móvil se apilan): Ubicación, Precio, Habitaciones, Baños, Superficie y
+Buscar. Un solo desplegable abierto a la vez; cambiar de celda no pierde lo
+elegido; Escape o un clic fuera lo cierran.
+
+- **Ubicación** (`components/search/LocationAutocomplete.vue`, el mismo que el
+  panel de Propiedades): sugerencias de `/api/public/location-suggest` mientras
+  se escribe — municipios, barrios y zonas, códigos postales, provincias y
+  calles con propiedades publicadas de la agencia, con su contexto y cuántas
+  hay. Sin tildes ni mayúsculas, debounce de 200 ms, la petición anterior se
+  cancela y una respuesta vieja nunca pinta encima de la nueva (Enter antes de
+  que llegue espera a esa respuesta). Varias a la vez, como chips; se guarda el
+  tipo y el nombre real de cada una (`municipality=Oviedo&neighborhood=Centro`).
+- **Precio** (`components/search/PriceRangeSlider.vue`): dos extremos sobre una
+  escala propia de cada operación (importes de venta o rentas mensuales,
+  `utils/searchState.ts`) y dos campos editables, sincronizados en los dos
+  sentidos. Valida mínimo > máximo, negativos y texto. La escala y lo emitido
+  están en la moneda base de la agencia; lo que se ve y se escribe, en la que
+  eligió el visitante, convertido con `utils/currency.ts`.
+- **Habitaciones / Baños** (1+…5+, 1+…4+) desaparecen si sólo se eligen tipos
+  que no los tienen (locales, garajes, terrenos…).
+- **Más filtros**: tipos (Viviendas, Locales, Oficinas, Garajes, Terrenos,
+  Solares = subtipo «suelo urbano», Naves, Edificios, Promociones — sólo los
+  publicados), «Sólo obra nueva» (`estado=obra_nueva`), inversión (`minYield`,
+  sólo con Comprar), «Ordenar por» (las ocho del listado) y algunas
+  características.
+
+«Buscar» lleva a `/propiedades` con exactamente el mismo modelo de URL que lee
+el listado (`utils/searchState.ts`); al volver a Inicio sin recargar, el Hero
+recupera esa búsqueda (`useState('last-search')`). Los enlaces antiguos
+(`obra=nueva|segunda`, `city`, `status`…) se siguen entendiendo.
+
+## Listado de Propiedades: «Ordenar por», panel y opciones del Constructor
+
+- **Ordenar por**: `Relevancia | Baratos | Recientes | Más ▾` (Precio más alto,
+  Antiguos, Han bajado más, Baratos €/m², Caros €/m²) — ocho ordenaciones, todas
+  en el servidor (`server/utils/properties/publicSearch.ts`,
+  `publicSearchOrder`), con el id como desempate para que paginar no repita ni
+  salte ninguna. Relevancia = exclusivas primero y después las publicadas más
+  recientemente. Han bajado más = `(ref − precio) / ref`, con `ref` el mayor de
+  `priceOld` y el histórico de precios, sólo si es mayor que el actual. €/m² =
+  precio / superficie construida si ambos > 0; si no, al final. «Recomendado»
+  ya no existe.
+- **Panel** (`components/catalog/CatalogFilters.vue`): Comprar | Alquilar
+  arriba; después Ubicación, Precio, Superficie, Habitaciones, Baños, Tipo
+  (Viviendas › Pisos / Casas y chalets › tipo › subtipos, tri-estado), Estado
+  (obra nueva / segunda mano y conservación), Situación de la vivienda (sólo
+  `property_details.listing_situation`, lo que la agencia anuncia; nunca
+  `occupancyStatus`), Tipo de alquiler (sólo con Alquilar: `rental_term`, sin
+  indicar = larga estancia, y gastos incluidos) y Características por grupos.
+  Un chip por valor; «Ver N resultados» es el total real; «Nueva búsqueda»
+  vacía texto, filtros y orden.
+- **Constructor** (zona dinámica de Propiedades › «Buscador del catálogo»):
+  mostrar u ocultar el panel, Comprar | Alquilar, «Ordenar por» y «Nueva
+  búsqueda», y la operación de partida; en «Filtros del catálogo», orden,
+  visibilidad y «Abierto» al cargar de cada grupo. Sólo presentación: lo que
+  se encuentra lo decide `buildPublicSearch`, el mismo que usan las alertas de
+  búsquedas guardadas.
 
 ## Vista previa de la web y aviso de cookies
 

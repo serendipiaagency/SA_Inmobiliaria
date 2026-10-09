@@ -1,7 +1,9 @@
 <template>
-  <section ref="root" class="hero relative flex flex-col overflow-hidden bg-ink" :style="{ minHeight: '100svh' }">
-    <!-- Fondo: bucle de imágenes (fundido + zoom lento) o imagen fija, con un parallax suave (utils/siteBuilder/heroMedia.ts) -->
-    <div class="absolute -inset-y-[7%] inset-x-0 will-change-transform" :style="parallaxStyle" aria-hidden="true" data-testid="hero-background">
+  <section ref="root" class="hero relative z-[1] flex flex-col bg-ink" :style="{ minHeight: '100svh' }">
+    <!-- Fondo: bucle de imágenes (fundido + zoom lento) o imagen fija, con un parallax suave (utils/siteBuilder/heroMedia.ts).
+         El recorte va aquí y no en la sección: así los desplegables del buscador nunca se cortan ni quedan detrás. -->
+    <div class="absolute inset-0 overflow-hidden" aria-hidden="true">
+    <div class="absolute -inset-y-[7%] inset-x-0 will-change-transform" :style="parallaxStyle" data-testid="hero-background">
       <div
         v-for="(img, i) in frames"
         :key="`${i}:${img}`"
@@ -15,6 +17,7 @@
       <!-- Builder-configurable extra scrim (Diseño > Overlay), on top of the fixed gradient above — 0 by default, pixel-identical to before this existed. -->
       <div v-if="overlayOpacity > 0" class="absolute inset-0 bg-black" :style="{ opacity: overlayOpacity / 100 }" />
       <div class="pointer-events-none absolute inset-0 hero-vignette" />
+    </div>
     </div>
 
     <!-- Content -->
@@ -30,7 +33,7 @@
         <SbText tag="p" field="subtitle" label="Subtítulo" multiline class="rise mt-8 max-w-md text-base leading-relaxed text-white/80 md:text-lg" :style="delay(2)" :text="heroSubtitle" />
 
         <!-- Search — the protagonist. Sin botones encima: el buscador es la acción del Hero. -->
-        <div class="rise mt-10 w-full max-w-5xl" :style="delay(3)">
+        <div ref="searchRoot" class="rise relative z-30 mt-10 w-full max-w-5xl" :style="delay(3)">
           <!-- Category tabs -->
           <div class="tabs-fade -mx-1 mb-4 flex gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button
@@ -54,123 +57,74 @@
           <div
             class="search-bar relative flex flex-col gap-px overflow-visible rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 transition-shadow duration-300 lg:flex-row lg:items-stretch lg:rounded-full"
           >
-            <!-- Ubicación -->
+            <!-- Ubicación: sugerencias reales, varias zonas a la vez -->
             <div class="cell relative flex-[1.6]" :class="cellCls('location')">
-              <button type="button" class="cell-btn" @click="toggle('location')">
+              <button type="button" class="cell-btn" :aria-expanded="open === 'location'" data-testid="hero-cell-location" @click="toggle('location')">
                 <span class="cell-label">{{ t('hero.location') }}</span>
-                <span class="cell-value" :class="{ 'cell-placeholder': !form.location }">
-                  {{ form.location || t('hero.locationPlaceholder') }}
+                <span class="cell-value" :class="{ 'cell-placeholder': !locationLabel }">
+                  {{ locationLabel || t('hero.locationPlaceholder') }}
                 </span>
               </button>
               <transition name="pop">
-                <div v-if="open === 'location'" class="popover left-0 w-[min(90vw,360px)]">
-                  <input
-                    ref="locInput"
-                    v-model="form.location"
-                    class="w-full border border-line px-4 py-3 text-sm focus:border-ink"
-                    :placeholder="t('hero.locationPlaceholder')"
-                    @keyup.enter="submit"
-                  >
-                  <div v-if="suggestions.length" class="mt-3 flex flex-wrap gap-2">
-                    <button
-                      v-for="s in suggestions"
-                      :key="s"
-                      type="button"
-                      class="chip"
-                      @click="pickLocation(s)"
-                    >
-                      {{ s }}
-                    </button>
-                  </div>
+                <div v-if="open === 'location'" class="popover left-0 w-[min(92vw,380px)]" data-testid="hero-pop-location">
+                  <LocationAutocomplete ref="locAc" v-model="form.locations" variant="hero" :map-area="!!form.mapArea" @clear-map-area="form.mapArea = null" />
                 </div>
               </transition>
             </div>
 
             <div class="divider" />
 
-            <!-- Precio -->
+            <!-- Precio: rango con dos extremos y campos editables -->
             <div class="cell relative flex-1" :class="cellCls('price')">
-              <button type="button" class="cell-btn" @click="toggle('price')">
+              <button type="button" class="cell-btn" :aria-expanded="open === 'price'" data-testid="hero-cell-price" @click="toggle('price')">
                 <span class="cell-label">{{ t('hero.price') }}</span>
                 <span class="cell-value" :class="{ 'cell-placeholder': !priceLabel }">
                   {{ priceLabel || t('hero.any') }}
                 </span>
               </button>
               <transition name="pop">
-                <div v-if="open === 'price'" class="popover left-0 w-[min(92vw,340px)]">
-                  <div class="grid grid-cols-2 gap-3">
-                    <label class="pop-label">
-                      Mínimo
-                      <select v-model="form.priceMin" class="pop-select">
-                        <option value="">{{ t('hero.noMin') }}</option>
-                        <option v-for="p in priceSteps" :key="p" :value="p">{{ money(p) }}</option>
-                      </select>
-                    </label>
-                    <label class="pop-label">
-                      Máximo
-                      <select v-model="form.priceMax" class="pop-select">
-                        <option value="">{{ t('hero.noMax') }}</option>
-                        <option v-for="p in priceSteps" :key="p" :value="p">{{ money(p) }}</option>
-                      </select>
-                    </label>
-                  </div>
-                  <p class="mt-3 text-[11px] uppercase tracking-widest text-stone-400">
-                    {{ isRent ? 'Alquiler mensual' : 'Precio de venta' }}
-                  </p>
+                <div v-if="open === 'price'" class="popover left-0 w-[min(92vw,380px)]" data-testid="hero-pop-price">
+                  <PriceRangeSlider :min="form.minPrice" :max="form.maxPrice" :operation="operation" @update="onPrice" />
                 </div>
               </transition>
             </div>
 
-            <div class="divider" />
+            <div v-if="bedsApply" class="divider" />
 
-            <!-- Habitaciones -->
-            <div class="cell relative flex-1" :class="cellCls('beds')">
-              <button type="button" class="cell-btn" @click="toggle('beds')">
+            <!-- Habitaciones (sólo si el tipo elegido las tiene: nada en locales, garajes o terrenos) -->
+            <div v-if="bedsApply" class="cell relative flex-1" :class="cellCls('beds')">
+              <button type="button" class="cell-btn" :aria-expanded="open === 'beds'" data-testid="hero-cell-beds" @click="toggle('beds')">
                 <span class="cell-label">{{ t('hero.bedrooms') }}</span>
-                <span class="cell-value" :class="{ 'cell-placeholder': form.beds === '' }">
-                  {{ form.beds === '' ? t('hero.any') : bedLabel(form.beds) }}
+                <span class="cell-value" :class="{ 'cell-placeholder': !form.beds }">
+                  {{ form.beds ? `${form.beds}+ ${t('catalog.bedroomsShort', 'habitaciones')}` : t('hero.any') }}
                 </span>
               </button>
               <transition name="pop">
-                <div v-if="open === 'beds'" class="popover left-0 w-[min(92vw,300px)]">
-                  <div class="flex flex-wrap gap-2">
-                    <button
-                      v-for="opt in bedOptions"
-                      :key="opt.v"
-                      type="button"
-                      class="pill"
-                      :class="{ 'pill-on': form.beds === opt.v }"
-                      @click="form.beds = form.beds === opt.v ? '' : opt.v"
-                    >
-                      {{ opt.l }}
+                <div v-if="open === 'beds'" class="popover left-0 w-[min(92vw,320px)]">
+                  <div class="flex flex-wrap gap-2" role="group" :aria-label="t('hero.bedrooms')">
+                    <button v-for="n in [0, 1, 2, 3, 4, 5]" :key="n" type="button" class="pill" :class="{ 'pill-on': form.beds === n }" :aria-pressed="form.beds === n" :data-testid="`hero-beds-${n}`" @click="pickBeds(n)">
+                      {{ n ? `${n}+` : t('catalog.anyCount', 'Cualquiera') }}
                     </button>
                   </div>
                 </div>
               </transition>
             </div>
 
-            <div class="divider" />
+            <div v-if="bedsApply" class="divider" />
 
             <!-- Baños -->
-            <div class="cell relative flex-1" :class="cellCls('baths')">
-              <button type="button" class="cell-btn" @click="toggle('baths')">
+            <div v-if="bedsApply" class="cell relative flex-1" :class="cellCls('baths')">
+              <button type="button" class="cell-btn" :aria-expanded="open === 'baths'" data-testid="hero-cell-baths" @click="toggle('baths')">
                 <span class="cell-label">{{ t('hero.bathrooms') }}</span>
-                <span class="cell-value" :class="{ 'cell-placeholder': form.baths === '' }">
-                  {{ form.baths === '' ? t('hero.any') : `${form.baths}+` }}
+                <span class="cell-value" :class="{ 'cell-placeholder': !form.baths }">
+                  {{ form.baths ? `${form.baths}+` : t('hero.any') }}
                 </span>
               </button>
               <transition name="pop">
-                <div v-if="open === 'baths'" class="popover left-0 w-[min(92vw,280px)]">
-                  <div class="flex flex-wrap gap-2">
-                    <button
-                      v-for="n in [1, 2, 3, 4]"
-                      :key="n"
-                      type="button"
-                      class="pill"
-                      :class="{ 'pill-on': form.baths === n }"
-                      @click="form.baths = form.baths === n ? '' : n"
-                    >
-                      {{ n }}+
+                <div v-if="open === 'baths'" class="popover left-0 w-[min(92vw,300px)]">
+                  <div class="flex flex-wrap gap-2" role="group" :aria-label="t('hero.bathrooms')">
+                    <button v-for="n in [0, 1, 2, 3, 4]" :key="n" type="button" class="pill" :class="{ 'pill-on': form.baths === n }" :aria-pressed="form.baths === n" :data-testid="`hero-baths-${n}`" @click="pickBaths(n)">
+                      {{ n ? `${n}+` : t('catalog.anyCount', 'Cualquiera') }}
                     </button>
                   </div>
                 </div>
@@ -179,35 +133,34 @@
 
             <div class="divider" />
 
-            <!-- Superficie -->
+            <!-- Superficie: mínima y máxima -->
             <div class="cell relative flex-1" :class="cellCls('area')">
-              <button type="button" class="cell-btn" @click="toggle('area')">
+              <button type="button" class="cell-btn" :aria-expanded="open === 'area'" data-testid="hero-cell-area" @click="toggle('area')">
                 <span class="cell-label">{{ t('hero.area') }}</span>
-                <span class="cell-value" :class="{ 'cell-placeholder': !form.areaMin }">
-                  {{ form.areaMin ? `${form.areaMin}+ m²` : t('hero.any') }}
+                <span class="cell-value" :class="{ 'cell-placeholder': !areaLabel }">
+                  {{ areaLabel || t('hero.any') }}
                 </span>
               </button>
               <transition name="pop">
-                <div v-if="open === 'area'" class="popover right-0 w-[min(92vw,280px)]">
-                  <div class="flex flex-wrap gap-2">
-                    <button
-                      v-for="a in [50, 75, 100, 150, 200, 300, 500]"
-                      :key="a"
-                      type="button"
-                      class="pill"
-                      :class="{ 'pill-on': form.areaMin === a }"
-                      @click="form.areaMin = form.areaMin === a ? '' : a"
-                    >
-                      {{ a }} m²
-                    </button>
+                <div v-if="open === 'area'" class="popover right-0 w-[min(92vw,300px)]">
+                  <div class="grid grid-cols-2 gap-3">
+                    <label class="pop-label">
+                      {{ t('catalog.min', 'Mínimo') }}
+                      <input v-model.number="form.minArea" type="number" inputmode="numeric" min="0" class="pop-select" placeholder="0 m²" data-testid="hero-area-min" >
+                    </label>
+                    <label class="pop-label">
+                      {{ t('catalog.max', 'Máximo') }}
+                      <input v-model.number="form.maxArea" type="number" inputmode="numeric" min="0" class="pop-select" :placeholder="t('catalog.noLimit', 'Sin límite')" data-testid="hero-area-max" >
+                    </label>
                   </div>
+                  <p v-if="areaError" class="mt-2 text-[12px] text-red-700" role="alert" data-testid="hero-area-error">{{ areaError }}</p>
                 </div>
               </transition>
             </div>
 
             <!-- Search button -->
             <div class="flex items-center justify-end p-2 lg:pr-2">
-              <button type="button" class="search-btn group" :aria-label="t('hero.search')" @click="submit">
+              <button type="button" class="search-btn group" :aria-label="t('hero.search')" data-testid="hero-search" @click="submit">
                 <svg class="h-5 w-5 transition-transform duration-300 group-hover:scale-110" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.3-4.3m1.8-5.2a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -221,7 +174,9 @@
             <button
               type="button"
               class="inline-flex items-center gap-2 text-[12px] font-semibold uppercase tracking-widest text-white/80 transition hover:text-white"
-              @click="moreOpen = !moreOpen"
+              :aria-expanded="moreOpen"
+              data-testid="hero-more"
+              @click="toggleMore"
             >
               <svg class="h-4 w-4 transition-transform duration-300" :class="{ 'rotate-180': moreOpen }" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
@@ -239,45 +194,44 @@
           </div>
 
           <transition name="more">
-            <div v-if="moreOpen" class="mt-3 grid gap-3 rounded-2xl bg-white/95 p-5 backdrop-blur sm:grid-cols-3">
-              <label class="pop-label">
-                {{ t('filters.propertyType', 'Tipo de propiedad') }}
-                <!-- El catálogo común de tipos (utils/propertySheet.ts), sólo los
-                     que la agencia tiene publicados, con su rótulo traducido. -->
-                <select v-model="form.subtype" class="pop-select" data-testid="hero-type">
-                  <option value="">{{ t('hero.any', 'Cualquiera') }}</option>
-                  <option v-for="ty in typeOptions" :key="ty" :value="ty">{{ typeLabel(ty) }}</option>
-                </select>
-              </label>
-              <label class="pop-label">
-                Estado
-                <select v-model="form.status" class="pop-select">
-                  <option value="">Cualquiera</option>
-                  <option value="new">Nuevo lanzamiento</option>
-                  <option value="under_construction">En construcción</option>
-                  <option value="ready">Listo para entrar</option>
-                </select>
-              </label>
-              <label class="pop-label">
-                {{ t('hero.investment', 'Inversión') }}
-                <!-- Rentabilidad bruta declarada en la ficha (rentalYield), nunca estimada -->
-                <select v-model="form.minYield" class="pop-select" data-testid="hero-min-yield">
-                  <option value="">{{ t('hero.any', 'Cualquiera') }}</option>
-                  <option v-for="y in [3, 4, 5, 6, 8]" :key="y" :value="y">{{ t('hero.minYield', 'Rentabilidad desde {n} %').replace('{n}', String(y)) }}</option>
-                </select>
-              </label>
-              <label class="pop-label flex-row items-center gap-2 self-end pb-2">
-                <input v-model="form.newBuild" type="checkbox" class="h-4 w-4 accent-ink" data-testid="hero-new-build" >
-                {{ t('hero.newBuild', 'Sólo obra nueva') }}
-              </label>
-              <label class="pop-label">
-                Ordenar por
-                <select v-model="form.sort" class="pop-select">
-                  <option value="">Recomendado</option>
-                  <option value="price_asc">Precio: menor a mayor</option>
-                  <option value="price_desc">Precio: mayor a menor</option>
-                </select>
-              </label>
+            <div v-if="moreOpen" class="more-panel mt-3 grid gap-5 rounded-2xl bg-white/95 p-5 backdrop-blur" data-testid="hero-more-panel">
+              <!-- Tipos de inmueble (los publicados): locales, garajes, terrenos, solares, naves… -->
+              <div>
+                <p class="pop-label">{{ t('filters.propertyType', 'Tipo de propiedad') }}</p>
+                <div class="mt-2 flex flex-wrap gap-2" data-testid="hero-type">
+                  <button v-for="c in typeChoices" :key="c.key" type="button" class="pill" :class="{ 'pill-on': isTypeChoiceOn(c) }" :aria-pressed="isTypeChoiceOn(c)" :data-testid="`hero-type-${c.key}`" @click="toggleTypeChoice(c)">
+                    {{ c.label }}
+                  </button>
+                </div>
+              </div>
+              <div class="grid gap-4 sm:grid-cols-3">
+                <label class="pop-label flex-row items-center gap-2">
+                  <input v-model="form.newBuild" type="checkbox" class="h-4 w-4 accent-ink" data-testid="hero-new-build" >
+                  {{ t('hero.newBuild', 'Sólo obra nueva') }}
+                </label>
+                <label v-if="operation === 'venta'" class="pop-label">
+                  {{ t('hero.investment', 'Inversión') }}
+                  <!-- Rentabilidad bruta declarada en la ficha (rentalYield), nunca estimada -->
+                  <select v-model="form.minYield" class="pop-select" data-testid="hero-min-yield">
+                    <option value="">{{ t('hero.any', 'Cualquiera') }}</option>
+                    <option v-for="y in [3, 4, 5, 6, 8]" :key="y" :value="y">{{ t('hero.minYield', 'Rentabilidad desde {n} %').replace('{n}', String(y)) }}</option>
+                  </select>
+                </label>
+                <label class="pop-label">
+                  {{ t('sort.label', 'Ordenar por') }}
+                  <select v-model="form.sort" class="pop-select" data-testid="hero-sort">
+                    <option v-for="k in SORT_KEYS" :key="k || 'relevance'" :value="k">{{ t(SORT_LABELS[k][0], SORT_LABELS[k][1]) }}</option>
+                  </select>
+                </label>
+              </div>
+              <div>
+                <p class="pop-label">{{ t('catalog.features', 'Características') }}</p>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <button v-for="f in HERO_FEATURES" :key="f" type="button" class="pill" :class="{ 'pill-on': form.features.includes(f) }" :aria-pressed="form.features.includes(f)" :data-testid="`hero-feature-${f}`" @click="toggleFeature(f)">
+                    {{ t(FEATURE_LABELS[f]![0], FEATURE_LABELS[f]![1]) }}
+                  </button>
+                </div>
+              </div>
             </div>
           </transition>
         </div>
@@ -306,7 +260,29 @@
 // con ellos (exploreCta/advisorCta) se ignora.
 import SbText from '~/components/site-builder/nodes/SbText.vue'
 import { PROPERTY_TYPES } from '~/utils/propertySheet'
+import {
+  FEATURE_LABELS,
+  LOCATION_KINDS,
+  RESIDENTIAL_TYPES,
+  SORT_KEYS,
+  SORT_LABELS,
+  bedroomsApply,
+  firstString,
+  orderedRange,
+  parseAmount,
+  parseEstado,
+  parseFeatures,
+  parseLocations,
+  parseOperation,
+  parseSort,
+  parseTypes,
+  type LocationSelection,
+  type Operation,
+  type SortKey,
+} from '~/utils/searchState'
 import { HERO_SLIDE_SECONDS, heroFrames } from '~/utils/siteBuilder/heroMedia'
+import LocationAutocomplete from '~/components/search/LocationAutocomplete.vue'
+import PriceRangeSlider from '~/components/search/PriceRangeSlider.vue'
 
 const props = defineProps<{
   eyebrow?: string
@@ -325,10 +301,8 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const { format: money } = useCurrency()
 const router = useRouter()
 const root = ref<HTMLElement | null>(null)
-const locInput = ref<HTMLInputElement | null>(null)
 
 const defaultSlides = [
   'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=2400&q=80',
@@ -394,141 +368,224 @@ const tabs = computed(() => [
   { key: 'rent', label: t('tab.rent') },
 ])
 const activeTab = ref<'buy' | 'rent'>('buy')
+const operation = computed<Operation>(() => (activeTab.value === 'rent' ? 'alquiler' : 'venta'))
 function setTab(k: string) {
-  activeTab.value = k === 'rent' ? 'rent' : 'buy'
-  // Venta y alquiler no comparten escala de precio: lo elegido con la otra no sirve.
-  form.priceMin = ''
-  form.priceMax = ''
+  const next = k === 'rent' ? 'rent' : 'buy'
+  if (next === activeTab.value) return
+  activeTab.value = next
+  // Venta y alquiler no comparten escala de precio; la inversión es de compra.
+  form.minPrice = null
+  form.maxPrice = null
+  if (next === 'rent') form.minYield = ''
 }
-const isRent = computed(() => activeTab.value === 'rent')
 
+// El estado del buscador: el mismo modelo que la URL de /propiedades
+// (utils/searchState.ts). Sólo se aplica al pulsar «Buscar».
 const form = reactive({
-  location: '',
-  priceMin: '' as number | '',
-  priceMax: '' as number | '',
-  beds: '' as number | '',
-  baths: '' as number | '',
-  areaMin: '' as number | '',
-  subtype: '',
-  status: '',
-  sort: '',
+  locations: [] as LocationSelection[],
+  /** Zona del mapa que venía de la búsqueda anterior (se conserva o se quita, no se edita aquí). */
+  mapArea: null as Record<string, string> | null,
+  minPrice: null as number | null,
+  maxPrice: null as number | null,
+  beds: 0,
+  baths: 0,
+  minArea: '' as number | '',
+  maxArea: '' as number | '',
+  types: [] as string[],
+  subtypes: [] as string[],
   newBuild: false,
   minYield: '' as number | '',
+  features: [] as string[],
+  sort: '' as SortKey,
 })
+
+// Características adicionales que ofrece el Hero (el resto, en el panel de Propiedades).
+const HERO_FEATURES = ['terrace', 'garage', 'pool', 'elevator', 'storeroom', 'airConditioning']
+
+// Al volver a Inicio desde Propiedades (sin recargar), el buscador recupera
+// los criterios de la búsqueda que se estaba viendo.
+const lastSearch = useState<Record<string, any> | null>('last-search', () => null)
+function prefill(qy: Record<string, any> | null) {
+  if (!qy) return
+  activeTab.value = parseOperation(qy.operacion) === 'alquiler' ? 'rent' : 'buy'
+  form.locations = parseLocations(qy)
+  form.mapArea = ['north', 'south', 'east', 'west'].every((k) => firstString(qy[k])) ? { north: firstString(qy.north), south: firstString(qy.south), east: firstString(qy.east), west: firstString(qy.west) } : null
+  ;[form.minPrice, form.maxPrice] = orderedRange(parseAmount(qy.minPrice), parseAmount(qy.maxPrice))
+  form.beds = parseAmount(qy.bedrooms, 5) ?? 0
+  form.baths = parseAmount(qy.bathrooms, 4) ?? 0
+  form.minArea = parseAmount(qy.minArea, 1e6) ?? ''
+  form.maxArea = parseAmount(qy.maxArea, 1e6) ?? ''
+  const types = parseTypes(qy)
+  form.types = types.types
+  form.subtypes = types.subtypes
+  form.newBuild = parseEstado(qy).includes('obra_nueva')
+  form.minYield = parseAmount(qy.minYield, 100) ?? ''
+  form.features = parseFeatures(qy).filter((f) => HERO_FEATURES.includes(f))
+  form.sort = parseSort(qy.sort)
+}
+prefill(lastSearch.value)
 
 const open = ref<string | null>(null)
 const moreOpen = ref(false)
+const searchRoot = ref<HTMLElement | null>(null)
+const locAc = ref<{ focus: () => void } | null>(null)
 
+// Un solo desplegable abierto a la vez; cambiar de campo no pierde lo elegido.
 function toggle(key: string) {
   open.value = open.value === key ? null : key
-  if (open.value === 'location') nextTick(() => locInput.value?.focus())
+  if (open.value) moreOpen.value = false
+  if (open.value === 'location') nextTick(() => locAc.value?.focus())
+}
+function toggleMore() {
+  moreOpen.value = !moreOpen.value
+  if (moreOpen.value) open.value = null
 }
 function cellCls(key: string) {
   return open.value === key ? 'cell-active' : ''
 }
 
 // Tipos publicados por la agencia (`facets=types`), en el orden del catálogo
-// común; sin respuesta, el catálogo entero. Antes eran cinco claves en inglés.
+// común; sin respuesta, el catálogo entero.
 const { data: facetData } = await useFetch<{ facets?: { types: string[] } }>('/api/public/properties', { query: { countOnly: '1', facets: 'types' } })
 const typeOptions = computed<string[]>(() => (facetData.value?.facets?.types?.length ? facetData.value.facets.types : [...PROPERTY_TYPES]))
 const typeLabel = usePropertyTypeLabel()
 
-// Location suggestions
-const { data: locData } = await useFetch<{ rows: { name: string }[] }>('/api/public/locations')
-const { data: commData } = await useFetch<{ rows: { name: string }[] }>('/api/public/communities')
-const suggestions = computed(() => {
-  const names = [
-    ...(locData.value?.rows || []).map((r) => r.name),
-    ...(commData.value?.rows || []).map((r) => r.name),
-  ]
-  return [...new Set(names)].slice(0, 8)
+// «Más filtros» › tipo: las categorías de la fila de antes (viviendas, locales,
+// garajes, terrenos, solares, naves…), cada una con su criterio real de
+// Property Core. «Solares» es el subtipo «suelo urbano» de Terreno.
+interface TypeChoice {
+  key: string
+  label: string
+  types: string[]
+  subtypes: string[]
+}
+const typeChoices = computed<TypeChoice[]>(() => {
+  const has = (ty: string) => typeOptions.value.includes(ty)
+  const homes = [...RESIDENTIAL_TYPES].filter(has)
+  const out: TypeChoice[] = []
+  if (homes.length) out.push({ key: 'homes', label: t('types.homes', 'Viviendas'), types: homes, subtypes: [] })
+  for (const ty of ['Retail', 'Office', 'Garage', 'Land', 'Warehouse', 'Building', 'Development']) {
+    if (!has(ty)) continue
+    out.push({ key: ty, label: typeLabel(ty), types: [ty], subtypes: [] })
+    if (ty === 'Land') out.push({ key: 'plots', label: t('tab.plots', 'Solares'), types: [], subtypes: ['urban'] })
+  }
+  return out
 })
-function pickLocation(s: string) {
-  form.location = s
+const isTypeChoiceOn = (c: TypeChoice) => (c.types.length ? c.types.every((ty) => form.types.includes(ty)) : c.subtypes.every((st) => form.subtypes.includes(st)))
+const bedsApply = computed(() => bedroomsApply(form.types, form.subtypes))
+function toggleTypeChoice(c: TypeChoice) {
+  const on = !isTypeChoiceOn(c)
+  if (c.types.length) form.types = on ? [...new Set([...form.types, ...c.types])] : form.types.filter((ty) => !c.types.includes(ty))
+  else form.subtypes = on ? [...new Set([...form.subtypes, ...c.subtypes])] : form.subtypes.filter((st) => !c.subtypes.includes(st))
+  // Sólo no residenciales (locales, garajes…): habitaciones y baños no aplican.
+  if (!bedroomsApply(form.types, form.subtypes)) {
+    form.beds = 0
+    form.baths = 0
+  }
+}
+
+function toggleFeature(f: string) {
+  form.features = form.features.includes(f) ? form.features.filter((x) => x !== f) : [...form.features, f]
+}
+
+function onPrice([min, max]: [number | null, number | null]) {
+  form.minPrice = min
+  form.maxPrice = max
+}
+function pickBeds(n: number) {
+  form.beds = n
+  open.value = null
+}
+function pickBaths(n: number) {
+  form.baths = n
   open.value = null
 }
 
-// Price steps depend on buy/rent
-const buySteps = [250000, 500000, 750000, 1000000, 1500000, 2000000, 3000000, 5000000]
-// Alquiler: renta MENSUAL (la misma columna `price`, utils/propertySheet.ts › renta mensual).
-const rentSteps = [400, 600, 800, 1000, 1250, 1500, 2000, 3000, 5000]
-const priceSteps = computed(() => (isRent.value ? rentSteps : buySteps))
+const { format: money } = useCurrency()
+const locationLabel = computed(() => {
+  const list = form.locations.map((l) => (l.kind === 'postalCode' ? `CP ${l.value}` : l.value))
+  if (form.mapArea) list.push(t('catalog.mapArea', 'Zona del mapa'))
+  if (!list.length) return ''
+  return list.length === 1 ? list[0]! : `${list[0]} +${list.length - 1}`
+})
 const priceLabel = computed(() => {
-  const min = form.priceMin
-  const max = form.priceMax
-  if (min && max) return `${short(+min)} – ${short(+max)}`
-  if (min) return `Desde ${short(+min)}`
-  if (max) return `Hasta ${short(+max)}`
+  const { minPrice: min, maxPrice: max } = form
+  if (min != null && max != null) return `${money(min)} – ${money(max)}`
+  if (min != null) return `${t('catalog.since', 'Desde')} ${money(min)}`
+  if (max != null) return `${t('price.upTo', 'Hasta')} ${money(max)}`
   return ''
 })
-function short(v: number) {
-  if (v >= 1000000) return `${v / 1000000}M`
-  if (v >= 10000) return `${v / 1000}k`
-  return String(v)
-}
-
-const bedOptions = [
-  { v: 0, l: 'Estudio' },
-  { v: 1, l: '1' },
-  { v: 2, l: '2' },
-  { v: 3, l: '3' },
-  { v: 4, l: '4' },
-  { v: 5, l: '5+' },
-]
-function bedLabel(v: number | '') {
-  if (v === 0) return 'Estudio'
-  return `${v}${v === 5 ? '+' : ''} hab.`
-}
+const areaError = computed(() => (form.minArea !== '' && form.maxArea !== '' && Number(form.minArea) > Number(form.maxArea) ? t('area.minOverMax', 'El mínimo no puede ser mayor que el máximo.') : ''))
+const areaLabel = computed(() => {
+  const min = Number(form.minArea) || 0
+  const max = Number(form.maxArea) || 0
+  if (min && max) return `${min}–${max} m²`
+  if (min) return `${min}+ m²`
+  if (max) return `≤ ${max} m²`
+  return ''
+})
 
 const hasFilters = computed(
   () =>
-    !!form.location ||
-    form.priceMin !== '' ||
-    form.priceMax !== '' ||
-    form.beds !== '' ||
-    form.baths !== '' ||
-    form.areaMin !== '' ||
-    !!form.subtype ||
-    !!form.status ||
+    form.locations.length > 0 ||
+    !!form.mapArea ||
+    form.minPrice != null ||
+    form.maxPrice != null ||
+    form.beds > 0 ||
+    form.baths > 0 ||
+    form.minArea !== '' ||
+    form.maxArea !== '' ||
+    form.types.length > 0 ||
+    form.subtypes.length > 0 ||
     form.newBuild ||
-    form.minYield !== '',
+    form.minYield !== '' ||
+    form.features.length > 0 ||
+    form.sort !== '',
 )
 function clearAll() {
-  Object.assign(form, {
-    location: '',
-    priceMin: '',
-    priceMax: '',
-    beds: '',
-    baths: '',
-    areaMin: '',
-    subtype: '',
-    status: '',
-    sort: '',
-    newBuild: false,
-    minYield: '',
-  })
+  Object.assign(form, { locations: [], mapArea: null, minPrice: null, maxPrice: null, beds: 0, baths: 0, minArea: '', maxArea: '', types: [], subtypes: [], newBuild: false, minYield: '', features: [], sort: '' })
 }
 
-function submit() {
-  open.value = null
-  const q: Record<string, string> = { operacion: activeTab.value === 'rent' ? 'alquiler' : 'venta' }
-  if (form.location) q.q = form.location
-  if (form.priceMin !== '') q.minPrice = String(form.priceMin)
-  if (form.priceMax !== '') q.maxPrice = String(form.priceMax)
-  if (form.beds !== '') q.bedrooms = String(form.beds)
-  if (form.baths !== '') q.bathrooms = String(form.baths)
-  if (form.areaMin !== '') q.minArea = String(form.areaMin)
-  if (form.subtype) q.type = form.subtype
-  if (form.status) q.status = form.status
+/** La búsqueda del Hero como URL de /propiedades: el mismo modelo que lee el catálogo. */
+function searchQuery(): Record<string, string | string[]> {
+  const q: Record<string, string | string[]> = { operacion: operation.value }
+  for (const kind of LOCATION_KINDS) {
+    const values = form.locations.filter((l) => l.kind === kind).map((l) => l.value)
+    if (values.length) q[kind] = values
+  }
+  if (form.mapArea) Object.assign(q, form.mapArea)
+  const [min, max] = orderedRange(form.minPrice, form.maxPrice)
+  if (min != null) q.minPrice = String(min)
+  if (max != null) q.maxPrice = String(max)
+  if (form.beds) q.bedrooms = String(form.beds)
+  if (form.baths) q.bathrooms = String(form.baths)
+  const [minA, maxA] = orderedRange(parseAmount(form.minArea, 1e6), parseAmount(form.maxArea, 1e6))
+  if (minA) q.minArea = String(minA)
+  if (maxA) q.maxArea = String(maxA)
+  if (form.types.length) q.type = form.types
+  if (form.subtypes.length) q.subtype = form.subtypes
+  if (form.newBuild) q.estado = ['obra_nueva']
+  if (form.minYield !== '' && operation.value === 'venta') q.minYield = String(form.minYield)
+  for (const f of form.features) q[f] = '1'
   if (form.sort) q.sort = form.sort
-  if (form.newBuild) q.obra = 'nueva'
-  if (form.minYield !== '') q.minYield = String(form.minYield)
-  router.push({ path: '/propiedades', query: q })
+  return q
+}
+function submit() {
+  // Una superficie mínima mayor que la máxima no se busca: se enseña dónde está el error.
+  if (areaError.value) {
+    moreOpen.value = false
+    open.value = 'area'
+    return
+  }
+  // Nada abierto sobre la página de resultados.
+  open.value = null
+  moreOpen.value = false
+  router.push({ path: '/propiedades', query: searchQuery() })
 }
 
-// Close popovers on outside click / escape
+// Pulsar fuera del buscador o Escape cierran el desplegable (lo elegido se queda).
 function onDocClick(e: MouseEvent) {
-  if (open.value && root.value && !root.value.contains(e.target as Node)) open.value = null
+  if (open.value && searchRoot.value && !searchRoot.value.contains(e.target as Node)) open.value = null
 }
 function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') open.value = null

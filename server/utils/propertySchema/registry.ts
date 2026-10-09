@@ -135,6 +135,8 @@ const PRICE_FIELDS: PropertyFieldRule[] = [
   rule('rentDeposit'),
   rule('rentGuarantee'),
   rule('rentExpensesIncluded'),
+  // Modalidad del alquiler (migración 0092): pública, filtra «Tipo de alquiler» en la web.
+  rule('rentalTerm'),
   rule('communityFeeMonthly'),
   rule('ibiAnnual'),
   rule('garbageTaxAnnual'),
@@ -154,6 +156,9 @@ const LEGAL_FIELDS: PropertyFieldRule[] = [
   internalRule('encumbrances'),
   internalRule('mortgageStatus'),
   internalRule('occupancyStatus'),
+  // Lo que la agencia decide anunciar (migración 0092): público y filtrable;
+  // la ocupación de arriba sigue siendo interna.
+  rule('listingSituation'),
   internalRule('licenses'),
   internalRule('habitabilityCertificate'),
   internalRule('iteStatus'),

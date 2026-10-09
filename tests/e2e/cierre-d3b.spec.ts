@@ -114,11 +114,16 @@ test.describe('Cierre D3b — moneda de la agencia, web pública y catálogo de 
     const context = await browser.newContext({ storageState: ANON_STATE })
     const page = await context.newPage()
     await page.goto('/propiedades')
-    // Panel de filtros del catálogo (#109): el grupo «Tipo de propiedad».
-    await page.getByTestId('catalog-aside').locator('[data-group="type"] > button').click()
-    await expect(page.getByTestId('public-filter-type-Penthouse')).toHaveText('Ático')
+    // Panel de filtros del catálogo (#109): el grupo «Tipo de propiedad», con Viviendas desplegado.
+    const aside = page.getByTestId('catalog-aside')
+    await aside.locator('[data-group="type"] > button').click()
+    // Con varios tipos de vivienda publicados, Viviendas se despliega; con uno, sale directo.
+    const homes = aside.locator('[data-category="homes"] > .tt-row .tt-exp')
+    if (await homes.count()) await homes.click()
+    const leaf = aside.locator('[data-type="Penthouse"] .tt-name')
+    await expect(leaf).toHaveText('Ático')
     // Nada de las claves internas en inglés.
-    await expect(page.getByTestId('public-filter-type-Penthouse')).not.toHaveText('Penthouse')
+    await expect(leaf).not.toHaveText('Penthouse')
     await context.close()
   })
 
@@ -137,10 +142,11 @@ test.describe('Cierre D3b — moneda de la agencia, web pública y catálogo de 
     const page = await context.newPage()
     await page.goto('/propiedades')
     const aside = page.getByTestId('catalog-aside')
-    await aside.getByRole('button', { name: 'Código postal' }).click()
-    await aside.getByTestId('catalog-location').selectOption(POSTAL)
+    // Ubicación con sugerencias reales: el código postal sale como tal.
+    await aside.getByTestId('location-input').fill(POSTAL)
+    await aside.locator(`[data-testid="location-option-postalCode"][data-value="${POSTAL}"]`).click()
     await expect(page).toHaveURL(new RegExp(`postalCode=${POSTAL}`))
-    await expect(page.locator('[data-chip="postalCode"]')).toHaveText(`CP ${POSTAL}`)
+    await expect(page.locator(`[data-chip="postalCode:${POSTAL}"]`)).toHaveText(`CP ${POSTAL}`)
     await expect(page.getByText(devName).first()).toBeVisible()
 
     // Con radio: su chip (uno) y el modal de «Más filtros» lo enseña y lo quita.
@@ -152,7 +158,7 @@ test.describe('Cierre D3b — moneda de la agencia, web pública y catálogo de 
     await page.getByTestId('public-filters-apply').click()
     await expect(page).not.toHaveURL(/radiusKm=/)
     await expect(page.locator('[data-chip="nearby"]')).toHaveCount(0)
-    await expect(page.locator('[data-chip="postalCode"]')).toBeVisible()
+    await expect(page.locator(`[data-chip="postalCode:${POSTAL}"]`)).toBeVisible()
     await context.close()
   })
 

@@ -14,7 +14,7 @@ import {
   seedPageDocument,
   validatePageDocument,
 } from '../../server/utils/sitePages'
-import { PAGE_CORE_TYPE, SITE_PAGES, SITE_PAGE_KEYS, sitePageDef } from '../../utils/siteBuilder/pages'
+import { CATALOG_FILTER_GROUPS, PAGE_CORE_TYPE, SITE_PAGES, SITE_PAGE_KEYS, sitePageDef } from '../../utils/siteBuilder/pages'
 import { messages } from '../../i18n/messages'
 import { createTestDb, seedTenant, type TenantFixture } from './helpers/tenantFixtures'
 
@@ -165,7 +165,7 @@ describe('zona dinámica: ni se quita, ni se repite, ni se lleva a otra página'
     const content = doc.blocks[0].content as any
     expect(Object.keys(content).sort()).toEqual(['core', 'filters'])
     expect(content.filters.slice(0, 2)).toEqual([{ key: 'price', visible: true }, { key: 'area', visible: false }])
-    expect(content.filters).toHaveLength(8)
+    expect(content.filters).toHaveLength(CATALOG_FILTER_GROUPS.length)
     // En la ficha, los filtros no existen.
     const ficha = validatePageDocument({ blocks: [{ id: PAGE_CORE_TYPE, type: PAGE_CORE_TYPE, version: 1, content: { core: 'property-detail', filters: [{ key: 'price' }] } }] }, 'ficha-propiedad')
     expect(ficha.blocks[0].content).toEqual({ core: 'property-detail' })

@@ -99,6 +99,7 @@
 <script setup lang="ts">
 import { withValidCoords } from '~/utils/maps/coords'
 import { countActivePublicFilters, nearbyFromQuery, nearbyQuery, withoutNearby } from '~/utils/publicSearch'
+import { mergeModalFilters, modalSeedFrom } from '~/utils/searchState'
 
 const { t } = useI18n()
 const { tenant, load: loadTenant } = useTenant()
@@ -169,21 +170,18 @@ function onSaveSearch() {
   toast.success(t('search.saved'))
 }
 
-// Seed for the modal from current URL query
+// El modal se abre con lo que hay en la URL y, al aplicar, sólo sustituye sus
+// propios filtros: operación, orden, zona del mapa, varias ubicaciones… se
+// quedan (utils/searchState.ts › mergeModalFilters), igual que en Propiedades.
 const modalSeed = computed(() => {
-  const s: Record<string, any> = {}
-  for (const k of ['minPrice','maxPrice','minArea','maxArea','bedrooms','bathrooms','minYear'])
-    if (route.query[k]) s[k] = Number(route.query[k])
-  for (const k of ['municipality','neighborhood','postalCode','type','status','orientation','energy']) if (route.query[k]) s[k] = String(route.query[k])
-  for (const k of ['elevator','pool','garage','terrace','garden','pets','accessible'])
-    if (route.query[k] === '1') s[k] = true
+  const s = modalSeedFrom(route.query)
   if (nearby.value) Object.assign(s, nearby.value)
   return s
 })
 
 function onApplyFilters(qy: Record<string, string>) {
   modalOpen.value = false
-  router.push({ query: qy })
+  router.push({ query: mergeModalFilters(route.query, qy) as Record<string, any> })
 }
 function clearAll() {
   q.value = ''

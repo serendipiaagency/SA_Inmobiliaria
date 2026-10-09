@@ -75,9 +75,29 @@ export const PAGE_CORE_SOURCES: Record<PageCoreKind, { label: string; to: string
  * catálogo, el orden y la visibilidad de los grupos del panel de filtros.
  * Todo lo demás del contenido de la zona se descarta al guardar.
  */
-export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, 'boolean' | 'text' | 'sections' | 'filters'>>> = {
+export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, 'boolean' | 'text' | 'sections' | 'filters' | 'operation'>>> = {
   'property-detail': { showFeatured: 'boolean', featuredTitle: 'text', sections: 'sections' },
-  'properties-listing': { filters: 'filters' },
+  // Catálogo: qué partes del buscador se enseñan y cómo arranca. Sólo
+  // presentación: lo que se encuentra lo decide Property Search, no esto.
+  'properties-listing': { filters: 'filters', showPanel: 'boolean', showOperation: 'boolean', showSort: 'boolean', showNewSearch: 'boolean', defaultOperation: 'operation' },
+}
+
+/** Lo que el catálogo enseña si el Constructor no dice otra cosa: todo, y «Comprar» de partida. */
+export interface CatalogDisplayOptions {
+  showPanel: boolean
+  showOperation: boolean
+  showSort: boolean
+  showNewSearch: boolean
+  defaultOperation: 'venta' | 'alquiler'
+}
+export function catalogDisplayOptions(content: Record<string, any> | null | undefined): CatalogDisplayOptions {
+  return {
+    showPanel: content?.showPanel !== false,
+    showOperation: content?.showOperation !== false,
+    showSort: content?.showSort !== false,
+    showNewSearch: content?.showNewSearch !== false,
+    defaultOperation: content?.defaultOperation === 'alquiler' ? 'alquiler' : 'venta',
+  }
 }
 
 /**
@@ -116,6 +136,8 @@ export const FICHA_SECTIONS: { key: string; label: string }[] = [
 export interface FichaSectionSetting {
   key: string
   visible: boolean
+  /** Sólo en los grupos de filtros del catálogo: abierto al cargar la página. */
+  open?: boolean
 }
 
 /**
@@ -132,7 +154,7 @@ function normalizeOrderedList(value: unknown, catalog: { key: string }[]): Ficha
     const key = typeof item?.key === 'string' ? item.key : ''
     if (!known.has(key) || seen.has(key)) continue
     seen.add(key)
-    out.push({ key, visible: item.visible !== false })
+    out.push({ key, visible: item.visible !== false, ...(item.open === true ? { open: true } : {}) })
   }
   for (const x of catalog) if (!seen.has(x.key)) out.push({ key: x.key, visible: true })
   return out
@@ -157,6 +179,8 @@ export const CATALOG_FILTER_GROUPS: { key: string; label: string }[] = [
   { key: 'bathrooms', label: 'Baños' },
   { key: 'type', label: 'Tipo de propiedad' },
   { key: 'status', label: 'Estado' },
+  { key: 'situation', label: 'Situación de la vivienda' },
+  { key: 'rental', label: 'Tipo de alquiler (con «Alquilar»)' },
   { key: 'features', label: 'Características' },
 ]
 
@@ -169,6 +193,17 @@ export function catalogFilterKeys(value: unknown): string[] {
   return normalizeCatalogFilters(value)
     .filter((x) => x.visible)
     .map((x) => x.key)
+}
+
+/**
+ * Los grupos abiertos al cargar el catálogo. Sin nada marcado en el
+ * Constructor, Ubicación (como siempre); si se oculta, el primero visible.
+ */
+export function catalogFilterOpenKeys(value: unknown): string[] {
+  const list = normalizeCatalogFilters(value).filter((x) => x.visible)
+  const marked = list.filter((x) => x.open).map((x) => x.key)
+  if (marked.length) return marked
+  return list.some((x) => x.key === 'location') ? ['location'] : list.slice(0, 1).map((x) => x.key)
 }
 
 /** Para pintar la ficha: el puesto de cada sección y cuáles están ocultas. */
@@ -188,6 +223,7 @@ export function sanitizeCoreOptions(core: PageCoreKind, content: Record<string, 
     if (type === 'text' && typeof v === 'string' && v.trim()) out[key] = v.trim().slice(0, CORE_TEXT_MAX)
     if (type === 'sections' && Array.isArray(v)) out[key] = normalizeFichaSections(v)
     if (type === 'filters' && Array.isArray(v)) out[key] = normalizeCatalogFilters(v)
+    if (type === 'operation' && (v === 'venta' || v === 'alquiler')) out[key] = v
   }
   return out
 }
