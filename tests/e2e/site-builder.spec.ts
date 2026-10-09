@@ -560,6 +560,35 @@ test.describe('Constructor Web', () => {
   })
 
   /**
+   * Mientras llega el borrador no se puede abrir la biblioteca: al llegar,
+   * loadPage() sustituye los bloques y cierra la biblioteca, así que un panel
+   * abierto antes se cerraba solo (lo que hacía fallar a veces la prueba de
+   * arriba en CI, más lento) y lo añadido en ese rato se perdía.
+   */
+  test('«Añadir sección» espera a que el borrador de la página haya llegado', async ({ page }) => {
+    const put = await a.put('/api/admin/site-pages/home', { data: { blocks: [{ id: 'hero-e2e', type: 'hero', version: 1, content: {} }], seo: {} } })
+    expect(put.ok()).toBeTruthy()
+
+    let release: () => void = () => {}
+    const held = new Promise<void>((r) => (release = r))
+    await page.route('**/api/admin/site-pages/home', async (route) => {
+      if (route.request().method() === 'GET') await held
+      await route.continue()
+    })
+    await page.goto('/admin/site-builder')
+    const add = page.getByTitle('Añadir sección')
+    await expect(add).toBeDisabled()
+    release()
+    await expect(add).toBeEnabled()
+    await add.click()
+    const panel = page.getByTestId('section-library')
+    await expect(panel).toBeVisible()
+    await page.waitForTimeout(800)
+    await expect(panel).toBeVisible()
+    await expect(panel.getByText('Propiedades — fila', { exact: true })).toBeVisible()
+  })
+
+  /**
    * The Inspector's three tabs (FASE 4): "Contenido"/"Diseño"/"Avanzado"
    * show mutually exclusive sets of InspectorSection instances (routed via
    * provide/inject in InspectorSection.vue, not a prop threaded through

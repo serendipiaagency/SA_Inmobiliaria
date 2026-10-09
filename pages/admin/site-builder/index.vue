@@ -36,7 +36,7 @@
         <div class="flex h-11 shrink-0 items-center border-b border-line" :class="structureCollapsed ? 'justify-center px-0' : 'justify-between px-4'">
           <p v-show="!structureCollapsed" class="whitespace-nowrap text-[11px] font-semibold uppercase tracking-wide text-stone-500">Estructura de la página</p>
           <div class="flex shrink-0 items-center gap-2">
-            <button v-show="!structureCollapsed" type="button" class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-400 transition hover:bg-stone-100 hover:text-ink" title="Añadir sección" @click="openLibraryAt(null)">
+            <button v-show="!structureCollapsed" type="button" class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-stone-400 transition hover:bg-stone-100 hover:text-ink disabled:pointer-events-none disabled:opacity-40" title="Añadir sección" :disabled="!pageReady" @click="openLibraryAt(null)">
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
             </button>
             <button
@@ -57,7 +57,7 @@
           <template v-for="(block, i) in blocks" :key="block.id">
             <div class="group/gap relative z-20 h-2 -my-1">
               <div class="pointer-events-none absolute inset-x-0 top-1/2 z-10 flex -translate-y-1/2 justify-center opacity-0 transition-opacity group-hover/gap:pointer-events-auto group-hover/gap:opacity-100">
-                <button type="button" class="flex items-center gap-1 rounded-full border border-line bg-white px-2.5 py-1 text-[10px] font-semibold text-ink shadow-md transition hover:border-ink" @click="openLibraryAt(i)">
+                <button type="button" class="flex items-center gap-1 rounded-full border border-line bg-white px-2.5 py-1 text-[10px] font-semibold text-ink shadow-md transition hover:border-ink" :disabled="!pageReady" @click="openLibraryAt(i)">
                   <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
                   Añadir sección aquí
                 </button>
@@ -103,14 +103,14 @@
 
           <div class="group/gap relative z-20 h-2 -my-1">
             <div class="pointer-events-none absolute inset-x-0 top-1/2 z-10 flex -translate-y-1/2 justify-center opacity-0 transition-opacity group-hover/gap:pointer-events-auto group-hover/gap:opacity-100">
-              <button type="button" class="flex items-center gap-1 rounded-full border border-line bg-white px-2.5 py-1 text-[10px] font-semibold text-ink shadow-md transition hover:border-ink" @click="openLibraryAt(blocks.length)">
+              <button type="button" class="flex items-center gap-1 rounded-full border border-line bg-white px-2.5 py-1 text-[10px] font-semibold text-ink shadow-md transition hover:border-ink" :disabled="!pageReady" @click="openLibraryAt(blocks.length)">
                 <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" d="M12 5v14M5 12h14" /></svg>
                 Añadir sección aquí
               </button>
             </div>
           </div>
 
-          <button type="button" class="btn-quiet mt-3 w-full !py-2 !text-[11px]" @click="openLibraryAt(null)">+ Añadir sección</button>
+          <button type="button" class="btn-quiet mt-3 w-full !py-2 !text-[11px] disabled:opacity-40" :disabled="!pageReady" @click="openLibraryAt(null)">+ Añadir sección</button>
         </div>
 
         <!-- Páginas de la web (utils/siteBuilder/pages.ts): cada una se abre
@@ -806,6 +806,9 @@ function addBlock(preset: BlockPreset) {
   })
 }
 function openLibraryAt(index: number | null) {
+  // Hasta que llega el borrador no se añade nada: al llegar sustituye los
+  // bloques (y cierra la biblioteca), y lo añadido antes se perdería.
+  if (!pageReady.value) return
   insertAtIndex.value = index
   libraryOpen.value = true
 }
@@ -888,6 +891,8 @@ function onMediaPicked(key: string) {
 const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
 let loaded = false
+/** El borrador de la página abierta ya está en el editor (falso mientras se carga o se cambia de página). */
+const pageReady = ref(false)
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
 interface DraftResponse {
@@ -922,7 +927,13 @@ onMounted(async () => {
  * ya ha visto los valores nuevos.
  */
 async function loadPage(key: string) {
-  const data = await $fetch<DraftResponse>(`/api/admin/site-pages/${key}`)
+  const wasReady = pageReady.value
+  pageReady.value = false
+  const data = await $fetch<DraftResponse>(`/api/admin/site-pages/${key}`).catch((e) => {
+    // Si no llega, la página que ya estaba abierta (si la había) sigue editable tal cual.
+    pageReady.value = wasReady
+    throw e
+  })
   loaded = false
   currentPageKey.value = key
   blocks.value = data.blocks as SiteBlock[]
@@ -943,6 +954,7 @@ async function loadPage(key: string) {
   pageStatuses.value = data.pages || []
   saveState.value = 'idle'
   loaded = true
+  pageReady.value = true
 }
 
 async function switchPage(key: string) {
