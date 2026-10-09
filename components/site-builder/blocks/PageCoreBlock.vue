@@ -23,7 +23,9 @@
       </div>
       <div class="mt-6 flex items-start gap-6">
         <div class="hidden w-[335px] shrink-0 lg:block">
-          <CatalogFilters :query="{}" :facets="null" :total="(projects || []).length" :items="projects || []" />
+          <!-- Con los grupos en el orden y con la visibilidad de la zona, como saldrán en la web. -->
+          <CatalogFilters :query="{}" :facets="null" :total="(projects || []).length" :items="projects || []" :group-keys="filterKeys" />
+          <p v-if="hiddenFilters" class="mt-2 text-[11.5px] text-stone-400" data-testid="page-core-filters-hidden">{{ hiddenFilters === 1 ? '1 filtro oculto' : `${hiddenFilters} filtros ocultos` }} en esta web.</p>
         </div>
         <div class="min-w-0 flex-1">
           <p class="text-[15px] text-stone-500"><strong class="font-bold text-ink">{{ (projects || []).length }}</strong> propiedades</p>
@@ -97,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { FICHA_SECTIONS, PAGE_CORE_LABELS, PAGE_CORE_SOURCES, normalizeFichaSections, type PageCoreKind } from '~/utils/siteBuilder/pages'
+import { CATALOG_FILTER_GROUPS, FICHA_SECTIONS, PAGE_CORE_LABELS, PAGE_CORE_SOURCES, catalogFilterKeys, normalizeFichaSections, type PageCoreKind } from '~/utils/siteBuilder/pages'
 import { SITE_BLOCK_KEY, type SiteBlockContext } from '~/composables/useSiteEditor'
 
 const props = defineProps<{
@@ -126,4 +128,7 @@ const fichaSections = computed(() => {
   const list = normalizeFichaSections(props.content.sections)
   return { visible: list.filter((x) => x.visible).map((x) => ({ key: x.key, label: SECTION_LABELS[x.key] })), hidden: list.filter((x) => !x.visible).length }
 })
+
+const filterKeys = computed(() => catalogFilterKeys(props.content.filters))
+const hiddenFilters = computed(() => CATALOG_FILTER_GROUPS.length - filterKeys.value.length)
 </script>

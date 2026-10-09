@@ -26,20 +26,19 @@
         @update:model-value="(v) => (content.featuredTitle = v)"
       />
     </InspectorSection>
-    <!-- Ficha (#110): orden y visibilidad de sus secciones, para todas las fichas -->
-    <InspectorSection v-if="content.core === 'property-detail'" title="Secciones de la ficha">
-      <p class="mb-3 text-[12px] leading-relaxed text-stone-500">
-        Ordena con las flechas y desmarca las que no quieras enseñar. Vale para todas las fichas. Una sección sin datos en una propiedad no aparece aunque esté marcada. La galería, la cabecera, el contacto y las similares se quedan en su sitio.
-      </p>
-      <ul class="space-y-1" data-testid="page-core-sections">
-        <li v-for="(s, i) in sectionList" :key="s.key" class="flex items-center gap-2 rounded-lg border border-line bg-white px-2.5 py-1.5" :class="{ 'opacity-60': !s.visible }" :data-section="s.key">
+    <!-- Ficha (#110): orden y visibilidad de sus secciones, para todas las fichas.
+         Catálogo: orden y visibilidad de los grupos del panel de filtros. -->
+    <InspectorSection v-if="list" :title="list.title">
+      <p class="mb-3 text-[12px] leading-relaxed text-stone-500">{{ list.hint }}</p>
+      <ul class="space-y-1" :data-testid="list.testid">
+        <li v-for="(s, i) in items" :key="s.key" class="flex items-center gap-2 rounded-lg border border-line bg-white px-2.5 py-1.5" :class="{ 'opacity-60': !s.visible }" :data-section="s.key">
           <input type="checkbox" class="h-4 w-4 shrink-0 accent-ink" :checked="s.visible" :aria-label="`Mostrar «${s.label}»`" data-testid="page-core-section-toggle" @change="toggle(i)" >
           <span class="min-w-0 flex-1 truncate text-[12.5px]" :class="s.visible ? 'text-ink' : 'text-stone-400 line-through'">{{ s.label }}</span>
           <button type="button" class="sec-move" :disabled="i === 0" :aria-label="`Subir «${s.label}»`" data-testid="page-core-section-up" @click="move(i, -1)">↑</button>
-          <button type="button" class="sec-move" :disabled="i === sectionList.length - 1" :aria-label="`Bajar «${s.label}»`" data-testid="page-core-section-down" @click="move(i, 1)">↓</button>
+          <button type="button" class="sec-move" :disabled="i === items.length - 1" :aria-label="`Bajar «${s.label}»`" data-testid="page-core-section-down" @click="move(i, 1)">↓</button>
         </li>
       </ul>
-      <button v-if="content.sections" type="button" class="btn-quiet mt-3 !text-[12px]" data-testid="page-core-sections-reset" @click="reset">Volver al orden de partida</button>
+      <button v-if="content[list.field]" type="button" class="btn-quiet mt-3 !text-[12px]" :data-testid="`${list.testid}-reset`" @click="reset">Volver al orden de partida</button>
     </InspectorSection>
   </div>
 </template>
@@ -48,39 +47,68 @@
 import InspectorSection from '../inspector/InspectorSection.vue'
 import ToggleField from '../inspector/fields/ToggleField.vue'
 import TextField from '../inspector/fields/TextField.vue'
-import { FICHA_SECTIONS, PAGE_CORE_LABELS, PAGE_CORE_SOURCES, normalizeFichaSections, type FichaSectionSetting, type PageCoreKind } from '~/utils/siteBuilder/pages'
+import { CATALOG_FILTER_GROUPS, FICHA_SECTIONS, PAGE_CORE_LABELS, PAGE_CORE_SOURCES, normalizeCatalogFilters, normalizeFichaSections, type FichaSectionSetting, type PageCoreKind } from '~/utils/siteBuilder/pages'
 
 /**
  * Inspector de la zona dinámica de una página funcional (Propiedades, Ficha,
  * Blog — utils/siteBuilder/pages.ts). Explica qué es y dónde se gestiona lo
- * que enseña. En la ficha, además, las opciones de PAGE_CORE_OPTIONS: si se
+ * que enseña. Además, las opciones de PAGE_CORE_OPTIONS: en la ficha, si se
  * enseñan las propiedades destacadas y con qué título, y el orden y la
- * visibilidad de sus secciones (FICHA_SECTIONS).
+ * visibilidad de sus secciones (FICHA_SECTIONS); en el catálogo, los de los
+ * grupos del panel de filtros (CATALOG_FILTER_GROUPS).
  */
 const props = defineProps<{ content: Record<string, any> }>()
 const label = computed(() => PAGE_CORE_LABELS[props.content.core as PageCoreKind] || 'Contenido de la página')
 const source = computed(() => PAGE_CORE_SOURCES[props.content.core as PageCoreKind] || null)
 
-const SECTION_LABELS = Object.fromEntries(FICHA_SECTIONS.map((x) => [x.key, x.label]))
-const sectionList = computed(() => normalizeFichaSections(props.content.sections).map((x) => ({ ...x, label: SECTION_LABELS[x.key] })))
+// La lista ordenable de cada zona: qué opción guarda, de qué catálogo sale y cómo se explica.
+const LISTS: Partial<Record<PageCoreKind, { field: 'sections' | 'filters'; catalog: { key: string; label: string }[]; normalize: (v: unknown) => FichaSectionSetting[]; title: string; hint: string; testid: string }>> = {
+  'property-detail': {
+    field: 'sections',
+    catalog: FICHA_SECTIONS,
+    normalize: normalizeFichaSections,
+    title: 'Secciones de la ficha',
+    hint: 'Ordena con las flechas y desmarca las que no quieras enseñar. Vale para todas las fichas. Una sección sin datos en una propiedad no aparece aunque esté marcada. La galería, la cabecera, el contacto y las similares se quedan en su sitio.',
+    testid: 'page-core-sections',
+  },
+  'properties-listing': {
+    field: 'filters',
+    catalog: CATALOG_FILTER_GROUPS,
+    normalize: normalizeCatalogFilters,
+    title: 'Filtros del catálogo',
+    hint: 'Los grupos del panel de filtros, en el orden en que salen. Ordena con las flechas y desmarca los que no quieras ofrecer. Vale en escritorio y en el móvil. «Más filtros» y el botón de resultados se quedan abajo.',
+    testid: 'page-core-filters',
+  },
+}
+const list = computed(() => LISTS[props.content.core as PageCoreKind] || null)
+const items = computed(() => {
+  const l = list.value
+  if (!l) return []
+  const labels = Object.fromEntries(l.catalog.map((x) => [x.key, x.label]))
+  return l.normalize(props.content[l.field]).map((x) => ({ ...x, label: labels[x.key] }))
+})
 // Se guarda la lista entera, en orden: el lienzo y la web la leen igual.
-function saveSections(list: FichaSectionSetting[]) {
-  props.content.sections = list.map(({ key, visible }) => ({ key, visible }))
+function save(next: FichaSectionSetting[]) {
+  if (list.value) props.content[list.value.field] = next.map(({ key, visible }) => ({ key, visible }))
 }
 function toggle(i: number) {
-  const list = normalizeFichaSections(props.content.sections)
-  list[i] = { ...list[i], visible: !list[i].visible }
-  saveSections(list)
+  if (!list.value) return
+  const next = list.value.normalize(props.content[list.value.field])
+  next[i] = { ...next[i], visible: !next[i].visible }
+  save(next)
 }
 function move(i: number, dir: -1 | 1) {
-  const list = normalizeFichaSections(props.content.sections)
+  if (!list.value) return
+  const next = list.value.normalize(props.content[list.value.field])
   const j = i + dir
-  if (j < 0 || j >= list.length) return
-  ;[list[i], list[j]] = [list[j], list[i]]
-  saveSections(list)
+  if (j < 0 || j >= next.length) return
+  ;[next[i], next[j]] = [next[j], next[i]]
+  save(next)
 }
 function reset() {
-  delete props.content.sections
+  // Sin la opción, la zona vuelve al orden de partida (la web y el lienzo la completan solos).
+  if (list.value?.field === 'sections') delete props.content.sections
+  else if (list.value?.field === 'filters') delete props.content.filters
 }
 </script>
 

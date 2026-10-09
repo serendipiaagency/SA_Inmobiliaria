@@ -342,8 +342,9 @@ publicado). Los chips de filtros activos los genera `utils/catalogChips.ts`.
 «Más filtros» abre el `FiltersModal` de siempre (eficiencia, orientación, año,
 radio…), así que no se pierde ningún criterio anterior. En el lienzo,
 `PageCoreBlock.vue` pinta la misma composición con datos reales e inerte
-(sin `SITE_BLOCK_KEY` los nodos no se seleccionan). El panel de filtros no
-tiene opciones en el Constructor: la zona dinámica no expone ninguna.
+(sin `SITE_BLOCK_KEY` los nodos no se seleccionan). El orden y la
+visibilidad de los grupos del panel son la opción `filters` de la zona
+(ver «Filtros del catálogo» más abajo).
 
 **Opciones de una zona dinámica.** La zona no tiene datos que editar, pero
 `PAGE_CORE_OPTIONS` (`utils/siteBuilder/pages.ts`) admite unas pocas
@@ -368,6 +369,23 @@ no sale aunque esté visible: el Constructor decide la presentación y Property
 Core los datos. En el inspector, flechas ↑/↓, una casilla por sección y
 «Volver al orden de partida» (quita la opción). Como el resto de opciones,
 llega a la web al publicar.
+
+**Filtros del catálogo.** La zona de Propiedades tiene una opción,
+`filters` (tipo `'filters'`): la misma lista ordenada `{ key, visible }` que
+las secciones de la ficha, sobre los grupos del panel de filtros
+(`CATALOG_FILTER_GROUPS`: Ubicación, Precio, Superficie, Habitaciones,
+Baños, Tipo de propiedad, Estado y Características, en el orden de la
+referencia de #109). `normalizeCatalogFilters` la completa igual que
+`normalizeFichaSections` (comparten `normalizeOrderedList`: un grupo nuevo
+del código aparece solo, visible, al final) y `catalogFilterKeys` da las
+claves visibles en su orden. `pages/propiedades/index.vue` las pasa a
+`CatalogFilters` (`groupKeys`) en el panel de escritorio y en el cajón del
+móvil, sólo con la página publicada; el lienzo las pinta igual antes de
+publicar y dice cuántos grupos están ocultos. Ocultar un grupo sólo lo quita
+del panel: un filtro que ya venga en la URL se sigue aplicando y se quita
+desde su chip. Si se oculta Ubicación, se abre de partida el primer grupo
+visible. En el inspector, la misma lista con flechas y casillas que la
+ficha (`page-core-filters`) y «Volver al orden de partida».
 
 Todas estas rutas caen bajo el patrón `site-pages` de
 `server/utils/adminRouteMatrix.ts` (área `web`), igual que las que ya había:

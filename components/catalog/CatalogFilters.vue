@@ -130,8 +130,10 @@ const props = withDefaults(
     total: number
     items?: { lat?: number | null; lng?: number | null }[]
     collapsible?: boolean
+    /** Los grupos que se enseñan y en qué orden (Constructor Web → Propiedades → zona dinámica); sin él, todos en su orden de partida. */
+    groupKeys?: string[] | null
   }>(),
-  { facets: null, items: () => [], collapsible: false },
+  { facets: null, items: () => [], collapsible: false, groupKeys: null },
 )
 const emit = defineEmits<{ patch: [Record<string, any>]; clear: []; 'open-map': []; 'show-results': []; collapse: []; more: [] }>()
 
@@ -153,7 +155,7 @@ const svg = (k: string) => `<svg width="18" height="18" viewBox="0 0 24 24" aria
 
 // Colores de la referencia: azul para casi todo, cálidos para precio y superficie.
 const BLUE = { fg: '#3f6fc2', bg: '#e6eefb' }
-const groups = computed(() => [
+const allGroups = computed(() => [
   { key: 'location', label: t('catalog.location', 'Ubicación'), icon: svg('location'), ...BLUE },
   { key: 'price', label: t('catalog.price', 'Precio'), icon: svg('price'), fg: '#c77a2c', bg: '#fbefe1' },
   { key: 'area', label: t('catalog.area', 'Superficie'), icon: svg('area'), fg: '#9c6a3c', bg: '#f5ebe0' },
@@ -163,6 +165,11 @@ const groups = computed(() => [
   { key: 'status', label: t('catalog.status', 'Estado'), icon: svg('status'), ...BLUE },
   { key: 'features', label: t('catalog.features', 'Características'), icon: svg('features'), fg: '#5873a6', bg: '#e8edf6' },
 ])
+const groups = computed(() => {
+  if (!props.groupKeys) return allGroups.value
+  const byKey = new Map(allGroups.value.map((g) => [g.key, g]))
+  return props.groupKeys.map((k) => byKey.get(k)).filter((g): g is (typeof allGroups.value)[number] => !!g)
+})
 
 const GROUP_KEYS: Record<string, string[]> = {
   location: ['municipality', 'neighborhood', 'postalCode', 'lat'],
@@ -176,9 +183,11 @@ const GROUP_KEYS: Record<string, string[]> = {
 }
 const activeIn = (k: string) => GROUP_KEYS[k].some((q) => props.query[q] != null && props.query[q] !== '')
 
-// Abiertos al montar: Ubicación (como la referencia) y los que ya traen un
-// filtro puesto (p. ej. al abrir el cajón del móvil con filtros en la URL).
-const open = ref<Set<string>>(new Set(['location', ...Object.keys(GROUP_KEYS).filter(activeIn)]))
+// Abiertos al montar: Ubicación (como la referencia; si la agencia la ha
+// ocultado, el primer grupo que enseñe) y los que ya traen un filtro puesto
+// (p. ej. al abrir el cajón del móvil con filtros en la URL).
+const firstOpen = groups.value.some((g) => g.key === 'location') ? 'location' : groups.value[0]?.key
+const open = ref<Set<string>>(new Set([...(firstOpen ? [firstOpen] : []), ...Object.keys(GROUP_KEYS).filter(activeIn)]))
 const isOpen = (k: string) => open.value.has(k)
 function toggle(k: string) {
   const next = new Set(open.value)

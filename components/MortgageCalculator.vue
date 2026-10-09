@@ -35,25 +35,25 @@
       <div class="space-y-5">
         <label class="block">
           <span class="mb-1 flex justify-between text-sm"><span class="text-stone-500">{{ t('mortgage.downPayment', 'Entrada') }}</span><span class="font-semibold">{{ downPct }} % · {{ money(r.downPayment) }}</span></span>
-          <input v-model.number="downPct" type="range" min="0" max="100" step="5" class="range" data-testid="mortgage-down" :aria-label="t('mortgage.downPayment', 'Entrada')" >
+          <input v-model.number="downPct" type="range" min="0" max="100" step="5" class="range" :disabled="!hydrated" data-testid="mortgage-down" :aria-label="t('mortgage.downPayment', 'Entrada')" >
         </label>
         <label class="block">
           <span class="mb-1 flex justify-between text-sm"><span class="text-stone-500">{{ t('mortgage.interestRate', 'Interés anual') }}</span><span class="font-semibold">{{ fmtPct(ratePct) }}</span></span>
-          <input v-model.number="ratePct" type="range" min="0" max="10" step="0.1" class="range" data-testid="mortgage-rate" :aria-label="t('mortgage.interestRate', 'Interés anual')" >
+          <input v-model.number="ratePct" type="range" min="0" max="10" step="0.1" class="range" :disabled="!hydrated" data-testid="mortgage-rate" :aria-label="t('mortgage.interestRate', 'Interés anual')" >
         </label>
         <label class="block">
           <span class="mb-1 flex justify-between text-sm"><span class="text-stone-500">{{ t('mortgage.term', 'Plazo') }}</span><span class="font-semibold">{{ years }} {{ t('mortgage.years', 'años') }}</span></span>
-          <input v-model.number="years" type="range" min="5" max="40" step="1" class="range" data-testid="mortgage-years" :aria-label="t('mortgage.term', 'Plazo')" >
+          <input v-model.number="years" type="range" min="5" max="40" step="1" class="range" :disabled="!hydrated" data-testid="mortgage-years" :aria-label="t('mortgage.term', 'Plazo')" >
         </label>
         <div class="grid grid-cols-2 gap-3">
           <label class="block text-[12.5px] text-stone-500">
             {{ assumptions.taxLabel }} (%)
-            <input v-model.number="taxPct" type="number" min="0" max="50" step="0.1" class="mc-input" data-testid="mortgage-tax" >
+            <input v-model.number="taxPct" type="number" min="0" max="50" step="0.1" class="mc-input" :disabled="!hydrated" data-testid="mortgage-tax" >
           </label>
           <!-- Con gastos fijos (Dubái), el % es lo que se añada aparte; los fijos ya van en el desglose. -->
           <label class="block text-[12.5px] text-stone-500">
             {{ assumptions.feesFixed ? t('mortgage.otherFees', 'Otros gastos') : assumptions.feesLabel }} (%)
-            <input v-model.number="feesPct" type="number" min="0" max="20" step="0.1" class="mc-input" data-testid="mortgage-fees" >
+            <input v-model.number="feesPct" type="number" min="0" max="20" step="0.1" class="mc-input" :disabled="!hydrated" data-testid="mortgage-fees" >
           </label>
         </div>
       </div>
@@ -105,6 +105,12 @@ const { format: money, base: baseCurrency } = useCurrency()
 
 const offPlan = computed(() => props.status === 'new' || props.status === 'under_construction')
 const assumptions = computed(() => purchaseAssumptions(baseCurrency.value, offPlan.value))
+
+// La calculadora se hidrata al verse (hydrate-on-visible). Hasta entonces sus
+// campos van desactivados: lo que se escribiera antes lo borraría la
+// hidratación (v-model repone su valor), y con una conexión lenta se notaba.
+const hydrated = ref(false)
+onMounted(() => (hydrated.value = true))
 
 const downPct = ref<number>(MORTGAGE_DEFAULTS.downPct)
 const ratePct = ref<number>(MORTGAGE_DEFAULTS.ratePct)

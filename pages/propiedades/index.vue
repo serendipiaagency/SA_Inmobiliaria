@@ -40,7 +40,7 @@
           <!-- Panel de filtros (escritorio) -->
           <aside v-if="!collapsed" class="hidden w-[335px] shrink-0 lg:block" data-testid="catalog-aside">
             <div class="sticky top-[92px]">
-              <CatalogFilters :query="route.query" :facets="facets" :total="total" :items="data?.rows || []" collapsible @patch="applyPatch" @clear="clearAll" @open-map="setView('mapa')" @show-results="showResults" @collapse="collapsed = true" @more="modalOpen = true" />
+              <CatalogFilters :query="route.query" :facets="facets" :total="total" :items="data?.rows || []" :group-keys="filterGroupKeys" collapsible @patch="applyPatch" @clear="clearAll" @open-map="setView('mapa')" @show-results="showResults" @collapse="collapsed = true" @more="modalOpen = true" />
             </div>
           </aside>
 
@@ -148,7 +148,7 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
               </button>
             </div>
-            <CatalogFilters :query="route.query" :facets="facets" :total="total" :items="data?.rows || []" @patch="applyPatch" @clear="clearAll" @open-map="openMapFromDrawer" @show-results="showResults" @more="openMoreFromDrawer" />
+            <CatalogFilters :query="route.query" :facets="facets" :total="total" :items="data?.rows || []" :group-keys="filterGroupKeys" @patch="applyPatch" @clear="clearAll" @open-map="openMapFromDrawer" @show-results="showResults" @more="openMoreFromDrawer" />
           </div>
         </div>
       </Teleport>
@@ -161,6 +161,7 @@ import { nearbyFromQuery, nearbyQuery, withoutNearby } from '~/utils/publicSearc
 import { withValidCoords } from '~/utils/maps/coords'
 import { catalogChips, type CatalogChip } from '~/utils/catalogChips'
 import { saveCatalogContext } from '~/utils/catalogContext'
+import { PAGE_CORE_TYPE, catalogFilterKeys } from '~/utils/siteBuilder/pages'
 
 /**
  * Catálogo público (#109): barra de búsqueda con orden y Galería / Mapa,
@@ -176,6 +177,12 @@ await loadTenant()
 // zona dinámica; con una versión publicada, las secciones que se le añadan
 // van encima o debajo.
 const { page: sitePage, homeData: sitePageData } = await useSitePage('propiedades')
+// Qué grupos del panel de filtros se enseñan y en qué orden (opción de la zona
+// dinámica, sólo con la página publicada); sin ella, todos en su orden.
+const filterGroupKeys = computed<string[] | null>(() => {
+  const core = sitePage.value?.published ? sitePage.value.blocks?.find((b: any) => b.type === PAGE_CORE_TYPE)?.content : null
+  return core?.filters ? catalogFilterKeys(core.filters) : null
+})
 useHead(
   seoHead({
     title: sitePage.value?.seo?.title || `${t('properties.head.title', 'Buscar propiedades')} — ${tenant.value?.companyName || tenant.value?.name}`,

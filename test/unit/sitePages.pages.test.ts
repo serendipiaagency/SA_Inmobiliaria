@@ -157,6 +157,20 @@ describe('zona dinámica: ni se quita, ni se repite, ni se lleva a otra página'
     expect(listing.blocks[0].content).toEqual({ core: 'properties-listing' })
   })
 
+  it('el catálogo guarda sólo el orden y la visibilidad de sus filtros, completos', () => {
+    const doc = validatePageDocument(
+      { blocks: [core('properties-listing', { content: { core: 'properties-listing', filters: [{ key: 'price' }, { key: 'area', visible: false }, { key: 'nope' }], sections: [{ key: 'datos' }], html: '<b>x</b>' } })] },
+      'propiedades',
+    )
+    const content = doc.blocks[0].content as any
+    expect(Object.keys(content).sort()).toEqual(['core', 'filters'])
+    expect(content.filters.slice(0, 2)).toEqual([{ key: 'price', visible: true }, { key: 'area', visible: false }])
+    expect(content.filters).toHaveLength(8)
+    // En la ficha, los filtros no existen.
+    const ficha = validatePageDocument({ blocks: [{ id: PAGE_CORE_TYPE, type: PAGE_CORE_TYPE, version: 1, content: { core: 'property-detail', filters: [{ key: 'price' }] } }] }, 'ficha-propiedad')
+    expect(ficha.blocks[0].content).toEqual({ core: 'property-detail' })
+  })
+
   it('en la portada y en las páginas de contenido no puede haber zona dinámica', () => {
     for (const key of ['home', 'nosotros', 'servicios', 'contacto']) {
       expect(statusCode(() => validatePageDocument({ blocks: [core('properties-listing')] }, key)), key).toBe(422)
