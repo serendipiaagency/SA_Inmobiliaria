@@ -608,6 +608,44 @@ estaba pensada para exactamente 3 imágenes:
 Ahora, con una sola imagen, el fondo queda fijo (`is-static`). Con
 `prefers-reduced-motion`, ni rota ni hace zoom.
 
+## Buscador del Hero: Comprar | Alquilar
+
+El Hero no lleva botones propios (los antiguos `exploreCta` / `advisorCta` de un
+contenido guardado se ignoran): la acción es el buscador. Encima, sólo dos
+píldoras excluyentes, **Comprar** y **Alquilar**, que envían
+`operacion=venta|alquiler` a `/propiedades` (el filtro ya existente en
+`server/api/public/properties.get.ts`). Alquilar cambia la escala del precio a
+rentas mensuales. Lo que antes eran píldoras y no son operaciones vive en
+«Más filtros» con su criterio real: tipos de inmueble (locales, garajes,
+terrenos, naves…), **obra nueva** (`obra=nueva`: estado «nuevo lanzamiento» o
+«en construcción», o tipo «Promoción»; `obra=segunda` es lo demás) e
+**inversión** (`minYield`: rentabilidad bruta declarada en la ficha).
+
+## Vista previa de la web y aviso de cookies
+
+La vista previa de una web sin dominio (`?vista_previa=<id>`,
+`server/utils/sitePreview.ts`) ya no pinta franja: la web se ve tal cual.
+
+El aviso de cookies (`components/CookieConsent.vue`) es un modal real con
+categorías (`utils/cookieConsent.ts`): Necesarias, Analíticas, Contenido de
+terceros y, si la agencia configuró un píxel, Publicidad. El estado vive en
+`composables/useCookieConsent.ts`; lo que se carga o se bloquea, en
+`plugins/consent-scripts.client.ts` (GA4, píxel de Meta, limpieza al retirar),
+`components/ConsentGate.vue` (vídeos y redes incrustados),
+`plugins/utm-capture.client.ts` (`sa_ft`), `useFavorites` y el recuento de
+visitas de la ficha (sin consentimiento: `anon`, sin cookie). La decisión se
+guarda en `localStorage` (`inmo_cookie_consent`) con la organización y la
+versión de la política (`consentVersion`: base + proveedores + revisión); la
+vista previa usa su propia clave y no carga analítica.
+
+Los proveedores por agencia viven en `site_settings` (migración 0092) y se
+editan en el Constructor (icono de la galleta → `CookieSettingsPanel.vue`,
+`/api/admin/site-settings`, área `web`). La CSP sólo abre los orígenes de
+Google o Meta en las páginas de una web que los configuró
+(`server/utils/siteSettings.ts` › `cspOriginsForProviders`). «Ver el aviso en el
+lienzo» manda `cookie-preview` al lienzo, que pinta `<CookieConsent sandbox>`:
+funciona igual, no guarda nada ni carga nada.
+
 ## El Block Inspector: un componente por tipo de bloque, no un formulario genérico
 
 El panel derecho (`components/site-builder/inspectors/*.vue`) es un registro,

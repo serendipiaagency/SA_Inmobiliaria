@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
-import { STATE_A, STATE_B } from './global-setup'
+import { STATE_A, STATE_B, ANON_STATE } from './global-setup'
 import { buildPng, buildValidPdf } from '../../test/unit/helpers/mediaFixtures'
 
 /**
@@ -57,7 +57,7 @@ test.describe('Ficha ampliada: planos, estado, edificio, documentos y reserva', 
   test.beforeAll(async () => {
     a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
     b = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_B })
-    anon = await pwRequest.newContext({ baseURL: BASE_URL, storageState: { cookies: [], origins: [] } })
+    anon = await pwRequest.newContext({ baseURL: BASE_URL, storageState: ANON_STATE })
 
     const dev = await a.post('/api/admin/developers', { data: { name: `Ampliación ${RUN}`, email: `ampl-${RUN}@mm.test`, status: 'active' } })
     expect(dev.ok(), await dev.text()).toBeTruthy()
@@ -305,6 +305,8 @@ test.describe('Ficha ampliada: planos, estado, edificio, documentos y reserva', 
     await page.getByTestId('mortgage-tax').fill('0')
     await expect(page.getByTestId('mortgage-tax')).toHaveValue('0')
     await expect(page.getByTestId('mortgage-cash-needed')).not.toHaveText(cash)
+    // Algún fragmento puede seguir retenido en la ruta al cerrar la página: que no cuente como fallo.
+    await page.unrouteAll({ behavior: 'ignoreErrors' })
   })
 
   test('Constructor: ordenar y ocultar secciones en el inspector se ve en el lienzo y, al publicar, en la web', async ({ page }) => {

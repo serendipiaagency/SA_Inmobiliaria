@@ -69,6 +69,10 @@ export function catalogChips(query: Query, t: Translate, formatPrice: (n: number
     const s = STATUS[String(query.status)]
     out.push({ key: 'status', label: s ? t(s[0], s[1]) : String(query.status), clear: ['status'] })
   }
+  if (query.obra === 'nueva') out.push({ key: 'obra', label: t('catalog.newBuild', 'Obra nueva'), clear: ['obra'] })
+  if (query.obra === 'segunda') out.push({ key: 'obra', label: t('catalog.secondHand', 'Segunda mano'), clear: ['obra'] })
+  const minYield = num(query.minYield)
+  if (minYield) out.push({ key: 'minYield', label: t('catalog.minYield', 'Rentabilidad desde {n} %').replace('{n}', String(minYield)), clear: ['minYield'] })
   for (const [k, i18n, fallback] of FEATURES) if (query[k] === '1') out.push({ key: k, label: t(i18n, fallback), clear: [k] })
   if (present(query.energy)) out.push({ key: 'energy', label: `${t('catalog.energy', 'Eficiencia')} ${String(query.energy)}+`, clear: ['energy'] })
   if (present(query.orientation)) out.push({ key: 'orientation', label: `${t('catalog.orientation', 'Orientación')} ${String(query.orientation)}`, clear: ['orientation'] })

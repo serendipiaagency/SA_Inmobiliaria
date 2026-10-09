@@ -7,7 +7,7 @@
  * ninguna vía en una cuenta demo (server/utils/demo/tenant.ts).
  *
  * La bandera `demo-org` la ponen el panel (layouts/admin.vue, con la empresa
- * activa) y la web pública (layouts/default.vue, con el inquilino).
+ * activa) y la web pública (composables/useDemoOrgFlag.ts, con el inquilino).
  */
 const EXTERNAL = /^(tel:|sms:|mailto:|whatsapp:)|^https?:\/\/(wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)\//i
 

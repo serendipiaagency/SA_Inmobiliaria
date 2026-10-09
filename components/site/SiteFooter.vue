@@ -38,6 +38,9 @@
         <span>© {{ new Date().getFullYear() }} {{ tenant?.companyName || tenant?.name }}. {{ t('footer.rights') }}</span>
         <NuxtLink class="transition hover:text-ink" to="/privacidad">{{ t('footer.privacy') }}</NuxtLink>
         <NuxtLink class="transition hover:text-ink" to="/terminos">{{ t('footer.terms') }}</NuxtLink>
+        <NuxtLink class="transition hover:text-ink" to="/cookies">{{ t('cookie.policy') }}</NuxtLink>
+        <!-- Cambiar o retirar el consentimiento en cualquier momento (aviso de cookies) -->
+        <button type="button" class="tracking-wide transition hover:text-ink" data-testid="footer-cookie-settings" @click="cookieConsent.openSettings()">{{ t('cookie.footerLink') }}</button>
       </div>
     </div>
   </footer>
@@ -53,4 +56,6 @@ const { t } = useI18n()
 const { tenant: hostTenant, load: loadTenant } = useTenant()
 await loadTenant()
 const tenant = computed(() => props.tenantOverride ?? hostTenant.value)
+// En el lienzo del Constructor abre el aviso de muestra, que no guarda nada.
+const cookieConsent = useCookieConsent(props.tenantOverride ? 'sandbox' : 'site')
 </script>

@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
-import { STATE_A, STATE_B } from './global-setup'
+import { STATE_A, STATE_B, ANON_STATE } from './global-setup'
 
 /**
  * Cierre D1p del núcleo inmobiliario — ficha y búsqueda de propiedades, sobre
@@ -38,7 +38,7 @@ test.describe('Cierre D1p — ficha y búsqueda de propiedades', () => {
     a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
     b = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_B })
     // Dentro de un describe con `storageState`, un contexto nuevo hereda la sesión: el anónimo la vacía a propósito.
-    anon = await pwRequest.newContext({ baseURL: BASE_URL, storageState: { cookies: [], origins: [] } })
+    anon = await pwRequest.newContext({ baseURL: BASE_URL, storageState: ANON_STATE })
     const dev = await a.post('/api/admin/developers', { data: { name: `Dev D1p ${RUN}`, email: `dev-d1p-${RUN}@mm.test`, status: 'active' } })
     expect(dev.ok(), await dev.text()).toBeTruthy()
     developerId = (await dev.json()).id

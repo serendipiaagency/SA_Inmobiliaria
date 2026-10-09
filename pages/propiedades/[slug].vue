@@ -405,9 +405,14 @@ useHead({
 // Núcleo N8a (FASE 32): una ficha abierta desde el enlace personal que se le
 // envió a alguien por email o por el chat (`?f=<token>`) lo registra además;
 // el servidor sólo lo cuenta si el token es de esta agencia y de esta propiedad.
+// Sin el consentimiento de «Analíticas» (aviso de cookies) la visita se cuenta
+// igual, pero sin cookie de visitante: `anon` (server: …/view.post.ts).
+const cookieConsent = useCookieConsent()
 onMounted(() => {
   const f = typeof route.query.f === 'string' ? route.query.f : ''
-  $fetch(`/api/public/properties/${encodeURIComponent(slug.value)}/view`, { method: 'POST', body: f ? { f } : {} }).catch(() => {})
+  const body: Record<string, unknown> = f ? { f } : {}
+  if (!cookieConsent.choices.value.analytics) body.anon = true
+  $fetch(`/api/public/properties/${encodeURIComponent(slug.value)}/view`, { method: 'POST', body }).catch(() => {})
 })
 
 // La galería ya llega filtrada del servidor: sólo fotos publicables, no

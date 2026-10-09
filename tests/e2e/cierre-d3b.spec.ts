@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
-import { STATE_A, STATE_B } from './global-setup'
+import { STATE_A, STATE_B, ANON_STATE } from './global-setup'
 import { formatDisplayPrice, formatMoney } from '../../utils/currency'
 
 /**
@@ -46,7 +46,7 @@ test.describe('Cierre D3b — moneda de la agencia, web pública y catálogo de 
     a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
     b = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_B })
     // Dentro de este describe, newContext() sin storageState heredaría la sesión de A.
-    anon = await pwRequest.newContext({ baseURL: BASE_URL, storageState: { cookies: [], origins: [] } })
+    anon = await pwRequest.newContext({ baseURL: BASE_URL, storageState: ANON_STATE })
 
     originalCurrency = (await (await a.get('/api/admin/active-org-info')).json()).currency
 
@@ -93,7 +93,7 @@ test.describe('Cierre D3b — moneda de la agencia, web pública y catálogo de 
   })
 
   test('FASE 5 — la web toma la moneda de la agencia como base y el selector del visitante convierte desde ella', async ({ browser }) => {
-    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+    const context = await browser.newContext({ storageState: ANON_STATE })
     const page = await context.newPage()
     await page.goto(`/propiedades?q=${encodeURIComponent(devName)}`)
     await expect(page.getByText(devName).first()).toBeVisible()
@@ -111,7 +111,7 @@ test.describe('Cierre D3b — moneda de la agencia, web pública y catálogo de 
     expect(facets.facets.types).toContain('Penthouse')
     expect(facets.facets.types.every((t: unknown) => typeof t === 'string' && t.length > 0)).toBe(true)
 
-    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+    const context = await browser.newContext({ storageState: ANON_STATE })
     const page = await context.newPage()
     await page.goto('/propiedades')
     // Panel de filtros del catálogo (#109): el grupo «Tipo de propiedad».
@@ -133,7 +133,7 @@ test.describe('Cierre D3b — moneda de la agencia, web pública y catálogo de 
   })
 
   test('FASE 2 — el código postal en el panel de filtros y el radio: sus chips, y el modal de «Más filtros» los sigue enseñando', async ({ browser }) => {
-    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+    const context = await browser.newContext({ storageState: ANON_STATE })
     const page = await context.newPage()
     await page.goto('/propiedades')
     const aside = page.getByTestId('catalog-aside')
@@ -157,7 +157,7 @@ test.describe('Cierre D3b — moneda de la agencia, web pública y catálogo de 
   })
 
   test('FASE 2 — «Buscar cerca de aquí» en el mapa: radio en la URL, insignia y búsqueda guardada', async ({ browser }) => {
-    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+    const context = await browser.newContext({ storageState: ANON_STATE })
     const page = await context.newPage()
     await page.goto(`/mapa?lat=${SPOT.lat}&lng=${SPOT.lng}&radiusKm=2`)
     // Entrando directamente (hidratación), el mapa se crea: antes /mapa salía

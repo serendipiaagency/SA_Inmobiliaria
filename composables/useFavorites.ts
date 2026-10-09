@@ -2,6 +2,7 @@ const KEY = 'sa_favorites'
 
 export function useFavorites() {
   const ids = useState<number[]>('favorites', () => [])
+  const consent = useCookieConsent()
 
   function load() {
     if (import.meta.client) {
@@ -22,7 +23,10 @@ export function useFavorites() {
     const on = !isFavorite(id)
     ids.value = on ? [...ids.value, id] : ids.value.filter((x) => x !== id)
     persist()
-    if (import.meta.client) $fetch('/api/public/favorite', { method: 'POST', body: { id, on } }).catch(() => {})
+    // La lista es tuya y vive en tu navegador (necesaria). Contarla en el
+    // servidor —«cuántos la guardaron»— usa la cookie de visitante: sólo con
+    // el consentimiento de «Analíticas» del aviso de cookies.
+    if (import.meta.client && consent.choices.value.analytics) $fetch('/api/public/favorite', { method: 'POST', body: { id, on } }).catch(() => {})
   }
 
   return { ids, load, isFavorite, toggle }

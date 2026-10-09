@@ -53,10 +53,6 @@ export const BLOCK_PRESETS: BlockPreset[] = [
       title2: 'merecen ser vividos.',
       subtitle: 'Una selección curada de propiedades excepcionales.',
       slides: [],
-      exploreCta: 'Explorar catálogo',
-      exploreCtaTo: '/propiedades',
-      advisorCta: 'Hablar con un asesor',
-      advisorCtaTo: '/contacto',
     }),
   },
   {

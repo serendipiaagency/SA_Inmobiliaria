@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest } from '@playwright/test'
-import { STATE_A } from './global-setup'
+import { STATE_A, ANON_STATE } from './global-setup'
 
 /**
  * Cabecera y pie de la web: con logo subido, el nombre de la empresa va a la
@@ -26,7 +26,7 @@ test('con logo, la cabecera (también sobre el Hero) y el pie enseñan el logo y
     expect(put.ok(), await put.text()).toBeTruthy()
 
     // Web pública de la agencia (en el dominio principal, «/» es la portada de la plataforma).
-    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+    const context = await browser.newContext({ storageState: ANON_STATE })
     const page = await context.newPage()
     await page.goto('/propiedades')
     const header = page.locator('header').first().getByTestId('brand-lockup')

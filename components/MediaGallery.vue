@@ -100,18 +100,26 @@
       <div v-show="tab === 'video'" class="g-stage flex flex-col items-center justify-center gap-3 bg-ink text-center" data-testid="gallery-videos">
         <template v-if="videos.length">
           <video v-if="!isExternal(videos[videoIndex].url)" :key="videos[videoIndex].url" :src="videos[videoIndex].url" controls class="min-h-0 w-full flex-1 rounded-2xl object-cover" />
-          <iframe
+          <!-- Reproductor de un tercero: sólo con el consentimiento de «Contenido de terceros» (ConsentGate). -->
+          <ConsentGate
             v-else-if="currentEmbed"
             :key="currentEmbed.src"
-            :src="currentEmbed.src"
-            :title="videos[videoIndex].title || `${name} — ${t('mediaGallery.tabs.video', 'Vídeo')}`"
-            class="min-h-0 w-full flex-1 rounded-2xl"
-            loading="lazy"
-            referrerpolicy="strict-origin-when-cross-origin"
-            allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowfullscreen
-            data-testid="gallery-video-embed"
-          />
+            :provider="currentEmbed.provider === 'youtube' ? 'YouTube' : 'Vimeo'"
+            :href="videos[videoIndex].url"
+            tone="dark"
+            class="min-h-0 w-full flex-1"
+          >
+            <iframe
+              :src="currentEmbed.src"
+              :title="videos[videoIndex].title || `${name} — ${t('mediaGallery.tabs.video', 'Vídeo')}`"
+              class="min-h-0 w-full flex-1 rounded-2xl"
+              loading="lazy"
+              referrerpolicy="strict-origin-when-cross-origin"
+              allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              allowfullscreen
+              data-testid="gallery-video-embed"
+            />
+          </ConsentGate>
           <div v-else class="flex flex-1 items-center justify-center">
             <a :href="videos[videoIndex].url" target="_blank" rel="noopener" class="inline-flex bg-white px-6 py-3 text-[11px] font-semibold uppercase tracking-widest2 text-ink">{{ videos[videoIndex].title || t('mediaGallery.video.open', 'Ver el vídeo') }} ↗</a>
           </div>

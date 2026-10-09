@@ -33,6 +33,8 @@
     <SiteGlobalZone zone="footer" :mode="mode" :selected="selectedGlobal === 'footer'" @select="onSelectGlobal">
       <SiteFooter :tenant-override="tenantOverride" />
     </SiteGlobalZone>
+    <!-- Muestra del aviso de cookies: no guarda nada ni carga ningún servicio -->
+    <CookieConsent sandbox />
   </div>
 </template>
 
@@ -77,6 +79,7 @@ const pageKey = ref('home')
 // La marca de la organización que se está editando (no la del host del
 // panel): es lo que la cabecera y el pie enseñan en la web publicada.
 const tenantOverride = ref<TenantBranding | null>(null)
+const cookieSandbox = useCookieConsent('sandbox')
 
 function post(type: string, payload: Record<string, any> = {}) {
   window.parent.postMessage({ source: 'sa-builder-canvas', type, ...payload }, window.location.origin)
@@ -131,6 +134,11 @@ function handleMessage(e: MessageEvent) {
       // Otra página: se empieza por arriba, como al abrirla en la web.
       window.scrollTo(0, 0)
     }
+  } else if (msg.type === 'cookie-preview') {
+    // «Ver el aviso en el lienzo» (Constructor → Cookies), como lo vería un visitante nuevo.
+    cookieSandbox.sandboxProviders.value = { ga4: msg.providers?.ga4 || null, metaPixel: msg.providers?.metaPixel || null, revision: Number(msg.providers?.revision) || 0 }
+    cookieSandbox.state.value.record = null
+    cookieSandbox.openSummary()
   } else if (msg.type === 'scroll-to') {
     // Tras insertar un bloque o elegirlo en Estructura: se lleva a la vista
     // con el DOM ya actualizado, no con el estado de antes.

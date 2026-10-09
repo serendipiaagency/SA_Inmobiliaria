@@ -6,16 +6,6 @@
       <TextField label="Título (línea 2, cursiva)" :model-value="content.title2 || ''" @update:model-value="(v) => (content.title2 = v)" />
       <TextField label="Subtítulo" multiline :model-value="content.subtitle || ''" @update:model-value="(v) => (content.subtitle = v)" />
 
-      <div class="mt-4 border-t border-line pt-4">
-        <p class="mb-2 text-[11px] font-semibold text-stone-500">CTA principal</p>
-        <TextField label="Texto" :model-value="content.exploreCta || ''" @update:model-value="(v) => (content.exploreCta = v)" />
-        <TextField label="Enlace" :model-value="content.exploreCtaTo || ''" placeholder="/propiedades" @update:model-value="(v) => (content.exploreCtaTo = v)" />
-      </div>
-      <div class="mt-4 border-t border-line pt-4">
-        <p class="mb-2 text-[11px] font-semibold text-stone-500">CTA secundario</p>
-        <TextField label="Texto" :model-value="content.advisorCta || ''" @update:model-value="(v) => (content.advisorCta = v)" />
-        <TextField label="Enlace" :model-value="content.advisorCtaTo || ''" placeholder="/contacto" @update:model-value="(v) => (content.advisorCtaTo = v)" />
-      </div>
     </InspectorSection>
 
     <InspectorSection title="Multimedia">

@@ -43,7 +43,7 @@ async function buildHome(ctx: DemoContext) {
         content: {
           eyebrow: 'Inmobiliaria en Asturias', title1: 'Encuentra tu lugar', title2: 'en Asturias.',
           subtitle: 'Obra nueva y segunda mano en Oviedo, Gijón, Avilés y el oriente, con un equipo que conoce cada barrio.',
-          slides, exploreCta: 'Ver propiedades', exploreCtaTo: '/propiedades', advisorCta: 'Hablar con un asesor', advisorCtaTo: '/contacto',
+          slides,
         },
       },
       { id: 'properties-na02', type: 'properties', version: 1, content: { eyebrow: 'Obra nueva', title: 'Promociones destacadas', cta: 'Ver todas', ctaTo: '/propiedades', source: 'dynamic', dynamicFilter: 'latest', limit: 4, layout: 'row' } },

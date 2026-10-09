@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
-import { STATE_A } from './global-setup'
+import { STATE_A, ANON_STATE } from './global-setup'
 
 /**
  * Serendipia Score y Decisión rápida en el idioma de la web. Antes las dos
@@ -34,7 +34,7 @@ test.describe('Score y Decisión rápida en el idioma de la web', () => {
 
   test.beforeAll(async () => {
     a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
-    anon = await pwRequest.newContext({ baseURL: BASE_URL, storageState: { cookies: [], origins: [] } })
+    anon = await pwRequest.newContext({ baseURL: BASE_URL, storageState: ANON_STATE })
     const dev = await a.post('/api/admin/developers', { data: { name: `Promotora idiomas ${RUN}`, email: `idiomas-${RUN}@mm.test`, status: 'active' } })
     expect(dev.ok(), await dev.text()).toBeTruthy()
     const developerId = (await dev.json()).id
@@ -69,7 +69,7 @@ test.describe('Score y Decisión rápida en el idioma de la web', () => {
     const api = await (await anon.get(`/api/public/properties/${slug}/score`)).json()
     const spanishFromApi = [...api.breakdown, ...api.decision].flatMap((x: any) => [x.label, x.detail])
 
-    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] }, viewport: { width: 1440, height: 900 } })
+    const ctx = await browser.newContext({ storageState: ANON_STATE, viewport: { width: 1440, height: 900 } })
     await ctx.addCookies([{ name: 'locale', value: 'en', url: BASE_URL }])
     const page = await ctx.newPage()
     await page.goto(`/propiedades/${slug}`)

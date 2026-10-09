@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest, type Page } from '@playwright/test'
-import { STATE_A } from './global-setup'
+import { STATE_A, ANON_STATE } from './global-setup'
 
 /**
  * Menú lateral en categorías desplegables (utils/adminNav.ts,
@@ -141,7 +141,7 @@ test.describe('Menú lateral — categorías desplegables', () => {
     expect(created.ok(), await created.text()).toBeTruthy()
     const userId = (await created.json()).id
     try {
-      const context = await browser.newContext({ baseURL: BASE_URL, extraHTTPHeaders: { 'cf-connecting-ip': `198.51.100.${(Date.now() % 200) + 20}` } })
+      const context = await browser.newContext({ baseURL: BASE_URL, storageState: ANON_STATE, extraHTTPHeaders: { 'cf-connecting-ip': `198.51.100.${(Date.now() % 200) + 20}` } })
       const login = await context.request.post('/api/auth/login', { data: { email, password } })
       expect(login.ok(), await login.text()).toBeTruthy()
       const page = await context.newPage()

@@ -2,7 +2,7 @@ import { and, eq, gte, sql } from 'drizzle-orm'
 import { useDb, schema, now, resolvePublicOrgId } from '../../../../utils/db'
 import { livePropertyCond } from '../../../../utils/properties/trash'
 import { getOrSetVisitorId } from '../../../../utils/visitor'
-import { rateLimit } from '../../../../utils/rateLimit'
+import { firstInWindow, rateLimit } from '../../../../utils/rateLimit'
 import { recordPropertyShareLinkOpen } from '../../../../utils/comms/shareLinks'
 
 // A "view" conventionally means a distinct visit, not every page load a
@@ -20,6 +20,11 @@ const DEDUP_WINDOW_MINUTES = 30
  * agencia (la del host) y de esta misma propiedad; si no, se ignora en
  * silencio y la visita se cuenta igual que siempre. La llamada la hace la
  * página al pintarse en el navegador, no el GET del enlace.
+ *
+ * Con `{ anon: true }` (el visitante no aceptó «Analíticas» en el aviso de
+ * cookies) la visita se cuenta sin leer ni poner la cookie `sa_visitor`: la
+ * misma ventana de 30 minutos se aplica por IP con la tabla anti-abuso, y la
+ * fila de property_views queda sin visitante.
  */
 export default defineEventHandler(async (event) => {
   await rateLimit(event, 'property-view', { limit: 30, windowSeconds: 600 })
@@ -40,6 +45,17 @@ export default defineEventHandler(async (event) => {
 
   const body = ((await readBody(event).catch(() => null)) || {}) as Record<string, unknown>
   const personal = body.f ? await recordPropertyShareLinkOpen(db, orgId, project.id, body.f) : { counted: false }
+
+  if (body.anon === true) {
+    const first = await firstInWindow(event, `view-anon:${project.id}`, DEDUP_WINDOW_MINUTES * 60)
+    if (!first) return { ok: true, counted: false, personalLink: personal.counted }
+    await db
+      .update(schema.developerProperties)
+      .set({ viewCount: sql`${schema.developerProperties.viewCount} + 1` })
+      .where(eq(schema.developerProperties.id, project.id))
+    await db.insert(schema.propertyViews).values({ developerPropertyId: project.id, visitorId: null, createdAt: now() })
+    return { ok: true, counted: true, personalLink: personal.counted }
+  }
 
   const visitorId = getOrSetVisitorId(event)
   const cutoff = new Date(Date.now() - DEDUP_WINDOW_MINUTES * 60_000).toISOString().replace('T', ' ').slice(0, 19)

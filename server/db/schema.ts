@@ -1954,6 +1954,20 @@ export const cmsRedirects = sqliteTable(
   (t) => [uniqueIndex('cms_redirects_org_from').on(t.organizationId, t.fromPath)],
 )
 
+/**
+ * Ajustes de la web pública de una organización que no son diseño
+ * (migración 0092). Hoy: los proveedores sujetos a consentimiento de cookies.
+ * Sin fila = sin proveedores. Los IDs son públicos (van al HTML), no secretos.
+ */
+export const siteSettings = sqliteTable('site_settings', {
+  organizationId: integer('organization_id').primaryKey(),
+  ga4MeasurementId: text('ga4_measurement_id'),
+  metaPixelId: text('meta_pixel_id'),
+  consentRevision: integer('consent_revision').notNull().default(0),
+  updatedBy: integer('updated_by'),
+  updatedAt: text('updated_at').notNull().default(''),
+})
+
 // One row per organization — real module settings (Fase 1 scope: language
 // default and comment moderation policy), not a hardcoded stub.
 export const cmsSettings = sqliteTable('cms_settings', {
@@ -4021,6 +4035,9 @@ export const propertyDetails = sqliteTable(
     installationsCondition: text('installations_condition'), // new | renovated | good | to_update
     buildingCondition: text('building_condition'), // new | excellent | good | to_renovate
     unitsPerFloor: integer('units_per_floor'),
+    // Migración 0092: datos públicos para los filtros del catálogo.
+    listingSituation: text('listing_situation'), // bare_ownership | rented | occupied — lo que la agencia anuncia (≠ occupancyStatus, interno)
+    rentalTerm: text('rental_term'), // long_term | seasonal
     createdBy: integer('created_by'),
     updatedBy: integer('updated_by'),
     createdAt: text('created_at').notNull().default(''),

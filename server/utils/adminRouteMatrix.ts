@@ -142,6 +142,7 @@ const RULES: Rule[] = [
   // --- Portal Web ---------------------------------------------------------
   { pattern: /^geocode$/, resolve: area('web') }, // components/property-builder/LocationSection.vue
   { pattern: /^site-pages(?:\/|$)/, resolve: area('web') }, // Constructor Web
+  { pattern: /^site-settings$/, resolve: area('web') }, // Constructor Web → Cookies (proveedores del aviso de cookies)
   // Disponibilidad y bloqueos de un comercial (`team_members`). A pesar del
   // path `saas/agents`, respaldan pages/admin/comerciales/[id]/horario.vue.
   //

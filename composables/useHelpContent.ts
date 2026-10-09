@@ -669,7 +669,9 @@ export function useHelpContent() {
         'Deshacer/Rehacer (las flechas junto al selector de zoom, o Ctrl/Cmd+Z y Ctrl/Cmd+Mayús+Z) solo cubren la sesión actual del editor.',
         'Cada vez que publicas se guarda una copia de la página. El icono del reloj ("Historial de versiones publicadas", en la barra superior) las lista de la más reciente a la más antigua, con la fecha, quién publicó, cuántas secciones tenía y cuál es la que está ahora mismo en la web. Pulsa "Restaurar" en cualquiera de ellas para recuperarla.',
         'Restaurar una versión NO la publica: la copia sobre tu borrador para que la revises primero, y la web pública sigue mostrando lo mismo que antes hasta que pulses "Publicar cambios". Ojo: al restaurar, el borrador actual se sustituye — si tenías cambios sin publicar los pierdes, aunque puedes recuperarlos con Deshacer (Ctrl/Cmd+Z) sin salir del editor.',
-        'El icono "Abrir sitio publicado" de la barra superior abre la página que estás editando en el dominio propio de tu organización. Si todavía no tienes uno, abre una vista previa de tu web en el dominio de la plataforma que sólo ve quien tiene sesión en tu empresa (con una franja arriba para salir); nadie más la ve ni la indexan los buscadores. Lo mismo hace "Vista previa del sitio" al pie del menú lateral.',
+        'El icono "Abrir sitio publicado" de la barra superior abre la página que estás editando en el dominio propio de tu organización. Si todavía no tienes uno, abre una vista previa de tu web en el dominio de la plataforma que sólo ve quien tiene sesión en tu empresa; nadie más la ve ni la indexan los buscadores. Se ve exactamente como la web publicada, sin franjas ni avisos encima de la cabecera: se abre en otra pestaña, así que para volver al Constructor basta con cerrarla. Lo mismo hace "Vista previa del sitio" al pie del menú lateral.',
+        'El buscador de la portada (Hero) ofrece sólo «Comprar» y «Alquilar»: al elegir Alquilar, el precio pasa a rentas mensuales. Obra nueva, inversión (rentabilidad mínima) y los tipos de inmueble —locales, garajes, terrenos, naves…— están en «Más filtros». Al pulsar «Buscar» se abre Propiedades con todo eso aplicado y sus etiquetas encima de los resultados. El Hero ya no tiene los botones «Ver propiedades» / «Hablar con un asesor».',
+        'Cookies: el icono de la galleta de la barra superior abre «Cookies de la web». Ahí indicas si tu web usa Google Analytics 4 (ID «G-…») o el píxel de Meta (sólo cifras); se guarda al momento, sin publicar. «Ver el aviso en el lienzo» enseña el aviso «Tu privacidad es importante» tal cual lo verá un visitante nuevo, con lo que hayas escrito, y puedes probar Configurar, Rechazar y Aceptar sin que se guarde nada. «Volver a pedir el consentimiento» hace que el aviso salga otra vez a quien ya decidió.',
       ],
     },
     {
@@ -1640,6 +1642,20 @@ export function useHelpContent() {
       answer:
         'Entra en tu CRM como un lead de captación: origen «web», detalle «Vender propiedad», con su mensaje tal cual, y su contacto queda con el rol «Vendedor» (Contactos). Si esa persona ya te había escrito como compradora, no se mezcla: su lead de comprador sigue aparte y el de captación es otro, del mismo contacto. También aparece como hilo «Formulario web» en Comunicaciones. Cualquier formulario de captación del Constructor puede funcionar así: en su pestaña «Contenido», «Quién escribe» → «Propietarios que venden».',
       tags: ['vender', 'captacion', 'propietarios', 'leads', 'constructor web', 'menu'],
+    },
+    {
+      id: 'faq-cookies-web',
+      question: '¿Cómo funciona el aviso de cookies de mi web?',
+      answer:
+        'Cada visitante ve, la primera vez, un aviso «Tu privacidad es importante» con «Configurar», «Rechazar» y «Aceptar y continuar». Hasta que decide no se carga nada opcional: ni la medición de visitas con cookie, ni Google Analytics, ni el píxel de Meta, ni los vídeos de YouTube/Vimeo o las publicaciones de Instagram/TikTok (en su lugar sale un recuadro con «Permitir y ver»). Si rechaza, las visitas a cada ficha se siguen contando, pero sin cookie. Su decisión vale para tu web y se le vuelve a preguntar si añades o quitas un servicio, o si lo pides desde Constructor Web → Cookies. Puede cambiarla cuando quiera desde «Configurar cookies», al pie de cada página. La «Política de cookies» (/cookies) se genera con los datos legales de tu empresa (razón social, CIF, dirección: ficha de la empresa) y los servicios que de verdad usa tu web.',
+      tags: ['cookies', 'privacidad', 'rgpd', 'google analytics', 'píxel', 'meta', 'constructor web', 'consentimiento'],
+    },
+    {
+      id: 'faq-vista-previa-sin-franja',
+      question: '¿Dónde está la franja «Vista previa» y cómo salgo de ella?',
+      answer:
+        'Ya no hay franja: la vista previa de tu web se ve igual que la publicada, con tu cabecera arriba del todo. Sigue siendo privada (sólo la ve quien tiene sesión en tu empresa, y los buscadores no la indexan) y sigue mostrando tu web antes de tener dominio propio. Se abre en otra pestaña desde el Constructor («Abrir sitio publicado») o desde «Vista previa del sitio» del menú: para volver, cierra esa pestaña. Si prefieres, la dirección /?vista_previa=salir la cierra en ese navegador.',
+      tags: ['vista previa', 'constructor web', 'franja', 'salir'],
     },
     {
       id: 'faq-catalogo-filtros',

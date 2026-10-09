@@ -1,6 +1,5 @@
 <template>
   <div class="flex min-h-screen flex-col bg-paper text-ink">
-    <SitePreviewBar />
     <SiteHeader />
 
     <main class="flex-1">
@@ -19,6 +18,7 @@
 
 <script setup lang="ts">
 const { load: loadCompare } = useCompare()
+useDemoOrgFlag()
 onMounted(() => {
   loadCompare()
 })

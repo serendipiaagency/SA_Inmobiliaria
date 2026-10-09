@@ -37,7 +37,7 @@
           <li><strong>Documentación de verificación:</strong> si usas el formulario de visitante, puede incluir copia de un documento de identidad o extractos bancarios que subas voluntariamente para acreditar tu identidad o capacidad financiera ante un promotor.</li>
           <li><strong>Datos de proveedores:</strong> información fiscal y de contacto si te registras como proveedor.</li>
           <li><strong>Preferencias de navegación:</strong> propiedades guardadas como favoritas y búsquedas guardadas, almacenadas localmente en tu navegador (no en nuestros servidores) salvo que inicies sesión.</li>
-          <li><strong>Datos técnicos:</strong> dirección IP, tipo de navegador y páginas visitadas, mediante cookies (ver la sección de Cookies más abajo).</li>
+          <li><strong>Datos técnicos:</strong> dirección IP y tipo de navegador, necesarios para servir la web; y, sólo si aceptas las cookies analíticas, qué fichas visitas y de qué campaña o web llegaste (ver la sección de Cookies más abajo).</li>
         </ul>
       </section>
 
@@ -64,9 +64,11 @@
       <section>
         <h2 class="heading-serif mb-3 text-2xl text-ink">6. Cookies</h2>
         <p>
-          Usamos cookies esenciales para el funcionamiento del sitio y, si las aceptas, cookies analíticas para
-          entender cómo se usa el sitio. Puedes gestionar tu preferencia desde el aviso de cookies que aparece en tu
-          primera visita, o borrando las cookies desde la configuración de tu navegador.
+          Usamos las cookies y el almacenamiento del navegador necesarios para que la web funcione y, sólo con tu
+          permiso, cookies analíticas, contenido de terceros (vídeos y publicaciones incrustados) y, si esta web lo
+          usa, publicidad. El detalle de cada una, quién la pone y cuánto dura está en la
+          <NuxtLink to="/cookies" class="underline hover:text-ink">política de cookies</NuxtLink>. Puedes cambiar o
+          retirar tu consentimiento cuando quieras desde «Configurar cookies», al pie de cada página.
         </p>
       </section>
 
@@ -111,5 +113,5 @@ useHead({
   title: `Política de privacidad — ${companyName.value}`,
   meta: [{ name: 'description', content: `Cómo ${companyName.value} recoge, usa y protege tus datos personales.` }],
 })
-const lastUpdated = '12 de julio de 2026'
+const lastUpdated = '9 de octubre de 2026'
 </script>

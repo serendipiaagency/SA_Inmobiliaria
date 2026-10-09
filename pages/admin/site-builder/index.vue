@@ -22,6 +22,7 @@
       @toggle-preview="previewMode = !previewMode"
       @open-seo="seoOpen = true"
       @open-styles="stylesOpen = true"
+      @open-cookies="cookiesOpen = true"
       @open-history="historyOpen = true"
       @publish="publish"
     />
@@ -339,6 +340,9 @@
     <!-- Estilos globales -->
     <GlobalStylesPanel v-if="stylesOpen" :styles="styles" :brand-fonts="brandFonts" @close="stylesOpen = false" />
 
+    <!-- Cookies de la web: proveedores del aviso y su muestra en el lienzo -->
+    <CookieSettingsPanel v-if="cookiesOpen" @close="cookiesOpen = false" @preview="showCookieNotice" />
+
     <!-- "Cambiar imagen" desde el lienzo -->
     <MediaPickerModal v-if="mediaPickerTarget" :label="mediaPickerTarget.label" @close="mediaPickerTarget = null" @select="onMediaPicked" />
 
@@ -378,6 +382,8 @@ import CommonBlockSettings from '~/components/site-builder/inspector/CommonBlock
 import NodeInspector from '~/components/site-builder/inspector/NodeInspector.vue'
 import GlobalZoneInspector from '~/components/site-builder/inspector/GlobalZoneInspector.vue'
 import TopBar from '~/components/site-builder/shell/TopBar.vue'
+import CookieSettingsPanel from '~/components/site-builder/shell/CookieSettingsPanel.vue'
+import type { CookieProviders } from '~/utils/cookieConsent'
 import SectionCard from '~/components/site-builder/shell/SectionCard.vue'
 import VersionHistory from '~/components/site-builder/shell/VersionHistory.vue'
 import GlobalStylesPanel from '~/components/site-builder/shell/GlobalStylesPanel.vue'
@@ -412,6 +418,17 @@ const device = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
 const previewMode = ref(false)
 const libraryOpen = ref(false)
 const seoOpen = ref(false)
+const cookiesOpen = ref(false)
+
+/**
+ * «Ver el aviso en el lienzo»: el aviso de cookies de muestra, con los
+ * proveedores que hay escritos, dentro del lienzo (canvas.vue). Funciona igual
+ * que en la web, pero no guarda ninguna decisión ni carga ningún servicio.
+ */
+function showCookieNotice(providers: CookieProviders) {
+  cookiesOpen.value = false
+  iframeEl.value?.contentWindow?.postMessage({ source: 'sa-builder-shell', type: 'cookie-preview', providers: { ...providers } }, window.location.origin)
+}
 const stylesOpen = ref(false)
 const historyOpen = ref(false)
 const dragOverId = ref<string | null>(null)
