@@ -247,6 +247,19 @@ export function parseFeatures(query: Query): string[] {
   return [...FEATURE_KEYS, 'expensesIncluded'].filter((k) => firstString(query[k]) === '1' || (k === 'furnished' && firstString(query.furnished) === 'yes'))
 }
 
+/** Orientación (`orientation`) y eficiencia mínima (`energy`): las mismas opciones en el catálogo y en el Hero. */
+export const ORIENTATION_OPTIONS: { v: string; k: string; l: string }[] = [
+  { v: 'N', k: 'filters.orientation.north', l: 'Norte' },
+  { v: 'S', k: 'filters.orientation.south', l: 'Sur' },
+  { v: 'E', k: 'filters.orientation.east', l: 'Este' },
+  { v: 'W', k: 'filters.orientation.west', l: 'Oeste' },
+  { v: 'SE', k: 'filters.orientation.southeast', l: 'Sureste' },
+  { v: 'SW', k: 'filters.orientation.southwest', l: 'Suroeste' },
+  { v: 'NE', k: 'filters.orientation.northeast', l: 'Noreste' },
+  { v: 'NW', k: 'filters.orientation.northwest', l: 'Noroeste' },
+]
+export const ENERGY_FILTER_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'] as const
+
 // ---------------------------------------------------------------------------
 // Rango de precio: escalas distintas para comprar (importe) y alquilar
 // (renta mensual), en la moneda BASE de la agencia (utils/currency.ts).

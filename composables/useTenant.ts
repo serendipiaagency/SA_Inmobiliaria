@@ -1,3 +1,4 @@
+import type { InjectionKey, Ref } from 'vue'
 import { DEFAULT_AGENCY_CURRENCY } from '~/utils/currency'
 import type { CookieProviders } from '~/utils/cookieConsent'
 
@@ -57,3 +58,10 @@ export function useTenant() {
 
   return { tenant, load }
 }
+
+/**
+ * En el lienzo del Constructor (pages/admin/site-builder/canvas.vue), la marca
+ * de la empresa que se edita —no la del dominio del panel—: la proveen el
+ * lienzo y la usan las secciones que pintan con el color de marca (el Hero).
+ */
+export const TENANT_BRANDING_OVERRIDE: InjectionKey<Ref<TenantBranding | null>> = Symbol('tenant-branding-override')

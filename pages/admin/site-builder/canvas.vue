@@ -42,7 +42,7 @@
 import SiteBlockRenderer from '~/components/site-builder/SiteBlockRenderer.vue'
 import SiteGlobalZone from '~/components/site-builder/SiteGlobalZone.vue'
 import type { SiteBlock, SitePageDocument } from '~/server/utils/sitePages'
-import type { TenantBranding } from '~/composables/useTenant'
+import { TENANT_BRANDING_OVERRIDE, type TenantBranding } from '~/composables/useTenant'
 import type { SiteNodeRef } from '~/composables/useSiteEditor'
 import { SITE_CANVAS_PAGE_KEY } from '~/composables/useFichaProperty'
 
@@ -82,6 +82,8 @@ provide(SITE_CANVAS_PAGE_KEY, pageKey)
 // La marca de la organización que se está editando (no la del host del
 // panel): es lo que la cabecera y el pie enseñan en la web publicada.
 const tenantOverride = ref<TenantBranding | null>(null)
+// El Hero pinta su botón con el color de marca de la empresa que se edita.
+provide(TENANT_BRANDING_OVERRIDE, tenantOverride)
 const cookieSandbox = useCookieConsent('sandbox')
 
 function post(type: string, payload: Record<string, any> = {}) {

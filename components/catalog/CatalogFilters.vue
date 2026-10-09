@@ -136,7 +136,7 @@
                   <span class="cf-mini">{{ t('filters.energyMin', 'Eficiencia energética (mín.)') }}</span>
                   <select class="cf-input" :value="firstString(query.energy)" data-testid="catalog-energy" @change="emit('patch', { energy: ($event.target as HTMLSelectElement).value || undefined, page: undefined })">
                     <option value="">{{ t('catalog.anyCount', 'Cualquiera') }}</option>
-                    <option v-for="e in ['A', 'B', 'C', 'D', 'E', 'F', 'G']" :key="e" :value="e">{{ e }}{{ e === 'G' ? '' : '+' }}</option>
+                    <option v-for="e in ENERGY_FILTER_LETTERS" :key="e" :value="e">{{ e }}{{ e === 'G' ? '' : '+' }}</option>
                   </select>
                 </label>
               </div>
@@ -177,6 +177,8 @@ import {
   SITUATION_KEYS,
   SITUATION_LABELS,
   bedroomsApply,
+  ENERGY_FILTER_LETTERS,
+  ORIENTATION_OPTIONS,
   firstString,
   operationSwitchPatch,
   parseAmount,
@@ -370,16 +372,7 @@ function toggleFeature(f: string) {
   const on = !features.value.includes(f)
   emit('patch', { [f]: on ? (f === 'furnished' ? 'yes' : '1') : undefined, page: undefined })
 }
-const ORIENTATIONS = [
-  { v: 'N', k: 'filters.orientation.north', l: 'Norte' },
-  { v: 'S', k: 'filters.orientation.south', l: 'Sur' },
-  { v: 'E', k: 'filters.orientation.east', l: 'Este' },
-  { v: 'W', k: 'filters.orientation.west', l: 'Oeste' },
-  { v: 'SE', k: 'filters.orientation.southeast', l: 'Sureste' },
-  { v: 'SW', k: 'filters.orientation.southwest', l: 'Suroeste' },
-  { v: 'NE', k: 'filters.orientation.northeast', l: 'Noreste' },
-  { v: 'NW', k: 'filters.orientation.northwest', l: 'Noroeste' },
-]
+const ORIENTATIONS = ORIENTATION_OPTIONS
 
 const resultsLabel = computed(() => (props.total === 1 ? t('catalog.showOne', 'Ver 1 resultado') : `${t('catalog.show', 'Ver')} ${props.total.toLocaleString(intlLocale.value)} ${t('catalog.results', 'resultados')}`))
 </script>

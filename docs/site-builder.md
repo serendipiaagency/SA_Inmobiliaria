@@ -613,37 +613,55 @@ estaba pensada para exactamente 3 imágenes:
 Ahora, con una sola imagen, el fondo queda fijo (`is-static`). Con
 `prefers-reduced-motion`, ni rota ni hace zoom.
 
-## Buscador del Hero: Comprar | Alquilar, ubicación con sugerencias y rango de precio
+## Buscador del Hero: Comprar | Alquilar, cuatro campos, «Buscar» y «Más filtros»
 
 El Hero no lleva botones propios (los antiguos `exploreCta` / `advisorCta` de un
-contenido guardado se ignoran): la acción es el buscador. Encima, sólo dos
-píldoras excluyentes, **Comprar** y **Alquilar** (`operacion=venta|alquiler`).
-Debajo, una sola barra con todas sus celdas (nada se quita por falta de sitio;
-en el móvil se apilan): Ubicación, Precio, Habitaciones, Baños, Superficie y
-Buscar. Un solo desplegable abierto a la vez; cambiar de celda no pierde lo
-elegido; Escape o un clic fuera lo cierran.
+contenido guardado se ignoran): la acción es el buscador
+(`components/HeroSearch.vue`, opciones en `utils/heroSearch.ts`).
 
-- **Ubicación** (`components/search/LocationAutocomplete.vue`, el mismo que el
-  panel de Propiedades): sugerencias de `/api/public/location-suggest` mientras
-  se escribe — municipios, barrios y zonas, códigos postales, provincias y
-  calles con propiedades publicadas de la agencia, con su contexto y cuántas
-  hay. Sin tildes ni mayúsculas, debounce de 200 ms, la petición anterior se
-  cancela y una respuesta vieja nunca pinta encima de la nueva (Enter antes de
-  que llegue espera a esa respuesta). Varias a la vez, como chips; se guarda el
-  tipo y el nombre real de cada una (`municipality=Oviedo&neighborhood=Centro`).
-- **Precio** (`components/search/PriceRangeSlider.vue`): dos extremos sobre una
-  escala propia de cada operación (importes de venta o rentas mensuales,
-  `utils/searchState.ts`) y dos campos editables, sincronizados en los dos
-  sentidos. Valida mínimo > máximo, negativos y texto. La escala y lo emitido
-  están en la moneda base de la agencia; lo que se ve y se escribe, en la que
-  eligió el visitante, convertido con `utils/currency.ts`.
-- **Habitaciones / Baños** (1+…5+, 1+…4+) desaparecen si sólo se eligen tipos
-  que no los tienen (locales, garajes, terrenos…).
-- **Más filtros**: tipos (Viviendas, Locales, Oficinas, Garajes, Terrenos,
-  Solares = subtipo «suelo urbano», Naves, Edificios, Promociones — sólo los
-  publicados), «Sólo obra nueva» (`estado=obra_nueva`), inversión (`minYield`,
-  sólo con Comprar), «Ordenar por» (las ocho del listado) y algunas
-  características.
+- **Comprar | Alquilar**: control segmentado blanco con iconos (casa, llave);
+  el activo, con el color del botón (`operacion=venta|alquiler`). Al cambiar
+  se quitan el precio y lo que sólo vale en la otra operación (inversión;
+  modalidad y gastos de alquiler), como `operationSwitchPatch` del catálogo.
+- **La barra**: sólo cuatro campos y «Buscar», en este orden de partida —
+  Tipo de inmueble, Ubicación, Precio, Habitaciones—. Cada campo: icono,
+  etiqueta, valor o «Cualquiera» y flecha. Un solo desplegable abierto a la
+  vez; cambiar de campo no pierde lo elegido; Escape o un clic fuera lo cierran.
+  - **Tipo de inmueble**: el árbol de tipos y subtipos del catálogo
+    (`components/search/TypeTreeFilter.vue`, sólo los publicados, varios a la
+    vez), resumido con `heroTypeSummary` («Viviendas», «Piso y ático», «3 tipos
+    seleccionados»).
+  - **Ubicación** (`components/search/LocationAutocomplete.vue`): sugerencias
+    de `/api/public/location-suggest` mientras se escribe —municipios, barrios
+    y zonas, códigos postales, provincias y calles con propiedades publicadas—,
+    varias a la vez (`municipality=Oviedo&neighborhood=Centro`).
+  - **Precio** (`components/search/PriceRangeSlider.vue`): dos extremos sobre
+    la escala de cada operación (importes de venta o rentas mensuales) y dos
+    campos editables, sincronizados; en la moneda base de la agencia.
+  - **Habitaciones** (1+…5+): con sólo tipos que no las tienen (locales,
+    garajes, terrenos…) el campo dice «No aplica» y no se abre.
+- **Buscar**: botón rectangular grande (lupa, texto, flecha), con el color
+  elegido en el Constructor o, sin él, el color de marca de la empresa
+  (`tenant.brandColor`; en el lienzo, el de la empresa que se edita,
+  `TENANT_BRANDING_OVERRIDE`). `heroButtonColors` lo oscurece (mismo tono)
+  hasta que el texto blanco tiene contraste AA; sin color de marca, la tinta.
+- **Más filtros (n)**: enlace discreto fuera de la barra; `n` es
+  `countHeroExtraFilters` (sólo lo de dentro del panel; cada opción cuenta una
+  y la superficie, una). El panel (debajo de la barra, también en el móvil)
+  tiene baños, superficie (mín./máx., validada), estado (`estado=`), inversión
+  (`minYield`, con Comprar) o modalidad y gastos (`rentalTerm`,
+  `expensesIncluded`, con Alquilar), situación (`situacion`, sólo si la
+  agencia anuncia alguna: `facets=filters`), las características por grupos
+  (`FEATURE_GROUPS`), orientación, eficiencia mínima y «Ordenar por».
+  «Aplicar» cierra sin perder nada; «Limpiar filtros» vacía sólo el panel.
+
+**Constructor** (Hero › «Buscador», contenido del bloque): `searchFields`
+(lista completa con `visible`, en orden), `searchButtonLabel`,
+`showMoreFilters`, `defaultOperation` y, en Diseño, `searchButtonColor`
+(#rrggbb) y `searchRadius` (`md` | `lg` | `pill`). Todo se normaliza al leer
+(`heroSearchOptions`): lo desconocido se descarta y los campos que falten se
+añaden visibles. Responsive: una fila en escritorio, dos columnas con el botón
+debajo en tableta y apilado con el botón a todo el ancho en el móvil.
 
 «Buscar» lleva a `/propiedades` con exactamente el mismo modelo de URL que lee
 el listado (`utils/searchState.ts`); al volver a Inicio sin recargar, el Hero
