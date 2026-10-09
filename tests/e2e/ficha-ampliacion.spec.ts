@@ -288,6 +288,25 @@ test.describe('Ficha ampliada: planos, estado, edificio, documentos y reserva', 
     await expect(page.getByTestId('mortgage-breakdown')).toContainText('Importe a financiar')
   })
 
+  test('calculadora: con su fragmento de JS lento, lo que se escribe no se pierde al hidratarse', async ({ page }) => {
+    // Se hidrata al verse: hasta que llega su fragmento, los campos van desactivados
+    // (antes se podía escribir y la hidratación lo borraba; en CI fallaba así).
+    await page.route('**/_nuxt/*.js', async (route) => {
+      const res = await route.fetch()
+      const body = await res.text()
+      if (body.includes('mortgage-tax') && body.length < 20000) await new Promise((r) => setTimeout(r, 2500))
+      await route.fulfill({ response: res, body })
+    })
+    await page.goto(`/propiedades/${full.slug}`)
+    const calc = page.getByTestId('mortgage-calculator')
+    await calc.scrollIntoViewIfNeeded()
+    await expect(page.getByTestId('mortgage-tax')).toBeDisabled()
+    const cash = await page.getByTestId('mortgage-cash-needed').innerText()
+    await page.getByTestId('mortgage-tax').fill('0')
+    await expect(page.getByTestId('mortgage-tax')).toHaveValue('0')
+    await expect(page.getByTestId('mortgage-cash-needed')).not.toHaveText(cash)
+  })
+
   test('Constructor: ordenar y ocultar secciones en el inspector se ve en el lienzo y, al publicar, en la web', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/admin/site-builder?pagina=ficha-propiedad')
