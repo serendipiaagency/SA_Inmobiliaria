@@ -1,4 +1,5 @@
 import { messages } from '../../i18n/messages'
+import { compactEnergyOptions, normalizeEnergyOptions, type EnergyDisplayOptions } from '../energyCertificate'
 
 /**
  * Las páginas de la web que se editan con el Constructor Web — la única
@@ -75,8 +76,21 @@ export const PAGE_CORE_SOURCES: Record<PageCoreKind, { label: string; to: string
  * catálogo, el orden y la visibilidad de los grupos del panel de filtros.
  * Todo lo demás del contenido de la zona se descarta al guardar.
  */
-export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, 'boolean' | 'text' | 'sections' | 'filters' | 'operation'>>> = {
-  'property-detail': { showFeatured: 'boolean', featuredTitle: 'text', sections: 'sections' },
+export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, 'boolean' | 'text' | 'sections' | 'filters' | 'operation' | 'tone' | 'energy'>>> = {
+  // Ficha: destacadas, orden y visibilidad de las secciones (#110) y, en la
+  // tarjeta principal, la referencia y la descripción; el fondo de «Atendido
+  // por», la presentación de la tabla energética y si las secciones sin datos
+  // se ocultan solas (megaprompt «ficha»).
+  'property-detail': {
+    showFeatured: 'boolean',
+    featuredTitle: 'text',
+    sections: 'sections',
+    showReference: 'boolean',
+    showDescription: 'boolean',
+    hideEmpty: 'boolean',
+    contactTone: 'tone',
+    energy: 'energy',
+  },
   // Catálogo: qué partes del buscador se enseñan y cómo arranca. Sólo
   // presentación: lo que se encuentra lo decide Property Search, no esto.
   'properties-listing': { filters: 'filters', showPanel: 'boolean', showOperation: 'boolean', showSort: 'boolean', showNewSearch: 'boolean', defaultOperation: 'operation' },
@@ -100,6 +114,38 @@ export function catalogDisplayOptions(content: Record<string, any> | null | unde
   }
 }
 
+/** «Atendido por»: fondo suave del color de la marca (de partida), blanco o un color propio. */
+export type ContactTone = 'brand' | 'white' | `#${string}`
+export function parseContactTone(v: unknown): ContactTone | null {
+  if (v === 'brand' || v === 'white') return v
+  return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? (v.toLowerCase() as ContactTone) : null
+}
+
+/** Lo que la ficha enseña si el Constructor no dice otra cosa. */
+export interface FichaDisplayOptions {
+  showReference: boolean
+  showDescription: boolean
+  hideEmpty: boolean
+  contactTone: ContactTone
+  energy: EnergyDisplayOptions
+}
+/**
+ * La descripción era una sección más de la lista (hasta el megaprompt
+ * «ficha»): una web que la había ocultado ahí la sigue teniendo oculta.
+ */
+function legacyDescriptionHidden(sections: unknown): boolean {
+  return Array.isArray(sections) && sections.some((s) => s?.key === 'descripcion' && s.visible === false)
+}
+export function fichaDisplayOptions(content: Record<string, any> | null | undefined): FichaDisplayOptions {
+  return {
+    showReference: content?.showReference !== false,
+    showDescription: typeof content?.showDescription === 'boolean' ? content.showDescription : !legacyDescriptionHidden(content?.sections),
+    hideEmpty: content?.hideEmpty !== false,
+    contactTone: parseContactTone(content?.contactTone) || 'brand',
+    energy: normalizeEnergyOptions(content?.energy),
+  }
+}
+
 /**
  * Las secciones de la ficha que el Constructor puede ordenar u ocultar (#110),
  * en su orden de partida: la jerarquía del encargo (datos clave, descripción,
@@ -113,8 +159,10 @@ export const FICHA_SECTIONS: { key: string; label: string }[] = [
   // El orden de partida es el de la ficha de la referencia (#111): bajo la
   // galería y la tarjeta principal, las características, la descripción, el
   // Score, plano y estado, edificio y documentación; después, el resto.
+  // La descripción ya no es una sección: va en la tarjeta principal, bajo el
+  // título y la ubicación (se oculta con «Descripción» en las opciones).
   { key: 'datos', label: 'Características destacadas' },
-  { key: 'descripcion', label: 'Descripción' },
+  { key: 'energia', label: 'Eficiencia energética' },
   { key: 'score', label: 'Serendipia Score' },
   { key: 'plano-estado', label: 'Plano y estado del inmueble' },
   { key: 'edificio-documentacion', label: 'El edificio y documentación' },
@@ -146,7 +194,7 @@ export interface FichaSectionSetting {
  * que falten, visibles — así una sección o un filtro nuevo del código aparece
  * solo en las webs que ya habían guardado su orden.
  */
-function normalizeOrderedList(value: unknown, catalog: { key: string }[]): FichaSectionSetting[] {
+function normalizeOrderedList(value: unknown, catalog: { key: string }[], anchors: Record<string, string> = {}): FichaSectionSetting[] {
   const known = new Set(catalog.map((x) => x.key))
   const out: FichaSectionSetting[] = []
   const seen = new Set<string>()
@@ -156,12 +204,22 @@ function normalizeOrderedList(value: unknown, catalog: { key: string }[]): Ficha
     seen.add(key)
     out.push({ key, visible: item.visible !== false, ...(item.open === true ? { open: true } : {}) })
   }
-  for (const x of catalog) if (!seen.has(x.key)) out.push({ key: x.key, visible: true })
+  for (const x of catalog) if (!seen.has(x.key) && !anchors[x.key]) out.push({ key: x.key, visible: true })
+  // Una sección nueva con sitio propio (p. ej. la tabla energética, junto a las
+  // características) entra ahí también en las webs que ya guardaron su orden.
+  for (const x of catalog) {
+    if (seen.has(x.key) || !anchors[x.key]) continue
+    const at = out.findIndex((y) => y.key === anchors[x.key])
+    out.splice(at >= 0 ? at + 1 : out.length, 0, { key: x.key, visible: true })
+  }
   return out
 }
 
+/** Dónde entra una sección nueva de la ficha en un orden ya guardado. */
+const FICHA_SECTION_ANCHORS: Record<string, string> = { energia: 'datos' }
+
 export function normalizeFichaSections(value: unknown): FichaSectionSetting[] {
-  return normalizeOrderedList(value, FICHA_SECTIONS)
+  return normalizeOrderedList(value, FICHA_SECTIONS, FICHA_SECTION_ANCHORS)
 }
 
 /**
@@ -214,9 +272,9 @@ export function fichaSectionLayout(value: unknown): { order: Record<string, numb
 
 const CORE_TEXT_MAX = 120
 
-export function sanitizeCoreOptions(core: PageCoreKind, content: Record<string, any> | null | undefined): Record<string, boolean | string | FichaSectionSetting[]> {
+export function sanitizeCoreOptions(core: PageCoreKind, content: Record<string, any> | null | undefined): Record<string, boolean | string | FichaSectionSetting[] | Partial<EnergyDisplayOptions>> {
   const spec = PAGE_CORE_OPTIONS[core] || {}
-  const out: Record<string, boolean | string | FichaSectionSetting[]> = {}
+  const out: Record<string, boolean | string | FichaSectionSetting[] | Partial<EnergyDisplayOptions>> = {}
   for (const [key, type] of Object.entries(spec)) {
     const v = content?.[key]
     if (type === 'boolean' && typeof v === 'boolean') out[key] = v
@@ -224,7 +282,14 @@ export function sanitizeCoreOptions(core: PageCoreKind, content: Record<string, 
     if (type === 'sections' && Array.isArray(v)) out[key] = normalizeFichaSections(v)
     if (type === 'filters' && Array.isArray(v)) out[key] = normalizeCatalogFilters(v)
     if (type === 'operation' && (v === 'venta' || v === 'alquiler')) out[key] = v
+    if (type === 'tone' && parseContactTone(v)) out[key] = parseContactTone(v)!
+    if (type === 'energy' && v && typeof v === 'object') {
+      const compact = compactEnergyOptions(normalizeEnergyOptions(v))
+      if (Object.keys(compact).length) out[key] = compact
+    }
   }
+  // Al guardar, la descripción oculta en la lista antigua pasa a su interruptor.
+  if (core === 'property-detail' && typeof out.showDescription !== 'boolean' && legacyDescriptionHidden(content?.sections)) out.showDescription = false
   return out
 }
 

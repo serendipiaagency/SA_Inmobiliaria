@@ -12,7 +12,33 @@
         Gestionar en {{ source.label }} ↗
       </NuxtLink>
     </InspectorSection>
-    <!-- Ficha: lo único ajustable de la zona; los datos siguen saliendo de cada propiedad -->
+    <!-- Ficha (megaprompt «ficha»): la tarjeta principal, «Atendido por», la tabla energética y las secciones sin datos.
+         Sólo presentación: los datos siguen saliendo de cada propiedad (Property Core). -->
+    <template v-if="content.core === 'property-detail'">
+      <InspectorSection title="Tarjeta principal">
+        <ToggleField label="Referencia («Ref.»)" :model-value="ficha.showReference" data-testid="page-core-show-reference" @update:model-value="(v) => (content.showReference = v)" />
+        <ToggleField label="Descripción bajo el título" :model-value="ficha.showDescription" data-testid="page-core-show-description" @update:model-value="(v) => (content.showDescription = v)" />
+        <p class="mt-1 text-[11px] leading-relaxed text-stone-400">La referencia es el «Código comercial» de cada propiedad y sólo sale si lo tiene. La descripción larga se recorta con «Ver más».</p>
+      </InspectorSection>
+      <InspectorSection title="Atendido por">
+        <SegmentedField
+          label="Fondo de la tarjeta"
+          :model-value="toneMode"
+          :options="[{ value: 'brand', label: 'Color de marca' }, { value: 'white', label: 'Blanco' }, { value: 'custom', label: 'Otro color' }]"
+          data-testid="page-core-contact-tone"
+          @update:model-value="setToneMode"
+        />
+        <ColorField v-if="toneMode === 'custom'" label="Color" :model-value="ficha.contactTone.startsWith('#') ? ficha.contactTone : undefined" test-id="page-core-contact-color" @update:model-value="setToneColor" />
+        <p class="mt-1 text-[11px] leading-relaxed text-stone-400">Un tono suave para que destaque: el de tu color de marca o el que elijas, aclarado lo necesario para que se lea bien. En escritorio la tarjeta se queda a la vista al bajar por la ficha.</p>
+      </InspectorSection>
+      <EnergyOptionsFields :value="content.energy" content-title="Eficiencia energética" :design-tab="false" @set="setEnergy" />
+      <InspectorSection title="Secciones sin datos">
+        <ToggleField label="Ocultar automáticamente si no hay datos" :model-value="ficha.hideEmpty" data-testid="page-core-hide-empty" @update:model-value="(v) => (content.hideEmpty = v)" />
+        <p class="mt-1 text-[11px] leading-relaxed text-stone-400">
+          Una sección que no tiene datos en una propiedad (sin historial de precios, sin entorno, sin certificado energético…) no sale en su ficha, ni su pestaña en la barra de apartados. En el lienzo se marca con un aviso. Desactivada, esas secciones salen con su aviso de «sin datos»; las que no tendrían nada que enseñar (plano, documentación, tabla energética) no salen nunca vacías.
+        </p>
+      </InspectorSection>
+    </template>
     <InspectorSection v-if="content.core === 'property-detail'" title="Propiedades destacadas">
       <p class="mb-3 text-[12px] leading-relaxed text-stone-500">
         Debajo de «Propiedades similares», las que marcas como <strong>Exclusiva</strong> en Propiedades (web), sin repetir la que se está viendo ni las similares. Si no hay ninguna, la sección no aparece.
@@ -78,7 +104,9 @@ import InspectorSection from '../inspector/InspectorSection.vue'
 import ToggleField from '../inspector/fields/ToggleField.vue'
 import TextField from '../inspector/fields/TextField.vue'
 import SegmentedField from '../inspector/fields/SegmentedField.vue'
-import { CATALOG_FILTER_GROUPS, FICHA_SECTIONS, PAGE_CORE_LABELS, PAGE_CORE_SOURCES, catalogDisplayOptions, normalizeCatalogFilters, normalizeFichaSections, type FichaSectionSetting, type PageCoreKind } from '~/utils/siteBuilder/pages'
+import ColorField from '../inspector/fields/ColorField.vue'
+import EnergyOptionsFields from '../inspector/EnergyOptionsFields.vue'
+import { CATALOG_FILTER_GROUPS, FICHA_SECTIONS, PAGE_CORE_LABELS, PAGE_CORE_SOURCES, catalogDisplayOptions, fichaDisplayOptions, normalizeCatalogFilters, normalizeFichaSections, type FichaSectionSetting, type PageCoreKind } from '~/utils/siteBuilder/pages'
 
 /**
  * Inspector de la zona dinámica de una página funcional (Propiedades, Ficha,
@@ -99,7 +127,7 @@ const LISTS: Partial<Record<PageCoreKind, { field: 'sections' | 'filters'; catal
     catalog: FICHA_SECTIONS,
     normalize: normalizeFichaSections,
     title: 'Secciones de la ficha',
-    hint: 'Ordena con las flechas y desmarca las que no quieras enseñar. Vale para todas las fichas. Una sección sin datos en una propiedad no aparece aunque esté marcada. La galería, la cabecera, el contacto y las similares se quedan en su sitio.',
+    hint: 'Ordena con las flechas y desmarca las que no quieras enseñar. Vale para todas las fichas. Con «Ocultar automáticamente si no hay datos», una sección sin datos en una propiedad no aparece aunque esté marcada. La galería, la cabecera (con la descripción), el contacto y las similares se quedan en su sitio.',
     testid: 'page-core-sections',
   },
   'properties-listing': {
@@ -132,6 +160,21 @@ function toggleOpen(i: number) {
 const display = computed(() => catalogDisplayOptions(props.content))
 function setDisplay(key: 'showPanel' | 'showOperation' | 'showSort' | 'showNewSearch' | 'defaultOperation', v: unknown) {
   props.content[key] = v
+}
+// Ficha: lo que se ve con lo guardado (o lo de partida).
+const ficha = computed(() => fichaDisplayOptions(props.content))
+const customTone = ref(false)
+const toneMode = computed(() => (customTone.value || ficha.value.contactTone.startsWith('#') ? 'custom' : ficha.value.contactTone))
+function setToneMode(v: string) {
+  customTone.value = v === 'custom'
+  if (v === 'brand' || v === 'white') props.content.contactTone = v
+}
+function setToneColor(v: string | undefined) {
+  if (v && /^#[0-9a-f]{6}$/i.test(v)) props.content.contactTone = v.toLowerCase()
+  else if (!v) props.content.contactTone = 'brand'
+}
+function setEnergy(key: string, value: unknown) {
+  props.content.energy = { ...(props.content.energy && typeof props.content.energy === 'object' ? props.content.energy : {}), [key]: value }
 }
 function toggle(i: number) {
   if (!list.value) return

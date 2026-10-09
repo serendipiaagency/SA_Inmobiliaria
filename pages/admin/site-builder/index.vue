@@ -375,7 +375,7 @@ import type { SiteGlobalStyles } from '~/utils/siteBuilder/globalStyles'
 import { nodeKindLabel, normalizeColor, type NodeKind } from '~/utils/siteBuilder/nodes'
 import { isKnownFont } from '~/utils/siteBuilder/fonts'
 import type { SiteNodeRef } from '~/composables/useSiteEditor'
-import { BLOCK_PRESETS, BLOCK_CATEGORIES, BLOCK_INSPECTORS, RECOMMENDED_PRESET_IDS, blockLabel, blockSubtitle, newBlockId, type BlockPreset } from '~/composables/useSiteBuilderRegistry'
+import { BLOCK_PRESETS, BLOCK_CATEGORIES, BLOCK_INSPECTORS, RECOMMENDED_PRESET_IDS, blockLabel, blockSubtitle, newBlockId, presetsForPage, type BlockPreset } from '~/composables/useSiteBuilderRegistry'
 import { PAGE_CORE_TYPE, SITE_PAGES, sitePageDef } from '~/utils/siteBuilder/pages'
 import InspectorSection from '~/components/site-builder/inspector/InspectorSection.vue'
 import CommonBlockSettings from '~/components/site-builder/inspector/CommonBlockSettings.vue'
@@ -622,14 +622,17 @@ const favoritePresetIds = ref<Set<string>>(new Set())
 function presetById(id: string) {
   return BLOCK_PRESETS.find((p) => p.presetId === id)
 }
-const recentPresets = computed(() => recentPresetIds.value.map(presetById).filter((p): p is BlockPreset => !!p))
-const favoritePresets = computed(() => BLOCK_PRESETS.filter((p) => favoritePresetIds.value.has(p.presetId)))
+// Las secciones propias de una página (p. ej. «Eficiencia energética», sólo en la ficha) sólo se ofrecen en ella.
+const pagePresets = computed(() => presetsForPage(currentPageKey.value))
+const offered = (p: BlockPreset) => pagePresets.value.includes(p)
+const recentPresets = computed(() => recentPresetIds.value.map(presetById).filter((p): p is BlockPreset => !!p && offered(p)))
+const favoritePresets = computed(() => pagePresets.value.filter((p) => favoritePresetIds.value.has(p.presetId)))
 
 const filteredPresets = computed(() => {
   const q = librarySearch.value.trim().toLowerCase()
-  if (q) return BLOCK_PRESETS.filter((p) => p.label.toLowerCase().includes(q) || p.description.toLowerCase().includes(q))
-  if (libraryCategory.value === 'Recomendados') return BLOCK_PRESETS.filter((p) => RECOMMENDED_PRESET_IDS.includes(p.presetId))
-  return BLOCK_PRESETS.filter((p) => p.category === libraryCategory.value)
+  if (q) return pagePresets.value.filter((p) => p.label.toLowerCase().includes(q) || p.description.toLowerCase().includes(q))
+  if (libraryCategory.value === 'Recomendados') return pagePresets.value.filter((p) => RECOMMENDED_PRESET_IDS.includes(p.presetId))
+  return pagePresets.value.filter((p) => p.category === libraryCategory.value)
 })
 
 function rememberRecentPreset(presetId: string) {

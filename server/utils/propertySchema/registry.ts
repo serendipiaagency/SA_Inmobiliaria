@@ -89,8 +89,12 @@ const IDENTIFICATION_FIELDS: PropertyFieldRule[] = [
   internalRule('captureDate'),
   internalRule('captureSource'),
   rule('transactionType', { requiredForPublish: true, requiredForPortal: true }),
-  // Ficha ampliada (migración 0086, utils/propertySheet.ts).
-  internalRule('commercialCode'),
+  // Ficha ampliada (migración 0086, utils/propertySheet.ts). El código
+  // comercial es la referencia con la que la agencia anuncia el inmueble
+  // (cartel, portales): la ficha pública lo enseña como «Ref.» (el
+  // Constructor puede ocultarlo). La referencia interna, la de la agencia y
+  // la externa de portales siguen siendo internas.
+  rule('commercialCode'),
   rule('subtype'),
   rule('commercialStatus', { portalRelevant: false }),
   internalRule('officeId'),
@@ -445,6 +449,9 @@ const NEW_DEVELOPMENT = sectionsFor([
       // exactamente esos creates legítimos sin aportar ninguna protección
       // real (la columna nunca queda vacía de todas formas).
       rule('transactionType', { requiredForPublish: true, requiredForPortal: true }),
+      // La referencia comercial de la ficha ampliada, la misma que en los
+      // esquemas de 2ª mano: la ficha pública la enseña como «Ref.».
+      rule('commercialCode'),
       internalRule('developerId', { requiredForSave: true }),
     ],
   },

@@ -194,7 +194,8 @@ test.describe('Ficha pública: Datos clave, destacadas y «Atendido por» → CR
     const card = page.getByTestId('property-contact-card')
     await expect(card.getByTestId('property-contact-name')).toHaveText(agent.name)
     await expect(card).not.toContainText('Formulario de demostración')
-    await expect(card).not.toContainText('Asunto')
+    // «Asunto» (megaprompt «ficha»): opcional y ya relleno con la propiedad.
+    await expect(card.getByTestId('property-contact-subject')).toHaveValue(/.+/)
     await expect(card.getByTestId('property-contact-whatsapp')).toHaveAttribute('href', /^https:\/\/wa\.me\/34600111222\?/)
     await expect(card.getByTestId('property-contact-call')).toHaveAttribute('href', 'tel:+34600111222')
 

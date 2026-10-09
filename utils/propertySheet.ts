@@ -205,7 +205,7 @@ export const PROPERTY_SHEET_GROUPS: { key: string; label: string; fields: SheetF
     key: 'identification',
     label: 'Identificación ampliada',
     fields: [
-      d('commercialCode', 'Código comercial', 'text', { hint: 'El código con el que la agencia anuncia el inmueble (cartel, portales).' }),
+      d('commercialCode', 'Código comercial', 'text', { hint: 'El código con el que la agencia anuncia el inmueble (cartel, portales). Sale en la ficha pública como «Ref.» (se puede ocultar en el Constructor Web).' }),
       d('subtype', 'Subtipo', 'select', { hint: 'Depende del tipo de inmueble.' }),
       sel('commercialStatus', 'Estado comercial', 'details', COMMERCIAL_STATUS),
       d('officeId', 'Oficina', 'relation', { relationResource: 'offices' }),
@@ -417,7 +417,6 @@ export const PROPERTY_AMENITY_KEYS: string[] = PROPERTY_AMENITY_GROUPS.flatMap((
 
 /** Campos internos: nunca salen en la web pública ni en un feed de portal. */
 export const PROPERTY_SHEET_INTERNAL_KEYS = new Set([
-  'commercialCode',
   'officeId',
   'teamId',
   'priceMinAuthorized',

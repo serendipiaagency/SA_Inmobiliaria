@@ -29,6 +29,8 @@
 
 <script setup lang="ts">
 const props = withDefaults(defineProps<{ slug: string; showFeatured?: boolean; featuredTitle?: string }>(), { showFeatured: true, featuredTitle: '' })
+// «empty»: ni similares ni destacadas que enseñar; la ficha puede ocultar la sección entera.
+const emit = defineEmits<{ empty: [] }>()
 const { t } = useI18n()
 
 const loading = ref(true)
@@ -45,6 +47,7 @@ onMounted(async () => {
     featured.value = []
   } finally {
     loading.value = false
+    if (!results.value.length && !(props.showFeatured && featured.value.length)) emit('empty')
   }
 })
 </script>

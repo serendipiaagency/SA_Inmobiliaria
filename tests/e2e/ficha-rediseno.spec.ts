@@ -115,13 +115,13 @@ test.describe('Ficha rediseñada (#111)', () => {
     await expect(page.getByTestId('ficha-mobile-price')).toBeHidden()
     await expect(page.getByTestId('ficha-mobile-request-visit')).toBeHidden()
 
-    // Orden de la columna derecha: precio, «Atendido por» (sin «Asunto», con privacidad), decisión rápida.
-    const order = await page.getByTestId('ficha-aside').evaluate((el) => [...el.querySelectorAll('[data-testid="ficha-price-card"], [data-testid="property-contact-card"], [data-testid="ficha-quick-decision"], [data-testid="ficha-desktop-cta"]')].map((n) => n.getAttribute('data-testid')))
+    // Orden de la columna derecha: precio, «Atendido por» (con «Asunto» ya relleno y privacidad), decisión rápida; sin CTA fija aparte.
+    const order = await page.getByTestId('ficha-aside').evaluate((el) => [...el.querySelectorAll('[data-testid="ficha-price-card"], [data-testid="property-contact-card"], [data-testid="ficha-quick-decision"]')].map((n) => n.getAttribute('data-testid')))
     expect(order[0]).toBe('ficha-price-card')
     expect(order[1]).toBe('property-contact-card')
-    expect(order[order.length - 1]).toBe('ficha-desktop-cta')
+    await expect(page.getByTestId('ficha-desktop-cta')).toHaveCount(0)
     const card = page.getByTestId('property-contact-card')
-    await expect(card).not.toContainText('Asunto')
+    await expect(card.getByTestId('property-contact-subject')).toHaveValue(p.rich.name)
     await expect(card.getByTestId('property-contact-privacy')).toBeVisible()
 
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(p.rich.name)
@@ -300,7 +300,8 @@ test.describe('Ficha rediseñada (#111)', () => {
     await page.goto(`/propiedades/${p.rich.slug}`)
     await expect(page.getByTestId('ficha-mobile-price')).toBeVisible()
     await expect(page.getByTestId('ficha-aside').getByTestId('ficha-price-card')).toBeHidden()
-    const tops = await page.evaluate(() => ['#fotos', '[data-testid="ficha-mobile-price"]', '[data-testid="ficha-summary"]', '[data-testid="ficha-mobile-request-visit"]', '[data-testid="ficha-section-nav"]', '#descripcion', '#contacto'].map((sel) => Math.round(document.querySelector(sel)!.getBoundingClientRect().top + window.scrollY)))
+    // La descripción va ahora dentro de la tarjeta principal (megaprompt «ficha»), antes del botón.
+    const tops = await page.evaluate(() => ['#fotos', '[data-testid="ficha-mobile-price"]', '[data-testid="ficha-summary"]', '#descripcion', '[data-testid="ficha-mobile-request-visit"]', '[data-testid="ficha-section-nav"]', '#contacto'].map((sel) => Math.round(document.querySelector(sel)!.getBoundingClientRect().top + window.scrollY)))
     expect([...tops].sort((x, y) => x - y), tops.join(', ')).toEqual(tops)
     const wide = await page.evaluate(() => [...document.querySelectorAll('body *')].filter((el) => el.getBoundingClientRect().right > window.innerWidth + 1 && !el.closest('[data-testid="ficha-section-nav"], [data-testid="gallery-tabs"]')).slice(0, 6).map((el) => `${el.tagName}.${String(el.className).slice(0, 60)}`))
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), wide.join(' | ')).toBeLessThanOrEqual(0)
@@ -330,9 +331,9 @@ test.describe('Ficha rediseñada (#111)', () => {
     const noSlots = page.getByTestId('ficha-aside').getByTestId('ficha-price-card')
     await expect(noSlots.getByTestId('next-visit-request')).toBeVisible()
     await expect(noSlots.getByTestId('ficha-video-visit')).toHaveCount(0)
-    // «Solicitar visita» lleva al formulario en vez de a una reserva sin horas.
-    await page.getByTestId('ficha-desktop-cta').getByRole('button').first().click()
+    // Sin huecos, «Atendido por» no ofrece «Solicitar visita» (no hay horas): queda el formulario.
+    await expect(page.getByTestId('property-contact-card')).toBeVisible()
+    await expect(page.getByTestId('property-contact-visit')).toHaveCount(0)
     await expect(page.locator('#book-appt-name')).toHaveCount(0)
-    await expect(page.getByTestId('property-contact-card')).toBeInViewport()
   })
 })

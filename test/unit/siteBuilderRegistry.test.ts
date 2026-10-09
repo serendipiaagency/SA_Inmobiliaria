@@ -162,7 +162,10 @@ describe('todos los bloques exponen nodos editables', () => {
   // (Propiedades, Ficha, Blog — utils/siteBuilder/pages.ts). No tiene nada
   // que editar —se rellena sola— y sus estilos no se guardarían
   // (validatePageDocument se los quita), así que no expone ningún nodo.
-  const NO_NODES = ['PageCoreBlock.vue']
+  // «Eficiencia energética» tampoco: es la etiqueta A–G de la propiedad
+  // (datos de Property Core, nunca texto escrito aquí) y su presentación se
+  // ajusta en el inspector, como la de la zona.
+  const NO_NODES = ['PageCoreBlock.vue', 'EnergyBlock.vue']
   const files = readdirSync(dir).filter((f) => f.endsWith('.vue') && !NO_NODES.includes(f))
 
   it('la zona dinámica no expone nodos: pulsarla selecciona la zona entera', () => {

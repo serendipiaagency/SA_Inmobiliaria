@@ -56,6 +56,7 @@
              lienzo ni desde Vista previa. -->
         <LeadFormBlock v-else-if="block.type === 'lead-form'" :content="block.content" :mode="mode" />
         <BookVisitBlock v-else-if="block.type === 'book-visit'" :content="block.content" :team="homeData?.team || []" :mode="mode" />
+        <EnergyBlock v-else-if="block.type === 'energy-efficiency'" :content="block.content" :mode="mode" />
         <TextBlock v-else-if="block.type === 'text'" :content="block.content" />
         <CtaBlock v-else-if="block.type === 'cta'" :content="block.content" />
         <PageCoreBlock v-else-if="block.type === PAGE_CORE_TYPE" :content="block.content" :projects="homeData?.projects || []" :blogs="homeData?.blogs || []" />
@@ -108,7 +109,10 @@ import BookVisitBlock from './blocks/BookVisitBlock.vue'
 import TextBlock from './blocks/TextBlock.vue'
 import CtaBlock from './blocks/CtaBlock.vue'
 import PageCoreBlock from './blocks/PageCoreBlock.vue'
+import EnergyBlock from './blocks/EnergyBlock.vue'
 import { PAGE_CORE_TYPE } from '~/utils/siteBuilder/pages'
+import { energyCardVisible, energyData, normalizeEnergyOptions } from '~/utils/energyCertificate'
+import { FICHA_PROPERTY_KEY } from '~/composables/useFichaProperty'
 
 /**
  * The one component that turns a page's block array into markup — used
@@ -166,8 +170,16 @@ function isLiveCore(block: SiteBlock): boolean {
   return props.mode === 'production' && block.type === PAGE_CORE_TYPE
 }
 
+// La propiedad de la ficha (pages/propiedades/[slug].vue), para las secciones que la enseñan.
+const fichaProperty = inject(FICHA_PROPERTY_KEY, null)
+
 const visibleBlocks = computed(() =>
   (props.blocks || []).filter((b) => {
+    // «Eficiencia energética» sin datos que enseñar no sale en la web, ni su marco ni su espaciado.
+    if (props.mode === 'production' && b.type === 'energy-efficiency') {
+      const d = fichaProperty?.value
+      if (!d || !energyCardVisible(energyData(d.project, d.details), normalizeEnergyOptions(b.content))) return false
+    }
     if (props.mode === 'production' || props.mode === 'preview') {
       const v = b.visibility
       if (!v) return true

@@ -10,6 +10,8 @@
 type Translate = (key: string, fallback: string) => string
 
 export interface HighlightsProject {
+  bedrooms?: number | null
+  handoverDate?: string | null
   keyHighlights?: string | null
   hasPool?: number | boolean | null
   hasGarage?: number | boolean | null
@@ -55,6 +57,17 @@ export function derivedPros(p: HighlightsProject, t: Translate): string[] {
   if (p.accessible) o.push(t('propertyDetails.pros.accessible', 'Vivienda accesible'))
   if (p.hasElevator) o.push(t('ficha.pros.elevator', 'Edificio con ascensor'))
   return o.slice(0, MAX)
+}
+
+/** Lo que conviene saber según los datos (la columna «A considerar» de «Lo que debes saber»). */
+export function derivedCons(p: HighlightsProject, t: Translate): string[] {
+  const o: string[] = []
+  if (p.status === 'new') o.push(t('propertyDetails.cons.offPlan', 'Entrega sobre plano — planifica la mudanza'))
+  if (p.status === 'under_construction' && p.handoverDate) o.push(`${t('propertyDetails.cons.handoverExpected', 'Entrega prevista')}: ${p.handoverDate}`)
+  if (!p.hasElevator && (p.bedrooms || 0) >= 2) o.push(t('propertyDetails.cons.checkElevator', 'Consulta disponibilidad de ascensor'))
+  if (p.energyRating && ['D', 'E', 'F', 'G'].includes(p.energyRating)) o.push(t('propertyDetails.cons.improvableEfficiency', 'Eficiencia energética mejorable'))
+  if (p.orientation === 'N') o.push(t('propertyDetails.cons.northFacing', 'Orientación norte — menos luz directa'))
+  return o.slice(0, 4)
 }
 
 export function fichaHighlights(p: HighlightsProject, t: Translate): { source: 'editorial' | 'data' | null; items: string[] } {

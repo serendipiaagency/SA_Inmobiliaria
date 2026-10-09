@@ -1,6 +1,7 @@
 <template>
   <header
     class="no-print z-40 transition-colors duration-300"
+    data-site-header
     :class="[
       overlayNav ? 'fixed inset-x-0 top-0' : 'sticky top-0 border-b border-line bg-white/95 backdrop-blur',
       overlayNav && !navLight ? 'border-b border-line bg-white/95 backdrop-blur' : '',

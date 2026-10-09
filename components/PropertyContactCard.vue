@@ -1,5 +1,5 @@
 <template>
-  <div class="pc-card" data-testid="property-contact-card">
+  <div class="pc-card" :class="{ 'pc-tinted': !!toneColors, 'pc-sticky-head': stickyHead }" :style="toneStyle" :data-tone="tone || 'white'" data-testid="property-contact-card">
     <!-- Quién atiende: el comercial responsable de la propiedad o, sin él, la inmobiliaria -->
     <div class="pc-head">
       <img v-if="avatarSrc" :src="avatarSrc" :alt="displayName" class="pc-avatar" :class="{ 'pc-avatar-logo': !agent }" loading="lazy" >
@@ -10,6 +10,12 @@
         <p class="pc-sub">{{ subline }}</p>
       </div>
     </div>
+
+    <!-- «Solicitar visita» (megaprompt «ficha», 4.6): la agenda real del comercial, la misma de siempre -->
+    <button v-if="canBook" type="button" class="pc-visit no-print" data-testid="property-contact-visit" @click="emit('visit')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2" /><path d="M8 2.5v4M16 2.5v4M3 10h18" /></svg>
+      {{ t('propertyStickyBar.requestVisit', 'Solicitar visita') }}
+    </button>
 
     <div class="pc-sep" />
 
@@ -59,6 +65,11 @@
             </span>
             <p v-if="errors.phone" :id="`${ids.phone}-e`" class="pc-error">{{ errors.phone }}</p>
           </div>
+        </div>
+
+        <div class="pc-field">
+          <label class="pc-label" :for="ids.subject">{{ t('contactCard.subject', 'Asunto') }}</label>
+          <input :id="ids.subject" v-model="form.subject" class="pc-input" type="text" name="subject" maxlength="300" :placeholder="project.name" data-testid="property-contact-subject" >
         </div>
 
         <div class="pc-field">
@@ -135,6 +146,9 @@
 </template>
 
 <script setup lang="ts">
+import type { ContactTone } from '~/utils/siteBuilder/pages'
+import { contactToneColors } from '~/utils/contactTone'
+
 /**
  * «Atendido por» de la ficha pública: quién atiende la propiedad, el
  * formulario «Cuéntanos qué necesitas» y el contacto directo.
@@ -147,7 +161,12 @@
  *   servidor resuelve la empresa por el dominio y la propiedad por su slug
  *   (nunca la empresa ni el comercial que mande el navegador), crea o
  *   reutiliza el Contact, crea el lead de esta propiedad, lo enruta y deja el
- *   hilo en Comunicaciones. Sin «Asunto»: la propiedad ya dice de qué va.
+ *   hilo en Comunicaciones. «Asunto» es opcional y llega ya con el nombre de
+ *   la propiedad (se guarda en el mensaje, en las notas del lead y en el hilo).
+ * - «Solicitar visita» abre la agenda real del comercial (la ficha decide si
+ *   la hay: `canBook`); no es otra agenda.
+ * - Fondo: `tone` (Constructor Web → Ficha → «Atendido por»). De partida, un
+ *   tono suave del color de marca de la inmobiliaria (utils/contactTone.ts).
  * - `submissionId` evita que un doble clic cree dos leads; el campo trampa
  *   `website` frena a los bots sin CAPTCHA.
  * - Sin «responde en menos de 15 min»: no hay una métrica pública que lo
@@ -159,7 +178,14 @@
 const props = defineProps<{
   project: { id: number; slug?: string | null; name: string; coverImage?: string | null; price?: number | null }
   agent?: { id: number; slug?: string | null; name: string; position?: string | null; image?: string | null; phone?: string | null; whatsapp?: string | null } | null
+  /** Fondo de la tarjeta; sin él, blanca. */
+  tone?: ContactTone
+  /** Hay agenda con la que reservar: enseña «Solicitar visita». */
+  canBook?: boolean
+  /** En escritorio, con la tarjeta fija y más alta que la pantalla: la cabecera se queda a la vista. */
+  stickyHead?: boolean
 }>()
+const emit = defineEmits<{ visit: [] }>()
 
 const { t } = useI18n()
 const { tenant } = useTenant()
@@ -172,7 +198,10 @@ onMounted(() => {
 })
 
 const uid = useId()
-const ids = { website: `${uid}-web`, name: `${uid}-name`, email: `${uid}-email`, phone: `${uid}-phone`, message: `${uid}-msg`, privacy: `${uid}-privacy` }
+const ids = { website: `${uid}-web`, name: `${uid}-name`, email: `${uid}-email`, phone: `${uid}-phone`, subject: `${uid}-subject`, message: `${uid}-msg`, privacy: `${uid}-privacy` }
+
+const toneColors = computed(() => (props.tone ? contactToneColors(props.tone, tenant.value?.brandColor) : null))
+const toneStyle = computed(() => (toneColors.value ? { '--pc-bg': toneColors.value.bg, '--pc-border': toneColors.value.border } : undefined))
 
 const agent = computed(() => props.agent || null)
 const companyName = computed(() => tenant.value?.companyName || tenant.value?.name || '')
@@ -253,7 +282,7 @@ function printSheet() {
 // --- Formulario ---
 const PHONE_RE = /^[0-9+()\-\s]{6,25}$/
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const form = reactive({ name: '', email: '', phone: '', message: '', privacyAccepted: false, website: '' })
+const form = reactive({ name: '', email: '', phone: '', subject: props.project.name, message: '', privacyAccepted: false, website: '' })
 const errors = reactive<{ name?: string; email?: string; phone?: string; message?: string; privacy?: string }>({})
 const sending = ref(false)
 const sent = ref(false)
@@ -298,6 +327,7 @@ async function submit() {
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
+        subject: form.subject.trim() || undefined,
         message: form.message.trim(),
         privacyAccepted: true,
         submissionId: submissionId || newSubmissionId(),
@@ -324,6 +354,7 @@ function reset() {
   form.name = ''
   form.email = ''
   form.phone = ''
+  form.subject = props.project.name
   form.message = ''
   form.privacyAccepted = false
   submissionId = newSubmissionId()
@@ -343,6 +374,72 @@ function reset() {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+/* Con fondo de marca: el tono suave y el texto secundario algo más oscuro, para que se siga leyendo bien. */
+.pc-tinted {
+  border-color: var(--pc-border);
+  background: var(--pc-bg);
+}
+.pc-tinted .pc-sub,
+.pc-tinted .pc-lead,
+.pc-tinted .pc-consent,
+.pc-tinted .pc-or,
+.pc-tinted .pc-note,
+.pc-tinted .pc-action {
+  color: #57534d;
+}
+.pc-tinted .pc-action:hover,
+.pc-tinted .pc-action-on {
+  color: #1c1b19;
+}
+.pc-tinted .pc-sep,
+.pc-tinted .pc-or::before,
+.pc-tinted .pc-or::after {
+  border-color: var(--pc-border);
+}
+.pc-tinted .pc-input,
+.pc-tinted .pc-call,
+.pc-tinted .pc-actions {
+  background: #fff;
+}
+.pc-tinted .pc-actions,
+.pc-tinted .pc-action + .pc-action {
+  border-color: var(--pc-border);
+}
+/* Escritorio, tarjeta fija más alta que la pantalla: se desplaza por dentro y la cabecera se queda arriba. */
+@media (min-width: 1024px) {
+  .pc-sticky-head .pc-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    margin: -22px -22px 0;
+    border-radius: 16px 16px 0 0;
+    background: var(--pc-bg, #fff);
+    padding: 22px 22px 12px;
+  }
+}
+.pc-visit {
+  margin-top: 16px;
+  display: flex;
+  height: 42px;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1.5px solid #1f3a30;
+  border-radius: 9px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1f3a30;
+  transition: background-color 0.15s ease;
+}
+.pc-visit:hover {
+  background: #f1f5f2;
+}
+.pc-visit:focus-visible {
+  outline: 2px solid #1c1b19;
+  outline-offset: 2px;
 }
 .pc-avatar {
   height: 56px;
