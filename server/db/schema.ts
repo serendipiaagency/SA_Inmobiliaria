@@ -2901,6 +2901,30 @@ export const referrals = sqliteTable(
   (t) => [index('referrals_org').on(t.organizationId, t.status), index('referrals_link').on(t.referralLinkId)],
 )
 
+// Solicitudes de demostración de la landing comercial de INMO (0094): de
+// plataforma, sin organization_id; sólo las ven los super admins.
+export const platformDemoRequests = sqliteTable(
+  'platform_demo_requests',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    email: text('email').notNull(),
+    company: text('company').notNull(),
+    phone: text('phone'),
+    teamSize: text('team_size'),
+    interest: text('interest'),
+    message: text('message'),
+    locale: text('locale'),
+    consentAt: text('consent_at').notNull(),
+    status: text('status').notNull().default('new'), // new | contacted | closed
+    notes: text('notes'),
+    requestId: text('request_id'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('platform_demo_requests_status').on(t.status, t.createdAt), index('platform_demo_requests_email').on(t.email)],
+)
+
 export const savedSearches = sqliteTable(
   'saved_searches',
   {
