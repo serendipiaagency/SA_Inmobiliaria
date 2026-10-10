@@ -9,6 +9,8 @@ import {
   LANDING_DEMO,
   LANDING_DEMO_FORM,
   LANDING_FAQ,
+  LANDING_FEATURES,
+  LANDING_REQUEST,
   LANDING_FINAL,
   LANDING_FOOTER,
   LANDING_FORBIDDEN_CLAIMS,
@@ -33,7 +35,7 @@ const COMPONENTS = join(ROOT, 'components/landing')
 
 /** Todo el texto de la landing: contenido + plantillas de las secciones. */
 function allLandingText(): string {
-  const content = JSON.stringify([LANDING_NAV, LANDING_CTA, LANDING_HERO, LANDING_MODULES, LANDING_BUILDER, LANDING_CRM, LANDING_PROPERTIES, LANDING_INTELLIGENCE, LANDING_STEPS, LANDING_DEMO, LANDING_DEMO_FORM, LANDING_ACCESS, LANDING_FAQ, LANDING_FINAL, LANDING_FOOTER])
+  const content = JSON.stringify([LANDING_NAV, LANDING_CTA, LANDING_HERO, LANDING_MODULES, LANDING_BUILDER, LANDING_CRM, LANDING_PROPERTIES, LANDING_INTELLIGENCE, LANDING_FEATURES, LANDING_REQUEST, LANDING_STEPS, LANDING_DEMO, LANDING_DEMO_FORM, LANDING_ACCESS, LANDING_FAQ, LANDING_FINAL, LANDING_FOOTER])
   const templates = readdirSync(COMPONENTS)
     .filter((f) => f.endsWith('.vue'))
     .map((f) => readFileSync(join(COMPONENTS, f), 'utf8'))
@@ -113,6 +115,27 @@ describe('landing de INMO — estructura', () => {
     }
     for (const step of LANDING_STEPS) expect(LANDING_SHOTS[step.shot]).toBeTruthy()
     for (const tab of [...LANDING_BUILDER.tabs, ...LANDING_PROPERTIES.tabs]) expect(LANDING_SHOTS[tab.shot as keyof typeof LANDING_SHOTS]).toBeTruthy()
+  })
+
+  it('«Funcionalidades» es un inventario completo con estados honestos', () => {
+    expect(LANDING_FEATURES.length).toBeGreaterThanOrEqual(7)
+    const items = LANDING_FEATURES.flatMap((g) => g.items)
+    expect(items.length).toBeGreaterThanOrEqual(35)
+    expect(new Set(items.map((i) => i.text)).size).toBe(items.length)
+    // Los portales no están conectados: nunca «Disponible».
+    const portals = items.find((i) => /portales/i.test(i.text))
+    expect(portals?.state).toBe('soon')
+    // Lo que depende de la IA o de un proveedor lo dice.
+    expect(items.filter((i) => /asistente INMO|AI Studio/i.test(i.text)).every((i) => i.state === 'with-ai')).toBe(true)
+    expect(items.filter((i) => /Stripe|WhatsApp/i.test(i.text)).every((i) => i.state === 'with-provider')).toBe(true)
+    for (const g of LANDING_FEATURES) expect(g.items.length, g.key).toBeGreaterThanOrEqual(4)
+  })
+
+  it('el bloque de solicitud no promete lo que no hay', () => {
+    const text = JSON.stringify(LANDING_REQUEST).toLowerCase()
+    expect(text).not.toMatch(/tarjeta|gratis|inmediat/)
+    expect(LANDING_REQUEST.steps).toHaveLength(3)
+    expect(LANDING_REQUEST.signature.email).toBe('info@serendipiaagency.com')
   })
 
   it('el formulario de demo ofrece las mismas opciones en la landing y en el servidor', () => {

@@ -17,7 +17,7 @@ export const LANDING_NAV: LandingNavItem[] = [
   { label: 'Producto', href: '#producto' },
   { label: 'Constructor Web', href: '#constructor-web' },
   { label: 'CRM', href: '#crm' },
-  { label: 'Funcionalidades', href: '#inteligencia' },
+  { label: 'Funcionalidades', href: '#funcionalidades' },
   { label: 'Cómo funciona', href: '#como-funciona' },
 ]
 
@@ -170,6 +170,148 @@ export const LANDING_DEMO_FORM = {
   ],
 } as const
 
+/** Bloque «Solicitar demo»: lo que pasa después de escribir, sin promesas que no se cumplan. */
+export const LANDING_REQUEST = {
+  eyebrow: 'Empieza por una conversación',
+  title: 'Tu siguiente ventaja competitiva puede empezar aquí.',
+  text: 'Cuéntanos cómo trabajáis hoy y te enseñamos qué puede hacer la plataforma con un caso parecido al vuestro.',
+  steps: [
+    { title: 'Entendemos tu operación actual', text: 'Catálogo, leads, equipo, canales y objetivos.' },
+    { title: 'Preparamos una demo con contexto', text: 'No enseñamos pantallas sueltas: enseñamos un flujo.' },
+    { title: 'Definimos la ruta de implantación', text: 'Sin perder datos ni interrumpir el negocio.' },
+  ],
+  form: {
+    eyebrow: 'Demo personalizada',
+    badge: 'Respuesta por correo en días laborables',
+    title: 'Hablemos de tu inmobiliaria.',
+    submit: 'Solicitar mi demo',
+    footnote: 'Sin compromiso. Una primera conversación con contexto.',
+  },
+  signature: { name: 'Serendipia Agency', email: 'info@serendipiaagency.com' },
+} as const
+
+export type LandingFeatureState = 'available' | 'with-ai' | 'with-provider' | 'soon'
+
+export interface LandingFeature {
+  text: string
+  state?: LandingFeatureState
+}
+
+export interface LandingFeatureGroup {
+  key: string
+  title: string
+  intro: string
+  icon: string
+  items: LandingFeature[]
+}
+
+export const LANDING_FEATURE_STATE_LABEL: Record<LandingFeatureState, string> = {
+  available: 'Disponible',
+  'with-ai': 'Con IA activada',
+  'with-provider': 'Con proveedor configurado',
+  soon: 'Próximamente',
+}
+
+/**
+ * Todo lo que incluye INMO hoy, módulo a módulo. Cada punto corresponde a una
+ * pantalla real del panel (utils/adminNav.ts) y a su entrada en la ayuda
+ * in-app (composables/useHelpContent.ts); lo que depende de un proveedor o de
+ * la IA lo dice, y lo que no está terminado lleva «Próximamente».
+ */
+export const LANDING_FEATURES: LandingFeatureGroup[] = [
+  {
+    key: 'web', title: 'Web y marketing', icon: 'builder',
+    intro: 'La web de tu inmobiliaria, hecha y publicada desde el panel, con todo lo que la alimenta.',
+    items: [
+      { text: 'Constructor Web visual: páginas, bloques, cabecera y pie, estilos globales y Brand Kit' },
+      { text: 'Catálogo público con buscador, filtros, mapa y fichas con galería, planos, eficiencia energética y contacto' },
+      { text: 'Dominio propio (lo activamos contigo) y vista previa antes de publicar' },
+      { text: 'Blog y CMS: artículos por bloques, categorías, etiquetas, autores, comentarios y redirecciones' },
+      { text: 'Suscriptores: formulario «Suscríbete» con consentimiento, bajas y exportación' },
+      { text: 'Widgets embebibles (buscador y formulario) para otras webs' },
+      { text: 'Piezas gráficas y catálogos: plantillas, exportación masiva y catálogos combinados' },
+      { text: 'Publicación en portales y redes: el programador existe; la conexión con cada canal llegará canal a canal', state: 'soon' },
+    ],
+  },
+  {
+    key: 'properties', title: 'Propiedades', icon: 'properties',
+    intro: 'Una ficha completa para obra nueva y segunda mano, conectada con la web y con el CRM.',
+    items: [
+      { text: 'Obra nueva y segunda mano con el mismo editor: datos, superficies, estancias, características por contexto' },
+      { text: 'Multimedia y documentación por propiedad, historial de precios y estado comercial' },
+      { text: 'Búsqueda avanzada con filtros guardados, vistas compartidas y acciones masivas' },
+      { text: 'Campos personalizados y etiquetas propias de tu inmobiliaria' },
+      { text: 'Comunidades y zonas, comerciales responsables y papelera con restauración' },
+      { text: 'Exportación a CSV y API pública para integrar tu catálogo' },
+    ],
+  },
+  {
+    key: 'crm', title: 'CRM y clientes', icon: 'crm',
+    intro: 'Cada consulta es un lead real, con su contacto, su historial y su siguiente paso.',
+    items: [
+      { text: 'Leads con pipeline por etapas, origen, idioma y prioridad' },
+      { text: 'Contactos 360º: roles (comprador, vendedor, propietario), notas, etiquetas y actividad' },
+      { text: 'Necesidades del comprador y compatibilidades con tu catálogo (matching)' },
+      { text: 'Reparto automático por oficina, idioma u horario y tiempos de respuesta (SLA)' },
+      { text: 'Puntuación explicable de cada lead, por reglas que tú defines' },
+      { text: 'Fusión segura de contactos duplicados y programa de referidos' },
+    ],
+  },
+  {
+    key: 'agenda', title: 'Agenda y operaciones', icon: 'agenda',
+    intro: 'Del primer contacto a la firma: visitas, tareas, ofertas y operaciones en un mismo hilo.',
+    items: [
+      { text: 'Visitas y citas con tipos, recordatorios, tours de varias viviendas y resultado de cada visita' },
+      { text: 'Reservas de unidades sobre plano desde la web pública' },
+      { text: 'Tareas y «siguiente acción» en cada lead, contacto, propiedad y operación' },
+      { text: 'Ofertas y operaciones por etapas (lista y kanban), cierres y comisiones' },
+      { text: 'Contratos a partir de plantillas con aceptación online del cliente' },
+      { text: 'Cobro de señales y fianzas con Stripe Checkout', state: 'with-provider' },
+    ],
+  },
+  {
+    key: 'comms', title: 'Comunicaciones', icon: 'mail',
+    intro: 'Lo que dice y recibe tu equipo, en una bandeja y con el remitente de tu empresa.',
+    items: [
+      { text: 'Bandeja unificada: formularios web, chat de la web, correo y llamadas, cada hilo con su lead' },
+      { text: 'Emails transaccionales con la identidad y el dominio de tu empresa (verificación guiada)' },
+      { text: 'WhatsApp y llamadas desde el panel', state: 'with-provider' },
+      { text: 'Avisos internos al equipo y notificaciones a tus propios sistemas (webhooks)' },
+    ],
+  },
+  {
+    key: 'team', title: 'Equipo y control', icon: 'users',
+    intro: 'De una persona a varias oficinas, con permisos claros y rastro de todo.',
+    items: [
+      { text: 'Comerciales, oficinas y equipos; comerciales visibles en la web' },
+      { text: 'Usuarios con permisos por área y plantillas de permisos' },
+      { text: 'Verificación en dos pasos y auditoría de cada acción' },
+      { text: 'Dashboard por comercial, rendimiento comercial y analítica de citas' },
+    ],
+  },
+  {
+    key: 'intelligence', title: 'Inteligencia y automatización', icon: 'intelligence',
+    intro: 'Herramientas que trabajan sobre tus datos reales; las que necesitan IA lo dicen.',
+    items: [
+      { text: 'Automatizaciones: reglas que crean tareas, avisan al equipo o mueven un lead' },
+      { text: 'Analítica de la web y del embudo comercial' },
+      { text: 'Tasador orientativo a partir de comparables de tu propio catálogo' },
+      { text: 'Asistente INMO: pregunta por propiedades, clientes y citas y prepara tareas que tú confirmas', state: 'with-ai' },
+      { text: 'AI Studio: descripciones y textos de marketing asistidos', state: 'with-ai' },
+    ],
+  },
+  {
+    key: 'data', title: 'Datos y seguridad', icon: 'lock',
+    intro: 'Cada empresa en su espacio; tus datos son tuyos.',
+    items: [
+      { text: 'Aislamiento por empresa en todo el sistema y dominio propio por agencia' },
+      { text: 'RGPD: exportación y borrado de los datos de una persona, consentimientos registrados' },
+      { text: 'Copias de seguridad automáticas antes de cada despliegue' },
+      { text: 'API v1 con claves propias y marketplace de integraciones honesto: lo que conecta hoy y lo que no' },
+    ],
+  },
+]
+
 export const LANDING_ACCESS = {
   title: 'Una plataforma preparada para crecer contigo.',
   items: [
@@ -208,7 +350,7 @@ export const LANDING_FINAL = {
 export const LANDING_FOOTER = {
   description: 'INMO es la plataforma para gestionar tu inmobiliaria: web, propiedades, clientes, visitas y operaciones, conectados.',
   columns: [
-    { title: 'Producto', links: [{ label: 'Funcionalidades', href: '#inteligencia' }, { label: 'Constructor Web', href: '#constructor-web' }, { label: 'CRM', href: '#crm' }, { label: 'Cómo funciona', href: '#como-funciona' }] },
+    { title: 'Producto', links: [{ label: 'Funcionalidades', href: '#funcionalidades' }, { label: 'Constructor Web', href: '#constructor-web' }, { label: 'CRM', href: '#crm' }, { label: 'Cómo funciona', href: '#como-funciona' }] },
     { title: 'Acceso', links: [{ label: 'Iniciar sesión', href: '/admin/login' }, { label: 'Crear mi inmobiliaria', href: '/registro-empresa' }, { label: 'Solicitar demo', href: '#solicitar-demo' }] },
     { title: 'Contacto', links: [{ label: 'info@serendipiaagency.com', href: 'mailto:info@serendipiaagency.com' }] },
     { title: 'Legal', links: [{ label: 'Privacidad', href: '/privacidad' }, { label: 'Términos', href: '/terminos' }, { label: 'Cookies', href: '/cookies' }] },

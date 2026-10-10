@@ -9,6 +9,7 @@
       <LpCrm />
       <LpProperties />
       <LpIntelligence />
+      <LpFeatures />
       <LpHowItWorks />
       <LpDemo />
       <LpAccess />
@@ -28,6 +29,7 @@ import LpBuilder from '~/components/landing/LpBuilder.vue'
 import LpCrm from '~/components/landing/LpCrm.vue'
 import LpProperties from '~/components/landing/LpProperties.vue'
 import LpIntelligence from '~/components/landing/LpIntelligence.vue'
+import LpFeatures from '~/components/landing/LpFeatures.vue'
 import LpHowItWorks from '~/components/landing/LpHowItWorks.vue'
 import LpDemo from '~/components/landing/LpDemo.vue'
 import LpAccess from '~/components/landing/LpAccess.vue'

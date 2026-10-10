@@ -59,10 +59,19 @@ Orden de las secciones, cada una un componente de `components/landing/`:
 6. `LpProperties` (`#propiedades`) — pestañas Panel de gestión | Ficha pública.
 7. `LpIntelligence` (`#inteligencia`) — seis capacidades con su estado real
    (Disponible / Con IA activada / Próximamente).
+7b. `LpFeatures` (`#funcionalidades`) — inventario completo de la plataforma
+   por áreas (web y marketing, propiedades, CRM, agenda y operaciones,
+   comunicaciones, equipo, inteligencia, datos), cada punto una pantalla real
+   del panel, con estado (Disponible / Con IA activada / Con proveedor
+   configurado / Próximamente).
 8. `LpHowItWorks` (`#como-funciona`) — línea de tiempo de seis pasos; cada
    paso enseña la pantalla real en la que ocurre.
 9. `LpDemo` (`#demo` y `#solicitar-demo`) — la web de la demo (escritorio y
-   móvil) y el formulario de solicitud.
+   móvil) y el bloque de solicitud: «Empieza por una conversación», tres
+   pasos (entendemos tu operación, demo con contexto, ruta de implantación),
+   firma de Serendipia Agency y el formulario con cabecera «Demo
+   personalizada», sin promesas falsas («sin tarjeta» no se dice porque no
+   hay cobro alguno que evitar).
 10. `LpAccess` (`#planes`) — «Planes y acceso» sin precios: cómo se empieza,
     qué incluye, condiciones bajo consulta.
 11. `LpFaq` (`#faq`) — diez preguntas con respuestas honestas (`<details>`).

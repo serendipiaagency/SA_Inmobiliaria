@@ -21,32 +21,46 @@
     </div>
 
     <!-- Solicitud de demo: una conversación real, no un acceso automático. -->
-    <div id="solicitar-demo" class="lp-shell lp-request">
+    <div id="solicitar-demo" class="lp-shell lp-request" data-testid="landing-request">
       <div class="lp-request-copy">
-        <h3>Solicita una demostración</h3>
-        <p>Te enseñamos INMO con un caso parecido al tuyo y respondemos a lo que quieras saber. Sin compromiso.</p>
-        <ul role="list">
-          <li><LpIcon name="check" />Una sesión guiada con tu caso</li>
-          <li><LpIcon name="check" />Respuesta por correo en días laborables</li>
-          <li><LpIcon name="check" />Tus datos sólo se usan para responderte</li>
-        </ul>
+        <p class="lp-eyebrow">{{ LANDING_REQUEST.eyebrow }}</p>
+        <h3 class="lp-request-title">{{ LANDING_REQUEST.title }}</h3>
+        <p class="lp-request-lede">{{ LANDING_REQUEST.text }}</p>
+        <ol class="lp-request-steps" data-testid="landing-request-steps">
+          <li v-for="(step, i) in LANDING_REQUEST.steps" :key="step.title">
+            <span class="lp-request-num" aria-hidden="true">0{{ i + 1 }}</span>
+            <div><strong>{{ step.title }}</strong><p>{{ step.text }}</p></div>
+          </li>
+        </ol>
+        <div class="lp-request-signature" data-testid="landing-request-signature">
+          <span class="lp-request-avatar" aria-hidden="true">SA</span>
+          <div>
+            <strong>{{ LANDING_REQUEST.signature.name }}</strong>
+            <a :href="`mailto:${LANDING_REQUEST.signature.email}`">{{ LANDING_REQUEST.signature.email }}</a>
+          </div>
+        </div>
       </div>
 
       <form v-if="state !== 'done'" class="lp-form" novalidate data-testid="landing-demo-form" @submit.prevent="submit">
+        <div class="lp-form-head">
+          <p class="lp-form-eyebrow">{{ LANDING_REQUEST.form.eyebrow }}</p>
+          <span class="lp-form-badge" data-testid="landing-request-badge"><i aria-hidden="true" />{{ LANDING_REQUEST.form.badge }}</span>
+        </div>
+        <p class="lp-form-title">{{ LANDING_REQUEST.form.title }}</p>
         <p v-if="formError" class="lp-form-error" role="alert" data-testid="landing-demo-error">{{ formError }}</p>
         <div class="lp-form-grid">
           <div class="lp-field">
-            <label for="lp-demo-name">Nombre</label>
+            <label for="lp-demo-name">Nombre y apellidos</label>
             <input id="lp-demo-name" v-model="form.name" type="text" maxlength="120" autocomplete="name" required :aria-invalid="errors.name ? 'true' : undefined" data-testid="landing-demo-name">
             <small v-if="errors.name">{{ errors.name }}</small>
           </div>
           <div class="lp-field">
-            <label for="lp-demo-email">Correo electrónico</label>
+            <label for="lp-demo-email">Email profesional</label>
             <input id="lp-demo-email" v-model="form.email" type="email" maxlength="200" autocomplete="email" inputmode="email" required :aria-invalid="errors.email ? 'true' : undefined" data-testid="landing-demo-email">
             <small v-if="errors.email">{{ errors.email }}</small>
           </div>
           <div class="lp-field">
-            <label for="lp-demo-company">Inmobiliaria</label>
+            <label for="lp-demo-company">Inmobiliaria o empresa</label>
             <input id="lp-demo-company" v-model="form.company" type="text" maxlength="120" autocomplete="organization" required :aria-invalid="errors.company ? 'true' : undefined" data-testid="landing-demo-company">
             <small v-if="errors.company">{{ errors.company }}</small>
           </div>
@@ -70,8 +84,8 @@
             </select>
           </div>
           <div class="lp-field lp-field-full">
-            <label for="lp-demo-message">Cuéntanos tu caso <span>(opcional)</span></label>
-            <textarea id="lp-demo-message" v-model="form.message" rows="3" maxlength="2000" data-testid="landing-demo-message" />
+            <label for="lp-demo-message">Cuéntanos un poco más <span>(opcional)</span></label>
+            <textarea id="lp-demo-message" v-model="form.message" rows="3" maxlength="2000" placeholder="Cómo trabajáis ahora, qué equipo tenéis y qué os gustaría cambiar…" data-testid="landing-demo-message" />
           </div>
         </div>
         <!-- Campo trampa: invisible para una persona; un bot lo rellena. -->
@@ -81,12 +95,13 @@
         </div>
         <label class="lp-consent" :class="{ 'is-invalid': errors.consent }">
           <input v-model="form.consent" type="checkbox" :aria-invalid="errors.consent ? 'true' : undefined" data-testid="landing-demo-consent">
-          <span>Acepto que INMO use estos datos para responder a mi solicitud, según la <NuxtLink to="/privacidad">política de privacidad</NuxtLink>.</span>
+          <span>Acepto que Serendipia Agency utilice mis datos para responder a esta solicitud de demo, según la <NuxtLink to="/privacidad">política de privacidad</NuxtLink>.</span>
         </label>
         <small v-if="errors.consent" class="lp-consent-error">{{ errors.consent }}</small>
         <button type="submit" class="lp-btn lp-btn-accent lp-form-submit" :disabled="state === 'sending'" :aria-busy="state === 'sending' ? 'true' : undefined" data-testid="landing-demo-submit" data-landing-event="demo_request_submit">
-          {{ state === 'sending' ? 'Enviando…' : 'Solicitar demo' }}
+          {{ state === 'sending' ? 'Enviando…' : LANDING_REQUEST.form.submit }}<LpIcon name="arrow" class="lp-btn-icon" />
         </button>
+        <p class="lp-form-foot" data-testid="landing-request-footnote">{{ LANDING_REQUEST.form.footnote }}</p>
       </form>
 
       <div v-else class="lp-form lp-form-done" role="status" aria-live="polite" data-testid="landing-demo-success">
@@ -103,7 +118,7 @@
 <script setup lang="ts">
 import LpIcon from './LpIcon.vue'
 import LpShot from './LpShot.vue'
-import { LANDING_DEMO, LANDING_DEMO_FORM, LANDING_SHOTS } from '~/utils/landing'
+import { LANDING_DEMO, LANDING_DEMO_FORM, LANDING_REQUEST, LANDING_SHOTS } from '~/utils/landing'
 
 /**
  * Demo: la web real de la inmobiliaria de demostración (escritorio y móvil)
@@ -225,41 +240,133 @@ async function submit() {
 /* Solicitud */
 .lp-request {
   display: grid;
-  grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   gap: 48px;
   margin-top: 80px;
   padding-top: 64px;
   border-top: 1px solid var(--lp-line);
   scroll-margin-top: 96px;
 }
-.lp-request-copy h3 {
-  margin: 0;
-  font-size: clamp(24px, 3vw, 32px);
-  line-height: 1.15;
+.lp-request-title {
+  margin: 20px 0 0;
+  font-size: clamp(30px, 3.6vw, 44px);
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+  max-width: 14ch;
 }
-.lp-request-copy p {
-  margin: 14px 0 0;
-  font-size: 16px;
+.lp-request-lede {
+  margin: 18px 0 0;
+  font-size: 17px;
   line-height: 1.6;
+  max-width: 44ch;
 }
-.lp-request-copy ul {
-  margin: 22px 0 0;
+.lp-request-steps {
+  display: grid;
+  gap: 18px;
+  margin: 34px 0 0;
   padding: 0;
   list-style: none;
-  display: grid;
-  gap: 10px;
 }
-.lp-request-copy li {
+.lp-request-steps li {
+  display: grid;
+  grid-template-columns: 2.6rem minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.lp-request-num {
+  padding-top: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--lp-muted);
+}
+.lp-request-steps strong {
+  display: block;
+  font-size: 16px;
+  color: var(--lp-ink);
+}
+.lp-request-steps p {
+  margin: 4px 0 0;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--lp-text);
+}
+.lp-request-signature {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid var(--lp-line);
+}
+.lp-request-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--lp-ink);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+.lp-request-signature strong {
+  display: block;
   font-size: 14px;
   color: var(--lp-ink);
 }
-.lp-request-copy li svg {
-  width: 16px;
-  height: 16px;
+.lp-request-signature a {
+  font-size: 14px;
+  font-weight: 600;
   color: var(--lp-accent);
+}
+.lp-form-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.lp-form-eyebrow {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--lp-muted);
+}
+.lp-form-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--lp-sage);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lp-ink);
+}
+.lp-form-badge i {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #2f7a4f;
+}
+.lp-form-title {
+  margin: 16px 0 22px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--lp-line);
+  font-size: clamp(22px, 2.4vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--lp-ink);
+}
+.lp-form-foot {
+  margin: 12px 0 0;
+  text-align: center;
+  font-size: 12.5px;
+  color: var(--lp-muted);
 }
 .lp-form {
   padding: 32px;
