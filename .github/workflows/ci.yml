@@ -2,66 +2,121 @@ name: CI & Deploy
 
 # Single pipeline for both validation and deployment — kept as one workflow
 # (not a separate deploy.yml) so a PR's build/test/typecheck never runs
-# twice. `validate` always runs; `staging-preflight`/`deploy-staging` only
-# for pull_request events (never production data/credentials);
-# `production-preflight`/`deploy-production` only for a push to `main`.
+# twice. `validate` always runs; `deploy-staging` only for pull_request
+# events labelled `staging` (never production data/credentials);
+# `deploy-production` only for a push to `main`.
 # No step in this file uses continue-on-error: a failure anywhere stops the
 # pipeline before anything downstream (migrations, deploy, smoke tests)
 # runs — see docs/deployment.md for the full rollback/runbook this
 # pipeline is designed around.
 #
 # Pipeline shape:
-#   validate -> {staging,production}-preflight -> backup -> migrations ->
-#   deploy -> smoke test
-# The preflight jobs exist so a missing/malformed GitHub Environment
-# secret or variable is caught with a clear message before any write
-# against Cloudflare (backup, migration, deploy) runs — see
-# docs/production-hardening-audit.md (P1-11) for why this was added.
+#   validate -> deploy-{staging,production}:
+#     preflight -> build -> backup -> migrations -> deploy -> smoke test
+# The preflight steps (first in each deploy job) catch a missing/malformed
+# GitHub Environment secret or variable with a clear message before any
+# write against Cloudflare runs — see docs/production-hardening-audit.md
+# (P1-11). They used to be separate jobs; merged to save Actions minutes.
+#
+# Ahorro de minutos (2026-10): docs-only changes skip the gate and deploys;
+# e2e runs only on PRs; staging deploys only with the `staging` label;
+# PR runs cancel superseded ones (never on main).
 on:
   pull_request:
   push:
     branches: [main]
 
+# Cancelar la ejecución anterior sólo en PRs (cada push nuevo deja obsoleta la
+# anterior y así no se pagan minutos por ella). En `main` NUNCA se cancela: un
+# segundo merge rápido interrumpiría el despliegue anterior a mitad de las
+# migraciones remotas.
 concurrency:
   group: ci-deploy-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.changes.outputs.code }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # Ahorro de minutos: si el cambio sólo toca documentación (docs/, *.md),
+      # no hace falta instalar, compilar ni probar nada. El job sigue
+      # terminando en verde (los pasos saltados cuentan como éxito), así que
+      # un check obligatorio en la protección de rama no se queda colgado.
+      # Ante cualquier duda (base desconocida, primer push…) se valida todo.
+      - name: Detect code changes (docs-only changes skip the gate)
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="HEAD^1"   # merge commit de la PR: su primer padre es la base
+          else
+            base="${{ github.event.before }}"
+            git fetch --quiet --depth=1 origin "$base" 2>/dev/null || base=""
+          fi
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "Base no disponible: se valida todo."
+            echo "code=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          changed="$(git diff --name-only "$base" HEAD)"
+          echo "$changed"
+          if echo "$changed" | grep -qvE '^(docs/.*|[^/]*\.md|public/demo-assets/.*\.md)$'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Sólo cambia documentación: se salta el gate y el despliegue."
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: actions/setup-node@v4
+        if: steps.changes.outputs.code == 'true'
         with:
           node-version: 22
           cache: npm
 
       - name: Install (clean)
+        if: steps.changes.outputs.code == 'true'
         run: npm ci
 
       - name: Dependency audit (production dependencies)
+        if: steps.changes.outputs.code == 'true'
         run: npm audit --omit=dev
 
       - name: Typecheck
+        if: steps.changes.outputs.code == 'true'
         run: npm run typecheck
 
       - name: Lint
+        if: steps.changes.outputs.code == 'true'
         run: npm run lint
 
       - name: Unit tests
+        if: steps.changes.outputs.code == 'true'
         run: npm test
 
       - name: Build
+        if: steps.changes.outputs.code == 'true'
         run: npm run build
 
       - name: Validate migrations (sequence + clean apply on a fresh local D1)
+        if: steps.changes.outputs.code == 'true'
         run: npm run migrations:check
 
       - name: Install Playwright browsers
+        # El e2e (lo más caro del gate: navegadores + otro build + wrangler dev)
+        # sólo corre en PRs. Al hacer merge a `main` ese mismo código ya pasó el
+        # e2e en su PR; en `main` se mantiene el resto del gate antes de desplegar.
+        if: steps.changes.outputs.code == 'true' && github.event_name == 'pull_request'
         run: npx playwright install --with-deps chromium
 
       - name: E2E tests (Playwright, against a local build)
+        # El e2e (lo más caro del gate: navegadores + otro build + wrangler dev)
+        # sólo corre en PRs. Al hacer merge a `main` ese mismo código ya pasó el
+        # e2e en su PR; en `main` se mantiene el resto del gate antes de desplegar.
+        if: steps.changes.outputs.code == 'true' && github.event_name == 'pull_request'
         run: npm run test:e2e
 
       - name: Upload Playwright report
@@ -72,24 +127,20 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  # Catches a broken/missing GitHub Environment (secret or var) BEFORE any
-  # write against Cloudflare happens — previously the first symptom of a
-  # missing/malformed secret was a raw wrangler error mid-pipeline, after
-  # the backup step had already run. Nothing here writes anything; every
-  # check either confirms presence (never prints the value) or does a
-  # read-only call.
-  staging-preflight:
+  deploy-staging:
     needs: validate
-    if: github.event_name == 'pull_request'
+    # Staging ya no se despliega en cada push de cada PR (era un npm ci + build
+    # + deploy extra cada vez). Sólo si la PR lleva la etiqueta `staging`
+    # (añádela y haz un push, o usa el workflow manual "Poblar y desplegar
+    # staging"). Nunca en cambios que sólo tocan documentación.
+    if: >-
+      github.event_name == 'pull_request'
+      && needs.validate.outputs.code == 'true'
+      && contains(github.event.pull_request.labels.*.name, 'staging')
     runs-on: ubuntu-latest
-    # `environment:` no es decorativo aquí: los secretos y las variables de un
-    # Environment de GitHub SÓLO se resuelven en un job que declara ese
-    # environment. Sin esta línea, `secrets.CLOUDFLARE_API_TOKEN` y
-    # `vars.STAGING_URL` llegan vacíos por bien que estén configurados, y este
-    # job —cuyo único cometido es comprobar que están— falla siempre diciendo
-    # que faltan. No la quites: el preflight dejaría de poder hacer su trabajo.
     environment:
       name: staging
+      url: ${{ vars.STAGING_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -97,6 +148,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+
+      # Preflight (antes era un job aparte, con su propio runner y su propio
+      # npm ci): comprueba secretos, variables y acceso a Cloudflare ANTES de
+      # cualquier escritura (backup, migraciones, deploy). Mismo efecto, menos minutos.
 
       - name: Verify required secrets are present (never prints their values)
         run: |
@@ -148,20 +203,6 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-  deploy-staging:
-    needs: [validate, staging-preflight]
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    environment:
-      name: staging
-      url: ${{ vars.STAGING_URL }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
       - run: npm run build
 
       - name: List pending staging migrations (visibility only — apply step below is authoritative)
@@ -193,15 +234,16 @@ jobs:
         # este job acaba de publicar, falla aquí en vez de pasar en verde.
         run: npm run smoke-test -- "${{ vars.STAGING_URL }}"
 
-  production-preflight:
+  deploy-production:
     needs: validate
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Un merge que sólo toca documentación no despliega (no cambia el Worker).
+    if: >-
+      github.ref == 'refs/heads/main' && github.event_name == 'push'
+      && needs.validate.outputs.code == 'true'
     runs-on: ubuntu-latest
-    # Ver la nota en staging-preflight: sin esta línea el job no puede leer los
-    # secretos del Environment `production` y falla siempre, aunque estén
-    # perfectamente configurados. Es lo que venía pasando.
     environment:
       name: production
+      url: ${{ vars.PRODUCTION_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -209,6 +251,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+
+      # Preflight (antes era un job aparte, con su propio runner y su propio
+      # npm ci): comprueba secretos, variables y acceso a Cloudflare ANTES de
+      # cualquier escritura (backup, migraciones, deploy). Mismo efecto, menos minutos.
 
       - name: Verify required secrets are present (never prints their values)
         run: |
@@ -272,20 +318,6 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-  deploy-production:
-    needs: [validate, production-preflight]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: ${{ vars.PRODUCTION_URL }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
       - run: npm run build
 
       - name: Backup D1 before migrating (wrangler export, kept as a workflow artifact)
