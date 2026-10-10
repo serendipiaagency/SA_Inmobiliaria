@@ -40,6 +40,8 @@ const REDIRECT_RULES: Array<{ from: string; to: string }> = [
   { from: '/demo/mi-cuenta', to: '/mi-cuenta' },
   { from: '/demo/referir', to: '/referir' },
   { from: '/demo', to: '/' },
+  // La landing comercial antigua de INMO (prometía cosas que la plataforma no hace): ahora es la raíz.
+  { from: '/para-inmobiliarias', to: '/' },
 
   // Original bare paths, from before migration 0033 moved everything under
   // "/demo" — still search-indexed, still on old QR codes/PDFs/bookmarks.

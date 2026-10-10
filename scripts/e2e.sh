@@ -143,6 +143,16 @@ if ! curl -sf "${BASE_URL}/" >/dev/null 2>&1; then
   exit 1
 fi
 
+# Con E2E_RUN se ejecuta ese comando en vez de la suite, contra el mismo
+# servidor recién construido y con la misma D1 limpia. Lo usa
+# scripts/capturas-landing.mjs (las capturas reales de la landing, tomadas de
+# la cuenta de demostración): `E2E_RUN='node scripts/capturas-landing.mjs' bash scripts/e2e.sh`.
+if [ -n "${E2E_RUN:-}" ]; then
+  echo "==> Ejecutando: ${E2E_RUN}"
+  E2E_BASE_URL="${BASE_URL}" E2E_PROVIDER_MOCK_URL="${MOCK_URL}" bash -c "${E2E_RUN}"
+  exit $?
+fi
+
 echo "==> Running Playwright"
 # Los argumentos pasan a Playwright: `npm run test:e2e -- tests/e2e/demo.spec.ts` corre sólo ese fichero.
 E2E_BASE_URL="${BASE_URL}" E2E_PROVIDER_MOCK_URL="${MOCK_URL}" npx playwright test "$@"

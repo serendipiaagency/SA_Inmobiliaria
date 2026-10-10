@@ -4,7 +4,7 @@ test.describe('Sitio público', () => {
   test('la raíz muestra la landing SaaS, no el portal inmobiliario (dominio primario)', async ({ page }) => {
     await page.goto('/')
     await expect(page.locator('.sa-landing')).toBeVisible()
-    await expect(page.getByRole('link', { name: /acceder/i }).first()).toHaveAttribute('href', '/admin/login')
+    await expect(page.getByTestId('landing-login')).toHaveAttribute('href', '/admin/login')
   })
 
   test('el listado de propiedades carga en /propiedades y enlaza fichas', async ({ page }) => {

@@ -213,6 +213,8 @@ export const ADMIN_NAV: NavGroup[] = [
       // Configuración de la plataforma entera (qué integraciones están vivas,
       // dormidas o mal configuradas) — misma razón que las dos de arriba.
       { label: 'Estado del sistema', to: '/admin/estado', icon: 'settings', superAdminOnly: true },
+      // Quien pide una demo desde la landing de INMO (platform_demo_requests): de la plataforma, no de una empresa.
+      { label: 'Solicitudes de demo', to: '/admin/solicitudes-demo', icon: 'mail', superAdminOnly: true },
     ],
   },
 ]

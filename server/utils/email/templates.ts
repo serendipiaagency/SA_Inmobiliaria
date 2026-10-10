@@ -32,6 +32,8 @@ export type TemplateKey =
   | 'company_approved'
   | 'company_pending'
   | 'company_admin_invite'
+  | 'demo_request_received'
+  | 'admin_demo_requested'
 
 interface TemplateBase {
   kind: 'transactional' | 'commercial'
@@ -404,6 +406,54 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
         [en(l) ? 'Status' : 'Estado', d.accessStatus],
       ],
       cta: cta(en(l) ? 'View company' : 'Ver empresa', d.adminUrl),
+    }),
+  },
+
+  // --- Solicitudes de demo de la landing comercial (platform_demo_requests) ---
+
+  demo_request_received: {
+    kind: 'transactional',
+    audience: 'user',
+    subject: (_d, l) => (en(l) ? 'We have received your demo request — Portal INMO' : 'Hemos recibido tu solicitud de demo — Portal INMO'),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.activity(l),
+      title: en(l) ? 'Your demo\nrequest' : 'Tu solicitud\nde demo',
+      greetingName: d.name,
+      paragraphs: [
+        en(l)
+          ? 'Thanks for your interest in INMO. We will write to you on working days to arrange a guided demo with a case like yours.'
+          : 'Gracias por tu interés en INMO. Te escribiremos en días laborables para concretar una demostración guiada con un caso parecido al tuyo.',
+        en(l) ? 'You do not need to do anything else for now.' : 'De momento no tienes que hacer nada más.',
+      ],
+      details: [
+        [en(l) ? 'Company' : 'Inmobiliaria', d.company || '—'],
+        [en(l) ? 'Email' : 'Correo', d.email || '—'],
+        [en(l) ? 'Requested on' : 'Solicitada el', d.requestedAt || '—'],
+      ],
+      cta: cta(en(l) ? 'Visit INMO' : 'Ver INMO', d.landingUrl),
+      footnote: en(l) ? 'If you did not make this request, you can ignore this email.' : 'Si no has hecho esta solicitud, puedes ignorar este correo.',
+    }),
+  },
+
+  admin_demo_requested: {
+    kind: 'transactional',
+    audience: 'internal',
+    subject: (d, l) => (en(l) ? `New demo request: ${d.company || '—'}` : `Nueva solicitud de demo: ${d.company || '—'}`),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.platform(l),
+      title: en(l) ? 'New demo\nrequest' : 'Nueva solicitud\nde demo',
+      paragraphs: [en(l) ? 'Someone has requested a demo from the INMO landing page.' : 'Alguien ha pedido una demostración desde la landing de INMO.'],
+      details: [
+        [en(l) ? 'Name' : 'Nombre', d.name || '—'],
+        [en(l) ? 'Company' : 'Inmobiliaria', d.company || '—'],
+        [en(l) ? 'Email' : 'Correo', d.email || '—'],
+        [en(l) ? 'Phone' : 'Teléfono', d.phone || '—'],
+        [en(l) ? 'Team size' : 'Equipo', d.teamSize || '—'],
+        [en(l) ? 'Interest' : 'Interés', d.interest || '—'],
+        [en(l) ? 'Message' : 'Mensaje', d.message || '—'],
+        [en(l) ? 'Date' : 'Fecha', d.requestedAt || '—'],
+      ],
+      cta: cta(en(l) ? 'View demo requests' : 'Ver solicitudes de demo', d.adminUrl),
     }),
   },
 

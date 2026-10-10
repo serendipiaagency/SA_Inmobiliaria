@@ -1142,6 +1142,21 @@ export function useHelpContent() {
       ],
     },
     {
+      key: 'solicitudes-demo',
+      group: 'Sistema',
+      title: 'Solicitudes de demo',
+      route: '/admin/solicitudes-demo',
+      summary: 'La bandeja de quien pide una demostración desde la landing comercial de INMO (la raíz del dominio principal): nombre, correo, inmobiliaria, tamaño del equipo, interés y mensaje, con su consentimiento. Sólo la ve el super_admin: son solicitudes de la plataforma, no de ninguna empresa.',
+      steps: [
+        'Cada solicitud llega como «Nueva». Al enviarla, la persona recibe un correo de confirmación y los super admins un aviso, los dos con la identidad de Portal INMO (info@serendipiaagency.com); si el correo falla, la solicitud se guarda igual y la landing se lo dice a la persona.',
+        'Cambia el estado desde la fila: «Contactada» cuando le hayas escrito y «Cerrada» cuando esté resuelta (con demo hecha o sin interés). Los filtros de arriba cuentan cuántas hay en cada estado.',
+        '«Ver» abre el mensaje, la fecha del consentimiento y las notas internas: apunta ahí qué se habló y cuándo. Las notas no se envían a nadie.',
+        'No se crea ningún lead ni contacto en el CRM de ninguna empresa: la demo es una conversación con quien administra la plataforma, no un acceso a la cuenta de demostración (que no es pública).',
+        '«Borrar solicitud» es para cuando la persona pide que se eliminen sus datos: desaparece del todo y queda apuntado en la auditoría quién lo hizo.',
+        'Protección del formulario: límite por IP, campo trampa para bots, consentimiento obligatorio y un identificador por envío para que un doble clic no la duplique.',
+      ],
+    },
+    {
       key: 'estado-sistema',
       group: 'Sistema',
       title: 'Estado del sistema',
@@ -1233,6 +1248,13 @@ export function useHelpContent() {
       question: '¿Qué pasa cuando alguien se suscribe desde el pie de la web?',
       tags: ['newsletter', 'suscriptores', 'pie', 'rgpd', 'consentimiento'],
       answer: 'Queda apuntado en Portal Web → Suscriptores, con la fecha en que aceptó la política de privacidad, y recibe en pantalla un enlace para darse de baja. No se le envía ningún email automático, ni de bienvenida ni newsletter: INMO guarda la lista con su consentimiento para que la exportes y la uses con tu herramienta de envíos, respetando las bajas. Quien se apunta dos veces no se duplica. Los datos de una persona se pueden exportar o suprimir desde Privacidad (RGPD) como el resto.',
+    },
+    {
+      id: 'faq-landing-demo',
+      question: '¿Dónde van las solicitudes de demo de la landing de INMO?',
+      answer:
+        'A Sistema → Solicitudes de demo (sólo super_admin). No crean leads en ninguna empresa: son de la plataforma. La persona recibe un correo de confirmación y los super admins un aviso con sus datos; allí cambias el estado (Nueva, Contactada, Cerrada) y apuntas notas internas.',
+      tags: ['landing', 'demo', 'solicitud', 'plataforma', 'super admin'],
     },
     {
       id: 'faq-email-entrante',

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte } from 'drizzle-orm'
+import { and, desc, eq, gte, ne } from 'drizzle-orm'
 import { requireOrgScope } from '../../../utils/auth'
 import { cfEnv, useDb, schema } from '../../../utils/db'
 import { EMAIL_HEALTH_WINDOW_DAYS, summarizeEmailHealth } from '../../../utils/email/health'
@@ -35,7 +35,10 @@ export default defineEventHandler(async (event) => {
       createdAt: schema.emailLog.createdAt,
     })
     .from(schema.emailLog)
-    .where(and(eq(schema.emailLog.organizationId, orgId), gte(schema.emailLog.createdAt, since)))
+    // Los emails que nunca se entregaron a un proveedor (provider 'none': los
+    // bloqueados a propósito en la cuenta demo, server/utils/email/send.ts)
+    // no dicen nada del canal: no son una caída, no se cuentan.
+    .where(and(eq(schema.emailLog.organizationId, orgId), gte(schema.emailLog.createdAt, since), ne(schema.emailLog.provider, 'none')))
     .orderBy(desc(schema.emailLog.id))
     .limit(MAX_ROWS)
 

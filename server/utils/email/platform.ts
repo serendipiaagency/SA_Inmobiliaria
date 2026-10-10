@@ -40,6 +40,8 @@ export const PLATFORM_TEMPLATES = [
   'company_approved',
   'company_pending',
   'company_admin_invite',
+  'demo_request_received',
+  'admin_demo_requested',
 ] as const satisfies readonly TemplateKey[]
 export type PlatformTemplateKey = (typeof PLATFORM_TEMPLATES)[number]
 
