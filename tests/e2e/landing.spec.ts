@@ -1,6 +1,6 @@
 import { test, expect, request as pwRequest, type Page } from '@playwright/test'
 import { ANON_STATE, STATE_A, STATE_B } from './global-setup'
-import { LANDING_FAQ, LANDING_FORBIDDEN_CLAIMS, LANDING_MODULES, LANDING_NAV, LANDING_STEPS } from '../../utils/landing'
+import { LANDING_FAQ, LANDING_FEATURES, LANDING_FORBIDDEN_CLAIMS, LANDING_MODULES, LANDING_NAV, LANDING_REQUEST, LANDING_STEPS } from '../../utils/landing'
 
 /**
  * Landing comercial de INMO (pages/index.vue en el host principal,
@@ -435,7 +435,7 @@ test.describe('Landing comercial de INMO', () => {
   test('30 · accesibilidad básica: un único h1, secciones con título y pestañas con roles', async ({ page }) => {
     await open(page)
     expect(await page.locator('.sa-landing h1').count()).toBe(1)
-    for (const id of ['producto', 'constructor-web', 'crm', 'propiedades', 'inteligencia', 'como-funciona', 'demo', 'planes', 'faq']) {
+    for (const id of ['producto', 'constructor-web', 'crm', 'propiedades', 'inteligencia', 'funcionalidades', 'como-funciona', 'demo', 'planes', 'faq']) {
       await expect(page.locator(`#${id} h2`).first()).toBeVisible()
     }
     expect(await page.locator('[role="tablist"]').count()).toBe(2)
@@ -507,6 +507,45 @@ test.describe('Landing comercial de INMO', () => {
     const text = (await page.locator('.sa-landing').innerText()).toLowerCase()
     for (const claim of LANDING_FORBIDDEN_CLAIMS) expect(text, `no puede decir «${claim}»`).not.toContain(claim.toLowerCase())
     expect(text).not.toMatch(/\+\s?\d{2,}\s?(inmobiliarias|clientes)|confían en nosotros/)
+  })
+
+  test('36 · Funcionalidades: inventario completo por áreas, con estados honestos y «Próximamente» en los portales', async ({ page }) => {
+    await open(page)
+    const section = page.getByTestId('landing-features')
+    await expect(section.locator('.lp-feature-group')).toHaveCount(LANDING_FEATURES.length)
+    expect(LANDING_FEATURES.length).toBeGreaterThanOrEqual(7)
+    const items = section.locator('.lp-feature-list li')
+    expect(await items.count()).toBe(LANDING_FEATURES.reduce((s, g) => s + g.items.length, 0))
+    expect(await items.count()).toBeGreaterThanOrEqual(35)
+    const portals = page.getByTestId('landing-feature-group-web').locator('li[data-state="soon"]')
+    await expect(portals).toHaveCount(1)
+    await expect(portals).toContainText('Próximamente')
+    await expect(page.getByTestId('landing-feature-group-intelligence').locator('li[data-state="with-ai"]').first()).toContainText('Con IA activada')
+    await expect(section).toContainText(`en ${LANDING_FEATURES.length} áreas`)
+    await expect(page.getByTestId('landing-header').locator('nav a[href="#funcionalidades"]')).toHaveText('Funcionalidades')
+  })
+
+  test('37 · bloque de solicitud: tres pasos legibles, firma con correo y formulario con cabecera honesta', async ({ page }) => {
+    await open(page, '/#solicitar-demo')
+    const req = page.getByTestId('landing-request')
+    await expect(req.locator('.lp-eyebrow')).toHaveText(LANDING_REQUEST.eyebrow)
+    await expect(req.locator('h3').first()).toHaveText(LANDING_REQUEST.title)
+    const steps = page.getByTestId('landing-request-steps').locator('li')
+    await expect(steps).toHaveCount(3)
+    // Cada texto de paso cabe en una o dos líneas: nada de una palabra por línea.
+    for (let i = 0; i < 3; i++) {
+      const p = steps.nth(i).locator('p')
+      const box = await p.boundingBox()
+      expect(box!.width).toBeGreaterThan(200)
+      expect(box!.height).toBeLessThan(60)
+    }
+    await expect(page.getByTestId('landing-request-signature')).toContainText(LANDING_REQUEST.signature.email)
+    await expect(page.getByTestId('landing-request-badge')).toHaveText(LANDING_REQUEST.form.badge)
+    await expect(page.getByTestId('landing-demo-form')).toContainText(LANDING_REQUEST.form.title)
+    await expect(page.getByTestId('landing-demo-submit')).toContainText(LANDING_REQUEST.form.submit)
+    const foot = await page.getByTestId('landing-request-footnote').innerText()
+    expect(foot.toLowerCase()).not.toContain('tarjeta')
+    expect(foot).toBe(LANDING_REQUEST.form.footnote)
   })
 
   test('35 · analítica: sólo si ya hay GA4; cada botón marcado envía su evento', async ({ page }) => {
