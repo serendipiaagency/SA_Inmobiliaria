@@ -43,6 +43,8 @@ const BEFORE: Array<[to: string, label: string, area: AdminArea | null, superAdm
 const ADDED: Array<[to: string, label: string, area: AdminArea | null, superAdminOnly: boolean]> = [
   // Megaprompt «footer»: la lista del «Suscríbete» del pie de la web.
   ['/admin/suscriptores', 'Suscriptores', 'web', false],
+  // Landing comercial de INMO: la bandeja de solicitudes de demo (sólo super admin).
+  ['/admin/solicitudes-demo', 'Solicitudes de demo', 'system', true],
 ]
 
 const entries = ADMIN_NAV.flatMap((group) => group.items.map((item) => ({ group, item })))
@@ -111,7 +113,7 @@ describe('menú lateral — permisos', () => {
   it('el super admin ve Empresas, Errores y Estado del sistema; un admin de empresa no', () => {
     const sa = visibleAdminNav(ADMIN_NAV, { isSuperAdmin: true, allowed: ALL_AREAS }).flatMap((g) => g.items.map((i) => i.label))
     const admin = visibleAdminNav(ADMIN_NAV, { isSuperAdmin: false, allowed: ALL_AREAS }).flatMap((g) => g.items.map((i) => i.label))
-    for (const label of ['Empresas', 'Errores', 'Estado del sistema']) {
+    for (const label of ['Empresas', 'Errores', 'Estado del sistema', 'Solicitudes de demo']) {
       expect(sa).toContain(label)
       expect(admin).not.toContain(label)
     }

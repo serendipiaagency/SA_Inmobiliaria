@@ -42,6 +42,12 @@ const DATA = {
   title: 'Contrato de arras',
   clientName: 'Pablo',
   acceptedAt: '2026-10-07',
+  // Solicitudes de demo de la landing (demo_request_received / admin_demo_requested).
+  company: 'Agencia Costa',
+  requestedAt: '2026-10-07 10:00',
+  teamSize: '2 a 5 personas',
+  interest: 'Tener una web profesional',
+  landingUrl: 'https://portal.test/',
 }
 
 describe('plantilla maestra: estructura', () => {

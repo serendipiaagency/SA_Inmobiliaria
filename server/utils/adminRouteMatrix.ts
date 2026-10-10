@@ -81,6 +81,8 @@ const RULES: Rule[] = [
   // Configuración de la plataforma entera (qué secretos faltan, qué
   // integraciones están dormidas), no datos de ningún inquilino.
   { pattern: /^system-status$/, resolve: constant({ kind: 'super-admin' }) }, // pages/admin/estado.vue
+  // Solicitudes de demo de la landing comercial (platform_demo_requests): de la plataforma, no de una empresa.
+  { pattern: /^demo-requests(?:\/|$)/, resolve: constant({ kind: 'super-admin' }) }, // pages/admin/solicitudes-demo.vue
 
   // --- General (Dashboard, Analytics) ------------------------------------
   { pattern: /^stats$/, resolve: area('general') },

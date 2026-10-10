@@ -64,6 +64,21 @@ const EXEMPT: Record<string, Exemption> = {
     requires: /requireSuperAdmin\(event\)/,
   },
 
+  // Solicitudes de demo de la landing comercial (platform_demo_requests,
+  // migración 0094): una tabla DE LA PLATAFORMA, sin organization_id.
+  'admin/demo-requests/index.get.ts': {
+    reason: 'Bandeja de solicitudes de demo de la plataforma (platform_demo_requests, sin organización). Se cierra por rol con requireSuperAdmin, más estricto que cualquier ámbito.',
+    requires: /requireSuperAdmin\(event\)/,
+  },
+  'admin/demo-requests/index.patch.ts': {
+    reason: 'Atender o borrar una solicitud de demo de la plataforma (sin organización). Se cierra por rol con requireSuperAdmin.',
+    requires: /requireSuperAdmin\(event\)/,
+  },
+  'public/demo-request.post.ts': {
+    reason: 'Formulario «Solicitar demo» de la landing de INMO: escribe en platform_demo_requests (de la plataforma, sin organización) y no lee datos de ninguna inquilina; los correos salen con la identidad de la plataforma. Límite de tasa por IP, campo trampa y consentimiento obligatorio.',
+    requires: /rateLimit\(event, 'demo-request'/,
+  },
+
   'auth/login.post.ts': { reason: 'Anterior a la sesión: es lo que la crea.' },
   'auth/logout.post.ts': { reason: 'Destruye la sesión; no lee datos de negocio.' },
   'auth/me.get.ts': { reason: 'Devuelve la propia sesión, que ya incluye su organizationId. No consulta datos de otros.' },

@@ -170,6 +170,7 @@ docs/                  Documentación técnica por módulo (ver abajo)
 - [`multitenant-audit.md`](docs/multitenant-audit.md), [`multitenant-hardening-report.md`](docs/multitenant-hardening-report.md) — aislamiento entre agencias
 - [`r2-architecture.md`](docs/r2-architecture.md), [`media-security-audit.md`](docs/media-security-audit.md) — almacenamiento y seguridad de archivos
 - [`property-editor.md`](docs/property-editor.md), [`clientes.md`](docs/clientes.md), [`site-builder.md`](docs/site-builder.md) — módulos del panel
+- [`landing.md`](docs/landing.md) — la landing comercial de INMO (`/` en el host principal), sus capturas reales y la solicitud de demo
 - [`matching-and-lead-pipeline.md`](docs/matching-and-lead-pipeline.md) — necesidades, motor de matching, pipeline de leads y fusión de contactos duplicados
 - [`publication-channels.md`](docs/publication-channels.md), [`asset-export-studio.md`](docs/asset-export-studio.md) — publicación y piezas gráficas
 - [`stripe-payments.md`](docs/stripe-payments.md), [`resend-email.md`](docs/resend-email.md) — integraciones
