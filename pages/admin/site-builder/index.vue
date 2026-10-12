@@ -692,12 +692,12 @@ const breadcrumb = computed(() => (selectedBlock.value ? blockLabel(selectedBloc
 // dynamic filters + manual selection) — fetched once here in the shell,
 // independently of the canvas iframe's own copy for rendering. Never
 // snapshotted into block content, exactly like the canvas's live data.
-const previewData = ref<{ projects: any[]; communities: any[]; blogs: any[]; team: any[] } | null>(null)
+const previewData = ref<{ projects: any[]; communities: any[]; blogs: any[]; team: any[]; zones?: any[] } | null>(null)
 const previewDataLoaded = ref(false)
 function ensurePreviewData() {
   if (previewDataLoaded.value) return
   previewDataLoaded.value = true
-  $fetch<{ projects: any[]; communities: any[]; blogs: any[]; team: any[] }>('/api/admin/site-pages/preview-data')
+  $fetch<{ projects: any[]; communities: any[]; blogs: any[]; team: any[]; zones?: any[] }>('/api/admin/site-pages/preview-data')
     .then((data) => (previewData.value = data))
     .catch(() => (previewData.value = { projects: [], communities: [], blogs: [], team: [] }))
 }

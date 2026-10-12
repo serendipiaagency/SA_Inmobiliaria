@@ -1,5 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../utils/db'
+import { zonePath, zoneTree } from '../utils/zones'
 import { livePropertyCond } from '../utils/properties/trash'
 
 // "/" only shows this org's portal home when the sitemap is fetched from
@@ -32,7 +33,7 @@ export default defineEventHandler(async (event) => {
   const origin = getRequestURL(event).origin
   const orgId = resolvePublicOrgId(event)
 
-  const [properties, blogPosts, team, communities, cmsArticles, cmsAuthors] = await Promise.all([
+  const [properties, blogPosts, team, communities, cmsArticles, cmsAuthors, zoneRows] = await Promise.all([
     // Sólo propiedades vivas: una de la papelera respondería 404.
     db
       .select({ slug: schema.developerProperties.slug })
@@ -52,6 +53,8 @@ export default defineEventHandler(async (event) => {
       .where(and(eq(schema.cmsArticles.organizationId, orgId), eq(schema.cmsArticles.status, 'published'), isNull(schema.cmsArticles.deletedAt)))
       .all(),
     db.select({ slug: schema.cmsAuthors.slug }).from(schema.cmsAuthors).where(eq(schema.cmsAuthors.organizationId, orgId)).all(),
+    // Zonas publicadas (docs/zonas.md): región, municipios y barrios con su ruta jerárquica.
+    db.select().from(schema.zones).where(and(eq(schema.zones.organizationId, orgId), eq(schema.zones.status, 'published'), isNull(schema.zones.deletedAt))).all(),
   ])
 
   const urls: string[] = [...STATIC_PATHS.map((p) => `${origin}${p}`)]
@@ -61,6 +64,8 @@ export default defineEventHandler(async (event) => {
   for (const c of communities) urls.push(`${origin}/zonas/${c.id}`)
   for (const a of cmsArticles) if (a.slug) urls.push(`${origin}/blog/${a.slug}`)
   for (const a of cmsAuthors) if (a.slug) urls.push(`${origin}/blog/autor/${a.slug}`)
+  const tree = zoneTree(zoneRows)
+  for (const z of zoneRows) if (z.kind === 'region' || z.intro) urls.push(`${origin}${zonePath(z, tree)}`)
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

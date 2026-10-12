@@ -47,6 +47,7 @@
         <MapTeaserBlock v-else-if="block.type === 'map-teaser'" :content="block.content" :projects="homeData?.projects || []" :mode="mode" />
         <PropertiesBlock v-else-if="block.type === 'properties'" :content="block.content" :projects="homeData?.projects || []" />
         <CommunitiesBlock v-else-if="block.type === 'communities'" :content="block.content" :communities="homeData?.communities || []" />
+        <ZonesGridBlock v-else-if="block.type === 'zones-grid'" :content="block.content" :zones="homeData?.zones || []" />
         <PropertyTypesBlock v-else-if="block.type === 'property-types'" :content="block.content" :projects="homeData?.projects || []" />
         <MortgageBlock v-else-if="block.type === 'mortgage-calculator'" :content="block.content" :projects="homeData?.projects || []" />
         <BlogListBlock v-else-if="block.type === 'blog-list'" :content="block.content" :blogs="homeData?.blogs || []" />
@@ -100,6 +101,7 @@ import HeroBlock from './blocks/HeroBlock.vue'
 import MapTeaserBlock from './blocks/MapTeaserBlock.vue'
 import PropertiesBlock from './blocks/PropertiesBlock.vue'
 import CommunitiesBlock from './blocks/CommunitiesBlock.vue'
+import ZonesGridBlock from './blocks/ZonesGridBlock.vue'
 import PropertyTypesBlock from './blocks/PropertyTypesBlock.vue'
 import MortgageBlock from './blocks/MortgageBlock.vue'
 import BlogListBlock from './blocks/BlogListBlock.vue'
@@ -137,7 +139,7 @@ import { FICHA_PROPERTY_KEY } from '~/composables/useFichaProperty'
 const props = withDefaults(
   defineProps<{
     blocks: SiteBlock[]
-    homeData?: { projects?: any[]; communities?: any[]; blogs?: any[]; team?: any[] } | null
+    homeData?: { projects?: any[]; communities?: any[]; blogs?: any[]; team?: any[]; zones?: any[] } | null
     mode?: 'production' | 'builder' | 'preview'
     /** builder-only: which breakpoint the canvas is currently simulating */
     device?: 'desktop' | 'tablet' | 'mobile'

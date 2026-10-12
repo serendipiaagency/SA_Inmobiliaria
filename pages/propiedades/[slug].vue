@@ -235,6 +235,9 @@
               </div>
             </PropertySectionCard>
 
+            <!-- Guía de la zona (docs/zonas.md): «Descubre cómo es vivir en…», sólo si la agencia tiene una guía publicada para la ubicación. -->
+            <ZoneLink v-if="show('ubicacion') && zoneLocation.municipality" class="mt-4" :municipality="zoneLocation.municipality" :neighborhood="zoneLocation.neighborhood" />
+
             <!-- Sol y orientación -->
             <PropertySectionCard v-if="show('orientacion') && has('orientacion')" id="orientacion" :title="t('propertyDetails.orientation.heading', 'Sol y orientación')" :style="at('orientacion')">
               <LazySunOrientation hydrate-on-visible :orientation="data.project.orientation" :lat="data.project.lat" :lng="data.project.lng" />
@@ -328,6 +331,7 @@
 
 <script setup lang="ts">
 import { hasValidCoords } from '~/utils/maps/coords'
+import ZoneLink from '~/components/zones/ZoneLink.vue'
 import { formatDisplayPrice } from '~/utils/currency'
 import { PROPERTY_TYPE_LABELS } from '~/utils/propertySheet'
 import { buildQuickFacts } from '~/utils/quickFacts'
@@ -473,6 +477,11 @@ const statusLabel = computed(() => ({ new: t('propertyDetails.status.new', 'Obra
 // La ubicación pública (la privacidad ya quitó portal, planta y número en el
 // servidor) y la promotora, como en la referencia: «Residencial … · Promotora».
 const locationLine = computed(() => [p.value.community || (p.value as any).city, data.value?.developer?.name].filter(Boolean).join(' · '))
+// Ubicación con la que se busca la guía de zona: municipio y barrio de la ficha ampliada o, si faltan, ciudad y zona de la propiedad.
+const zoneLocation = computed(() => ({
+  municipality: String((data.value as any)?.details?.municipality || (p.value as any).city || '').trim() || null,
+  neighborhood: String((data.value as any)?.details?.neighborhood || p.value.community || '').trim() || null,
+}))
 const agentSlug = computed<string | null>(() => (data.value as any)?.agent?.slug || null)
 // «Ref.»: el código comercial de Property Core (público, PropertySchemaRegistry), si el Constructor no lo oculta.
 const reference = computed(() => (display.value.showReference ? String((data.value as any)?.details?.commercialCode || '').trim() : ''))

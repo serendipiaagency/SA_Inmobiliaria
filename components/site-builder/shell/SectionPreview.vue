@@ -32,6 +32,11 @@
     </div>
 
     <!-- Communities / property-types: a small grid of tiles -->
+    <!-- Zonas: tres fotos apaisadas con el nombre encima -->
+    <div v-else-if="type === 'zones-grid'" class="grid w-[80%] grid-cols-3 gap-1.5">
+      <div v-for="i in 3" :key="i" class="relative aspect-[3/2] rounded bg-stone-300"><div class="absolute bottom-1 left-1 h-1 w-1/2 rounded-full bg-white" /></div>
+    </div>
+
     <div v-else-if="type === 'communities' || type === 'property-types'" class="grid w-[80%] grid-cols-3 gap-1.5">
       <div v-for="i in 6" :key="i" class="aspect-square rounded bg-stone-200" />
     </div>

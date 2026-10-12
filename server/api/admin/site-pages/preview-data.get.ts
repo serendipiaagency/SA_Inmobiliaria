@@ -4,6 +4,7 @@ import { requireOrgScope } from '../../../utils/auth'
 import { attachPhotos } from '../../../utils/photos'
 import { PUBLIC_TEAM_COLUMNS } from '../../../utils/publicTeam'
 import { livePropertyCond } from '../../../utils/properties/trash'
+import { homeZones } from '../../../utils/zones'
 
 /**
  * Same shape as /api/public/home, but scoped to the admin's own active
@@ -49,6 +50,7 @@ export default defineEventHandler(async (event) => {
   return {
     projects: await attachPhotos(db, projects),
     communities,
+    zones: await homeZones(db, orgId),
     blogs: blogs.map((b) => ({ ...b, ...blogTitles[b.id] })),
     team,
   }

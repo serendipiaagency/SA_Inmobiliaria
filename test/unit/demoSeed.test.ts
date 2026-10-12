@@ -108,7 +108,9 @@ describe('cuenta demo Norte Astur', () => {
     expect(await countFor(db, schema.assetExportCatalogs, orgId)).toBe(3)
     expect(await countFor(db, schema.automations, orgId)).toBe(4)
     const [home] = await db.select().from(schema.sitePages).where(and(eq(schema.sitePages.organizationId, orgId), eq(schema.sitePages.pageKey, 'home')))
-    expect(JSON.parse(home.publishedJson!).blocks.length).toBe(11)
+    // 11 bloques + el bloque «Zonas» (docs/zonas.md).
+    expect(JSON.parse(home.publishedJson!).blocks.length).toBe(12)
+    expect(await countFor(db, schema.zones, orgId)).toBe(37)
 
     // Las métricas salen de los registros, no se escriben a mano.
     const metrics = await db.select().from(schema.metricsDaily).where(eq(schema.metricsDaily.organizationId, orgId))
