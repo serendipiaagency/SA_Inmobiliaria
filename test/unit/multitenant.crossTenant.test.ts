@@ -276,7 +276,7 @@ describe('cross-tenant CREATE with a foreign relation is refused', () => {
 
   it('the declared relations cover the known client-supplied foreign keys', () => {
     expect(relationKeys.sort()).toEqual(
-      ['cms-authors', 'cms-categories', 'cms-comments', 'cms-media-folders', 'contacts', 'developer-properties', 'lead-routing-rules', 'leads', 'properties', 'property-contacts', 'team', 'team-member-documents', 'teams'].sort(),
+      ['cms-authors', 'cms-categories', 'cms-comments', 'cms-media-folders', 'contacts', 'developer-properties', 'lead-routing-rules', 'leads', 'properties', 'property-contacts', 'team', 'team-member-documents', 'teams', 'zones'].sort(),
     )
   })
 
