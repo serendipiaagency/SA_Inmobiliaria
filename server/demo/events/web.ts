@@ -14,6 +14,8 @@ import { DEMO_ADMIN, DEMO_COMPANY } from '../dataset/company'
 import { mediaAlt } from '../dataset/media'
 import { ARTICLES, AUTOMATIONS, CATALOGS, EXPORT_PROJECTS, EXPORT_TEMPLATES, HOME_SLIDES, KNOWLEDGE_DOCS, REFERRALS, REFERRAL_LINKS } from '../dataset/web'
 import { createZones } from './zonas'
+import { GUIAS_COMPRA, type GuiaArticle } from '../../content/guiasCompra'
+import { guiaArticleValues } from '../../utils/blog/buyerGuides'
 import { CONTACTS, LEADS } from '../dataset/crm'
 import { PROPERTIES } from '../dataset/properties'
 import type { TimelineBuilder } from '../timeline'
@@ -145,6 +147,38 @@ async function createArticle(ctx: DemoContext, a: (typeof ARTICLES)[number]) {
   await ctx.db.insert(schema.cmsMedia).values({ organizationId: org, filename: a.cover.split('/').pop()!, url: `/api/media/${cover}`, type: 'image', altText: mediaAlt(a.cover, a.title), createdAt: ts })
 }
 
+/**
+ * Las seis guías de compra (server/content/guiasCompra): el mismo contenido
+ * que publica el host principal, pero con la portada y las imágenes del
+ * cuerpo subidas al R2 de la cuenta demo, como cualquier artículo suyo.
+ * Las imágenes aún pendientes de elegir se omiten (bloque sin `src`).
+ */
+async function createGuia(ctx: DemoContext, guia: GuiaArticle) {
+  const org = orgId(ctx)
+  const user = admin(ctx)
+  const cover = await uploadDemoAsset(ctx, `blog/${guia.cover.file}`, { category: 'blog-image', createdBy: user.id })
+  const ts = now()
+  const blocks: Record<string, any>[] = []
+  for (const b of guia.blocks) {
+    if (b.type !== 'image') {
+      blocks.push(b)
+      continue
+    }
+    if (b.pending || !b.src) continue
+    const key = await uploadDemoAsset(ctx, String(b.src), { category: 'blog-image', createdBy: user.id })
+    blocks.push({ ...b, src: key })
+    await ctx.db.insert(schema.cmsMedia).values({ organizationId: org, filename: String(b.src).split('/').pop()!, url: `/api/media/${key}`, type: 'image', altText: b.alt, width: b.width, height: b.height, createdAt: ts })
+  }
+  const values = guiaArticleValues(guia, org, { categoryId: ctxId(ctx, 'cms-category:guias'), authorId: ctxId(ctx, 'cms-author'), coverImage: cover, blocks, now: ts })
+  const [row] = await ctx.db.insert(schema.cmsArticles).values(values).returning({ id: schema.cmsArticles.id })
+  await ctx.db.insert(schema.cmsArticleVersions).values({ articleId: row.id, title: guia.title, contentJson: values.contentJson, editedBy: user.id, createdAt: ts })
+  ctxSetId(ctx, `article:${guia.key}`, row.id)
+  await ctx.db.insert(schema.cmsMedia).values({ organizationId: org, filename: guia.cover.file, url: `/api/media/${cover}`, type: 'image', altText: guia.cover.alt, width: guia.cover.width, height: guia.cover.height, createdAt: ts })
+}
+
+/** Día (relativo a hoy) en que la demo publica cada guía: la guía principal es la más reciente, para encabezar el listado. */
+const GUIA_DAYS: Record<string, number> = { g01: -20, g02: -34, g03: -48, g04: -62, g05: -76, g06: -90 }
+
 const randomCode = () => {
   const bytes = crypto.getRandomValues(new Uint8Array(6))
   return Array.from(bytes).map((b) => b.toString(36)).join('').slice(0, 8)
@@ -166,6 +200,7 @@ export function addWebEvents(tl: TimelineBuilder): void {
     }
   })
   for (const a of ARTICLES) tl.add(a.days, '10:00', `Artículo ${a.key}`, (ctx) => createArticle(ctx, a))
+  for (const g of GUIAS_COMPRA) tl.add(GUIA_DAYS[g.key] ?? -30, '10:30', `Guía ${g.key}`, (ctx) => createGuia(ctx, g))
 
   // Las guías de zona, antes de la portada que las enlaza.
   tl.add(-29, '09:30', 'Zonas: guías de Asturias', createZones)

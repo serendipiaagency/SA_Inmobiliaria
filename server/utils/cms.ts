@@ -6,6 +6,8 @@
  * read/write, so no migration is needed when that lands.
  */
 
+import { stripInline } from '../../utils/cmsInline'
+
 export interface CmsBlock {
   type: string
   text?: string
@@ -24,7 +26,9 @@ export function parseBlocks(contentJson: string | null | undefined): CmsBlock[] 
 
 /** Flattens every block's text into one string — used for word counts, SEO analysis and search. */
 export function blocksToPlainText(blocks: CmsBlock[]): string {
-  const parts: string[] = []
+  const raw: string[] = []
+  // Sin las marcas en línea ([texto](url), **negrita**): se cuentan palabras, no enlaces.
+  const parts = { push: (s: string) => raw.push(stripInline(String(s))) }
   for (const b of blocks) {
     switch (b.type) {
       case 'heading':
@@ -55,11 +59,64 @@ export function blocksToPlainText(blocks: CmsBlock[]): string {
       case 'gallery':
         if (b.caption) parts.push(b.caption)
         break
+      // Bloques editoriales de las guías de compra (components/cms/*).
+      case 'keypoints':
+        if (b.title) parts.push(b.title)
+        for (const item of b.items || []) parts.push(String(item))
+        break
+      case 'timeline':
+        if (b.title) parts.push(b.title)
+        for (const step of b.steps || []) {
+          if (step.title) parts.push(step.title)
+          if (step.text) parts.push(step.text)
+          for (const d of step.docs || []) parts.push(String(d))
+        }
+        break
+      case 'checklist':
+        if (b.title) parts.push(b.title)
+        if (b.intro) parts.push(b.intro)
+        for (const g of b.groups || []) {
+          if (g.title) parts.push(g.title)
+          for (const item of g.items || []) {
+            if (item.text) parts.push(item.text)
+            if (item.hint) parts.push(item.hint)
+          }
+        }
+        break
+      case 'accordion':
+        if (b.title) parts.push(b.title)
+        for (const sec of b.sections || []) {
+          if (sec.title) parts.push(sec.title)
+          for (const item of sec.items || []) {
+            if (item.q) parts.push(item.q)
+            if (item.why) parts.push(item.why)
+          }
+        }
+        break
+      case 'comparator':
+        if (b.title) parts.push(b.title)
+        for (const row of b.rows || []) parts.push([row.label, row.a, row.b].filter(Boolean).join(' '))
+        for (const q of b.questions || []) {
+          if (q.q) parts.push(q.q)
+          for (const o of q.options || []) if (o.label) parts.push(o.label)
+        }
+        break
+      case 'factors_chart':
+        if (b.title) parts.push(b.title)
+        if (b.text) parts.push(b.text)
+        for (const f of b.factors || []) {
+          if (f.label) parts.push(f.label)
+          if (f.why) parts.push(f.why)
+        }
+        break
+      case 'cost_calculator':
+        if (b.title) parts.push(b.title)
+        break
       default:
         if (b.text) parts.push(b.text)
     }
   }
-  return parts.join(' ').replace(/\s+/g, ' ').trim()
+  return raw.join(' ').replace(/\s+/g, ' ').trim()
 }
 
 /** Counts internal (/ or same-origin) vs external links referenced by button/cta/video blocks — real SEO signal, not fabricated. */

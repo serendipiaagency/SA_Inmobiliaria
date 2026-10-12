@@ -1,0 +1,151 @@
+import { IMAGES } from './images'
+import { cta, faq, h2, h3, img, keypoints, p, table, tip, warn, type GuiaArticle } from './types'
+
+/**
+ * Artículo 3 · Qué revisar antes de comprar una casa: 15 aspectos y una lista
+ * de comprobación por estancias (bloque checklist: interactiva, imprimible y
+ * descargable). Normativa citada: Ley de Propiedad Horizontal (art. 9.1.e y f),
+ * RD 390/2021 (certificado energético), RITE (mantenimiento de calderas).
+ */
+export const queRevisarAntesComprarCasa: GuiaArticle = {
+  key: 'g03',
+  slug: 'que-revisar-antes-comprar-casa',
+  title: 'Qué revisar antes de comprar una casa: los 15 aspectos que nadie debería pasar por alto',
+  subtitle: 'Humedades, instalaciones, comunidad, superficie real, cargas y entorno: lo que se mira en una visita, lo que se pide en papel y lo que conviene dejar a un técnico. Con lista de comprobación por estancias.',
+  seoTitle: 'Qué revisar antes de comprar una casa: 15 aspectos clave',
+  seoDescription: 'Los 15 aspectos que revisar antes de comprar: humedades, grietas, instalaciones, caldera, ventanas, comunidad, superficie, cargas y entorno. Checklist por estancias.',
+  focusKeyword: 'qué revisar antes de comprar una casa',
+  category: 'guias',
+  reviewedAt: '2026-10-10',
+  cover: IMAGES['g03-cover'],
+  related: ['guia-comprar-vivienda', 'preguntas-antes-comprar-vivienda', 'obra-nueva-vs-segunda-mano'],
+  blocks: [
+    p('Una vivienda se compra en veinte minutos de visita y se paga durante veinte años. Casi todos los problemas que aparecen después de la firma (una humedad que vuelve, una derrama votada hace meses, unos metros que no eran) se podían ver antes. Solo hacía falta saber dónde mirar y qué pedir. Esta guía recorre los quince aspectos que más disgustos dan y termina con una lista de comprobación por estancias para llevar a la visita.'),
+    keypoints([
+      'Lo que no se ve en la visita se pide en papel: nota simple, certificado energético, recibos de IBI y comunidad, actas de las dos últimas juntas.',
+      'Las humedades, las grietas y las instalaciones antiguas son las tres fuentes de gasto más frecuentes tras la compra. Mira techos, esquinas, bajos de ventanas y el cuadro eléctrico.',
+      'Al comprar respondes de las deudas con la comunidad del año en curso y de los tres anteriores (art. 9.1.e de la Ley de Propiedad Horizontal). Exige el certificado.',
+      'La superficie que importa es la de la nota simple y el Catastro, no la del anuncio. Útil y construida pueden diferir un 15–20 %.',
+      'Si algo te genera dudas, un informe de un arquitecto técnico cuesta una fracción de lo que puede ahorrar.',
+    ]),
+    img(IMAGES['g03-window'], { wide: true }),
+
+    h2('Lo que se ve: la vivienda'),
+    h3('1. Humedades y filtraciones'),
+    p('Son el problema más común y el más disimulado. Busca manchas, cercos amarillentos y pintura abombada en techos (sobre todo bajo baños y terrazas de la vivienda de arriba), en las esquinas de las habitaciones exteriores, en la parte baja de las paredes de planta baja y alrededor de las ventanas. Un olor a cerrado o a moho al entrar en una habitación habla por sí solo, igual que una pared recién pintada en una vivienda que, por lo demás, no se ha tocado en años. Hay tres tipos con soluciones muy distintas: filtración (entra agua desde fuera), capilaridad (sube desde el suelo, típica de bajos) y condensación (falta de ventilación o de aislamiento). Las dos primeras pueden ser caras; la tercera suele mejorar con ventilación y ventanas.'),
+    h3('2. Grietas y estructura'),
+    p('No todas las grietas son iguales. Las fisuras finas y verticales en tabiques suelen ser de acabado y no preocupan. Las grietas inclinadas a 45 grados, las que atraviesan de una estancia a otra, las que separan el techo de la pared o las que aparecen en vigas y pilares pueden indicar movimientos del edificio y requieren la opinión de un técnico. Fíjate también en suelos que no están a nivel (una canica rodando lo delata) y en puertas que no cierran bien. En edificios construidos entre los años cincuenta y setenta conviene preguntar si se ha descartado la presencia de cemento aluminoso en los forjados.'),
+    h3('3. Instalación eléctrica'),
+    p('Abre el cuadro eléctrico. Debe tener un interruptor general, al menos un diferencial y varios automáticos (uno por circuito). Un cuadro con fusibles de porcelana, cables de tela o sin diferencial es una instalación de hace más de cuarenta años que habrá que renovar entera, con el coste y las obras que eso supone. Comprueba la potencia contratada en una factura (menos de 3,45 kW es poco para una vivienda con electrodomésticos actuales) y cuenta los enchufes por habitación. Si la instalación tiene más de veinte años o quieres aumentar la potencia, la distribuidora puede exigir un nuevo boletín eléctrico firmado por un instalador autorizado.'),
+    h3('4. Fontanería y saneamiento'),
+    p('Abre todos los grifos a la vez y tira de la cadena: la presión debe mantenerse y el agua debe salir clara desde el principio. Mira debajo de los fregaderos y lavabos, donde las fugas pequeñas dejan cercos y madera hinchada. Pregunta por el material de las tuberías: en edificios anteriores a los años ochenta puede haber plomo, que hay que sustituir, y el hierro galvanizado antiguo acaba obstruido por la cal. Comprueba si los bajantes comunitarios se han renovado y si el agua del edificio llega por grupo de presión o directa de la red.'),
+    img(IMAGES['g03-kitchen']),
+    h3('5. Calefacción y agua caliente'),
+    p('Localiza la caldera, su marca y su año. Una caldera de gas de más de quince años está al final de su vida útil, y las de tipo atmosférico ya no se fabrican. Pide el justificante del último mantenimiento (el Reglamento de Instalaciones Térmicas lo exige periódicamente) y de la inspección de la instalación de gas, que la distribuidora realiza cada cinco años. Si la calefacción es central, pregunta cuánto se paga de media al mes y si hay contadores individuales. Si es eléctrica, revisa la factura de invierno antes de dar por bueno el coste.'),
+    h3('6. Ventanas, aislamiento y ruido'),
+    p('Las ventanas son el punto por el que una vivienda pierde más energía y entra más ruido. Comprueba que cierran bien, que el doble acristalamiento no tiene vaho entre los vidrios (señal de que la cámara ha perdido la estanqueidad) y si la carpintería tiene rotura de puente térmico. Cierra las ventanas y escucha: la calle, el ascensor, las tuberías del vecino. Vuelve a otra hora para repetir la prueba. El certificado de eficiencia energética te dará, además de la letra, una estimación de consumo que conviene contrastar con las facturas reales.'),
+    h3('7. Orientación y luz natural'),
+    p('Una vivienda orientada al sur recibe sol la mayor parte del día; al norte, casi nunca; al este, por la mañana; al oeste, por la tarde. En el norte de España la orientación sur o suroeste supone una diferencia de confort y de gasto en calefacción apreciable. Lleva una brújula (la del teléfono sirve) y comprueba qué edificios, patios o árboles tapan la luz. Las fotos del anuncio se hacen a la hora en que mejor entra el sol; la visita conviene hacerla a otra.'),
+    h3('8. Distribución y posibilidades'),
+    p('Pregúntate si la distribución sirve tal como está o si la compras pensando en reformar. Si es lo segundo, averigua qué paredes son de carga (no se pueden tirar sin proyecto), por dónde pasan los bajantes (condicionan dónde pueden ir cocina y baños) y si hay ventilación cruzada. Una reforma integral se mueve en órdenes de magnitud muy distintos según se toquen o no instalaciones y estructura. Pide un presupuesto orientativo antes de hacer la oferta, no después.'),
+
+    h2('Lo que se ve: el edificio'),
+    h3('9. Fachada, cubierta y zonas comunes'),
+    p('Da una vuelta al edificio antes de subir. Grietas en la fachada, desconchones, cantos de balcón con el hierro a la vista, bajantes oxidados o una cubierta con parches son obras comunitarias que acabarán en una derrama. Dentro, el portal, la escalera y el ascensor dicen cómo se gestiona la comunidad: limpieza, bombillas, buzones, tablón de anuncios con convocatorias recientes. Pregunta si el edificio ha pasado la Inspección Técnica de Edificios (en muchos municipios es obligatoria a partir de los cincuenta años) y qué dijo el informe.'),
+    img(IMAGES['g03-facade'], { wide: true }),
+    h3('10. Accesibilidad y ascensor'),
+    p('Un edificio sin ascensor en una planta alta limita a quién podrás vender o alquilar en el futuro y puede ser un problema para ti antes de lo que crees. Si no lo tiene, pregunta si se ha votado instalarlo y qué coste se calculó; si lo tiene, cuántos años tiene y si cumple la normativa actual. Los escalones del portal, la anchura de las puertas y los rellanos también cuentan.'),
+
+    h2('Lo que se pide: la documentación'),
+    h3('11. La comunidad de propietarios'),
+    p('Pide al vendedor o al administrador el certificado de estar al corriente de pagos, la cuota mensual, las actas de las dos últimas juntas y el último presupuesto. En las actas aparecen las obras aprobadas y las pendientes, los morosos y los conflictos. Al comprar, respondes de las deudas con la comunidad del año en curso y de los tres años naturales anteriores (artículo 9.1.e de la Ley de Propiedad Horizontal), por eso el certificado se exige en la notaría. Comprueba también que existe un fondo de reserva, que por ley no puede bajar del 10 % del último presupuesto ordinario.'),
+    table([
+      ['Documento', 'Qué buscar', 'Quién lo da'],
+      ['Certificado de deudas', 'Que el piso esté al corriente; derramas aprobadas y pendientes de cobro', 'Administrador o secretario de la comunidad'],
+      ['Actas de las dos últimas juntas', 'Obras votadas, presupuestos, morosidad, conflictos recurrentes', 'Administrador o vendedor'],
+      ['Presupuesto anual y cuota', 'Cuota real, partidas extraordinarias, fondo de reserva', 'Administrador'],
+      ['Estatutos y normas de régimen interior', 'Limitaciones de uso: alquiler turístico, mascotas, actividades, obras', 'Administrador o Registro de la Propiedad'],
+      ['Informe de la ITE o IEE', 'Deficiencias detectadas y plazo para subsanarlas', 'Ayuntamiento o administrador'],
+    ]),
+    h3('12. Superficie real'),
+    p('El anuncio dice una cifra; el Catastro y la nota simple, a veces, otras. La superficie construida incluye muros y parte proporcional de elementos comunes; la útil es la que se pisa, y suele ser un 15–20 % menor. Consulta la referencia catastral en la Sede Electrónica del Catastro: verás la superficie, el año de construcción y si hay construcciones no declaradas (una terraza cerrada, un trastero). Si hay diferencias notables con lo que ves, pregunta por qué antes de hacer la oferta: una obra sin legalizar puede ser un problema al financiar o al revender.'),
+    h3('13. Situación jurídica'),
+    p('La nota simple del Registro de la Propiedad, que cuesta pocos euros y se obtiene en línea, dice quién es el propietario, qué cargas pesan sobre la vivienda (hipotecas, embargos, afecciones fiscales, servidumbres), si está arrendada y si tiene alguna limitación, como una calificación de vivienda protegida que fije un precio máximo de venta. Pídela con fecha reciente y vuelve a pedirla antes de firmar las arras. Si la vivienda ha tenido obras importantes, pregunta por la licencia. Y si se vende con inquilino, recuerda que el contrato de alquiler te vincula hasta su vencimiento.'),
+    warn('Una vivienda ocupada por un inquilino con contrato en vigor, o por los propios vendedores sin fecha de salida, no es una vivienda disponible. Deja por escrito en las arras que se entrega libre de ocupantes y con las llaves el día de la firma.'),
+    h3('14. Eficiencia energética y suministros'),
+    p('El certificado de eficiencia energética es obligatorio para vender (Real Decreto 390/2021) y dice bastante más que una letra: estima el consumo anual y las emisiones, y propone mejoras con su ahorro aproximado. Una G no es un motivo para descartar la vivienda, pero sí para presupuestar ventanas o aislamiento. Pide las facturas reales de luz, gas y agua del último año: son la prueba de lo que cuesta vivir ahí, y permiten negociar con argumentos.'),
+    h3('15. El entorno y lo que viene'),
+    p('Lo que rodea la vivienda cambia su valor tanto como lo que hay dentro. Mira la distancia real a transporte, colegios, centros de salud y comercio, y recórrela a pie. Consulta en el ayuntamiento el planeamiento urbanístico: un solar vacío frente a la ventana puede ser un parque o un edificio de ocho plantas. Pregunta por obras previstas en la calle, por el ruido del fin de semana y por el aparcamiento. Si compras en una zona que no conoces, el paseo a distintas horas es la mejor inversión de tiempo de toda la compra.'),
+
+    h2('La lista para la visita, por estancias'),
+    p('Esta lista reúne los quince puntos anteriores en el orden en que se recorre una vivienda. Marca lo que vayas comprobando: se guarda en tu navegador para que puedas volver a ella en la segunda visita, y puedes imprimirla o descargarla para llevarla en papel.'),
+    { type: 'checklist', title: 'Lista de comprobación por estancias', intro: 'Marca cada punto a medida que lo revises. Lo que no puedas comprobar en la visita, pídelo en papel.', storageKey: 'g03-estancias', printable: true, downloadable: true, groups: [
+      { title: 'Exterior y edificio', items: [
+        { text: 'Fachada sin grietas, desconchones ni hierros a la vista' },
+        { text: 'Cubierta y bajantes en buen estado', hint: 'Los parches en la cubierta anticipan una derrama.' },
+        { text: 'ITE/IEE pasada y sin deficiencias pendientes' },
+        { text: 'Orientación comprobada con brújula; qué tapa la luz' },
+        { text: 'Ruido de la calle a dos horas distintas' },
+      ] },
+      { title: 'Portal y zonas comunes', items: [
+        { text: 'Portal, escalera y buzones limpios y mantenidos' },
+        { text: 'Ascensor: antigüedad y última revisión' },
+        { text: 'Tablón: convocatorias y avisos recientes' },
+        { text: 'Accesibilidad: escalones, anchura de puertas, rampas' },
+      ] },
+      { title: 'Entrada, pasillo y salón', items: [
+        { text: 'Techos y esquinas sin manchas ni cercos' },
+        { text: 'Grietas: ninguna inclinada, ninguna que atraviese estancias' },
+        { text: 'Suelos a nivel; puertas que cierran bien' },
+        { text: 'Cuadro eléctrico con diferencial y automáticos; potencia contratada' },
+        { text: 'Enchufes suficientes por habitación' },
+      ] },
+      { title: 'Cocina', items: [
+        { text: 'Sin fugas bajo el fregadero; madera sin hinchar' },
+        { text: 'Presión de agua con varios grifos abiertos' },
+        { text: 'Salida de humos y ventilación' },
+        { text: 'Caldera: marca, año, último mantenimiento, inspección de gas' },
+      ] },
+      { title: 'Baños', items: [
+        { text: 'Cisterna, desagües y presión correctos' },
+        { text: 'Juntas y azulejos sin moho; ventilación o ventana' },
+        { text: 'Techo sin manchas (filtraciones del piso superior)' },
+      ] },
+      { title: 'Dormitorios', items: [
+        { text: 'Ventanas: cierre, doble acristalamiento sin vaho, carpintería' },
+        { text: 'Ruido de vecinos y de instalaciones con la ventana cerrada' },
+        { text: 'Humedad en la pared exterior y bajo las ventanas' },
+      ] },
+      { title: 'Terraza, balcón y tendedero', items: [
+        { text: 'Desagües limpios; pavimento sin baldosas sueltas' },
+        { text: 'Barandilla firme; canto del forjado sin hierros a la vista' },
+        { text: 'Cerramientos: ¿legalizados y en Catastro?' },
+      ] },
+      { title: 'Documentación', items: [
+        { text: 'Nota simple reciente: titular, cargas, arrendamientos, limitaciones' },
+        { text: 'Certificado de la comunidad; actas de las dos últimas juntas; presupuesto; fondo de reserva' },
+        { text: 'Estatutos: limitaciones de uso' },
+        { text: 'Superficie en Catastro frente a la del anuncio' },
+        { text: 'Certificado energético y facturas reales de un año' },
+        { text: 'Licencias de las obras realizadas' },
+        { text: 'Planeamiento y obras previstas en el entorno' },
+      ] },
+    ] },
+
+    h2('Cuándo llamar a un técnico'),
+    p('No hace falta un informe profesional para cada visita, pero sí en tres situaciones: cuando has visto grietas que no sabes interpretar, cuando el edificio tiene más de cincuenta años y no consta una inspección técnica, y cuando vas a hacer una oferta importante sobre una vivienda que necesitará reforma. Un arquitecto técnico o aparejador puede revisar la vivienda contigo en una hora y entregarte un informe con el estado de estructura, instalaciones y envolvente, y una estimación de lo que costaría arreglar lo que encuentre. Es también el mejor argumento posible en una negociación: en [Cómo saber si una vivienda está bien de precio](/blog/como-saber-vivienda-bien-precio) verás cómo convertir ese informe en una oferta razonada.'),
+    tip('Haz la segunda visita con la lista impresa, con tiempo y sin el vendedor encima. Si una agencia o un propietario no permite una segunda visita tranquila, o se niega a facilitar la documentación de la comunidad, tómalo como la información que es.'),
+
+    h2('Conclusión'),
+    p('Revisar una vivienda no es desconfiar, es comprar con los ojos abiertos. Las humedades, las grietas y las instalaciones se ven; la comunidad, la superficie y las cargas se leen; el entorno se pasea. Nada de esto lleva más de unas horas repartidas en dos visitas y unos pocos documentos, y evita las dos cosas que más duelen después de una compra: la obra que no estaba prevista y la derrama que ya estaba votada. Si todo cuadra, el siguiente paso es la oferta, y lo explicamos en la [guía paso a paso](/blog/guia-comprar-vivienda).'),
+    faq([
+      { q: '¿Puedo pedir las actas de la comunidad si aún no soy propietario?', a: 'Las actas se entregan a los propietarios, así que debes pedírselas al vendedor, que tiene derecho a obtenerlas del administrador. Un vendedor que se niega a facilitarlas está diciendo algo. El certificado de deudas sí lo expide el administrador a petición del propietario y es obligatorio aportarlo en la notaría salvo que el comprador lo exonere expresamente.' },
+      { q: '¿Qué pasa si la superficie del Catastro no coincide con la del anuncio?', a: 'Lo habitual es que el anuncio dé la superficie construida (incluidos muros y parte de elementos comunes) y que parezca mayor que la útil. Si la diferencia es grande o hay construcciones no declaradas, pregunta por qué: puede haber una obra sin legalizar, un cerramiento de terraza o simplemente un error. Para comparar precios por metro cuadrado, usa siempre la misma referencia.' },
+      { q: '¿Es obligatoria la Inspección Técnica de Edificios?', a: 'Depende del municipio y de la comunidad autónoma. En muchas ciudades es obligatoria para edificios de más de cincuenta años, con revisiones periódicas posteriores. Si el edificio la ha pasado, pide el informe: dirá qué deficiencias se detectaron y si se han corregido. Si no la ha pasado y debería, la comunidad tendrá que hacerlo pronto, con las obras que resulten.' },
+      { q: '¿Cuánto cuesta un informe técnico de una vivienda antes de comprarla?', a: 'Varía según la ciudad, el tamaño de la vivienda y el alcance del informe, pero en general supone una pequeña fracción del precio de la vivienda y mucho menos que cualquier reparación estructural o renovación de instalaciones que no se hubiera detectado. Pide presupuesto a un arquitecto técnico de la zona y acuerda por escrito qué incluye.' },
+      { q: '¿Tengo que pagar las derramas aprobadas antes de comprar?', a: 'La deuda con la comunidad va con la vivienda: el comprador responde de lo que se deba del año en curso y de los tres anteriores. Una derrama aprobada pero aún no girada la pagará quien sea propietario cuando se cobre, salvo que el contrato de compraventa diga otra cosa. Por eso conviene leer las actas y pactar en las arras quién asume las obras ya votadas.' },
+    ]),
+    cta('¿Quieres ver viviendas con la lista en la mano?', 'Nuestros asesores te acompañan en la visita y te facilitan la documentación de la comunidad antes de que hagas una oferta.', 'Consultar con un asesor', '/contacto'),
+    { type: 'properties', mode: 'latest', limit: 3 },
+  ],
+}

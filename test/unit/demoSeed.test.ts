@@ -101,7 +101,8 @@ describe('cuenta demo Norte Astur', () => {
     expect(await countFor(db, schema.notes, orgId)).toBe(10)
     const chats = await db.select().from(schema.commsWebThreads).where(and(eq(schema.commsWebThreads.organizationId, orgId), eq(schema.commsWebThreads.kind, 'chat')))
     expect(chats.length).toBe(7)
-    expect(await countFor(db, schema.cmsArticles, orgId)).toBe(4)
+    // 4 artículos del dataset + las 6 guías de compra (server/content/guiasCompra).
+    expect(await countFor(db, schema.cmsArticles, orgId)).toBe(10)
     expect(await countFor(db, schema.knowledgeDocuments, orgId)).toBe(5)
     expect(await countFor(db, schema.referrals, orgId)).toBe(6)
     expect(await countFor(db, schema.assetExportProjects, orgId)).toBe(5)

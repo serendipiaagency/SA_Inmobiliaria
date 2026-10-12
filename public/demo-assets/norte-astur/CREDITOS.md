@@ -201,3 +201,34 @@ Fotografías reales de modelos publicadas en StockSnap con licencia CC0 1.0; se 
 | `personas/c52.jpg` | Hugo Cifuentes Sala | Bruce Mars | CC0 1.0 | <https://stocksnap.io/photo/man-celebrating-RMOCSAQNUG> |
 | `personas/c53.jpg` | Eva Montes Granda | Joseph L. Etchingham | CC0 1.0 | <https://stocksnap.io/photo/woman-sweater-40LEBVKEJ5> |
 | `personas/c54.jpg` | Alejandro Corripio Vega | Direct Media | CC0 1.0 | <https://stocksnap.io/photo/male-fitness-JKPU5AQBAD> |
+
+## Blog: guías de compra (blog/)
+
+Fotografías genéricas con licencia CC0, no viviendas reales de Norte Astur (docs/blog-guias.md). Portadas recortadas a 16:9 (1600×900); cuerpo a 1600 px de ancho; todas convertidas a WebP.
+
+| Fichero | Autor | Licencia | Origen |
+|---|---|---|---|
+| `blog/g01-cover.webp` | David Cohen dcp | CC0 1.0 (Unsplash, vía Wikimedia Commons) | <https://commons.wikimedia.org/w/index.php?curid=61879356> |
+| `blog/g01-search.webp` | Dan Tabifranca | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/20567bcef7/> |
+| `blog/g01-contract.webp` | soycelycruz | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/4756694517/> |
+| `blog/g01-keys.webp` | bug273 | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/27764636e6/> |
+| `blog/g02-cover.webp` | Roy Tanck | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/799636f689/> |
+| `blog/g02-desk.webp` | Rashed Hossain | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/8116a1d3f1/> |
+| `blog/g02-signing.webp` | David Chandra Purnama | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/632620a981/> |
+| `blog/g02-savings.webp` | Rámon van Raaij | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/637662e8fa/> |
+| `blog/g03-cover.webp` | Da Chakrapan | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/5263ef2c3c/> |
+| `blog/g03-window.webp` | María Cortés | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/32868b424b/> |
+| `blog/g03-kitchen.webp` | Nilo Velez | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/5826356f84/> |
+| `blog/g03-facade.webp` | Michael Burridge | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/11761f2947/> |
+| `blog/g04-cover.webp` | Eduardo Salinas | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/492687d356/> |
+| `blog/g04-street.webp` | Nilo Velez | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/3765be5302/> |
+| `blog/g04-balcony.webp` | Javier Salinas | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/6136345b9a/> |
+| `blog/g04-plan.webp` | Sharankrishna VP | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/570654db87/> |
+| `blog/g05-cover.webp` | Limpinho | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/661682727a/> |
+| `blog/g05-construction.webp` | Cristina Ecija | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/93367af617/> |
+| `blog/g05-interior.webp` | mujuonly | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/2316835921/> |
+| `blog/g05-oldbuilding.webp` | chris_c | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/7306695778/> |
+| `blog/g06-cover.webp` | Nilo Velez | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/96367da838/> |
+| `blog/g06-meeting.webp` | Paal Joachim Romdahl | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/9706376b7b/> |
+| `blog/g06-documents.webp` | Nilo Velez | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/57267ab11b/> |
+| `blog/g06-entrance.webp` | Alvaro Gómez | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/67648af9cc/> |
