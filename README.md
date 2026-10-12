@@ -171,6 +171,7 @@ docs/                  Documentación técnica por módulo (ver abajo)
 - [`r2-architecture.md`](docs/r2-architecture.md), [`media-security-audit.md`](docs/media-security-audit.md) — almacenamiento y seguridad de archivos
 - [`property-editor.md`](docs/property-editor.md), [`clientes.md`](docs/clientes.md), [`site-builder.md`](docs/site-builder.md) — módulos del panel
 - [`zonas.md`](docs/zonas.md) — guías de zona de la web pública (región → municipio → barrio), su directorio, el bloque de la portada y el recurso del panel
+- [`home-corporativa.md`](docs/home-corporativa.md) — bloques corporativos de la portada (agencia, argumentos, equipo y oficinas) y las oficinas en la web
 - [`landing.md`](docs/landing.md) — la landing comercial de INMO (`/` en el host principal), sus capturas reales y la solicitud de demo
 - [`matching-and-lead-pipeline.md`](docs/matching-and-lead-pipeline.md) — necesidades, motor de matching, pipeline de leads y fusión de contactos duplicados
 - [`publication-channels.md`](docs/publication-channels.md), [`asset-export-studio.md`](docs/asset-export-studio.md) — publicación y piezas gráficas
