@@ -72,7 +72,10 @@ dos tenants reales.
 `communities`, `property-types`, `mortgage-calculator`, `energy-efficiency`
 (sólo en la Ficha de propiedad, ver «Ficha de propiedad: descripción,
 «Atendido por», eficiencia energética y secciones sin datos»), `blog-list`,
-`team` (con `layout: cards | compact`), `lead-form`, `book-visit`, `text`, `cta`.
+`team` (con `layout: cards | compact | editorial`), `lead-form`, `book-visit`, `text`, `cta`,
+y los corporativos `about-agency`, `trust-points` y `offices` (categoría
+«Empresa», ver docs/home-corporativa.md): la inmobiliaria detrás del
+catálogo, con cifras reales de la cuenta y las oficinas publicadas en vivo.
 
 Un preset puede limitarse a unas páginas con `pages` (`presetsForPage()`): la
 biblioteca sólo lo ofrece ahí.

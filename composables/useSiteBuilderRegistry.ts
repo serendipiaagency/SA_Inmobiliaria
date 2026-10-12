@@ -9,6 +9,9 @@ import BlogListInspector from '~/components/site-builder/inspectors/BlogListInsp
 import TextInspector from '~/components/site-builder/inspectors/TextInspector.vue'
 import CtaInspector from '~/components/site-builder/inspectors/CtaInspector.vue'
 import TeamInspector from '~/components/site-builder/inspectors/TeamInspector.vue'
+import AboutAgencyInspector from '~/components/site-builder/inspectors/AboutAgencyInspector.vue'
+import TrustPointsInspector from '~/components/site-builder/inspectors/TrustPointsInspector.vue'
+import OfficesInspector from '~/components/site-builder/inspectors/OfficesInspector.vue'
 import LeadFormInspector from '~/components/site-builder/inspectors/LeadFormInspector.vue'
 import BookVisitInspector from '~/components/site-builder/inspectors/BookVisitInspector.vue'
 import PageCoreInspector from '~/components/site-builder/inspectors/PageCoreInspector.vue'
@@ -42,7 +45,7 @@ export function newBlockId(type: string): string {
   return `${type}-${randomSuffix()}`
 }
 
-export const BLOCK_CATEGORIES = ['Principal', 'Propiedades', 'Explora', 'Equipo', 'Captación', 'Herramientas', 'Contenido'] as const
+export const BLOCK_CATEGORIES = ['Principal', 'Propiedades', 'Explora', 'Empresa', 'Equipo', 'Captación', 'Herramientas', 'Contenido'] as const
 
 export const BLOCK_PRESETS: BlockPreset[] = [
   {
@@ -145,6 +148,46 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     description: 'Herramienta interactiva de cálculo de cuota mensual.',
     category: 'Herramientas',
     createContent: () => ({ eyebrow: 'Planifica', title: 'Calcula tu hipoteca', text: 'Estima tu cuota mensual y los costes de compra en segundos.' }),
+  },
+  // Bloques corporativos (docs/home-corporativa.md): la inmobiliaria detrás del catálogo.
+  {
+    presetId: 'about-agency',
+    type: 'about-agency',
+    label: 'Conoce nuestra inmobiliaria',
+    description: 'La agencia detrás del catálogo: fotografía corporativa, texto, botón a «Nosotros» y cifras reales de tu cuenta (nunca inventadas).',
+    category: 'Empresa',
+    createContent: () => ({
+      eyebrow: 'Sobre nosotros', title: 'Mucho más que encontrar una casa.',
+      text: 'Somos una inmobiliaria especializada en nuestra zona. Conocemos su territorio, sus personas y sus oportunidades, y te acompañamos en todo el proceso para que encuentres un lugar donde realmente quieras vivir.',
+      cta: 'Conoce nuestra inmobiliaria', ctaTo: '/nosotros', image: '', imageAlt: '',
+      stats: ['team', 'offices', 'properties'],
+    }),
+  },
+  {
+    presetId: 'trust-points',
+    type: 'trust-points',
+    label: 'Nuestra experiencia, tu tranquilidad',
+    description: 'Tres o cuatro argumentos propios de tu agencia, con fotografía opcional. Sin frases genéricas: lo que de verdad te distingue.',
+    category: 'Empresa',
+    createContent: () => ({
+      eyebrow: 'Por qué elegirnos', title: 'Experiencia local. Tu tranquilidad.', text: '', image: '', imageAlt: '', count: 4,
+      point1Title: 'Conocemos la zona', point1Text: 'Asesoramiento basado en el conocimiento real del territorio y de sus particularidades.',
+      point2Title: 'Atención personal', point2Text: 'Un profesional que te acompaña en cada paso, con un trato cercano y transparente.',
+      point3Title: 'Todo en un solo lugar', point3Text: 'Compra, venta, alquiler y asesoramiento financiero, de la mano de un mismo equipo.',
+      point4Title: 'Tu confianza es lo primero', point4Text: 'Información clara y honesta para que tomes decisiones con seguridad.',
+    }),
+  },
+  {
+    presetId: 'offices',
+    type: 'offices',
+    label: 'Nuestras oficinas',
+    description: 'Tus oficinas reales con foto, dirección, horario, teléfono y mapa: composición editorial con una, cuadrícula adaptable con varias.',
+    category: 'Empresa',
+    createContent: () => ({
+      eyebrow: 'Nuestras oficinas', title: 'Un equipo cercano, estés donde estés.',
+      text: 'Visítanos en nuestras oficinas o contáctanos. Estaremos encantados de atenderte personalmente.',
+      cta: 'Ver todas las oficinas', ctaTo: '/oficinas', source: 'dynamic', limit: 6, layout: 'auto',
+    }),
   },
   {
     presetId: 'team-cards',
@@ -261,6 +304,9 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
   'mortgage-calculator': 'Calculadora de hipoteca',
   'energy-efficiency': 'Eficiencia energética',
   'blog-list': 'Últimos artículos',
+  'about-agency': 'Conoce nuestra inmobiliaria',
+  'trust-points': 'Experiencia y confianza',
+  offices: 'Oficinas',
   team: 'Comerciales',
   'lead-form': 'Formulario de captación',
   'book-visit': 'Reserva de visita',
@@ -322,7 +368,18 @@ export function blockSubtitle(block: { type: string; content?: Record<string, an
     }
     case 'team': {
       const count = c.source === 'manual' ? (c.manualIds?.length ?? 0) : (c.limit ?? 0)
-      return `${count} comercial${count === 1 ? '' : 'es'} · ${c.layout === 'compact' ? 'Compacto' : 'Tarjetas'}`
+      return `${count} comercial${count === 1 ? '' : 'es'} · ${c.layout === 'compact' ? 'Compacto' : c.layout === 'editorial' ? 'Editorial' : 'Tarjetas'}`
+    }
+    case 'about-agency': {
+      const stats = Array.isArray(c.stats) ? c.stats.length : 0
+      return stats ? `${stats} cifra${stats === 1 ? '' : 's'} real${stats === 1 ? '' : 'es'} · foto` : 'Texto y foto, sin cifras'
+    }
+    case 'trust-points':
+      return `${Number(c.count) === 3 ? 3 : 4} argumentos${c.image ? ' · foto' : ''}`
+    case 'offices': {
+      const count = c.source === 'manual' ? (c.manualIds?.length ?? 0) : (c.limit ?? 0)
+      const layout = c.layout === 'editorial' ? 'Editorial' : c.layout === 'grid' ? 'Cuadrícula' : 'Automático'
+      return `${count} oficina${count === 1 ? '' : 's'} · ${layout}`
     }
     case 'text':
       return c.title || 'Bloque de texto libre'
@@ -359,6 +416,9 @@ export const BLOCK_INSPECTORS: Record<string, BlockInspectorEntry> = {
   'mortgage-calculator': { component: MortgageInspector },
   'energy-efficiency': { component: EnergyEfficiencyInspector },
   'blog-list': { component: BlogListInspector },
+  'about-agency': { component: AboutAgencyInspector, needsPreviewData: true },
+  'trust-points': { component: TrustPointsInspector },
+  offices: { component: OfficesInspector, needsPreviewData: true },
   team: { component: TeamInspector, needsPreviewData: true },
   'lead-form': { component: LeadFormInspector },
   'book-visit': { component: BookVisitInspector, needsPreviewData: true },

@@ -208,7 +208,7 @@ onMounted(async () => {
   window.addEventListener('message', handleMessage)
   window.addEventListener('keydown', onKeydown)
   const [data, org] = await Promise.all([
-    $fetch<{ projects: any[]; communities: any[]; blogs: any[]; team: any[] }>('/api/admin/site-pages/preview-data').catch(() => ({ projects: [], communities: [], blogs: [], team: [] })),
+    $fetch<{ projects: any[]; communities: any[]; blogs: any[]; team: any[]; zones?: any[]; offices?: any[]; company?: any }>('/api/admin/site-pages/preview-data').catch(() => ({ projects: [], communities: [], blogs: [], team: [] })),
     $fetch<any>('/api/admin/active-org-info').catch(() => null),
   ])
   homeData.value = data

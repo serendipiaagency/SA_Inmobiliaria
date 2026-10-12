@@ -52,6 +52,10 @@
         <MortgageBlock v-else-if="block.type === 'mortgage-calculator'" :content="block.content" :projects="homeData?.projects || []" />
         <BlogListBlock v-else-if="block.type === 'blog-list'" :content="block.content" :blogs="homeData?.blogs || []" />
         <TeamBlock v-else-if="block.type === 'team'" :content="block.content" :team="homeData?.team || []" />
+        <!-- Bloques corporativos (docs/home-corporativa.md): empresa, argumentos y oficinas, con los datos en vivo de la cuenta. -->
+        <AboutAgencyBlock v-else-if="block.type === 'about-agency'" :content="block.content" :company="homeData?.company || null" />
+        <TrustPointsBlock v-else-if="block.type === 'trust-points'" :content="block.content" />
+        <OfficesBlock v-else-if="block.type === 'offices'" :content="block.content" :offices="homeData?.offices || []" :mode="mode" />
         <!-- Los dos únicos bloques con efecto real (crean un lead, reservan
              una cita) reciben `mode`: lo usan para no disparar nada desde el
              lienzo ni desde Vista previa. -->
@@ -106,6 +110,9 @@ import PropertyTypesBlock from './blocks/PropertyTypesBlock.vue'
 import MortgageBlock from './blocks/MortgageBlock.vue'
 import BlogListBlock from './blocks/BlogListBlock.vue'
 import TeamBlock from './blocks/TeamBlock.vue'
+import AboutAgencyBlock from './blocks/AboutAgencyBlock.vue'
+import TrustPointsBlock from './blocks/TrustPointsBlock.vue'
+import OfficesBlock from './blocks/OfficesBlock.vue'
 import LeadFormBlock from './blocks/LeadFormBlock.vue'
 import BookVisitBlock from './blocks/BookVisitBlock.vue'
 import TextBlock from './blocks/TextBlock.vue'
@@ -139,7 +146,7 @@ import { FICHA_PROPERTY_KEY } from '~/composables/useFichaProperty'
 const props = withDefaults(
   defineProps<{
     blocks: SiteBlock[]
-    homeData?: { projects?: any[]; communities?: any[]; blogs?: any[]; team?: any[]; zones?: any[] } | null
+    homeData?: { projects?: any[]; communities?: any[]; blogs?: any[]; team?: any[]; zones?: any[]; offices?: any[]; company?: any } | null
     mode?: 'production' | 'builder' | 'preview'
     /** builder-only: which breakpoint the canvas is currently simulating */
     device?: 'desktop' | 'tablet' | 'mobile'

@@ -68,8 +68,41 @@
     </div>
 
     <!-- Team: portraits — tall cards, or a compact row of round avatars -->
+    <div v-else-if="type === 'about-agency'" class="flex w-[86%] items-center gap-2">
+      <div class="flex-1 space-y-1">
+        <div class="h-1 w-1/3 rounded-full bg-accent-200" />
+        <div class="h-2 w-5/6 rounded-full bg-stone-300" />
+        <div class="h-1 w-2/3 rounded-full bg-stone-200" />
+        <div class="mt-1.5 h-2.5 w-1/2 rounded-full bg-ink" />
+      </div>
+      <div class="h-14 flex-[1.3] rounded bg-stone-300" />
+      <div class="flex-[0.7] space-y-1.5">
+        <div v-for="i in 3" :key="i" class="space-y-0.5 border-t border-stone-200 pt-1"><div class="h-2 w-1/2 rounded-full bg-stone-400" /><div class="h-1 w-full rounded-full bg-stone-200" /></div>
+      </div>
+    </div>
+    <div v-else-if="type === 'trust-points'" class="w-[86%]">
+      <div class="h-2 w-1/2 rounded-full bg-stone-300" />
+      <div class="mt-2 grid grid-cols-4 gap-1.5">
+        <div v-for="i in 4" :key="i" class="space-y-1 border-t border-stone-300 pt-1"><div class="h-1 w-1/4 rounded-full bg-stone-300" /><div class="h-1.5 w-3/4 rounded-full bg-stone-400" /><div class="h-1 w-full rounded-full bg-stone-200" /></div>
+      </div>
+    </div>
+    <div v-else-if="type === 'offices'" class="flex w-[86%] gap-1.5">
+      <div class="flex-[0.8] space-y-1"><div class="h-1 w-1/2 rounded-full bg-accent-200" /><div class="h-2 w-5/6 rounded-full bg-stone-300" /><div class="mt-1.5 h-2.5 w-2/3 rounded-full bg-ink" /></div>
+      <template v-if="layout === 'editorial'">
+        <div class="h-12 flex-1 rounded bg-stone-300" />
+        <div class="flex-1 space-y-1 rounded border border-stone-200 p-1"><div class="h-1.5 w-2/3 rounded-full bg-stone-400" /><div class="h-1 w-full rounded-full bg-stone-200" /><div class="h-1 w-3/4 rounded-full bg-stone-200" /></div>
+        <div class="h-12 flex-1 rounded bg-sky-100" />
+      </template>
+      <template v-else>
+        <div v-for="i in 3" :key="i" class="flex-1 space-y-1"><div class="h-7 w-full rounded bg-stone-300" /><div class="h-1.5 w-2/3 rounded-full bg-stone-400" /><div class="h-1 w-full rounded-full bg-stone-200" /></div>
+      </template>
+    </div>
     <div v-else-if="type === 'team'" class="flex w-[86%] gap-1.5">
-      <template v-if="layout === 'compact'">
+      <template v-if="layout === 'editorial'">
+        <div class="flex-[0.9] space-y-1"><div class="h-1 w-1/2 rounded-full bg-accent-200" /><div class="h-2 w-5/6 rounded-full bg-stone-300" /><div class="h-1 w-2/3 rounded-full bg-stone-200" /></div>
+        <div v-for="i in 3" :key="i" class="flex-1 space-y-1"><div class="h-9 w-full rounded bg-stone-300" /><div class="h-1.5 w-3/4 rounded-full bg-stone-400" /><div class="h-1 w-1/2 rounded-full bg-stone-200" /></div>
+      </template>
+      <template v-else-if="layout === 'compact'">
         <div v-for="i in 3" :key="i" class="flex flex-1 items-center gap-1">
           <div class="h-5 w-5 shrink-0 rounded-full bg-stone-300" />
           <div class="min-w-0 flex-1 space-y-0.5">

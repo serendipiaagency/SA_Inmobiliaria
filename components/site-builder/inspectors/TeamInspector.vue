@@ -3,6 +3,7 @@
     <InspectorSection title="Contenido">
       <TextField label="Eyebrow" :model-value="content.eyebrow || ''" @update:model-value="(v) => (content.eyebrow = v)" />
       <TextField label="Título" :model-value="content.title || ''" @update:model-value="(v) => (content.title = v)" />
+      <TextField v-if="content.layout === 'editorial'" label="Descripción" multiline hint="Sólo en el diseño editorial: el párrafo bajo el título, junto al botón." :model-value="content.text || ''" @update:model-value="(v) => (content.text = v)" />
     </InspectorSection>
 
     <InspectorSection title="Datos">
@@ -45,12 +46,14 @@
         label="Diseño"
         type="team"
         :model-value="content.layout || 'cards'"
-        :options="[{ value: 'cards', label: 'Tarjetas' }, { value: 'compact', label: 'Compacto' }]"
+        :options="[{ value: 'cards', label: 'Tarjetas' }, { value: 'compact', label: 'Compacto' }, { value: 'editorial', label: 'Editorial' }]"
         @update:model-value="(v) => (content.layout = v)"
       />
+      <p v-if="content.layout === 'editorial'" class="mb-3 text-[11px] text-stone-400">Editorial: texto y botón a la izquierda, retratos verticales con nombre, puesto, presentación y «Ver perfil» a la derecha.</p>
 
       <p class="label mb-1">Campos visibles en la tarjeta</p>
       <ToggleField label="Puesto" :model-value="cardField('position', true)" @update:model-value="(v) => setCardField('position', v)" />
+      <ToggleField v-if="content.layout === 'editorial'" label="Presentación (una línea de su ficha)" :model-value="cardField('description', true)" @update:model-value="(v) => setCardField('description', v)" />
       <ToggleField label="Especialidades" :model-value="cardField('specialties', false)" @update:model-value="(v) => setCardField('specialties', v)" />
       <ToggleField
         label="Teléfono y email"
@@ -111,6 +114,8 @@ function setCardField(key: string, value: boolean) {
 }
 
 const defaultDesktopCols = computed(() => (props.content.layout === 'compact' ? 3 : 4))
+// El diseño editorial reparte las tarjetas en dos columnas en el móvil (retratos verticales, caben bien).
+
 
 function numOpts(min: number, max: number) {
   return Array.from({ length: max - min + 1 }, (_, i) => ({ value: String(min + i), label: String(min + i) }))

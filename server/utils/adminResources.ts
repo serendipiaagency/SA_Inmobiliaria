@@ -57,6 +57,23 @@ function validateOfficeOrTeam(data: Record<string, any>): Record<string, any> {
     }
   }
   if (data.status != null && !['active', 'inactive'].includes(data.status)) throw createError({ statusCode: 422, statusMessage: 'Estado no válido' })
+  // Campos de la web de una oficina (migración 0096): coordenadas reales o nada, interruptores 0/1, textos acotados.
+  for (const key of ['lat', 'lng'] as const) {
+    if (data[key] === '' || data[key] === undefined) continue
+    if (data[key] === null) continue
+    const n = Number(data[key])
+    const max = key === 'lat' ? 90 : 180
+    if (!Number.isFinite(n) || Math.abs(n) > max) throw createError({ statusCode: 422, statusMessage: `${key === 'lat' ? 'Latitud' : 'Longitud'} no válida` })
+    data[key] = n
+  }
+  for (const key of ['isMain', 'showOnWeb'] as const) {
+    if (data[key] === undefined || data[key] === null || data[key] === '') continue
+    const n = Number(data[key])
+    if (n !== 0 && n !== 1) throw createError({ statusCode: 422, statusMessage: `${key === 'isMain' ? 'Oficina principal' : 'Mostrar en la web'}: usa 1 (sí) o 0 (no)` })
+    data[key] = n
+  }
+  if (typeof data.openingHours === 'string' && data.openingHours.length > 200) throw createError({ statusCode: 422, statusMessage: 'El horario admite como máximo 200 caracteres' })
+  if (typeof data.description === 'string' && data.description.length > 600) throw createError({ statusCode: 422, statusMessage: 'La presentación admite como máximo 600 caracteres' })
   return data
 }
 
@@ -1155,8 +1172,16 @@ export const adminResources: Record<string, ResourceDef> = {
       timezone: { type: 'text', label: 'Zona horaria (p. ej. Europe/Madrid)' },
       status: { type: 'select', label: 'Estado', options: ['active', 'inactive'], optionLabels: { active: 'Activa', inactive: 'Inactiva' } },
       photo: { type: 'image', label: 'Foto' },
+      // Migración 0096 — lo que la web enseña de la oficina (docs/home-corporativa.md). Vacío = no se enseña.
+      description: { type: 'textarea', label: 'Presentación en la web' },
+      openingHours: { type: 'text', label: 'Horario de atención (texto libre, p. ej. L-V 9:30-18:30 · S 10:00-14:00)' },
+      lat: { type: 'number', label: 'Latitud del mapa' },
+      lng: { type: 'number', label: 'Longitud del mapa' },
+      isMain: { type: 'number', label: 'Oficina principal (1 = sí, 0 = no)' },
+      showOnWeb: { type: 'number', label: 'Mostrar en la web (1 = sí, 0 = no)' },
+      sortOrder: { type: 'number', label: 'Orden en la web (menor primero)' },
     },
-    listFields: ['id', 'name', 'code', 'city', 'phone', 'status'],
+    listFields: ['id', 'name', 'code', 'city', 'phone', 'status', 'isMain', 'showOnWeb'],
     searchFields: ['name', 'code', 'city', 'email', 'phone'],
     hasTimestamps: true,
     hasUpdatedAt: true,

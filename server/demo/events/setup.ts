@@ -100,7 +100,7 @@ export function addSetupEvents(tl: TimelineBuilder): void {
 
   tl.add(SETUP_DAY, '09:30', 'Oficinas y equipos', async (ctx) => {
     for (const o of OFFICES) {
-      const { id } = await create(ctx, 'offices', { name: o.name, code: o.code, email: o.email, phone: o.phone, address: o.address, city: o.city, province: 'Asturias', postalCode: o.postalCode, country: 'España', timezone: DEMO_COMPANY.timezone, status: 'active' })
+      const { id } = await create(ctx, 'offices', { name: o.name, code: o.code, email: o.email, phone: o.phone, address: o.address, city: o.city, province: 'Asturias', postalCode: o.postalCode, country: 'España', timezone: DEMO_COMPANY.timezone, status: 'active', description: o.description, openingHours: o.openingHours, lat: o.lat, lng: o.lng, isMain: o.isMain, showOnWeb: 1, sortOrder: o.sortOrder })
       ctxSetId(ctx, `office:${o.key}`, id)
     }
     for (const t of TEAMS) {
