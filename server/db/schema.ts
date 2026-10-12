@@ -4022,6 +4022,16 @@ export const offices = sqliteTable(
     status: text('status').notNull().default('active'), // active | inactive
     /** Migración 0090 — foto de la oficina: clave de R2 o URL. */
     photo: text('photo'),
+    /** Migración 0096 — lo que la web pública enseña de la oficina (docs/home-corporativa.md). NULL = sin dato, no se inventa. */
+    description: text('description'),
+    openingHours: text('opening_hours'),
+    lat: real('lat'),
+    lng: real('lng'),
+    /** 1 = oficina principal (una por inmobiliaria). */
+    isMain: integer('is_main').notNull().default(0),
+    /** 0 = no se publica en la web; sigue existiendo en el CRM. */
+    showOnWeb: integer('show_on_web').notNull().default(1),
+    sortOrder: integer('sort_order').notNull().default(0),
     createdBy: integer('created_by'),
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
