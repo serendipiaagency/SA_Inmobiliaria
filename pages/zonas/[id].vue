@@ -1,5 +1,6 @@
 <template>
-  <div v-if="data">
+  <ZoneDirectory v-if="directory" :data="directory" />
+  <div v-else-if="data">
     <section class="relative flex min-h-[55vh] items-end bg-ink">
       <img
         :src="mediaUrl(data.community.image)"
@@ -51,16 +52,50 @@
 </template>
 
 <script setup lang="ts">
+import ZoneDirectory from '~/components/zones/ZoneDirectory.vue'
+
+/**
+ * /zonas/<id numérico> sigue siendo una comunidad (residencial). Un slug
+ * (/zonas/asturias) es el directorio de zonas de esa región (docs/zonas.md):
+ * sus municipios y localidades publicados, con buscador y recuentos reales.
+ */
 const { t } = useI18n()
 const route = useRoute()
-const { data } = await useFetch(`/api/public/communities/${route.params.id}`)
-if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Community not found', fatal: true })
+const id = String(route.params.id)
+const isRegion = !/^\d+$/.test(id)
 const requestUrl = useRequestURL()
-useHead(
-  seoHead({
-    title: `${data.value.community.name} — M&M Real Estate`,
-    description: (data.value.community.description || `Descubre ${data.value.community.name}, una comunidad residencial en Dubái.`).slice(0, 200),
-    image: `${requestUrl.origin}${mediaUrl(data.value.community.image)}`,
-  }),
-)
+const origin = requestUrl.origin
+const { tenant, load: loadTenant } = useTenant()
+await loadTenant()
+const brand = computed(() => tenant.value?.companyName || tenant.value?.name || '')
+
+const { data: directory } = await useFetch<any>('/api/public/zones', { query: { region: id }, immediate: isRegion, server: isRegion, default: () => null })
+if (isRegion && !directory.value) throw createError({ statusCode: 404, statusMessage: 'Zona no encontrada', fatal: true })
+
+const { data } = await useFetch<any>(`/api/public/communities/${id}`, { immediate: !isRegion, server: !isRegion, default: () => null })
+if (!isRegion && !data.value) throw createError({ statusCode: 404, statusMessage: 'Community not found', fatal: true })
+
+useHead(() => {
+  if (directory.value) {
+    const r = directory.value.region
+    const base = seoHead({
+      origin,
+      title: r.seoTitle || `Dónde vivir en ${r.name}: descubre sus ciudades, pueblos y mejores zonas — ${brand.value}`,
+      description: r.seoDescription || (r.intro ? String(r.intro).replace(/\s+/g, ' ').slice(0, 155) : `Las zonas de ${r.name} donde trabajamos: ciudades, villas y barrios, con las viviendas disponibles en cada una.`),
+      image: r.image ? (mediaUrl(r.image).startsWith('http') ? mediaUrl(r.image) : `${origin}${mediaUrl(r.image)}`) : undefined,
+      canonical: `${origin}${r.path}`,
+    })
+    return {
+      ...base,
+      script: [{ type: 'application/ld+json', innerHTML: JSON.stringify({ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [{ '@type': 'ListItem', position: 1, name: 'Inicio', item: `${origin}/` }, { '@type': 'ListItem', position: 2, name: r.name, item: `${origin}${r.path}` }] }) }],
+    }
+  }
+  if (!data.value) return {}
+  return seoHead({
+    origin,
+    title: `${data.value.community.name} — ${brand.value}`,
+    description: (data.value.community.description || `Descubre ${data.value.community.name}, una comunidad residencial.`).slice(0, 200),
+    image: `${origin}${mediaUrl(data.value.community.image)}`,
+  })
+})
 </script>

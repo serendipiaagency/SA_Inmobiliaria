@@ -4,6 +4,7 @@ import { attachPhotos } from '../../utils/photos'
 import { PUBLIC_TEAM_COLUMNS } from '../../utils/publicTeam'
 import { toPublicProperties } from '../../utils/propertyPrivacy'
 import { livePropertyCond } from '../../utils/properties/trash'
+import { homeZones } from '../../utils/zones'
 
 export default defineEventHandler(async (event) => {
   const db = useDb(event)
@@ -49,6 +50,8 @@ export default defineEventHandler(async (event) => {
   return {
     projects: toPublicProperties(await attachPhotos(db, projects)),
     communities,
+    // Bloque «Zonas» de la portada: zonas publicadas con prioridad (docs/zonas.md).
+    zones: await homeZones(db, orgId),
     developers,
     blogs: blogs.map((b) => ({ ...b, ...blogTitles[b.id] })),
     team,

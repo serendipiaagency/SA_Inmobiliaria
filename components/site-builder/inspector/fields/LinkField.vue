@@ -52,7 +52,7 @@ const SITE_PAGES = [
   { path: '/', label: 'Inicio' },
   { path: '/propiedades', label: 'Propiedades' },
   { path: '/mapa', label: 'Mapa' },
-  { path: '/zonas', label: 'Comunidades' },
+  { path: '/zonas', label: 'Comunidades y zonas' },
   { path: '/promotoras', label: 'Promotoras' },
   { path: '/equipo', label: 'Equipo' },
   { path: '/blog', label: 'Blog' },

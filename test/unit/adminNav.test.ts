@@ -45,6 +45,8 @@ const ADDED: Array<[to: string, label: string, area: AdminArea | null, superAdmi
   ['/admin/suscriptores', 'Suscriptores', 'web', false],
   // Landing comercial de INMO: la bandeja de solicitudes de demo (sólo super admin).
   ['/admin/solicitudes-demo', 'Solicitudes de demo', 'system', true],
+  // Guías de zonas (migración 0095): la jerarquía región → municipio → barrio de la web.
+  ['/admin/zones', 'Zonas', 'web', false],
 ]
 
 const entries = ADMIN_NAV.flatMap((group) => group.items.map((item) => ({ group, item })))

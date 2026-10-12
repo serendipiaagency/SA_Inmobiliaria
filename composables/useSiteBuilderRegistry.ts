@@ -2,6 +2,7 @@ import HeroInspector from '~/components/site-builder/inspectors/HeroInspector.vu
 import PropertiesInspector from '~/components/site-builder/inspectors/PropertiesInspector.vue'
 import MapTeaserInspector from '~/components/site-builder/inspectors/MapTeaserInspector.vue'
 import CommunitiesInspector from '~/components/site-builder/inspectors/CommunitiesInspector.vue'
+import ZonesGridInspector from '~/components/site-builder/inspectors/ZonesGridInspector.vue'
 import PropertyTypesInspector from '~/components/site-builder/inspectors/PropertyTypesInspector.vue'
 import MortgageInspector from '~/components/site-builder/inspectors/MortgageInspector.vue'
 import BlogListInspector from '~/components/site-builder/inspectors/BlogListInspector.vue'
@@ -111,6 +112,14 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     description: 'Cuadrícula de comunidades/barrios con imagen de portada.',
     category: 'Explora',
     createContent: () => ({ eyebrow: 'Vive aquí', title: 'Barrios destacados', source: 'dynamic', limit: 6 }),
+  },
+  {
+    presetId: 'zones-grid',
+    type: 'zones-grid',
+    label: 'Zonas',
+    description: 'Bloques fotográficos de las zonas donde trabajas (municipios y barrios con guía), enlazados a su guía.',
+    category: 'Explora',
+    createContent: () => ({ eyebrow: 'Zonas', title: 'Descubre dónde vivir', text: 'Ciudades, villas y barrios donde trabajamos, con sus viviendas disponibles.', limit: 6, cta: 'Explorar todas las zonas →', ctaTo: '/zonas' }),
   },
   {
     presetId: 'property-types',
@@ -247,6 +256,7 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
   properties: 'Propiedades',
   'map-teaser': 'Mapa (teaser)',
   communities: 'Comunidades',
+  'zones-grid': 'Zonas',
   'property-types': 'Tipos de propiedad',
   'mortgage-calculator': 'Calculadora de hipoteca',
   'energy-efficiency': 'Eficiencia energética',
@@ -294,6 +304,8 @@ export function blockSubtitle(block: { type: string; content?: Record<string, an
       const count = c.source === 'manual' ? (c.manualIds?.length ?? 0) : (c.limit ?? 0)
       return `${count} comunidad${count === 1 ? '' : 'es'}`
     }
+    case 'zones-grid':
+      return `${c.limit ?? 6} zonas con guía`
     case 'property-types':
       return 'Se genera desde tus propiedades'
     case 'mortgage-calculator':
@@ -342,6 +354,7 @@ export const BLOCK_INSPECTORS: Record<string, BlockInspectorEntry> = {
   properties: { component: PropertiesInspector, needsPreviewData: true },
   'map-teaser': { component: MapTeaserInspector, needsPreviewData: true },
   communities: { component: CommunitiesInspector, needsPreviewData: true },
+  'zones-grid': { component: ZonesGridInspector },
   'property-types': { component: PropertyTypesInspector },
   'mortgage-calculator': { component: MortgageInspector },
   'energy-efficiency': { component: EnergyEfficiencyInspector },

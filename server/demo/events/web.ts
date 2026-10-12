@@ -13,6 +13,7 @@ import { actingUser, leadId, orgId, personPhotoPath, propertyId, uploadDemoAsset
 import { DEMO_ADMIN, DEMO_COMPANY } from '../dataset/company'
 import { mediaAlt } from '../dataset/media'
 import { ARTICLES, AUTOMATIONS, CATALOGS, EXPORT_PROJECTS, EXPORT_TEMPLATES, HOME_SLIDES, KNOWLEDGE_DOCS, REFERRALS, REFERRAL_LINKS } from '../dataset/web'
+import { createZones } from './zonas'
 import { CONTACTS, LEADS } from '../dataset/crm'
 import { PROPERTIES } from '../dataset/properties'
 import type { TimelineBuilder } from '../timeline'
@@ -68,6 +69,8 @@ async function buildHome(ctx: DemoContext) {
           successMessage: '¡Gracias! Te llamamos enseguida.', subject: 'Formulario de portada', privacyNote: '', showPhone: true, layout: 'split',
         },
       },
+      // Zonas (docs/zonas.md): las seis con prioridad en la portada, hacia el directorio /zonas/asturias.
+      { id: 'zones-na12', type: 'zones-grid', version: 1, content: { eyebrow: 'Zonas', title: 'Descubre dónde vivir en Asturias', text: 'Ciudades, villas marineras y valles: cómo es vivir en cada zona y qué tenemos publicado ahora.', limit: 6, cta: 'Explorar todas las zonas →', ctaTo: '/zonas/asturias' } },
       { id: 'blog-list-na10', type: 'blog-list', version: 1, content: { eyebrow: 'Blog', title: 'Guías y zonas de Asturias', cta: 'Todos los artículos', ctaTo: '/blog', source: 'dynamic', limit: 3 } },
       { id: 'cta-na11', type: 'cta', version: 1, content: { eyebrow: '', title: '¿Hablamos de tu próxima casa en Asturias?', description: 'Oficinas en Oviedo, Gijón y Llanes.', ctaPrimary: 'Contactar', ctaPrimaryTo: '/contacto', ctaSecondary: 'Ver propiedades', ctaSecondaryTo: '/propiedades', align: 'center' } },
     ],
@@ -135,6 +138,8 @@ export function addWebEvents(tl: TimelineBuilder): void {
   })
   for (const a of ARTICLES) tl.add(a.days, '10:00', `Artículo ${a.key}`, (ctx) => createArticle(ctx, a))
 
+  // Las guías de zona, antes de la portada que las enlaza.
+  tl.add(-29, '09:30', 'Zonas: guías de Asturias', createZones)
   // La portada se publica cuando ya hay propiedades y artículos que enseñar.
   tl.add(-27, '19:00', 'Portada de la web', buildHome)
 

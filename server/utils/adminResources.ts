@@ -941,6 +941,48 @@ export const adminResources: Record<string, ResourceDef> = {
     tenantPolicy: { type: 'direct' },
   },
 
+  // Zonas (migración 0095, docs/zonas.md): la jerarquía región → municipio →
+  // localidad/barrio con su guía, su foto, su SEO y los valores con los que
+  // enlaza con el catálogo. El slug se escribe a mano (sin sufijo aleatorio:
+  // forma parte de la URL pública /zonas/<región>/<municipio>/<barrio>).
+  zones: {
+    area: 'web',
+    table: schema.zones,
+    label: 'Zonas',
+    fields: {
+      name: { type: 'text', label: 'Nombre', required: true },
+      slug: { type: 'text', label: 'Slug (URL)', required: true },
+      kind: { type: 'select', label: 'Tipo', required: true, options: ['region', 'municipality', 'locality', 'neighborhood'], optionLabels: { region: 'Región', municipality: 'Municipio', locality: 'Localidad', neighborhood: 'Barrio' } },
+      parentId: { type: 'number', label: 'Zona superior', relation: { resource: 'zones', labelField: 'name' } },
+      area: { type: 'text', label: 'Área del directorio (ciudades, oriente, centro, occidente…)' },
+      status: { type: 'select', label: 'Estado', required: true, options: ['draft', 'published'], optionLabels: { draft: 'Borrador', published: 'Publicada' } },
+      subtitle: { type: 'text', label: 'Subtítulo del hero' },
+      intro: { type: 'textarea', label: 'Descubre la zona (intro)' },
+      sectionsJson: { type: 'json', label: 'Cómo es vivir aquí (JSON: [{ title, text }])' },
+      faqJson: { type: 'json', label: 'Preguntas frecuentes (JSON: [{ q, a }])' },
+      image: { type: 'image', label: 'Foto principal' },
+      galleryJson: { type: 'json', label: 'Galería (JSON: [claves de imagen])' },
+      seoTitle: { type: 'text', label: 'Título SEO' },
+      seoDescription: { type: 'textarea', label: 'Descripción SEO' },
+      lat: { type: 'number', label: 'Latitud del centro' },
+      lng: { type: 'number', label: 'Longitud del centro' },
+      zoom: { type: 'number', label: 'Zoom del mapa' },
+      matchMunicipality: { type: 'text', label: 'Municipio con el que filtra el catálogo' },
+      matchNeighborhood: { type: 'text', label: 'Barrio o localidad con el que filtra el catálogo' },
+      homePriority: { type: 'number', label: 'Prioridad en la portada (0 = no sale)' },
+      sortOrder: { type: 'number', label: 'Orden en el directorio' },
+      reviewedAt: { type: 'text', label: 'Última revisión editorial (AAAA-MM-DD)' },
+    },
+    listFields: ['id', 'name', 'kind', 'area', 'status', 'homePriority'],
+    searchFields: ['name', 'slug', 'area'],
+    filterFields: ['kind', 'status', 'parentId'],
+    hasTimestamps: true,
+    hasUpdatedAt: true,
+    softDelete: true,
+    relations: { parentId: { table: schema.zones, label: 'Zona superior' } },
+    tenantPolicy: { type: 'direct' },
+  },
+
   blogs: {
     area: 'content',
     table: schema.blogs,

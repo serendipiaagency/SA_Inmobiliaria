@@ -45,6 +45,7 @@ const RESOURCE_ROWS: Record<string, (f: TenantFixture, tag: string) => Record<st
   locations: (f, tag) => ({ organizationId: f.orgId, name: `${tag} location` }),
   amenities: (f, tag) => ({ organizationId: f.orgId, name: `${tag} amenity` }),
   communities: (f, tag) => ({ organizationId: f.orgId, name: `${tag} community` }),
+  zones: (f, tag) => ({ organizationId: f.orgId, name: `${tag} zone`, slug: `${tag}-zone`, kind: 'municipality', status: 'published' }),
   blogs: (f, tag) => ({ organizationId: f.orgId, slug: `${tag}-blog` }),
   team: (f, tag) => ({ organizationId: f.orgId, name: `${tag} member`, slug: `${tag}-member`, email: `${tag}-member@example.com`, position: 'Broker' }),
   'team-member-documents': (f, tag) => ({ organizationId: f.orgId, teamMemberId: f.teamMemberId, fileKey: `tenants/${f.orgId}/team-documents/${tag}.pdf`, label: `${tag} document` }),

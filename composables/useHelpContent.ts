@@ -771,6 +771,20 @@ export function useHelpContent() {
       steps: [],
     },
     {
+      key: 'zones',
+      group: 'Portal Web',
+      title: 'Zonas',
+      route: '/admin/zones',
+      summary: 'Guías de zona de la web (región → municipio → localidad o barrio): directorio /zonas/<región>, página por municipio y por barrio, y bloque «Zonas» de la portada. Cada zona enlaza con el catálogo filtrado y cuenta sus viviendas reales.',
+      steps: [
+        'Crea primero la región (tipo Región, sin zona superior; su slug es la URL del directorio, p. ej. «asturias»), luego los municipios con la región como zona superior y, si quieres, barrios o localidades con su municipio como zona superior. Una localidad no es un municipio: Candás está en Carreño.',
+        'Rellena la guía: subtítulo, «Descubre la zona», las secciones de «Cómo es vivir aquí» (JSON de título y texto) y las preguntas frecuentes. Sin intro, la zona no tiene página: sale en el directorio enlazando al catálogo filtrado.',
+        '«Municipio» y «Barrio con el que filtra el catálogo» son los valores de ubicación de tus propiedades (los mismos que usa el buscador). De ahí salen el número de viviendas y el enlace «Ver viviendas disponibles»; si los dejas vacíos se usa el nombre de la zona.',
+        'Área del directorio agrupa los municipios en secciones (ciudades, oriente, centro, occidente…). Prioridad en la portada > 0 hace que la zona salga en el bloque «Zonas» del Constructor Web, de mayor a menor.',
+        'Sólo se publica lo que está en estado «Publicada»; los borradores no salen en la web ni en el sitemap. Borrar manda la zona a la Papelera. Detalle en docs/zonas.md.',
+      ],
+    },
+    {
       key: 'scheduler',
       group: 'Portal Web',
       title: 'Publicación multicanal',

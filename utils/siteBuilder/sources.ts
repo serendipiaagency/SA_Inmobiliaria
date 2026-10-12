@@ -13,6 +13,7 @@ export interface DynamicSource {
 export const SOURCES = {
   property: { label: 'Propiedades (web)', href: '/admin/developer-properties' },
   community: { label: 'Comunidades', href: '/admin/communities' },
+  zone: { label: 'Zonas', href: '/admin/zones' },
   blog: { label: 'Blog', href: '/admin/cms/articles' },
   team: { label: 'Comerciales', href: '/admin/comerciales' },
   site: { label: 'Textos del sitio (idioma)', href: '/admin/configuracion' },
