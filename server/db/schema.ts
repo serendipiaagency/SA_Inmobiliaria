@@ -851,6 +851,52 @@ export const communities = sqliteTable('communities', {
   updatedAt: text('updated_at').notNull().default(''),
 })
 
+/**
+ * Zonas: la jerarquía geográfica editorial de cada inmobiliaria (región →
+ * municipio → localidad/barrio) con su guía («Descubre la zona», «Cómo es
+ * vivir aquí», FAQ), su foto, su SEO y los valores con los que enlaza con el
+ * catálogo (municipio y barrio de las propiedades). No sustituye a
+ * `communities` (residenciales) ni añade columnas a las propiedades. Ver
+ * migrations/0095_zonas.sql y docs/zonas.md.
+ */
+export const zones = sqliteTable(
+  'zones',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    parentId: integer('parent_id'),
+    kind: text('kind').notNull().default('municipality'), // region | municipality | locality | neighborhood
+    slug: text('slug').notNull(),
+    name: text('name').notNull(),
+    area: text('area'),
+    subtitle: text('subtitle'),
+    intro: text('intro'),
+    sectionsJson: text('sections_json').notNull().default('[]'),
+    faqJson: text('faq_json').notNull().default('[]'),
+    image: text('image'),
+    galleryJson: text('gallery_json').notNull().default('[]'),
+    seoTitle: text('seo_title'),
+    seoDescription: text('seo_description'),
+    lat: real('lat'),
+    lng: real('lng'),
+    zoom: integer('zoom'),
+    matchMunicipality: text('match_municipality'),
+    matchNeighborhood: text('match_neighborhood'),
+    homePriority: integer('home_priority').notNull().default(0),
+    sortOrder: integer('sort_order').notNull().default(0),
+    status: text('status').notNull().default('draft'), // draft | published
+    reviewedAt: text('reviewed_at'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+    deletedAt: text('deleted_at'),
+  },
+  (t) => [
+    uniqueIndex('zones_org_parent_slug').on(t.organizationId, t.parentId, t.slug),
+    index('zones_org_status').on(t.organizationId, t.status),
+    index('zones_org_parent').on(t.organizationId, t.parentId),
+  ],
+)
+
 export const amenityCommunity = sqliteTable('amenity_community', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   communityId: integer('community_id')
