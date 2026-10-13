@@ -91,7 +91,7 @@
                   </button>
                   <transition name="pop">
                     <div v-if="open === 'location'" class="popover hs-pop-location" data-testid="hero-pop-location">
-                      <LocationAutocomplete ref="locAc" v-model="form.locations" variant="hero" :map-area="!!form.mapArea" @clear-map-area="form.mapArea = null" />
+                      <LocationAutocomplete ref="locAc" v-model="form.locations" variant="hero" :map-area="!!form.mapArea" map-actions @clear-map-area="form.mapArea = null" @map-action="onMapAction" />
                     </div>
                   </transition>
                 </div>
@@ -307,7 +307,7 @@ import {
   ESTADO_LABELS,
   FEATURE_GROUPS,
   FEATURE_LABELS,
-  LOCATION_KINDS,
+  locationsPatch,
   NEW_BUILD_KEYS,
   ORIENTATION_OPTIONS,
   RENTAL_TERM_KEYS,
@@ -485,10 +485,18 @@ const form = reactive({
 // Al volver a Inicio desde Propiedades (sin recargar), el buscador recupera
 // los criterios de la búsqueda que se estaba viendo.
 const lastSearch = useState<Record<string, any> | null>('last-search', () => null)
+const locationNames = useLocationNames()
+/** «Seleccionar en el mapa» / «Buscar alrededor»: a Propiedades en vista Mapa con lo elegido hasta ahora (ahí están la zona del mapa y el radio). */
+function onMapAction(_action: 'select' | 'nearby') {
+  open.value = null
+  navigateTo({ path: '/propiedades', query: { ...searchQuery(), vista: 'mapa' } })
+}
 function prefill(qy: Record<string, any> | null) {
   if (!qy) return
   activeTab.value = parseOperation(qy.operacion) === 'alquiler' ? 'rent' : 'buy'
-  form.locations = parseLocations(qy)
+  form.locations = locationNames.withNames(parseLocations(qy))
+  // Las elegidas por id vienen sin nombre en la URL: se resuelven y se pintan en cuanto llegan.
+  if (form.locations.some((l) => l.id && !l.value)) locationNames.resolve(form.locations).then((list) => (form.locations = list))
   form.mapArea = ['north', 'south', 'east', 'west'].every((k) => firstString(qy[k])) ? { north: firstString(qy.north), south: firstString(qy.south), east: firstString(qy.east), west: firstString(qy.west) } : null
   ;[form.minPrice, form.maxPrice] = orderedRange(parseAmount(qy.minPrice), parseAmount(qy.maxPrice))
   form.beds = parseAmount(qy.bedrooms, 5) ?? 0
@@ -590,7 +598,7 @@ function pickBeds(n: number) {
 
 const { format: money } = useCurrency()
 const locationLabel = computed(() => {
-  const list = form.locations.map((l) => (l.kind === 'postalCode' ? `CP ${l.value}` : l.value))
+  const list = form.locations.map((l) => (l.kind === 'postalCode' ? `CP ${l.value || l.id?.slice('es:cp:'.length) || ''}` : l.value || l.id || ''))
   if (form.mapArea) list.push(t('catalog.mapArea', 'Zona del mapa'))
   if (!list.length) return ''
   return list.length === 1 ? list[0]! : `${list[0]} +${list.length - 1}`
@@ -629,10 +637,7 @@ function clearAll() {
 /** La búsqueda del Hero como URL de /propiedades: el mismo modelo que lee el catálogo. */
 function searchQuery(): Record<string, string | string[]> {
   const q: Record<string, string | string[]> = { operacion: operation.value }
-  for (const kind of LOCATION_KINDS) {
-    const values = form.locations.filter((l) => l.kind === kind).map((l) => l.value)
-    if (values.length) q[kind] = values
-  }
+  for (const [k, v] of Object.entries(locationsPatch(form.locations))) if (v !== undefined) q[k] = v
   if (form.mapArea) Object.assign(q, form.mapArea)
   const [min, max] = orderedRange(form.minPrice, form.maxPrice)
   if (min != null) q.minPrice = String(min)
@@ -673,7 +678,13 @@ function submit() {
 
 // Pulsar fuera del buscador o Escape cierran el desplegable (lo elegido se queda).
 function onDocClick(e: MouseEvent) {
-  if (open.value && searchRoot.value && !searchRoot.value.contains(e.target as Node)) open.value = null
+  const target = e.target as Node | null
+  // Elegir una sugerencia de Ubicación la quita del DOM antes de que el clic
+  // llegue aquí (Vue repinta entre un oyente y el siguiente): ese nodo ya no
+  // «está fuera» de nada, y cerrar el popover por él dejaba al visitante sin
+  // poder seguir añadiendo ubicaciones.
+  if (!target || !target.isConnected) return
+  if (open.value && searchRoot.value && !searchRoot.value.contains(target)) open.value = null
 }
 function onKey(e: KeyboardEvent) {
   if (e.key !== 'Escape') return

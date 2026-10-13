@@ -1,7 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm'
 import { schema } from '../db'
 import { livePropertyCond } from './trash'
-import { LOCATION_KINDS, normalizeText, type LocationKind } from '../../../utils/searchState'
+import { normalizeText, type LocationKind } from '../../../utils/searchState'
 
 /**
  * Las ubicaciones REALES de las propiedades publicadas de una agencia, por
@@ -21,8 +21,12 @@ const P = schema.developerProperties
 const P_ID = sql.raw('"developer_properties"."id"')
 const P_ORG = sql.raw('"developer_properties"."organization_id"')
 
+/** Niveles que salen del inventario (la comunidad autónoma y las zonas de la agencia no: el catálogo y las zonas van aparte). */
+export type InventoryLocationKind = Exclude<LocationKind, 'zone' | 'region'>
+export const INVENTORY_LOCATION_KINDS: InventoryLocationKind[] = ['province', 'municipality', 'neighborhood', 'postalCode', 'street']
+
 export interface LocationEntry {
-  kind: LocationKind
+  kind: InventoryLocationKind
   key: string
   /** El nombre que se enseña: la variante guardada más frecuente. */
   value: string
@@ -34,7 +38,7 @@ export interface LocationEntry {
 }
 
 interface Acc {
-  kind: LocationKind
+  kind: InventoryLocationKind
   key: string
   variants: Map<string, number>
   contexts: Map<string, number>
@@ -87,7 +91,7 @@ export async function locationIndex(db: any, orgId: number): Promise<LocationEnt
     .where(and(eq(P.organizationId, orgId), livePropertyCond(P)))) as Array<Record<string, string | number | null>>
 
   const acc = new Map<string, Acc>()
-  const add = (kind: LocationKind, raw: unknown, context: unknown, id: number) => {
+  const add = (kind: InventoryLocationKind, raw: unknown, context: unknown, id: number) => {
     const value = typeof raw === 'string' ? raw.trim() : ''
     if (!value) return
     const key = normalizeText(value)
@@ -121,7 +125,7 @@ export async function locationIndex(db: any, orgId: number): Promise<LocationEnt
     context: top(a.contexts),
     count: a.ids.size,
   }))
-  entries.sort((x, y) => LOCATION_KINDS.indexOf(x.kind) - LOCATION_KINDS.indexOf(y.kind) || y.count - x.count || x.value.localeCompare(y.value, 'es'))
+  entries.sort((x, y) => INVENTORY_LOCATION_KINDS.indexOf(x.kind) - INVENTORY_LOCATION_KINDS.indexOf(y.kind) || y.count - x.count || x.value.localeCompare(y.value, 'es'))
   cache.set(orgId, { stamp, entries })
   return entries
 }
@@ -132,6 +136,7 @@ export async function locationIndex(db: any, orgId: number): Promise<LocationEnt
  * que el filtro nunca depende de que el índice esté al día.
  */
 export async function locationVariants(db: any, orgId: number, kind: LocationKind, value: string): Promise<string[]> {
+  if (kind === 'zone' || kind === 'region') return [value.trim()].filter(Boolean)
   const key = normalizeText(value)
   const known = (await locationIndex(db, orgId)).find((e) => e.kind === kind && e.key === key)?.variants ?? []
   return [...new Set([value.trim(), ...known].filter(Boolean))]
@@ -145,7 +150,7 @@ export async function locationVariants(db: any, orgId: number, kind: LocationKin
 export function suggestLocations(entries: LocationEntry[], q: string, perKind = 6): LocationEntry[] {
   const needle = normalizeText(q)
   const out: LocationEntry[] = []
-  for (const kind of LOCATION_KINDS) {
+  for (const kind of INVENTORY_LOCATION_KINDS) {
     const list = entries.filter((e) => e.kind === kind)
     if (!needle) {
       // Sin texto: municipios y barrios con más propiedades (lo útil para empezar).

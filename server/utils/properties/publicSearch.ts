@@ -3,6 +3,7 @@ import { schema } from '../db'
 import { livePropertyCond } from './trash'
 import { geoConds, parseGeoFilters, publicCoordsSql } from './geoSearch'
 import { locationVariants } from './locationIndex'
+import { locationCondById } from '../geo/locations'
 import { normalizePostalCode } from '../../../utils/publicSearch'
 import {
   firstString,
@@ -77,8 +78,10 @@ const FEATURE_SQL: Record<string, () => SQL> = {
   expensesIncluded: () => legal(sql`le.rent_expenses_included = 1`),
 }
 
-/** Una ubicación elegida → su condición (todas las variantes guardadas de ese nombre). */
+/** Una ubicación elegida → su condición: por identificador, su ámbito real (server/utils/geo/locations.ts); por texto, todas las variantes guardadas de ese nombre. */
 async function locationCond(db: any, orgId: number, sel: LocationSelection): Promise<SQL | null> {
+  if (sel.id) return locationCondById(db, orgId, sel.id)
+  if (sel.kind === 'zone') return sql`0`
   if (sel.kind === 'postalCode') {
     // Código postal: por prefijo, como siempre («330» = todo Oviedo).
     const cp = normalizePostalCode(sel.value)
@@ -91,6 +94,7 @@ async function locationCond(db: any, orgId: number, sel: LocationSelection): Pro
   if (sel.kind === 'municipality') return or(inList(sql`${P.city}`, variants), details(inList(sql`pd.municipality`, variants)))!
   if (sel.kind === 'neighborhood') return or(inList(sql`${P.community}`, variants), details(inList(sql`pd.neighborhood`, variants)))!
   if (sel.kind === 'province') return details(inList(sql`pd.province`, variants))
+  if (sel.kind === 'region') return details(inList(sql`pd.region`, variants))
   return and(inList(sql`${P.street}`, variants), sql`coalesce(${P.locationPrivacy}, 'exact') = 'exact'`)!
 }
 

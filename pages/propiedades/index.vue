@@ -282,7 +282,13 @@ watch(
 )
 const mapItems = computed(() => withValidCoords((mapData.value?.rows as any[]) || []))
 
-const chips = computed(() => catalogChips(route.query as Record<string, unknown>, t, (n) => formatPrice(n), typeLabel))
+const locationNames = useLocationNames()
+const resolvedLocations = useResolvedLocations(() => route.query as Record<string, unknown>)
+const chips = computed(() => {
+  // Los nombres de las ubicaciones por id (loc=…) los trae /api/public/location-resolve; mientras llegan, el id.
+  void resolvedLocations.value
+  return catalogChips(route.query as Record<string, unknown>, t, (n) => formatPrice(n), typeLabel, locationNames.known.value)
+})
 const panelProps = computed(() => ({
   query: route.query,
   facets: facets.value,
