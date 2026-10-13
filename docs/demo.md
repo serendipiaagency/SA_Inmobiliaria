@@ -70,8 +70,9 @@ de `utils`, y el dataset exporta nombres genéricos).
   el cron la crea sola la primera vez que no existe. Nunca la borra por su
   cuenta.
 - **Fallos.** Un evento que falla para la generación con el error visible. El
-  cron la reintenta desde cero (borrado + generación) como mucho 3 veces;
-  después espera al super admin.
+  cron reintenta desde cero (borrado + generación) como mucho 3 veces y sólo
+  si lo que falló era una generación; un restablecimiento fallido espera al
+  super admin (nunca se convierte solo en un borrado).
 - **Imágenes.** Se sirven como estáticos desde `public/demo-assets/norte-astur/`
   y el seed las sube a R2 por `storeAndRegisterFile` (validación, cuota y
   biblioteca de medios de la empresa), una vez por entidad.
@@ -108,17 +109,51 @@ navegación se sirve como ella, `Cache-Control: private, no-store` y `noindex`
 `/?vista_previa=salir` la cierra en ese navegador. Sirve igual para cualquier
 empresa sin dominio.
 
-## Restablecer
+## Restablecer (no destructivo) y regenerar
 
-Sistemas › Empresas › recuadro «Cuenta demo comercial» › **Restablecer la
-demo…** (sólo super admin; pide escribir `norte-astur-inmobiliaria`). Borra los
-datos de la empresa demo —no la empresa— y la vuelve a generar con fecha de hoy.
+Sistemas › Empresas › recuadro «Cuenta demo comercial» (sólo super admin):
+
+- **Restablecer la demo** (`demo-reset`, confirmación simple). NO destructivo:
+  quita lo que hayan dejado los visitantes y vuelve al estado que define el
+  código. Funciona con la **instantánea del estado sembrado** (`snapshot.ts`):
+  al terminar una siembra (o un restablecimiento) se guardan todas las filas de
+  la empresa demo como JSON en R2 (`demo/norte-astur/snapshot.json`, que
+  `/api/media` no sirve porque no está en `media_assets`). Restablecer, por
+  tramos: 1) borra de R2 sólo los ficheros que no estén en la instantánea (los
+  subidos por visitantes) y todas las filas de la empresa (sin tocar R2); 2)
+  vuelve a insertar las filas de la instantánea, padres primero, con sus mismos
+  ids y sus mismas claves de R2 (las imágenes no se tocan ni se vuelven a
+  subir; sentencias con los valores en literal, troceadas por tamaño, en
+  batches con `defer_foreign_keys`); 3) restaura la fila de la empresa y sus
+  ajustes `org:<id>:%`; 4) ejecuta sólo los **eventos que el código añadió**
+  desde la instantánea (los que no están en `state.done`, ver abajo), con el
+  mismo anclaje de fechas; 5) guarda una instantánea nueva. Lo creado o
+  cambiado por un visitante desaparece (contactos, leads, cambios en fichas,
+  ficheros); lo que viene del código se conserva. No cambia el día de anclaje.
+- **Regenerar desde cero…** (`demo-regenerate`, pide escribir
+  `norte-astur-inmobiliaria`). Destructivo: borra todo lo de la empresa demo
+  —filas, ficheros de R2 e instantánea; no la empresa— y la vuelve a sembrar
+  con la historia anclada a hoy. Es lo único que re-ancla las fechas, y la
+  única salida de una demo sembrada antes de que existieran las instantáneas
+  (el panel lo avisa como «generada con una versión anterior»: su primer
+  «Restablecer» se convierte en una regeneración, una sola vez).
+
+Cada evento de la línea de tiempo tiene una clave estable (`día@hora etiqueta`,
+`timeline.ts`) y el ejecutor apunta en `state.done` las que ya corrieron. Así
+«Restablecer» reconoce los eventos nuevos del código (una zona, una guía, un
+bloque de la Home…) y los ejecuta sobre el estado restaurado; el panel enseña
+cuántos pasos nuevos hay pendientes. Cambiar la etiqueta de un evento lo
+convierte en uno nuevo.
 
 El borrado (`purge.ts`) se construye a partir del esquema: todas las tablas con
 `organization_id` y sus tablas hijas por clave foránea, hijas primero, en un
-batch; las claves de R2 de su biblioteca de medios y sus ajustes `org:<id>:%`.
-Antes de borrar comprueba que la empresa es la demo (slug, origen `demo` y que no
-es la empresa 1). Queda en la auditoría.
+batch; y sus ajustes `org:<id>:%` (las claves de R2 sólo al regenerar). Antes de
+borrar comprueba que la empresa es la demo (slug, origen `demo` y que no es la
+empresa 1). Las tablas de sesión y rastro (sesiones, retos de acceso, tokens de
+contraseña, accesos a medios, subidas a medias, errores) nunca entran en la
+instantánea: por eso restablecer **cierra las sesiones abiertas en la demo**
+(son de los visitantes) y quien estuviera dentro vuelve a entrar con la misma
+contraseña. Todo queda en la auditoría.
 
 ## Pruebas
 

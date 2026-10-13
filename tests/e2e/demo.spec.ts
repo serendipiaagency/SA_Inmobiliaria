@@ -29,7 +29,8 @@ test('cuenta demo: se genera, la gerente entra sin opciones de super admin y nad
 
   // 1. Crear y generar (cada llamada ejecuta un tramo).
   let progress = await (await owner.post('/api/admin/organizations', { data: { action: 'demo-create' } })).json()
-  for (let i = 0; i < 200 && (progress.status === 'provisioning' || progress.status === 'resetting'); i++) {
+  const ACTIVE = ['provisioning', 'resetting', 'restoring', 'updating', 'snapshotting']
+  for (let i = 0; i < 200 && ACTIVE.includes(progress.status); i++) {
     const res = await owner.post('/api/admin/organizations', { data: { action: 'demo-advance' } })
     expect(res.ok(), await res.text()).toBeTruthy()
     progress = await res.json()
@@ -39,7 +40,7 @@ test('cuenta demo: se genera, la gerente entra sin opciones de super admin y nad
   const orgId: number = progress.orgId
 
   // Restablecer exige escribir el identificador de la empresa.
-  const refused = await owner.post('/api/admin/organizations', { data: { action: 'demo-reset', confirm: 'otra-cosa' } })
+  const refused = await owner.post('/api/admin/organizations', { data: { action: 'demo-regenerate', confirm: 'otra-cosa' } })
   expect(refused.status()).toBe(422)
 
   // 2. La gerente entra con su usuario.
@@ -117,6 +118,40 @@ test('cuenta demo: se genera, la gerente entra sin opciones de super admin y nad
   // Ningún email de la demo salió: todos quedan «no enviados» con el motivo.
   const status = await (await owner.post('/api/admin/organizations', { data: { action: 'demo-status' } })).json()
   expect(status.status).toBe('ready')
+  expect(status.snapshotAt).toBeTruthy()
+  expect(status.legacy).toBe(false)
+
+  // 5. Restablecer NO es destructivo: lo que deja un visitante (un contacto creado
+  // desde el panel de la demo) desaparece; lo sembrado y sus imágenes siguen.
+  const seededContacts = (await (await page.request.get('/api/admin/contacts', { params: { pageSize: '1' } })).json()).total
+  const visitor = await page.request.post('/api/admin/contacts', { data: { name: 'Visitante e2e', email: `visitante-${Date.now()}@demo.test` } })
+  expect(visitor.ok(), await visitor.text()).toBeTruthy()
+  expect((await (await page.request.get('/api/admin/contacts', { params: { pageSize: '1' } })).json()).total).toBe(seededContacts + 1)
+  // Una imagen sembrada (la foto principal de una propiedad) que tiene que seguir existiendo tras restablecer.
+  // `mainImage` es la clave R2 tal cual (el panel la sirve por /api/media/<clave>).
+  const seededKey: string = (rows as any[]).find((p) => p.mainImage)!.mainImage
+  const seededImage = seededKey.startsWith('/') ? seededKey : `/api/media/${seededKey}`
+  expect((await page.request.get(seededImage)).status()).toBe(200)
+  let restoring = await (await owner.post('/api/admin/organizations', { data: { action: 'demo-reset', confirm: true } })).json()
+  expect(restoring.status).toBe('restoring')
+  for (let i = 0; i < 200 && ACTIVE.includes(restoring.status); i++) {
+    const res = await owner.post('/api/admin/organizations', { data: { action: 'demo-advance' } })
+    expect(res.ok(), await res.text()).toBeTruthy()
+    restoring = await res.json()
+  }
+  expect(restoring.error).toBeNull()
+  expect(restoring.status).toBe('ready')
+  expect(restoring.anchorDay).toBe(status.anchorDay)
+  // Las sesiones abiertas en la demo son de los visitantes: el restablecimiento
+  // las cierra y la gerente tiene que volver a entrar (con la misma contraseña).
+  expect((await page.request.get('/api/admin/contacts', { params: { pageSize: '1' } })).status()).toBe(401)
+  const relogin = await context.request.post('/api/auth/login', { data: { email: DEMO_EMAIL, password: DEMO_PASSWORD } })
+  expect(relogin.ok(), await relogin.text()).toBeTruthy()
+  expect((await (await page.request.get('/api/admin/contacts', { params: { pageSize: '1' } })).json()).total).toBe(seededContacts)
+  expect((await page.request.get(seededImage)).status()).toBe(200)
+  // La gerente sigue dentro y la web de la demo sigue viéndose.
+  await page.goto(`/?vista_previa=${orgId}`)
+  await expect(page.getByText('Encuentra tu lugar')).toBeVisible()
 
   await context.close()
   await owner.dispose()

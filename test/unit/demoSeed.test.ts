@@ -6,6 +6,10 @@ import { describe, expect, it, vi } from 'vitest'
 import * as schema from '../../server/db/schema'
 import { advanceDemoProvisioning, requestDemoProvisioning, type DemoProgress } from '../../server/demo/runner'
 import { demoScopedTables, DEMO_ORG_SLUG } from '../../server/demo/purge'
+import { DEMO_SNAPSHOT_KEY, SNAPSHOT_SKIP_TABLES, orderTablesForInsert, type DemoSnapshot } from '../../server/demo/snapshot'
+import { DEMO_ACTIVE_STATUSES } from '../../server/demo/state'
+import { demoSeedEvent } from '../../server/demo/context'
+import { storeAndRegisterFile } from '../../server/utils/media'
 import { DEMO_ADMIN, DEMO_ADMIN_PASSWORD_HASH_DEFAULT } from '../../server/demo/dataset/company'
 import { verifyPassword } from '../../server/utils/auth'
 import { createD1Shim, createR2Shim } from './helpers/d1Shim'
@@ -15,7 +19,9 @@ import { seedTenant } from './helpers/tenantFixtures'
  * La cuenta demo «Norte Astur Inmobiliaria» de punta a punta, sobre SQLite con
  * todas las migraciones y el mismo driver de D1 que el Worker: se pide, se
  * genera por tramos (como el cron), se comprueba que el resultado es coherente
- * y aislado, y se restablece sin tocar a otra empresa.
+ * y aislado, se restablece desde su instantánea sin destruir lo sembrado (sólo
+ * desaparece lo que dejaron los visitantes), aplica los eventos que el código
+ * añade después y, si se regenera de cero, no deja rastro.
  */
 
 // La auditoría usa auto-imports de Nitro (getRequestHeader) que no existen en Vitest.
@@ -40,7 +46,7 @@ async function runToEnd(env: Record<string, any>): Promise<DemoProgress & { maxQ
     progress = await advanceDemoProvisioning(env, { trigger: 'cron', assets, budgetMs: 600_000 })
     invocations++
     maxQueries = Math.max(maxQueries, progress.queries)
-    if (progress.status !== 'provisioning' && progress.status !== 'resetting') break
+    if (!DEMO_ACTIVE_STATUSES.includes(progress.status as any)) break
   }
   return { ...progress!, maxQueries, invocations }
 }
@@ -161,10 +167,95 @@ describe('cuenta demo Norte Astur', () => {
     // La otra agencia sigue igual.
     expect(await countFor(db, schema.contacts, other.orgId)).toBe(otherBefore)
 
-    // Restablecer: el primer tramo borra todo lo de la demo (y sólo lo de la demo).
+    // ── Instantánea del estado sembrado ──────────────────────────────────────
+    const snapshotJson = async () => JSON.parse(new TextDecoder().decode(MEDIA.objects.get(DEMO_SNAPSHOT_KEY)!.bytes)) as DemoSnapshot
+    expect(MEDIA.objects.has(DEMO_SNAPSHOT_KEY)).toBe(true)
+    expect(done.snapshotAt).toBeTruthy()
+    const snapshot = await snapshotJson()
+    expect(snapshot.orgId).toBe(orgId)
+    expect(Object.keys(snapshot.state.done).length).toBe(done.total)
+    expect(snapshot.tables.some((t) => SNAPSHOT_SKIP_TABLES.has(t.name))).toBe(false)
+    // Cada tabla va después de todas sus padres según las claves foráneas reales (orden de inserción).
+    const order = snapshot.tables.map((t) => t.name)
+    const { order: expectedOrder, cycles } = await orderTablesForInsert(db, order)
+    expect(cycles).toEqual([])
+    expect(order).toEqual(expectedOrder)
+    expect(order.indexOf('contacts')).toBeLessThan(order.indexOf('leads'))
+    expect(order.indexOf('leads')).toBeLessThan(order.indexOf('visits'))
+    const seededRows = Object.fromEntries(snapshot.tables.map((t) => [t.name, t.rows.length]))
+    expect(seededRows.contacts).toBeGreaterThan(10)
+    expect(seededRows.media_assets).toBeGreaterThan(100)
+
+    // ── Lo que dejan los visitantes: un contacto nuevo, un cambio y un fichero ──
     const mediaKeys = (await db.select({ k: schema.mediaAssets.r2Key }).from(schema.mediaAssets).where(eq(schema.mediaAssets.organizationId, orgId))).map((r: any) => r.k)
     expect(mediaKeys.length).toBeGreaterThan(100)
-    await requestDemoProvisioning(db, { reset: true, trigger: 'admin' })
+    const contactsBefore = await countFor(db, schema.contacts, orgId)
+    const [firstContact] = await db.select({ id: schema.contacts.id, name: schema.contacts.name }).from(schema.contacts).where(eq(schema.contacts.organizationId, orgId)).orderBy(schema.contacts.id).limit(1)
+    await db.insert(schema.contacts).values({ organizationId: orgId, name: 'Visitante de la demo' })
+    await db.update(schema.contacts).set({ name: 'Tocado por un visitante' }).where(eq(schema.contacts.id, firstContact.id))
+    const uploaded = await storeAndRegisterFile(
+      demoSeedEvent(env, db),
+      db,
+      { data: await assets.load('personas/c01.jpg'), type: 'image/jpeg', filename: 'visitante.jpg' },
+      { organizationId: orgId, visibility: 'public', category: 'upload' },
+    )
+    expect(MEDIA.objects.has(uploaded.key)).toBe(true)
+    expect(await countFor(db, schema.contacts, orgId)).toBe(contactsBefore + 1)
+
+    // ── Restablecer: NO destructivo ───────────────────────────────────────────
+    const requested = await requestDemoProvisioning(db, { mode: 'restore', trigger: 'admin' }, env)
+    expect(requested.status).toBe('restoring')
+    const restored = await runToEnd(env)
+    expect(restored.error).toBeNull()
+    expect(restored.status).toBe('ready')
+    expect(restored.orgId).toBe(orgId)
+    expect(restored.anchorDay).toBe(done.anchorDay) // no se re-ancla
+    expect(restored.maxQueries).toBeLessThan(800)
+    process.stdout.write(`DEMO-RESTORE invocaciones=${restored.invocations} maxQueries=${restored.maxQueries}\n`)
+    // Lo del visitante ha desaparecido; lo sembrado está igual.
+    expect(await countFor(db, schema.contacts, orgId)).toBe(contactsBefore)
+    expect((await db.select({ name: schema.contacts.name }).from(schema.contacts).where(eq(schema.contacts.id, firstContact.id)))[0].name).toBe(firstContact.name)
+    expect(MEDIA.objects.has(uploaded.key)).toBe(false)
+    expect(await countFor(db, schema.leads, orgId)).toBe(40)
+    expect(await countFor(db, schema.invoices, orgId)).toBe(16)
+    // Las imágenes sembradas siguen en R2 con las mismas claves, y la biblioteca las sigue registrando.
+    const mediaAfter = (await db.select({ k: schema.mediaAssets.r2Key }).from(schema.mediaAssets).where(eq(schema.mediaAssets.organizationId, orgId))).map((r: any) => r.k)
+    expect(mediaAfter.sort()).toEqual([...mediaKeys].sort())
+    expect(mediaKeys.every((k: string) => MEDIA.objects.has(k))).toBe(true)
+    // Misma cantidad de filas por tabla que en la instantánea.
+    for (const t of snapshot.tables) {
+      const scoped = demoScopedTables().find((x) => x.name === t.name)!
+      const [row] = await db.select({ n: sql<number>`count(*)` }).from(sql`${sql.identifier(t.name)}`).where(scoped.where(orgId))
+      expect(Number(row.n), t.name).toBe(t.rows.length)
+    }
+    // La otra agencia, intacta; la gerente sigue entrando con su contraseña.
+    expect(await countFor(db, schema.contacts, other.orgId)).toBe(otherBefore)
+    const [adminAfter] = await db.select().from(schema.users).where(eq(schema.users.email, DEMO_ADMIN.email))
+    expect(adminAfter.password).toBe(DEMO_ADMIN_PASSWORD_HASH_DEFAULT)
+    // Se ha vuelto a guardar la instantánea.
+    expect(restored.snapshotAt).not.toBe(done.snapshotAt)
+
+    // ── Un paso nuevo del código: sólo se ejecuta ese ─────────────────────────
+    // Se simula quitando de la instantánea la clave del último control de SLA (idempotente).
+    const tampered = await snapshotJson()
+    const pendingKey = Object.keys(tampered.state.done).find((k) => k.endsWith('SLA al día'))!
+    expect(pendingKey).toBeTruthy()
+    tampered.state.done = Object.fromEntries(Object.entries(tampered.state.done).filter(([k]) => k !== pendingKey)) as Record<string, 1>
+    await MEDIA.put(DEMO_SNAPSHOT_KEY, JSON.stringify(tampered))
+    expect((await requestDemoProvisioning(db, { mode: 'restore', trigger: 'admin' }, env)).status).toBe('restoring')
+    let updated: DemoProgress | null = null
+    let ranTotal = 0
+    for (let i = 0; i < 50; i++) {
+      updated = await advanceDemoProvisioning(env, { trigger: 'admin', assets, budgetMs: 600_000 })
+      ranTotal += updated.ran
+      if (!DEMO_ACTIVE_STATUSES.includes(updated.status as any)) break
+    }
+    expect(updated!.status).toBe('ready')
+    expect(ranTotal).toBe(1)
+    expect(Object.keys((await snapshotJson()).state.done)).toContain(pendingKey)
+
+    // ── Regenerar: el primer tramo borra todo lo de la demo (y sólo lo de la demo), ficheros incluidos ──
+    await requestDemoProvisioning(db, { mode: 'regenerate', trigger: 'admin' }, env)
     const purged = await advanceDemoProvisioning(env, { trigger: 'admin', assets, budgetMs: 600_000, maxQueries: 1_000_000 })
     expect(purged.error).toBeNull()
     expect(purged.status).toBe('provisioning')
@@ -177,12 +268,13 @@ describe('cuenta demo Norte Astur', () => {
     }
     expect(leftovers).toEqual([])
     expect(mediaKeys.some((k: string) => MEDIA.objects.has(k))).toBe(false)
+    expect(MEDIA.objects.has(DEMO_SNAPSHOT_KEY)).toBe(false)
     expect(await countFor(db, schema.contacts, other.orgId)).toBe(otherBefore)
     // La empresa se conserva (mismo id) para volver a sembrarla.
     const [kept] = await db.select({ id: schema.organizations.id }).from(schema.organizations).where(eq(schema.organizations.id, orgId))
     expect(kept.id).toBe(orgId)
 
-    // Y se vuelve a sembrar igual sobre la misma empresa (idempotente).
+    // Y se vuelve a sembrar igual sobre la misma empresa (idempotente), con instantánea nueva.
     const again = await runToEnd(env)
     expect(again.error).toBeNull()
     expect(again.status).toBe('ready')
@@ -190,5 +282,6 @@ describe('cuenta demo Norte Astur', () => {
     expect(await countFor(db, schema.leads, orgId)).toBe(40)
     expect(await countFor(db, schema.invoices, orgId)).toBe(16)
     expect((await db.select().from(schema.users).where(eq(schema.users.email, DEMO_ADMIN.email))).length).toBe(1)
+    expect(MEDIA.objects.has(DEMO_SNAPSHOT_KEY)).toBe(true)
   })
 })
