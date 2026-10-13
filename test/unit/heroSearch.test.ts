@@ -106,7 +106,7 @@ describe('el Hero usa la búsqueda real (sin lógica duplicada)', () => {
   })
   it('los filtros salen de utils/searchState.ts y el tipo, del árbol del catálogo', () => {
     expect(source).toMatch(/from '~\/utils\/searchState'/)
-    expect(source).toMatch(/<TypeTreeFilter/)
+    expect(source).toMatch(/<PropertyTypePicker/)
     expect(source).toMatch(/router\.push\(\{ path: '\/propiedades', query: searchQuery\(\) \}\)/)
   })
 })

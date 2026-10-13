@@ -123,15 +123,18 @@ export function heroTypeSummary(types: string[], subtypes: string[], available: 
   const items: string[] = []
   const used = new Set<string>()
   for (const cat of PROPERTY_TYPE_TREE) {
+    // Un grupo de varios tipos elegido entero se nombra por el grupo («Viviendas», «Inmuebles comerciales»)…
     const catTypes = cat.families.flatMap((f) => f.types).filter((ty) => avail.has(ty))
-    if (cat.families.length > 1 && catTypes.length > 1 && catTypes.every((ty) => chosen.has(ty))) {
+    if (catTypes.length > 1 && catTypes.every((ty) => chosen.has(ty))) {
       items.push(t(cat.label[0], cat.label[1]))
       catTypes.forEach((ty) => used.add(ty))
       continue
     }
+    // …y una familia entera de un grupo con familias, por la familia («Pisos», «Casas y chalets»).
+    if (cat.families.length < 2) continue
     for (const fam of cat.families) {
       const famTypes = fam.types.filter((ty) => avail.has(ty))
-      if (cat.families.length > 1 && famTypes.length > 1 && famTypes.every((ty) => chosen.has(ty))) {
+      if (famTypes.length > 1 && famTypes.every((ty) => chosen.has(ty))) {
         items.push(t(fam.label[0], fam.label[1]))
         famTypes.forEach((ty) => used.add(ty))
       }

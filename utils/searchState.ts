@@ -1,4 +1,4 @@
-import { PROPERTY_SUBTYPES, PROPERTY_TYPES } from './propertySheet'
+import { PROPERTY_SUBTYPES, PROPERTY_TYPES, PROPERTY_TYPE_GROUPS } from './propertySheet'
 
 /**
  * El estado ÚNICO de una búsqueda de la web pública: lo comparten el buscador
@@ -117,17 +117,11 @@ export interface TypeCategory {
   /** Viviendas se divide en Pisos y Casas y chalets; el resto es un tipo suelto. */
   families: TypeFamily[]
 }
-export const PROPERTY_TYPE_TREE: TypeCategory[] = [
-  {
-    key: 'homes',
-    label: ['types.homes', 'Viviendas'],
-    families: [
-      { key: 'flats', label: ['types.flats', 'Pisos'], types: ['Apartment', 'Penthouse', 'Duplex', 'Studio'] },
-      { key: 'houses', label: ['types.houses', 'Casas y chalets'], types: ['House', 'Villa', 'Townhouse', 'Finca'] },
-    ],
-  },
-  ...['Retail', 'Office', 'Garage', 'Land', 'Warehouse', 'Building', 'Development'].map((t) => ({ key: t, label: ['', ''] as [string, string], families: [{ key: t, label: ['', ''] as [string, string], types: [t] }] })),
-]
+export const PROPERTY_TYPE_TREE: TypeCategory[] = PROPERTY_TYPE_GROUPS.map((g) => ({
+  key: g.key,
+  label: g.label,
+  families: g.families.map((f) => ({ key: f.key, label: f.label, types: [...f.types] })),
+}))
 /** Tipos en los que habitaciones y baños tienen sentido. */
 export const RESIDENTIAL_TYPES = new Set(['Apartment', 'Penthouse', 'Duplex', 'Studio', 'House', 'Villa', 'Townhouse', 'Finca'])
 

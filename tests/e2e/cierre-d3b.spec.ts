@@ -117,10 +117,8 @@ test.describe('Cierre D3b — moneda de la agencia, web pública y catálogo de 
     // Panel de filtros del catálogo (#109): el grupo «Tipo de propiedad», con Viviendas desplegado.
     const aside = page.getByTestId('catalog-aside')
     await aside.locator('[data-group="type"] > button').click()
-    // Con varios tipos de vivienda publicados, Viviendas se despliega; con uno, sale directo.
-    const homes = aside.locator('[data-category="homes"] > .tt-row .tt-exp')
-    if (await homes.count()) await homes.click()
-    const leaf = aside.locator('[data-type="Penthouse"] .tt-name')
+    // El catálogo entero a la vista, sin desplegar nada (selector compartido PropertyTypePicker).
+    const leaf = aside.locator('[data-category="homes"] [data-type="Penthouse"] .tp-name')
     await expect(leaf).toHaveText('Ático')
     // Nada de las claves internas en inglés.
     await expect(leaf).not.toHaveText('Penthouse')
