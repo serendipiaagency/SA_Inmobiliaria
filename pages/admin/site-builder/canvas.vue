@@ -33,8 +33,10 @@
     <SiteGlobalZone zone="footer" :mode="mode" :selected="selectedGlobal === 'footer'" @select="onSelectGlobal">
       <SiteFooter :tenant-override="tenantOverride" :config="footer" :meta="footerMeta" />
     </SiteGlobalZone>
-    <!-- Muestra del aviso de cookies: no guarda nada ni carga ningún servicio -->
-    <CookieConsent sandbox />
+    <!-- Muestras del aviso de cookies y del aviso de demostración (utils/siteConsent.ts): el
+         borrador del editor, sin guardar nada ni cargar ningún servicio. Pulsarlas abre su inspector. -->
+    <CookieConsent sandbox selectable :config="consent?.cookie ?? null" :logo="consentMeta?.logo ?? null" @select="onSelectGlobal('cookie', null)" />
+    <DemoNotice sandbox selectable :config="consent?.demo ?? null" :force-show="selectedGlobal === 'demo'" @select="onSelectGlobal('demo', null)" />
   </div>
 </template>
 
@@ -46,6 +48,8 @@ import { TENANT_BRANDING_OVERRIDE, type TenantBranding } from '~/composables/use
 import type { SiteNodeRef } from '~/composables/useSiteEditor'
 import { SITE_CANVAS_PAGE_KEY } from '~/composables/useFichaProperty'
 import type { FooterAvailability, FooterConfig, FooterProfile } from '~/utils/siteFooter'
+import { allChoices, buildConsent } from '~/utils/cookieConsent'
+import type { ConsentProfile, SiteConsentConfig } from '~/utils/siteConsent'
 
 /**
  * Loaded inside the builder shell's <iframe>, sized to the exact target
@@ -72,7 +76,7 @@ const homeData = ref<{ projects: any[]; communities: any[]; blogs: any[]; team: 
 const device = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
 const selectedBlockId = ref<string | null>(null)
 const selectedNodeField = ref<string | null>(null)
-const selectedGlobal = ref<'header' | 'footer' | null>(null)
+const selectedGlobal = ref<'header' | 'footer' | 'cookie' | 'demo' | null>(null)
 const mode = ref<'builder' | 'preview'>('builder')
 // La página que se edita (utils/siteBuilder/pages.ts): sólo la portada lleva
 // la cabecera superpuesta sobre el hero, como en la web publicada.
@@ -90,6 +94,9 @@ const cookieSandbox = useCookieConsent('sandbox')
 // datos de la empresa con los que se rellena lo que no se escribe a mano.
 const footer = ref<FooterConfig | null>(null)
 const footerMeta = ref<{ profile: FooterProfile | null; available: FooterAvailability | null } | null>(null)
+// Los avisos de cookies y de demostración (utils/siteConsent.ts): el borrador y lo que toman de la empresa.
+const consent = ref<SiteConsentConfig | null>(null)
+const consentMeta = ref<ConsentProfile | null>(null)
 
 function post(type: string, payload: Record<string, any> = {}) {
   window.parent.postMessage({ source: 'sa-builder-canvas', type, ...payload }, window.location.origin)
@@ -100,7 +107,7 @@ function onSelect(id: string | null, node: SiteNodeRef | null) {
 function onHover(id: string | null) {
   post('hover', { id })
 }
-function onSelectGlobal(zone: 'header' | 'footer', element: string | null) {
+function onSelectGlobal(zone: 'header' | 'footer' | 'cookie' | 'demo', element: string | null) {
   post('select-global', { zone, element })
 }
 
@@ -113,6 +120,7 @@ function onSelectGlobal(zone: 'header' | 'footer', element: string | null) {
  */
 const blockJson = new Map<string, string>()
 let footerJson = ''
+let consentJson = ''
 function applyBlocks(incoming: SiteBlock[]) {
   const current = new Map(blocks.value.map((b) => [b.id, b]))
   const seen = new Set<string>()
@@ -149,16 +157,25 @@ function handleMessage(e: MessageEvent) {
       }
       footerMeta.value = msg.footerMeta ?? null
     }
+    if (msg.consent) {
+      const json = JSON.stringify(msg.consent)
+      if (json !== consentJson) {
+        consentJson = json
+        consent.value = msg.consent
+      }
+      consentMeta.value = msg.consentMeta ?? null
+    }
     if (typeof msg.pageKey === 'string' && msg.pageKey !== pageKey.value) {
       pageKey.value = msg.pageKey
       // Otra página: se empieza por arriba, como al abrirla en la web.
       window.scrollTo(0, 0)
     }
   } else if (msg.type === 'cookie-preview') {
-    // «Ver el aviso en el lienzo» (Constructor → Cookies), como lo vería un visitante nuevo.
-    cookieSandbox.sandboxProviders.value = { ga4: msg.providers?.ga4 || null, metaPixel: msg.providers?.metaPixel || null, revision: Number(msg.providers?.revision) || 0 }
-    cookieSandbox.state.value.record = null
-    cookieSandbox.openSummary()
+    // La muestra del aviso de cookies, en el estado que pide el shell: como lo
+    // vería un visitante nuevo («Ver el aviso en el lienzo», Inicial), con las
+    // preferencias abiertas, o como quien ya guardó una decisión (con la X).
+    if (msg.providers) cookieSandbox.sandboxProviders.value = { ga4: msg.providers.ga4 || null, metaPixel: msg.providers.metaPixel || null, revision: Number(msg.providers.revision) || 0 }
+    showCookieSample(msg.view === 'settings' || msg.view === 'saved' ? msg.view : 'summary')
   } else if (msg.type === 'scroll-to') {
     // Tras insertar un bloque o elegirlo en Estructura: se lleva a la vista
     // con el DOM ya actualizado, no con el estado de antes.
@@ -168,6 +185,22 @@ function handleMessage(e: MessageEvent) {
     })
   }
 }
+
+function showCookieSample(view: 'summary' | 'settings' | 'saved') {
+  if (view === 'saved') {
+    cookieSandbox.state.value.record = buildConsent(0, cookieSandbox.sandboxProviders.value, { ...allChoices(false), analytics: true })
+    cookieSandbox.openSettings()
+    return
+  }
+  cookieSandbox.state.value.record = null
+  if (view === 'settings') cookieSandbox.openSettings()
+  else cookieSandbox.openSummary()
+}
+// Al elegir el aviso de cookies en el shell sale su muestra; al dejarlo, se aparta para no tapar el lienzo.
+watch(selectedGlobal, (zone, prev) => {
+  if (zone === 'cookie' && !cookieSandbox.state.value.open) showCookieSample('summary')
+  if (prev === 'cookie' && zone !== 'cookie') cookieSandbox.state.value.open = false
+})
 
 // Atajos con el foco dentro del lienzo. Los textos en edición inline se
 // quedan con sus teclas (useInlineText corta la propagación), así que aquí
@@ -225,6 +258,7 @@ onMounted(async () => {
       legalAddress: null,
       legalEmail: null,
       legalPhone: null,
+      isDemo: Boolean(org.isDemo),
     }
   }
   window.parent.postMessage({ source: 'sa-builder-canvas', type: 'ready' }, window.location.origin)
