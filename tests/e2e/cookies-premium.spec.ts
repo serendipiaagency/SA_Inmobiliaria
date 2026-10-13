@@ -68,6 +68,9 @@ test.describe('Aviso de cookies premium y aviso de demostración', () => {
     const reject = (await notice.getByTestId('cookie-reject').boundingBox())!
     const accept = (await notice.getByTestId('cookie-accept').boundingBox())!
     expect(Math.abs(reject.height - accept.height)).toBeLessThan(2)
+    // Iconos discretos por categoría, decorativos y en el color del texto (nunca una marca de verificación).
+    await expect(notice.locator('svg[data-category="analytics"]').first()).toBeVisible()
+    await expect(notice.locator('svg[data-category="thirdParty"]').first()).toBeVisible()
     // 3. Enlaces legales dinámicos de la web (cookies y privacidad) y responsable.
     await expect(notice.getByTestId('cookie-policy-link')).toHaveAttribute('href', '/cookies')
     await expect(notice.getByTestId('cookie-privacy-link')).toHaveAttribute('href', '/privacidad')
@@ -93,6 +96,7 @@ test.describe('Aviso de cookies premium y aviso de demostración', () => {
     await notice.getByTestId('cookie-configure').click()
     await expect(notice.getByTestId('cookie-toggle-analytics')).not.toBeChecked()
     await expect(notice.getByTestId('cookie-toggle-thirdParty')).not.toBeChecked()
+    await expect(notice.locator('svg[data-category="necessary"]')).toBeVisible()
     await ctx.close()
   })
 

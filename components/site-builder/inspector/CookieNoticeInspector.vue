@@ -91,6 +91,8 @@
       <SliderField label="Radio de las esquinas" :min="0" :max="32" :step="2" unit=" px" :model-value="config.design.radius" data-testid="cookie-radius" @update:model-value="(v) => (config.design.radius = v)" />
       <SegmentedField label="Sombra" :model-value="config.design.shadow" :options="[{ value: 'none', label: 'Sin' }, { value: 'soft', label: 'Suave' }, { value: 'strong', label: 'Marcada' }]" data-testid="cookie-shadow" @update:model-value="(v) => (config.design.shadow = v as any)" />
       <SegmentedField label="Botones" :model-value="config.design.buttonShape" :options="[{ value: 'pill', label: 'Píldora' }, { value: 'rounded', label: 'Redondeados' }, { value: 'square', label: 'Rectos' }]" data-testid="cookie-button-shape" @update:model-value="(v) => (config.design.buttonShape = v as any)" />
+      <ToggleField label="Iconos discretos en las categorías" :model-value="config.design.categoryIcons" data-testid="cookie-category-icons" @update:model-value="(v) => (config.design.categoryIcons = v)" />
+      <p class="text-[11px] text-stone-500">Candado (necesarias), gráfico (analíticas), vídeo (contenido de terceros) y megáfono (publicidad), en el color del texto. Ninguno sugiere una aceptación previa.</p>
     </InspectorSection>
 
     <InspectorSection title="Tipografía y espacios" tab="design">

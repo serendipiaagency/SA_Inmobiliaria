@@ -868,7 +868,8 @@ El aspecto del aviso —no su lógica— es configurable por inmobiliaria
 (`utils/siteConsent.ts`): textos por idioma (vacío = el de `i18n/messages.ts`
 en ese idioma), logo (Brand Kit → isotipo → empresa, o uno propio), colores
 (de partida blanco cálido y el color de marca oscurecido hasta que el blanco
-se lea, `cookiePalette`), radio, sombra, forma de los botones, tipografía,
+se lea, `cookiePalette`), radio, sombra, forma de los botones, iconos discretos
+por categoría (`CookieCategoryIcon.vue`), tipografía,
 espacios, posición (`center` | `bottom-right` | `bottom-left` | `bottom`
 banner), anchura y altura máximas, separación de los bordes, comportamiento en
 el móvil (`sheet` | `full`) y animación (`fade` | `slide` | `none`; con
