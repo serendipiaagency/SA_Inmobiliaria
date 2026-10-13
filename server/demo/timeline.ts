@@ -24,6 +24,13 @@ export interface DemoEvent {
   /** Instante UTC (ms) en el que ocurre. */
   t: number
   seq: number
+  /**
+   * Clave estable del evento (día@hora + etiqueta): es lo que el ejecutor
+   * apunta como «hecho». Así, al restablecer la demo desde su instantánea, los
+   * eventos que el código haya añadido después se reconocen y se ejecutan; los
+   * ya hechos, no. Cambiar la etiqueta de un evento lo convierte en uno nuevo.
+   */
+  key: string
   label: string
   run: (ctx: DemoContext) => Promise<void>
 }
@@ -31,6 +38,7 @@ export interface DemoEvent {
 export class TimelineBuilder {
   private events: DemoEvent[] = []
   private seq = 0
+  private keys = new Map<string, number>()
   constructor(
     readonly anchorDay: string,
     private readonly nowMs: number,
@@ -39,7 +47,10 @@ export class TimelineBuilder {
   /** Añade un evento a `days` del anclaje, a la hora de pared `hhmm` (Madrid). */
   add(days: number, hhmm: string, label: string, run: (ctx: DemoContext) => Promise<void>): void {
     const t = zonedWallTimeToUtc(wallAt(this.anchorDay, days, hhmm), DEMO_TIMEZONE).getTime()
-    this.events.push({ t, seq: this.seq++, label, run })
+    const base = `${days}@${hhmm} ${label}`
+    const n = (this.keys.get(base) ?? 0) + 1
+    this.keys.set(base, n)
+    this.events.push({ t, seq: this.seq++, key: n === 1 ? base : `${base} #${n}`, label, run })
   }
 
   /**

@@ -1,12 +1,13 @@
 import { drizzle } from 'drizzle-orm/d1'
 import * as schema from '../../db/schema'
 import { advanceDemoProvisioning, requestDemoProvisioning } from '../../demo/runner'
-import { readDemoState } from '../../demo/state'
+import { DEMO_ACTIVE_STATUSES, readDemoState } from '../../demo/state'
 
 /**
- * Cada minuto (nuxt.config.ts scheduledTasks): avanza un tramo la generación
- * de la cuenta demo «Norte Astur Inmobiliaria» si hay una en curso (creación
- * o restablecimiento pedidos desde Sistemas > Empresas).
+ * Cada minuto (nuxt.config.ts scheduledTasks): avanza un tramo el trabajo
+ * pendiente de la cuenta demo «Norte Astur Inmobiliaria» si lo hay (creación,
+ * restablecimiento desde la instantánea, actualización, instantánea o
+ * regeneración pedidos desde Sistemas > Empresas).
  *
  * Con DEMO_TENANT_AUTOPROVISION = "1" (wrangler.toml) además la crea sola la
  * primera vez, si todavía no existe. Nunca la restablece por su cuenta: borrar
@@ -28,7 +29,7 @@ export default defineTask<ProvisionResult>({
     if (!state) {
       if (env.DEMO_TENANT_AUTOPROVISION !== '1') return { result: { skipped: true, reason: 'Sin demo pedida' } }
       await requestDemoProvisioning(db, { reset: false, trigger: 'cron' })
-    } else if (state.status === 'ready' || (state.status === 'failed' && state.attempts >= 3)) {
+    } else if (!DEMO_ACTIVE_STATUSES.includes(state.status) && !(state.status === 'failed' && state.attempts < 3)) {
       return { result: { skipped: true, reason: `Demo ${state.status}` } }
     }
     const progress = await advanceDemoProvisioning(env, { trigger: 'cron' })

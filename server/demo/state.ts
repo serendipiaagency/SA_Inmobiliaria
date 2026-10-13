@@ -15,7 +15,14 @@ import * as schema from '../db/schema'
  */
 export const DEMO_STATE_KEY = 'demo:norte-astur:state'
 
-export type DemoStatus = 'provisioning' | 'resetting' | 'ready' | 'failed'
+/**
+ * provisioning: generando desde cero · resetting: borrando todo para regenerar
+ * · restoring: volviendo a la instantánea sembrada · updating: ejecutando los
+ * eventos que el código añadió después de la instantánea · snapshotting:
+ * guardando la instantánea del estado sembrado · ready · failed.
+ */
+export type DemoStatus = 'provisioning' | 'resetting' | 'restoring' | 'updating' | 'snapshotting' | 'ready' | 'failed'
+export const DEMO_ACTIVE_STATUSES: readonly DemoStatus[] = ['provisioning', 'resetting', 'restoring', 'updating', 'snapshotting']
 
 export interface DemoState {
   status: DemoStatus
@@ -39,10 +46,39 @@ export interface DemoState {
   attempts: number
   /** Quién lo pidió por última vez: el cron de producción o el super admin. */
   trigger: 'cron' | 'admin' | null
+  /** Claves (timeline.ts) de los eventos ya ejecutados: lo que permite reconocer los que el código añade después. */
+  done: Record<string, 1>
+  /** Progreso de la restauración de la instantánea (tabla y fila por las que va). */
+  restore: { table: number; offset: number } | null
+  /** Al actualizar: índice del siguiente evento pendiente. */
+  updateIndex: number
+  /** Cuándo se guardó la última instantánea del estado sembrado. */
+  snapshotAt: string | null
+  /** En qué fase falló (el cron sólo reintenta desde cero una generación, nunca una restauración). */
+  failedPhase: DemoStatus | null
 }
 
 export function emptyDemoState(status: DemoStatus, trigger: DemoState['trigger']): DemoState {
-  return { status, orgId: null, stepIndex: 0, anchorDay: null, ids: {}, media: {}, leaseUntil: null, startedAt: null, finishedAt: null, lastStep: null, error: null, attempts: 0, trigger }
+  return {
+    status,
+    orgId: null,
+    stepIndex: 0,
+    anchorDay: null,
+    ids: {},
+    media: {},
+    leaseUntil: null,
+    startedAt: null,
+    finishedAt: null,
+    lastStep: null,
+    error: null,
+    attempts: 0,
+    trigger,
+    done: {},
+    restore: null,
+    updateIndex: 0,
+    snapshotAt: null,
+    failedPhase: null,
+  }
 }
 
 export async function readDemoState(db: any): Promise<{ state: DemoState | null; raw: string | null }> {
