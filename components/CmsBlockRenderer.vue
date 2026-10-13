@@ -4,7 +4,8 @@
       <h2 v-if="block.type === 'heading' && block.level === 2" :id="headingId(block)" class="mt-10 scroll-mt-24 font-serif text-2xl font-medium">{{ block.text }}</h2>
       <h3 v-else-if="block.type === 'heading'" :id="headingId(block)" class="mt-8 scroll-mt-24 font-serif text-xl font-medium">{{ block.text }}</h3>
 
-      <p v-else-if="block.type === 'paragraph'" class="mt-5 leading-relaxed text-stone-600">{{ block.text }}</p>
+      <!-- eslint-disable-next-line vue/no-v-html -->
+      <p v-else-if="block.type === 'paragraph'" class="mt-5 leading-relaxed text-stone-600" v-html="inline(block.text)" />
 
       <blockquote v-else-if="block.type === 'quote'" class="mt-6 border-l-4 border-ink/20 pl-5 italic text-stone-600">
         <p>{{ block.text }}</p>
@@ -12,15 +13,25 @@
       </blockquote>
 
       <div v-else-if="block.type === 'callout'" class="mt-6 rounded-xl border p-4" :class="CALLOUT_CLS[block.variant] || CALLOUT_CLS.info">
-        <p>{{ block.text }}</p>
+        <!-- eslint-disable-next-line vue/no-v-html -->
+        <p v-html="inline(block.text)" />
       </div>
 
       <hr v-else-if="block.type === 'divider'" class="my-8 border-line" >
 
-      <figure v-else-if="block.type === 'image' && block.src" class="mt-6">
-        <img :src="mediaUrl(block.src)" :alt="block.alt || ''" class="w-full rounded-xl object-cover" loading="lazy" >
-        <figcaption v-if="block.caption" class="mt-2 text-center text-sm text-stone-450">{{ block.caption }}</figcaption>
+      <figure v-else-if="block.type === 'image' && block.src" class="mt-6" :class="block.wide ? 'cms-wide' : ''" :data-testid="block.wide ? 'cms-image-wide' : 'cms-image'">
+        <img :src="mediaUrl(block.src)" :alt="block.alt || ''" :width="block.width || undefined" :height="block.height || undefined" class="w-full rounded-xl object-cover" loading="lazy" decoding="async" >
+        <figcaption v-if="block.caption || block.credit" class="mt-2 text-center text-sm text-stone-450">{{ block.caption }}<span v-if="block.credit" class="cms-credit">{{ block.caption ? ' · ' : '' }}{{ block.credit }}</span></figcaption>
       </figure>
+
+      <!-- Bloques editoriales de las guías (components/cms/*) -->
+      <CmsKeyPoints v-else-if="block.type === 'keypoints'" :block="block" />
+      <CmsTimeline v-else-if="block.type === 'timeline'" :block="block" />
+      <CmsChecklist v-else-if="block.type === 'checklist'" :block="block" />
+      <CmsCostCalculator v-else-if="block.type === 'cost_calculator'" :block="block" />
+      <CmsFactorsChart v-else-if="block.type === 'factors_chart'" :block="block" />
+      <CmsComparator v-else-if="block.type === 'comparator'" :block="block" />
+      <CmsAccordion v-else-if="block.type === 'accordion'" :block="block" />
 
       <div v-else-if="block.type === 'gallery' && block.images?.length" class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <img v-for="(img, i) in block.images" :key="i" :src="mediaUrl(img.src)" :alt="img.alt || ''" class="aspect-square rounded-lg object-cover" loading="lazy" >
@@ -58,10 +69,11 @@
         <p class="leading-relaxed text-stone-600">{{ block.right }}</p>
       </div>
 
-      <div v-else-if="block.type === 'faq' && block.items?.length" class="mt-6 space-y-2">
+      <div v-else-if="block.type === 'faq' && block.items?.length" class="mt-6 space-y-2" data-testid="cms-faq">
         <details v-for="(item, fi) in block.items" :key="fi" class="rounded-xl border border-line p-4">
           <summary class="cursor-pointer font-medium">{{ item.q }}</summary>
-          <p class="mt-2 text-stone-600">{{ item.a }}</p>
+          <!-- eslint-disable-next-line vue/no-v-html -->
+          <p class="mt-2 text-stone-600" v-html="inline(item.a)" />
         </details>
       </div>
 
@@ -80,7 +92,19 @@
 </template>
 
 <script setup lang="ts">
+import CmsKeyPoints from '~/components/cms/KeyPoints.vue'
+import CmsTimeline from '~/components/cms/Timeline.vue'
+import CmsChecklist from '~/components/cms/Checklist.vue'
+import CmsCostCalculator from '~/components/cms/CostCalculator.vue'
+import CmsFactorsChart from '~/components/cms/FactorsChart.vue'
+import CmsComparator from '~/components/cms/Comparator.vue'
+import CmsAccordion from '~/components/cms/Accordion.vue'
+import { renderInline } from '~/utils/cmsInline'
+
 defineProps<{ blocks: any[] }>()
+
+// Enlaces [texto](url) y **negritas** de los textos del CMS: el texto se escapa antes (utils/cmsInline.ts).
+const inline = (text: string) => renderInline(text || '')
 
 const CALLOUT_CLS: Record<string, string> = {
   info: 'border-blue-200 bg-blue-50 text-blue-800',
@@ -97,3 +121,37 @@ function youtubeId(url: string): string | null {
 const headingId = cmsHeadingId
 
 </script>
+
+<style>
+/* Las figuras «anchas» se salen de la columna de lectura cuando hay sitio (ver pages/blog/[slug].vue). */
+.cms-content .cms-credit {
+  color: #a39d92;
+}
+.cms-content .cms-btn-ghost,
+.cms-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  border: 1px solid #d9d3c7;
+  background: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #2b2a26;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+.cms-btn-ghost:hover {
+  border-color: #2b2a26;
+}
+.cms-content .cms-link {
+  color: var(--cms-accent, #1f4e5f);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+.cms-content .cms-link:hover {
+  text-decoration-thickness: 2px;
+}
+</style>

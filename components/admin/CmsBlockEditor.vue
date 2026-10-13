@@ -164,6 +164,13 @@
           <input v-model.number="block.price" type="number" class="input" :placeholder="`Precio de referencia (${currencyLabel})`" >
           <p class="mt-1 text-[11px] text-stone-450">Calculadora real e interactiva — el lector puede ajustar entrada y plazo.</p>
         </div>
+
+        <!-- Bloques de las guías: estructura anidada, edición como JSON -->
+        <div v-else-if="JSON_BLOCKS.has(block.type)" class="block-body">
+          <textarea :value="jsonOf(block)" class="input font-mono text-xs" rows="10" spellcheck="false" @change="applyJson(block, $event)" />
+          <p v-if="jsonErrors[block.id]" class="mt-1 text-[11px] text-red-600">{{ jsonErrors[block.id] }}</p>
+          <p v-else class="mt-1 text-[11px] text-stone-450">Se guarda al salir del campo. La estructura de cada bloque está en docs/blog-guias.md.</p>
+        </div>
       </div>
       <div class="inserter">
         <button class="inserter-btn" @click="openInserterAt = openInserterAt === i + 1 ? null : i + 1">+</button>
@@ -196,6 +203,27 @@ const TYPE_LABEL: Record<string, string> = {
   button: 'Botón', cta: 'CTA', table: 'Tabla', code: 'Código', divider: 'Separador', quote: 'Cita',
   callout: 'Callout', columns: 'Columnas', faq: 'FAQ', html: 'HTML',
   properties: 'Propiedades (catálogo)', mortgage_calculator: 'Calculadora hipotecaria',
+  keypoints: 'En resumen', timeline: 'Línea temporal', checklist: 'Checklist', accordion: 'Preguntas por secciones',
+  comparator: 'Comparador', factors_chart: 'Gráfico de factores', cost_calculator: 'Calculadora de gastos',
+}
+/** Bloques con estructura anidada: se editan como JSON (con validación al teclear). */
+const JSON_BLOCKS = new Set(['keypoints', 'timeline', 'checklist', 'accordion', 'comparator', 'factors_chart', 'cost_calculator'])
+const jsonErrors = reactive<Record<string, string>>({})
+function jsonOf(block: any): string {
+  const { id: _id, type: _type, ...rest } = block
+  return JSON.stringify(rest, null, 2)
+}
+function applyJson(block: any, e: Event) {
+  const text = (e.target as HTMLTextAreaElement).value
+  try {
+    const parsed = JSON.parse(text)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Tiene que ser un objeto JSON')
+    for (const k of Object.keys(block)) if (k !== 'id' && k !== 'type') Reflect.deleteProperty(block, k)
+    Object.assign(block, parsed)
+    Reflect.deleteProperty(jsonErrors, block.id)
+  } catch (err: any) {
+    jsonErrors[block.id] = err?.message || 'JSON no válido'
+  }
 }
 
 let seq = 0
@@ -224,6 +252,14 @@ function blankBlock(type: string): any {
     case 'html': return { id, type, html: '' }
     case 'properties': return { id, type, mode: 'latest', limit: 3 }
     case 'mortgage_calculator': return { id, type, price: null }
+    // Bloques editoriales de las guías: se editan como JSON (su estructura es anidada).
+    case 'keypoints': return { id, type, title: 'En resumen', items: [''] }
+    case 'timeline': return { id, type, title: '', steps: [{ title: '', when: '', text: '', docs: [] }] }
+    case 'checklist': return { id, type, title: '', intro: '', storageKey: '', printable: true, downloadable: true, groups: [{ title: '', items: [{ text: '', hint: '' }] }] }
+    case 'cost_calculator': return { id, type, title: 'Calculadora de gastos de compraventa', defaultPrice: 200000, defaultRegion: 'AST' }
+    case 'factors_chart': return { id, type, title: '', text: '', base: 200000, factors: [{ label: '', pct: 0, why: '' }] }
+    case 'comparator': return { id, type, title: '', labelA: 'Obra nueva', labelB: 'Segunda mano', rows: [{ label: '', a: '', b: '' }], quizTitle: '', questions: [] }
+    case 'accordion': return { id, type, title: '', storageKey: '', checkable: true, printable: true, sections: [{ title: '', items: [{ q: '', why: '' }] }] }
     default: return { id, type: 'paragraph', text: '' }
   }
 }
@@ -309,6 +345,7 @@ const INSERT_GROUPS = [
   { label: 'Interacción', items: ['button', 'cta', 'faq'] },
   { label: 'Datos', items: ['table', 'code', 'columns', 'html'] },
   { label: 'SaaS dinámico', items: ['properties', 'mortgage_calculator'] },
+  { label: 'Guías', items: ['keypoints', 'timeline', 'checklist', 'accordion', 'comparator', 'factors_chart', 'cost_calculator'] },
 ]
 </script>
 

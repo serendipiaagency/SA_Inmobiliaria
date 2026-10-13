@@ -70,7 +70,9 @@ propiedad, comparador, favoritos y búsquedas guardadas con alertas, equipo,
 zonas, blog, reserva de visitas online, formularios (contacto, visitante,
 proveedores, reclamaciones), páginas legales con los datos reales de la
 agencia, y portal de cliente (`/mi-cuenta`). Las páginas se construyen con
-el **Constructor Web** ([`docs/site-builder.md`](docs/site-builder.md)).
+el **Constructor Web** ([`docs/site-builder.md`](docs/site-builder.md)). El blog
+editorial y las seis guías de compra están en
+[`docs/blog-guias.md`](docs/blog-guias.md).
 
 ## Desarrollo local
 

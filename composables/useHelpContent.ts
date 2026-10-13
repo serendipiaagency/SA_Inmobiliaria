@@ -995,6 +995,20 @@ export function useHelpContent() {
       ],
     },
     {
+      key: 'cms-guias-compra',
+      group: 'Blog & CMS',
+      title: 'Guías de compra y bloques editoriales',
+      route: '/admin/cms/articles',
+      summary: 'Seis guías evergreen para compradores (paso a paso, gastos e impuestos con calculadora, qué revisar, precio, obra nueva o segunda mano, preguntas) y los bloques interactivos del blog: resumen, línea temporal, checklist, calculadora, gráfico de factores, comparador y desplegables.',
+      steps: [
+        'Las guías se publican solas la primera vez que alguien abre el blog de la web principal y en la cuenta demo; aparecen en Artículos con la categoría «Guías» y se editan como cualquier otro artículo. Si borras una, vuelve a publicarse con su contenido original la próxima vez que se pida el blog.',
+        'En el editor de bloques, el grupo «Guías» tiene los bloques interactivos. Se editan como JSON (título, pasos, grupos de la lista, preguntas…): el editor avisa si el JSON no es válido.',
+        'En párrafos, avisos y respuestas de FAQ puedes enlazar con [texto](/ruta) y resaltar con **negrita**. Sólo se admiten enlaces relativos, http(s) y mailto.',
+        'La calculadora de gastos usa los tipos de cada comunidad con su fuente y fecha de revisión (utils/compraGastos.ts). Lo marcado «pendiente de revisión editorial» no se ha contrastado con la web oficial: confírmalo antes de darlo por bueno.',
+        'El blog público enseña la guía principal destacada, la rejilla con tiempo de lectura y filtro por categoría; la ficha lleva migas, índice fijo, progreso de lectura, relacionados y propiedades reales del catálogo. Detalle en docs/blog-guias.md.',
+      ],
+    },
+    {
       key: 'cms-categories',
       group: 'Blog & CMS',
       title: 'Categorías',

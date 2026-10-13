@@ -1,37 +1,93 @@
 <template>
-  <article v-if="data?.source === 'cms'" class="mx-auto max-w-3xl px-4 py-12">
-    <div class="flex items-center gap-2 text-xs text-stone-450">
-      <NuxtLink v-if="data.category" :to="`/blog?categoria=${data.category.slug}`" class="rounded-full bg-stone-100 px-2.5 py-1 font-semibold">{{ data.category.name }}</NuxtLink>
-      <span>{{ data.article.readingTimeMinutes }} min de lectura</span>
-      <span>·</span>
-      <span>{{ data.article.viewCount }} vistas</span>
+  <div v-if="data?.source === 'cms'" class="blog-article" :style="brandStyle">
+    <ClientOnly><CmsReadingProgress target="#articulo" /></ClientOnly>
+
+    <header class="blog-article-header">
+      <div class="mx-auto max-w-5xl px-6">
+        <nav class="blog-crumbs" aria-label="Migas de pan" data-testid="blog-breadcrumbs">
+          <NuxtLink to="/">Inicio</NuxtLink>
+          <span aria-hidden="true">/</span>
+          <NuxtLink to="/blog">Blog</NuxtLink>
+          <template v-if="data.category">
+            <span aria-hidden="true">/</span>
+            <NuxtLink :to="`/blog?categoria=${data.category.slug}`">{{ data.category.name }}</NuxtLink>
+          </template>
+        </nav>
+        <p v-if="data.category" class="eyebrow mt-8">{{ data.category.name }}</p>
+        <h1 class="heading-serif mt-3 text-4xl leading-tight md:text-5xl lg:text-[3.4rem]" data-testid="blog-title">{{ data.article.title }}</h1>
+        <p v-if="data.article.excerpt" class="mt-5 max-w-3xl text-lg leading-relaxed text-stone-500 md:text-xl" data-testid="blog-subtitle">{{ data.article.excerpt }}</p>
+        <div class="blog-meta" data-testid="blog-meta">
+          <NuxtLink v-if="data.author" :to="`/blog/autor/${data.author.slug}`" class="blog-author">
+            <img v-if="data.author.photo" :src="mediaUrl(data.author.photo)" :alt="data.author.name" width="40" height="40" class="h-10 w-10 rounded-full object-cover" >
+            <span v-else class="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-sm font-semibold text-white">{{ data.author.name?.[0] }}</span>
+            <span>
+              <span class="block text-sm font-medium text-ink">{{ data.author.name }}</span>
+              <span v-if="data.author.specialty" class="block text-xs text-stone-450">{{ data.author.specialty }}</span>
+            </span>
+          </NuxtLink>
+          <span v-else class="blog-author">
+            <span class="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-sm font-semibold text-white">{{ brand?.[0] || 'B' }}</span>
+            <span class="block text-sm font-medium text-ink">{{ brand }}</span>
+          </span>
+          <dl class="blog-meta-facts">
+            <div v-if="data.article.readingTimeMinutes"><dt>Lectura</dt><dd>{{ data.article.readingTimeMinutes }} min</dd></div>
+            <div v-if="data.article.publishedAt"><dt>Publicado</dt><dd><time :datetime="data.article.publishedAt">{{ formatDate(data.article.publishedAt) }}</time></dd></div>
+            <div v-if="updatedLabel"><dt>Actualizado</dt><dd><time :datetime="data.article.updatedAt">{{ updatedLabel }}</time></dd></div>
+          </dl>
+        </div>
+      </div>
+      <figure v-if="data.article.coverImage" class="blog-cover mx-auto max-w-6xl px-6">
+        <img :src="mediaUrl(data.article.coverImage)" :alt="data.article.title" width="1600" height="900" fetchpriority="high" data-testid="blog-cover" >
+      </figure>
+    </header>
+
+    <div class="mx-auto max-w-6xl px-6">
+      <div class="blog-layout">
+        <aside class="blog-aside">
+          <CmsArticleToc :blocks="blocks" sticky />
+        </aside>
+        <article id="articulo" class="blog-body">
+          <div class="blog-toc-mobile"><CmsArticleToc :blocks="blocks" /></div>
+          <CmsBlockRenderer :blocks="blocks" />
+
+          <div v-if="data.tags?.length" class="mt-10 flex flex-wrap gap-2">
+            <span v-for="t in data.tags" :key="t.slug" class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-500">#{{ t.name }}</span>
+          </div>
+        </article>
+      </div>
     </div>
-    <h1 class="mt-3 heading-serif text-4xl">{{ data.article.title }}</h1>
-    <p v-if="data.article.excerpt" class="mt-3 text-lg text-stone-500">{{ data.article.excerpt }}</p>
 
-    <NuxtLink v-if="data.author" :to="`/blog/autor/${data.author.slug}`" class="mt-6 flex items-center gap-3">
-      <img v-if="data.author.photo" :src="mediaUrl(data.author.photo)" class="h-10 w-10 rounded-full object-cover" >
-      <span v-else class="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-sm font-semibold text-white">{{ data.author.name?.[0] }}</span>
-      <span>
-        <span class="block text-sm font-medium">{{ data.author.name }}</span>
-        <span class="block text-xs text-stone-450">{{ data.author.specialty }}</span>
-      </span>
-    </NuxtLink>
+    <!-- Enlace interno blog → guías de zona (docs/zonas.md): sólo si la inmobiliaria tiene regiones publicadas. -->
+    <section v-if="zoneRegions.length" class="mx-auto max-w-3xl px-6 pt-4" data-testid="blog-zones">
+      <div class="rounded-2xl border border-line bg-surface p-6 md:p-8">
+        <p class="eyebrow">{{ t('blog.zones.eyebrow', 'Guías de zona') }}</p>
+        <h2 class="heading-serif mt-3 text-2xl">{{ t('blog.zones.title', 'Descubre dónde vivir') }}</h2>
+        <p class="mt-2 text-[14px] text-stone-500">{{ t('blog.zones.text', 'Cómo es vivir en cada zona y qué viviendas tenemos publicadas ahora mismo.') }}</p>
+        <div class="mt-5 flex flex-wrap gap-3">
+          <NuxtLink v-for="r in zoneRegions" :key="r.id" :to="r.path" class="btn-quiet" :data-testid="`blog-zone-link-${r.slug}`">{{ r.name }} →</NuxtLink>
+        </div>
+      </div>
+    </section>
 
-    <img v-if="data.article.coverImage" :src="mediaUrl(data.article.coverImage)" :alt="data.article.title" class="mt-8 w-full rounded-xl object-cover" >
-
-    <div class="mt-8">
-      <CmsTableOfContents :blocks="blocks" />
-    </div>
-
-    <CmsBlockRenderer :blocks="blocks" />
-
-    <div v-if="data.tags?.length" class="mt-10 flex flex-wrap gap-2">
-      <span v-for="t in data.tags" :key="t.slug" class="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-500">#{{ t.name }}</span>
-    </div>
+    <section v-if="data.related?.length" class="blog-related" data-testid="blog-related">
+      <div class="mx-auto max-w-6xl px-6">
+        <p class="eyebrow">Seguir leyendo</p>
+        <h2 class="heading-serif mt-2 text-3xl">Artículos relacionados</h2>
+        <div class="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          <NuxtLink v-for="r in data.related" :key="r.id" :to="`/blog/${r.slug}`" class="group block" data-testid="blog-related-card">
+            <div class="aspect-video overflow-hidden rounded-2xl bg-stone-100">
+              <img :src="mediaUrl(r.coverImage)" :alt="r.title" width="800" height="450" class="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]" loading="lazy" >
+            </div>
+            <p class="eyebrow mt-4">{{ r.categoryName || 'Blog' }}</p>
+            <h3 class="mt-2 font-serif text-xl font-medium leading-snug group-hover:underline group-hover:underline-offset-4">{{ r.title }}</h3>
+            <p v-if="r.readingTime" class="mt-2 text-xs text-stone-450">{{ r.readingTime }} min de lectura</p>
+          </NuxtLink>
+        </div>
+      </div>
+    </section>
 
     <!-- Comments -->
-    <section class="mt-14 border-t border-line pt-8">
+    <section class="mx-auto max-w-3xl px-6 pb-20 pt-14">
       <h2 class="font-serif text-2xl">Comentarios{{ commentTree.length ? ` (${comments.length})` : '' }}</h2>
 
       <div v-if="commentTree.length" class="mt-6 space-y-5">
@@ -49,7 +105,7 @@
         <p v-if="commentNotice" class="text-sm text-emerald-700">{{ commentNotice }}</p>
       </form>
     </section>
-  </article>
+  </div>
 
   <article v-else-if="data?.source === 'legacy'" class="mx-auto max-w-3xl px-4 py-12">
     <p class="text-xs uppercase text-ink">{{ data.blog.targetAudience }}</p>
@@ -83,9 +139,22 @@
 </template>
 
 <script setup lang="ts">
+import CmsArticleToc from '~/components/cms/ArticleToc.vue'
+import CmsReadingProgress from '~/components/cms/ReadingProgress.vue'
+
 const route = useRoute()
+const { t } = useI18n()
 const { data } = await useFetch<any>(`/api/public/blogs/${route.params.slug}`)
+// Las regiones con guía de zona de esta inmobiliaria (/zonas/<región>), para enlazar el blog con las guías.
+const { data: zonesData } = await useFetch<{ regions: any[] }>('/api/public/zones', { default: () => ({ regions: [] }) })
+const zoneRegions = computed<any[]>(() => zonesData.value?.regions || [])
 if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Article not found', fatal: true })
+
+const { tenant, load: loadTenant } = useTenant()
+await loadTenant()
+const brand = computed(() => tenant.value?.companyName || tenant.value?.name || 'Blog')
+// El acento editorial de los bloques (índice, calculadoras, listas) sigue el color de marca de la empresa.
+const brandStyle = computed(() => (tenant.value?.brandColor ? { '--cms-accent': tenant.value.brandColor } : undefined))
 
 const blocks = computed(() => {
   if (data.value?.source !== 'cms') return []
@@ -101,46 +170,91 @@ const locales = computed(() => (data.value?.source === 'legacy' ? data.value.tra
 const locale = ref(locales.value.includes('en') ? 'en' : locales.value[0] || 'en')
 const current = computed(() => (data.value?.source === 'legacy' ? data.value.translations.find((t: any) => t.locale === locale.value) : null))
 
+function formatDate(iso: string): string {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+// «Actualizado» sólo si la fecha de modificación va por detrás de la de publicación (mismo día = nada que decir).
+const updatedLabel = computed(() => {
+  const a = data.value?.article
+  if (!a?.updatedAt || !a?.publishedAt) return ''
+  return a.updatedAt.slice(0, 10) > a.publishedAt.slice(0, 10) ? formatDate(a.updatedAt) : ''
+})
+
 const requestUrl = useRequestURL()
 const canonicalUrl = computed(() =>
   data.value?.source === 'cms' && data.value.article.seoCanonical ? data.value.article.seoCanonical : `${requestUrl.origin}/blog/${route.params.slug}`,
 )
-useHead(() => ({
-  ...seoHead({
-    title:
-      data.value?.source === 'cms'
-        ? `${data.value.article.seoTitle || data.value.article.title} — M&M Real Estate`
-        : `${current.value?.title || 'Blog'} — M&M Real Estate`,
-    description:
-      data.value?.source === 'cms'
-        ? data.value.article.seoDescription || data.value.article.excerpt || ''
-        : stripHtml(current.value?.description || '').slice(0, 200) || 'Artículos sobre el mercado inmobiliario de Dubái.',
-    image: `${requestUrl.origin}${mediaUrl(data.value?.source === 'cms' ? data.value.article.coverImage : data.value?.blog.image)}`,
+const absolute = (key: string | null | undefined) => {
+  if (!key) return undefined
+  const url = mediaUrl(key)
+  return url.startsWith('http') ? url : `${requestUrl.origin}${url}`
+}
+useHead(() => {
+  const isCms = data.value?.source === 'cms'
+  const article = isCms ? data.value.article : null
+  const image = absolute(isCms ? article.ogImage || article.coverImage : data.value?.blog.image)
+  const breadcrumb = isCms
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Inicio', item: `${requestUrl.origin}/` },
+          { '@type': 'ListItem', position: 2, name: 'Blog', item: `${requestUrl.origin}/blog` },
+          ...(data.value.category ? [{ '@type': 'ListItem', position: 3, name: data.value.category.name, item: `${requestUrl.origin}/blog?categoria=${data.value.category.slug}` }] : []),
+          { '@type': 'ListItem', position: data.value.category ? 4 : 3, name: article.title, item: canonicalUrl.value },
+        ],
+      }
+    : null
+  const posting = isCms
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'BlogPosting',
+        headline: article.title,
+        description: article.seoDescription || article.excerpt || '',
+        image: image ? [image] : undefined,
+        datePublished: article.publishedAt || undefined,
+        dateModified: article.updatedAt || article.publishedAt || undefined,
+        inLanguage: article.language || 'es',
+        author: data.value.author ? { '@type': 'Person', name: data.value.author.name, url: `${requestUrl.origin}/blog/autor/${data.value.author.slug}` } : { '@type': 'Organization', name: brand.value },
+        publisher: { '@type': 'Organization', name: brand.value, ...(tenant.value?.logo ? { logo: { '@type': 'ImageObject', url: absolute(tenant.value.logo) } } : {}) },
+        mainEntityOfPage: { '@type': 'WebPage', '@id': canonicalUrl.value },
+        ...(data.value.category ? { articleSection: data.value.category.name } : {}),
+        ...(article.focusKeyword ? { keywords: article.focusKeyword } : {}),
+      }
+    : null
+  const base = seoHead({
+    origin: requestUrl.origin,
+    title: isCms ? `${article.seoTitle || article.title} — ${brand.value}` : `${current.value?.title || 'Blog'} — ${brand.value}`,
+    description: isCms ? article.seoDescription || article.excerpt || '' : stripHtml(current.value?.description || '').slice(0, 200) || 'Artículos del blog.',
+    image,
     type: 'article',
     canonical: canonicalUrl.value,
-    robots: data.value?.source === 'cms' ? data.value.article.seoRobots : null,
-  }),
-  script:
-    data.value?.source === 'cms'
+    robots: isCms ? article.seoRobots : null,
+  })
+  return {
+    htmlAttrs: { lang: isCms ? article.language || 'es' : 'es' },
+    ...base,
+    // Las etiquetas article:* y twitter:* se SUMAN a las de seoHead (description, og:*), no las sustituyen.
+    meta: isCms
       ? [
-          {
-            type: 'application/ld+json',
-            innerHTML: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'Article',
-              headline: data.value.article.title,
-              description: data.value.article.seoDescription || data.value.article.excerpt || '',
-              image: data.value.article.coverImage ? `${requestUrl.origin}${mediaUrl(data.value.article.coverImage)}` : undefined,
-              datePublished: data.value.article.publishedAt,
-              dateModified: data.value.article.updatedAt,
-              author: data.value.author ? { '@type': 'Person', name: data.value.author.name } : undefined,
-              publisher: { '@type': 'Organization', name: 'M&M Real Estate' },
-              mainEntityOfPage: canonicalUrl.value,
-            }),
-          },
+          ...base.meta,
+          ...(article.publishedAt ? [{ property: 'article:published_time', content: article.publishedAt }] : []),
+          ...(article.updatedAt ? [{ property: 'article:modified_time', content: article.updatedAt }] : []),
+          ...(data.value.category ? [{ property: 'article:section', content: data.value.category.name }] : []),
+          { name: 'twitter:title', content: article.seoTitle || article.title },
+          { name: 'twitter:description', content: article.seoDescription || article.excerpt || '' },
+          ...(image ? [{ name: 'twitter:image', content: image }] : []),
+        ]
+      : base.meta,
+    script: isCms
+      ? [
+          { type: 'application/ld+json', innerHTML: JSON.stringify(posting) },
+          { type: 'application/ld+json', innerHTML: JSON.stringify(breadcrumb) },
         ]
       : [],
-}))
+  }
+})
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '')
@@ -196,3 +310,141 @@ async function submitComment(parentId: number | null) {
   }
 }
 </script>
+
+<style scoped>
+.blog-article {
+  --cms-paper-2: #f6f4ef;
+  --cms-line: #e6e1d6;
+  background: #fff;
+}
+.blog-article-header {
+  padding-top: 2.5rem;
+}
+.blog-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #8a8478;
+}
+.blog-crumbs a:hover {
+  color: #16150f;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.blog-meta {
+  margin-top: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.5rem 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--cms-line);
+}
+.blog-author {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.blog-meta-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 2rem;
+  margin: 0;
+}
+.blog-meta-facts dt {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #a39d92;
+}
+.blog-meta-facts dd {
+  margin: 0.15rem 0 0;
+  font-size: 0.9rem;
+  color: #3b3934;
+}
+.blog-cover {
+  margin-top: 2.5rem;
+}
+.blog-cover img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 1.5rem;
+  background: #f1ede6;
+}
+.blog-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2rem;
+  padding-top: 3rem;
+}
+.blog-aside {
+  display: none;
+}
+.blog-body {
+  max-width: 46rem;
+  margin: 0 auto;
+  width: 100%;
+  min-width: 0;
+  font-size: 1.05rem;
+}
+.blog-toc-mobile {
+  margin-bottom: 2.5rem;
+}
+@media (min-width: 1024px) {
+  .blog-layout {
+    grid-template-columns: 15rem minmax(0, 46rem);
+    column-gap: 4rem;
+    justify-content: center;
+    padding-top: 4rem;
+  }
+  .blog-aside {
+    display: block;
+  }
+  .blog-toc-mobile {
+    display: none;
+  }
+  .blog-body {
+    margin: 0;
+  }
+}
+/* Bloques anchos (imágenes a sangre, calculadoras): se salen un poco de la columna de lectura en pantallas grandes. */
+@media (min-width: 1280px) {
+  .blog-body :deep(.cms-wide) {
+    width: calc(100% + 8rem);
+    margin-left: -4rem;
+    max-width: none;
+  }
+}
+.blog-body :deep(.cms-content > :first-child) {
+  margin-top: 0;
+}
+.blog-body :deep(.cms-content p) {
+  font-size: 1.05rem;
+  line-height: 1.75;
+}
+.blog-body :deep(.cms-content h2) {
+  margin-top: 3.5rem;
+  font-size: 1.9rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.blog-body :deep(.cms-content h3) {
+  margin-top: 2.25rem;
+  font-size: 1.3rem;
+}
+.blog-body :deep(.cms-content figure img) {
+  border-radius: 1.25rem;
+}
+.blog-body :deep(.cms-content table) {
+  font-size: 0.92rem;
+}
+.blog-related {
+  margin-top: 5rem;
+  padding: 4rem 0;
+  background: var(--cms-paper-2);
+}
+</style>
