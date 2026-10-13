@@ -54,7 +54,8 @@
             <p class="mt-3">{{ text('optionalIntro') }}</p>
             <ul class="mt-2 space-y-1.5" data-testid="cookie-categories">
               <li v-for="c in categories" :key="c" class="flex gap-2">
-                <span class="cc-dot mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full" aria-hidden="true" />
+                <CookieCategoryIcon v-if="cfg.design.categoryIcons" :category="c" class="cc-icon mt-[3px]" />
+                <span v-else class="cc-dot mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full" aria-hidden="true" />
                 <span>
                   <strong class="cc-strong font-semibold">{{ text(`${c}Title` as CookieTextKey) }}</strong><template v-if="cfg.behavior.showCategoryDescriptions">: {{ categoryText(c) }}</template>
                 </span>
@@ -67,14 +68,14 @@
             <p>{{ text('settingsIntro') }}</p>
             <div class="cc-cat rounded-xl border p-4">
               <div class="flex items-center justify-between gap-4">
-                <p class="cc-strong font-semibold">{{ text('necessaryTitle') }}</p>
+                <p class="cc-strong flex items-center gap-2 font-semibold"><CookieCategoryIcon v-if="cfg.design.categoryIcons" category="necessary" class="cc-icon" />{{ text('necessaryTitle') }}</p>
                 <span class="shrink-0 text-[12px] font-medium opacity-80">{{ t('cookie.alwaysOn') }}</span>
               </div>
               <p class="mt-1 text-[0.93em]">{{ text('necessaryDesc') }}</p>
             </div>
             <div v-for="c in categories" :key="c" class="cc-cat rounded-xl border p-4">
               <label class="flex cursor-pointer items-center justify-between gap-4">
-                <span class="cc-strong font-semibold">{{ text(`${c}Title` as CookieTextKey) }}</span>
+                <span class="cc-strong flex items-center gap-2 font-semibold"><CookieCategoryIcon v-if="cfg.design.categoryIcons" :category="c" class="cc-icon" />{{ text(`${c}Title` as CookieTextKey) }}</span>
                 <span class="relative inline-flex shrink-0 items-center">
                   <input v-model="draft[c]" type="checkbox" role="switch" class="peer sr-only" :data-testid="`cookie-toggle-${c}`" >
                   <span class="cc-switch h-6 w-11 rounded-full transition peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2" />
@@ -418,6 +419,10 @@ onBeforeUnmount(() => {
 .cc-dot {
   background: var(--cc-text);
   opacity: 0.6;
+}
+.cc-icon {
+  color: var(--cc-text);
+  opacity: 0.75;
 }
 .cc-body {
   padding-top: 0.75rem;

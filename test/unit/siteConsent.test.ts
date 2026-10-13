@@ -46,6 +46,7 @@ describe('los avisos de partida: los de siempre', () => {
     expect(d.cookie.layout.position).toBe('center')
     expect(d.cookie.design.showLogo).toBe(true)
     expect(d.cookie.design.radius).toBe(24)
+    expect(d.cookie.design.categoryIcons).toBe(true)
     for (const locale of CONSENT_LOCALES) for (const def of COOKIE_TEXTS) expect(d.cookie.texts[locale][def.key]).toBe('')
   })
   it('aviso de demostración activo, arriba a la izquierda, con cierre que dura la visita', () => {
@@ -87,6 +88,8 @@ describe('normalización: todo lo guardado pasa por aquí', () => {
     expect(c.layout.mobile).toBe('sheet')
     expect(c.behavior.animation).toBe('fade')
     expect(c.behavior.showChangeText).toBe(true)
+    expect(normalizeCookieNotice({ design: { categoryIcons: false } }).design.categoryIcons).toBe(false)
+    expect(normalizeCookieNotice({ design: { categoryIcons: 'no' } }).design.categoryIcons).toBe(true)
   })
   it('textos: con tope, sin caracteres de control, sólo en los idiomas de la web y sólo las claves conocidas', () => {
     const c = normalizeCookieNotice({ texts: { es: { title: '  Hola\u0007 mundo ', intro: 'a\nb', extra: 'x' }, kl: { title: 'klingon' }, en: 'no' } })

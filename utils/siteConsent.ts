@@ -141,6 +141,8 @@ export interface CookieNoticeConfig {
     fontSize: 'sm' | 'md' | 'lg'
     spacing: 'compact' | 'normal' | 'airy'
     buttonShape: 'pill' | 'rounded' | 'square'
+    /** Un icono discreto junto a cada categoría (candado, gráfico, vídeo, megáfono). */
+    categoryIcons: boolean
   }
   layout: {
     position: CookiePosition
@@ -245,6 +247,7 @@ export function defaultCookieNotice(): CookieNoticeConfig {
       fontSize: 'md',
       spacing: 'normal',
       buttonShape: 'pill',
+      categoryIcons: true,
     },
     layout: { position: 'center', maxWidth: 680, edgeOffset: 24, maxHeight: 92, mobile: 'sheet' },
     behavior: { animation: 'fade', showCategoryDescriptions: true, showChangeText: true, showController: true },
@@ -342,6 +345,7 @@ export function normalizeCookieNotice(raw: unknown): CookieNoticeConfig {
       fontSize: oneOf(g.fontSize, ['sm', 'md', 'lg'] as const, d.design.fontSize),
       spacing: oneOf(g.spacing, ['compact', 'normal', 'airy'] as const, d.design.spacing),
       buttonShape: oneOf(g.buttonShape, ['pill', 'rounded', 'square'] as const, d.design.buttonShape),
+      categoryIcons: bool(g.categoryIcons, d.design.categoryIcons),
     },
     layout: {
       position: oneOf(
