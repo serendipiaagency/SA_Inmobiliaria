@@ -856,11 +856,50 @@ vista previa usa su propia clave y no carga analítica.
 
 Los proveedores por agencia viven en `site_settings` (migración 0092) y se
 editan en el Constructor (icono de la galleta → `CookieSettingsPanel.vue`,
-`/api/admin/site-settings`, área `web`). La CSP sólo abre los orígenes de
-Google o Meta en las páginas de una web que los configuró
-(`server/utils/siteSettings.ts` › `cspOriginsForProviders`). «Ver el aviso en el
-lienzo» manda `cookie-preview` al lienzo, que pinta `<CookieConsent sandbox>`:
-funciona igual, no guarda nada ni carga nada.
+«Privacidad, cookies y avisos», `/api/admin/site-settings`, área `web`). La CSP
+sólo abre los orígenes de Google o Meta en las páginas de una web que los
+configuró (`server/utils/siteSettings.ts` › `cspOriginsForProviders`). «Ver el
+aviso en el lienzo» manda `cookie-preview` al lienzo, que pinta
+`<CookieConsent sandbox>`: funciona igual, no guarda nada ni carga nada.
+
+### Presentación configurable del aviso de cookies y aviso de demostración
+
+El aspecto del aviso —no su lógica— es configurable por inmobiliaria
+(`utils/siteConsent.ts`): textos por idioma (vacío = el de `i18n/messages.ts`
+en ese idioma), logo (Brand Kit → isotipo → empresa, o uno propio), colores
+(de partida blanco cálido y el color de marca oscurecido hasta que el blanco
+se lea, `cookiePalette`), radio, sombra, forma de los botones, tipografía,
+espacios, posición (`center` | `bottom-right` | `bottom-left` | `bottom`
+banner), anchura y altura máximas, separación de los bordes, comportamiento en
+el móvil (`sheet` | `full`) y animación (`fade` | `slide` | `none`; con
+`prefers-reduced-motion`, ninguna). Lo que NO se puede configurar, a propósito:
+los tres botones y su orden, nada premarcado ni cargado antes de decidir, los
+enlaces legales, la X sólo con decisión. `consentVersion` no mira nada de esto:
+cambiar el diseño no vuelve a preguntar a nadie.
+
+Se guarda como el pie: un documento de `site_pages` con la clave reservada
+`consent` (`{ consent: { cookie, demo } }`, `server/utils/siteConsent.ts`),
+con borrador (`PUT /api/admin/site-consent`, autoguardado), publicación
+(`POST /api/admin/site-consent/publish`, con «Publicar» del shell) e
+historial; la web lee sólo lo publicado (`GET /api/public/site-consent`, con
+el logo y el color de la empresa) una vez por página (`useSiteConsent`). Sin
+migración.
+
+En el Constructor, `CookieSettingsPanel.vue` tiene las dos entradas de la
+configuración global: «Privacidad y cookies» (`CookieNoticeInspector.vue`) y
+«Avisos y demostración» (`DemoNoticeInspector.vue`), que seleccionan las zonas
+globales `cookie` y `demo` (como `footer`); también se abren pulsando la muestra
+en el lienzo. El inspector manda al lienzo el estado de la muestra
+(`cookie-preview` con `view: summary | settings | saved`) y el lienzo recibe el
+borrador en `set-state` (`consent`, `consentMeta`).
+
+El aviso de demostración (`components/DemoNotice.vue`) sólo existe en la web de
+una cuenta demo (`tenant.isDemo`, decidido en el servidor): tarjeta compacta,
+fija en una esquina (arriba se coloca debajo de la cabecera real, nunca encima
+del menú; capa 60, entre el chat y el aviso de cookies), con título, texto
+honesto, icono y cierre (recordado en `sessionStorage` o `localStorage`,
+`demoNoticeStorageKey(org)`, o no recordado). La agencia puede desactivarlo:
+no es un aviso legal.
 
 ## El Block Inspector: un componente por tipo de bloque, no un formulario genérico
 

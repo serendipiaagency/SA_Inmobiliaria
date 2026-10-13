@@ -146,6 +146,7 @@ const RULES: Rule[] = [
   { pattern: /^site-pages(?:\/|$)/, resolve: area('web') }, // Constructor Web
   { pattern: /^site-settings$/, resolve: area('web') }, // Constructor Web → Cookies (proveedores del aviso de cookies)
   { pattern: /^site-footer(?:\/|$)/, resolve: area('web') }, // Constructor Web → pie global (borrador, publicación)
+  { pattern: /^site-consent(?:\/|$)/, resolve: area('web') }, // Constructor Web → avisos de cookies y de demostración (borrador, publicación)
   { pattern: /^newsletter$/, resolve: area('web') }, // Portal Web → Suscriptores (el «Suscríbete» del pie)
   // Disponibilidad y bloqueos de un comercial (`team_members`). A pesar del
   // path `saas/agents`, respaldan pages/admin/comerciales/[id]/horario.vue.

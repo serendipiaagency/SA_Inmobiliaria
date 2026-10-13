@@ -2,16 +2,28 @@
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" data-testid="cookie-settings-panel" @click.self="emit('close')">
     <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
       <div class="mb-1 flex items-center justify-between">
-        <p class="font-serif text-lg">Cookies de la web</p>
+        <p class="font-serif text-lg">Privacidad, cookies y avisos</p>
         <button type="button" class="text-stone-300 hover:text-ink" aria-label="Cerrar" @click="emit('close')">
           <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
         </button>
       </div>
       <p class="mb-4 text-[13px] leading-relaxed text-stone-500">
-        El aviso «Tu privacidad es importante» sale a cada visitante hasta que decide, y nada opcional se carga antes. Aquí indicas qué
-        servicios de medición o publicidad usa tu web: sólo se cargan a quien los acepte. Los datos del responsable (razón social, CIF,
-        dirección) son los de la ficha de la empresa.
+        El aviso de cookies sale a cada visitante hasta que decide, y nada opcional se carga antes. Su aspecto y sus textos se editan en el
+        lienzo, como el pie; aquí indicas qué servicios de medición o publicidad usa tu web: sólo se cargan a quien los acepte.
       </p>
+
+      <!-- Configuración global: los dos avisos, con inspector propio en el lienzo -->
+      <div class="mb-4 grid gap-2 sm:grid-cols-2" data-testid="cookie-settings-global">
+        <button type="button" class="rounded-xl border border-line p-3 text-left transition hover:border-ink" data-testid="cookie-settings-design" @click="emit('design')">
+          <p class="text-[13px] font-semibold text-ink">Privacidad y cookies →</p>
+          <p class="mt-0.5 text-[12px] text-stone-500">Textos por idioma, logo, colores, posición, móvil y animación del aviso de cookies.</p>
+        </button>
+        <button type="button" class="rounded-xl border border-line p-3 text-left transition hover:border-ink" data-testid="cookie-settings-demo" @click="emit('demo')">
+          <p class="text-[13px] font-semibold text-ink">Avisos y demostración →</p>
+          <p class="mt-0.5 text-[12px] text-stone-500">El aviso «Entorno de demostración» de las webs demo: textos, colores, posición y cierre.</p>
+        </button>
+      </div>
+      <p class="mb-3 text-[11px] font-semibold uppercase tracking-wide text-stone-500">Servicios sujetos a consentimiento</p>
 
       <p v-if="loadError" class="mb-3 rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">{{ loadError }}</p>
 
@@ -49,11 +61,13 @@
 import { NO_COOKIE_PROVIDERS, normalizeGa4Id, normalizeMetaPixelId, type CookieProviders } from '~/utils/cookieConsent'
 
 /**
- * Constructor Web → Cookies: los proveedores sujetos al aviso de cookies de la
- * web de la organización activa (server/api/admin/site-settings.*). No es parte
- * de la página: se guarda al momento, sin «Publicar».
+ * Constructor Web → Privacidad, cookies y avisos (configuración global): los
+ * proveedores sujetos al aviso de cookies de la web de la organización activa
+ * (server/api/admin/site-settings.*), que se guardan al momento, sin
+ * «Publicar»; y la entrada a los inspectores del aviso de cookies y del aviso
+ * de demostración, que sí van con el borrador y «Publicar» (utils/siteConsent.ts).
  */
-const emit = defineEmits<{ close: []; preview: [providers: CookieProviders] }>()
+const emit = defineEmits<{ close: []; preview: [providers: CookieProviders]; design: []; demo: [] }>()
 
 const form = reactive({ ga4: '', metaPixel: '', askAgain: false })
 const current = ref<CookieProviders>(NO_COOKIE_PROVIDERS)

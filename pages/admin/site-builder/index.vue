@@ -13,7 +13,7 @@
       :preview-mode="previewMode"
       :published-site-url="publishedSiteUrl"
       :publishing="publishing"
-      :has-unpublished-changes="hasUnpublishedChanges || footerHasUnpublished"
+      :has-unpublished-changes="hasUnpublishedChanges || footerHasUnpublished || consentHasUnpublished"
       @update:device="device = $event"
       @step-zoom="stepZoom"
       @zoom-auto="zoomMode = 'auto'"
@@ -248,12 +248,12 @@
       <aside v-else-if="!previewMode && selectedGlobal" class="flex w-96 shrink-0 flex-col overflow-hidden border-l border-line bg-white">
         <div class="shrink-0 border-b border-line p-4">
           <div class="flex items-center justify-between">
-            <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-500" data-testid="inspector-title">{{ editingFooter ? 'Pie de página' : 'Elemento global' }}</p>
+            <p class="text-[11px] font-semibold uppercase tracking-wide text-stone-500" data-testid="inspector-title">{{ globalInspectorTitle }}</p>
             <button type="button" aria-label="Cerrar inspector" class="text-stone-300 hover:text-ink" @click="selectedGlobal = null">
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18 6 6 18M6 6l12 12" /></svg>
             </button>
           </div>
-          <div v-if="editingFooter" class="mt-3 flex gap-1 rounded-lg bg-stone-100 p-1" data-testid="footer-inspector-tabs">
+          <div v-if="editingFooter || editingCookie || editingDemo" class="mt-3 flex gap-1 rounded-lg bg-stone-100 p-1" data-testid="footer-inspector-tabs">
             <button
               v-for="t in INSPECTOR_TABS"
               :key="t.key"
@@ -276,7 +276,18 @@
             :brand-color="orgInfo?.brandColor ?? null"
             :company-name="orgInfo?.companyName || orgInfo?.name || ''"
           />
-          <GlobalZoneInspector v-else :zone="selectedGlobal.zone" :element="selectedGlobal.element" />
+          <CookieNoticeInspector
+            v-else-if="editingCookie && consentConfig"
+            :config="consentConfig.cookie"
+            :profile="consentProfile"
+            :brand-colors="brandColors"
+            :brand-color="orgInfo?.brandColor ?? null"
+            :preview-state="cookiePreviewState"
+            @preview="showCookiePreview"
+          />
+          <DemoNoticeInspector v-else-if="editingDemo && consentConfig" :config="consentConfig.demo" :profile="consentProfile" :brand-colors="brandColors" />
+          <GlobalZoneInspector v-else-if="selectedGlobal.zone === 'header' || selectedGlobal.zone === 'footer'" :zone="selectedGlobal.zone" :element="selectedGlobal.element" />
+          <p v-else class="text-[12px] text-stone-500">Cargando…</p>
         </div>
       </aside>
 
@@ -364,7 +375,7 @@
     <GlobalStylesPanel v-if="stylesOpen" :styles="styles" :brand-fonts="brandFonts" @close="stylesOpen = false" />
 
     <!-- Cookies de la web: proveedores del aviso y su muestra en el lienzo -->
-    <CookieSettingsPanel v-if="cookiesOpen" @close="cookiesOpen = false" @preview="showCookieNotice" />
+    <CookieSettingsPanel v-if="cookiesOpen" @close="cookiesOpen = false" @preview="showCookieNotice" @design="openGlobalInspector('cookie')" @demo="openGlobalInspector('demo')" />
 
     <!-- "Cambiar imagen" desde el lienzo -->
     <MediaPickerModal v-if="mediaPickerTarget" :label="mediaPickerTarget.label" @close="mediaPickerTarget = null" @select="onMediaPicked" />
@@ -405,6 +416,9 @@ import CommonBlockSettings from '~/components/site-builder/inspector/CommonBlock
 import NodeInspector from '~/components/site-builder/inspector/NodeInspector.vue'
 import GlobalZoneInspector from '~/components/site-builder/inspector/GlobalZoneInspector.vue'
 import FooterInspector from '~/components/site-builder/inspector/FooterInspector.vue'
+import CookieNoticeInspector, { type CookiePreviewState } from '~/components/site-builder/inspector/CookieNoticeInspector.vue'
+import DemoNoticeInspector from '~/components/site-builder/inspector/DemoNoticeInspector.vue'
+import type { ConsentProfile, SiteConsentConfig } from '~/utils/siteConsent'
 import type { FooterAvailability, FooterConfig, FooterProfile } from '~/utils/siteFooter'
 import TopBar from '~/components/site-builder/shell/TopBar.vue'
 import CookieSettingsPanel from '~/components/site-builder/shell/CookieSettingsPanel.vue'
@@ -452,7 +466,8 @@ const cookiesOpen = ref(false)
  */
 function showCookieNotice(providers: CookieProviders) {
   cookiesOpen.value = false
-  iframeEl.value?.contentWindow?.postMessage({ source: 'sa-builder-shell', type: 'cookie-preview', providers: { ...providers } }, window.location.origin)
+  cookiePreviewState.value = 'summary'
+  iframeEl.value?.contentWindow?.postMessage({ source: 'sa-builder-shell', type: 'cookie-preview', providers: { ...providers }, view: 'summary' }, window.location.origin)
 }
 const stylesOpen = ref(false)
 const historyOpen = ref(false)
@@ -518,7 +533,8 @@ function refuseCore(action: string) {
 // ---------------------------------------------------------------------------
 const selectedBlockId = ref<string | null>(null)
 const selectedNode = ref<SiteNodeRef | null>(null)
-const selectedGlobal = ref<{ zone: 'header' | 'footer'; element: string | null } | null>(null)
+type GlobalZone = 'header' | 'footer' | 'cookie' | 'demo'
+const selectedGlobal = ref<{ zone: GlobalZone; element: string | null } | null>(null)
 
 function selectBlock(id: string | null, node: SiteNodeRef | null = null) {
   selectedGlobal.value = null
@@ -616,7 +632,8 @@ watch(
   () => selectedGlobal.value?.zone,
   (zone) => {
     inspectorTab.value = 'content'
-    if (zone === 'footer') ensureBrandKit()
+    // El pie y los dos avisos enseñan los colores del Brand Kit en sus campos de color.
+    if (zone === 'footer' || zone === 'cookie' || zone === 'demo') ensureBrandKit()
   },
 )
 watch(selectedNode, (node, prev) => {
@@ -1094,11 +1111,12 @@ async function publish() {
   publishing.value = true
   try {
     // Flush any pending autosave first so Publish never ships a stale draft.
-    await Promise.all([flushSave(), flushFooterSave()])
+    await Promise.all([flushSave(), flushFooterSave(), flushConsentSave()])
     // La página se publica si tiene cambios (o si no hay nada más que
-    // publicar, como siempre); el pie, si los tiene: es de todas las páginas.
+    // publicar, como siempre); el pie y los avisos, si los tienen: son de todas las páginas.
     const publishFooterToo = footerHasUnpublished.value
-    if (hasUnpublishedChanges.value || !publishFooterToo) {
+    const publishConsentToo = consentHasUnpublished.value
+    if (hasUnpublishedChanges.value || (!publishFooterToo && !publishConsentToo)) {
       const res = await $fetch<{ ok: true; version: number }>(`/api/admin/site-pages/${currentPageKey.value}/publish`, { method: 'POST' })
       pageVersion.value = res.version
       hasUnpublishedChanges.value = false
@@ -1108,8 +1126,13 @@ async function publish() {
       await $fetch('/api/admin/site-footer/publish', { method: 'POST' })
       footerHasUnpublished.value = false
     }
+    if (publishConsentToo) {
+      await $fetch('/api/admin/site-consent/publish', { method: 'POST' })
+      consentHasUnpublished.value = false
+    }
     saveState.value = 'saved'
-    toast.success(publishFooterToo ? 'Publicado (con el pie de página)' : 'Publicado')
+    const extras = [publishFooterToo ? 'el pie de página' : '', publishConsentToo ? 'los avisos de cookies y demostración' : ''].filter(Boolean)
+    toast.success(extras.length ? `Publicado (con ${extras.join(' y ')})` : 'Publicado')
   } catch {
     toast.error('No se pudo publicar')
   } finally {
@@ -1177,10 +1200,93 @@ async function flushFooterSave() {
   await saveFooterNow()
 }
 
+// ---------------------------------------------------------------------------
+// Avisos de cookies y de demostración (utils/siteConsent.ts): un borrador
+// propio, de todas las páginas, con el mismo patrón que el pie. Se editan
+// desde «Privacidad, cookies y avisos» o pulsando su muestra en el lienzo.
+// ---------------------------------------------------------------------------
+const consentConfig = ref<SiteConsentConfig | null>(null)
+const consentProfile = ref<ConsentProfile | null>(null)
+const consentHasUnpublished = ref(false)
+const cookiePreviewState = ref<CookiePreviewState>('summary')
+const editingCookie = computed(() => selectedGlobal.value?.zone === 'cookie' && !!consentConfig.value)
+const editingDemo = computed(() => selectedGlobal.value?.zone === 'demo' && !!consentConfig.value)
+const globalInspectorTitle = computed(() => {
+  const zone = selectedGlobal.value?.zone
+  if (zone === 'footer' && footerConfig.value) return 'Pie de página'
+  if (zone === 'cookie') return 'Aviso de cookies'
+  if (zone === 'demo') return 'Aviso de demostración'
+  return 'Elemento global'
+})
+let consentLoaded = false
+let consentSaveTimer: ReturnType<typeof setTimeout> | null = null
+
+async function loadConsent() {
+  try {
+    const res = await $fetch<{ config: SiteConsentConfig; profile: ConsentProfile; hasUnpublishedChanges: boolean }>('/api/admin/site-consent')
+    consentLoaded = false
+    consentConfig.value = res.config
+    consentProfile.value = res.profile
+    consentHasUnpublished.value = res.hasUnpublishedChanges
+    await nextTick()
+    consentLoaded = true
+  } catch {
+    // Sin la configuración, el lienzo enseña los avisos de partida.
+  }
+}
+onMounted(loadConsent)
+
+watch(
+  consentConfig,
+  () => {
+    if (!consentLoaded) return
+    consentHasUnpublished.value = true
+    saveState.value = 'saving'
+    if (consentSaveTimer) clearTimeout(consentSaveTimer)
+    consentSaveTimer = setTimeout(() => {
+      consentSaveTimer = null
+      saveConsentNow().catch(() => {
+        saveState.value = 'error'
+        toast.error('No se pudieron guardar los avisos')
+      })
+    }, 1000)
+  },
+  { deep: true },
+)
+
+async function saveConsentNow() {
+  if (!consentConfig.value) return
+  await $fetch('/api/admin/site-consent', { method: 'PUT', body: consentConfig.value })
+  saveState.value = 'saved'
+}
+
+async function flushConsentSave() {
+  if (!consentSaveTimer) return
+  clearTimeout(consentSaveTimer)
+  consentSaveTimer = null
+  await saveConsentNow()
+}
+
+/** «Privacidad y cookies» / «Avisos y demostración»: el inspector del aviso y su muestra en el lienzo. */
+function openGlobalInspector(zone: 'cookie' | 'demo') {
+  cookiesOpen.value = false
+  selectedBlockId.value = null
+  selectedNode.value = null
+  selectedGlobal.value = { zone, element: null }
+  inspectorTab.value = 'content'
+  if (zone === 'cookie') showCookiePreview('summary')
+}
+
+/** El estado de la muestra del aviso de cookies: inicial, preferencias o ya guardado. */
+function showCookiePreview(state: CookiePreviewState) {
+  cookiePreviewState.value = state
+  iframeEl.value?.contentWindow?.postMessage({ source: 'sa-builder-shell', type: 'cookie-preview', view: state }, window.location.origin)
+}
+
 // Un borrador sin guardar no se pierde por cerrar la pestaña: el navegador
 // pregunta. (Recargar el editor recupera siempre el último autoguardado.)
 function onBeforeUnload(e: BeforeUnloadEvent) {
-  if (saveTimer || footerSaveTimer || saveState.value === 'saving' || saveState.value === 'error') {
+  if (saveTimer || footerSaveTimer || consentSaveTimer || saveState.value === 'saving' || saveState.value === 'error') {
     e.preventDefault()
     e.returnValue = ''
   }
@@ -1285,11 +1391,13 @@ function sendState() {
       // dejaría el lienzo sin recibir ningún estado más.
       footer: footerConfig.value ? JSON.parse(JSON.stringify(footerConfig.value)) : null,
       footerMeta: JSON.parse(JSON.stringify({ profile: footerProfile.value, available: footerAvailable.value })),
+      consent: consentConfig.value ? JSON.parse(JSON.stringify(consentConfig.value)) : null,
+      consentMeta: consentProfile.value ? JSON.parse(JSON.stringify(consentProfile.value)) : null,
     },
     window.location.origin,
   )
 }
-watch([blocks, styles, device, selectedBlockId, selectedNode, selectedGlobal, previewMode, currentPageKey, footerConfig], sendState, { deep: true })
+watch([blocks, styles, device, selectedBlockId, selectedNode, selectedGlobal, previewMode, currentPageKey, footerConfig, consentConfig], sendState, { deep: true })
 
 function handleMessage(e: MessageEvent) {
   if (e.origin !== window.location.origin) return
@@ -1306,7 +1414,7 @@ function handleMessage(e: MessageEvent) {
     case 'select-global':
       selectedBlockId.value = null
       selectedNode.value = null
-      selectedGlobal.value = { zone: msg.zone === 'footer' ? 'footer' : 'header', element: msg.element ?? null }
+      selectedGlobal.value = { zone: (['header', 'footer', 'cookie', 'demo'] as GlobalZone[]).includes(msg.zone) ? (msg.zone as GlobalZone) : 'header', element: msg.element ?? null }
       break
     case 'hover':
       break

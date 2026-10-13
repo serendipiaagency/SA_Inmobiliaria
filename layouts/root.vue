@@ -8,6 +8,8 @@
     <ScrollTop />
     <SiteFooter />
     <CookieConsent />
+    <!-- Sólo en la web de una cuenta de demostración (utils/siteConsent.ts) -->
+    <DemoNotice />
     <!-- Núcleo N8a: chat de la web, sólo si la agencia lo activó -->
     <ClientOnly><WebChatWidget /></ClientOnly>
   </div>

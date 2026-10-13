@@ -91,6 +91,19 @@ test('cuenta demo: se genera, la gerente entra sin opciones de super admin y nad
   expect(tenant.id).toBe(orgId)
   expect(tenant.isDemo).toBe(true)
   expect(tenant.preview).toBe(true)
+  // El aviso de demostración (utils/siteConsent.ts): sólo en una web demo, como
+  // tarjeta debajo de la cabecera (no una franja), honesto, y se cierra durante la visita.
+  const demoNotice = page.getByTestId('demo-notice')
+  await expect(demoNotice).toBeVisible()
+  await expect(demoNotice.getByTestId('demo-notice-title')).toHaveText('Entorno de demostración')
+  await expect(demoNotice).toContainText('no se envían fuera de la plataforma')
+  const headerBox = (await page.locator('header').first().boundingBox())!
+  expect((await demoNotice.boundingBox())!.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height)
+  await demoNotice.getByTestId('demo-notice-close').click()
+  await expect(demoNotice).toBeHidden()
+  await page.reload()
+  await expect(page.getByText('Encuentra tu lugar')).toBeVisible()
+  await expect(page.getByTestId('demo-notice')).toHaveCount(0)
   // Se sale como siempre (el parámetro), sin franja que lo ofrezca.
   await page.goto('/?vista_previa=salir')
   expect((await (await page.request.get('/api/public/tenant')).json()).id).not.toBe(orgId)
