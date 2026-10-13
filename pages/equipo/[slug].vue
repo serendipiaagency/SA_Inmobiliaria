@@ -60,19 +60,40 @@
 </template>
 
 <script setup lang="ts">
+import { teamMemberJsonLd } from '~/utils/corporateSchema'
 const { t } = useI18n()
 const route = useRoute()
-const { data } = await useFetch(`/api/public/team/${route.params.slug}`)
-if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Team member not found', fatal: true })
 const requestUrl = useRequestURL()
-useHead(
-  seoHead({
-    title: `${data.value.member.name} — M&M Real Estate`,
-    description: (data.value.member.description || `${data.value.member.name}, ${data.value.member.position} en M&M Real Estate.`).slice(0, 200),
-    image: `${requestUrl.origin}${mediaUrl(data.value.member.image)}`,
+const origin = requestUrl.origin
+const { tenant, load: loadTenant } = useTenant()
+const [{ data }] = await Promise.all([useFetch(`/api/public/team/${route.params.slug}`), loadTenant()])
+if (!data.value) throw createError({ statusCode: 404, statusMessage: 'Team member not found', fatal: true })
+// La marca real de la inmobiliaria del host, no un nombre fijo; y el comercial
+// como Person que trabaja para ella (utils/corporateSchema.ts), sólo con lo que su ficha pública ya enseña.
+const brand = tenant.value?.companyName || tenant.value?.name || ''
+const member = data.value.member
+useHead({
+  ...seoHead({
+    origin,
+    title: `${member.name} — ${brand}`,
+    description: (member.description || `${member.name}, ${member.position} en ${brand}.`).slice(0, 200),
+    image: `${origin}${mediaUrl(member.image)}`,
     type: 'profile',
+    canonical: `${origin}/equipo/${encodeURIComponent(String(route.params.slug))}`,
   }),
-)
+  script: [
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify(
+        teamMemberJsonLd(
+          origin,
+          { companyName: brand },
+          { slug: String(route.params.slug), name: member.name, position: member.position, imageUrl: member.image ? `${origin}${mediaUrl(member.image)}` : null, phone: member.phone, email: member.email, languages: (member.languages || '').split(',').map((l: string) => l.trim()).filter(Boolean) },
+        ),
+      ),
+    },
+  ],
+})
 
 const showBooking = ref(false)
 const languageList = computed(() => (data.value?.member.languages || '').split(',').map((l) => l.trim()).filter(Boolean))

@@ -5,6 +5,8 @@ import { attachPhotos } from '../../../utils/photos'
 import { PUBLIC_TEAM_COLUMNS } from '../../../utils/publicTeam'
 import { livePropertyCond } from '../../../utils/properties/trash'
 import { homeZones } from '../../../utils/zones'
+import { publicOffices } from '../../../utils/publicOffices'
+import { companyStats, publicCompanyProfile } from '../../../utils/publicCompany'
 
 /**
  * Same shape as /api/public/home, but scoped to the admin's own active
@@ -47,10 +49,13 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  const [zones, offices, profile, stats] = await Promise.all([homeZones(db, orgId), publicOffices(db, orgId), publicCompanyProfile(db, orgId), companyStats(db, orgId)])
   return {
     projects: await attachPhotos(db, projects),
     communities,
-    zones: await homeZones(db, orgId),
+    zones,
+    offices,
+    company: profile ? { ...profile, stats } : { stats },
     blogs: blogs.map((b) => ({ ...b, ...blogTitles[b.id] })),
     team,
   }

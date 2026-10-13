@@ -1,6 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { useDb, schema, resolvePublicOrgId } from '../utils/db'
 import { zonePath, zoneTree } from '../utils/zones'
+import { publicOffices } from '../utils/publicOffices'
 import { livePropertyCond } from '../utils/properties/trash'
 
 // "/" only shows this org's portal home when the sitemap is fetched from
@@ -66,6 +67,8 @@ export default defineEventHandler(async (event) => {
   for (const a of cmsAuthors) if (a.slug) urls.push(`${origin}/blog/autor/${a.slug}`)
   const tree = zoneTree(zoneRows)
   for (const z of zoneRows) if (z.kind === 'region' || z.intro) urls.push(`${origin}${zonePath(z, tree)}`)
+  // /oficinas sólo existe para el buscador cuando hay alguna oficina publicada (docs/home-corporativa.md).
+  if ((await publicOffices(db, orgId, 1)).length) urls.push(`${origin}/oficinas`)
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

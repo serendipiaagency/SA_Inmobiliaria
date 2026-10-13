@@ -1,6 +1,45 @@
 <template>
-  <section v-reveal class="mx-auto max-w-screen-2xl px-6 py-16 lg:px-10">
-    <div class="flex items-end justify-between">
+  <section v-reveal class="mx-auto max-w-screen-2xl px-6 lg:px-10" :class="layout === 'editorial' ? 'py-20 lg:py-28' : 'py-16'">
+    <!-- layout: editorial — «Conoce a nuestro equipo»: columna de texto con
+         botón a la izquierda y retratos verticales con nombre, puesto, una
+         línea de presentación y «Ver perfil», cada uno hacia su ficha. -->
+    <div v-if="layout === 'editorial'" class="grid gap-12 lg:grid-cols-12 lg:gap-10" data-testid="team-editorial">
+      <div class="lg:col-span-4 lg:pr-6">
+        <SbText v-if="content.eyebrow" tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow" :text="content.eyebrow" />
+        <SbText tag="h2" field="title" kind="heading" label="Título" class="heading-serif mt-4 text-4xl leading-[1.08] md:text-5xl" :text="content.title || ''" />
+        <SbText v-if="content.text" tag="p" field="text" label="Descripción" multiline class="mt-6 max-w-md text-[15px] leading-relaxed text-stone-500" :text="content.text" />
+        <SbLink v-if="content.cta && content.ctaTo" field="cta" link-field="ctaTo" label="Botón" :to="content.ctaTo" class="btn-quiet mt-8 inline-flex" :text="content.cta" />
+      </div>
+      <div class="grid gap-x-6 gap-y-10 lg:col-span-8" :class="gridClasses">
+        <SbBox
+          v-for="m in items"
+          :key="m.id"
+          :tag="NuxtLink"
+          :tag-props="{ to: `/equipo/${m.slug}` }"
+          field="card"
+          label="Tarjeta de comercial"
+          :dynamic="dynamicLabel('team', 'Ficha')"
+          :source-href="SOURCES.team.href"
+          class="group block"
+          :data-testid="`team-member-${m.slug}`"
+        >
+          <div class="aspect-[4/5] w-full overflow-hidden rounded-2xl bg-stone-100" data-testid="team-editorial-photo">
+            <SbImage field="card.image" label="Foto del comercial" :dynamic="dynamicLabel('team', 'Foto')" :source-href="SOURCES.team.href" :src="mediaUrl(m.image)" :alt="m.name" class="h-full w-full object-cover object-[50%_20%] transition duration-500 group-hover:scale-[1.03]" loading="lazy" />
+          </div>
+          <SbText tag="h3" field="card.name" kind="heading" label="Nombre" :dynamic="dynamicLabel('team', 'Nombre')" :source-href="SOURCES.team.href" class="mt-4 font-serif text-xl font-medium" :text="m.name" />
+          <SbText v-if="cardFields.position && m.position" tag="p" field="card.position" kind="caption" label="Puesto" :dynamic="dynamicLabel('team', 'Puesto')" :source-href="SOURCES.team.href" class="mt-1 text-[11px] font-semibold uppercase tracking-widest2 text-stone-450" :text="m.position" />
+          <SbText v-if="cardFields.description && m.description" tag="p" field="card.description" kind="caption" label="Presentación" :dynamic="dynamicLabel('team', 'Presentación')" :source-href="SOURCES.team.href" class="mt-2 line-clamp-3 text-[13px] leading-relaxed text-stone-500" :text="m.description" />
+          <SbText v-if="cardFields.specialties && specialtiesOf(m)" tag="p" field="card.specialties" kind="caption" label="Especialidades" :dynamic="dynamicLabel('team', 'Especialidades')" :source-href="SOURCES.team.href" class="mt-1.5 text-[13px] text-stone-500" :text="specialtiesOf(m)" />
+          <SbText v-if="cardFields.contact && contactOf(m)" tag="p" field="card.contact" kind="caption" label="Contacto" :dynamic="dynamicLabel('team', 'Teléfono y email')" :source-href="SOURCES.team.href" class="mt-2 text-[12px] text-stone-450" :text="contactOf(m)" />
+          <span class="link-underline mt-3 inline-block text-[12px] font-semibold text-ink">{{ t('team.block.profile', 'Ver perfil') }} →</span>
+        </SbBox>
+      </div>
+      <p v-if="!items.length" class="text-sm text-stone-400 lg:col-span-8">
+        Todavía no hay comerciales publicados. Marca «Mostrar este comercial en la web» en su ficha para que aparezcan aquí.
+      </p>
+    </div>
+
+    <div v-if="layout !== 'editorial'" class="flex items-end justify-between">
       <div>
         <SbText tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow" :text="content.eyebrow || ''" />
         <SbText tag="h2" field="title" kind="heading" label="Título" class="heading-serif mt-3 text-3xl md:text-4xl" :text="content.title || ''" />
@@ -37,7 +76,7 @@
 
     <!-- layout: compact — fila horizontal de retratos redondos, para cuando
          el equipo es una prueba de confianza y no la sección protagonista -->
-    <div v-else class="mt-8 grid gap-x-6 gap-y-8" :class="gridClasses">
+    <div v-else-if="layout === 'compact'" class="mt-8 grid gap-x-6 gap-y-8" :class="gridClasses">
       <SbBox
         v-for="m in items"
         :key="m.id"
@@ -59,7 +98,7 @@
       </SbBox>
     </div>
 
-    <p v-if="!items.length" class="mt-8 text-sm text-stone-400">
+    <p v-if="layout !== 'editorial' && !items.length" class="mt-8 text-sm text-stone-400">
       Todavía no hay comerciales publicados. Marca «Mostrar este comercial en la web» en su ficha para que aparezcan aquí.
     </p>
   </section>
@@ -87,8 +126,10 @@ import { SOURCES, dynamicLabel } from '~/utils/siteBuilder/sources'
  */
 const NuxtLink = resolveComponent('NuxtLink')
 const props = defineProps<{ content: Record<string, any>; team: any[] }>()
+const { t } = useI18n()
 
-const layout = computed(() => (props.content.layout === 'compact' ? 'compact' : 'cards'))
+// Tres diseños: «cards» (de partida), «compact» y «editorial» (docs/home-corporativa.md).
+const layout = computed(() => (props.content.layout === 'compact' ? 'compact' : props.content.layout === 'editorial' ? 'editorial' : 'cards'))
 
 const items = computed(() => {
   const all = props.team || []
@@ -106,6 +147,8 @@ const cardFields = computed(() => ({
   position: props.content.cardFields?.position !== false,
   specialties: props.content.cardFields?.specialties === true,
   contact: props.content.cardFields?.contact === true,
+  // La presentación sólo tiene sitio en el diseño editorial, donde sale salvo que se apague.
+  description: layout.value === 'editorial' && props.content.cardFields?.description !== false,
 }))
 
 /**
@@ -136,7 +179,7 @@ function contactOf(member: any): string {
 const MOBILE_COLS: Record<number, string> = { 1: 'grid-cols-1', 2: 'grid-cols-2' }
 const TABLET_COLS: Record<number, string> = { 1: 'sm:grid-cols-1', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3' }
 const DESKTOP_COLS: Record<number, string> = { 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3', 4: 'lg:grid-cols-4' }
-const defaultCols = computed(() => (layout.value === 'compact' ? { mobile: 1, tablet: 2, desktop: 3 } : { mobile: 1, tablet: 2, desktop: 4 }))
+const defaultCols = computed(() => (layout.value === 'compact' ? { mobile: 1, tablet: 2, desktop: 3 } : layout.value === 'editorial' ? { mobile: 2, tablet: 2, desktop: 4 } : { mobile: 1, tablet: 2, desktop: 4 }))
 const gridClasses = computed(() => [
   MOBILE_COLS[Number(props.content.columnsMobile) || defaultCols.value.mobile] || MOBILE_COLS[defaultCols.value.mobile],
   TABLET_COLS[Number(props.content.columnsTablet) || defaultCols.value.tablet] || TABLET_COLS[defaultCols.value.tablet],

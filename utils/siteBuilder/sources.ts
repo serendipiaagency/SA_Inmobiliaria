@@ -16,6 +16,7 @@ export const SOURCES = {
   zone: { label: 'Zonas', href: '/admin/zones' },
   blog: { label: 'Blog', href: '/admin/cms/articles' },
   team: { label: 'Comerciales', href: '/admin/comerciales' },
+  office: { label: 'Oficinas', href: '/admin/offices' },
   site: { label: 'Textos del sitio (idioma)', href: '/admin/configuracion' },
 } as const satisfies Record<string, DynamicSource>
 

@@ -55,6 +55,7 @@ const SITE_PAGES = [
   { path: '/zonas', label: 'Comunidades y zonas' },
   { path: '/promotoras', label: 'Promotoras' },
   { path: '/equipo', label: 'Equipo' },
+  { path: '/oficinas', label: 'Oficinas' },
   { path: '/blog', label: 'Blog' },
   { path: '/nosotros', label: 'Nosotros' },
   { path: '/servicios', label: 'Servicios' },

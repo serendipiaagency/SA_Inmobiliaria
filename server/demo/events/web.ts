@@ -33,6 +33,9 @@ const admin = (ctx: DemoContext) => actingUser(ctx, DEMO_ADMIN.key)
 async function buildHome(ctx: DemoContext) {
   const slides: string[] = []
   for (const path of HOME_SLIDES) slides.push(await uploadDemoAsset(ctx, path, { category: 'upload', createdBy: admin(ctx).id }))
+  // Fotos de los bloques corporativos (docs/home-corporativa.md): la sala de reuniones y la costa.
+  const aboutImage = await uploadDemoAsset(ctx, 'oficinas/oficina-04.jpg', { category: 'upload', createdBy: admin(ctx).id })
+  const trustImage = await uploadDemoAsset(ctx, 'asturias/costa-01.jpg', { category: 'upload', createdBy: admin(ctx).id })
   const doc = validatePageDocument({
     seo: {
       title: `${DEMO_COMPANY.name} · Viviendas en Asturias`,
@@ -48,6 +51,16 @@ async function buildHome(ctx: DemoContext) {
         },
       },
       { id: 'properties-na02', type: 'properties', version: 1, content: { eyebrow: 'Obra nueva', title: 'Promociones destacadas', cta: 'Ver todas', ctaTo: '/propiedades', source: 'dynamic', dynamicFilter: 'latest', limit: 4, layout: 'row' } },
+      // «Conoce nuestra inmobiliaria»: la agencia detrás del catálogo, con cifras REALES de la cuenta (recuentos en vivo), nunca escritas a mano.
+      {
+        id: 'about-na13', type: 'about-agency', version: 1,
+        content: {
+          eyebrow: 'Sobre Norte Astur', title: 'Mucho más que encontrar una casa.',
+          text: 'Somos una inmobiliaria asturiana especializada en vivienda residencial: obra nueva, segunda mano e inversión en Oviedo, Gijón, Avilés y el oriente. Conocemos cada barrio porque vivimos en ellos, y te acompañamos en todo el proceso —valoración, visitas, financiación y notaría— para que encuentres un lugar donde de verdad quieras vivir.',
+          cta: 'Conoce nuestra inmobiliaria', ctaTo: '/nosotros', image: aboutImage, imageAlt: mediaAlt('oficinas/oficina-04.jpg'),
+          stats: ['team', 'offices', 'properties'], labelTeam: 'asesores que conocen Asturias', labelOffices: 'oficinas en Oviedo, Gijón y Llanes', labelProperties: 'viviendas publicadas ahora mismo',
+        },
+      },
       { id: 'map-teaser-na03', type: 'map-teaser', version: 1, content: { eyebrow: 'Explora por zona', title: 'De Oviedo al oriente', text: 'Busca en el mapa entre Oviedo, Gijón, Avilés, la costa central y el oriente. Las viviendas de segunda mano se muestran con su zona aproximada.', cta: 'Abrir el mapa', ctaTo: '/propiedades', source: 'dynamic', dynamicFilter: 'latest', limit: 8 } },
       { id: 'properties-na04', type: 'properties', version: 1, content: { eyebrow: 'Colección', title: 'Viviendas con vistas al mar', cta: 'Ver todas', ctaTo: '/propiedades?sort=price_desc', source: 'dynamic', dynamicFilter: 'premium', limit: 3, layout: 'dark-grid' } },
       { id: 'communities-na05', type: 'communities', version: 1, content: { eyebrow: 'Vive aquí', title: 'Residenciales y zonas que conocemos', source: 'dynamic', limit: 6 } },
@@ -59,7 +72,25 @@ async function buildHome(ctx: DemoContext) {
           align: 'left', maxWidth: 'md', columns: 1,
         },
       },
-      { id: 'team-na07', type: 'team', version: 1, content: { eyebrow: 'Quiénes te acompañan', title: 'Habla con un comercial', cta: 'Ver todo el equipo', ctaTo: '/equipo', source: 'dynamic', limit: 4, layout: 'cards' } },
+      // Zonas (docs/zonas.md): las seis con prioridad en la portada, hacia el directorio /zonas/asturias.
+      { id: 'zones-na12', type: 'zones-grid', version: 1, content: { eyebrow: 'Zonas', title: 'Descubre dónde vivir en Asturias', text: 'Ciudades, villas marineras y valles: cómo es vivir en cada zona y qué tenemos publicado ahora.', limit: 6, cta: 'Explorar todas las zonas →', ctaTo: '/zonas/asturias' } },
+      // «Conoce a nuestro equipo»: el bloque de comerciales de siempre, en su diseño editorial (los seis comerciales reales, con su ficha).
+      { id: 'team-na07', type: 'team', version: 1, style: { background: 'surface' }, content: { eyebrow: 'Nuestro equipo', title: 'Las personas detrás de cada historia.', text: 'Un equipo local, cercano y con un profundo conocimiento del mercado asturiano. Estamos a tu lado para ayudarte a tomar la mejor decisión.', cta: 'Conoce todo el equipo', ctaTo: '/equipo', source: 'dynamic', limit: 4, layout: 'editorial', cardFields: { position: true, description: true } } },
+      // «Nuestras oficinas»: las tres oficinas reales de la demo (foto, dirección, horario, teléfono y «Cómo llegar»).
+      { id: 'offices-na14', type: 'offices', version: 1, content: { eyebrow: 'Nuestras oficinas', title: 'Un equipo cercano, estés donde estés.', text: 'Visítanos en Oviedo, Gijón o Llanes, o contáctanos: estaremos encantados de atenderte y asesorarte personalmente.', cta: 'Ver todas las oficinas', ctaTo: '/oficinas', source: 'dynamic', limit: 3, layout: 'auto' } },
+      // «Nuestra experiencia, tu tranquilidad»: argumentos propios de la agencia, sin cifras.
+      {
+        id: 'trust-na15', type: 'trust-points', version: 1, style: { background: 'surface' },
+        content: {
+          eyebrow: 'Por qué elegir Norte Astur', title: 'Experiencia local. Tu tranquilidad.',
+          text: 'Conocemos Asturias, sus pueblos, sus ciudades y sus oportunidades. Te ofrecemos un servicio profesional, transparente y adaptado a lo que necesitas.',
+          image: trustImage, imageAlt: mediaAlt('asturias/costa-01.jpg'), count: 4,
+          point1Title: 'Conocemos Asturias', point1Text: 'Asesoramiento basado en el conocimiento real del territorio: barrios, promociones y lo que se mueve en cada zona.',
+          point2Title: 'Atención personal', point2Text: 'Un profesional de referencia que te acompaña en cada paso, con un trato cercano y transparente.',
+          point3Title: 'Todo en un solo lugar', point3Text: 'Compra, venta, alquiler y asesoramiento financiero, de la mano de un mismo equipo.',
+          point4Title: 'Tu confianza es lo primero', point4Text: 'Información clara y honesta para que tomes decisiones con seguridad.',
+        },
+      },
       { id: 'mortgage-na08', type: 'mortgage-calculator', version: 1, content: { eyebrow: 'Planifica', title: 'Calcula tu hipoteca', text: 'Estima tu cuota mensual antes de visitar.' } },
       {
         id: 'lead-form-na09', type: 'lead-form', version: 1,
@@ -69,8 +100,6 @@ async function buildHome(ctx: DemoContext) {
           successMessage: '¡Gracias! Te llamamos enseguida.', subject: 'Formulario de portada', privacyNote: '', showPhone: true, layout: 'split',
         },
       },
-      // Zonas (docs/zonas.md): las seis con prioridad en la portada, hacia el directorio /zonas/asturias.
-      { id: 'zones-na12', type: 'zones-grid', version: 1, content: { eyebrow: 'Zonas', title: 'Descubre dónde vivir en Asturias', text: 'Ciudades, villas marineras y valles: cómo es vivir en cada zona y qué tenemos publicado ahora.', limit: 6, cta: 'Explorar todas las zonas →', ctaTo: '/zonas/asturias' } },
       { id: 'blog-list-na10', type: 'blog-list', version: 1, content: { eyebrow: 'Blog', title: 'Guías y zonas de Asturias', cta: 'Todos los artículos', ctaTo: '/blog', source: 'dynamic', limit: 3 } },
       { id: 'cta-na11', type: 'cta', version: 1, content: { eyebrow: '', title: '¿Hablamos de tu próxima casa en Asturias?', description: 'Oficinas en Oviedo, Gijón y Llanes.', ctaPrimary: 'Contactar', ctaPrimaryTo: '/contacto', ctaSecondary: 'Ver propiedades', ctaSecondaryTo: '/propiedades', align: 'center' } },
     ],

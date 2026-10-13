@@ -108,8 +108,27 @@ describe('cuenta demo Norte Astur', () => {
     expect(await countFor(db, schema.assetExportCatalogs, orgId)).toBe(3)
     expect(await countFor(db, schema.automations, orgId)).toBe(4)
     const [home] = await db.select().from(schema.sitePages).where(and(eq(schema.sitePages.organizationId, orgId), eq(schema.sitePages.pageKey, 'home')))
-    // 11 bloques + el bloque «Zonas» (docs/zonas.md).
-    expect(JSON.parse(home.publishedJson!).blocks.length).toBe(12)
+    // 11 bloques + «Zonas» (docs/zonas.md) + los cuatro corporativos: «Conoce
+    // nuestra inmobiliaria», «Nuestras oficinas» y «Nuestra experiencia» son
+    // nuevos y el de comerciales pasa al diseño editorial (docs/home-corporativa.md).
+    const homeBlocks = JSON.parse(home.publishedJson!).blocks
+    expect(homeBlocks.length).toBe(15)
+    expect(homeBlocks.map((b: any) => b.type)).toEqual(['hero', 'properties', 'about-agency', 'map-teaser', 'properties', 'communities', 'text', 'zones-grid', 'team', 'offices', 'trust-points', 'mortgage-calculator', 'lead-form', 'blog-list', 'cta'])
+    expect(homeBlocks.filter((b: any) => b.type === 'team'), 'el bloque de comerciales no se duplica').toHaveLength(1)
+    expect(homeBlocks.find((b: any) => b.type === 'team').content.layout).toBe('editorial')
+    const about = homeBlocks.find((b: any) => b.type === 'about-agency').content
+    expect(about.stats, 'sólo cifras en vivo: la demo no tiene cifras verificadas propias').toEqual(['team', 'offices', 'properties'])
+    expect(Object.keys(about).filter((k) => k.startsWith('customValue'))).toEqual([])
+    // Las oficinas publican lo que la web enseña: horario, coordenadas y una sola principal.
+    const offices = await db.select().from(schema.offices).where(eq(schema.offices.organizationId, orgId))
+    expect(offices).toHaveLength(3)
+    for (const o of offices) {
+      expect(o.openingHours, o.name).toBeTruthy()
+      expect(o.lat, o.name).toBeTypeOf('number')
+      expect(o.lng, o.name).toBeTypeOf('number')
+      expect(o.showOnWeb, o.name).toBe(1)
+    }
+    expect(offices.filter((o) => o.isMain === 1).map((o) => o.name)).toEqual(['Oviedo Centro'])
     expect(await countFor(db, schema.zones, orgId)).toBe(37)
 
     // Las métricas salen de los registros, no se escriben a mano.

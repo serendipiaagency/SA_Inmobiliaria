@@ -21,6 +21,7 @@
 </template>
 
 <script setup lang="ts">
+import { realEstateAgentJsonLd } from '~/utils/corporateSchema'
 import SiteBlockRenderer from '~/components/site-builder/SiteBlockRenderer.vue'
 import LpHeader from '~/components/landing/LpHeader.vue'
 import LpHero from '~/components/landing/LpHero.vue'
@@ -72,14 +73,27 @@ if (isPortal.value) {
 }
 
 if (isPortal.value) {
-  useHead(
-    seoHead({
+  // La inmobiliaria como RealEstateAgent con sus oficinas publicadas
+  // (utils/corporateSchema.ts): sólo con lo que existe en la cuenta.
+  const portalUrl = useRequestURL()
+  const portalOrigin = `${portalUrl.protocol}//${portalUrl.host}`
+  const company = data.value?.company
+  const jsonLd = company?.companyName
+    ? realEstateAgentJsonLd(
+        portalOrigin,
+        { companyName: company.companyName, logoUrl: company.logo ? `${portalOrigin}${mediaUrl(company.logo)}` : null, phone: company.phone, email: company.email, social: company.social },
+        (data.value?.offices || []).map((o: any) => ({ ...o, photoUrl: o.photo ? `${portalOrigin}${mediaUrl(o.photo)}` : null })),
+      )
+    : null
+  useHead({
+    ...seoHead({
       title: page.value?.seo?.title || `${tenant.value?.companyName || tenant.value?.name} — Propiedades excepcionales`,
       description:
         page.value?.seo?.description ||
         'Marketplace curado de proyectos off-plan, ventas de segunda mano y comunidades residenciales.',
     }),
-  )
+    ...(jsonLd ? { script: [{ type: 'application/ld+json', innerHTML: JSON.stringify(jsonLd) }] } : {}),
+  })
 } else {
   // La landing comercial de INMO (utils/landing.ts): SEO completo con la
   // captura real del panel como imagen social, canónica en el host principal

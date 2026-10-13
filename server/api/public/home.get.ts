@@ -5,6 +5,8 @@ import { PUBLIC_TEAM_COLUMNS } from '../../utils/publicTeam'
 import { toPublicProperties } from '../../utils/propertyPrivacy'
 import { livePropertyCond } from '../../utils/properties/trash'
 import { homeZones } from '../../utils/zones'
+import { publicOffices } from '../../utils/publicOffices'
+import { companyStats, publicCompanyProfile } from '../../utils/publicCompany'
 
 export default defineEventHandler(async (event) => {
   const db = useDb(event)
@@ -47,11 +49,16 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // Bloques corporativos (docs/home-corporativa.md): oficinas publicadas y el
+  // perfil de la empresa con sus cifras reales, en vivo.
+  const [zones, offices, profile, stats] = await Promise.all([homeZones(db, orgId), publicOffices(db, orgId), publicCompanyProfile(db, orgId), companyStats(db, orgId)])
   return {
     projects: toPublicProperties(await attachPhotos(db, projects)),
     communities,
     // Bloque «Zonas» de la portada: zonas publicadas con prioridad (docs/zonas.md).
-    zones: await homeZones(db, orgId),
+    zones,
+    offices,
+    company: profile ? { ...profile, stats } : { stats },
     developers,
     blogs: blogs.map((b) => ({ ...b, ...blogTitles[b.id] })),
     team,

@@ -53,10 +53,16 @@ export const DEMO_ADMIN = {
  */
 export const DEMO_ADMIN_PASSWORD_HASH_DEFAULT = 'pbkdf2$100000$r7sQSng2uiTEIPrts2TzJg==$mvEcMXXVxABCI461UjHjJeD1pwAaSrGx5nNll6wrtq0='
 
+/**
+ * Las oficinas, con lo que la web enseña de cada una (migración 0096,
+ * docs/home-corporativa.md): presentación, horario, centro del mapa (el del
+ * municipio, no un portal concreto: las direcciones son de demostración),
+ * cuál es la principal y en qué orden salen.
+ */
 export const OFFICES = [
-  { key: 'o-oviedo', name: 'Oviedo Centro', code: 'OVI', city: 'Oviedo', postalCode: '33003', address: 'Centro de Oviedo (dirección de demostración)', phone: '+34 985 000 110', email: 'oviedo@norteastur.example', photo: 'oficinas/oficina-01.jpg' },
-  { key: 'o-gijon', name: 'Gijón', code: 'GIJ', city: 'Gijón', postalCode: '33201', address: 'Centro de Gijón (dirección de demostración)', phone: '+34 985 000 120', email: 'gijon@norteastur.example', photo: 'oficinas/oficina-02.jpg' },
-  { key: 'o-oriente', name: 'Oriente de Asturias', code: 'ORI', city: 'Llanes', postalCode: '33500', address: 'Llanes (dirección de demostración)', phone: '+34 985 000 130', email: 'oriente@norteastur.example', photo: 'oficinas/oficina-03.jpg' },
+  { key: 'o-oviedo', name: 'Oviedo Centro', code: 'OVI', city: 'Oviedo', postalCode: '33003', address: 'Centro de Oviedo (dirección de demostración)', phone: '+34 985 000 110', email: 'oviedo@norteastur.example', photo: 'oficinas/oficina-01.jpg', description: 'Nuestra oficina principal, en el centro de Oviedo: vivienda familiar, obra nueva e inversión en Oviedo y los concejos del centro.', openingHours: 'L-V 9:30-14:00 y 16:30-19:30 · S 10:00-13:30', lat: 43.3619, lng: -5.8494, isMain: 1, sortOrder: 1 },
+  { key: 'o-gijon', name: 'Gijón', code: 'GIJ', city: 'Gijón', postalCode: '33201', address: 'Centro de Gijón (dirección de demostración)', phone: '+34 985 000 120', email: 'gijon@norteastur.example', photo: 'oficinas/oficina-02.jpg', description: 'Gijón, Avilés y la costa central: pisos con vistas al mar, chalets en Somió y los pueblos marineros de Luanco y Candás.', openingHours: 'L-V 9:30-14:00 y 16:30-19:30 · S 10:00-13:30', lat: 43.5322, lng: -5.6611, isMain: 0, sortOrder: 2 },
+  { key: 'o-oriente', name: 'Oriente de Asturias', code: 'ORI', city: 'Llanes', postalCode: '33500', address: 'Llanes (dirección de demostración)', phone: '+34 985 000 130', email: 'oriente@norteastur.example', photo: 'oficinas/oficina-03.jpg', description: 'Llanes, Ribadesella y Villaviciosa: segunda residencia, casas con terreno y compradores de fuera de Asturias.', openingHours: 'L-V 10:00-14:00 y 16:30-19:00', lat: 43.4208, lng: -4.755, isMain: 0, sortOrder: 3 },
 ] as const
 
 export const TEAMS = [
