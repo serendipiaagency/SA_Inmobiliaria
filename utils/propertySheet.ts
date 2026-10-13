@@ -84,6 +84,36 @@ export const PROPERTY_SUBTYPES: Record<string, Record<string, string>> = {
   Development: { new_build: 'Obra nueva', off_plan: 'Sobre plano', under_construction: 'En construcción', completed: 'Terminada' },
 }
 
+/**
+ * Cómo se ENSEÑA el catálogo (buscador público, filtros, editor): los mismos
+ * tipos, agrupados. No es otra taxonomía: cada tipo está en un grupo y sólo
+ * en uno (lo comprueba una prueba). Viviendas se divide en dos familias.
+ */
+export interface PropertyTypeFamily {
+  key: string
+  /** [clave i18n, texto en castellano] */
+  label: [string, string]
+  types: PropertyTypeKey[]
+}
+export interface PropertyTypeGroup {
+  key: string
+  label: [string, string]
+  families: PropertyTypeFamily[]
+}
+export const PROPERTY_TYPE_GROUPS: PropertyTypeGroup[] = [
+  {
+    key: 'homes',
+    label: ['types.homes', 'Viviendas'],
+    families: [
+      { key: 'flats', label: ['types.flats', 'Pisos'], types: ['Apartment', 'Penthouse', 'Duplex', 'Studio'] },
+      { key: 'houses', label: ['types.houses', 'Casas y chalets'], types: ['House', 'Villa', 'Townhouse', 'Finca'] },
+    ],
+  },
+  { key: 'commercial', label: ['types.commercial', 'Inmuebles comerciales'], families: [{ key: 'commercial', label: ['types.commercial', 'Inmuebles comerciales'], types: ['Retail', 'Office', 'Warehouse', 'Building'] }] },
+  { key: 'land', label: ['types.land', 'Terrenos'], families: [{ key: 'land', label: ['types.land', 'Terrenos'], types: ['Land'] }] },
+  { key: 'other', label: ['types.other', 'Otros inmuebles'], families: [{ key: 'other', label: ['types.other', 'Otros inmuebles'], types: ['Garage', 'Development'] }] },
+]
+
 export function propertyTypeLabel(value: string | null | undefined): string {
   if (!value) return '—'
   return PROPERTY_TYPE_LABELS[value] || value

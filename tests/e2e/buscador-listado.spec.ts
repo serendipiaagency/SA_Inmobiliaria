@@ -301,10 +301,9 @@ test.describe('Buscador y listado de propiedades', () => {
       await page.goto('/propiedades?municipality=Oviedo&sort=newest&q=Buscador')
       const aside = page.getByTestId('catalog-aside')
 
-      // Viviendas › Ático › sólo su subtipo «Ático»: entra el ático, no el piso; «Sobreático», ninguno.
+      // Viviendas › Ático › sólo su subtipo «Ático» (a la vista, sin desplegar nada): entra el ático, no el piso; «Sobreático», ninguno.
       await aside.locator('[data-group="type"] > button').click()
-      await aside.locator('[data-category="homes"] > .tt-row .tt-exp').click()
-      await aside.locator('[data-type="Penthouse"] .tt-exp').click()
+      await expect(aside.locator('[data-category="homes"] [data-type="Penthouse"]')).toBeVisible()
       await aside.getByTestId('public-filter-subtype-penthouse').check()
       await expect(page).toHaveURL(/subtype=penthouse/)
       await expect(page.getByText(N('atico'))).toBeVisible()

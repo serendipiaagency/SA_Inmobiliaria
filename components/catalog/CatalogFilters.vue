@@ -83,7 +83,7 @@
           </div>
 
           <!-- Tipo y subtipo -->
-          <TypeTreeFilter v-else-if="g.key === 'type'" :types="typeSel.types" :subtypes="typeSel.subtypes" :available="facets?.types || []" @update="onTypes" />
+          <PropertyTypePicker v-else-if="g.key === 'type'" :types="typeSel.types" :subtypes="typeSel.subtypes" :counts="facets?.typeCounts || null" @update="onTypes" />
 
           <!-- Estado: obra nueva / segunda mano y estado de conservación -->
           <div v-else-if="g.key === 'status'" class="space-y-3">
@@ -194,7 +194,7 @@ import {
 } from '~/utils/searchState'
 import LocationAutocomplete from '~/components/search/LocationAutocomplete.vue'
 import PriceRangeSlider from '~/components/search/PriceRangeSlider.vue'
-import TypeTreeFilter from '~/components/search/TypeTreeFilter.vue'
+import PropertyTypePicker from '~/components/search/PropertyTypePicker.vue'
 
 /**
  * Panel de filtros del catálogo público (#109, pages/propiedades/index.vue).
@@ -214,7 +214,7 @@ import TypeTreeFilter from '~/components/search/TypeTreeFilter.vue'
 const props = withDefaults(
   defineProps<{
     query: Record<string, any>
-    facets?: { types?: string[]; municipalities?: string[]; neighborhoods?: string[]; postalCodes?: string[]; statuses?: string[]; situations?: string[] } | null
+    facets?: { types?: string[]; typeCounts?: Record<string, number>; municipalities?: string[]; neighborhoods?: string[]; postalCodes?: string[]; statuses?: string[]; situations?: string[] } | null
     total: number
     items?: { lat?: number | null; lng?: number | null }[]
     collapsible?: boolean

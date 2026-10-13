@@ -713,10 +713,18 @@ contenido guardado se ignoran): la acción es el buscador
   Tipo de inmueble, Ubicación, Precio, Habitaciones—. Cada campo: icono,
   etiqueta, valor o «Cualquiera» y flecha. Un solo desplegable abierto a la
   vez; cambiar de campo no pierde lo elegido; Escape o un clic fuera lo cierran.
-  - **Tipo de inmueble**: el árbol de tipos y subtipos del catálogo
-    (`components/search/TypeTreeFilter.vue`, sólo los publicados, varios a la
-    vez), resumido con `heroTypeSummary` («Viviendas», «Piso y ático», «3 tipos
-    seleccionados»).
+  - **Tipo de inmueble** (`components/search/PropertyTypePicker.vue`, el mismo
+    en el panel de Propiedades): el catálogo ENTERO de Property Core
+    (`PROPERTY_TYPE_GROUPS` de `utils/propertySheet.ts`: Viviendas —Pisos,
+    Casas y chalets—, Inmuebles comerciales, Terrenos, Otros inmuebles), a la
+    vista en cuanto se abre, sin desplegables: grupos con su casilla
+    (todo/parte/nada), cada tipo con su casilla y sus subtipos en línea como
+    pastillas. Todos los tipos se pueden elegir aunque la agencia no tenga
+    ninguno publicado (el número junto a cada tipo son las propiedades reales,
+    `facets.typeCounts`, y sólo informa). Varios a la vez (unión); resumido con
+    `heroTypeSummary` («Viviendas», «Inmuebles comerciales», «Piso y ático»,
+    «3 tipos seleccionados»). En escritorio, dos columnas; en móvil, una hoja
+    inferior. Comprar y Alquilar comparten catálogo y conservan lo elegido.
   - **Ubicación** (`components/search/LocationAutocomplete.vue`): sugerencias
     de `/api/public/location-suggest` mientras se escribe —municipios, barrios
     y zonas, códigos postales, provincias y calles con propiedades publicadas—,

@@ -93,6 +93,13 @@ export default defineEventHandler(async (event) => {
     facetMode === 'types' || facetMode === 'filters'
       ? {
           types: orderPropertyTypes((await db.selectDistinct({ type: P.propertyType }).from(P).where(base)).map((r: { type: string | null }) => r.type)),
+          // Cuántas hay de cada tipo: el selector enseña el catálogo entero y
+          // este número sólo informa (un tipo a cero se puede elegir igual).
+          typeCounts: Object.fromEntries(
+            ((await db.select({ type: P.propertyType, n: sql<number>`count(*)` }).from(P).where(base).groupBy(P.propertyType)) as { type: string | null; n: number }[])
+              .filter((r) => r.type)
+              .map((r) => [String(r.type).trim(), Number(r.n)]),
+          ),
           ...(facetMode === 'filters'
             ? {
                 municipalities: await distinct(P.city, detail('municipality')),

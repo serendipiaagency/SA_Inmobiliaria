@@ -58,7 +58,7 @@
           <div class="hs-bar" :style="{ '--hs-radius': `${radiusPx}px` }" :data-fields="opts.fields.length" data-testid="hero-bar">
             <div v-if="opts.fields.length" class="hs-fields">
               <template v-for="key in opts.fields" :key="key">
-                <!-- Tipo de inmueble: los tipos y subtipos reales de Property Core, varios a la vez -->
+                <!-- Tipo de inmueble: el catálogo entero de Property Core (tipos y subtipos), varios a la vez -->
                 <div v-if="key === 'type'" class="hs-cell" :class="cellCls('type')" data-field="type">
                   <button type="button" class="hs-cell-btn" :aria-expanded="open === 'type'" aria-haspopup="dialog" data-testid="hero-cell-type" @click="toggle('type')">
                     <svg class="hs-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /><path d="M10 21v-5.5h4V21" /></svg>
@@ -70,7 +70,7 @@
                   </button>
                   <transition name="pop">
                     <div v-if="open === 'type'" class="popover hs-pop-type" role="dialog" :aria-label="t('hero.type', 'Tipo de inmueble')" data-testid="hero-pop-type">
-                      <TypeTreeFilter :types="form.types" :subtypes="form.subtypes" :available="typeOptions" @update="onTypes" />
+                      <PropertyTypePicker :types="form.types" :subtypes="form.subtypes" :counts="typeCounts" variant="hero" @update="onTypes" />
                       <div class="pop-foot">
                         <button type="button" class="pop-link" :disabled="!form.types.length && !form.subtypes.length" data-testid="hero-type-clear" @click="onTypes({ types: [], subtypes: [] })">{{ t('hero.any', 'Cualquiera') }}</button>
                         <button type="button" class="pop-done" data-testid="hero-type-done" @click="open = null">{{ t('hero.done', 'Hecho') }}</button>
@@ -339,7 +339,7 @@ import { HERO_SEARCH_RADIUS_PX, countHeroExtraFilters, heroButtonColors, heroSea
 import { TENANT_BRANDING_OVERRIDE } from '~/composables/useTenant'
 import LocationAutocomplete from '~/components/search/LocationAutocomplete.vue'
 import PriceRangeSlider from '~/components/search/PriceRangeSlider.vue'
-import TypeTreeFilter from '~/components/search/TypeTreeFilter.vue'
+import PropertyTypePicker from '~/components/search/PropertyTypePicker.vue'
 
 const props = defineProps<{
   eyebrow?: string
@@ -545,10 +545,12 @@ function cellCls(key: string) {
   return open.value === key ? 'cell-active' : ''
 }
 
-// Tipos publicados por la agencia y situaciones que anuncia (`facets=filters`,
-// lo mismo que pide el panel de Propiedades); sin respuesta, el catálogo entero.
-const { data: facetData } = await useFetch<{ facets?: { types: string[]; situations?: string[] } }>('/api/public/properties', { key: 'hero-facets', query: { countOnly: '1', facets: 'filters' } })
-const typeOptions = computed<string[]>(() => (facetData.value?.facets?.types?.length ? facetData.value.facets.types : [...PROPERTY_TYPES]))
+// Cuántas propiedades publica la agencia de cada tipo y qué situaciones anuncia
+// (`facets=filters`, lo mismo que pide el panel de Propiedades). El selector de
+// tipo enseña SIEMPRE el catálogo entero: el contador sólo informa.
+const { data: facetData } = await useFetch<{ facets?: { types: string[]; typeCounts?: Record<string, number>; situations?: string[] } }>('/api/public/properties', { key: 'hero-facets', query: { countOnly: '1', facets: 'filters' } })
+const typeOptions = [...PROPERTY_TYPES]
+const typeCounts = computed(() => facetData.value?.facets?.typeCounts ?? null)
 const availableSituations = computed(() => SITUATION_KEYS.filter((k) => (facetData.value?.facets?.situations || []).includes(k)))
 const typeLabel = usePropertyTypeLabel()
 
@@ -565,7 +567,7 @@ function onTypes(sel: { types: string[]; subtypes: string[] }) {
   }
 }
 const typeSummary = computed(() =>
-  heroTypeSummary(form.types, form.subtypes, typeOptions.value, t, typeLabel, (st) => {
+  heroTypeSummary(form.types, form.subtypes, typeOptions, t, typeLabel, (st) => {
     const parent = subtypeParent(st)
     return t(`filters.subtype.${st}`, (parent && PROPERTY_SUBTYPES[parent]?.[st]) || st)
   }),
@@ -737,16 +739,22 @@ function delay(i: number) {
   background: radial-gradient(ellipse at center, transparent 45%, rgba(0, 0, 0, 0.35) 100%);
 }
 
-/* Entrance */
+/* Entrance: el estado base es el final (visible, sin transform) y la animación
+   rellena hacia atrás durante su retardo. Con `forwards`, el transform animado
+   se quedaba como matriz identidad y convertía al buscador en bloque contenedor:
+   la hoja inferior móvil del selector de tipo (position: fixed) no se pegaba a
+   la pantalla. */
 .rise {
-  opacity: 0;
-  transform: translateY(22px);
-  animation: rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 @keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
@@ -1109,9 +1117,33 @@ function delay(i: number) {
 }
 .hs-pop-type {
   left: 0;
-  width: min(92vw, 360px);
-  max-height: min(70vh, 520px);
+  width: min(92vw, 400px);
+  max-height: min(70vh, 560px);
   overflow-y: auto;
+}
+@media (min-width: 1024px) {
+  /* El catálogo entero, en dos columnas, sin desplegables. */
+  .hs-pop-type {
+    width: min(calc(100vw - 48px), 680px);
+    max-height: min(76vh, 640px);
+  }
+}
+@media (max-width: 767px) {
+  /* En móvil, una hoja inferior con desplazamiento propio en vez de un popover bajo la celda
+     (más específico que el `.popover` de abajo, que fija `top` en pantallas estrechas). */
+  .popover.hs-pop-type {
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    width: auto;
+    max-height: 82vh;
+    border-radius: 18px 18px 0 0;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -20px 50px -12px rgba(0, 0, 0, 0.35);
+  }
 }
 .hs-pop-location {
   left: 0;
