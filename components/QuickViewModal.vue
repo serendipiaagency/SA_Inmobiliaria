@@ -17,7 +17,7 @@
 
             <div class="qv-body">
               <p class="flex items-baseline gap-2">
-                <span class="text-xl font-semibold tracking-tight">{{ formatPrice(project.price) }}</span>
+                <span class="text-xl font-semibold tracking-tight">{{ formatPrice(project.price, project.transactionType) }}</span>
                 <span v-if="project.rentalYield" class="text-xs font-semibold text-emerald-600">{{ project.rentalYield }}% {{ t('quickView.rentalYieldSuffix', 'rent.') }}</span>
               </p>
               <h3 class="mt-1 font-serif text-2xl font-medium">{{ project.name }}</h3>

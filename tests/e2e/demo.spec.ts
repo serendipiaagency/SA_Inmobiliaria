@@ -105,6 +105,13 @@ test('cuenta demo: se genera, la gerente entra sin opciones de super admin y nad
   await page.reload()
   await expect(page.getByText('Encuentra tu lugar')).toBeVisible()
   await expect(page.getByTestId('demo-notice')).toHaveCount(0)
+  // La pestaña «Alquilar» tiene inventario: las dos promociones en alquiler (p05 y p06), con su renta mensual y «/mes».
+  const rent = await (await page.request.get(`/api/public/properties?operacion=alquiler&vista_previa=${orgId}`)).json()
+  expect((rent.rows as any[]).map((p) => p.transactionType)).toEqual(['rent', 'rent'])
+  expect((rent.rows as any[]).every((p) => p.price > 0 && p.price < 5_000)).toBeTruthy()
+  await page.goto(`/propiedades?operacion=alquiler&vista_previa=${orgId}`)
+  await expect(page.locator('.pc-price').first()).toContainText('/mes')
+  expect(await page.locator('.pc-price').count()).toBe(2)
   // Se sale como siempre (el parámetro), sin franja que lo ofrezca.
   await page.goto('/?vista_previa=salir')
   expect((await (await page.request.get('/api/public/tenant')).json()).id).not.toBe(orgId)

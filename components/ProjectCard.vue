@@ -105,8 +105,8 @@
 
     <!-- Info: la del catálogo sigue el orden de la referencia (#109) -->
     <div v-if="catalog" class="pc-info">
-      <SbText tag="p" field="card.price" label="Precio" :dynamic="dynamicLabel('property', 'Precio')" :source-href="SOURCES.property.href" class="pc-price" :text="formatPrice(project.price)" />
-      <p class="pc-m2">{{ pricePerM2 ? `${pricePerM2} / m²` : '\u00a0' }}</p>
+      <SbText tag="p" field="card.price" label="Precio" :dynamic="dynamicLabel('property', 'Precio')" :source-href="SOURCES.property.href" class="pc-price" :text="formatPrice(project.price, project.transactionType)" />
+      <p class="pc-m2">{{ pricePerM2 ? `${pricePerM2}${perM2Suffix(project.transactionType)}` : '\u00a0' }}</p>
       <SbText tag="h3" field="card.name" kind="heading" label="Nombre de la propiedad" :dynamic="dynamicLabel('property', 'Nombre')" :source-href="SOURCES.property.href" class="pc-title" :text="project.name" />
       <p v-if="locationLine" class="pc-loc">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.3a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.7" r="2.5" /></svg>
@@ -137,10 +137,10 @@
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <p class="flex items-baseline gap-2">
-            <SbText tag="span" field="card.price" label="Precio" :dynamic="dynamicLabel('property', 'Precio')" :source-href="SOURCES.property.href" class="text-lg font-semibold tracking-tight" :text="formatPrice(project.price)" />
+            <SbText tag="span" field="card.price" label="Precio" :dynamic="dynamicLabel('property', 'Precio')" :source-href="SOURCES.property.href" class="text-lg font-semibold tracking-tight" :text="formatPrice(project.price, project.transactionType)" />
             <span v-if="priceDrop" class="text-xs font-semibold text-emerald-600">−{{ priceDrop }}%</span>
           </p>
-          <p v-if="pricePerM2" class="text-[12px] text-stone-400">{{ pricePerM2 }} / m²</p>
+          <p v-if="pricePerM2" class="text-[12px] text-stone-400">{{ pricePerM2 }}{{ perM2Suffix(project.transactionType) }}</p>
         </div>
         <span v-if="project.rentalYield" class="shrink-0 rounded-full bg-paper px-2.5 py-1 text-[11px] font-semibold text-ink ring-1 ring-line">
           {{ project.rentalYield }}% rent.
@@ -201,6 +201,8 @@ const props = withDefaults(defineProps<{
     photos?: string[]
     price?: number | null
     priceOld?: number | null
+    /** sale | rent: en alquiler el precio es la renta mensual y se pinta con «/mes». */
+    transactionType?: string | null
     area?: number | null
     bedrooms?: number | null
     bathrooms?: number | null
@@ -219,7 +221,7 @@ const catalog = computed(() => props.variant === 'catalog')
 const { isFavorite, toggle: toggleFav } = useFavorites()
 const { has: hasCompare, toggle: toggleCompare, full: compareFull } = useCompare()
 const { t } = useI18n()
-const { format: formatPrice } = useCurrency()
+const { format: formatPrice, perM2Suffix } = useCurrency()
 
 const to = computed(() => `/propiedades/${props.project.slug || props.project.id}`)
 const locationLine = computed(() => [props.project.community, props.project.developerName].filter(Boolean).join(' · '))

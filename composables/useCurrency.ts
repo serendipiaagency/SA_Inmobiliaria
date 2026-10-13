@@ -1,4 +1,5 @@
 import { CURRENCIES, DEFAULT_AGENCY_CURRENCY, currencyInfo, formatDisplayPrice, normalizeCurrency, type CurrencyInfo } from '~/utils/currency'
+import { isRentTransaction } from '~/utils/propertySheet'
 
 /**
  * Selector de moneda de la WEB PÚBLICA (regla completa en `utils/currency.ts`).
@@ -27,6 +28,7 @@ export function useCurrency() {
   const agencyCurrency = useState<string | null>('agency-currency', () => null)
   const { tenant } = useTenant()
   const route = useRoute()
+  const { t } = useI18n()
 
   const inAdmin = computed(() => !!agencyCurrency.value && route.path.startsWith('/admin'))
   /** Moneda en la que están guardados los importes que se pintan. */
@@ -42,9 +44,20 @@ export function useCurrency() {
     cookie.value = c
   }
 
-  /** Importe de la base, convertido y formateado en la moneda que se enseña. */
-  function format(amount: number | null | undefined): string {
-    return formatDisplayPrice(amount, base.value, code.value)
+  /**
+   * Importe de la base, convertido y formateado en la moneda que se enseña.
+   * Con la operación de la propiedad, una renta («rent») lleva su «/mes» en
+   * el idioma del visitante (`utils/propertySheet.ts`: el precio de un
+   * alquiler ES la renta mensual).
+   */
+  function format(amount: number | null | undefined, transactionType?: unknown): string {
+    const out = formatDisplayPrice(amount, base.value, code.value)
+    return isRentTransaction(transactionType) ? `${out}${t('price.perMonth', '/mes')}` : out
+  }
+
+  /** Lo que va detrás del precio por m²: « / m²» o, en alquiler, « / m² al mes». */
+  function perM2Suffix(transactionType?: unknown): string {
+    return isRentTransaction(transactionType) ? t('price.perM2Month', ' / m² al mes') : ' / m²'
   }
 
   /** Forma compacta para mapas e insignias: «AED 1.2M», «312k €», «$1.4M». */
@@ -52,5 +65,5 @@ export function useCurrency() {
     return formatDisplayPrice(amount, base.value, code.value, { compact: true })
   }
 
-  return { code, base, current, currencies: CURRENCIES, setCurrency, format, compact }
+  return { code, base, current, currencies: CURRENCIES, setCurrency, format, perM2Suffix, compact }
 }

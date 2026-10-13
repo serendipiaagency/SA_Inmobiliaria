@@ -203,6 +203,9 @@ describe('cuenta demo Norte Astur', () => {
     expect(await countFor(db, schema.contacts, orgId)).toBe(contactsBefore + 1)
 
     // ── Restablecer: NO destructivo ───────────────────────────────────────────
+    // La instantánea lleva fecha y hora en segundos: un restablecimiento que acaba dentro
+    // del mismo segundo en que se guardó la anterior tendría la misma marca. Al siguiente segundo.
+    await new Promise((r) => setTimeout(r, 1100 - (Date.now() % 1000)))
     const requested = await requestDemoProvisioning(db, { mode: 'restore', trigger: 'admin' }, env)
     expect(requested.status).toBe('restoring')
     const restored = await runToEnd(env)
