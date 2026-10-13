@@ -3,8 +3,8 @@
     <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
       <div class="min-w-0">
         <span class="eyebrow">{{ t('decisionPanel.price.eyebrow', 'Precio') }}</span>
-        <p class="mt-3 whitespace-nowrap text-[28px] font-bold leading-none tracking-tight text-ink sm:text-[30px]" data-testid="ficha-price">{{ formatPrice(project.price) }}</p>
-        <p v-if="pricePerM2" class="mt-2 text-[14px] text-stone-500" data-testid="ficha-price-m2">{{ pricePerM2 }} / m²</p>
+        <p class="mt-3 whitespace-nowrap text-[28px] font-bold leading-none tracking-tight text-ink sm:text-[30px]" data-testid="ficha-price">{{ formatPrice(project.price, project.transactionType) }}</p>
+        <p v-if="pricePerM2" class="mt-2 text-[14px] text-stone-500" data-testid="ficha-price-m2">{{ pricePerM2 }}{{ perM2Suffix(project.transactionType) }}</p>
       </div>
       <!-- Evolución sólo con cambios de precio reales (utils/priceTrend.ts). -->
       <div v-if="trend" class="flex shrink-0 items-center gap-2 rounded-xl bg-[#fdf3ea] px-3 py-2" data-testid="ficha-price-trend">
@@ -45,14 +45,14 @@ import { priceTrend, sparklinePath, type PriceHistoryPoint } from '~/utils/price
  */
 const props = defineProps<{
   slug: string
-  project: { price?: number | null; priceOld?: number | null; area?: number | null; paymentPlan?: string | null; downPercentage?: number | string | null; constructionPercentage?: number | string | null; handoverPercentage?: number | string | null }
+  project: { price?: number | null; priceOld?: number | null; transactionType?: string | null; area?: number | null; paymentPlan?: string | null; downPercentage?: number | string | null; constructionPercentage?: number | string | null; handoverPercentage?: number | string | null }
   agentSlug?: string | null
 }>()
 const emit = defineEmits<{ book: [start: string]; video: []; visitState: [state: 'loading' | 'slot' | 'none'] }>()
 
 const { t, intlLocale } = useI18n()
 // En la moneda que ve el visitante, como el resto de importes de la ficha (utils/currency.ts).
-const { format: formatPrice } = useCurrency()
+const { format: formatPrice, perM2Suffix } = useCurrency()
 
 const visitState = ref<'loading' | 'slot' | 'none'>('loading')
 function onVisitState(s: 'loading' | 'slot' | 'none') {

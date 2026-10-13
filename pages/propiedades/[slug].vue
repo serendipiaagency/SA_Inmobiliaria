@@ -311,7 +311,7 @@
         </div>
       </div>
 
-      <PropertyStickyBar :price="formatPrice(data.project.price)" :visible="showMobileBar" @request="requestVisit" />
+      <PropertyStickyBar :price="formatPrice(data.project.price, data.project.transactionType)" :visible="showMobileBar" @request="requestVisit" />
 
       <BookAppointmentModal
         v-if="agentSlug"
@@ -333,7 +333,7 @@
 import { hasValidCoords } from '~/utils/maps/coords'
 import ZoneLink from '~/components/zones/ZoneLink.vue'
 import { formatDisplayPrice } from '~/utils/currency'
-import { PROPERTY_TYPE_LABELS } from '~/utils/propertySheet'
+import { PROPERTY_TYPE_LABELS, priceSuffixFor } from '~/utils/propertySheet'
 import { buildQuickFacts } from '~/utils/quickFacts'
 import { buildingRows, conditionRows, type PublicDocument } from '~/utils/propertyFacts'
 import type { PublicFloorPlan } from '~/utils/floorPlans'
@@ -388,7 +388,7 @@ const seoDescription = [
   data.value.project.community ? `en ${data.value.project.community}` : null,
   data.value.project.bedrooms != null ? `${data.value.project.bedrooms || 'Estudio'} hab.` : null,
   data.value.project.area ? `${Math.round(data.value.project.area)} m²` : null,
-  data.value.project.price ? `desde ${formatDisplayPrice(data.value.project.price, baseCurrency.value, baseCurrency.value)}` : null,
+  data.value.project.price ? `desde ${formatDisplayPrice(data.value.project.price, baseCurrency.value, baseCurrency.value)}${priceSuffixFor(data.value.project.transactionType)}` : null,
 ]
   .filter(Boolean)
   .join(' · ')

@@ -1,6 +1,7 @@
 /**
  * Las 20 propiedades de la cuenta demo: 10 de obra nueva (las que publica la
- * web) y 10 de segunda mano. Todas ficticias; las calles son genéricas y sin
+ * web; dos de ellas en alquiler, p05 y p06, para que la pestaña «Alquilar»
+ * tenga inventario) y 10 de segunda mano (una en alquiler, p18). Todas ficticias; las calles son genéricas y sin
  * número, y la segunda mano se publica con ubicación aproximada.
  *
  * `gallery` son rutas dentro de public/demo-assets/norte-astur/ (fotos CC0 o de
@@ -141,35 +142,35 @@ export const PROPERTIES: DemoProperty[] = [
     commercialStatus: 'available', buildStatus: 'ready', handover: 'Inmediata', floorPlan: true, video: true, serviceChargeAnnual: 1920,
   },
   {
-    key: 'p05', kind: 'developer', title: 'Piso luminoso de obra nueva en La Magdalena, Avilés', gallery: ['propiedades/p06-01.jpg', 'propiedades/p06-02.jpg', 'propiedades/p06-03.jpg', 'propiedades/p06-04.jpg', 'asturias/aviles-01.jpg', 'asturias/aviles-02.jpg'],
+    key: 'p05', kind: 'developer', title: 'Piso de obra nueva en alquiler en La Magdalena, Avilés', gallery: ['propiedades/p06-01.jpg', 'propiedades/p06-02.jpg', 'propiedades/p06-03.jpg', 'propiedades/p06-04.jpg', 'asturias/aviles-01.jpg', 'asturias/aviles-02.jpg'],
     commercial: 'com-marta', office: 'o-gijon', team: 't-gijon', community: 'cm-magdalena', developer: 'dev-cantabrico',
-    propertyType: 'Apartment', subtype: 'flat', transactionType: 'sale', price: 185_000,
+    propertyType: 'Apartment', subtype: 'flat', transactionType: 'rent', price: 725,
     city: 'Avilés', district: 'La Magdalena', municipality: 'Avilés', postalCode: '33402', street: 'Calle de La Magdalena', streetType: 'street',
     lat: 43.5528, lng: -5.9262, privacy: 'exact',
     area: 78, usableArea: 66, bedrooms: 2, bathrooms: 1, floor: '3', yearBuilt: 2026, condition: 'new', energyRating: 'A', orientation: 'SE',
     features: { elevator: true, garage: true, accessible: true },
     sheet: { ...ASTURIAS, neighborhood: 'La Magdalena', kitchenType: 'independent', hasBuiltInWardrobes: true, flooring: 'laminate', carpentry: 'pvc', glazing: 'double', heating: 'heat_pump', hotWater: 'heat_pump', hasAerothermal: true, hasFiber: true, views: 'city', exteriorInterior: 'exterior', buildingFloors: 5, buildingUnits: 28, roomsTotal: 4 },
-    legal: { communityFeeMonthly: 60, ibiAnnual: 290, commissionType: 'percentage', commissionValue: 3, commissionVatPct: 21, registryStatus: 'pending', energyConsumption: 30, emissionsRating: 'A' },
-    description: 'Piso de dos dormitorios en el Residencial La Magdalena, a cinco minutos andando del casco histórico de Avilés. Muy luminoso, orientado al sureste, con cocina independiente, aerotermia y plaza de garaje opcional.',
-    highlights: ['A 5 minutos del casco histórico', 'Aerotermia', 'Muy luminoso'],
-    days: -95, captureSource: 'Promotora', mandateType: 'Comercialización compartida',
-    commercialStatus: 'available', buildStatus: 'new', handover: 'T1 2028', floorPlan: true, serviceChargeAnnual: 720,
+    legal: { rentDeposit: 725, rentGuarantee: 1450, rentExpensesIncluded: false, communityFeeMonthly: 60, ibiAnnual: 290, commissionType: 'fixed', commissionValue: 725, commissionVatPct: 21, registryStatus: 'registered', occupancyStatus: 'vacant', energyConsumption: 30, emissionsRating: 'A' },
+    description: 'Piso de dos dormitorios en alquiler en el Residencial La Magdalena, a cinco minutos andando del casco histórico de Avilés. Obra nueva de entrega inmediata: muy luminoso, orientado al sureste, con cocina independiente, aerotermia y plaza de garaje incluida en la renta.',
+    highlights: ['Obra nueva, entrega inmediata', 'Garaje incluido en la renta', 'A 5 minutos del casco histórico'],
+    days: -95, captureSource: 'Promotora', mandateType: 'Gestión de alquiler',
+    commercialStatus: 'available', buildStatus: 'ready', floorPlan: true, serviceChargeAnnual: 720,
   },
   {
-    key: 'p06', kind: 'developer', title: 'Costa de Llanes Residences: apartamento con jardín cerca de la playa de Poo', gallery: ['propiedades/p07-01.jpg', 'propiedades/p08-01.jpg', 'propiedades/p08-02.jpg', 'propiedades/p08-04.jpg', 'asturias/costa-03.jpg', 'asturias/llanes-01.jpg'],
+    key: 'p06', kind: 'developer', title: 'Costa de Llanes Residences: bajo con jardín en alquiler cerca de la playa de Poo', gallery: ['propiedades/p07-01.jpg', 'propiedades/p08-01.jpg', 'propiedades/p08-02.jpg', 'propiedades/p08-04.jpg', 'asturias/costa-03.jpg', 'asturias/llanes-01.jpg'],
     commercial: 'com-paula', office: 'o-oriente', team: 't-oriente', community: 'cm-llanes', developer: 'dev-sella',
-    propertyType: 'Apartment', subtype: 'ground_floor_garden', transactionType: 'sale', price: 329_000,
-    priceHistory: [{ price: 345_000, days: -60, reason: 'Ajuste de temporada' }],
+    propertyType: 'Apartment', subtype: 'ground_floor_garden', transactionType: 'rent', price: 975,
+    priceHistory: [{ price: 1_050, days: -60, reason: 'Ajuste de temporada' }],
     city: 'Llanes', district: 'Poo', municipality: 'Llanes', postalCode: '33509', street: 'Camino de la playa de Poo', streetType: 'way',
     lat: 43.4218, lng: -4.7884, privacy: 'exact',
     area: 76, usableArea: 64, gardenArea: 60, bedrooms: 2, bathrooms: 2, floor: 'Bajo', yearBuilt: 2026, condition: 'new', energyRating: 'A', orientation: 'S',
     features: { garden: true, garage: true, pets: true, accessible: true },
     sheet: { ...ASTURIAS, neighborhood: 'Poo', kitchenType: 'open', hasBuiltInWardrobes: true, flooring: 'tile', carpentry: 'aluminium_thermal_break', glazing: 'double', heating: 'heat_pump', hotWater: 'heat_pump', hasAerothermal: true, hasFiber: true, hasPrivateGarden: true, hasCommunityGarden: true, views: 'mountain', exteriorInterior: 'exterior', buildingFloors: 2, buildingUnits: 12, roomsTotal: 4 },
-    legal: { communityFeeMonthly: 70, ibiAnnual: 340, commissionType: 'percentage', commissionValue: 3.5, commissionVatPct: 21, registryStatus: 'pending', energyConsumption: 27, emissionsRating: 'A' },
-    description: 'Bajo con 60 m² de jardín privado en un pequeño residencial de doce viviendas, a diez minutos andando de la playa de Poo. Dos dormitorios, dos baños, cocina abierta y plaza de garaje. Ideal como primera o segunda residencia.',
-    highlights: ['Jardín privado de 60 m²', 'A 10 minutos a pie de la playa', 'Solo 12 viviendas'],
-    days: -160, captureSource: 'Promotora', mandateType: 'Comercialización en exclusiva', exclusive: { fromDays: -160, untilDays: 200 },
-    commercialStatus: 'available', buildStatus: 'under_construction', handover: 'T3 2026', floorPlan: true, serviceChargeAnnual: 840,
+    legal: { rentDeposit: 975, rentGuarantee: 1950, rentExpensesIncluded: false, communityFeeMonthly: 70, ibiAnnual: 340, commissionType: 'fixed', commissionValue: 975, commissionVatPct: 21, registryStatus: 'registered', occupancyStatus: 'vacant', energyConsumption: 27, emissionsRating: 'A' },
+    description: 'Bajo con 60 m² de jardín privado en alquiler de larga temporada, en un pequeño residencial de doce viviendas a diez minutos andando de la playa de Poo. Dos dormitorios, dos baños, cocina abierta y plaza de garaje. Se admiten mascotas.',
+    highlights: ['Jardín privado de 60 m²', 'A 10 minutos a pie de la playa', 'Alquiler de larga temporada, mascotas bienvenidas'],
+    days: -160, captureSource: 'Promotora', mandateType: 'Gestión de alquiler en exclusiva', exclusive: { fromDays: -160, untilDays: 200 },
+    commercialStatus: 'available', buildStatus: 'ready', floorPlan: true, serviceChargeAnnual: 840,
   },
   {
     key: 'p07', kind: 'developer', title: 'Bajo con terraza junto a la playa de Santa Marina', gallery: ['propiedades/p02-06.jpg', 'propiedades/p08-03.jpg', 'propiedades/p08-05.jpg', 'propiedades/p08-06.jpg', 'asturias/ribadesella-01.jpg', 'asturias/ribadesella-02.jpg'],

@@ -170,7 +170,7 @@ export interface DemoTask {
 export const TASKS: DemoTask[] = [
   // Hoy
   { key: 'k01', type: 'call', title: 'Primer contacto con Sergio Prieto (ático de La Arena)', assignee: 'com-alvaro', priority: 'urgent', createdDays: 0, dueDays: 0, dueAt: '10:00', status: 'open', contact: 'c02', lead: 'L02', property: 'p04' },
-  { key: 'k02', type: 'email', title: 'Enviar plano y memoria de calidades a Aurora Cienfuegos', assignee: 'com-paula', priority: 'high', createdDays: 0, dueDays: 0, dueAt: '13:00', status: 'open', contact: 'c45', lead: 'L45', property: 'p06' },
+  { key: 'k02', type: 'email', title: 'Enviar el plano a Aurora Cienfuegos y confirmar que el bajo de Poo admite mascotas', assignee: 'com-paula', priority: 'high', createdDays: 0, dueDays: 0, dueAt: '13:00', status: 'open', contact: 'c45', lead: 'L45', property: 'p06' },
   { key: 'k03', type: 'whatsapp', title: 'Responder a Alberto Riera: gastos de comunidad del ático de Candás', assignee: 'com-marta', priority: 'medium', createdDays: -1, dueDays: 0, dueAt: '11:00', status: 'open', contact: 'c46', lead: 'L46', property: 'p17' },
   { key: 'k04', type: 'viewing', title: 'Preparar la visita de Lucía Ablanedo a La Florida', assignee: 'com-lucia', priority: 'medium', createdDays: -3, dueDays: 0, dueAt: '18:00', status: 'in_progress', contact: 'c51', lead: 'L51', property: 'p11', appointment: 'a35' },
   // Vencidas (pocas)

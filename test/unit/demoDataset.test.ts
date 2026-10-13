@@ -34,6 +34,22 @@ describe('dataset de la demo: valores dentro de catálogo', () => {
     expect(problems).toEqual([])
   })
 
+  it('hay inventario en alquiler para la web (obra nueva) y las rentas llevan sus datos de alquiler', () => {
+    const rent = PROPERTIES.filter((p) => p.transactionType === 'rent')
+    // La web pública sólo publica obra nueva: sin promotora en alquiler la pestaña «Alquilar» saldría vacía.
+    expect(rent.filter((p) => p.kind === 'developer').map((p) => p.key)).toEqual(['p05', 'p06'])
+    expect(rent.filter((p) => p.kind === 'agent').map((p) => p.key)).toEqual(['p18'])
+    for (const p of rent) {
+      expect(p.price, p.key).toBeLessThan(5_000) // renta mensual, no precio de venta
+      for (const h of p.priceHistory ?? []) expect(h.price, p.key).toBeLessThan(5_000)
+      expect(p.legal.rentDeposit, p.key).toBe(p.price)
+      expect(typeof p.legal.rentExpensesIncluded, p.key).toBe('boolean')
+      expect(p.legal.commissionType, p.key).toBe('fixed')
+      expect(p.handover, p.key).toBeUndefined()
+    }
+    for (const p of PROPERTIES.filter((p) => p.transactionType === 'sale')) expect(p.price, p.key).toBeGreaterThan(50_000)
+  })
+
   it('las ofertas usan condiciones de financiación del catálogo', () => {
     for (const o of OFFERS) if (o.financeCondition) expect(OFFER_FINANCE_CONDITIONS).toContain(o.financeCondition)
   })

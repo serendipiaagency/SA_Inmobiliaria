@@ -26,7 +26,7 @@ genéricas y sin número, y la segunda mano se publica con ubicación aproximada
 | Área | Contenido |
 |---|---|
 | Estructura | 3 oficinas (Oviedo, Gijón, Oriente), 3 equipos, 6 comerciales con foto, 2 promotoras, 7 comunidades, 10 reglas de reparto, SLA, 6 campos personalizados, Brand Kit y logos propios |
-| Propiedades | 10 de obra nueva (las de la web) y 10 de segunda mano, con ficha ampliada, datos legales, propietarios, galería con portada y texto alternativo, cambios de precio con motivo, etiquetas |
+| Propiedades | 10 de obra nueva (las de la web; dos en alquiler, p05 y p06, para que la pestaña «Alquilar» tenga inventario) y 10 de segunda mano (una en alquiler, p18), con ficha ampliada, datos legales, propietarios, galería con portada y texto alternativo, cambios de precio con motivo, etiquetas |
 | CRM | ~54 contactos con foto, 40 leads por su canal real (web, portales, anuncios, redes, teléfono, oficina, referidos), 26 necesidades con compatibilidades calculadas por el motor de matching, selecciones enviadas |
 | Agenda | ~47 citas (completadas con su resultado, canceladas con motivo, no presentadas y futuras), 3 tours multi-inmueble, ~42 tareas |
 | Negocio | 13 ofertas con su historial de revisiones (oferta, contraoferta, nueva oferta, aceptación/rechazo/retirada/caducidad), 8 operaciones por fases (3 cerradas), 8 reservas, 7 contratos (los aceptados con su PDF), 6 depósitos, 16 facturas |
