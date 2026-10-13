@@ -725,10 +725,38 @@ contenido guardado se ignoran): la acción es el buscador
     `heroTypeSummary` («Viviendas», «Inmuebles comerciales», «Piso y ático»,
     «3 tipos seleccionados»). En escritorio, dos columnas; en móvil, una hoja
     inferior. Comprar y Alquilar comparten catálogo y conservan lo elegido.
-  - **Ubicación** (`components/search/LocationAutocomplete.vue`): sugerencias
-    de `/api/public/location-suggest` mientras se escribe —municipios, barrios
-    y zonas, códigos postales, provincias y calles con propiedades publicadas—,
-    varias a la vez (`municipality=Oviedo&neighborhood=Centro`).
+  - **Ubicación** (`components/search/LocationAutocomplete.vue`, el mismo en
+    el panel de Propiedades): autocompletado geográfico sobre ENTIDADES reales.
+    `/api/public/location-suggest` funde tres fuentes: el catálogo de España
+    (`public/geo/es.json`, generado por `scripts/geo/build-es.mjs` desde
+    GeoNames, CC-BY 4.0: 19 comunidades, 52 provincias, 8.124 municipios con
+    código INE, ~24.000 localidades y barrios y 11.150 códigos postales, con
+    coordenadas; `server/utils/geo/catalog.ts` lo indexa una vez por aislado y
+    busca por exacta > prefijo > prefijo de palabra > contiene > aproximada
+    —Damerau-Levenshtein, una letra hasta 6, dos desde 7—, sin tildes y con las
+    cooficiales: «xixon» → Gijón/Xixón), el inventario de la agencia
+    (`locationIndex.ts`: cuántas propiedades hay en cada sitio; calles y
+    nombres que sólo existen en sus fichas) y sus zonas publicadas
+    (`server/utils/geo/suggest.ts`). El contexto de la agencia (sus municipios
+    y provincias con inventario) sólo reordena, nunca excluye; los grupos van
+    por su mejor coincidencia. Cada elegida es una entidad con id canónico
+    (`es:ccaa:34`, `es:prov:33`, `es:mun:33024`, `es:loc:3108732`,
+    `es:cp:33201`, `zone:12`) que va en la URL como `loc=` y filtra por su
+    ámbito real (`server/utils/geo/locations.ts`: municipio por nombre,
+    cooficiales, variantes guardadas o CP suyo; provincia por nombre, sus
+    municipios o el prefijo del CP; comunidad por sus provincias y municipios;
+    barrio por nombre dentro de su municipio; CP exacto; zona por lo que
+    declara, sólo de la propia agencia); los textos de siempre
+    (`municipality=Oviedo&neighborhood=Centro`) siguen valiendo. Varias a la
+    vez (unión) como chips con icono por nivel; una contenida en otra elegida
+    se avisa («dentro de Asturias») sin quitarla. Sin escribir: recientes del
+    visitante (sólo su navegador), lo que más inventario tiene, las zonas y
+    «Seleccionar en el mapa» / «Buscar alrededor de un punto» (van a la vista
+    Mapa de Propiedades, donde están la zona del mapa y el radio). Estados:
+    cargando, sin resultados («No encontramos esa ubicación. Prueba con otro
+    nombre o selecciona una zona en el mapa.»), error de servicio. Debounce
+    200 ms, abort + secuencia, caché por texto; los nombres de los ids de la
+    URL los da `/api/public/location-resolve` (`composables/useLocationNames.ts`).
   - **Precio** (`components/search/PriceRangeSlider.vue`): dos extremos sobre
     la escala de cada operación (importes de venta o rentas mensuales) y dos
     campos editables, sincronizados; en la moneda base de la agencia.

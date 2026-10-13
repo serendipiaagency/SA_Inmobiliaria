@@ -1,19 +1,24 @@
 import { useDb, resolvePublicOrgId } from '../../utils/db'
-import { locationIndex, suggestLocations } from '../../utils/properties/locationIndex'
+import { suggestLocationsFor } from '../../utils/geo/suggest'
+import { geoSource, loadGeoCatalog } from '../../utils/geo/catalog'
 import { firstString } from '../../../utils/searchState'
 
 /**
  * GET /api/public/location-suggest?q=ovie — sugerencias del campo «Ubicación»
- * (Hero y panel de Propiedades): provincias, municipios, barrios y zonas,
- * códigos postales y calles que tienen propiedades publicadas en ESTA agencia,
- * con su contexto («Municipio · Asturias») y cuántas hay. Sin tildes ni
- * mayúsculas y por coincidencia parcial. Sin `q`, las zonas con más
- * propiedades. Nada de otras agencias ni de la papelera; nada inventado.
+ * (Hero y panel de Propiedades): entidades reales del catálogo geográfico de
+ * España (comunidades, provincias, municipios, barrios y localidades, códigos
+ * postales; GeoNames, CC-BY 4.0) con su id canónico, fundidas con el
+ * inventario de ESTA agencia (cuántas propiedades hay en cada sitio; calles y
+ * nombres que sólo existen en sus fichas) y con sus zonas publicadas. Sin
+ * tildes ni mayúsculas, por prefijo, por texto parcial y con tolerancia a
+ * errores; ranking determinista. Sin `q`, lo útil para empezar (destacadas,
+ * lo que más inventario tiene, zonas). Nada de otras agencias ni inventado.
  */
 export default defineEventHandler(async (event) => {
   const q = firstString(getQuery(event).q).slice(0, 80)
-  const entries = await locationIndex(useDb(event), resolvePublicOrgId(event))
-  const items = suggestLocations(entries, q).map((e) => ({ kind: e.kind, value: e.value, context: e.context, count: e.count }))
+  const limit = Math.max(1, Math.min(Number(firstString(getQuery(event).limit)) || 14, 30))
+  await loadGeoCatalog()
+  const items = await suggestLocationsFor(useDb(event), resolvePublicOrgId(event), q, { limit })
   setHeader(event, 'Cache-Control', 'private, max-age=30')
-  return { q, items }
+  return { q, items, source: geoSource() }
 })

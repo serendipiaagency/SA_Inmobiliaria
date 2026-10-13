@@ -55,14 +55,22 @@ function range(min: number, max: number, fmt: (n: number) => string, t: Translat
   return `${t('price.upTo', 'Hasta')} ${fmt(max)}`
 }
 
-export function catalogChips(query: Query, t: Translate, formatPrice: (n: number) => string, typeLabel: (type: string) => string): CatalogChip[] {
+/** Nombre y contexto de cada ubicación elegida por id (de /api/public/location-resolve), para sus chips. */
+export type LocationNames = Record<string, { value: string; context?: string | null }>
+
+export function catalogChips(query: Query, t: Translate, formatPrice: (n: number) => string, typeLabel: (type: string) => string, names: LocationNames = {}): CatalogChip[] {
   const out: CatalogChip[] = []
   if (present(query.q)) out.push({ key: 'q', label: `«${firstString(query.q)}»`, clear: ['q'] })
   const op = firstString(query.operacion)
   if (op === 'venta') out.push({ key: 'operacion', label: t('catalog.forSale', 'En venta'), clear: ['operacion'] })
   if (op === 'alquiler') out.push({ key: 'operacion', label: t('catalog.forRent', 'En alquiler'), clear: ['operacion'] })
   for (const l of parseLocations(query)) {
-    out.push({ key: `${l.kind}:${l.value}`, label: l.kind === 'postalCode' ? `CP ${l.value}` : l.value, clear: [], remove: { param: l.kind, value: l.value } })
+    if (l.id) {
+      const name = names[l.id]?.value || l.value || l.id
+      out.push({ key: `loc:${l.id}`, label: l.kind === 'postalCode' ? `CP ${name}` : name, clear: [], remove: { param: 'loc', value: l.id } })
+    } else {
+      out.push({ key: `${l.kind}:${l.value}`, label: l.kind === 'postalCode' ? `CP ${l.value}` : l.value, clear: [], remove: { param: l.kind, value: l.value } })
+    }
   }
   if (['north', 'south', 'east', 'west'].every((k) => present(query[k]))) out.push({ key: 'area-map', label: t('catalog.mapArea', 'Zona del mapa'), clear: ['north', 'south', 'east', 'west'] })
   const nearby = nearbyFromQuery(query as Record<string, any>)
@@ -112,8 +120,10 @@ export function chipRemovalPatch(query: Query, c: CatalogChip): Record<string, u
   const patch: Record<string, unknown> = { page: undefined }
   for (const k of c.clear) patch[k] = undefined
   if (c.remove) {
-    const rest = listParam(query[c.remove.param], 50).filter((v) => v !== c.remove!.value)
-    patch[c.remove.param] = rest.length ? rest : undefined
+    // `loc` lleva los ids separados por comas en un solo parámetro.
+    const values = c.remove.param === 'loc' ? listParam(query.loc, 50).flatMap((v) => v.split(',')) : listParam(query[c.remove.param], 50)
+    const rest = values.filter((v) => v !== c.remove!.value)
+    patch[c.remove.param] = rest.length ? (c.remove.param === 'loc' ? rest.join(',') : rest) : undefined
   }
   return patch
 }

@@ -57,39 +57,84 @@ export function parseSort(v: unknown): SortKey {
 // Ubicación: varias a la vez (unión), cada una con su tipo real.
 // ---------------------------------------------------------------------------
 
-export const LOCATION_KINDS = ['province', 'municipality', 'neighborhood', 'postalCode', 'street'] as const
-export type LocationKind = (typeof LOCATION_KINDS)[number]
+/**
+ * Ubicaciones por TEXTO en la URL (?municipality=Gijón&neighborhood=Somió…):
+ * las de siempre, que siguen valiendo (enlaces antiguos y nombres que sólo
+ * existen en el inventario de la agencia, como una calle).
+ */
+export const LOCATION_KINDS = ['region', 'province', 'municipality', 'neighborhood', 'postalCode', 'street'] as const
+/** …y «zone», una zona administrable de la agencia, que sólo va por identificador. */
+export type LocationKind = (typeof LOCATION_KINDS)[number] | 'zone'
 export const LOCATION_KIND_LABELS: Record<LocationKind, [string, string]> = {
+  region: ['location.kind.region', 'Comunidad autónoma'],
   province: ['location.kind.province', 'Provincia'],
   municipality: ['location.kind.municipality', 'Municipio'],
-  neighborhood: ['location.kind.neighborhood', 'Barrio o zona'],
+  neighborhood: ['location.kind.neighborhood', 'Barrio o localidad'],
   postalCode: ['location.kind.postalCode', 'Código postal'],
   street: ['location.kind.street', 'Calle'],
+  zone: ['location.kind.zone', 'Zona'],
 }
 /** Encabezados de la lista de sugerencias. */
 export const LOCATION_GROUP_LABELS: Record<LocationKind, [string, string]> = {
+  region: ['location.group.region', 'Comunidades autónomas'],
   province: ['location.group.province', 'Provincias'],
   municipality: ['location.group.municipality', 'Municipios'],
-  neighborhood: ['location.group.neighborhood', 'Barrios y zonas'],
+  neighborhood: ['location.group.neighborhood', 'Barrios y localidades'],
   postalCode: ['location.group.postalCode', 'Códigos postales'],
   street: ['location.group.street', 'Calles'],
+  zone: ['location.group.zone', 'Zonas de la inmobiliaria'],
 }
+/** Orden en que se enseñan los grupos de sugerencias y los chips. */
+export const LOCATION_DISPLAY_ORDER: LocationKind[] = ['municipality', 'neighborhood', 'zone', 'postalCode', 'province', 'region', 'street']
+
+/**
+ * Una ubicación elegida. Con `id` es una ENTIDAD geográfica real (catálogo de
+ * España: es:ccaa:34, es:prov:33, es:mun:33024, es:loc:3108732, es:cp:33201; o
+ * una zona de la agencia: zone:12) y el filtro busca por su ámbito; sin él es
+ * un texto del inventario (calle, nombre guardado…) y el filtro busca por
+ * nombre, como siempre. `value` es el nombre que se enseña.
+ */
 export interface LocationSelection {
   kind: LocationKind
   value: string
+  id?: string
+  /** «Asturias», «Gijón/Xixón»…: de dónde es, para el chip. */
+  context?: string | null
+  /** Ids que la contienen (municipio → provincia y comunidad…), para avisar de redundancias. */
+  parents?: string[]
 }
 /** Tope de ubicaciones a la vez: más no cabe en una URL legible ni en una consulta razonable. */
 export const MAX_LOCATIONS = 12
+/** Parámetro de la URL con los identificadores canónicos: ?loc=es:mun:33024,es:cp:33201 */
+export const LOCATION_ID_PARAM = 'loc'
 
+const LOCATION_ID_RE = /^(es:(ccaa|prov|mun|loc|cp):[A-Za-z0-9]{1,12}|zone:\d{1,9})$/
+/** El tipo de una entidad por su identificador; null si el id no es válido. */
+export function locationKindOfId(id: string): LocationKind | null {
+  if (!LOCATION_ID_RE.test(id)) return null
+  if (id.startsWith('zone:')) return 'zone'
+  const level = id.split(':')[1]
+  return level === 'ccaa' ? 'region' : level === 'prov' ? 'province' : level === 'mun' ? 'municipality' : level === 'loc' ? 'neighborhood' : 'postalCode'
+}
+
+/** Las ubicaciones de la URL: primero las entidades (`loc`), luego los textos de cada tipo. Sin repetidos; tope MAX_LOCATIONS. */
 export function parseLocations(query: Query): LocationSelection[] {
   const out: LocationSelection[] = []
   const seen = new Set<string>()
+  for (const id of listParam(query[LOCATION_ID_PARAM], 40).flatMap((v) => v.split(','))) {
+    const kind = locationKindOfId(id.trim())
+    if (!kind || seen.has(id)) continue
+    seen.add(id)
+    // Sin nombre todavía: lo pone quien lo enseña (resuelto por /api/public/location-resolve); un CP ya es su nombre.
+    out.push({ kind, value: kind === 'postalCode' ? id.slice('es:cp:'.length) : '', id: id.trim() })
+    if (out.length >= MAX_LOCATIONS) return out
+  }
   for (const kind of LOCATION_KINDS) {
     for (const raw of listParam(query[kind], 20)) {
       const value = kind === 'postalCode' ? raw.replace(/\s+/g, '').toUpperCase().slice(0, 10) : raw.slice(0, 80)
-      const id = `${kind}:${normalizeText(value)}`
-      if (!value || seen.has(id)) continue
-      seen.add(id)
+      const key = `${kind}:${normalizeText(value)}`
+      if (!value || seen.has(key)) continue
+      seen.add(key)
       out.push({ kind, value })
       if (out.length >= MAX_LOCATIONS) return out
     }
@@ -97,8 +142,33 @@ export function parseLocations(query: Query): LocationSelection[] {
   return out
 }
 
+/** Lo que va a la URL por las ubicaciones elegidas: `loc` con los ids y, aparte, los textos de cada tipo (cada parámetro, vacío si no hay). */
+export function locationsPatch(list: LocationSelection[]): Record<string, string | string[] | undefined> {
+  const patch: Record<string, string | string[] | undefined> = {}
+  const ids = list.filter((l) => l.id).map((l) => l.id!)
+  patch[LOCATION_ID_PARAM] = ids.length ? ids.join(',') : undefined
+  for (const kind of LOCATION_KINDS) {
+    const values = list.filter((l) => !l.id && l.kind === kind).map((l) => l.value)
+    patch[kind] = values.length ? values : undefined
+  }
+  return patch
+}
+
 export function locationKey(l: LocationSelection): string {
-  return `${l.kind}:${normalizeText(l.value)}`
+  return l.id ?? `${l.kind}:${normalizeText(l.value)}`
+}
+
+/**
+ * Redundancias entre lo elegido: una ubicación contenida en otra también
+ * elegida (un municipio con su provincia, un barrio con su municipio, un CP
+ * con su municipio) no añade nada al filtro (es una unión). Se devuelve el
+ * id de la que la contiene, para decirlo en el chip, nunca para quitarla sola.
+ */
+export function coveredBy(sel: LocationSelection, all: LocationSelection[], parents: (id: string) => string[]): string | null {
+  if (!sel.id) return null
+  const chosen = new Set(all.filter((l) => l.id && l.id !== sel.id).map((l) => l.id!))
+  for (const p of parents(sel.id)) if (chosen.has(p)) return p
+  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -287,7 +357,7 @@ export function orderedRange(min: number | null, max: number | null): [number | 
 /** Todo lo que forma la búsqueda en la URL de /propiedades (lo que «Nueva búsqueda» borra). */
 export const SEARCH_PARAMS = [
   'q', 'operacion', 'sort', 'page',
-  ...LOCATION_KINDS, 'city', 'community', 'lat', 'lng', 'radiusKm', 'north', 'south', 'east', 'west',
+  LOCATION_ID_PARAM, ...LOCATION_KINDS, 'city', 'community', 'lat', 'lng', 'radiusKm', 'north', 'south', 'east', 'west',
   'minPrice', 'maxPrice', 'minArea', 'maxArea', 'bedrooms', 'bathrooms',
   'type', 'subtype', 'estado', 'obra', 'status', 'new', 'condition', 'situacion', 'rentalTerm',
   ...FEATURE_KEYS, 'expensesIncluded', 'orientation', 'energy', 'minYear', 'minYield', 'developerId',

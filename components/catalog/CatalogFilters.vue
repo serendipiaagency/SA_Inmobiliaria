@@ -43,7 +43,7 @@
         <div v-show="isOpen(g.key)" :id="`cf-${uid}-${g.key}`" class="cf-body">
           <!-- Ubicación: municipios, barrios, zonas y CP reales, varios a la vez; y el mapa -->
           <template v-if="g.key === 'location'">
-            <LocationAutocomplete :model-value="locations" :map-area="hasMapArea" @update:model-value="onLocations" @clear-map-area="emit('patch', { north: undefined, south: undefined, east: undefined, west: undefined, page: undefined })" />
+            <LocationAutocomplete :model-value="locations" :map-area="hasMapArea" map-actions @map-action="emit('open-map')" @update:model-value="onLocations" @clear-map-area="emit('patch', { north: undefined, south: undefined, east: undefined, west: undefined, page: undefined })" />
             <div class="cf-map">
               <ClientOnly>
                 <CatalogMiniMap :items="items" :circle="circle" />
@@ -170,6 +170,7 @@ import {
   FEATURE_GROUPS,
   FEATURE_LABELS,
   LOCATION_KINDS,
+  locationsPatch,
   NEW_BUILD_KEYS,
   OPERATIONS,
   RENTAL_TERM_KEYS,
@@ -184,7 +185,6 @@ import {
   parseAmount,
   parseEstado,
   parseFeatures,
-  parseLocations,
   parseRentalTerms,
   parseSituations,
   parseTypes,
@@ -279,7 +279,7 @@ const groups = computed(() => {
 })
 
 const GROUP_KEYS: Record<string, string[]> = {
-  location: [...LOCATION_KINDS, 'lat', 'north'],
+  location: ['loc', ...LOCATION_KINDS, 'lat', 'north'],
   price: ['minPrice', 'maxPrice'],
   area: ['minArea', 'maxArea'],
   bedrooms: ['bedrooms'],
@@ -313,15 +313,10 @@ function setOperation(op: Operation) {
 }
 
 // --- Ubicación ---
-const locations = computed(() => parseLocations(props.query))
+const locations = useResolvedLocations(() => props.query)
 const hasMapArea = computed(() => ['north', 'south', 'east', 'west'].every((k) => props.query[k] != null && props.query[k] !== ''))
 function onLocations(list: LocationSelection[]) {
-  const patch: Record<string, any> = { page: undefined }
-  for (const kind of LOCATION_KINDS) {
-    const values = list.filter((l) => l.kind === kind).map((l) => l.value)
-    patch[kind] = values.length ? values : undefined
-  }
-  emit('patch', patch)
+  emit('patch', { page: undefined, ...locationsPatch(list) })
 }
 const circle = computed(() => nearbyFromQuery(props.query))
 

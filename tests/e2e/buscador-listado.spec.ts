@@ -184,14 +184,14 @@ test.describe('Buscador y listado de propiedades', () => {
       await expect(page).toHaveURL(/\/propiedades\?/)
       const url = new URL(page.url())
       expect(url.searchParams.get('operacion')).toBe('venta')
-      expect(url.searchParams.getAll('municipality')).toEqual(['Oviedo'])
+      expect(url.searchParams.get('loc')).toBe('es:mun:33044') // la entidad real, no un texto
       expect(url.searchParams.get('minPrice')).toBe('150000')
       expect(url.searchParams.get('maxPrice')).toBe('420000')
       expect(url.searchParams.get('bedrooms')).toBe('3')
 
       // 22. Filtros activos.
       await expect(page.locator('[data-chip="operacion"]')).toHaveText('En venta')
-      await expect(page.locator('[data-chip="municipality:Oviedo"]')).toHaveText('Oviedo')
+      await expect(page.locator('[data-chip="loc:es:mun:33044"]')).toHaveText('Oviedo')
       await expect(page.locator('[data-chip="price"]')).toContainText('420')
       await expect(page.locator('[data-chip="bedrooms"]')).toHaveText('3+ habitaciones')
       // El panel lateral enseña lo mismo.
@@ -200,7 +200,7 @@ test.describe('Buscador y listado de propiedades', () => {
       await expect(aside.locator('[data-location="Oviedo"]')).toBeVisible()
 
       // 23. Resultados reales.
-      const base = { operacion: 'venta', municipality: 'Oviedo', minPrice: '150000', maxPrice: '420000', bedrooms: '3' }
+      const base = { operacion: 'venta', loc: 'es:mun:33044', minPrice: '150000', maxPrice: '420000', bedrooms: '3' }
       await expect(page.getByTestId('catalog-total')).toContainText(String(await apiTotal(base)))
       await expect(page.getByText(N('piso'))).toBeVisible()
       await expect(page.getByText(N('atico'))).toBeVisible()
@@ -224,7 +224,7 @@ test.describe('Buscador y listado de propiedades', () => {
       await expect(aside.locator('[data-group="rental"]')).toBeVisible()
       await page.locator('[data-chip="terrace"]').click()
       await expect(page.getByText(N('alquiler'))).toBeVisible()
-      await expect(page.getByTestId('catalog-total')).toContainText(String(await apiTotal({ operacion: 'alquiler', municipality: 'Oviedo', bedrooms: '3' })))
+      await expect(page.getByTestId('catalog-total')).toContainText(String(await apiTotal({ operacion: 'alquiler', loc: 'es:mun:33044', bedrooms: '3' })))
       // Una renta, no un precio de venta: el máximo de la escala es de alquiler.
       await slide(aside.getByTestId('price-max-handle'), 100)
       await expect(page).toHaveURL(/maxPrice=300(&|$)/)
