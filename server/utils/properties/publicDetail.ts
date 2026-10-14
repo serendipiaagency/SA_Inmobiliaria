@@ -12,6 +12,19 @@ import { getMarketStats } from '../market'
 import { computeSerendipiaScore } from '../score'
 
 /**
+ * La referencia del anuncio que enseña la ficha pública («REF: …», junto a
+ * las migas, y «Referencia del anuncio» en el bloque de fechas): la
+ * referencia de agencia si la hay; si no, el código comercial de la ficha
+ * ampliada; si no, la referencia propia que toda propiedad tiene. Todas las
+ * propiedades enseñan una. Sólo sale esta etiqueta calculada: las columnas
+ * `reference`, `agencyReference` y `externalReference` siguen sin publicarse
+ * en `project` (propertyPrivacy.ts).
+ */
+export function publicReferenceLabel(project: { agencyReference?: string | null; reference?: string | null }, sheet: Record<string, unknown> | null | undefined): string {
+  return String(project.agencyReference || sheet?.commercialCode || project.reference || '').trim()
+}
+
+/**
  * Lo que enseña la ficha pública de una propiedad, ya filtrado para el
  * público: lo usa la ficha (/api/public/properties/<slug>) y la vista del
  * Constructor Web (/api/admin/site-pages/ficha-sample), así lo que el
@@ -95,6 +108,9 @@ export async function loadPublicPropertyDetail(db: ReturnType<typeof useDb>, pro
     score: computeSerendipiaScore(project, market).overall != null,
     priceHistory: Number(historyRow?.n ?? 0) >= 2,
     similar: Number(othersRow?.n ?? 0) > 0,
+    // «Análisis de inversión» compara con propiedades de la zona; sin
+    // comparables no hay análisis, sólo un aviso, y un aviso no es información.
+    analysis: Number(market.comparableCount ?? 0) > 0,
   }
 
   const distances = Object.fromEntries(locationLinks.map((l) => [l.locationId, l.distance]))
@@ -117,5 +133,6 @@ export async function loadPublicPropertyDetail(db: ReturnType<typeof useDb>, pro
     customFields,
     agent: agentRows[0] || null,
     availability,
+    referenceLabel: publicReferenceLabel(project, sheet),
   }
 }

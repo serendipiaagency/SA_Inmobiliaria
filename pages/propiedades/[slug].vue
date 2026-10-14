@@ -3,7 +3,7 @@
     <div v-if="data" class="bg-[#faf8f4]">
       <div class="mx-auto max-w-screen-2xl px-4 pb-14 pt-5 sm:px-6 lg:px-10">
         <!-- Migas, compartir, comparar y Anterior / Siguiente en el contexto del catálogo (#111). -->
-        <PropertyBreadcrumbs :slug="slug" :name="data.project.name" :project="data.project" />
+        <PropertyBreadcrumbs :slug="slug" :name="data.project.name" :project="data.project" :reference="reference" />
 
         <!-- Dos columnas desde arriba (#111): el contenido a la izquierda (≈⅔) y la información comercial a la derecha (≈⅓). -->
         <div class="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.44fr)] lg:gap-8">
@@ -46,10 +46,6 @@
               <p v-if="locationLine" class="mt-3 flex items-start gap-2 text-[14px] text-stone-500" data-testid="ficha-location">
                 <svg class="mt-0.5 shrink-0 text-stone-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.3a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.7" r="2.5" /></svg>
                 <span class="min-w-0 [overflow-wrap:anywhere]">{{ locationLine }}</span>
-              </p>
-              <!-- Referencia comercial (el «Código comercial» de la ficha, Property Core): discreta, bajo la ubicación. -->
-              <p v-if="reference" class="mt-2 text-[12px] font-medium uppercase tracking-[0.08em] text-stone-400" data-testid="ficha-reference">
-                {{ t('ficha.reference', 'Ref.') }} <span class="text-stone-500">{{ reference }}</span>
               </p>
 
               <!-- Descripción: justo después del título y la ubicación, antes de los datos clave, con «Ver más». -->
@@ -200,7 +196,7 @@
 
             <!-- Análisis de inversión -->
             <PropertySectionCard v-if="show('analisis') && has('analisis')" id="analisis" :title="t('propertyDetails.investment.heading', 'Análisis de inversión')" :style="at('analisis')">
-              <LazyAIAnalysis hydrate-on-visible :slug="slug" :price="data.project.price" :area="data.project.area" :rental-yield="data.project.rentalYield" />
+              <LazyAIAnalysis hydrate-on-visible :slug="slug" :price="data.project.price" :area="data.project.area" :rental-yield="data.project.rentalYield" @empty="markEmpty('analisis')" />
             </PropertySectionCard>
 
             <!-- Evolución de precio -->
@@ -286,6 +282,8 @@
                 <PropertyContactCard :project="data.project" :agent="data.agent" :tone="contactTone" :can-book="!!agentSlug && agendaState !== 'none'" :sticky-head="contactTall" @visit="requestVisit" />
               </div>
             </div>
+            <!-- Última actualización, fecha de publicación y la misma «REF:» de las migas: sin datos, no existe. -->
+            <PropertyListingMeta :project="data.project" :reference="reference" />
             <PropertyIndicatorsCard :slug="slug" />
             <PropertyQuickDecisionCard :slug="slug" />
             <div v-if="data.developer" class="pcard" data-testid="ficha-developer">
@@ -483,8 +481,11 @@ const zoneLocation = computed(() => ({
   neighborhood: String((data.value as any)?.details?.neighborhood || p.value.community || '').trim() || null,
 }))
 const agentSlug = computed<string | null>(() => (data.value as any)?.agent?.slug || null)
-// «Ref.»: el código comercial de Property Core (público, PropertySchemaRegistry), si el Constructor no lo oculta.
-const reference = computed(() => (display.value.showReference ? String((data.value as any)?.details?.commercialCode || '').trim() : ''))
+// «REF:» (junto a las migas) y «Referencia del anuncio» (bloque de fechas): la
+// referencia del anuncio la calcula el servidor (`referenceLabel`,
+// server/utils/properties/publicDetail.ts: referencia de agencia, si no el
+// código comercial, si no la referencia propia), si el Constructor no la oculta.
+const reference = computed(() => (display.value.showReference ? String((data.value as any)?.referenceLabel || '').trim() : ''))
 // La descripción va en la tarjeta principal, bajo el título y la ubicación; sin texto, no hay bloque.
 const showDescription = computed(() => display.value.showDescription && !!String(data.value?.project.description || '').trim())
 const descId = `ficha-desc-${useId()}`
@@ -552,8 +553,9 @@ const hasResumen = computed(() => !!data.value?.project.aiSummary || pros.value.
 // automáticamente si no hay datos» (de partida), una sección que no tiene
 // nada real que enseñar no sale —ni su título, ni su tarjeta, ni su pestaña—.
 // Lo sabe el servidor (`availability`: Score, historial de precios,
-// similares) o el navegador al cargarla (entorno sin servicios). Sin la
-// regla, sólo se quitan las que no tendrían ni un componente que pintar.
+// similares, análisis con comparables) o el navegador al cargarla (entorno
+// sin servicios, análisis sin comparables). Sin la regla, sólo se quitan las
+// que no tendrían ni un componente que pintar.
 const emptyAtRuntime = ref(new Set<string>())
 function markEmpty(key: string) {
   if (!emptyAtRuntime.value.has(key)) emptyAtRuntime.value = new Set([...emptyAtRuntime.value, key])

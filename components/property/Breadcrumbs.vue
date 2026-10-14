@@ -1,14 +1,19 @@
 <template>
   <div class="no-print flex flex-wrap items-center justify-between gap-x-6 gap-y-3" data-testid="ficha-breadcrumbs">
-    <nav :aria-label="t('ficha.breadcrumbs', 'Estás en')" class="min-w-0">
-      <ol class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-stone-500">
-        <li><NuxtLink to="/" class="hover:text-ink">{{ t('ficha.home', 'Inicio') }}</NuxtLink></li>
-        <li aria-hidden="true" class="text-stone-300">›</li>
-        <li><NuxtLink :to="catalogHref" class="hover:text-ink" data-testid="ficha-breadcrumb-catalog">{{ t('ficha.properties', 'Propiedades') }}</NuxtLink></li>
-        <li aria-hidden="true" class="text-stone-300">›</li>
-        <li class="min-w-0 font-medium text-ink [overflow-wrap:anywhere]" aria-current="page">{{ name }}</li>
-      </ol>
-    </nav>
+    <div class="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2">
+      <nav :aria-label="t('ficha.breadcrumbs', 'Estás en')" class="min-w-0">
+        <ol class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-stone-500">
+          <li><NuxtLink to="/" class="hover:text-ink">{{ t('ficha.home', 'Inicio') }}</NuxtLink></li>
+          <li aria-hidden="true" class="text-stone-300">›</li>
+          <li><NuxtLink :to="catalogHref" class="hover:text-ink" data-testid="ficha-breadcrumb-catalog">{{ t('ficha.properties', 'Propiedades') }}</NuxtLink></li>
+          <li aria-hidden="true" class="text-stone-300">›</li>
+          <li class="min-w-0 font-medium text-ink [overflow-wrap:anywhere]" aria-current="page">{{ name }}</li>
+        </ol>
+      </nav>
+      <!-- La referencia del anuncio (`referenceLabel`, calculada en el servidor): «REF: AG-77»,
+           a la derecha de las migas. En móvil, si no cabe, baja a su propia línea. -->
+      <p v-if="reference" class="shrink-0 text-[11.5px] font-medium uppercase tracking-[0.08em] text-stone-500 [overflow-wrap:anywhere]" data-testid="ficha-reference">REF: <span class="font-semibold text-ink">{{ reference }}</span></p>
+    </div>
 
     <div class="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-2">
       <button type="button" class="bc-action" data-testid="ficha-share" @click="share">
@@ -46,8 +51,9 @@
 import { mergePage, neighborsInContext, nextPage, previousPage, readCatalogContext, saveCatalogContext, type CatalogContext, type CatalogContextItem } from '~/utils/catalogContext'
 
 /**
- * Migas de la ficha (#111): «Inicio › Propiedades › Nombre» y, a la derecha,
- * Compartir, Comparar, «‹ Anterior» y «Siguiente ›».
+ * Migas de la ficha (#111): «Inicio › Propiedades › Nombre», la referencia
+ * del anuncio («REF: AG-77») y, a la derecha, Compartir, Comparar,
+ * «‹ Anterior» y «Siguiente ›».
  *
  * Anterior / Siguiente siguen la búsqueda del catálogo desde la que se llegó
  * (utils/catalogContext.ts: sus filtros, su orden y su página; al llegar al
@@ -59,6 +65,8 @@ const props = defineProps<{
   slug: string
   name: string
   project: { id: number; slug?: string | null; name: string; coverImage?: string | null; price?: number | null }
+  /** La referencia del anuncio («REF: …»); vacía o ausente, no se pinta (el Constructor puede ocultarla). */
+  reference?: string
 }>()
 
 const { t } = useI18n()

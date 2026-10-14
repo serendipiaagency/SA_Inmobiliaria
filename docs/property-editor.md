@@ -121,10 +121,12 @@ por `migrations/0068_property_core_identification_location_surfaces.sql`.
   mismo punto de enganche que `slugFrom`. Las filas de antes de esta
   migración se rellenaron con `'W-'||id` / `'S-'||id` en el propio backfill
   SQL. Hay un índice único `(organization_id, reference)`: dos inmobiliarias
-  pueden repetir referencia, una misma no. `agencyReference`,
+  pueden repetir referencia, una misma no. `reference`,
   `externalSource`/`externalReference`, `mandateType`,
   `exclusiveFrom`/`exclusiveUntil` y `captureDate`/`captureSource` son datos
-  de gestión interna — nunca se publican (ver más abajo).
+  de gestión interna — nunca se publican (ver más abajo). La ficha pública
+  enseña una etiqueta calculada («REF:», ver «Referencia pública y fechas de
+  la ficha»), nunca estas columnas.
 - **Ubicación + privacidad.** `locationPrivacy` (`exact` | `approximate` |
   `hidden_number`) y `locationPrivacyRadius` deciden qué ve el público, no
   solo qué se pinta en el editor. La redacción real ocurre en el servidor,
@@ -171,6 +173,43 @@ previsto para la futura fase de Property Search/`PropertySchemaRegistry`.
 `test/unit/propertyCorePublicDto.test.ts` vigila justo esto: que ningún
 endpoint público nuevo (o uno de estos cinco, tocado por otro cambio) vuelva
 a devolver la fila sin pasar por la redacción.
+
+### Referencia pública y fechas de la ficha
+
+La ficha pública (`pages/propiedades/[slug].vue`) enseña arriba, junto a las
+migas (`components/property/Breadcrumbs.vue`, prop `reference`,
+`data-testid="ficha-reference"`), la referencia del anuncio con el formato
+«REF: 124589». Todas las propiedades enseñan una: la calcula el servidor en
+`loadPublicPropertyDetail` (`server/utils/properties/publicDetail.ts`,
+`publicReferenceLabel` → `referenceLabel`, junto a `availability`):
+`agencyReference` («Referencia de agencia», paso Identificación) si la hay;
+si no, el `commercialCode` de la ficha ampliada; si no, la `reference` propia
+que toda propiedad recibe al crearse. Sólo se publica esa etiqueta: las
+columnas `reference`, `agencyReference` y `externalReference` siguen en
+`INTERNAL_ONLY_KEYS` y no viajan en `project`. En el navegador,
+`reference = display.showReference ? data.referenceLabel : ''` — el
+Constructor puede ocultarla («Tarjeta principal» → «Referencia»). El editor del
+panel no cambia: su cabecera y su vista previa siguen enseñando el número
+interno («Ref. #id»).
+
+Debajo de «Atendido por», en la columna derecha, va el bloque «Última
+actualización · Publicada el · Referencia del anuncio»
+(`components/property/ListingMeta.vue`, `data-testid="ficha-listing-meta"`).
+La lógica es pura y está en `utils/listingMeta.ts` (`listingMetaRows`):
+`updatedAt` relativa si es de esta semana («Hoy», «Ayer», «Hace n días») y
+entera si no; `publishedAt` o, sin ella, `createdAt`, entera; y la misma
+«REF:». Las fechas se leen como las guarda D1 (`AAAA-MM-DD HH:MM:SS`, UTC) y
+se calculan en días UTC en el servidor y en el navegador, para que el HTML
+del servidor y la hidratación digan lo mismo. Una fila sin dato no se
+devuelve; sin filas, el bloque no se pinta. Textos en `i18n/messages.ts`
+(`ficha.meta.*`, seis idiomas).
+
+Y una sección que sólo avisaría de que no hay datos no se pinta: «Análisis de
+inversión» sin propiedades comparables en la zona lo sabe el servidor
+(`availability.analysis` en `server/utils/properties/publicDetail.ts`, que
+`utils/fichaVisibility.ts` respeta) y, si es el navegador el que lo descubre
+al cargar, `AIAnalysis.vue` emite `empty` y la ficha quita la sección y su
+pestaña (`markEmpty('analisis')`).
 
 ## Permisos y aislamiento
 

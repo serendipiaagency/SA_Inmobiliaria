@@ -21,7 +21,7 @@ export interface FichaDataContext {
   project: Record<string, any>
   details?: Record<string, any> | null
   /** Lo que sólo sabe el servidor (/api/public/properties/<slug> → availability). */
-  availability?: { score?: boolean; priceHistory?: boolean; similar?: boolean } | null
+  availability?: { score?: boolean; priceHistory?: boolean; similar?: boolean; analysis?: boolean } | null
   counts?: Partial<Record<'quickFacts' | 'floorPlans' | 'condition' | 'building' | 'documents' | 'amenities' | 'customFields' | 'unitTypes' | 'photos' | 'resumen', number>>
   energy?: EnergyDisplayOptions
   /** Lo que el navegador averigua al cargar una sección (entorno sin servicios, similares sin parecidas). */
@@ -54,8 +54,10 @@ export function fichaSectionHasData(key: string, c: FichaDataContext): boolean {
     case 'resumen':
       return n('resumen')
     case 'analisis':
-      // El análisis compara precio y superficie con el mercado: sin ellos, no hay nada que analizar.
-      return positive(p.price) && positive(p.area)
+      // El análisis compara precio y superficie con el mercado: sin ellos, no
+      // hay nada que analizar. Y sin propiedades comparables en la zona (lo
+      // sabe el servidor: `availability.analysis`) tampoco: sólo saldría un aviso.
+      return positive(p.price) && positive(p.area) && c.availability?.analysis !== false
     case 'precio':
       return c.availability?.priceHistory !== false
     case 'servicios':
