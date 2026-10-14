@@ -19,6 +19,9 @@ test.describe('Buscador global · Constructor', () => {
   let originalCatalog: Record<string, unknown> | null = null
   let homePublished = false
   let catalogPublished = false
+  // «Sin tocar»: la página no tiene versión del Constructor (el estado «Original» de la lista de páginas).
+  let homeUntouched = false
+  let catalogUntouched = false
 
   test.beforeAll(async () => {
     a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
@@ -29,22 +32,28 @@ test.describe('Buscador global · Constructor', () => {
     const status = (key: string) => (cat.pages as any[] | undefined)?.find((p) => p.pageKey === key)
     homePublished = !!status('home')?.published
     catalogPublished = !!status('propiedades')?.published
+    homeUntouched = !!status('home')?.untouched
+    catalogUntouched = !!status('propiedades')?.untouched
   })
 
   // La web sirve la versión publicada, no el borrador: lo que estas pruebas
-  // publican hay que volver a publicarlo tal como estaba (o despublicarlo),
-  // o las pruebas siguientes del buscador verían textos, herramientas del
-  // mapa y contadores de esta configuración.
+  // publican hay que dejarlo como estaba, o las pruebas siguientes verían
+  // textos, herramientas del mapa y contadores de esta configuración. «Volver
+  // a la página original» (DELETE) quita la versión del Constructor, también la
+  // publicada: una página sin tocar vuelve así a «Original» (sin borrador
+  // guardado ni «Cambios» en la lista de páginas, que es lo que esperan las
+  // pruebas del Constructor que vienen después); una ya tocada recupera su
+  // borrador y, si lo estaba, su publicación.
+  async function restorePage(key: string, original: Record<string, unknown> | null, published: boolean, untouched: boolean) {
+    await a.delete(`/api/admin/site-pages/${key}`).catch(() => null)
+    if (untouched || !original) return
+    await a.put(`/api/admin/site-pages/${key}`, { data: original }).catch(() => null)
+    if (published) await a.post(`/api/admin/site-pages/${key}/publish`).catch(() => null)
+  }
+
   test.afterAll(async () => {
-    if (originalHome) {
-      await a.put('/api/admin/site-pages/home', { data: originalHome }).catch(() => null)
-      if (homePublished) await a.post('/api/admin/site-pages/home/publish').catch(() => null)
-    }
-    if (originalCatalog) {
-      if (!catalogPublished) await a.delete('/api/admin/site-pages/propiedades').catch(() => null)
-      await a.put('/api/admin/site-pages/propiedades', { data: originalCatalog }).catch(() => null)
-      if (catalogPublished) await a.post('/api/admin/site-pages/propiedades/publish').catch(() => null)
-    }
+    await restorePage('home', originalHome, homePublished, homeUntouched)
+    await restorePage('propiedades', originalCatalog, catalogPublished, catalogUntouched)
     await a?.dispose()
   })
 

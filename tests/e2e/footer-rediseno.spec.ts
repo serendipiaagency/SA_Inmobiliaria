@@ -386,8 +386,13 @@ test.describe('Pie global rediseñado', () => {
       const canvas = page.frameLocator(CANVAS)
       const footer = canvas.getByTestId('site-footer')
       await expect(footer).toBeVisible({ timeout: 15_000 })
-      await footer.getByTestId('footer-description').click()
-      await expect(page.getByTestId('footer-inspector')).toBeVisible()
+      // El pie llega ya pintado del servidor y se puede pulsar antes de que el
+      // lienzo termine de hidratarse: un clic en ese hueco no selecciona nada.
+      // Se repite hasta que el inspector aparece (pulsar el texto dos veces es inocuo).
+      await expect(async () => {
+        await footer.getByTestId('footer-description').click()
+        await expect(page.getByTestId('footer-inspector')).toBeVisible({ timeout: 2_500 })
+      }).toPass({ timeout: 20_000 })
       // El lienzo pinta el borrador del editor (no lo publicado ni el de partida).
       await expect(footer).toHaveAttribute('data-config-source', 'draft')
       return { ctx, page, canvas, footer }
