@@ -43,12 +43,12 @@
         <div v-show="isOpen(g.key)" :id="`cf-${uid}-${g.key}`" class="cf-body">
           <!-- Ubicación: municipios, barrios, zonas y CP reales, varios a la vez; y el mapa -->
           <template v-if="g.key === 'location'">
-            <LocationAutocomplete :model-value="locations" :map-area="hasMapArea" map-actions @map-action="emit('open-map')" @update:model-value="onLocations" @clear-map-area="emit('patch', { north: undefined, south: undefined, east: undefined, west: undefined, page: undefined })" />
+            <LocationAutocomplete :model-value="locations" :map-area="hasMapArea" map-actions @map-action="(a) => emit('open-map', a)" @update:model-value="onLocations" @clear-map-area="emit('patch', { north: undefined, south: undefined, east: undefined, west: undefined, page: undefined })" />
             <div class="cf-map">
               <ClientOnly>
                 <CatalogMiniMap :items="items" :circle="circle" />
               </ClientOnly>
-              <button type="button" class="cf-map-btn" data-testid="catalog-map-search" @click="emit('open-map')">
+              <button type="button" class="cf-map-btn" data-testid="catalog-map-search" @click="emit('open-map', 'select')">
                 {{ t('catalog.searchOnMap', 'Buscar en el mapa') }}
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
               </button>
@@ -190,6 +190,7 @@ import {
   parseTypes,
   type EstadoKey,
   type LocationSelection,
+  type MapAction,
   type Operation,
 } from '~/utils/searchState'
 import LocationAutocomplete from '~/components/search/LocationAutocomplete.vue'
@@ -229,7 +230,7 @@ const props = withDefaults(
   }>(),
   { facets: null, items: () => [], collapsible: false, groupKeys: null, openKeys: null, operation: 'venta', showOperation: true, showNewSearch: true },
 )
-const emit = defineEmits<{ patch: [Record<string, any>]; clear: []; 'open-map': []; 'show-results': []; collapse: []; more: []; 'new-search': [] }>()
+const emit = defineEmits<{ patch: [Record<string, any>]; clear: []; 'open-map': [action: MapAction]; 'show-results': []; collapse: []; more: []; 'new-search': [] }>()
 
 const { t, intlLocale } = useI18n()
 const uid = useId()

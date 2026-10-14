@@ -58,10 +58,20 @@ export function nearbyFromQuery(query: QueryLike): { lat: number; lng: number; r
   return { lat, lng, radiusKm }
 }
 
-/** Cuántos filtros hay activos: cada filtro del modal y, si lo hay, el radio (uno solo). */
+/** La zona dibujada en el mapa (utils/maps/geo.ts): un solo parámetro, cuenta como UN filtro. */
+export const POLYGON_KEY = 'poly'
+export function hasPolygon(query: QueryLike): boolean {
+  return present(query[POLYGON_KEY])
+}
+/** La query sin la zona dibujada. */
+export function withoutPolygon<T extends QueryLike>(query: T): Partial<T> {
+  return Object.fromEntries(Object.entries(query).filter(([k]) => k !== POLYGON_KEY)) as Partial<T>
+}
+
+/** Cuántos filtros hay activos: cada filtro del modal y, si los hay, el radio y la zona dibujada (uno cada uno). */
 export function countActivePublicFilters(query: QueryLike): number {
   const n = PUBLIC_FILTER_KEYS.filter((k) => present(query[k])).length
-  return n + (nearbyFromQuery(query) ? 1 : 0)
+  return n + (nearbyFromQuery(query) ? 1 : 0) + (hasPolygon(query) ? 1 : 0)
 }
 
 /**

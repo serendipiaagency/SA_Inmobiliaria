@@ -331,6 +331,7 @@ import {
   subtypeParent,
   type EstadoKey,
   type LocationSelection,
+  type MapAction,
   type Operation,
   type SortKey,
 } from '~/utils/searchState'
@@ -486,9 +487,16 @@ const form = reactive({
 // los criterios de la búsqueda que se estaba viendo.
 const lastSearch = useState<Record<string, any> | null>('last-search', () => null)
 const locationNames = useLocationNames()
-/** «Seleccionar en el mapa» / «Buscar alrededor»: a Propiedades en vista Mapa con lo elegido hasta ahora (ahí están la zona del mapa y el radio). */
-function onMapAction(_action: 'select' | 'nearby') {
+/**
+ * «Seleccionar en el mapa» / «Dibujar una zona» / «Buscar alrededor»: a
+ * Propiedades en vista Mapa con lo elegido hasta ahora (ahí están las áreas,
+ * la zona dibujada y el radio). «Dibujar» abre el mapa ya dibujando: la
+ * petición viaja en un estado compartido que el mapa consume al arrancar.
+ */
+const drawRequest = useState<number>('map-draw-request', () => 0)
+function onMapAction(action: MapAction) {
   open.value = null
+  drawRequest.value = action === 'draw' ? Date.now() : 0
   navigateTo({ path: '/propiedades', query: { ...searchQuery(), vista: 'mapa' } })
 }
 function prefill(qy: Record<string, any> | null) {

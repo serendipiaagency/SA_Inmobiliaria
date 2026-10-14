@@ -36,6 +36,7 @@
         :disabled="modelValue.length >= MAX_LOCATIONS"
         data-testid="location-input"
         @focus="onFocus"
+        @click="onFocus"
         @input="onInput"
         @keydown="onKeydown"
       >
@@ -106,6 +107,10 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 20 3 17V4l6 3 6-3 6 3v13l-6-3-6 3z" /><path d="M9 7v13M15 4v13" /></svg>
           {{ t('location.mapSelect', 'Seleccionar en el mapa') }}
         </button>
+        <button type="button" class="loc-action" data-testid="location-map-draw" @mousedown.prevent @click="emit('map-action', 'draw')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" /></svg>
+          {{ t('location.mapDraw', 'Dibujar una zona en el mapa') }}
+        </button>
         <button type="button" class="loc-action" data-testid="location-map-nearby" @mousedown.prevent @click="emit('map-action', 'nearby')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3" /><path d="M12 3v3M12 18v3M3 12h3M18 12h3" /></svg>
           {{ t('location.mapNearby', 'Buscar alrededor de un punto') }}
@@ -118,7 +123,7 @@
 
 <script setup lang="ts">
 import LocationKindIcon from '~/components/search/LocationKindIcon.vue'
-import { LOCATION_DISPLAY_ORDER, LOCATION_GROUP_LABELS, LOCATION_KIND_LABELS, MAX_LOCATIONS, coveredBy, locationKey, type LocationKind, type LocationSelection } from '~/utils/searchState'
+import { LOCATION_DISPLAY_ORDER, LOCATION_GROUP_LABELS, LOCATION_KIND_LABELS, MAX_LOCATIONS, coveredBy, locationKey, type LocationKind, type LocationSelection, type MapAction } from '~/utils/searchState'
 
 /**
  * Campo «Ubicación» del buscador (Hero y panel de Propiedades), el mismo en
@@ -140,7 +145,7 @@ const props = withDefaults(defineProps<{ modelValue: LocationSelection[]; varian
   mapActions: false,
   maxSuggestions: 14,
 })
-const emit = defineEmits<{ 'update:modelValue': [LocationSelection[]]; 'clear-map-area': []; picked: [LocationSelection]; 'map-action': ['select' | 'nearby'] }>()
+const emit = defineEmits<{ 'update:modelValue': [LocationSelection[]]; 'clear-map-area': []; picked: [LocationSelection]; 'map-action': [MapAction] }>()
 
 const { t } = useI18n()
 const { remember } = useLocationNames()
@@ -257,6 +262,7 @@ function schedule() {
 }
 
 function onFocus() {
+  if (open.value) return
   open.value = true
   loadRecent()
   if (!items.value.length) fetchSuggestions(text.value.trim())

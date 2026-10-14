@@ -817,6 +817,43 @@ recupera esa búsqueda (`useState('last-search')`). Los enlaces antiguos
   se encuentra lo decide `buildPublicSearch`, el mismo que usan las alertas de
   búsquedas guardadas.
 
+## Mapa del buscador: zona visible, radio, zona dibujada y áreas con propiedades
+
+La vista Mapa de Propiedades (`pages/propiedades/index.vue`) y `/mapa`
+(`pages/mapa.vue`) comparten `components/MapExplorer.client.vue` y cuatro
+formas de acotar, todas en la URL y todas filtradas por el servidor sobre el
+pin **que se publica** de cada propiedad (`server/utils/properties/geoSearch.ts`
+› `publicCoordsSql`: redondeado si la ubicación es aproximada):
+
+| Herramienta | URL | Dónde se decide |
+| --- | --- | --- |
+| Zona visible («Buscar en esta zona») | `north/south/east/west` | SQL (caja) |
+| Radio («Buscar cerca de aquí») | `lat/lng/radiusKm` | SQL (caja + distancia equirectangular) |
+| Zona dibujada («Dibujar zona») | `poly=lat,lng;lat,lng;…` | SQL acota por la caja; `publicSearch.ts › polygonIdsCond` decide punto a punto (trazado de rayo, `utils/maps/geo.ts`) |
+| Áreas con propiedades | `loc=es:mun:33024,…` | Es «Ubicación»: la misma condición que el chip |
+
+Zona visible, radio y zona dibujada **no se combinan**: elegir una quita
+las otras, para que lo que se ve en el mapa sea exactamente lo que filtra.
+
+**Dibujar zona.** El trazo se recoge sobre una capa propia del mapa (Leaflet
+no arrastra mientras se dibuja), se simplifica (Douglas-Peucker, 4 px) y se
+acota a `MAX_POLYGON_POINTS` (120) vértices con 5 decimales; un trazo sin
+superficie avisa y se sigue dibujando. Un `poly` mal formado es un 422, nunca
+«todas las propiedades». Desde «Ubicación» (Hero y panel), «Dibujar una zona
+en el mapa» abre Propiedades en vista Mapa ya dibujando (la petición viaja en
+`useState('map-draw-request')`).
+
+**Áreas con propiedades.** Los municipios, barrios y zonas donde la agencia
+tiene inventario (las sugerencias sin texto de `/api/public/location-suggest`,
+`utils/maps/areas.ts`) se pintan como etiquetas pulsables con su número;
+pulsar una la elige en «Ubicación» y pulsarla de nuevo la quita. No se pintan
+límites administrativos: el catálogo (GeoNames) trae puntos, no polígonos, y
+un contorno inventado engañaría.
+
+`/api/public/location-suggest` (400 peticiones / 5 min por IP) y
+`/api/public/location-resolve` (200 / 5 min) van tras el limitador de
+`server/utils/rateLimit.ts`.
+
 ## Ficha de propiedad: descripción, «Atendido por», eficiencia energética y secciones sin datos
 
 La zona dinámica de la Ficha (`PAGE_CORE_OPTIONS['property-detail']`,

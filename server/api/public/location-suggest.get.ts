@@ -2,6 +2,7 @@ import { useDb, resolvePublicOrgId } from '../../utils/db'
 import { suggestLocationsFor } from '../../utils/geo/suggest'
 import { geoSource, loadGeoCatalog } from '../../utils/geo/catalog'
 import { firstString } from '../../../utils/searchState'
+import { rateLimit } from '../../utils/rateLimit'
 
 /**
  * GET /api/public/location-suggest?q=ovie — sugerencias del campo «Ubicación»
@@ -15,6 +16,8 @@ import { firstString } from '../../../utils/searchState'
  * lo que más inventario tiene, zonas). Nada de otras agencias ni inventado.
  */
 export default defineEventHandler(async (event) => {
+  // Protección frente a abuso: un visitante escribe decenas de letras, no cientos de consultas por minuto.
+  await rateLimit(event, 'location-suggest', { limit: 400, windowSeconds: 300 })
   const q = firstString(getQuery(event).q).slice(0, 80)
   const limit = Math.max(1, Math.min(Number(firstString(getQuery(event).limit)) || 14, 30))
   await loadGeoCatalog()

@@ -35,6 +35,38 @@
       <p v-if="nearbyNotice" class="w-full text-[11px] text-stone-500" data-testid="map-nearby-notice">{{ nearbyNotice }}</p>
     </div>
 
+    <!-- Dibujar una zona (Parte II del buscador): un trazo a mano alzada que se convierte en un filtro real.
+         La barra no captura el puntero (pointer-events-none) para no tapar el mapa: sólo sus botones. -->
+    <div v-if="draw" class="pointer-events-none absolute left-14 top-3 z-[500] flex max-w-[calc(100%-18rem)] flex-wrap items-center gap-2" data-testid="map-draw-tools">
+      <button v-if="!drawing && !polygon" type="button" class="map-tool pointer-events-auto" data-testid="map-draw-start" @click="startDrawing">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" /></svg>
+        {{ t('map.draw.start', 'Dibujar zona') }}
+      </button>
+      <template v-else-if="drawing">
+        <span class="map-tool pointer-events-auto cursor-default" data-testid="map-draw-hint">{{ t('map.draw.hint', 'Dibuja la zona con el ratón o el dedo') }}</span>
+        <button type="button" class="map-tool map-tool-quiet pointer-events-auto" data-testid="map-draw-cancel" @click="cancelDrawing">{{ t('map.draw.cancel', 'Cancelar') }}</button>
+      </template>
+      <template v-else>
+        <button type="button" class="map-tool pointer-events-auto" data-testid="map-draw-redo" @click="startDrawing">{{ t('map.draw.redo', 'Volver a dibujar') }}</button>
+        <button type="button" class="map-tool map-tool-quiet pointer-events-auto" data-testid="map-draw-clear" @click="emit('clear-polygon')">{{ t('map.draw.clear', 'Quitar zona dibujada') }}</button>
+      </template>
+      <p v-if="drawNotice" class="map-tool-notice pointer-events-auto" role="status" data-testid="map-draw-notice">{{ drawNotice }}</p>
+    </div>
+    <div
+      v-if="drawing"
+      ref="drawEl"
+      class="absolute inset-0 z-[450] cursor-crosshair touch-none"
+      data-testid="map-draw-layer"
+      @pointerdown="onDrawDown"
+      @pointermove="onDrawMove"
+      @pointerup="onDrawUp"
+      @pointercancel="cancelStroke"
+    >
+      <svg class="pointer-events-none h-full w-full" aria-hidden="true">
+        <polyline v-if="stroke.length > 1" :points="stroke.map((p) => `${p.x},${p.y}`).join(' ')" fill="rgba(22,21,15,0.08)" stroke="#16150f" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" />
+      </svg>
+    </div>
+
     <!-- Layer / POI controls -->
     <div class="absolute right-3 top-3 z-[500] w-52 rounded-2xl border border-line bg-white/95 p-3 shadow-xl backdrop-blur">
       <p class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-stone-400">{{ t('map.layers.title', 'Vista') }}</p>
@@ -62,6 +94,8 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import { useLeafletMap, createTileLayer, type TileKey } from '~/composables/useLeafletMap'
 import { withValidCoords } from '~/utils/maps/coords'
 import { DEFAULT_NEARBY_RADIUS_KM, NEARBY_RADIUS_OPTIONS, roundSearchCoord } from '~/utils/publicSearch'
+import { MAX_POLYGON_POINTS, limitPolygonPoints, simplifyPath, type GeoPoint } from '~/utils/maps/geo'
+import type { MapArea } from '~/utils/maps/areas'
 
 const { t } = useI18n()
 const props = withDefaults(
@@ -74,15 +108,152 @@ const props = withDefaults(
     nearby?: boolean
     /** El radio activo, para dibujarlo. */
     nearbyCircle?: { lat: number; lng: number; radiusKm: number } | null
+    /** Ofrece «Dibujar zona» (Parte II del buscador). */
+    draw?: boolean
+    /** La zona dibujada activa (de la URL), para pintarla. */
+    polygon?: GeoPoint[] | null
+    /** Arrancar dibujando (se llega desde «Dibujar una zona en el mapa» de Ubicación). */
+    autoDraw?: boolean
+    /** Áreas con propiedades (municipios, barrios, zonas) pulsables sobre el mapa. */
+    areas?: MapArea[]
+    /** Ids de las áreas ya elegidas en «Ubicación». */
+    activeAreaIds?: string[]
   }>(),
-  { activeId: null, fitToItems: true, searchArea: false, nearby: false, nearbyCircle: null },
+  { activeId: null, fitToItems: true, searchArea: false, nearby: false, nearbyCircle: null, draw: false, polygon: null, autoDraw: false, areas: () => [], activeAreaIds: () => [] },
 )
 const emit = defineEmits<{
   'marker-click': [number]
   'marker-hover': [number | null]
   'search-area': [bounds: { north: number; south: number; east: number; west: number }]
   'search-nearby': [point: { lat: number; lng: number; radiusKm: number }]
+  'draw-polygon': [points: GeoPoint[]]
+  'clear-polygon': []
+  'draw-started': []
+  'area-toggle': [area: MapArea]
 }>()
+
+// --- Dibujar una zona -------------------------------------------------------
+// El trazo se recoge sobre una capa propia (así Leaflet no arrastra el mapa),
+// se simplifica (Douglas-Peucker, 4 px) y se acota a MAX_POLYGON_POINTS
+// vértices; un trazo sin superficie (menos de 600 px²) avisa y se sigue
+// dibujando. Quien usa el mapa recibe los vértices y los pone en la URL.
+const drawing = ref(false)
+const drawEl = ref<HTMLElement | null>(null)
+const stroke = ref<{ x: number; y: number }[]>([])
+const drawNotice = ref('')
+let strokeActive = false
+const MIN_PIXEL_AREA = 600
+function startDrawing() {
+  drawNotice.value = ''
+  stroke.value = []
+  drawing.value = true
+  map.value?.dragging.disable()
+  emit('draw-started')
+}
+function cancelDrawing() {
+  drawing.value = false
+  stroke.value = []
+  strokeActive = false
+  map.value?.dragging.enable()
+}
+function pointOf(e: PointerEvent) {
+  const r = drawEl.value?.getBoundingClientRect()
+  return { x: e.clientX - (r?.left ?? 0), y: e.clientY - (r?.top ?? 0) }
+}
+function onDrawDown(e: PointerEvent) {
+  if (e.button !== 0 && e.pointerType === 'mouse') return
+  ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+  strokeActive = true
+  drawNotice.value = ''
+  stroke.value = [pointOf(e)]
+}
+function onDrawMove(e: PointerEvent) {
+  if (!strokeActive) return
+  const p = pointOf(e)
+  const last = stroke.value[stroke.value.length - 1]
+  if (!last || Math.hypot(p.x - last.x, p.y - last.y) >= 2) stroke.value.push(p)
+}
+function cancelStroke() {
+  strokeActive = false
+  stroke.value = []
+}
+function pixelArea(pts: { x: number; y: number }[]): number {
+  let a = 0
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i]!
+    const q = pts[(i + 1) % pts.length]!
+    a += p.x * q.y - q.x * p.y
+  }
+  return Math.abs(a / 2)
+}
+function onDrawUp() {
+  if (!strokeActive) return
+  strokeActive = false
+  const simplified = limitPolygonPoints(simplifyPath(stroke.value, 4), MAX_POLYGON_POINTS)
+  if (simplified.length < 3 || pixelArea(simplified) < MIN_PIXEL_AREA || !map.value) {
+    stroke.value = []
+    drawNotice.value = t('map.draw.tooSmall', 'La zona es demasiado pequeña: dibuja una más grande')
+    return
+  }
+  const r = (n: number) => Math.round(n * 1e5) / 1e5
+  const points: GeoPoint[] = simplified.map((p) => {
+    const ll = map.value!.containerPointToLatLng(L.point(p.x, p.y))
+    return { lat: r(ll.lat), lng: r(ll.lng) }
+  })
+  cancelDrawing()
+  emit('draw-polygon', points)
+}
+// La zona dibujada activa, sobre el mapa.
+let polygonLayer: L.Polygon | null = null
+function drawPolygon() {
+  if (!map.value) return
+  if (polygonLayer) {
+    map.value.removeLayer(polygonLayer)
+    polygonLayer = null
+  }
+  const pts = props.polygon
+  if (!pts?.length) return
+  polygonLayer = L.polygon(
+    pts.map((p) => [p.lat, p.lng] as [number, number]),
+    { color: '#16150f', weight: 2, fillOpacity: 0.08, interactive: false },
+  ).addTo(map.value)
+}
+watch(() => props.polygon, drawPolygon, { deep: true })
+watch(
+  () => props.autoDraw,
+  (v) => {
+    if (v && map.value && !drawing.value) startDrawing()
+  },
+)
+
+// --- Áreas con propiedades ---------------------------------------------------
+// Etiquetas pulsables (nombre y número) sobre el punto de cada municipio,
+// barrio o zona con inventario; pulsar una la elige en «Ubicación» y volver a
+// pulsarla la quita. Sin límites administrativos: sólo puntos reales.
+let areaGroup: L.LayerGroup | null = null
+function drawAreas() {
+  if (!map.value || !areaGroup) return
+  areaGroup.clearLayers()
+  const active = new Set(props.activeAreaIds)
+  for (const a of props.areas) {
+    const on = active.has(a.id)
+    const m = L.marker([a.lat, a.lng], {
+      icon: L.divIcon({
+        className: '',
+        html: `<button type="button" class="map-area${on ? ' map-area-on' : ''}" data-location-id="${a.id}" aria-pressed="${on}"><span class="map-area-name">${escapeHtml(a.value)}</span><span class="map-area-n">${a.count}</span></button>`,
+        iconSize: [0, 0],
+        iconAnchor: [0, 0],
+      }),
+      zIndexOffset: 500,
+    })
+    m.on('click', () => emit('area-toggle', a))
+    areaGroup.addLayer(m)
+  }
+}
+function escapeHtml(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+watch(() => [props.areas, props.activeAreaIds], drawAreas, { deep: true })
 
 // --- Buscar cerca de aquí ---------------------------------------------------
 // «Mi ubicación» usa la geolocalización del navegador, que la cabecera
@@ -300,6 +471,12 @@ onMapReady(() => {
   drawNearby()
   // Al abrir el mapa con un radio en la URL (enlace, búsqueda guardada), se ve el círculo entero.
   if (nearbyLayer && !props.fitToItems) map.value.fitBounds(nearbyLayer.getBounds(), { padding: [40, 40] })
+  // La zona dibujada de la URL, entera a la vista; y las áreas con propiedades.
+  drawPolygon()
+  if (polygonLayer && !props.fitToItems) map.value.fitBounds(polygonLayer.getBounds(), { padding: [40, 40] })
+  areaGroup = L.layerGroup().addTo(map.value)
+  drawAreas()
+  if (props.autoDraw) startDrawing()
 })
 
 watch(() => props.items, buildMarkers)
@@ -320,6 +497,38 @@ watch(
 </script>
 
 <style scoped>
+.map-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #e7e4de;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #16150f;
+  box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(4px);
+}
+.map-tool:hover {
+  background: #16150f;
+  border-color: #16150f;
+  color: #fff;
+}
+.map-tool-quiet {
+  background: rgba(255, 255, 255, 0.8);
+  color: #57534e;
+}
+.map-tool-notice {
+  width: 100%;
+  border-radius: 10px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  padding: 6px 10px;
+  font-size: 11.5px;
+  color: #9a3412;
+}
 .lbtn {
   border: 1px solid #e7e4de;
   border-radius: 0.5rem;
@@ -340,6 +549,47 @@ watch(
 </style>
 
 <style>
+.map-area {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  border: 1px solid rgba(22, 21, 15, 0.18);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 4px 8px 4px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #16150f;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+.map-area:hover {
+  border-color: #16150f;
+}
+.map-area-on {
+  background: #16150f;
+  border-color: #16150f;
+  color: #fff;
+}
+.map-area-n {
+  display: inline-flex;
+  min-width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #f1eee8;
+  padding: 0 6px;
+  font-size: 11px;
+  color: #44403c;
+}
+.map-area-on .map-area-n {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
 .map-pin {
   display: inline-flex;
   align-items: center;
