@@ -1,5 +1,6 @@
 import { messages } from '../../i18n/messages'
 import { compactEnergyOptions, normalizeEnergyOptions, type EnergyDisplayOptions } from '../energyCertificate'
+import { normalizeFeaturedLocations, searchLocationOptions, searchTypeOptions, type FeaturedLocation, type SearchLocationOptions, type SearchTypeOptions } from '../searchConfig'
 
 /**
  * Las páginas de la web que se editan con el Constructor Web — la única
@@ -76,7 +77,8 @@ export const PAGE_CORE_SOURCES: Record<PageCoreKind, { label: string; to: string
  * catálogo, el orden y la visibilidad de los grupos del panel de filtros.
  * Todo lo demás del contenido de la zona se descarta al guardar.
  */
-export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, 'boolean' | 'text' | 'sections' | 'filters' | 'operation' | 'tone' | 'energy'>>> = {
+export type PageCoreOptionKind = 'boolean' | 'text' | 'number' | 'sections' | 'filters' | 'operation' | 'tone' | 'energy' | 'locations'
+export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, PageCoreOptionKind>>> = {
   // Ficha: destacadas, orden y visibilidad de las secciones (#110) y, en la
   // tarjeta principal, la referencia y la descripción; el fondo de «Atendido
   // por», la presentación de la tabla energética y si las secciones sin datos
@@ -93,7 +95,24 @@ export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, 'boo
   },
   // Catálogo: qué partes del buscador se enseñan y cómo arranca. Sólo
   // presentación: lo que se encuentra lo decide Property Search, no esto.
-  'properties-listing': { filters: 'filters', showPanel: 'boolean', showOperation: 'boolean', showSort: 'boolean', showNewSearch: 'boolean', defaultOperation: 'operation' },
+  'properties-listing': {
+    filters: 'filters',
+    showPanel: 'boolean',
+    showOperation: 'boolean',
+    showSort: 'boolean',
+    showNewSearch: 'boolean',
+    defaultOperation: 'operation',
+    // «Tipo de inmueble» y «Ubicación» del panel (utils/searchConfig.ts): las mismas claves que en el Hero.
+    typePlaceholder: 'text',
+    typeShowCounts: 'boolean',
+    locationPlaceholder: 'text',
+    locationSuggestions: 'number',
+    locationShowCounts: 'boolean',
+    locationFeatured: 'locations',
+    locationMapSelect: 'boolean',
+    locationMapDraw: 'boolean',
+    locationMapNearby: 'boolean',
+  },
 }
 
 /** Lo que el catálogo enseña si el Constructor no dice otra cosa: todo, y «Comprar» de partida. */
@@ -103,6 +122,9 @@ export interface CatalogDisplayOptions {
   showSort: boolean
   showNewSearch: boolean
   defaultOperation: 'venta' | 'alquiler'
+  /** «Tipo de inmueble» y «Ubicación» del panel: las mismas opciones que en el Hero (utils/searchConfig.ts). */
+  type: SearchTypeOptions
+  location: SearchLocationOptions
 }
 export function catalogDisplayOptions(content: Record<string, any> | null | undefined): CatalogDisplayOptions {
   return {
@@ -111,6 +133,8 @@ export function catalogDisplayOptions(content: Record<string, any> | null | unde
     showSort: content?.showSort !== false,
     showNewSearch: content?.showNewSearch !== false,
     defaultOperation: content?.defaultOperation === 'alquiler' ? 'alquiler' : 'venta',
+    type: searchTypeOptions(content),
+    location: searchLocationOptions(content),
   }
 }
 
@@ -272,13 +296,18 @@ export function fichaSectionLayout(value: unknown): { order: Record<string, numb
 
 const CORE_TEXT_MAX = 120
 
-export function sanitizeCoreOptions(core: PageCoreKind, content: Record<string, any> | null | undefined): Record<string, boolean | string | FichaSectionSetting[] | Partial<EnergyDisplayOptions>> {
+export function sanitizeCoreOptions(core: PageCoreKind, content: Record<string, any> | null | undefined): Record<string, boolean | string | number | FichaSectionSetting[] | FeaturedLocation[] | Partial<EnergyDisplayOptions>> {
   const spec = PAGE_CORE_OPTIONS[core] || {}
-  const out: Record<string, boolean | string | FichaSectionSetting[] | Partial<EnergyDisplayOptions>> = {}
+  const out: Record<string, boolean | string | number | FichaSectionSetting[] | FeaturedLocation[] | Partial<EnergyDisplayOptions>> = {}
   for (const [key, type] of Object.entries(spec)) {
     const v = content?.[key]
     if (type === 'boolean' && typeof v === 'boolean') out[key] = v
     if (type === 'text' && typeof v === 'string' && v.trim()) out[key] = v.trim().slice(0, CORE_TEXT_MAX)
+    if (type === 'number' && v !== '' && v !== null && Number.isFinite(Number(v))) out[key] = Number(v)
+    if (type === 'locations' && Array.isArray(v)) {
+      const list = normalizeFeaturedLocations(v)
+      if (list.length) out[key] = list
+    }
     if (type === 'sections' && Array.isArray(v)) out[key] = normalizeFichaSections(v)
     if (type === 'filters' && Array.isArray(v)) out[key] = normalizeCatalogFilters(v)
     if (type === 'operation' && (v === 'venta' || v === 'alquiler')) out[key] = v

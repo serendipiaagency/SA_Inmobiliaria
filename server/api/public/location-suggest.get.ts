@@ -1,7 +1,8 @@
 import { useDb, resolvePublicOrgId } from '../../utils/db'
 import { suggestLocationsFor } from '../../utils/geo/suggest'
 import { geoSource, loadGeoCatalog } from '../../utils/geo/catalog'
-import { firstString } from '../../../utils/searchState'
+import { firstString, listParam, locationKindOfId } from '../../../utils/searchState'
+import { SEARCH_FEATURED_MAX } from '../../../utils/searchConfig'
 import { rateLimit } from '../../utils/rateLimit'
 
 /**
@@ -20,8 +21,14 @@ export default defineEventHandler(async (event) => {
   await rateLimit(event, 'location-suggest', { limit: 400, windowSeconds: 300 })
   const q = firstString(getQuery(event).q).slice(0, 80)
   const limit = Math.max(1, Math.min(Number(firstString(getQuery(event).limit)) || 14, 30))
+  // Destacadas por la agencia (Constructor): salen primero con el campo vacío; no limitan la búsqueda, sólo reordenan.
+  const featured = listParam(getQuery(event).featured, 20)
+    .flatMap((v) => v.split(','))
+    .map((v) => v.trim())
+    .filter((id) => !!locationKindOfId(id))
+    .slice(0, SEARCH_FEATURED_MAX)
   await loadGeoCatalog()
-  const items = await suggestLocationsFor(useDb(event), resolvePublicOrgId(event), q, { limit })
+  const items = await suggestLocationsFor(useDb(event), resolvePublicOrgId(event), q, { limit, featured })
   setHeader(event, 'Cache-Control', 'private, max-age=30')
   return { q, items, source: geoSource() }
 })

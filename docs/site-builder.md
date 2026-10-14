@@ -817,6 +817,32 @@ recupera esa búsqueda (`useState('last-search')`). Los enlaces antiguos
   se encuentra lo decide `buildPublicSearch`, el mismo que usan las alertas de
   búsquedas guardadas.
 
+## «Tipo de inmueble» y «Ubicación» configurables por bloque
+
+Las dos primeras celdas del buscador se ajustan en el Constructor con las
+MISMAS claves en los dos bloques que las pintan (`utils/searchConfig.ts`,
+validado al leer; inspector compartido
+`components/site-builder/inspector/SearchFieldsInspector.vue`, dentro de
+Hero › Buscador y de Propiedades › Buscador del catálogo):
+
+| Clave | Qué ajusta | De partida |
+| --- | --- | --- |
+| `typePlaceholder` | Texto del campo «Tipo de inmueble» vacío (≤ 60) | «Cualquiera» en el idioma de la web |
+| `typeShowCounts` | Número de propiedades junto a cada tipo | sí |
+| `locationPlaceholder` | Texto del campo «Ubicación» vacío (≤ 60) | el de la web |
+| `locationSuggestions` | Sugerencias como máximo: 8, 10, 14, 20 o 30 | 14 |
+| `locationShowCounts` | Número de propiedades en cada sugerencia | sí |
+| `locationFeatured` | Hasta 8 entidades del catálogo o zonas (`{ id, value, context }`), elegidas con el mismo autocompletado; salen primero con el campo vacío y **no limitan la búsqueda** (`featured=` en `/api/public/location-suggest` sólo reordena) | ninguna |
+| `locationMapSelect` / `locationMapDraw` / `locationMapNearby` | Qué herramientas del mapa se ofrecen bajo las sugerencias | las tres |
+
+El Hero las lee con `heroSearchOptions(content).type/.location`
+(`utils/heroSearch.ts`); el panel de Propiedades con
+`catalogDisplayOptions(content).type/.location` (`utils/siteBuilder/pages.ts`,
+cuya `PAGE_CORE_OPTIONS['properties-listing']` admite estas claves y
+`sanitizeCoreOptions` las sanea al guardar). Webs existentes sin claves
+guardadas: todo se ofrece como hasta ahora. Sólo presentación: qué se
+encuentra lo sigue decidiendo Property Search.
+
 ## Mapa del buscador: zona visible, radio, zona dibujada y áreas con propiedades
 
 La vista Mapa de Propiedades (`pages/propiedades/index.vue`) y `/mapa`

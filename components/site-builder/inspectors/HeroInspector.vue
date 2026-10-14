@@ -29,6 +29,7 @@
         @update:model-value="(v) => (content.defaultOperation = v)"
       />
       <p class="mt-1 text-[11px] leading-relaxed text-stone-400">Al pulsar «Buscar» se abre Propiedades con todo lo elegido, y su panel lo enseña marcado. Quien vuelve de una búsqueda la encuentra tal cual.</p>
+      <SearchFieldsInspector :content="content" />
     </InspectorSection>
 
     <InspectorSection title="Multimedia">
@@ -82,6 +83,7 @@
 
 <script setup lang="ts">
 import InspectorSection from '../inspector/InspectorSection.vue'
+import SearchFieldsInspector from '../inspector/SearchFieldsInspector.vue'
 import TextField from '../inspector/fields/TextField.vue'
 import GalleryField from '../inspector/fields/GalleryField.vue'
 import ImageField from '../inspector/fields/ImageField.vue'

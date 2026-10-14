@@ -319,6 +319,8 @@ const panelProps = computed(() => ({
   operation: operation.value,
   showOperation: display.value.showOperation,
   showNewSearch: display.value.showNewSearch,
+  typeOptions: display.value.type,
+  locationOptions: display.value.location,
 }))
 const searchIsSaved = computed(() => isSaved(route.query as Record<string, any>))
 function onSaveSearch() {

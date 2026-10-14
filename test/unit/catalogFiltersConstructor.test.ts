@@ -31,7 +31,10 @@ describe('filtros del catálogo en el Constructor', () => {
   })
 
   it('opciones del buscador: todo visible y «Comprar» de partida si no se dice otra cosa', () => {
-    expect(catalogDisplayOptions(null)).toEqual({ showPanel: true, showOperation: true, showSort: true, showNewSearch: true, defaultOperation: 'venta' })
+    expect(catalogDisplayOptions(null)).toMatchObject({ showPanel: true, showOperation: true, showSort: true, showNewSearch: true, defaultOperation: 'venta' })
+    // «Tipo de inmueble» y «Ubicación» (utils/searchConfig.ts), con lo de partida.
+    expect(catalogDisplayOptions(null).type).toEqual({ placeholder: '', showCounts: true })
+    expect(catalogDisplayOptions(null).location.maxSuggestions).toBe(14)
     expect(catalogDisplayOptions({ showSort: false, defaultOperation: 'alquiler' })).toMatchObject({ showSort: false, defaultOperation: 'alquiler', showPanel: true })
   })
 
