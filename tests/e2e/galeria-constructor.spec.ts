@@ -104,12 +104,12 @@ test.describe('Galería · Constructor', () => {
   test('91–95 · el inspector de la zona de la ficha tiene el grupo «Galería» y lo que se cambia se guarda en el borrador y se ve en el lienzo', async ({ page }) => {
     await a.delete('/api/admin/site-pages/ficha-propiedad')
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/admin/site-builder')
-    await page.getByText('Ficha de propiedad').first().click()
-    const core = page.getByTestId('page-core-inspector')
-    // Abre la zona dinámica de la ficha en el lienzo.
+    await page.goto('/admin/site-builder?pagina=ficha-propiedad')
+    // El lienzo enseña la ficha real; el bloque de la ficha se elige en «Estructura» (sus opciones de zona).
     const canvas = page.frameLocator('iframe[title="Vista previa del Constructor Web"]')
-    await canvas.getByTestId('page-core-gallery-preview').click({ timeout: 20_000 }).catch(() => null)
+    await expect(canvas.getByTestId('ficha-gallery-wrap')).toBeVisible({ timeout: 20_000 })
+    await page.locator('[data-block-row]').filter({ hasText: 'Ficha de propiedad' }).first().click()
+    const core = page.getByTestId('page-core-inspector')
     await expect(core).toBeVisible({ timeout: 20_000 })
     const group = page.getByTestId('page-core-gallery')
     await expect(group).toBeVisible()
@@ -123,6 +123,6 @@ test.describe('Galería · Constructor', () => {
       }, { timeout: 10_000 })
       .toBe('12|false|hidden')
     // El lienzo lo enseña con los datos reales de la propiedad de ejemplo (sin contador).
-    await expect(canvas.getByTestId('page-core-gallery-preview').getByTestId('gallery-counter')).toHaveCount(0)
+    await expect(canvas.getByTestId('ficha-gallery-wrap').getByTestId('gallery-counter')).toHaveCount(0)
   })
 })

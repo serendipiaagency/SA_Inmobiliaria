@@ -5,6 +5,7 @@ import { sanitizeNodeStyles, type NodeStyle } from '../../utils/siteBuilder/node
 import { sanitizeGlobalStyles, type SiteGlobalStyles } from '../../utils/siteBuilder/globalStyles'
 import { PAGE_CORE_TYPE, SITE_PAGES, SITE_PAGE_KEYS, sanitizeCoreOptions, seedPageBlocks, sitePageDef } from '../../utils/siteBuilder/pages'
 import { compactEnergyOptions, normalizeEnergyOptions } from '../../utils/energyCertificate'
+import { filterFichaNodeStyles, sanitizeFichaTexts } from '../../utils/siteBuilder/fichaNodes'
 
 /**
  * The Constructor Web's data model. A page is a flat, ordered array of
@@ -393,10 +394,21 @@ export function validatePageDocument(input: unknown, pageKey?: string): SitePage
       if (cores.length !== 1) throw createError({ statusCode: 422, statusMessage: 'La zona dinámica de esta página no se puede quitar ni repetir' })
       const core = cores[0]
       if (core.content.core !== def.core) throw createError({ statusCode: 422, statusMessage: 'Zona dinámica de otra página' })
-      core.content = { core: def.core, ...sanitizeCoreOptions(def.core!, core.content) }
+      const rawContent = core.content
+      core.content = { core: def.core, ...sanitizeCoreOptions(def.core!, rawContent) }
       delete core.style
       delete core.visibility
-      delete core.nodeStyles
+      if (def.core === 'property-detail') {
+        // La ficha editable (utils/siteBuilder/fichaNodes.ts): los textos fijos de la
+        // plantilla que se reescribieron y los estilos de sus nodos, y sólo los de
+        // los nodos que existen en la ficha. Los datos de la propiedad no se guardan.
+        Object.assign(core.content, sanitizeFichaTexts(rawContent))
+        const styles = filterFichaNodeStyles(core.nodeStyles)
+        if (styles) core.nodeStyles = styles
+        else delete core.nodeStyles
+      } else {
+        delete core.nodeStyles
+      }
     } else if (cores.length) {
       throw createError({ statusCode: 422, statusMessage: 'Esta página no tiene zona dinámica' })
     }

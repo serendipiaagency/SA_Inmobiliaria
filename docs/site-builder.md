@@ -1002,6 +1002,63 @@ página. En móvil va en el flujo. La CTA fija aparte de escritorio
 «Asunto» opcional, prellenado con la propiedad, que `/api/public/contact` ya
 guarda en el mensaje, las notas del lead y el hilo.
 
+## Ficha de propiedad editable (Cola 7)
+
+La página «Ficha de propiedad» ya no enseña una maqueta con candado: el lienzo
+pinta **la ficha real** (`components/ficha/FichaView.vue`, la misma que la web)
+con la propiedad de ejemplo de la empresa, y cada parte de ella es un **nodo**
+del Constructor. Los datos siguen viniendo de Propiedades; la plantilla guarda
+sólo presentación y textos propios.
+
+**Un solo registro.** `utils/siteBuilder/fichaNodes.ts` (`FICHA_NODES`) lista los
+nodos y es la única fuente de verdad para la web, el lienzo, «Estructura», el
+inspector y el servidor. Tres papeles:
+
+| Papel | Qué es | Qué se puede cambiar | Qué guarda |
+|---|---|---|---|
+| `block` | El contenedor de una parte: galería, tarjeta principal, cada sección, precio, «Atendido por»… (`b.*`, `s.<sección>`) | Fondo, borde, esquinas, espaciado, por tamaño; las secciones, además, orden y visibilidad | `nodeStyles[campo]` |
+| `text` | Un texto fijo de la plantilla: el título de una sección, «Descripción» (`t.*`) | Tipografía, color, alineación, espaciado y **el propio texto** (doble clic en el lienzo o el campo del inspector) | `nodeStyles[campo]` y `content[campo]` |
+| `data` | Un dato de Propiedades: título, estado, ubicación, descripción (`d.*`) | Sólo cómo se ve; nunca se escribe encima (el inspector dice de dónde viene y enlaza a Propiedades) | `nodeStyles[campo]` |
+
+**Cómo se marca.** `composables/useFichaNodes.ts` (`attrs('b.price')`) pone en el
+elemento real `data-sb-node="<id del bloque>:<campo>"` y `data-sb-kind`, con el
+tipo y la etiqueta sacados del registro; la plantilla sólo dice QUÉ nodo es
+(`v-bind="n('b.price')"`). Los textos fijos usan `SbText` (edición inline) y las
+tarjetas de sección (`components/property/SectionCard.vue`) reciben
+`title-field`. Las tarjetas que la ficha reutiliza de otras partes (las de las
+propiedades similares) se envuelven en `FichaNoNodes`: no son nodos de la plantilla.
+
+**En la web.** `SiteBlockRenderer` envuelve el slot `core` con
+`SiteCoreContext`, que provee el id del bloque a sus nodos sin pintar nada: así la
+web lleva el mismo `data-sb-node` y la hoja de estilos generada
+(`utils/siteBuilder/nodes.ts` › `buildNodeStylesCss`, con `@media` de tableta y
+móvil) llega a los mismos elementos que en el lienzo. Sin estilos ni textos
+guardados, la ficha se ve exactamente como antes.
+
+**Qué guarda el servidor.** `validatePageDocument` (sólo en `ficha-propiedad`)
+conserva los `nodeStyles` de los nodos del registro, saneados con `sanitizeNodeStyles`,
+y los textos de los nodos `text` (`sanitizeFichaTexts`: sin saltos ni caracteres de
+control, hasta `FICHA_TEXT_MAX`). Cualquier otra clave se descarta: ni datos de la
+propiedad, ni nodos que no existen. En las demás páginas con zona dinámica no se
+guardan estilos de nodo.
+
+**Estructura.** Bajo la fila «Ficha de propiedad» cuelga el árbol de sus bloques
+(`data-testid="ficha-tree"`): pulsar uno lo selecciona en el lienzo (con
+desplazamiento hasta él) y abre su inspector con Contenido / Diseño / Avanzado;
+cada sección tiene «Subir», «Bajar» y «Ocultar / Mostrar», que escriben en la
+misma lista `sections` que ya lee la web, con deshacer y rehacer. El contenedor
+raíz no se puede borrar ni ocultar: es lo único que protege el candado.
+
+**Efectos reales.** En el lienzo y en Vista previa la ficha no envía ni reserva:
+`PropertyContactCard` recibe `readonly`, y la barra fija móvil, el modal de
+reserva y el recuento de visita sólo existen en la web (`mode === 'production'`).
+
+**Pruebas.** `test/unit/fichaNodes.test.ts` (registro, textos, estilos, lo que
+guarda el servidor y la hoja generada) y `tests/e2e/ficha-editable.spec.ts`
+(lienzo real, árbol, selección en ambos sentidos, datos no editables, estilo por
+tamaño, texto fijo, ocultar y reordenar, deshacer, persistencia, publicación y
+aislamiento entre dos inmobiliarias).
+
 ## Vista previa de la web y aviso de cookies
 
 La vista previa de una web sin dominio (`?vista_previa=<id>`,

@@ -15,6 +15,7 @@
         :label="node.label"
         :multiline="node.multiline || node.kind === 'text' || node.kind === 'caption'"
         :model-value="String(content[node.field] ?? '')"
+        :placeholder="textPlaceholder"
         data-testid="node-text"
         @update:model-value="setContent(node.field, $event)"
       />
@@ -23,6 +24,11 @@
         <ImageField label="Imagen" folder="site-builder" aspect="video" :model-value="String(content[node.field] ?? '')" @update:model-value="setContent(node.field, $event)" />
         <TextField v-if="node.altField" label="Texto alternativo" :model-value="String(content[node.altField] ?? '')" placeholder="Describe la imagen…" @update:model-value="setContent(node.altField!, $event)" />
       </template>
+    </InspectorSection>
+
+    <!-- Un contenedor (la galería, una sección, el precio…) no tiene texto propio: su contenido son los datos de la propiedad. -->
+    <InspectorSection v-else title="Contenido">
+      <p class="text-[12px] leading-relaxed text-stone-500" data-testid="node-no-content">Este elemento enseña datos de la propiedad y no tiene texto propio. Cambia su aspecto en «Diseño».</p>
     </InspectorSection>
 
     <!-- --------------------------------------------------------------- Diseño -->
@@ -111,6 +117,8 @@ import {
   type NodeStyleProps,
 } from '~/utils/siteBuilder/nodes'
 import { fontDef } from '~/utils/siteBuilder/fonts'
+import { PAGE_CORE_TYPE } from '~/utils/siteBuilder/pages'
+import { fichaNode } from '~/utils/siteBuilder/fichaNodes'
 import type { SiteNodeRef } from '~/composables/useSiteEditor'
 import InspectorSection from './InspectorSection.vue'
 import TextField from './fields/TextField.vue'
@@ -155,6 +163,8 @@ const FOCAL_OPTIONS = [
 
 const content = computed(() => props.block.content)
 const hasContent = computed(() => kindHas(props.node.kind, 'text') || kindHas(props.node.kind, 'link') || kindHas(props.node.kind, 'media'))
+// Un texto fijo de la ficha editable: vacío, la web enseña el de siempre (el del registro, traducido).
+const textPlaceholder = computed(() => (props.block.type === PAGE_CORE_TYPE ? fichaNode(props.node.field)?.defaultText : undefined))
 const sourceName = computed(() => (props.node.dynamic || '').split('→')[0].trim() || 'su origen')
 
 const style = computed(() => props.block.nodeStyles?.[props.node.field])

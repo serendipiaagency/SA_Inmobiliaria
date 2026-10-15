@@ -9,7 +9,7 @@
       <!-- La zona dinámica de una página funcional (utils/siteBuilder/pages.ts):
            en la web publicada es la página real que pasa quien nos usa
            (slot `core`), sin marco ni opciones; en el lienzo, su vista previa. -->
-      <slot v-if="isLiveCore(block)" name="core" />
+      <SiteCoreContext v-if="isLiveCore(block)" :block="block"><slot name="core" /></SiteCoreContext>
       <!-- Insert-between affordance — builder-only, zero layout impact when
            not hovered (see .site-gap below), mirrors the "+ Añadir sección
            aquí" insertion point in the Estructura panel so either surface
@@ -100,6 +100,7 @@ import type { SiteBlock, SitePageDocument } from '~/server/utils/sitePages'
 import { buildPageCss, pageFontsHref } from '~/utils/siteBuilder/pageCss'
 import { SITE_EDITOR_KEY, nodeRefFromElement, type SiteEditorContext, type SiteNodeRef } from '~/composables/useSiteEditor'
 import SiteBlockFrame from './SiteBlockFrame.vue'
+import SiteCoreContext from './SiteCoreContext.vue'
 import NodeToolbar from './canvas/NodeToolbar.vue'
 import HeroBlock from './blocks/HeroBlock.vue'
 import MapTeaserBlock from './blocks/MapTeaserBlock.vue'

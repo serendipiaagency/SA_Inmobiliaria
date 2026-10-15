@@ -237,25 +237,23 @@ test.describe('Ficha: descripción, referencia, «Atendido por», energía y sec
 
     await page.goto('/admin/site-builder?pagina=ficha-propiedad')
     const canvas = page.frameLocator('iframe[title="Vista previa del Constructor Web"]')
-    const preview = canvas.getByTestId('page-core-preview')
-    await expect(preview).toBeVisible({ timeout: 15_000 })
-    await preview.click()
+    // El lienzo enseña la ficha real; el bloque de la ficha se elige en «Estructura» (sus opciones de zona).
+    await expect(canvas.getByTestId('ficha-summary')).toBeVisible({ timeout: 15_000 })
+    await page.locator('[data-block-row]').filter({ hasText: 'Ficha de propiedad' }).first().click()
     const inspector = page.getByTestId('page-core-inspector')
     await expect(inspector).toBeVisible()
 
-    // Aviso sólo editando: la sección sin datos sigue en la lista, marcada.
-    const energyItem = canvas.getByTestId('page-core-sections-preview').locator('li[data-section="energia"]')
-    await expect(energyItem).toBeVisible({ timeout: 10_000 })
-    if (sampleHasEnergy) await expect(energyItem.getByTestId('energy-card')).toBeVisible()
-    else await expect(energyItem.getByTestId('page-core-section-empty')).toContainText('se ocultará en la web pública')
+    // Como en la web: con datos energéticos, la tabla; sin ellos, la sección no sale.
+    if (sampleHasEnergy) await expect(canvas.getByTestId('ficha-energy').getByTestId('energy-card')).toBeVisible({ timeout: 10_000 })
+    else await expect(canvas.locator('#energia')).toHaveCount(0)
 
     // Ocultar la referencia, fondo blanco y la tabla compacta.
     await inspector.getByTestId('page-core-show-reference').getByRole('switch').click()
     await inspector.getByTestId('page-core-contact-tone').getByRole('button', { name: 'Blanco' }).click()
     // La zona no tiene pestañas: la presentación de la tabla va en el mismo inspector.
     await inspector.getByTestId('energy-opt-layout').getByRole('button', { name: 'Compacta' }).click()
-    await expect(canvas.getByTestId('page-core-contact-preview')).toHaveAttribute('data-tone', 'white')
-    await expect(canvas.getByTestId('page-core-reference-preview')).toHaveCount(0)
+    await expect(canvas.getByTestId('property-contact-card')).toHaveAttribute('data-tone', 'white')
+    await expect(canvas.getByTestId('ficha-reference')).toHaveCount(0)
     await expect.poll(async () => {
       const draft = await (await a.get('/api/admin/site-pages/ficha-propiedad')).json()
       const core = (draft.blocks as any[]).find((blk) => blk.type === 'page-core')?.content || {}

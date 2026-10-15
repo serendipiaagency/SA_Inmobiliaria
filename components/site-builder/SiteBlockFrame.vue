@@ -7,7 +7,7 @@
       class="pointer-events-none absolute left-2 top-2 z-50 rounded bg-blue-500 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow transition-opacity"
       :class="selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
     >
-      {{ index + 1 }}. {{ blockLabel(block.type) }}
+      {{ index + 1 }}. {{ blockLabelOf(block) }}
     </span>
 
     <div
@@ -46,7 +46,7 @@
 
 <script setup lang="ts">
 import type { SiteBlock } from '~/server/utils/sitePages'
-import { blockLabel } from '~/composables/useSiteBuilderRegistry'
+import { blockLabelOf } from '~/composables/useSiteBuilderRegistry'
 import { PAGE_CORE_TYPE } from '~/utils/siteBuilder/pages'
 import { NODE_KINDS, nodeId } from '~/utils/siteBuilder/nodes'
 import { SITE_BLOCK_KEY, SITE_EDITOR_KEY, nodeRefFromElement, type SiteNodeRef } from '~/composables/useSiteEditor'

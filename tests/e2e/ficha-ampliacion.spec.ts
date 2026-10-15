@@ -317,9 +317,9 @@ test.describe('Ficha ampliada: planos, estado, edificio, documentos y reserva', 
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/admin/site-builder?pagina=ficha-propiedad')
     const canvas = page.frameLocator('iframe[title="Vista previa del Constructor Web"]')
-    const preview = canvas.getByTestId('page-core-preview')
-    await expect(preview).toBeVisible({ timeout: 15_000 })
-    await preview.click()
+    // El lienzo enseña la ficha real; el bloque de la ficha se elige en «Estructura» (sus opciones de zona: orden, visibilidad…).
+    await expect(canvas.getByTestId('ficha-summary')).toBeVisible({ timeout: 15_000 })
+    await page.locator('[data-block-row]').filter({ hasText: 'Ficha de propiedad' }).first().click()
     const inspector = page.getByTestId('page-core-inspector')
     await expect(inspector).toBeVisible()
 
@@ -334,9 +334,10 @@ test.describe('Ficha ampliada: planos, estado, edificio, documentos y reserva', 
     await list.locator('li[data-section="hipoteca"]').getByTestId('page-core-section-toggle').uncheck()
 
     // El lienzo lo enseña igual, antes de publicar.
-    const sections = canvas.getByTestId('page-core-sections-preview')
-    await expect(sections.locator('li').first()).toHaveAttribute('data-section', 'ubicacion')
-    await expect(sections.locator('li[data-section="hipoteca"]')).toHaveCount(0)
+    // «Estructura» enseña el mismo orden y la misma visibilidad (el lienzo, la ficha real de la propiedad de ejemplo, que puede no tener datos para todas las secciones).
+    const tree = page.getByTestId('ficha-tree')
+    await expect(tree.locator('[data-ficha-node^="s."]').first()).toHaveAttribute('data-ficha-node', 's.ubicacion')
+    await expect(tree.locator('[data-ficha-node="s.hipoteca"]')).toHaveAttribute('data-hidden', '1')
     await expect.poll(async () => {
       const draft = await (await a.get('/api/admin/site-pages/ficha-propiedad')).json()
       const core = (draft.blocks as any[]).find((blk) => blk.type === 'page-core')
