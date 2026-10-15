@@ -209,7 +209,8 @@ test.describe('Ficha editable en el Constructor', () => {
     const canvas = await open(page)
     const form = canvas.getByTestId('property-contact-form')
     await form.scrollIntoViewIfNeeded()
-    await expect(canvas.getByTestId('property-contact-submit')).toBeDisabled()
+    // No se desactiva (así su texto se puede seleccionar en el lienzo), pero no envía: aria-disabled y nota de vista previa.
+    await expect(canvas.getByTestId('property-contact-submit')).toHaveAttribute('aria-disabled', 'true')
     await expect(canvas.getByTestId('property-contact-preview-note')).toBeVisible()
   })
 

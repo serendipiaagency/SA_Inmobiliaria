@@ -5,7 +5,7 @@
       <img v-if="avatarSrc" :src="avatarSrc" :alt="displayName" class="pc-avatar" :class="{ 'pc-avatar-logo': !agent }" loading="lazy" >
       <span v-else class="pc-avatar pc-avatar-initials" aria-hidden="true">{{ initials }}</span>
       <div class="min-w-0">
-        <p class="pc-eyebrow">{{ t('contactCard.attendedBy', 'Atendido por') }}</p>
+        <SbText tag="p" class="pc-eyebrow" field="t.contact.eyebrow" kind="eyebrow" :label="labelOf('t.contact.eyebrow')" :text="tx('t.contact.eyebrow', t('contactCard.attendedBy', 'Atendido por'))" />
         <p class="pc-name" data-testid="property-contact-name">{{ displayName }}</p>
         <p class="pc-sub">{{ subline }}</p>
       </div>
@@ -29,8 +29,8 @@
     </div>
 
     <template v-else>
-      <p class="pc-title">{{ t('contactCard.title', 'Cuéntanos qué necesitas') }}</p>
-      <p class="pc-lead">{{ t('contactCard.subtitle', 'Te ayudamos con los detalles de esta propiedad.') }}</p>
+      <SbText tag="p" class="pc-title" field="t.contact.title" kind="heading" :label="labelOf('t.contact.title')" :text="tx('t.contact.title', t('contactCard.title', 'Cuéntanos qué necesitas'))" />
+      <SbText tag="p" class="pc-lead" field="t.contact.lead" kind="text" :label="labelOf('t.contact.lead')" :text="tx('t.contact.lead', t('contactCard.subtitle', 'Te ayudamos con los detalles de esta propiedad.'))" />
 
       <form class="pc-form" novalidate data-testid="property-contact-form" @submit.prevent="submit">
         <!-- Campo trampa: una persona no lo ve ni llega a él con el tabulador; un bot lo rellena -->
@@ -92,14 +92,14 @@
           {{ t('contactCard.previewNote', 'Vista previa: el formulario no envía nada aquí. En tu web publicada, cada mensaje crea un lead en tu CRM.') }}
         </p>
 
-        <button type="submit" class="pc-cta" :disabled="sending || previewBlocked" :aria-busy="sending" data-testid="property-contact-submit">
+        <button type="submit" class="pc-cta" :disabled="sending || (previewBlocked && !readonly)" :aria-disabled="previewBlocked || undefined" :aria-busy="sending" data-testid="property-contact-submit">
           <template v-if="sending">
             <span class="pc-spinner" aria-hidden="true" />
             {{ t('contactCard.sending', 'Enviando…') }}
           </template>
           <template v-else>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 2.5 10.5 13.5" /><path d="M21.5 2.5 14.5 21.5l-4-8-8-4z" /></svg>
-            {{ t('contactCard.submit', 'Enviar mensaje') }}
+            <SbText tag="span" field="t.contact.submit" kind="text" :label="labelOf('t.contact.submit')" :text="tx('t.contact.submit', t('contactCard.submit', 'Enviar mensaje'))" />
           </template>
         </button>
         <p v-if="submitError" class="pc-error pc-error-submit" role="alert" data-testid="property-contact-error">{{ submitError }}</p>
@@ -148,6 +148,8 @@
 <script setup lang="ts">
 import type { ContactTone } from '~/utils/siteBuilder/pages'
 import { contactToneColors } from '~/utils/contactTone'
+import { fichaNode } from '~/utils/siteBuilder/fichaNodes'
+import SbText from '~/components/site-builder/nodes/SbText.vue'
 
 /**
  * «Atendido por» de la ficha pública: quién atiende la propiedad, el
@@ -182,12 +184,22 @@ const props = defineProps<{
   tone?: ContactTone
   /** Sólo se enseña: el formulario no envía (Constructor Web: lienzo y Vista previa). */
   readonly?: boolean
+  /** Textos fijos reescritos en la plantilla (`t.contact.*`, utils/siteBuilder/fichaNodes.ts); sin ellos, los traducidos de siempre. */
+  texts?: Record<string, unknown>
   /** Hay agenda con la que reservar: enseña «Solicitar visita». */
   canBook?: boolean
   /** En escritorio, con la tarjeta fija y más alta que la pantalla: la cabecera se queda a la vista. */
   stickyHead?: boolean
 }>()
 const emit = defineEmits<{ visit: [] }>()
+
+// Los textos fijos de la tarjeta se reescriben en el Constructor (ficha editable): el guardado en la
+// plantilla o, sin él, el traducido de siempre. Las validaciones, consentimientos y el envío no cambian.
+const tx = (field: string, translated: string) => {
+  const saved = props.texts?.[field]
+  return typeof saved === 'string' && saved.trim() ? saved : translated
+}
+const labelOf = (field: string) => fichaNode(field)?.label
 
 const { t } = useI18n()
 const { tenant } = useTenant()

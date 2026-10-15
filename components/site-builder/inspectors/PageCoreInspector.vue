@@ -15,37 +15,8 @@
     <!-- Ficha (megaprompt «ficha»): la tarjeta principal, «Atendido por», la tabla energética y las secciones sin datos.
          Sólo presentación: los datos siguen saliendo de cada propiedad (Property Core). -->
     <template v-if="content.core === 'property-detail'">
-      <InspectorSection title="Tarjeta principal">
-        <ToggleField label="Referencia («Ref.»)" :model-value="ficha.showReference" data-testid="page-core-show-reference" @update:model-value="(v) => (content.showReference = v)" />
-        <ToggleField label="Descripción bajo el título" :model-value="ficha.showDescription" data-testid="page-core-show-description" @update:model-value="(v) => (content.showDescription = v)" />
-        <p class="mt-1 text-[11px] leading-relaxed text-stone-400">La referencia es el «Código comercial» de cada propiedad y sólo sale si lo tiene. La descripción larga se recorta con «Ver más».</p>
-      </InspectorSection>
-      <InspectorSection title="Atendido por">
-        <SegmentedField
-          label="Fondo de la tarjeta"
-          :model-value="toneMode"
-          :options="[{ value: 'brand', label: 'Color de marca' }, { value: 'white', label: 'Blanco' }, { value: 'custom', label: 'Otro color' }]"
-          data-testid="page-core-contact-tone"
-          @update:model-value="setToneMode"
-        />
-        <ColorField v-if="toneMode === 'custom'" label="Color" :model-value="ficha.contactTone.startsWith('#') ? ficha.contactTone : undefined" test-id="page-core-contact-color" @update:model-value="setToneColor" />
-        <p class="mt-1 text-[11px] leading-relaxed text-stone-400">Un tono suave para que destaque: el de tu color de marca o el que elijas, aclarado lo necesario para que se lea bien. En escritorio la tarjeta se queda a la vista al bajar por la ficha.</p>
-      </InspectorSection>
-      <EnergyOptionsFields :value="content.energy" content-title="Eficiencia energética" :design-tab="false" @set="setEnergy" />
-      <!-- Galería multimedia (Cola 5): sólo presentación. Las categorías (fotos, vídeos, planos, 360°, tour…) las decide cada propiedad. -->
-      <InspectorSection title="Galería" data-testid="page-core-gallery">
-        <SegmentedField label="Altura del mosaico" :model-value="gallery.height" :options="[{ value: 'compact', label: 'Compacta' }, { value: 'standard', label: 'Normal' }, { value: 'tall', label: 'Alta' }]" data-testid="page-core-gallery-height" @update:model-value="(v) => setGallery('height', v)" />
-        <SelectField label="Separación entre fotos" :model-value="String(gallery.gap)" :options="GALLERY_GAPS.map((g) => ({ value: String(g), label: g === 0 ? 'Sin separación' : `${g} px` }))" data-testid="page-core-gallery-gap" @update:model-value="(v) => setGallery('gap', Number(v))" />
-        <SliderField label="Esquinas" :model-value="gallery.radius" :min="0" :max="GALLERY_RADIUS_MAX" :step="2" unit="px" data-testid="page-core-gallery-radius" @update:model-value="(v) => setGallery('radius', v)" />
-        <ToggleField label="Contador «1 / N»" :model-value="gallery.showCounter" data-testid="page-core-gallery-counter" @update:model-value="(v) => setGallery('showCounter', v)" />
-        <ToggleField label="Botón «Ver todas las fotos»" :model-value="gallery.showAllButton" data-testid="page-core-gallery-see-all" @update:model-value="(v) => setGallery('showAllButton', v)" />
-        <SegmentedField label="Categorías bajo el mosaico" :model-value="gallery.categories" :options="[{ value: 'chips', label: 'Etiquetas' }, { value: 'cards', label: 'Tarjetas' }, { value: 'hidden', label: 'Ocultas' }]" data-testid="page-core-gallery-categories" @update:model-value="(v) => setGallery('categories', v)" />
-        <SegmentedField label="Iconos" :model-value="gallery.iconStyle" :options="[{ value: 'outline', label: 'Trazo' }, { value: 'solid', label: 'Marcado' }]" data-testid="page-core-gallery-icons" @update:model-value="(v) => setGallery('iconStyle', v)" />
-        <SegmentedField label="Tipografía de etiquetas" :model-value="gallery.font" :options="[{ value: 'inherit', label: 'Texto' }, { value: 'display', label: 'Títulos' }]" data-testid="page-core-gallery-font" @update:model-value="(v) => setGallery('font', v)" />
-        <SegmentedField label="Color de acento" :model-value="galleryAccentMode" :options="[{ value: 'brand', label: 'Color de marca' }, { value: 'custom', label: 'Otro color' }]" data-testid="page-core-gallery-accent-mode" @update:model-value="setGalleryAccentMode" />
-        <ColorField v-if="galleryAccentMode === 'custom'" label="Color" :model-value="gallery.accent || undefined" test-id="page-core-gallery-accent" @update:model-value="(v) => setGallery('accent', v && /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : null)" />
-        <p class="mt-1 text-[11px] leading-relaxed text-stone-400">El mosaico (portada grande y secundarias), «Ver todas las fotos (n)» y las categorías del visor se rellenan con la multimedia real de cada propiedad: fotos clasificadas por estancia, vídeos, planos, 360° y tour virtual. Una categoría sin contenido no aparece. Esto sólo cambia cómo se ve.</p>
-      </InspectorSection>
+      <!-- Las opciones de cada bloque: las mismas que se ven al seleccionar ese bloque en el lienzo o en «Estructura». -->
+      <FichaBlockOptions :content="content" />
       <InspectorSection title="Secciones sin datos">
         <ToggleField label="Ocultar automáticamente si no hay datos" :model-value="ficha.hideEmpty" data-testid="page-core-hide-empty" @update:model-value="(v) => (content.hideEmpty = v)" />
         <p class="mt-1 text-[11px] leading-relaxed text-stone-400">
@@ -53,19 +24,6 @@
         </p>
       </InspectorSection>
     </template>
-    <InspectorSection v-if="content.core === 'property-detail'" title="Propiedades destacadas">
-      <p class="mb-3 text-[12px] leading-relaxed text-stone-500">
-        Debajo de «Propiedades similares», las que marcas como <strong>Exclusiva</strong> en Propiedades (web), sin repetir la que se está viendo ni las similares. Si no hay ninguna, la sección no aparece.
-      </p>
-      <ToggleField label="Mostrar en la ficha" :model-value="content.showFeatured !== false" data-testid="page-core-show-featured" @update:model-value="(v) => (content.showFeatured = v)" />
-      <TextField
-        v-if="content.showFeatured !== false"
-        label="Título"
-        :model-value="content.featuredTitle || ''"
-        placeholder="Propiedades destacadas"
-        @update:model-value="(v) => (content.featuredTitle = v)"
-      />
-    </InspectorSection>
     <!-- Catálogo: qué partes del buscador se enseñan y con qué operación arranca.
          Sólo presentación: lo que se encuentra lo decide Property Search. -->
     <InspectorSection v-if="content.core === 'properties-listing'" title="Buscador del catálogo">
@@ -117,14 +75,9 @@
 <script setup lang="ts">
 import InspectorSection from '../inspector/InspectorSection.vue'
 import SearchFieldsInspector from '../inspector/SearchFieldsInspector.vue'
+import FichaBlockOptions from '../inspector/FichaBlockOptions.vue'
 import ToggleField from '../inspector/fields/ToggleField.vue'
-import TextField from '../inspector/fields/TextField.vue'
 import SegmentedField from '../inspector/fields/SegmentedField.vue'
-import ColorField from '../inspector/fields/ColorField.vue'
-import SelectField from '../inspector/fields/SelectField.vue'
-import SliderField from '../inspector/fields/SliderField.vue'
-import EnergyOptionsFields from '../inspector/EnergyOptionsFields.vue'
-import { GALLERY_GAPS, GALLERY_RADIUS_MAX } from '~/utils/mediaGallery'
 import { CATALOG_FILTER_GROUPS, FICHA_SECTIONS, PAGE_CORE_LABELS, PAGE_CORE_SOURCES, catalogDisplayOptions, fichaDisplayOptions, normalizeCatalogFilters, normalizeFichaSections, type FichaSectionSetting, type PageCoreKind } from '~/utils/siteBuilder/pages'
 
 /**
@@ -182,30 +135,6 @@ function setDisplay(key: 'showPanel' | 'showOperation' | 'showSort' | 'showNewSe
 }
 // Ficha: lo que se ve con lo guardado (o lo de partida).
 const ficha = computed(() => fichaDisplayOptions(props.content))
-const customTone = ref(false)
-const toneMode = computed(() => (customTone.value || ficha.value.contactTone.startsWith('#') ? 'custom' : ficha.value.contactTone))
-function setToneMode(v: string) {
-  customTone.value = v === 'custom'
-  if (v === 'brand' || v === 'white') props.content.contactTone = v
-}
-function setToneColor(v: string | undefined) {
-  if (v && /^#[0-9a-f]{6}$/i.test(v)) props.content.contactTone = v.toLowerCase()
-  else if (!v) props.content.contactTone = 'brand'
-}
-// Galería (Cola 5): se guarda el objeto `gallery` con sólo lo que difiere de lo de partida (el servidor lo compacta).
-const gallery = computed(() => ficha.value.gallery)
-const customGalleryAccent = ref(false)
-const galleryAccentMode = computed(() => (customGalleryAccent.value || gallery.value.accent ? 'custom' : 'brand'))
-function setGallery(key: string, value: unknown) {
-  props.content.gallery = { ...(props.content.gallery && typeof props.content.gallery === 'object' ? props.content.gallery : {}), [key]: value }
-}
-function setGalleryAccentMode(v: string) {
-  customGalleryAccent.value = v === 'custom'
-  if (v === 'brand') setGallery('accent', null)
-}
-function setEnergy(key: string, value: unknown) {
-  props.content.energy = { ...(props.content.energy && typeof props.content.energy === 'object' ? props.content.energy : {}), [key]: value }
-}
 function toggle(i: number) {
   if (!list.value) return
   const next = list.value.normalize(props.content[list.value.field])

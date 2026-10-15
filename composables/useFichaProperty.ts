@@ -17,22 +17,54 @@ export interface FichaSample {
   property: (FichaPayload & Record<string, any>) | null
 }
 
-let inFlight: Promise<FichaSample> | null = null
+/** En el lienzo del Constructor, la propiedad elegida en «Previsualizar con» (pages/admin/site-builder/canvas.vue); null, la más reciente. */
+export const FICHA_SAMPLE_ID_KEY: InjectionKey<Ref<number | null>> = Symbol('ficha-sample-id')
+
+const inFlight = new Map<string, Promise<FichaSample>>()
+const EMPTY: FichaSample = { brandColor: null, property: null }
 
 /**
  * En el Constructor (lienzo y Vista previa), la propiedad de ejemplo de la
  * página «Ficha de propiedad» (/api/admin/site-pages/ficha-sample): la misma
- * respuesta que su ficha pública. Una sola petición por carga del lienzo,
- * aunque la pidan la zona dinámica y varias secciones a la vez.
+ * respuesta que su ficha pública. La más reciente de la empresa o, con
+ * «Previsualizar con», la elegida (siempre de la misma empresa: el servidor
+ * no sirve otra). Una sola petición por propiedad, aunque la pidan la zona
+ * dinámica y varias secciones a la vez; al cambiar la elegida se vuelve a
+ * pedir. Una elegida que ya no existe cae a la más reciente.
  */
 export function useFichaSample() {
+  const wanted = inject(FICHA_SAMPLE_ID_KEY, null)
   const sample = useState<FichaSample | null>('ficha-sample', () => null)
+  const sampleKey = useState<string>('ficha-sample-key', () => '')
   const loading = ref(!sample.value)
-  onMounted(async () => {
-    if (sample.value) return
-    inFlight ||= $fetch<FichaSample>('/api/admin/site-pages/ficha-sample').catch(() => ({ brandColor: null, property: null }))
-    sample.value = await inFlight
+
+  function request(id: number | null): Promise<FichaSample> {
+    const key = String(id ?? 'latest')
+    let p = inFlight.get(key)
+    if (!p) {
+      p = $fetch<FichaSample>('/api/admin/site-pages/ficha-sample', { query: id === null ? {} : { propertyId: id } })
+        .catch(() => (id === null ? EMPTY : $fetch<FichaSample>('/api/admin/site-pages/ficha-sample').catch(() => EMPTY)))
+        .finally(() => inFlight.delete(key))
+      inFlight.set(key, p)
+    }
+    return p
+  }
+  async function load() {
+    const id = wanted?.value ?? null
+    const key = String(id ?? 'latest')
+    if (sample.value && sampleKey.value === key) {
+      loading.value = false
+      return
+    }
+    loading.value = !sample.value
+    const result = await request(id)
+    // Si mientras tanto se eligió otra, esta respuesta ya no vale.
+    if (String(wanted?.value ?? 'latest') !== key) return
+    sample.value = result
+    sampleKey.value = key
     loading.value = false
-  })
+  }
+  onMounted(load)
+  if (wanted) watch(wanted, load)
   return { sample, loading }
 }

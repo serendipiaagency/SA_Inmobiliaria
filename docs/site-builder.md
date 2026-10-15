@@ -1059,6 +1059,72 @@ guarda el servidor y la hoja generada) y `tests/e2e/ficha-editable.spec.ts`
 tamaño, texto fijo, ocultar y reordenar, deshacer, persistencia, publicación y
 aislamiento entre dos inmobiliarias).
 
+### Opciones propias de cada bloque (Cola 7, paso 2)
+
+Con un bloque seleccionado, la pestaña «Contenido» enseña **sus** opciones de
+presentación (`components/site-builder/inspector/FichaBlockOptions.vue`; con
+la zona entera seleccionada salen todas seguidas). Cada control cambia algo que
+la web ya lee de la plantilla: no hay controles sin efecto.
+
+| Bloque | Opciones | Dónde se guardan |
+|---|---|---|
+| Tarjeta principal (`b.summary`) | «Ref.» y descripción visibles | `showReference`, `showDescription` |
+| Descripción (`b.description`) | Líneas visibles antes de «Ver más» (3, 4, 6, 8, 12) | `descriptionLines` |
+| Datos clave (`b.keyfacts`) | Columnas en escritorio: en fila (de siempre), 2, 3 o 4 | `factsColumns` |
+| Galería (`b.gallery`) | Altura, separación, esquinas, contador, «Ver todas», categorías, iconos, tipografía, acento | `gallery` |
+| Eficiencia energética (`s.energia`) | Título, qué se enseña, desplegable, imágenes, escala (`EnergyOptionsFields`) | `energy` |
+| Ubicación (`s.ubicacion`) | Altura del mapa: baja, normal, alta | `mapHeight` |
+| Atendido por (`b.contact`) | Fondo (marca, blanco, color) y los textos: etiqueta, título, frase y botón | `contactTone`, `t.contact.*` |
+| Propiedades similares (`b.similar`) | Mostrar «Propiedades destacadas» y su título | `showFeatured`, `featuredTitle` |
+
+Las opciones de lista cerrada (`descriptionLines`, `factsColumns`, `mapHeight`)
+viven en `FICHA_CHOICES` (`utils/siteBuilder/pages.ts`): un valor fuera de la
+lista se descarta y lo que es igual a lo de partida no se guarda, así que una
+ficha sin personalizar no cambia ni un byte.
+
+**Lo que no se toca.** El formulario de «Atendido por» conserva campos,
+validaciones, consentimiento, campo trampa antispam, lead, enrutado y asociación
+con la propiedad y la inmobiliaria: sólo se reescriben sus textos (etiqueta,
+título, frase y botón; el texto legal y los mensajes de error no son nodos). El
+mapa no tiene zoom editable: una propiedad con ubicación aproximada no debe
+revelar la exacta. Un texto reescrito vale para todos los idiomas.
+
+**Avanzado.** Una sección se oculta y se mueve desde su inspector («Visibilidad y
+orden»), con la misma lista `sections` que el árbol. Lo que la ficha necesita
+(`FICHA_REQUIRED_NODES`: migas, galería, tarjeta principal con el título,
+barra de apartados, precio con la próxima visita y «Atendido por») no se oculta
+ni se mueve; sólo cambia de aspecto.
+
+### «Previsualizar con» y visibilidad por tamaño (Cola 7, paso 3)
+
+**Previsualizar con.** En la barra superior de la página «Ficha de propiedad»
+(`components/site-builder/shell/FichaPreviewPicker.vue`) se elige con qué
+propiedad se pinta el lienzo; de partida, la más reciente de la empresa. Es una
+preferencia de la sesión del editor (`sessionStorage`), no del borrador:
+cambiarla no cambia la plantilla ni crea cambios pendientes. El shell la manda al
+lienzo en `set-state` (`previewPropertyId`) y `useFichaSample()` vuelve a pedir
+`/api/admin/site-pages/ficha-sample?propertyId=`; una elegida que ya no existe cae
+a la más reciente.
+
+**Multiempresa.** `ficha-properties.get.ts` (el listado, con búsqueda `q`) y
+`ficha-sample.get.ts` filtran siempre por la empresa activa (`requireOrgScope`) y
+excluyen la papelera. Un `propertyId` de otra empresa y uno inexistente dan el
+mismo 404 (no se confirma que exista); uno inválido, 400. La búsqueda escapa los
+comodines de `LIKE`.
+
+**Visibilidad por tamaño.** Una propiedad más de los estilos de nodo
+(`display: 'none'`, `utils/siteBuilder/nodes.ts`) sigue la herencia de siempre:
+oculto en Escritorio, lo está en Tablet y Móvil; oculto en Tablet, también en
+Móvil; oculto sólo en Móvil, se ve en los otros dos. Se activa en «Avanzado» →
+«Visibilidad por tamaño» con la vista del tamaño elegido, y no está disponible para
+`FICHA_REQUIRED_NODES`.
+
+**Pruebas.** `test/unit/fichaOpciones.test.ts` (opciones de lista cerrada, textos de
+«Atendido por», bloques con opciones), `tests/e2e/ficha-inspector.spec.ts` (cada
+bloque: opciones, lienzo, borrador, web publicada y formulario) y
+`tests/e2e/ficha-previsualizar.spec.ts` (selector, aislamiento, plantilla intacta,
+visibilidad por tamaño, tablet).
+
 ## Vista previa de la web y aviso de cookies
 
 La vista previa de una web sin dominio (`?vista_previa=<id>`,

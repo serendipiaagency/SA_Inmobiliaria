@@ -117,6 +117,12 @@ export interface NodeStyleProps {
   objectPosition?: string
   /** 0–100 */
   opacity?: number
+  /**
+   * `none` oculta el elemento. Sigue la herencia de los demás: oculto en
+   * escritorio, lo está también en tablet y móvil; oculto en tablet, lo está
+   * en móvil; oculto sólo en móvil, se ve en los otros dos.
+   */
+  display?: 'none'
 }
 
 export interface NodeStyle extends NodeStyleProps {
@@ -158,6 +164,7 @@ export const STYLE_SPECS: Record<keyof NodeStyleProps, Spec> = {
   objectFit: { kind: 'enum', values: ['cover', 'contain'] },
   objectPosition: { kind: 'position' },
   opacity: { kind: 'number', min: 0, max: 100, integer: true },
+  display: { kind: 'enum', values: ['none'] },
 }
 
 /** Los valores de foco que ofrece el inspector; el saneado admite también cualquier `X% Y%`. */
@@ -343,6 +350,7 @@ export function styleDeclarations(props: NodeStyleProps | undefined): string[] {
   if (props.objectFit) d.push(`object-fit:${props.objectFit}`)
   if (props.objectPosition) d.push(`object-position:${props.objectPosition}`)
   if (props.opacity !== undefined) d.push(`opacity:${props.opacity / 100}`)
+  if (props.display === 'none') d.push('display:none')
   return d
 }
 

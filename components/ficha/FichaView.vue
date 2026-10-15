@@ -48,6 +48,7 @@
                     v-bind="n('d.description')"
                     class="desc mt-2 whitespace-pre-line text-[14px] leading-[1.8] text-stone-600 [&_a]:text-accent-700 [&_a]:underline [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5"
                     :class="{ 'desc-clamped': !descOpen && descOverflows }"
+                    :style="{ '--desc-lines': display.descriptionLines }"
                     data-testid="ficha-description-text"
                     v-html="data.project.description"
                   />
@@ -65,7 +66,7 @@
               </div>
             </div>
 
-            <ul v-if="keyFacts.length" v-bind="n('b.keyfacts')" class="ficha-facts mt-6" :class="{ 'border-t border-[#f1eee8] pt-6': showDescription }" data-testid="ficha-key-facts">
+            <ul v-if="keyFacts.length" v-bind="n('b.keyfacts')" class="ficha-facts mt-6" :class="{ 'border-t border-[#f1eee8] pt-6': showDescription }" :data-cols="display.factsColumns" data-testid="ficha-key-facts">
               <li v-for="f in keyFacts" :key="f.key" class="ficha-fact" :data-fact="f.key">
                 <!-- SVG fijo de utils/featureIcons.ts, nunca datos -->
                 <span class="shrink-0 text-stone-400" aria-hidden="true" v-html="featureIconSvg(f.key, 22)" />
@@ -197,7 +198,7 @@
 
           <!-- Ubicación / mapa -->
           <PropertySectionCard v-if="show('ubicacion') && has('ubicacion')" id="ubicacion" v-bind="n('s.ubicacion')" title-field="t.ubicacion.title" :title="tx('t.ubicacion.title', t('propertyDetails.location.heading', 'Dónde está'))" :style="at('ubicacion')">
-            <div class="relative h-80 overflow-hidden rounded-xl border border-[#ece8e1]">
+            <div class="relative overflow-hidden rounded-xl border border-[#ece8e1]" :class="MAP_HEIGHT_CLASS[display.mapHeight]" :data-map-height="display.mapHeight" data-testid="ficha-map">
               <ClientOnly>
                 <PropertyLocationMap v-if="hasValidCoords(data.project)" :lat="data.project.lat" :lng="data.project.lng" :label="data.project.community || data.project.name" />
                 <template v-else>
@@ -265,7 +266,7 @@
           </div>
           <div class="ficha-contact-rail" :style="{ '--ficha-sticky-top': `${stickyTop}px` }">
             <div id="contacto" ref="contactRef" class="ficha-contact-sticky scroll-mt-28" data-testid="ficha-contact-sticky">
-              <PropertyContactCard v-bind="n('b.contact')" :readonly="mode !== 'production'" :project="data.project" :agent="data.agent" :tone="contactTone" :can-book="!!agentSlug && agendaState !== 'none'" :sticky-head="contactTall" @visit="requestVisit" />
+              <PropertyContactCard v-bind="n('b.contact')" :readonly="mode !== 'production'" :texts="coreOptions" :project="data.project" :agent="data.agent" :tone="contactTone" :can-book="!!agentSlug && agendaState !== 'none'" :sticky-head="contactTall" @visit="requestVisit" />
             </div>
           </div>
           <!-- Última actualización, fecha de publicación y la misma «REF:» de las migas: sin datos, no existe. -->
@@ -352,6 +353,8 @@ const coreOptions = computed<Record<string, any>>(() => props.coreOptions || {})
 // tarjeta principal, fondo de «Atendido por», presentación de la tabla
 // energética y si las secciones sin datos se ocultan solas.
 const display = computed(() => fichaDisplayOptions(coreOptions.value))
+// Altura del mapa de «Ubicación» según la opción del Constructor (la de siempre es h-80).
+const MAP_HEIGHT_CLASS: Record<string, string> = { compact: 'h-56', standard: 'h-80', tall: 'h-[30rem]' }
 // Los nodos de la ficha editable (utils/siteBuilder/fichaNodes.ts): `n('b.price')` pone en el
 // elemento los atributos que lo hacen seleccionable y estilizable desde el Constructor.
 const { attrs: n } = useFichaNodes()
@@ -630,6 +633,28 @@ onUnmounted(() => {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+/* Columnas elegidas en el Constructor (≥ 640 px): una cuadrícula sin separadores en lugar de la fila de siempre. */
+@media (min-width: 640px) {
+  .ficha-facts[data-cols='2'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ficha-facts[data-cols='3'] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1280px) {
+  .ficha-facts[data-cols='2'],
+  .ficha-facts[data-cols='3'],
+  .ficha-facts[data-cols='4'] {
+    display: grid;
+    gap: 20px 24px;
+  }
+  .ficha-facts[data-cols='2'] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ficha-facts[data-cols='3'] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ficha-facts[data-cols='4'] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ficha-facts[data-cols='2'] .ficha-fact,
+  .ficha-facts[data-cols='3'] .ficha-fact,
+  .ficha-facts[data-cols='4'] .ficha-fact {
+    padding: 0;
+    border-left: 0;
+  }
+}
 /* Escritorio: una fila con separadores verticales, como la referencia. */
 @media (min-width: 1280px) {
   .ficha-facts {
@@ -666,7 +691,8 @@ onUnmounted(() => {
   }
 }
 .desc-clamped {
-  max-height: 7.2em;
+  /* Las líneas de partida son 4 (1,8 de interlineado); el Constructor puede cambiarlas (--desc-lines). */
+  max-height: calc(var(--desc-lines, 4) * 1.8em);
   overflow: hidden;
   -webkit-mask-image: linear-gradient(180deg, #000 60%, transparent);
   mask-image: linear-gradient(180deg, #000 60%, transparent);
