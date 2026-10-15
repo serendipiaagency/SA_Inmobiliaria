@@ -45,6 +45,18 @@ test.describe('Gestor de la galería', () => {
     await Promise.all([a?.dispose(), b?.dispose(), anon?.dispose()])
   })
 
+  /**
+   * Los botones de cada foto («Usar como portada», «Datos», «Eliminar») salen al pasar
+   * el ratón o al enfocar la tarjeta. Se pulsan como lo haría una persona: se acerca el
+   * ratón a la tarjeta y se pulsa el botón ya visible. Con `force` el clic podía caer
+   * en otro elemento sin que nada fallara y la prueba esperaba un cambio que no ocurría.
+   */
+  async function clickOnCard(page: import('@playwright/test').Page, testId: string) {
+    const button = page.getByTestId(testId)
+    await page.getByTestId('gallery-item').filter({ has: button }).hover()
+    await button.click()
+  }
+
   async function openGallery(page: import('@playwright/test').Page) {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(`/admin/developer-properties/${propertyId}`)
@@ -101,7 +113,7 @@ test.describe('Gestor de la galería', () => {
     await expect.poll(async () => (await rows())[0].room).toBe('kitchen')
     // Su descripción desde «Datos».
     const id0 = (await rows())[0].id
-    await page.getByTestId(`gallery-item-edit-${id0}`).click({ force: true })
+    await clickOnCard(page, `gallery-item-edit-${id0}`)
     await page.getByTestId('media-metadata-description').fill('Cocina con isla y zona de desayuno')
     await page.getByTestId('media-metadata-save').click()
     await expect.poll(async () => (await rows())[0].description).toBe('Cocina con isla y zona de desayuno')
@@ -140,7 +152,7 @@ test.describe('Gestor de la galería', () => {
     expect(pub.gallery.map((g: any) => g.id)).toEqual((await rows()).map((r) => r.id))
     // Portada: «Usar como portada» y guardar; la web la pone la primera del mosaico.
     const target = (await rows())[2]
-    await page.getByTestId(`gallery-item-cover-${target.id}`).click({ force: true })
+    await clickOnCard(page, `gallery-item-cover-${target.id}`)
     await page.getByTestId('property-editor-save').click()
     await expect(page.getByTestId('property-editor-save-state')).toHaveText('Guardado', { timeout: 8000 })
     // «Guardado» puede ser el de antes del clic: se espera a que la portada llegue a la API, no se lee una sola vez.
@@ -161,7 +173,7 @@ test.describe('Gestor de la galería', () => {
     // Tras ocultar, la lista se vuelve a cargar: el clic puede caer antes de que el botón esté activo, así que se repite hasta que sale la confirmación.
     const dialog = page.getByRole('alertdialog')
     await expect(async () => {
-      await page.getByTestId(`gallery-item-delete-${lastId}`).click({ force: true })
+      await clickOnCard(page, `gallery-item-delete-${lastId}`)
       await expect(dialog).toBeVisible({ timeout: 2_000 })
     }).toPass({ timeout: 15_000 })
     await dialog.getByRole('button', { name: 'Eliminar' }).click()
