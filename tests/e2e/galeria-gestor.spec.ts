@@ -143,8 +143,10 @@ test.describe('Gestor de la galería', () => {
     await page.getByTestId(`gallery-item-cover-${target.id}`).click({ force: true })
     await page.getByTestId('property-editor-save').click()
     await expect(page.getByTestId('property-editor-save-state')).toHaveText('Guardado', { timeout: 8000 })
-    const row = (await (await a.get(`/api/admin/developer-properties/${propertyId}`)).json()).row
-    expect(row.coverImage).toBe(target.image)
+    // «Guardado» puede ser el de antes del clic: se espera a que la portada llegue a la API, no se lee una sola vez.
+    await expect
+      .poll(async () => (await (await a.get(`/api/admin/developer-properties/${propertyId}`)).json()).row.coverImage, { timeout: 15_000 })
+      .toBe(target.image)
     await page.goto(`/propiedades/${slug}`)
     await expect(page.getByTestId('gallery-main').locator('img')).toHaveAttribute('src', new RegExp(target.image.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
     // Ocultar y eliminar desde el gestor.
@@ -156,8 +158,13 @@ test.describe('Gestor de la galería', () => {
     const pubHidden = await (await anon.get(`/api/public/properties/${slug}`)).json()
     expect(pubHidden.gallery.length).toBe(total - 1)
     const lastId = (await rows()).at(-1)!.id
-    await page.getByTestId(`gallery-item-delete-${lastId}`).click({ force: true })
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Eliminar' }).click()
+    // Tras ocultar, la lista se vuelve a cargar: el clic puede caer antes de que el botón esté activo, así que se repite hasta que sale la confirmación.
+    const dialog = page.getByRole('alertdialog')
+    await expect(async () => {
+      await page.getByTestId(`gallery-item-delete-${lastId}`).click({ force: true })
+      await expect(dialog).toBeVisible({ timeout: 2_000 })
+    }).toPass({ timeout: 15_000 })
+    await dialog.getByRole('button', { name: 'Eliminar' }).click()
     await expect.poll(async () => (await rows()).length).toBe(total - 1)
   })
 
