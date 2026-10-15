@@ -147,13 +147,14 @@ test.describe('Ficha ampliada: planos, estado, edificio, documentos y reserva', 
     await page.keyboard.press('Escape')
     await expect(viewer).toBeHidden()
 
-    // Galería: sólo las pestañas con contenido.
-    const tabs = await page.locator('[data-gallery-tab]').evaluateAll((els) => els.map((e) => e.getAttribute('data-gallery-tab')))
-    expect(tabs).toContain('fotos')
-    expect(tabs).toContain('plano')
-    for (const none of ['video', 'drone', 'noche', 'redes', '360']) expect(tabs, none).not.toContain(none)
-    await page.locator('[data-gallery-tab="plano"]').click()
-    await expect(page.getByTestId('gallery-plans')).toBeVisible()
+    // Galería: sólo las categorías con contenido (fotos y planos), en la fila bajo el mosaico.
+    const cats = await page.locator('[data-testid="gallery-categories"] [data-gallery-category]').evaluateAll((els) => els.map((e) => e.getAttribute('data-gallery-category')))
+    expect(cats).toContain('photos')
+    expect(cats).toContain('plans')
+    for (const none of ['videos', 'drone', 'night', 'social', 'pano360', 'tour']) expect(cats, none).not.toContain(none)
+    await page.locator('[data-testid="gallery-categories"] [data-gallery-category="plans"]').click()
+    await expect(page.getByTestId('gallery-viewer')).toBeVisible()
+    await expect(page.getByTestId('gallery-viewer-grid')).toBeVisible()
   })
 
   test('estado del inmueble y edificio: lo que consta, separado; sin datos, sin tarjetas ni pestañas', async ({ page }) => {

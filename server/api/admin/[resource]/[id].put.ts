@@ -32,7 +32,7 @@ import { isSubtypeOf } from '../../../../utils/propertySheet'
 import { applyCommercialStatusRulesOnSave, assertPropertyDatesOnSave } from '../../../utils/properties/commercialStatus'
 import { isPropertyTrashed } from '../../../utils/properties/trash'
 import { documentUpdateFromBody, grantDocumentAccess, revokeDocumentAccess } from '../../../utils/properties/documents'
-import { PROPERTY_FILE_COLUMNS, enforceSingleMainMedia, releaseMediaKeyIfUnreferenced, syncMediaKeyVisibility, validatePropertyMedia } from '../../../utils/properties/media'
+import { PROPERTY_FILE_COLUMNS, enforceSingleMainMedia, releaseMediaKeyIfUnreferenced, syncMediaKeyVisibility, assertOwnedThumbKey, validatePropertyMedia } from '../../../utils/properties/media'
 import { isCustomFieldValueResource, validateCustomFieldDefinition } from '../../../utils/customFields/service'
 import { isTagLinkResource } from '../../../utils/tags/service'
 import { updateAutomation } from '../../../utils/automations/service'
@@ -189,6 +189,8 @@ export default defineEventHandler(async (event) => {
   if (key === 'notes') await validateNotePayload(db, orgId!, data, existing as any)
   if (key === 'lead-routing-rules') await validateRoutingRule(db, orgId!, data, existing as any)
   if (key === 'property-media') await validatePropertyMedia(db, orgId!, data, existing as any)
+  // Galería por categorías (Cola 5): la miniatura es un fichero de esta agencia.
+  if (key === 'property-media' || key === 'project-images' || key === 'gallery-images') await assertOwnedThumbKey(db, orgId!, data)
   if (key === 'custom-fields') await validateCustomFieldDefinition(db, orgId!, data, existing as any)
   // Bloque N8b: se validan con la fila existente (search_text necesita el
   // documento entero; un ajuste de cerebro, saber de qué perfil es).

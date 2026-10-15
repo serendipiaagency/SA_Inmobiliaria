@@ -879,6 +879,52 @@ un contorno inventado engañaría.
 `/api/public/location-suggest` (400 peticiones / 5 min por IP) y
 `/api/public/location-resolve` (200 / 5 min) van tras el limitador de
 `server/utils/rateLimit.ts`.
+## Galería multimedia de la ficha (Cola 5)
+
+La galería de la ficha pública (`components/property/GalleryBlock.vue`) va a
+ancho completo **encima** de las dos columnas. Sale del modelo puro de
+`utils/mediaGallery.ts` (`buildGalleryModel`), que se construye una sola vez
+con lo que devuelve `/api/public/properties/<slug>`:
+
+- **Mosaico** (`GalleryMosaic.vue`): la portada grande y hasta cuatro
+  secundarias (`mosaicLayout`: 1, 2, 3, 4 o 5 con rejillas propias, sin
+  huecos), contador real y «Ver todas las fotos (n)»; en el móvil, la
+  principal y un carrusel. Portada con `fetchpriority=high` (LCP) y el resto
+  `lazy`; las secundarias, categorías y cuadrícula usan la miniatura de cada
+  foto (`thumb_key`) y el original sólo se descarga al ampliar.
+- **Categorías**, siempre del backend y sólo si tienen contenido: Todas las
+  fotos (portada + galería del editor, sin repetir), Vídeos (`videoUrl` y
+  `property_media` vídeo), Planos (`floor_plans` + plano de la promoción),
+  Vista 360° (`pano360`), Tour virtual (`virtual_tour` y el enlace de la
+  ficha ampliada), Renders, Vista aérea, Nocturna, Antes y después,
+  Decoración virtual y Redes. **Estancias** (`utils/mediaRooms.ts`, 19 claves)
+  como filtro dentro de las fotos: sólo las que tienen fotos; una foto sin
+  estancia sigue en «Todas». Las «Estancias» de Property Core
+  (`developer_property_rooms`) son texto libre y describen la distribución de
+  la vivienda: no se reutilizan.
+- **Visor** (`GalleryViewer.client.vue`, `role=dialog`, foco atrapado,
+  teclado en el documento): cabecera con volver, categorías (miniatura, icono
+  y número), contador y cerrar; cuadrícula o elemento; vídeos con
+  `ConsentGate` (YouTube y Vimeo sin cookies, Matterport —única plataforma de
+  tour incrustada y añadida a `frame-src`—; cualquier otro proveedor, enlace
+  que se abre aparte); planos con el visor de zoom existente y descarga;
+  360° con `Pano360Viewer`. «Atrás» del navegador lo cierra y la ficha
+  conserva su posición.
+- **Constructor** (`PAGE_CORE_OPTIONS['property-detail'].gallery`,
+  `normalizeGalleryOptions`): altura, separación, esquinas, contador, «Ver
+  todas», categorías (etiquetas, tarjetas u ocultas), iconos, tipografía y
+  color de acento. Sólo presentación; el lienzo pinta el mismo mosaico con
+  la multimedia real de la propiedad de ejemplo.
+
+Clasificación persistida (migración 0097, sólo añade columnas NULL):
+`images` y `property_gallery_images` += `room`, `description`, `thumb_key`;
+`property_media` += `thumb_key`, `room`. El servidor valida la estancia
+contra el catálogo y exige que la miniatura sea un fichero de la agencia
+(`assertOwnedThumbKey`); la API pública trae además el ancho y alto del
+original (de `media_assets.metadata`). No hay servicio de variantes de
+imagen en el Worker: las miniaturas WebP (640 px) se generan en el navegador
+del panel (`utils/imageThumb.ts`) al subir o con «Generar miniaturas».
+No hay IA de visión en la plataforma, así que la clasificación es manual.
 
 ## Ficha de propiedad: descripción, «Atendido por», eficiencia energética y secciones sin datos
 

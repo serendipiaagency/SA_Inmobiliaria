@@ -12,6 +12,7 @@ import {
   isPublicMediaRow,
   type PropertyMediaType,
 } from '../../../utils/propertyMediaCatalog'
+import { isMediaRoom } from '../../../utils/mediaRooms'
 
 /**
  * Multimedia de una propiedad (FASE 7, bloque N7a): vídeos, tours virtuales,
@@ -71,6 +72,21 @@ export function normalizeMediaMetadata(data: Record<string, any>): Record<string
   if ('title' in data) data.title = cleanText(data.title, MEDIA_TEXT_LIMITS.title, 'Título')
   if ('alt' in data) data.alt = cleanText(data.alt, MEDIA_TEXT_LIMITS.alt, 'Texto alternativo')
   if ('caption' in data) data.caption = cleanText(data.caption, MEDIA_TEXT_LIMITS.caption, 'Pie de foto')
+  // Galería por categorías (Cola 5, migración 0097): la estancia es una del
+  // catálogo (o ninguna), la descripción un texto largo y la miniatura una
+  // clave de R2 de esta misma agencia (nunca un enlace externo).
+  if ('description' in data) data.description = cleanText(data.description, MEDIA_TEXT_LIMITS.description, 'Descripción')
+  if ('room' in data) {
+    const room = data.room === null || data.room === undefined || data.room === '' ? null : String(data.room)
+    if (room && !isMediaRoom(room)) fail(422, 'Estancia no válida')
+    data.room = room
+  }
+  if ('thumbKey' in data) {
+    const raw = data.thumbKey === null || data.thumbKey === undefined || data.thumbKey === '' ? null : String(data.thumbKey).trim()
+    const key = raw ? mediaKeyFromValue(raw) : null
+    if (raw && (!key || key.length > 400)) fail(422, 'Miniatura no válida')
+    data.thumbKey = key
+  }
   if ('language' in data) {
     const lang = data.language === null || data.language === undefined || data.language === '' ? null : String(data.language)
     if (lang && !(MEDIA_LANGUAGES as readonly string[]).includes(lang)) fail(422, 'Idioma no válido')
@@ -148,6 +164,18 @@ export async function validatePropertyMedia(db: any, orgId: number, data: Record
 
   normalizeMediaMetadata(data)
   if ('isMain' in data && data.isMain !== null) data.isMain = flag(data.isMain)
+}
+
+/**
+ * La miniatura de una foto o de un recurso (Cola 5) tiene que ser un fichero
+ * subido por esta misma agencia: se comprueba contra `media_assets`, como el
+ * fichero de un recurso. Una clave ajena (o inexistente) es un 404.
+ */
+export async function assertOwnedThumbKey(db: any, orgId: number, data: Record<string, any>): Promise<void> {
+  if (!('thumbKey' in data) || !data.thumbKey) return
+  const asset = await findOwnedMediaAsset(db, orgId, String(data.thumbKey))
+  if (!asset) fail(404, 'Miniatura no encontrada')
+  if (!String(asset.mimeType || '').startsWith('image/')) fail(422, 'La miniatura tiene que ser una imagen')
 }
 
 /** Un único recurso «principal» por propiedad y tipo: marcar uno desmarca el resto. */
@@ -365,6 +393,36 @@ export interface PublicGalleryImage {
   alt: string | null
   caption: string | null
   language: string | null
+  /** Galería por categorías (Cola 5): estancia del catálogo, descripción larga y clave de la miniatura (NULL = el original). */
+  room: string | null
+  description: string | null
+  thumb: string | null
+  /** Dimensiones del original (de `media_assets`), para pintar el hueco sin saltos; NULL si no constan. */
+  width: number | null
+  height: number | null
+}
+
+/**
+ * Ancho y alto de los ficheros que se registraron al subir (media_assets.metadata),
+ * por clave. Sólo claves de R2 (los enlaces externos no tienen ficha).
+ */
+export async function mediaDimensionsFor(db: any, keys: string[]): Promise<Map<string, { width: number; height: number }>> {
+  const out = new Map<string, { width: number; height: number }>()
+  const list = [...new Set(keys.map((k) => mediaKeyFromValue(k)).filter((k): k is string => !!k))]
+  if (!list.length) return out
+  const rows = await selectInChunks(list, (part) => db.select({ r2Key: schema.mediaAssets.r2Key, metadata: schema.mediaAssets.metadata }).from(schema.mediaAssets).where(inArray(schema.mediaAssets.r2Key, part)))
+  for (const r of rows as any[]) {
+    if (!r.metadata) continue
+    try {
+      const m = JSON.parse(String(r.metadata))
+      const width = Number(m?.width)
+      const height = Number(m?.height)
+      if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) out.set(r.r2Key, { width, height })
+    } catch {
+      // metadata que no es JSON: sin dimensiones.
+    }
+  }
+  return out
 }
 
 /**
@@ -379,13 +437,18 @@ export async function listPublicGallery(db: any, kind: PropertyKind, propertyIds
   const parent = kind === 'developer' ? schema.images.developerPropertyId : schema.propertyGalleryImages.propertyId
   const rows = await selectInChunks(propertyIds, (part) =>
     db
-      .select({ id: T.id, pid: parent, image: T.image, sortOrder: T.sortOrder, title: T.title, alt: T.alt, caption: T.caption, language: T.language })
+      .select({ id: T.id, pid: parent, image: T.image, sortOrder: T.sortOrder, title: T.title, alt: T.alt, caption: T.caption, language: T.language, room: T.room, description: T.description, thumb: T.thumbKey })
       .from(T)
       .where(and(inArray(parent, part), eq(T.isPublishable, 1), eq(T.isPrivate, 0), eq(T.isHidden, 0)))
       .orderBy(asc(T.sortOrder), asc(T.id)),
   )
+  const dims = await mediaDimensionsFor(db, (rows as any[]).map((r) => r.image))
   for (const r of rows as any[]) {
     const { pid, ...img } = r
+    const d = dims.get(mediaKeyFromValue(img.image) || '')
+    img.room = isMediaRoom(img.room) ? img.room : null
+    img.width = d?.width ?? null
+    img.height = d?.height ?? null
     ;(out.get(pid) || out.set(pid, []).get(pid)!).push(img)
   }
   for (const list of out.values()) list.sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)
@@ -403,6 +466,9 @@ export interface PublicPropertyMedia {
   language: string | null
   isMain: boolean
   sortOrder: number
+  /** Cola 5: miniatura o póster (URL) y estancia, si los tiene. */
+  thumb: string | null
+  room: string | null
 }
 
 /** Los recursos de `property_media` publicables (no privados, no ocultos, no en la papelera), con su URL lista para usar. */
@@ -435,6 +501,8 @@ export async function listPublicPropertyMedia(db: any, orgId: number, kind: Prop
       language: r.language,
       isMain: !!r.isMain,
       sortOrder: r.sortOrder,
+      thumb: r.thumbKey ? `/api/media/${r.thumbKey}` : null,
+      room: isMediaRoom(r.room) ? r.room : null,
     }))
     .filter((m: PublicPropertyMedia) => !!m.url)
 }

@@ -30,6 +30,7 @@ import {
 } from '../../utils/crmCatalog'
 import { LEAD_PRIORITIES, LEAD_PRIORITY_LABELS, LEAD_SOURCES, LEAD_SOURCE_LABELS, ROUTING_SCOPES, ROUTING_SCOPE_LABELS } from '../../utils/leadCatalog'
 import { MEDIA_LANGUAGES, MEDIA_LANGUAGE_LABELS, PROPERTY_MEDIA_TYPES, PROPERTY_MEDIA_TYPE_LABELS } from '../../utils/propertyMediaCatalog'
+import { MEDIA_ROOMS, MEDIA_ROOM_LABELS } from '../../utils/mediaRooms'
 import { normalizeMediaMetadata } from './properties/media'
 import { normalizeFloorPlan } from './properties/floorPlans'
 import { decorateDocumentRows } from './properties/documents'
@@ -208,6 +209,16 @@ const GALLERY_METADATA_FIELDS: Record<string, FieldDef> = {
   isPublishable: { type: 'number', label: 'Publicable' },
   isPrivate: { type: 'number', label: 'Privada' },
   isHidden: { type: 'number', label: 'Oculta' },
+}
+/** Galería por categorías (Cola 5, migración 0097): estancia y miniatura (fotos y multimedia) y descripción larga (sólo fotos). */
+const MEDIA_CLASSIFY_FIELDS: Record<string, FieldDef> = {
+  room: { type: 'select', label: 'Estancia', options: [...MEDIA_ROOMS], optionLabels: MEDIA_ROOM_LABELS },
+  thumbKey: { type: 'text', label: 'Miniatura (clave)' },
+}
+const GALLERY_PHOTO_FIELDS: Record<string, FieldDef> = {
+  ...GALLERY_METADATA_FIELDS,
+  ...MEDIA_CLASSIFY_FIELDS,
+  description: { type: 'textarea', label: 'Descripción' },
 }
 
 export const adminResources: Record<string, ResourceDef> = {
@@ -749,7 +760,7 @@ export const adminResources: Record<string, ResourceDef> = {
       developerPropertyId: { type: 'number', label: 'Proyecto (ID)', required: true },
       image: { type: 'image', label: 'Imagen', required: true },
       sortOrder: { type: 'number', label: 'Orden' },
-      ...GALLERY_METADATA_FIELDS,
+      ...GALLERY_PHOTO_FIELDS,
     },
     listFields: ['id', 'developerPropertyId', 'image', 'sortOrder'],
     searchFields: [],
@@ -773,7 +784,7 @@ export const adminResources: Record<string, ResourceDef> = {
       propertyId: { type: 'number', label: 'Propiedad (ID)', required: true },
       image: { type: 'image', label: 'Imagen', required: true },
       sortOrder: { type: 'number', label: 'Orden' },
-      ...GALLERY_METADATA_FIELDS,
+      ...GALLERY_PHOTO_FIELDS,
     },
     listFields: ['id', 'propertyId', 'image', 'sortOrder'],
     searchFields: [],
@@ -1380,6 +1391,7 @@ export const adminResources: Record<string, ResourceDef> = {
       url: { type: 'text', label: 'Enlace (https://)' },
       r2Key: { type: 'file', label: 'Fichero' },
       ...GALLERY_METADATA_FIELDS,
+      ...MEDIA_CLASSIFY_FIELDS,
       isMain: { type: 'number', label: 'Principal de su tipo' },
       sortOrder: { type: 'number', label: 'Orden' },
     },

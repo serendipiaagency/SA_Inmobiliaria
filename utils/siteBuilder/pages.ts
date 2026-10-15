@@ -1,6 +1,7 @@
 import { messages } from '../../i18n/messages'
 import { compactEnergyOptions, normalizeEnergyOptions, type EnergyDisplayOptions } from '../energyCertificate'
 import { normalizeFeaturedLocations, searchLocationOptions, searchTypeOptions, type FeaturedLocation, type SearchLocationOptions, type SearchTypeOptions } from '../searchConfig'
+import { compactGalleryOptions, normalizeGalleryOptions, type GalleryDisplayOptions } from '../mediaGallery'
 
 /**
  * Las páginas de la web que se editan con el Constructor Web — la única
@@ -77,7 +78,7 @@ export const PAGE_CORE_SOURCES: Record<PageCoreKind, { label: string; to: string
  * catálogo, el orden y la visibilidad de los grupos del panel de filtros.
  * Todo lo demás del contenido de la zona se descarta al guardar.
  */
-export type PageCoreOptionKind = 'boolean' | 'text' | 'number' | 'sections' | 'filters' | 'operation' | 'tone' | 'energy' | 'locations'
+export type PageCoreOptionKind = 'boolean' | 'text' | 'number' | 'sections' | 'filters' | 'operation' | 'tone' | 'energy' | 'locations' | 'gallery'
 export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, PageCoreOptionKind>>> = {
   // Ficha: destacadas, orden y visibilidad de las secciones (#110) y, en la
   // tarjeta principal, la referencia y la descripción; el fondo de «Atendido
@@ -92,6 +93,8 @@ export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, Page
     hideEmpty: 'boolean',
     contactTone: 'tone',
     energy: 'energy',
+    // Galería multimedia (Cola 5): sólo presentación (utils/mediaGallery.ts); las categorías las decide el backend.
+    gallery: 'gallery',
   },
   // Catálogo: qué partes del buscador se enseñan y cómo arranca. Sólo
   // presentación: lo que se encuentra lo decide Property Search, no esto.
@@ -152,6 +155,7 @@ export interface FichaDisplayOptions {
   hideEmpty: boolean
   contactTone: ContactTone
   energy: EnergyDisplayOptions
+  gallery: GalleryDisplayOptions
 }
 /**
  * La descripción era una sección más de la lista (hasta el megaprompt
@@ -167,6 +171,7 @@ export function fichaDisplayOptions(content: Record<string, any> | null | undefi
     hideEmpty: content?.hideEmpty !== false,
     contactTone: parseContactTone(content?.contactTone) || 'brand',
     energy: normalizeEnergyOptions(content?.energy),
+    gallery: normalizeGalleryOptions(content?.gallery),
   }
 }
 
@@ -296,9 +301,9 @@ export function fichaSectionLayout(value: unknown): { order: Record<string, numb
 
 const CORE_TEXT_MAX = 120
 
-export function sanitizeCoreOptions(core: PageCoreKind, content: Record<string, any> | null | undefined): Record<string, boolean | string | number | FichaSectionSetting[] | FeaturedLocation[] | Partial<EnergyDisplayOptions>> {
+export function sanitizeCoreOptions(core: PageCoreKind, content: Record<string, any> | null | undefined): Record<string, boolean | string | number | FichaSectionSetting[] | FeaturedLocation[] | Partial<EnergyDisplayOptions> | Partial<GalleryDisplayOptions>> {
   const spec = PAGE_CORE_OPTIONS[core] || {}
-  const out: Record<string, boolean | string | number | FichaSectionSetting[] | FeaturedLocation[] | Partial<EnergyDisplayOptions>> = {}
+  const out: Record<string, boolean | string | number | FichaSectionSetting[] | FeaturedLocation[] | Partial<EnergyDisplayOptions> | Partial<GalleryDisplayOptions>> = {}
   for (const [key, type] of Object.entries(spec)) {
     const v = content?.[key]
     if (type === 'boolean' && typeof v === 'boolean') out[key] = v
@@ -314,6 +319,10 @@ export function sanitizeCoreOptions(core: PageCoreKind, content: Record<string, 
     if (type === 'tone' && parseContactTone(v)) out[key] = parseContactTone(v)!
     if (type === 'energy' && v && typeof v === 'object') {
       const compact = compactEnergyOptions(normalizeEnergyOptions(v))
+      if (Object.keys(compact).length) out[key] = compact
+    }
+    if (type === 'gallery' && v && typeof v === 'object') {
+      const compact = compactGalleryOptions(normalizeGalleryOptions(v))
       if (Object.keys(compact).length) out[key] = compact
     }
   }

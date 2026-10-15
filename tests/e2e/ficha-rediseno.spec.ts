@@ -108,10 +108,11 @@ test.describe('Ficha rediseñada (#111)', () => {
     const share = main!.width / (main!.width + aside!.width)
     expect(share, 'la izquierda ocupa unos dos tercios').toBeGreaterThan(0.62)
     expect(share).toBeLessThan(0.74)
-    // La galería y la tarjeta de precio empiezan a la misma altura.
-    const photo = await page.getByTestId('gallery-main').boundingBox()
+    // La galería ocupa el ancho completo del contenedor y va ENCIMA de las dos columnas (Cola 5).
+    const gallery = await page.getByTestId('ficha-gallery-wrap').boundingBox()
     const price = await page.getByTestId('ficha-aside').getByTestId('ficha-price-card').boundingBox()
-    expect(Math.abs(photo!.y - price!.y)).toBeLessThan(6)
+    expect(gallery!.width, 'a ancho completo').toBeGreaterThan(main!.width + aside!.width - 2)
+    expect(gallery!.y + gallery!.height, 'encima de las columnas').toBeLessThanOrEqual(price!.y + 1)
     await expect(page.getByTestId('ficha-mobile-price')).toBeHidden()
     await expect(page.getByTestId('ficha-mobile-request-visit')).toBeHidden()
 
@@ -134,39 +135,41 @@ test.describe('Ficha rediseñada (#111)', () => {
     expect(features).not.toContain('propertyType')
   })
 
-  test('galería: contador, flechas, cinco casillas y «+N fotos», que abre la galería completa', async ({ page }) => {
+  test('galería: mosaico con la portada grande, contador real y «Ver todas las fotos (n)», que abre el visor', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(`/propiedades/${p.rich.slug}`)
-    const counter = page.getByTestId('gallery-counter')
-    await expect(counter).toHaveText('1 / 7')
-    await page.getByTestId('gallery-next').click()
-    await expect(counter).toHaveText('2 / 7')
-    await page.getByTestId('gallery-prev').click()
-    await page.getByTestId('gallery-prev').click()
-    await expect(counter, 'da la vuelta').toHaveText('7 / 7')
+    // Siete fotos: la portada y cuatro secundarias en el mosaico, el contador real y el botón con el total.
+    await expect(page.getByTestId('gallery-counter')).toHaveText('1 / 7')
     await expect(page.getByTestId('gallery-status')).toHaveText(/obra nueva/i)
-    // Sólo fotos: sin pestañas.
-    await expect(page.getByTestId('gallery-tabs')).toHaveCount(0)
-    await expect(page.getByTestId('gallery-thumb')).toHaveCount(4)
-    await expect(page.getByTestId('gallery-more')).toHaveText(/\+ 3 fotos/)
-    // Las casillas siguen a la foto actual: de vuelta a la primera, la primera casilla es la marcada.
-    await page.getByTestId('gallery-next').click()
-    await expect(counter).toHaveText('1 / 7')
-    await expect(page.getByTestId('gallery-thumb').first()).toHaveAttribute('aria-current', 'true')
-    await page.getByTestId('gallery-thumb').nth(2).click()
-    await expect(counter).toHaveText('3 / 7')
-    await page.getByTestId('gallery-thumb').first().click()
-    await page.getByTestId('gallery-more').click()
-    await expect(page.getByText('1 / 7', { exact: true }).last()).toBeVisible()
+    await expect(page.getByTestId('gallery-cell')).toHaveCount(4)
+    await expect(page.getByTestId('gallery-see-all')).toContainText('(7)')
+    const main = await page.getByTestId('gallery-main').boundingBox()
+    const cell = await page.getByTestId('gallery-cell').first().boundingBox()
+    expect(main!.width, 'la portada es la grande').toBeGreaterThan(cell!.width * 1.5)
+    // Sólo fotos: sin fila de categorías (no hay nada que distinguir).
+    await expect(page.getByTestId('gallery-categories')).toHaveCount(0)
+    // «Ver todas las fotos» abre el visor en la cuadrícula; una foto, en esa foto; flechas, Escape y «Atrás».
+    await page.getByTestId('gallery-see-all').click()
+    const viewer = page.getByTestId('gallery-viewer')
+    await expect(viewer).toBeVisible()
+    await expect(viewer.getByTestId('gallery-viewer-grid')).toBeVisible()
+    await viewer.locator('[data-testid="gallery-viewer-grid"] button').nth(1).click()
+    await expect(viewer.getByTestId('gallery-viewer-counter')).toHaveText('2 / 7')
     await page.keyboard.press('ArrowRight')
+    await expect(viewer.getByTestId('gallery-viewer-counter')).toHaveText('3 / 7')
     await page.keyboard.press('Escape')
-    await expect(counter, 'la principal se queda en la última vista').toHaveText('2 / 7')
+    await expect(viewer).toHaveCount(0)
+    // Cualquier foto del mosaico abre el visor en esa foto.
+    await page.getByTestId('gallery-cell').nth(1).click()
+    await expect(page.getByTestId('gallery-viewer-counter')).toHaveText('3 / 7')
+    await page.goBack()
+    await expect(page.getByTestId('gallery-viewer')).toHaveCount(0)
+    await expect(page).toHaveURL(new RegExp(`/propiedades/${p.rich.slug}`))
 
-    // Con una sola foto: ni flechas ni casillas.
+    // Con una sola foto: ni secundarias ni botón de visor con más fotos.
     await page.goto(`/propiedades/${p.plain.slug}`)
     await expect(page.getByTestId('gallery-counter')).toHaveText('1 / 1')
-    await expect(page.getByTestId('gallery-next')).toHaveCount(0)
-    await expect(page.getByTestId('gallery-thumbs')).toHaveCount(0)
+    await expect(page.getByTestId('gallery-cell')).toHaveCount(0)
   })
 
   test('migas: «Propiedades» vuelve a la búsqueda y Anterior / Siguiente siguen sus resultados', async ({ page }) => {

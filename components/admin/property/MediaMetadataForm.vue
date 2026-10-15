@@ -4,6 +4,13 @@
     <label class="block"><span class="pe-label">Título</span><input v-model="model.title" class="pe-input" :maxlength="MEDIA_TEXT_LIMITS.title" data-testid="media-metadata-title" ></label>
     <label class="block"><span class="pe-label">Texto alternativo (alt)</span><input v-model="model.alt" class="pe-input" :maxlength="MEDIA_TEXT_LIMITS.alt" data-testid="media-metadata-alt" ></label>
     <label class="block sm:col-span-2"><span class="pe-label">Pie de foto</span><textarea v-model="model.caption" rows="2" class="pe-input" :maxlength="MEDIA_TEXT_LIMITS.caption" /></label>
+    <!-- Galería por categorías (Cola 5): estancia y descripción larga del visor. -->
+    <template v-if="classify">
+      <label class="block"><span class="pe-label">Estancia</span>
+        <select v-model="model.room" class="pe-input" data-testid="media-metadata-room"><option value="">Sin clasificar</option><option v-for="r in MEDIA_ROOMS" :key="r" :value="r">{{ MEDIA_ROOM_LABELS[r] }}</option></select>
+      </label>
+      <label class="block sm:col-span-2"><span class="pe-label">Descripción (visor)</span><textarea v-model="model.description" rows="3" class="pe-input" :maxlength="MEDIA_TEXT_LIMITS.description" data-testid="media-metadata-description" /></label>
+    </template>
     <label class="block"><span class="pe-label">Idioma</span>
       <select v-model="model.language" class="pe-input"><option value="">—</option><option v-for="l in MEDIA_LANGUAGES" :key="l" :value="l">{{ MEDIA_LANGUAGE_LABELS[l] }}</option></select>
     </label>
@@ -23,8 +30,9 @@
 
 <script setup lang="ts">
 import { MEDIA_LANGUAGES, MEDIA_LANGUAGE_LABELS, MEDIA_TEXT_LIMITS } from '~/utils/propertyMediaCatalog'
+import { MEDIA_ROOMS, MEDIA_ROOM_LABELS } from '~/utils/mediaRooms'
 
-/** Formulario de metadatos de un recurso (foto de galería o multimedia): título, alt, pie, idioma y publicable / privada / oculta. */
-withDefaults(defineProps<{ model: Record<string, any>; showMain?: boolean; error?: string; saving?: boolean }>(), { showMain: false, error: '', saving: false })
+/** Formulario de metadatos de un recurso (foto de galería o multimedia): título, alt, pie, idioma y publicable / privada / oculta; con `classify`, también estancia y descripción (fotos). */
+withDefaults(defineProps<{ model: Record<string, any>; showMain?: boolean; classify?: boolean; error?: string; saving?: boolean }>(), { showMain: false, classify: false, error: '', saving: false })
 defineEmits<{ save: [] }>()
 </script>
