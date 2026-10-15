@@ -13,6 +13,30 @@
         <NuxtLink to="/admin/developer-properties" target="_blank" class="underline">Propiedades (web)</NuxtLink>, en «Ficha ampliada». Sin ningún dato, la tabla no sale.
       </p>
     </InspectorSection>
+    <!-- Desplegable: el título pliega y despliega el bloque. De partida llega abierto. -->
+    <InspectorSection :title="foldTitle">
+      <ToggleField label="Bloque desplegable" :model-value="opts.collapsible" data-testid="energy-opt-collapsible" @update:model-value="(v) => set('collapsible', v)" />
+      <ToggleField v-if="opts.collapsible" label="Llega desplegado" :model-value="opts.startOpen" data-testid="energy-opt-start-open" @update:model-value="(v) => set('startOpen', v)" />
+      <p class="mt-1 text-[11px] leading-relaxed text-stone-400">El visitante pulsa el título para ver u ocultar la tabla. Plegado, se siguen viendo las clases de la vivienda junto al título.</p>
+    </InspectorSection>
+    <!-- Imágenes: se suben aquí, a la biblioteca de medios de la empresa. -->
+    <InspectorSection :title="imagesTitle">
+      <ImageListField
+        label="Imágenes del bloque"
+        hint="Por ejemplo, la etiqueta oficial o un gráfico explicativo. Salen en todas las fichas; los valores de la tabla siguen siendo los de cada propiedad."
+        :model-value="opts.images"
+        :max="MAX_ENERGY_IMAGES"
+        @update:model-value="(v) => set('images', v)"
+      />
+      <SegmentedField
+        v-if="opts.images.length"
+        label="Posición de las imágenes"
+        :model-value="opts.imagesPosition"
+        :options="[{ value: 'below', label: 'Debajo' }, { value: 'above', label: 'Encima' }, { value: 'side', label: 'Al lado' }]"
+        data-testid="energy-opt-images-position"
+        @update:model-value="(v) => set('imagesPosition', v)"
+      />
+    </InspectorSection>
     <!-- Diseño: cómo se ve. Los colores A–G no cambian con el tema: son los de la etiqueta oficial. -->
     <InspectorSection :title="designTitle" :tab="designTab ? 'design' : 'content'">
       <SegmentedField
@@ -44,7 +68,8 @@ import InspectorSection from './InspectorSection.vue'
 import ToggleField from './fields/ToggleField.vue'
 import TextField from './fields/TextField.vue'
 import SegmentedField from './fields/SegmentedField.vue'
-import { normalizeEnergyOptions, type EnergyDisplayOptions } from '~/utils/energyCertificate'
+import ImageListField from './fields/ImageListField.vue'
+import { MAX_ENERGY_IMAGES, normalizeEnergyOptions, type EnergyDisplayOptions } from '~/utils/energyCertificate'
 
 /**
  * Las opciones de la tabla «Eficiencia energética» (utils/energyCertificate.ts):
@@ -55,8 +80,10 @@ import { normalizeEnergyOptions, type EnergyDisplayOptions } from '~/utils/energ
  * `designTab`: el diseño va en la pestaña «Diseño» del inspector (bloque de
  * la biblioteca). La zona dinámica no tiene pestañas: ahí va todo seguido.
  */
-const props = withDefaults(defineProps<{ value: unknown; contentTitle?: string; designTitle?: string; designTab?: boolean }>(), {
+const props = withDefaults(defineProps<{ value: unknown; contentTitle?: string; foldTitle?: string; imagesTitle?: string; designTitle?: string; designTab?: boolean }>(), {
   contentTitle: 'Eficiencia energética',
+  foldTitle: 'Eficiencia energética — desplegable',
+  imagesTitle: 'Eficiencia energética — imágenes',
   designTitle: 'Eficiencia energética — diseño',
   designTab: true,
 })

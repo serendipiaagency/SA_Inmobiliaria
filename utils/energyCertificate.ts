@@ -86,6 +86,19 @@ export function certificateStatus(expiry: string | null, today = new Date()): 'v
 // sección de la zona dinámica de la ficha y para el bloque de la biblioteca.
 // ---------------------------------------------------------------------------
 
+/** Una imagen subida al bloque (la etiqueta oficial, un gráfico explicativo, una foto del certificado). */
+export interface EnergyImage {
+  /** Clave del archivo subido (biblioteca de medios) o URL absoluta. */
+  src: string
+  /** Texto alternativo para lectores de pantalla. */
+  alt: string
+  /** Pie de la imagen (opcional). */
+  caption: string
+}
+
+/** Cuántas imágenes admite un bloque: es una tabla con apoyo gráfico, no una galería. */
+export const MAX_ENERGY_IMAGES = 6
+
 export interface EnergyDisplayOptions {
   title: string
   showRating: boolean
@@ -101,6 +114,14 @@ export interface EnergyDisplayOptions {
   padding: 'sm' | 'md' | 'lg'
   titleSize: 'sm' | 'md' | 'lg'
   width: 'full' | 'narrow'
+  /** El bloque se pliega y se despliega pulsando su título. */
+  collapsible: boolean
+  /** Con «collapsible»: si llega desplegado (de partida sí: nada desaparece sin que el visitante lo pida). */
+  startOpen: boolean
+  /** Imágenes subidas al bloque, en el orden en que se enseñan. */
+  images: EnergyImage[]
+  /** Dónde van las imágenes respecto a la tabla. */
+  imagesPosition: 'below' | 'above' | 'side'
 }
 
 export const ENERGY_DISPLAY_DEFAULTS: EnergyDisplayOptions = {
@@ -117,11 +138,43 @@ export const ENERGY_DISPLAY_DEFAULTS: EnergyDisplayOptions = {
   padding: 'md',
   titleSize: 'md',
   width: 'full',
+  collapsible: true,
+  startOpen: true,
+  images: [],
+  imagesPosition: 'below',
 }
 
 const pick = <T extends string>(v: unknown, allowed: readonly T[], fallback: T): T => ((allowed as readonly string[]).includes(String(v)) ? (v as T) : fallback)
 const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '')
 const bool = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fallback)
+
+/**
+ * Las imágenes del bloque, limpias: sólo las que tienen origen válido (una
+ * clave de la biblioteca o una URL http/https o una ruta del propio sitio),
+ * con su texto alternativo y su pie acotados, y como mucho MAX_ENERGY_IMAGES.
+ * Nunca `javascript:`, `data:` ni nada con esquema que no sea http(s).
+ */
+export function normalizeEnergyImages(v: unknown): EnergyImage[] {
+  if (!Array.isArray(v)) return []
+  const out: EnergyImage[] = []
+  for (const raw of v) {
+    if (out.length >= MAX_ENERGY_IMAGES) break
+    // Una clave suelta (cadena) también vale: es lo que guarda la galería de imágenes del Constructor.
+    const o = (typeof raw === 'string' ? { src: raw } : raw && typeof raw === 'object' ? raw : null) as Record<string, unknown> | null
+    const src = text(o?.src, 500)
+    if (!src || !safeImageSrc(src)) continue
+    out.push({ src, alt: text(o?.alt, 200), caption: text(o?.caption, 240) })
+  }
+  return out
+}
+
+function safeImageSrc(src: string): boolean {
+  if (/^https?:\/\//i.test(src)) return true
+  if (src.startsWith('//')) return false
+  if (src.startsWith('/')) return !/[\s<>"']/.test(src)
+  // Clave de la biblioteca de medios: carpeta/nombre.ext, sin esquema.
+  return /^[A-Za-z0-9][A-Za-z0-9_\-./]*$/.test(src) && !src.includes('..')
+}
 
 /** Lo que llega del Constructor, limpio: sólo claves conocidas y valores permitidos. */
 export function normalizeEnergyOptions(v: unknown): EnergyDisplayOptions {
@@ -141,6 +194,10 @@ export function normalizeEnergyOptions(v: unknown): EnergyDisplayOptions {
     padding: pick(o.padding, ['sm', 'md', 'lg'] as const, d.padding),
     titleSize: pick(o.titleSize, ['sm', 'md', 'lg'] as const, d.titleSize),
     width: pick(o.width, ['full', 'narrow'] as const, d.width),
+    collapsible: bool(o.collapsible, d.collapsible),
+    startOpen: bool(o.startOpen, d.startOpen),
+    images: normalizeEnergyImages(o.images),
+    imagesPosition: pick(o.imagesPosition, ['below', 'above', 'side'] as const, d.imagesPosition),
   }
 }
 
@@ -148,6 +205,11 @@ export function normalizeEnergyOptions(v: unknown): EnergyDisplayOptions {
 export function compactEnergyOptions(o: EnergyDisplayOptions): Partial<EnergyDisplayOptions> {
   const out: Partial<EnergyDisplayOptions> = {}
   for (const k of Object.keys(ENERGY_DISPLAY_DEFAULTS) as (keyof EnergyDisplayOptions)[]) {
+    // Las imágenes son una lista: se guardan si hay alguna (el valor de partida es «ninguna»).
+    if (k === 'images') {
+      if (o.images.length) out.images = o.images
+      continue
+    }
     if (o[k] !== ENERGY_DISPLAY_DEFAULTS[k]) (out as any)[k] = o[k]
   }
   return out
