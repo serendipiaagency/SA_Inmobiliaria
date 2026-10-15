@@ -59,7 +59,7 @@ export const MEDIA_LANGUAGE_LABELS: Record<string, string> = {
 }
 
 /** Límites de los textos de un recurso (título, alt, pie). */
-export const MEDIA_TEXT_LIMITS = { title: 200, alt: 300, caption: 1000 } as const
+export const MEDIA_TEXT_LIMITS = { title: 200, alt: 300, caption: 1000, description: 2000 } as const
 
 /**
  * Un recurso sale en la web pública y en los portales sólo si es publicable,

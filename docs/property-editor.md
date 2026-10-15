@@ -287,3 +287,26 @@ Los `data-testid` del editor (`property-editor`, `property-editor-save`,
 escribirlas: los pasos se dibujan **dos veces** (columna y tira móvil,
 alternadas por CSS) y las secciones inactivas siguen montadas (`v-show`), así
 que casi todo existe por duplicado en el DOM — hay que filtrar por `:visible`.
+
+## Galería por categorías (Cola 5)
+
+El paso «Galería y multimedia» (`components/property-builder/GalleryManager.vue`,
+mismo componente en los dos catálogos) clasifica las fotos para la web:
+
+- **Subida**: varias a la vez, arrastrando o eligiendo; cola con vista previa
+  y estado por archivo (en cola, subiendo, hecha, error), tres en paralelo,
+  validación previa de formato (JPG, PNG, WebP, GIF) y tamaño (10 MB), y la
+  estancia de las nuevas elegida antes. Al subir se genera la miniatura WebP
+  en el navegador (`utils/imageThumb.ts`) y se guarda como `thumbKey`.
+- **Clasificación** (migración 0097): estancia por foto (`utils/mediaRooms.ts`;
+  sin clasificar por defecto, nunca inferida del nombre del archivo),
+  descripción larga (`MediaMetadataForm` con `classify`), clasificación
+  masiva (seleccionar varias → «Asignar»), «Generar miniaturas» para lo
+  anterior a esta versión.
+- **Orden y portada**: arrastrar o ← → (teclado y táctil); el orden se guarda
+  al momento y es el de la web; «Usar como portada» (necesita «Guardar») es la
+  principal del mosaico.
+- Vídeos, 360°, tours y renders siguen en «Vídeos, tours, renders, PDF, drone y
+  360°» (`PropertyMediaManager`) y los planos en «Planos»; en la web cada uno
+  sale en su categoría del visor. Ver [`site-builder.md`](./site-builder.md).
+

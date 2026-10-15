@@ -60,8 +60,8 @@ export default defineEventHandler(async (event) => {
       "style-src-attr 'unsafe-inline'",
       "font-src 'self' https://fonts.gstatic.com",
       `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' https://www.instagram.com https://www.tiktok.com${extra.script}`,
-      // YouTube y Vimeo sólo con su reproductor sin cookies (utils/videoEmbed.ts).
-      "frame-src 'self' https://www.instagram.com https://www.tiktok.com https://www.youtube-nocookie.com https://player.vimeo.com",
+      // YouTube y Vimeo sólo con su reproductor sin cookies; Matterport para el tour virtual incrustado (utils/videoEmbed.ts). Todos tras el consentimiento de «Contenido de terceros».
+      "frame-src 'self' https://www.instagram.com https://www.tiktok.com https://www.youtube-nocookie.com https://player.vimeo.com https://my.matterport.com",
       `connect-src 'self'${extra.connect}`,
       "object-src 'none'",
       "base-uri 'self'",

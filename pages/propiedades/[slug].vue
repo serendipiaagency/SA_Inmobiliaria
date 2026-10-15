@@ -5,31 +5,17 @@
         <!-- Migas, compartir, comparar y Anterior / Siguiente en el contexto del catálogo (#111). -->
         <PropertyBreadcrumbs :slug="slug" :name="data.project.name" :project="data.project" :reference="reference" />
 
-        <!-- Dos columnas desde arriba (#111): el contenido a la izquierda (≈⅔) y la información comercial a la derecha (≈⅓). -->
-        <div class="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.44fr)] lg:gap-8">
+        <!-- Galería multimedia (Cola 5): a ancho completo del contenedor, encima de las dos columnas. Mosaico con la portada grande y «Ver todas las fotos (n)»; el visor y sus categorías salen de la multimedia real de la propiedad (utils/mediaGallery.ts). -->
+        <div id="fotos" ref="heroRef" class="mt-4 scroll-mt-28" data-testid="ficha-gallery-wrap">
+          <PropertyGalleryBlock :data="(data as any)" :options="display.gallery" :status-label="statusLabel" :accent="tenant?.brandColor || null" />
+        </div>
+
+        <!-- Dos columnas (#111): el contenido a la izquierda (≈⅔) y la información comercial a la derecha (≈⅓). -->
+        <div class="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.44fr)] lg:gap-8">
           <!-- Orden y visibilidad de las secciones: los del Constructor (#110, PAGE_CORE_OPTIONS.sections) con `order`.
           Galería, barra de apartados y tarjeta principal van siempre delante; en el móvil, el precio y
           «Solicitar visita» se intercalan como pide la referencia. -->
           <div class="flex min-w-0 flex-col gap-5" data-testid="ficha-main">
-            <section id="fotos" ref="heroRef" class="order-[-6] scroll-mt-28">
-              <MediaGallery
-                :photos="photos"
-                :photo-alts="photoAlts"
-                :name="data.project.name"
-                :status-label="statusLabel"
-                :master-plan="masterPlan"
-                :video-url="data.project.videoUrl"
-                :drone-photo="dronePhoto"
-                :night-photo="nightPhoto"
-                :before-photo="beforePhoto"
-                :after-photo="afterPhoto"
-                :ai-staged-photo="aiStagedPhoto"
-                :social-media="socialMediaForGallery"
-                :media="publicMedia"
-                :virtual-tour-url="virtualTourUrl"
-                :floor-plans="floorPlans"
-              />
-            </section>
 
             <!-- Móvil y tableta: el precio y la próxima visita justo después de la galería. -->
             <div class="order-[-5] lg:hidden" data-testid="ficha-mobile-price">
@@ -366,15 +352,6 @@ provide(
   computed(() => (data.value as any) || null),
 )
 
-// property_social_media.platform is a free-form DB column; MediaGallery only
-// knows how to render the two platforms it actually embeds, so narrow here
-// rather than widening the component's prop type to accept every string.
-const socialMediaForGallery = computed(() =>
-  (data.value?.socialMedia || [])
-    .filter((s): s is typeof s & { platform: 'instagram' | 'tiktok' } => s.platform === 'instagram' || s.platform === 'tiktok')
-    .map((s) => ({ platform: s.platform, url: s.url, caption: s.caption })),
-)
-
 // El nombre de la inmobiliaria de esta web, no uno fijo.
 const { tenant } = useTenant()
 const seoTitle = computed(() => [data.value?.project.name, tenant.value?.companyName || tenant.value?.name].filter(Boolean).join(' — '))
@@ -451,9 +428,7 @@ const galleryRows = computed<any[]>(() => {
   return rows
 })
 const photos = computed<string[]>(() => galleryRows.value.map((g) => mediaUrl(g.image)))
-const photoAlts = computed<string[]>(() => galleryRows.value.map((g, i) => g.alt || g.title || `${data.value?.project.name || ''} ${i + 1}`.trim()))
 const publicMedia = computed<any[]>(() => ((data.value as any)?.media as any[]) || [])
-const virtualTourUrl = computed<string | null>(() => ((data.value as any)?.details?.virtualTourUrl as string) || null)
 // Documentación (#110): los PDF publicables de la multimedia y los documentos «Público» (sin caducar).
 const publicDocs = computed<PublicDocument[]>(() => [
   ...publicMedia.value.filter((m) => m.mediaType === 'pdf').map((m) => ({ key: `m${m.id}`, title: m.title || t('propertyDetails.documents.brochure', 'Folleto'), typeLabel: m.caption || null, mimeType: 'application/pdf', url: m.url })),
@@ -463,12 +438,6 @@ const publicDocs = computed<PublicDocument[]>(() => [
 const floorPlans = computed<PublicFloorPlan[]>(() => (((data.value as any)?.floorPlans as PublicFloorPlan[]) || []).filter((f) => !!f.image))
 const conditionFacts = computed(() => conditionRows(p.value, (data.value as any)?.details, t))
 const buildingFacts = computed(() => buildingRows(p.value, (data.value as any)?.details, t, formatPrice))
-const masterPlan = computed(() => (data.value?.project.masterPlanImage ? mediaUrl(data.value.project.masterPlanImage) : null))
-const dronePhoto = computed(() => (data.value?.project.dronePhoto ? mediaUrl(data.value.project.dronePhoto) : null))
-const nightPhoto = computed(() => (data.value?.project.nightPhoto ? mediaUrl(data.value.project.nightPhoto) : null))
-const beforePhoto = computed(() => (data.value?.project.beforePhoto ? mediaUrl(data.value.project.beforePhoto) : null))
-const afterPhoto = computed(() => (data.value?.project.afterPhoto ? mediaUrl(data.value.project.afterPhoto) : null))
-const aiStagedPhoto = computed(() => (data.value?.project.aiStagedPhoto ? mediaUrl(data.value.project.aiStagedPhoto) : null))
 
 const p = computed(() => data.value!.project)
 const statusLabel = computed(() => ({ new: t('propertyDetails.status.new', 'Obra nueva'), under_construction: t('propertyDetails.status.underConstruction', 'En construcción'), ready: t('propertyDetails.status.ready', 'Listo para entrar') }[p.value.status as string] || p.value.status))

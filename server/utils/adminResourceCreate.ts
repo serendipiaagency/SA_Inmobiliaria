@@ -6,7 +6,7 @@ import { validatePermissionsInput } from './permissions'
 import { getPropertySchemaFor, validateAgainstSchema } from './propertySchema/registry'
 import { validatePropertyContact, validateNotePayload, ensureContactRole } from './contacts/crm'
 import { validateRoutingRule } from './leads/routing'
-import { enforceSingleMainMedia, syncMediaKeyVisibility, validatePropertyMedia } from './properties/media'
+import { enforceSingleMainMedia, syncMediaKeyVisibility, assertOwnedThumbKey, validatePropertyMedia } from './properties/media'
 import { validateCustomFieldDefinition } from './customFields/service'
 import { assertNoBrainSettings } from './inmo/brains'
 import {
@@ -108,6 +108,8 @@ export async function insertResourceRecord(
     await validatePropertyMedia(db, orgId!, data, null)
     data.createdBy = user.id
   }
+  // Galería por categorías (Cola 5): la miniatura es un fichero de esta agencia.
+  if (key === 'property-media' || key === 'project-images' || key === 'gallery-images') await assertOwnedThumbKey(db, orgId!, data)
   if (key === 'custom-fields') {
     await validateCustomFieldDefinition(db, orgId!, data, null)
     data.createdBy = user.id

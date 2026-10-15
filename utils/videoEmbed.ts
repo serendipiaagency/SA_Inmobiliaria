@@ -46,3 +46,34 @@ export function videoEmbed(raw: string | null | undefined): VideoEmbed | null {
   }
   return null
 }
+
+/**
+ * Tours virtuales incrustables (Cola 5): hoy sólo Matterport, cuyo visor
+ * público (`my.matterport.com/show/?m=<id>`) se puede incrustar sin cuenta.
+ * Ese origen está en el `frame-src` de la CSP y se carga tras el
+ * consentimiento de «Contenido de terceros». Cualquier otro proveedor
+ * (Kuula, Floorfy…) se ofrece como enlace que se abre aparte: no se presenta
+ * como incrustable lo que no se ha comprobado.
+ */
+export interface TourEmbed {
+  provider: 'matterport'
+  id: string
+  src: string
+}
+
+const MATTERPORT_ID = /^[\w-]{6,64}$/
+
+export function tourEmbed(raw: string | null | undefined): TourEmbed | null {
+  if (!raw) return null
+  let url: URL
+  try {
+    url = new URL(String(raw).trim())
+  } catch {
+    return null
+  }
+  if (url.protocol !== 'https:') return null
+  if (url.hostname.toLowerCase() !== 'my.matterport.com') return null
+  const id = url.searchParams.get('m')
+  if (!id || !MATTERPORT_ID.test(id)) return null
+  return { provider: 'matterport', id, src: `https://my.matterport.com/show/?m=${encodeURIComponent(id)}&play=1` }
+}

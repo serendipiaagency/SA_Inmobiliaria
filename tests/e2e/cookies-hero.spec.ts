@@ -153,8 +153,11 @@ test.describe('Aviso de cookies', () => {
       const page = await ctx.newPage()
       await page.goto(`/propiedades/${row.slug}`)
       await page.getByTestId('cookie-reject').click()
-      await page.getByTestId('gallery-tabs').getByRole('button', { name: /Vídeo/ }).click()
-      const gate = page.getByTestId('gallery-videos').getByTestId('consent-gate')
+      // Sin fotos y con un solo vídeo, el mosaico es su miniatura (sin fila de categorías): abre el visor directamente en el vídeo.
+      await page.getByTestId('gallery-main').click()
+      const viewer = page.getByTestId('gallery-viewer')
+      await expect(viewer).toBeVisible()
+      const gate = viewer.getByTestId('consent-gate')
       await expect(gate).toContainText('YouTube')
       await expect(page.locator('iframe[src*="youtube"]')).toHaveCount(0)
       await gate.getByTestId('consent-gate-allow').click()

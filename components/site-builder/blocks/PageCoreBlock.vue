@@ -57,17 +57,17 @@
     <div v-else-if="core === 'property-detail'" class="mx-auto max-w-screen-2xl px-6 py-8 lg:px-10">
       <template v-if="sample">
         <p class="text-[12px] text-stone-500">Ejemplo con «{{ sample.name }}»: cada ficha enseña su propiedad.</p>
-        <!-- La composición de la ficha (#111): dos columnas desde arriba, como en la web. -->
-        <div class="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.44fr)]">
+        <!-- La galería (Cola 5): a ancho completo, encima de las dos columnas, con la multimedia real de la propiedad de ejemplo y las opciones de presentación de la zona. -->
+        <div class="mt-4" data-testid="page-core-gallery-preview">
+          <PropertyGalleryMosaic v-if="galleryData" :model="galleryModel" :options="ficha.gallery" :accent="fichaSample?.brandColor || null" />
+          <div v-else class="aspect-[2.8/1] overflow-hidden rounded-[14px] bg-stone-100">
+            <img v-if="sample.image" :src="mediaUrl(sample.image)" alt="" class="h-full w-full object-cover" loading="lazy" >
+          </div>
+        </div>
+        <!-- La composición de la ficha (#111): dos columnas, como en la web. -->
+        <div class="mt-5 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.44fr)]">
           <div class="min-w-0">
-            <div class="aspect-[2.2/1] overflow-hidden rounded-[14px] bg-stone-100">
-              <img v-if="sample.image" :src="mediaUrl(sample.image)" alt="" class="h-full w-full object-cover" loading="lazy" >
-            </div>
-            <div class="mt-2 grid grid-cols-5 gap-2" aria-hidden="true">
-              <div v-for="i in 4" :key="i" class="aspect-[4/3] rounded-lg bg-stone-100" />
-              <div class="aspect-[4/3] rounded-lg bg-[#1f3a30]" />
-            </div>
-            <div class="mt-4 rounded-xl border border-[#ece8e1] bg-white px-4 py-3 text-[12px] text-stone-500">Fotos · Score · Datos clave · Plano · … · Similares</div>
+            <div class="rounded-xl border border-[#ece8e1] bg-white px-4 py-3 text-[12px] text-stone-500">Fotos · Score · Datos clave · Plano · … · Similares</div>
             <div class="pcard mt-4">
               <!-- La referencia del anuncio, que en la web va arriba, junto a las migas («REF: AG-77»). -->
               <p v-if="ficha.showReference && sampleReference" class="mb-2 text-[11.5px] font-medium uppercase tracking-[0.08em] text-stone-500" data-testid="page-core-reference-preview">REF: <span class="font-semibold text-ink">{{ sampleReference }}</span></p>
@@ -137,6 +137,7 @@ import { useFichaSample } from '~/composables/useFichaProperty'
 import { fichaDataContext, fichaEmptySections } from '~/utils/fichaVisibility'
 import { energyData } from '~/utils/energyCertificate'
 import { contactToneColors } from '~/utils/contactTone'
+import { buildGalleryModel, type GalleryInput } from '~/utils/mediaGallery'
 import SortBar from '~/components/search/SortBar.vue'
 
 const props = defineProps<{
@@ -195,6 +196,9 @@ const previewSections = computed(() => {
   const inPreview = editor?.mode.value === 'preview'
   return fichaSections.value.visible.map((s) => ({ ...s, empty: emptySections.value.has(s.key) })).filter((s) => !(inPreview && s.empty))
 })
+// Galería (Cola 5): el mismo modelo que la ficha pública, con la multimedia real de la propiedad de ejemplo.
+const galleryData = computed<GalleryInput | null>(() => (sampleData.value ? (sampleData.value as unknown as GalleryInput) : null))
+const galleryModel = computed(() => buildGalleryModel(galleryData.value || { project: {} }, t))
 const contactStyle = computed(() => {
   const c = contactToneColors(ficha.value.contactTone, fichaSample.value?.brandColor)
   return c ? { background: c.bg, borderColor: c.border } : undefined

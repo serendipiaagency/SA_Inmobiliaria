@@ -321,6 +321,10 @@ export const propertyGalleryImages = sqliteTable('property_gallery_images', {
   isPrivate: integer('is_private').notNull().default(0),
   isHidden: integer('is_hidden').notNull().default(0),
   createdAt: text('created_at').notNull().default(''),
+  // Migración 0097 — galería por categorías (Cola 5): estancia, descripción larga y miniatura.
+  room: text('room'),
+  description: text('description'),
+  thumbKey: text('thumb_key'),
 })
 
 // Mirrors floor_plans (developer properties) — added 0059 so a resale unit
@@ -748,6 +752,10 @@ export const images = sqliteTable('images', {
   isPrivate: integer('is_private').notNull().default(0),
   isHidden: integer('is_hidden').notNull().default(0),
   createdAt: text('created_at').notNull().default(''),
+  // Migración 0097 — galería por categorías (Cola 5): estancia, descripción larga y miniatura.
+  room: text('room'),
+  description: text('description'),
+  thumbKey: text('thumb_key'),
 })
 
 export const floorPlans = sqliteTable('floor_plans', {
@@ -4276,6 +4284,9 @@ export const propertyMedia = sqliteTable(
     createdAt: text('created_at').notNull().default(''),
     updatedAt: text('updated_at').notNull().default(''),
     deletedAt: text('deleted_at'),
+    // Migración 0097 (Cola 5): miniatura o póster del recurso y estancia (renders y 360).
+    thumbKey: text('thumb_key'),
+    room: text('room'),
   },
   (t) => [index('property_media_property').on(t.organizationId, t.propertyKind, t.propertyId)],
 )
