@@ -937,7 +937,7 @@ destacadas y secciones, sólo presentación:
 | `showReference` | sí | «Ref.» bajo la ubicación: el `commercialCode` de la ficha ampliada (público en el PropertySchemaRegistry), sólo si existe. Nunca el id ni las referencias internas o de portales. |
 | `showDescription` | sí | La descripción dentro de la tarjeta principal, bajo título, ubicación y referencia, con «Ver más»/«Ver menos» (`aria-expanded`, `aria-controls`). Ya no es una sección de la lista: una web que tenía `descripcion` oculta en su orden guardado la sigue teniendo oculta (`legacyDescriptionHidden`) y, al guardar, pasa al interruptor. |
 | `contactTone` | `brand` | Fondo de «Atendido por»: `brand` (color de marca de la empresa aclarado, `utils/contactTone.ts`; sin color, verde salvia), `white` o `#rrggbb`. Siempre se aclara hasta una luminancia mínima para el texto oscuro. |
-| `energy` | — | Presentación de la tabla energética (`utils/energyCertificate.ts`, `EnergyDisplayOptions`): título, columnas, nota, tabla completa o compacta, fondo, borde, esquinas, espaciado, tamaño del título y anchura. Se guarda compactada (sólo lo que difiere). |
+| `energy` | — | Presentación de la tabla energética (`utils/energyCertificate.ts`, `EnergyDisplayOptions`): título, columnas, nota, tabla completa o compacta, fondo, borde, esquinas, espaciado, tamaño del título y anchura; además `collapsible` / `startOpen` (desplegable) e `images` / `imagesPosition` (imágenes del bloque). Se guarda compactada (sólo lo que difiere). |
 | `hideEmpty` | sí | «Ocultar automáticamente si no hay datos». |
 
 **Eficiencia energética.** `components/property/EnergyCard.vue`: tabla HTML
@@ -955,6 +955,26 @@ opciones). Sale como sección `energia` de la zona (anclada tras `datos` en los
 web lee la propiedad de la ficha (`FICHA_PROPERTY_KEY`, provista por
 `pages/propiedades/[slug].vue`) y, sin datos, `SiteBlockRenderer` lo quita
 entero (también su marco).
+
+*Desplegable.* Con `collapsible` (de partida sí) el título es un botón
+(`h2 > button`, `aria-expanded` y `aria-controls`) que pliega y despliega el
+cuerpo (`energy-body`); `startOpen` (de partida sí) decide cómo llega, de modo
+que una web ya publicada se ve igual que antes con un chevrón más. Plegado, la
+cabecera enseña las clases de la vivienda (`energy-glance`) y el cuerpo sale
+del árbol de accesibilidad (`visibility: hidden`), pero sigue en el HTML. Al
+imprimir siempre va desplegado; con `prefers-reduced-motion` no anima.
+
+*Imágenes.* Hasta `MAX_ENERGY_IMAGES` (6), cada una con `src`, `alt` y `caption`,
+encima, debajo o al lado de la tabla (`imagesPosition`). Se suben desde el
+inspector (`ImageListField.vue`, `POST /api/admin/upload`) o se eligen de la
+biblioteca. Son del bloque (salen en todas las fichas) y, como el resto de
+opciones, las sanea `normalizeEnergyImages` también en el servidor
+(`validatePageDocument` y `sanitizeCoreOptions`): sólo claves de la biblioteca,
+rutas del propio sitio o `http(s)`; nunca `javascript:` ni `data:`. Las
+imágenes no hacen visible una tarjeta sin datos.
+
+*Letra sin cifra.* Si hay letra de consumo o de emisiones pero no su valor, la
+celda dice «Valor no indicado» (`energy-no-value`): no se inventa ninguna cifra.
 
 **Secciones sin datos.** `utils/fichaVisibility.ts` decide qué secciones
 tienen datos (`fichaSectionHasData`) con lo que devuelve la ficha
