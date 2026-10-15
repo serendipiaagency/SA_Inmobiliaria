@@ -19,9 +19,6 @@ test.describe('Buscador global · Constructor', () => {
   let originalCatalog: Record<string, unknown> | null = null
   let homePublished = false
   let catalogPublished = false
-  // «Sin tocar»: la página no tiene versión del Constructor (el estado «Original» de la lista de páginas).
-  let homeUntouched = false
-  let catalogUntouched = false
 
   test.beforeAll(async () => {
     a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
@@ -32,29 +29,43 @@ test.describe('Buscador global · Constructor', () => {
     const status = (key: string) => (cat.pages as any[] | undefined)?.find((p) => p.pageKey === key)
     homePublished = !!status('home')?.published
     catalogPublished = !!status('propiedades')?.published
-    homeUntouched = !!status('home')?.untouched
-    catalogUntouched = !!status('propiedades')?.untouched
   })
 
   // La web sirve la versión publicada, no el borrador: lo que estas pruebas
-  // publican hay que dejarlo como estaba, o las pruebas siguientes verían
-  // textos, herramientas del mapa y contadores de esta configuración. «Volver
-  // a la página original» (DELETE) quita la versión del Constructor, también la
-  // publicada: una página sin tocar vuelve así a «Original» (sin borrador
-  // guardado ni «Cambios» en la lista de páginas, que es lo que esperan las
-  // pruebas del Constructor que vienen después); una ya tocada recupera su
-  // borrador y, si lo estaba, su publicación.
-  async function restorePage(key: string, original: Record<string, unknown> | null, published: boolean, untouched: boolean) {
-    await a.delete(`/api/admin/site-pages/${key}`).catch(() => null)
-    if (untouched || !original) return
-    await a.put(`/api/admin/site-pages/${key}`, { data: original }).catch(() => null)
-    if (published) await a.post(`/api/admin/site-pages/${key}/publish`).catch(() => null)
+  // publican hay que dejarlo como estaba, o las pruebas siguientes (el pie, el
+  // Hero…) verían sus textos y herramientas del mapa. Se repone el borrador
+  // y se comprueba que se repuso de verdad (un guardado pendiente del editor
+  // puede llegar después de la primera reposición). La portada no admite
+  // «volver a la original»; el catálogo sí, y se usa si no estaba publicado.
+  // Una página que estaba publicada vuelve a publicarse con su borrador; la
+  // portada, que no se puede despublicar, se publica con el suyo en cualquier
+  // caso: con el de origen, nunca con el de esta prueba.
+  async function restorePage(key: string, original: Record<string, unknown> | null, wasPublished: boolean) {
+    if (!original) return
+    if (key !== 'home' && !wasPublished) expect((await a.delete(`/api/admin/site-pages/${key}`)).ok(), `volver a la original: ${key}`).toBeTruthy()
+    await expect
+      .poll(
+        async () => {
+          const put = await a.put(`/api/admin/site-pages/${key}`, { data: original })
+          if (!put.ok()) return `PUT ${put.status()} ${await put.text()}`
+          const now = await (await a.get(`/api/admin/site-pages/${key}`)).json()
+          return JSON.stringify(now.blocks) === JSON.stringify((original as { blocks: unknown }).blocks) ? 'repuesto' : 'distinto'
+        },
+        { message: `reponer el borrador de «${key}»`, timeout: 15_000, intervals: [300, 700, 1500] },
+      )
+      .toBe('repuesto')
+    if (wasPublished || key === 'home') expect((await a.post(`/api/admin/site-pages/${key}/publish`)).ok(), `publicar el original: ${key}`).toBeTruthy()
   }
 
   test.afterAll(async () => {
-    await restorePage('home', originalHome, homePublished, homeUntouched)
-    await restorePage('propiedades', originalCatalog, catalogPublished, catalogUntouched)
-    await a?.dispose()
+    try {
+      // Que el editor termine un guardado pendiente antes de reponer.
+      await new Promise((r) => setTimeout(r, 1500))
+      await restorePage('home', originalHome, homePublished)
+      await restorePage('propiedades', originalCatalog, catalogPublished)
+    } finally {
+      await a?.dispose()
+    }
   })
 
   test('59–61 · Hero: el inspector guarda lo de Tipo y Ubicación y la portada lo enseña (texto vacío, sin dibujar, destacada primero, sin contadores)', async ({ page }) => {
