@@ -77,6 +77,84 @@ de `utils`, y el dataset exporta nombres genéricos).
   y el seed las sube a R2 por `storeAndRegisterFile` (validación, cuota y
   biblioteca de medios de la empresa), una vez por entidad.
 
+## Propiedades de referencia
+
+Cuatro propiedades de la demo —dos por catálogo— son los **ejemplos de máxima
+calidad** de cómo debe quedar un inmueble documentado en INMO: todas las
+secciones del editor trabajadas, la multimedia clasificada, planos y documentos.
+La demo las enseña **primero** y con un **marco dorado**.
+
+| Catálogo | Propiedad | Tipología |
+|---|---|---|
+| Propiedades (web) | `p10` Villa de diseño frente al mar en Celorio | Chalet independiente |
+| Propiedades (web) | `p02` Ático con terraza junto al Campo San Francisco | Ático de lujo |
+| Propiedades 2ª mano | `p11` Vivienda familiar reformada en La Florida | Piso de segunda mano |
+| Propiedades 2ª mano | `p19` Casa asturiana de piedra rehabilitada cerca de Llanes | Casa de segunda mano |
+
+Son propiedades que ya tenía la demo (no se duplica nada): la selección está en
+`server/demo/reference.ts`, que las reconoce por su **referencia de agencia**
+(`NA-P10`…), no por su posición en la lista ni por su id, y sólo se aplica a la
+empresa marcada como demo (`isDemoOrg`, nunca por nombre o dominio). Una que se
+borra, se retira o se despublica simplemente deja de coincidir.
+
+**Orden.** En el listado del panel de la demo (`GET /api/admin/developer-properties`
+y `/properties`) las dos de cada catálogo van primero, en el orden de arriba, con
+la ordenación por defecto («Más recientes», sin radio ni papelera); el resto
+conserva el suyo. Otra ordenación (precio, nombre, antigüedad), un filtro o la
+paginación se comportan como siempre: sólo salen las que coinciden y las de
+referencia no se cuelan. Las filas de la demo llevan `demoReference`; ninguna otra
+empresa recibe ese campo ni cambia de orden.
+
+**Marco dorado.** `.demo-reference-frame` (`assets/css/main.css`): 2 px de `#c6a667`
+en un `::after` que rodea la tarjeta entera sin mover nada de dentro, sombra
+muy suave, sin degradados ni animación. La etiqueta «Propiedad de referencia»
+(sobre la portada, abajo a la izquierda) dice que es un ejemplo trabajado a fondo,
+no una certificación. En la vista de lista, la fila lleva el contorno y la etiqueta.
+
+**Contenido.** `server/demo/dataset/referencia.ts` completa lo que `properties.ts`
+ya traía: ficha ampliada y datos legales y económicos, descripción de doce
+partes (presentación, entorno, distribución, zonas de día y noche, exteriores,
+calidades, instalaciones, equipamiento, rasgos diferenciales, perfil de comprador
+e información comercial), estancias que suman la superficie útil, fotos con su
+estancia, texto alternativo y descripción, planos, documentos y etiquetas. Se
+aplica con los pasos `Referencia <clave>: ficha completa | estancias | fotos
+clasificadas | planos | documentos` de la línea de tiempo
+(`server/demo/events/referencia.ts`), por las mismas funciones que el editor
+(`buildPayload`, `extractSheetPayload`, `savePropertySheet`, `syncTranslations`) y
+el mismo alta de hijos y de documentos. Son **idempotentes**: se reconocen por su
+contenido (estancia por nombre, plano y documento por título), así que ejecutarlos
+dos veces no duplica nada.
+
+**Cuándo se ven.** El orden y el marco llegan con el despliegue y se ven ya sobre
+las propiedades de la demo que existan. El **contenido** nuevo es una serie de
+pasos más de la línea de tiempo: en una demo ya sembrada aparece con **«Restablecer
+la demo»** (no destructivo, el recuadro dice cuántos pasos pendientes hay) y una
+demo nueva ya lo incluye. Nada se aplica solo.
+
+**Qué es real y qué no.** Todo es ficticio y está dicho. La referencia catastral
+(`DEMO0000000000000010`), la finca registral (`DEMO-FINCA-0010`) y el certificado
+energético (`DEMO-SIN-REGISTRO`) son inequívocamente falsos: ninguno puede
+corresponder a un inmueble real, y la descripción avisa de que los datos
+energéticos y registrales son de demostración. Los documentos son fichas,
+memorias, resúmenes, un informe descriptivo y un modelo de hoja de encargo —nada
+de escrituras, notas simples ni certificados—, con el rótulo **«DOCUMENTO DE
+DEMOSTRACIÓN — SIN VALIDEZ LEGAL»** en una franja de cada página y al pie
+(`server/demo/pdf.ts`); el informe de estado de 2ª mano dice que no es una
+inspección. Los planos (`public/demo-assets/norte-astur/planos/`) los dibuja
+`scripts/demo-planos.ts` a partir de las mismas estancias de la ficha, con el
+rótulo «PLANO DE DEMOSTRACIÓN — SIN VALIDEZ LEGAL». Las fotos son las que ya tenía
+la demo (CC0, ver CREDITOS.md): las del entorno dicen que lo son.
+
+**No aplica no es pendiente.** Lo que no corresponde a la tipología (la piscina
+comunitaria de un chalet, el ascensor de una casa de piedra, el plan de pagos de
+una reventa, los vídeos y tours sin recurso con licencia compatible) no se rellena
+con un valor falso: cada campo lleva su motivo en `notApplicable` del dataset.
+`server/demo/completeness.ts` recorre las secciones reales del editor
+(`PROPERTY_BUILDER_SECTIONS`) y cuenta campos completos, «no aplica» y pendientes,
+y comprueba la coherencia (superficies, estancias, dormitorios y baños, precios),
+la multimedia clasificada, los documentos marcados y que ningún archivo apunte a
+algo que no existe.
+
 ## Qué se bloquea
 
 La empresa está marcada con `organizations.registration_source = 'demo'` (el
@@ -164,6 +242,15 @@ contraseña. Todo queda en la auditoría.
   nada, que las métricas salen de los registros, que la comisión facturada es
   la de la ficha, que otra empresa no se toca, que el restablecimiento no deja
   rastro (tablas y R2) y que se puede volver a sembrar.
+- `test/unit/demoReferencia.test.ts`: las cuatro propiedades de referencia
+  (catálogos reales, coherencia de superficies, estancias y precios, fotos y
+  planos que existen, PDF con su rótulo, y que la prioridad del listado sólo se
+  aplica a la empresa demo) y la comprobación de completitud sobre la demo
+  generada (dentro de `demoSeed.test.ts`, con la idempotencia de los pasos).
+- `tests/e2e/demo.spec.ts`: sobre el Worker, las de referencia primero y
+  marcadas en los dos listados, el resto con su orden, ordenación explícita,
+  filtros y paginación sin cuelas, marco dorado en escritorio, tableta y móvil,
+  y las fichas públicas con sus fotos clasificadas, plano y documentos.
 - `test/unit/demoDataset.test.ts`: el dataset sólo usa valores de los catálogos
   reales (tipos, subtipos, ficha ampliada, papeles de propietario, financiación)
   y cada foto tiene su texto alternativo.

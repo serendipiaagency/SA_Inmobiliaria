@@ -1,6 +1,7 @@
 import { TimelineBuilder, type DemoEvent } from './timeline'
 import { addSetupEvents } from './events/setup'
 import { addPropertyEvents } from './events/properties'
+import { addReferenceEvents } from './events/referencia'
 import { addCrmEvents } from './events/crm'
 import { addAgendaEvents } from './events/agenda'
 import { addBusinessEvents } from './events/business'
@@ -17,6 +18,7 @@ export function buildDemoTimeline(anchorDay: string, nowMs: number): DemoEvent[]
   const tl = new TimelineBuilder(anchorDay, nowMs)
   addSetupEvents(tl)
   addPropertyEvents(tl)
+  addReferenceEvents(tl)
   addCrmEvents(tl)
   addAgendaEvents(tl)
   addBusinessEvents(tl)

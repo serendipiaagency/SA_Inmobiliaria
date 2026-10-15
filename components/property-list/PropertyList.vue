@@ -361,7 +361,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="p in data.rows" :key="p.id" class="border-t border-line hover:bg-stone-50">
+            <tr v-for="p in data.rows" :key="p.id" class="border-t border-line hover:bg-stone-50" :class="{ 'demo-reference-row': p.demoReference }" :data-demo-reference="p.demoReference ? '1' : undefined">
               <td class="px-4 py-3"><input type="checkbox" :checked="isSelected(p.id)" @change="toggleSelect(p.id)" ></td>
               <td class="px-4 py-3">
                 <NuxtLink :to="`/admin/${config.resource}/${p.id}`" class="flex items-center gap-2.5">
@@ -370,6 +370,7 @@
                   <span class="min-w-0">
                     <span class="block truncate font-medium text-ink">{{ config.rowTitle(p) }}</span>
                     <span class="block text-[11px] text-stone-400">Ref. #{{ p.id }}</span>
+                    <span v-if="p.demoReference" class="demo-reference-tag mt-0.5" :data-testid="`property-reference-tag-${p.id}`" title="Ejemplo de ficha trabajada a fondo en la demo; no es una certificación">Propiedad de referencia</span>
                     <TagChips v-if="p.tags?.length" class="mt-0.5" :tags="p.tags" />
                   </span>
                 </NuxtLink>

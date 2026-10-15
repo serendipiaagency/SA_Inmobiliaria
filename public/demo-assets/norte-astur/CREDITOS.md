@@ -232,3 +232,7 @@ Fotografías genéricas con licencia CC0, no viviendas reales de Norte Astur (do
 | `blog/g06-meeting.webp` | Paal Joachim Romdahl | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/9706376b7b/> |
 | `blog/g06-documents.webp` | Nilo Velez | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/57267ab11b/> |
 | `blog/g06-entrance.webp` | Alvaro Gómez | CC0 1.0 (WordPress Photos) | <https://wordpress.org/photos/photo/67648af9cc/> |
+
+## Planos de demostración
+
+`planos/*.png` no son fotografías ni proceden de ninguna fuente externa: son esquemas propios, dibujados por `scripts/demo-planos.ts` a partir de las estancias de las propiedades de referencia (`server/demo/dataset/referencia.ts`), con el rótulo «PLANO DE DEMOSTRACIÓN — SIN VALIDEZ LEGAL». Se pueden copiar y modificar sin restricciones.
