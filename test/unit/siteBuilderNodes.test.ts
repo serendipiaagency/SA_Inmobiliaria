@@ -234,6 +234,45 @@ describe('estilos globales', () => {
     expect(page.indexOf('[data-site-page] h1')).toBeLessThan(page.indexOf('[data-sb-node="a:title"]'))
   })
 
+  it('sanea el ritmo y la paleta, y rechaza un color que no sea hexadecimal', () => {
+    expect(
+      sanitizeGlobalStyles({ sectionRhythm: '112', colorPrimary: '#17382F', colorText: 'rebeccapurple', colorBorder: '#e8ebe7' }),
+    ).toEqual({ sectionRhythm: 112, colorPrimary: '#17382f', colorBorder: '#e8ebe7' })
+    // El ritmo se acota por arriba como el radio: un número enorme no puede
+    // romper la página de quien lo escriba a mano.
+    expect(sanitizeGlobalStyles({ sectionRhythm: 9999 })?.sectionRhythm).toBe(200)
+    expect(sanitizeGlobalStyles({ sectionRhythm: -50 })?.sectionRhythm).toBe(0)
+  })
+
+  it('el ritmo va ENTRE bloques, no en el primero', () => {
+    const css = buildGlobalStylesCss({ sectionRhythm: 112 })
+    // `>div+div`: el hermano siguiente. Si fuera `>div` el primer bloque se
+    // despegaría de la cabecera y el hero dejaría de estar pegado arriba.
+    expect(css).toContain('[data-site-page]>div+div{margin-top:112px}')
+    // Una sección que no renderiza nada no abre hueco.
+    expect(css).toContain('[data-site-page]>div+div:not(:has(>*)){margin-top:0}')
+  })
+
+  it('la paleta sale acotada a la raíz de la página', () => {
+    const css = buildGlobalStylesCss({ colorPrimary: '#17382f', colorText: '#172520', colorMuted: '#66716b', colorBorder: '#e8ebe7', colorSurface: '#ffffff' })
+    expect(css).toContain('[data-site-page]{color:#172520}')
+    expect(css).toContain('[data-site-page] .text-stone-500')
+    expect(css).toContain('[data-site-page] .card,[data-site-page] .bg-surface{background-color:#ffffff}')
+    expect(css).toContain('[data-site-page] .btn-primary{background-color:#17382f')
+    expect(css).toContain('[data-site-page] .btn-secondary,[data-site-page] .btn-quiet{color:#17382f')
+    // Nada puede salir de la raíz: ni cabecera, ni pie, ni panel.
+    for (const rule of css.split('}').filter(Boolean)) expect(rule).toContain('[data-site-page]')
+  })
+
+  it('una página que no usa los tokens nuevos no emite NADA nuevo', () => {
+    // Es la garantía de que esto no toca a las demás inmobiliarias: lo que
+    // generaba antes una página con sólo tipografía sigue siendo idéntico.
+    const css = buildGlobalStylesCss({ fontHeading: 'Lora', fontBody: 'Manrope', buttonRadius: 8 })
+    expect(css).not.toContain('margin-top')
+    expect(css).not.toContain('color:')
+    expect(css).not.toContain('background-color')
+  })
+
   it('collectPageFonts reúne globales y nodos (incluido responsive) sin repetir', () => {
     const doc = {
       styles: { fontHeading: 'Lora', fontBody: 'Inter' },

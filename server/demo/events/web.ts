@@ -38,7 +38,37 @@ async function buildHome(ctx: DemoContext) {
   // Fotos de los bloques corporativos (docs/home-corporativa.md): la sala de reuniones y la costa.
   const aboutImage = await uploadDemoAsset(ctx, 'oficinas/oficina-04.jpg', { category: 'upload', createdBy: admin(ctx).id })
   const trustImage = await uploadDemoAsset(ctx, 'asturias/costa-01.jpg', { category: 'upload', createdBy: admin(ctx).id })
+  // Dirección de arte de la portada demo (brief de rediseño): editorial,
+  // blanca y con aire. Todo lo que sigue son DATOS de esta cuenta, no estilos
+  // globales: ninguna otra inmobiliaria se ve afectada.
+  //
+  // Una sola escala para todos los H2 de sección, aplicada igual en los quince
+  // bloques. Que sea el mismo objeto y no quince juegos de números es lo que
+  // hace que la jerarquía sea consistente de verdad y no por casualidad.
+  const sectionTitle = {
+    title: {
+      fontSize: 44, fontWeight: 400, lineHeight: 1.12, letterSpacing: -0.015,
+      responsive: { tablet: { fontSize: 35 }, mobile: { fontSize: 30 } },
+    },
+  }
   const doc = validatePageDocument({
+    // Serif de display para los títulos y Inter para el cuerpo: la combinación
+    // editorial del brief. Se cargan sólo para esta página (pageFontsHref) y
+    // sólo con los pesos que declara el catálogo de fuentes.
+    styles: {
+      fontHeading: 'DM Serif Display',
+      fontBody: 'Inter',
+      // Esquina discreta: ni cuadrado seco ni pastilla.
+      buttonRadius: 4,
+      // Aire entre secciones, dentro del rango del brief (96–128 px).
+      sectionRhythm: 112,
+      colorPrimary: '#17382f',
+      colorText: '#172520',
+      colorMuted: '#66716b',
+      colorBorder: '#e8ebe7',
+      // La tarjeta del formulario deja de ser una caja beige pesada.
+      colorSurface: '#ffffff',
+    },
     seo: {
       title: `${DEMO_COMPANY.name} · Viviendas en Asturias`,
       description: 'Obra nueva y segunda mano en Oviedo, Gijón, Avilés y el oriente de Asturias. Cuenta de demostración con datos ficticios.',
@@ -52,39 +82,39 @@ async function buildHome(ctx: DemoContext) {
           slides,
         },
       },
-      { id: 'properties-na02', type: 'properties', version: 1, content: { eyebrow: 'Obra nueva', title: 'Promociones destacadas', cta: 'Ver todas', ctaTo: '/propiedades', source: 'dynamic', dynamicFilter: 'latest', limit: 4, layout: 'row' } },
+      { id: 'properties-na02', type: 'properties', version: 1, nodeStyles: sectionTitle, content: { eyebrow: '', title: 'Promociones destacadas', cta: 'Ver todas', ctaTo: '/propiedades', source: 'dynamic', dynamicFilter: 'latest', limit: 4, layout: 'row' } },
       // «Conoce nuestra inmobiliaria»: la agencia detrás del catálogo, con cifras REALES de la cuenta (recuentos en vivo), nunca escritas a mano.
       {
-        id: 'about-na13', type: 'about-agency', version: 1,
+        id: 'about-na13', type: 'about-agency', version: 1, nodeStyles: sectionTitle,
         content: {
-          eyebrow: 'Sobre Norte Astur', title: 'Mucho más que encontrar una casa.',
+          eyebrow: '', title: 'Mucho más que encontrar una casa.',
           text: 'Somos una inmobiliaria asturiana especializada en vivienda residencial: obra nueva, segunda mano e inversión en Oviedo, Gijón, Avilés y el oriente. Conocemos cada barrio porque vivimos en ellos, y te acompañamos en todo el proceso —valoración, visitas, financiación y notaría— para que encuentres un lugar donde de verdad quieras vivir.',
           cta: 'Conoce nuestra inmobiliaria', ctaTo: '/nosotros', image: aboutImage, imageAlt: mediaAlt('oficinas/oficina-04.jpg'),
           stats: ['team', 'offices', 'properties'], labelTeam: 'asesores que conocen Asturias', labelOffices: 'oficinas en Oviedo, Gijón y Llanes', labelProperties: 'viviendas publicadas ahora mismo',
         },
       },
-      { id: 'map-teaser-na03', type: 'map-teaser', version: 1, content: { eyebrow: 'Explora por zona', title: 'De Oviedo al oriente', text: 'Busca en el mapa entre Oviedo, Gijón, Avilés, la costa central y el oriente. Las viviendas de segunda mano se muestran con su zona aproximada.', cta: 'Abrir el mapa', ctaTo: '/propiedades', source: 'dynamic', dynamicFilter: 'latest', limit: 8 } },
-      { id: 'properties-na04', type: 'properties', version: 1, content: { eyebrow: 'Colección', title: 'Viviendas con vistas al mar', cta: 'Ver todas', ctaTo: '/propiedades?sort=price_desc', source: 'dynamic', dynamicFilter: 'premium', limit: 3, layout: 'dark-grid' } },
-      { id: 'communities-na05', type: 'communities', version: 1, content: { eyebrow: 'Vive aquí', title: 'Residenciales y zonas que conocemos', source: 'dynamic', limit: 6 } },
+      { id: 'map-teaser-na03', type: 'map-teaser', version: 1, nodeStyles: sectionTitle, content: { eyebrow: '', title: 'De Oviedo al oriente', text: 'Busca en el mapa entre Oviedo, Gijón, Avilés, la costa central y el oriente. Las viviendas de segunda mano se muestran con su zona aproximada.', cta: 'Abrir el mapa', ctaTo: '/propiedades', source: 'dynamic', dynamicFilter: 'latest', limit: 8 } },
+      { id: 'properties-na04', type: 'properties', version: 1, nodeStyles: sectionTitle, content: { eyebrow: '', title: 'Viviendas con vistas al mar', cta: 'Ver todas', ctaTo: '/propiedades?sort=price_desc', source: 'dynamic', dynamicFilter: 'premium', limit: 3, layout: 'light-grid' } },
+      { id: 'communities-na05', type: 'communities', version: 1, nodeStyles: sectionTitle, content: { eyebrow: '', title: 'Residenciales y zonas que conocemos', source: 'dynamic', limit: 6 } },
       {
-        id: 'text-na06', type: 'text', version: 1,
+        id: 'text-na06', type: 'text', version: 1, nodeStyles: sectionTitle,
         content: {
-          eyebrow: 'Servicios', title: 'Todo el proceso, con una sola agencia', subtitle: '',
+          eyebrow: '', title: 'Todo el proceso, con una sola agencia', subtitle: '',
           body: 'Valoración de tu vivienda con comparables reales de la zona.\nReportaje fotográfico, plano y publicación en nuestra web.\nBúsqueda a medida para compradores, con visitas agrupadas.\nAcompañamiento en reserva, arras, financiación y notaría.\nGestión integral de alquileres.',
           align: 'left', maxWidth: 'md', columns: 1,
         },
       },
       // Zonas (docs/zonas.md): las seis con prioridad en la portada, hacia el directorio /zonas/asturias.
-      { id: 'zones-na12', type: 'zones-grid', version: 1, content: { eyebrow: 'Zonas', title: 'Descubre dónde vivir en Asturias', text: 'Ciudades, villas marineras y valles: cómo es vivir en cada zona y qué tenemos publicado ahora.', limit: 6, cta: 'Explorar todas las zonas →', ctaTo: '/zonas/asturias' } },
+      { id: 'zones-na12', type: 'zones-grid', version: 1, nodeStyles: sectionTitle, content: { eyebrow: '', title: 'Descubre dónde vivir en Asturias', text: 'Ciudades, villas marineras y valles: cómo es vivir en cada zona y qué tenemos publicado ahora.', limit: 6, cta: 'Explorar todas las zonas →', ctaTo: '/zonas/asturias' } },
       // «Conoce a nuestro equipo»: el bloque de comerciales de siempre, en su diseño editorial (los seis comerciales reales, con su ficha).
-      { id: 'team-na07', type: 'team', version: 1, style: { background: 'surface' }, content: { eyebrow: 'Nuestro equipo', title: 'Las personas detrás de cada historia.', text: 'Un equipo local, cercano y con un profundo conocimiento del mercado asturiano. Estamos a tu lado para ayudarte a tomar la mejor decisión.', cta: 'Conoce todo el equipo', ctaTo: '/equipo', source: 'dynamic', limit: 4, layout: 'editorial', cardFields: { position: true, description: true } } },
+      { id: 'team-na07', type: 'team', version: 1, nodeStyles: sectionTitle, content: { eyebrow: '', title: 'Las personas detrás de cada historia.', text: 'Un equipo local, cercano y con un profundo conocimiento del mercado asturiano. Estamos a tu lado para ayudarte a tomar la mejor decisión.', cta: 'Conoce todo el equipo', ctaTo: '/equipo', source: 'dynamic', limit: 4, layout: 'editorial', cardFields: { position: true, description: true } } },
       // «Nuestras oficinas»: las tres oficinas reales de la demo (foto, dirección, horario, teléfono y «Cómo llegar»).
-      { id: 'offices-na14', type: 'offices', version: 1, content: { eyebrow: 'Nuestras oficinas', title: 'Un equipo cercano, estés donde estés.', text: 'Visítanos en Oviedo, Gijón o Llanes, o contáctanos: estaremos encantados de atenderte y asesorarte personalmente.', cta: 'Ver todas las oficinas', ctaTo: '/oficinas', source: 'dynamic', limit: 3, layout: 'auto' } },
+      { id: 'offices-na14', type: 'offices', version: 1, nodeStyles: sectionTitle, content: { eyebrow: '', title: 'Un equipo cercano, estés donde estés.', text: 'Visítanos en Oviedo, Gijón o Llanes, o contáctanos: estaremos encantados de atenderte y asesorarte personalmente.', cta: 'Ver todas las oficinas', ctaTo: '/oficinas', source: 'dynamic', limit: 3, layout: 'auto' } },
       // «Nuestra experiencia, tu tranquilidad»: argumentos propios de la agencia, sin cifras.
       {
-        id: 'trust-na15', type: 'trust-points', version: 1, style: { background: 'surface' },
+        id: 'trust-na15', type: 'trust-points', version: 1, nodeStyles: sectionTitle,
         content: {
-          eyebrow: 'Por qué elegir Norte Astur', title: 'Experiencia local. Tu tranquilidad.',
+          eyebrow: '', title: 'Experiencia local. Tu tranquilidad.',
           text: 'Conocemos Asturias, sus pueblos, sus ciudades y sus oportunidades. Te ofrecemos un servicio profesional, transparente y adaptado a lo que necesitas.',
           image: trustImage, imageAlt: mediaAlt('asturias/costa-01.jpg'), count: 4,
           point1Title: 'Conocemos Asturias', point1Text: 'Asesoramiento basado en el conocimiento real del territorio: barrios, promociones y lo que se mueve en cada zona.',
@@ -93,17 +123,17 @@ async function buildHome(ctx: DemoContext) {
           point4Title: 'Tu confianza es lo primero', point4Text: 'Información clara y honesta para que tomes decisiones con seguridad.',
         },
       },
-      { id: 'mortgage-na08', type: 'mortgage-calculator', version: 1, content: { eyebrow: 'Planifica', title: 'Calcula tu hipoteca', text: 'Estima tu cuota mensual antes de visitar.' } },
+      { id: 'mortgage-na08', type: 'mortgage-calculator', version: 1, nodeStyles: sectionTitle, content: { eyebrow: '', title: 'Calcula tu hipoteca', text: 'Estima tu cuota mensual antes de visitar.' } },
       {
-        id: 'lead-form-na09', type: 'lead-form', version: 1,
+        id: 'lead-form-na09', type: 'lead-form', version: 1, nodeStyles: sectionTitle,
         content: {
-          eyebrow: '¿Buscas algo concreto?', title: 'Cuéntanos qué necesitas', description: 'Déjanos tus datos y un comercial te llama con opciones reales en tu zona.',
+          eyebrow: '', title: 'Cuéntanos qué necesitas', description: 'Déjanos tus datos y un comercial te llama con opciones reales en tu zona.',
           submitLabel: 'Quiero que me llamen', messageLabel: '¿Qué estás buscando?', messagePlaceholder: 'Zona, presupuesto, número de habitaciones…',
           successMessage: '¡Gracias! Te llamamos enseguida.', subject: 'Formulario de portada', privacyNote: '', showPhone: true, layout: 'split',
         },
       },
-      { id: 'blog-list-na10', type: 'blog-list', version: 1, content: { eyebrow: 'Blog', title: 'Guías y zonas de Asturias', cta: 'Todos los artículos', ctaTo: '/blog', source: 'dynamic', limit: 3 } },
-      { id: 'cta-na11', type: 'cta', version: 1, content: { eyebrow: '', title: '¿Hablamos de tu próxima casa en Asturias?', description: 'Oficinas en Oviedo, Gijón y Llanes.', ctaPrimary: 'Contactar', ctaPrimaryTo: '/contacto', ctaSecondary: 'Ver propiedades', ctaSecondaryTo: '/propiedades', align: 'center' } },
+      { id: 'blog-list-na10', type: 'blog-list', version: 1, nodeStyles: sectionTitle, content: { eyebrow: '', title: 'Guías y zonas de Asturias', cta: 'Todos los artículos', ctaTo: '/blog', source: 'dynamic', limit: 3 } },
+      { id: 'cta-na11', type: 'cta', version: 1, nodeStyles: sectionTitle, content: { eyebrow: '', title: '¿Hablamos de tu próxima casa en Asturias?', description: 'Oficinas en Oviedo, Gijón y Llanes.', ctaPrimary: 'Contactar', ctaPrimaryTo: '/contacto', ctaSecondary: 'Ver propiedades', ctaSecondaryTo: '/propiedades', align: 'center' } },
     ],
   })
   await saveDraft(ctx.db, orgId(ctx), 'home', doc)

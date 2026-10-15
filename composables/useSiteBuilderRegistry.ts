@@ -325,6 +325,7 @@ export function blockLabel(type: string): string {
 const PROPERTIES_LAYOUT_LABELS: Record<string, string> = {
   row: 'Fila',
   'dark-grid': 'Oscuro',
+  'light-grid': 'Claro',
   'ai-grid': 'IA',
 }
 

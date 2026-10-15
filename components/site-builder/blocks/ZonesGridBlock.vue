@@ -1,7 +1,7 @@
 <template>
   <section v-reveal class="mx-auto max-w-screen-2xl px-6 py-16 lg:px-10" data-testid="zones-grid">
     <div class="max-w-3xl">
-      <SbText tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow" :text="content.eyebrow || ''" />
+      <SbText v-if="content.eyebrow" tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow" :text="content.eyebrow || ''" />
       <SbText tag="h2" field="title" kind="heading" label="Título" class="heading-serif mt-3 text-3xl md:text-4xl" :text="content.title || ''" />
       <SbText v-if="content.text" tag="p" field="text" kind="text" label="Subtítulo" class="mt-4 text-base leading-relaxed text-stone-500" :text="content.text" />
     </div>

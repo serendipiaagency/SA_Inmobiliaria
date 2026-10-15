@@ -123,6 +123,25 @@ describe('cuenta demo Norte Astur', () => {
     expect(homeBlocks.map((b: any) => b.type)).toEqual(['hero', 'properties', 'about-agency', 'map-teaser', 'properties', 'communities', 'text', 'zones-grid', 'team', 'offices', 'trust-points', 'mortgage-calculator', 'lead-form', 'blog-list', 'cta'])
     expect(homeBlocks.filter((b: any) => b.type === 'team'), 'el bloque de comerciales no se duplica').toHaveLength(1)
     expect(homeBlocks.find((b: any) => b.type === 'team').content.layout).toBe('editorial')
+    // Dirección de arte editorial de la portada (brief de rediseño). Son datos
+    // de ESTA cuenta: si alguien los deshace, la portada vuelve a su aspecto
+    // anterior sin que nada más se entere, así que se fija aquí.
+    const homeDoc = JSON.parse(home.publishedJson!)
+    expect(homeDoc.styles).toMatchObject({ fontHeading: 'DM Serif Display', fontBody: 'Inter', sectionRhythm: 112, colorPrimary: '#17382f' })
+    // Ningún pretítulo decorativo renderizado — salvo el del hero, que el
+    // brief declara intocable. El dato sigue existiendo y editable en el CMS.
+    const withEyebrow = homeBlocks.filter((b: any) => b.content?.eyebrow)
+    expect(withEyebrow.map((b: any) => b.type), 'sólo el hero conserva su etiqueta').toEqual(['hero'])
+    // El gran bloque oscuro pasa a su variante clara, sin perder el enlace.
+    const premium = homeBlocks.filter((b: any) => b.type === 'properties')[1]
+    expect(premium.content.layout).toBe('light-grid')
+    expect(premium.content.cta, 'la variante clara conserva «Ver todas»').toBeTruthy()
+    // Ni un fondo beige: el blanco domina la página.
+    expect(homeBlocks.filter((b: any) => b.style?.background === 'surface')).toHaveLength(0)
+    // Una sola escala de títulos, la misma en todas las secciones.
+    const scales = homeBlocks.slice(1).map((b: any) => JSON.stringify(b.nodeStyles?.title))
+    expect(new Set(scales).size, 'la jerarquía es consistente, no sección a sección').toBe(1)
+
     const about = homeBlocks.find((b: any) => b.type === 'about-agency').content
     expect(about.stats, 'sólo cifras en vivo: la demo no tiene cifras verificadas propias').toEqual(['team', 'offices', 'properties'])
     expect(Object.keys(about).filter((k) => k.startsWith('customValue'))).toEqual([])
