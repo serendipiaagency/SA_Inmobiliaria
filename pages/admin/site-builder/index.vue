@@ -25,7 +25,11 @@
       @open-cookies="cookiesOpen = true"
       @open-history="historyOpen = true"
       @publish="publish"
-    />
+    >
+      <template #center>
+        <FichaPreviewPicker v-if="currentPageKey === 'ficha-propiedad'" v-model="previewPropertyId" />
+      </template>
+    </TopBar>
 
     <div class="flex min-h-0 flex-1">
       <!-- Left panel: structure -->
@@ -442,6 +446,7 @@ import { fichaNode, fichaTree, type FichaNodeDef, type FichaTreeNode } from '~/u
 import InspectorSection from '~/components/site-builder/inspector/InspectorSection.vue'
 import CommonBlockSettings from '~/components/site-builder/inspector/CommonBlockSettings.vue'
 import NodeInspector from '~/components/site-builder/inspector/NodeInspector.vue'
+import FichaPreviewPicker from '~/components/site-builder/shell/FichaPreviewPicker.vue'
 import GlobalZoneInspector from '~/components/site-builder/inspector/GlobalZoneInspector.vue'
 import FooterInspector from '~/components/site-builder/inspector/FooterInspector.vue'
 import CookieNoticeInspector, { type CookiePreviewState } from '~/components/site-builder/inspector/CookieNoticeInspector.vue'
@@ -511,6 +516,18 @@ function pad2(n: number): string {
 // ---------------------------------------------------------------------------
 const route = useRoute()
 const router = useRouter()
+// «Previsualizar con»: la propiedad con la que se pinta la ficha en el lienzo. Preferencia de la sesión del
+// editor (no del borrador): cambiarla no cambia la plantilla ni crea cambios pendientes. null = la más reciente.
+const PREVIEW_PROPERTY_KEY = 'sa-builder-ficha-preview-property'
+const previewPropertyId = ref<number | null>(null)
+watch(previewPropertyId, (id) => {
+  try {
+    if (id === null) sessionStorage.removeItem(PREVIEW_PROPERTY_KEY)
+    else sessionStorage.setItem(PREVIEW_PROPERTY_KEY, String(id))
+  } catch {
+    // Preferencia de comodidad: sin almacenamiento, sólo no se recuerda.
+  }
+})
 const currentPageKey = ref(sitePageDef(String(route.query.pagina || ''))?.key || 'home')
 const currentPageDef = computed(() => sitePageDef(currentPageKey.value))
 const switchingPage = ref(false)
@@ -1057,6 +1074,12 @@ onMounted(async () => {
   structureCollapsed.value = sessionStorage.getItem(STRUCTURE_COLLAPSED_KEY) === '1'
   inspectorCollapsed.value = sessionStorage.getItem(INSPECTOR_COLLAPSED_KEY) === '1'
   try {
+    const savedPreview = Number(sessionStorage.getItem(PREVIEW_PROPERTY_KEY))
+    if (Number.isInteger(savedPreview) && savedPreview > 0) previewPropertyId.value = savedPreview
+  } catch {
+    // Sin sessionStorage (ventana privada): se parte de la propiedad más reciente.
+  }
+  try {
     recentPresetIds.value = JSON.parse(localStorage.getItem(RECENT_PRESETS_KEY) || '[]')
     favoritePresetIds.value = new Set(JSON.parse(localStorage.getItem(FAVORITE_PRESETS_KEY) || '[]'))
   } catch {
@@ -1465,6 +1488,7 @@ function sendState() {
       selectedGlobal: previewMode.value ? null : (selectedGlobal.value?.zone ?? null),
       mode: previewMode.value ? 'preview' : 'builder',
       pageKey: currentPageKey.value,
+      previewPropertyId: previewPropertyId.value,
       // Siempre copias planas: un proxy reactivo no se puede clonar por postMessage (DataCloneError) y
       // dejaría el lienzo sin recibir ningún estado más.
       footer: footerConfig.value ? JSON.parse(JSON.stringify(footerConfig.value)) : null,
@@ -1475,7 +1499,7 @@ function sendState() {
     window.location.origin,
   )
 }
-watch([blocks, styles, device, selectedBlockId, selectedNode, selectedGlobal, previewMode, currentPageKey, footerConfig, consentConfig], sendState, { deep: true })
+watch([blocks, styles, device, selectedBlockId, selectedNode, selectedGlobal, previewMode, currentPageKey, footerConfig, consentConfig, previewPropertyId], sendState, { deep: true })
 
 function handleMessage(e: MessageEvent) {
   if (e.origin !== window.location.origin) return

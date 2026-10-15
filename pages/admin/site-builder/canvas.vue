@@ -46,7 +46,7 @@ import SiteGlobalZone from '~/components/site-builder/SiteGlobalZone.vue'
 import type { SiteBlock, SitePageDocument } from '~/server/utils/sitePages'
 import { TENANT_BRANDING_OVERRIDE, type TenantBranding } from '~/composables/useTenant'
 import type { SiteNodeRef } from '~/composables/useSiteEditor'
-import { SITE_CANVAS_PAGE_KEY } from '~/composables/useFichaProperty'
+import { FICHA_SAMPLE_ID_KEY, SITE_CANVAS_PAGE_KEY } from '~/composables/useFichaProperty'
 import type { FooterAvailability, FooterConfig, FooterProfile } from '~/utils/siteFooter'
 import { allChoices, buildConsent } from '~/utils/cookieConsent'
 import type { ConsentProfile, SiteConsentConfig } from '~/utils/siteConsent'
@@ -83,6 +83,9 @@ const mode = ref<'builder' | 'preview'>('builder')
 const pageKey = ref('home')
 // Las secciones que dependen de la página (p. ej. «Eficiencia energética», sólo en la ficha) la leen de aquí.
 provide(SITE_CANVAS_PAGE_KEY, pageKey)
+// La propiedad con la que se pinta la ficha («Previsualizar con»); null, la más reciente de la empresa.
+const samplePropertyId = ref<number | null>(null)
+provide(FICHA_SAMPLE_ID_KEY, samplePropertyId)
 
 // La marca de la organización que se está editando (no la del host del
 // panel): es lo que la cabecera y el pie enseñan en la web publicada.
@@ -148,6 +151,7 @@ function handleMessage(e: MessageEvent) {
     selectedNodeField.value = msg.selectedNodeField ?? null
     selectedGlobal.value = msg.selectedGlobal ?? null
     mode.value = msg.mode === 'preview' ? 'preview' : 'builder'
+    samplePropertyId.value = Number.isInteger(msg.previewPropertyId) && msg.previewPropertyId > 0 ? msg.previewPropertyId : null
     if (msg.footer) {
       // Como los bloques: el mismo JSON, el mismo objeto (el pie no se repinta por cada tecla en otra parte).
       const json = JSON.stringify(msg.footer)

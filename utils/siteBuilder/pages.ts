@@ -78,7 +78,7 @@ export const PAGE_CORE_SOURCES: Record<PageCoreKind, { label: string; to: string
  * catálogo, el orden y la visibilidad de los grupos del panel de filtros.
  * Todo lo demás del contenido de la zona se descarta al guardar.
  */
-export type PageCoreOptionKind = 'boolean' | 'text' | 'number' | 'sections' | 'filters' | 'operation' | 'tone' | 'energy' | 'locations' | 'gallery'
+export type PageCoreOptionKind = 'boolean' | 'text' | 'number' | 'sections' | 'filters' | 'operation' | 'tone' | 'energy' | 'locations' | 'gallery' | 'choice'
 export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, PageCoreOptionKind>>> = {
   // Ficha: destacadas, orden y visibilidad de las secciones (#110) y, en la
   // tarjeta principal, la referencia y la descripción; el fondo de «Atendido
@@ -95,6 +95,10 @@ export const PAGE_CORE_OPTIONS: Partial<Record<PageCoreKind, Record<string, Page
     energy: 'energy',
     // Galería multimedia (Cola 5): sólo presentación (utils/mediaGallery.ts); las categorías las decide el backend.
     gallery: 'gallery',
+    // Ficha editable (Cola 7): cuántas líneas de la descripción se ven antes de «Ver más», las columnas de los datos clave y la altura del mapa.
+    descriptionLines: 'choice',
+    factsColumns: 'choice',
+    mapHeight: 'choice',
   },
   // Catálogo: qué partes del buscador se enseñan y cómo arranca. Sólo
   // presentación: lo que se encuentra lo decide Property Search, no esto.
@@ -148,6 +152,30 @@ export function parseContactTone(v: unknown): ContactTone | null {
   return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? (v.toLowerCase() as ContactTone) : null
 }
 
+/**
+ * Las opciones «de elección» de la ficha: un valor de una lista cerrada. La
+ * primera clave es la que guarda la plantilla; `fallback` es lo que enseña la
+ * web sin personalizar (y lo que no se guarda). Cualquier otro valor se
+ * descarta al guardar.
+ */
+export const FICHA_CHOICES = {
+  /** Líneas de la descripción antes de «Ver más» (la web de siempre enseña 4). */
+  descriptionLines: { values: [3, 4, 6, 8, 12], fallback: 4 },
+  /** Columnas de los datos clave en escritorio: `auto` es la fila con separadores de siempre. */
+  factsColumns: { values: ['auto', 2, 3, 4], fallback: 'auto' },
+  /** Altura del mapa de «Ubicación». */
+  mapHeight: { values: ['compact', 'standard', 'tall'], fallback: 'standard' },
+} as const satisfies Record<string, { values: readonly (string | number)[]; fallback: string | number }>
+export type FichaChoiceKey = keyof typeof FICHA_CHOICES
+
+/** El valor de una opción de elección: el guardado si está en la lista y, si no, el de partida. */
+export function fichaChoice(content: Record<string, any> | null | undefined, key: FichaChoiceKey): string | number {
+  const spec = FICHA_CHOICES[key]
+  const v = content?.[key]
+  const found = (spec.values as readonly (string | number)[]).find((x) => x === v || String(x) === String(v))
+  return found !== undefined ? found : spec.fallback
+}
+
 /** Lo que la ficha enseña si el Constructor no dice otra cosa. */
 export interface FichaDisplayOptions {
   showReference: boolean
@@ -156,6 +184,9 @@ export interface FichaDisplayOptions {
   contactTone: ContactTone
   energy: EnergyDisplayOptions
   gallery: GalleryDisplayOptions
+  descriptionLines: number
+  factsColumns: 'auto' | 2 | 3 | 4
+  mapHeight: 'compact' | 'standard' | 'tall'
 }
 /**
  * La descripción era una sección más de la lista (hasta el megaprompt
@@ -172,6 +203,9 @@ export function fichaDisplayOptions(content: Record<string, any> | null | undefi
     contactTone: parseContactTone(content?.contactTone) || 'brand',
     energy: normalizeEnergyOptions(content?.energy),
     gallery: normalizeGalleryOptions(content?.gallery),
+    descriptionLines: fichaChoice(content, 'descriptionLines') as number,
+    factsColumns: fichaChoice(content, 'factsColumns') as FichaDisplayOptions['factsColumns'],
+    mapHeight: fichaChoice(content, 'mapHeight') as FichaDisplayOptions['mapHeight'],
   }
 }
 
@@ -317,6 +351,11 @@ export function sanitizeCoreOptions(core: PageCoreKind, content: Record<string, 
     if (type === 'filters' && Array.isArray(v)) out[key] = normalizeCatalogFilters(v)
     if (type === 'operation' && (v === 'venta' || v === 'alquiler')) out[key] = v
     if (type === 'tone' && parseContactTone(v)) out[key] = parseContactTone(v)!
+    // Una opción de elección sólo se guarda si es de la lista y difiere de lo de partida.
+    if (type === 'choice' && key in FICHA_CHOICES) {
+      const picked = fichaChoice({ [key]: v }, key as FichaChoiceKey)
+      if (picked !== FICHA_CHOICES[key as FichaChoiceKey].fallback) out[key] = picked
+    }
     if (type === 'energy' && v && typeof v === 'object') {
       const compact = compactEnergyOptions(normalizeEnergyOptions(v))
       if (Object.keys(compact).length) out[key] = compact

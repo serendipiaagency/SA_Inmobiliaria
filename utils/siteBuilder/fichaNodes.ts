@@ -96,6 +96,10 @@ const SECTION_BLOCKS: FichaNodeDef[] = FICHA_SECTIONS.flatMap((s) => {
 const ASIDE_BLOCKS: FichaNodeDef[] = [
   { field: 'b.price', role: 'block', kind: 'card', label: 'Precio y próxima visita' },
   { field: 'b.contact', role: 'block', kind: 'card', label: 'Atendido por' },
+  { field: 't.contact.eyebrow', role: 'text', kind: 'eyebrow', label: 'Etiqueta «Atendido por»', parent: 'b.contact', defaultText: 'Atendido por' },
+  { field: 't.contact.title', role: 'text', kind: 'heading', label: 'Título del formulario', parent: 'b.contact', defaultText: 'Cuéntanos qué necesitas' },
+  { field: 't.contact.lead', role: 'text', kind: 'text', label: 'Texto del formulario', parent: 'b.contact', defaultText: 'Te ayudamos con los detalles de esta propiedad.' },
+  { field: 't.contact.submit', role: 'text', kind: 'button', label: 'Botón de envío', parent: 'b.contact', defaultText: 'Enviar mensaje' },
   { field: 'b.listing-meta', role: 'block', kind: 'card', label: 'Última actualización y referencia' },
   { field: 'b.indicators', role: 'block', kind: 'card', label: 'Indicadores' },
   { field: 'b.quick-decision', role: 'block', kind: 'card', label: 'Decisión rápida' },
@@ -110,6 +114,28 @@ const BY_FIELD = new Map(FICHA_NODES.map((n) => [n.field, n]))
 
 export function fichaNode(field: string): FichaNodeDef | undefined {
   return BY_FIELD.get(field)
+}
+
+/**
+ * Los contenedores con opciones propias de presentación en su inspector
+ * (components/site-builder/inspector/FichaBlockOptions.vue). Cada una cambia
+ * algo que la web ya lee de la plantilla; los demás sólo se estilizan.
+ */
+const OPTION_FIELDS = new Set(['b.summary', 'b.description', 'b.keyfacts', 'b.gallery', 's.energia', 's.ubicacion', 'b.contact', 'b.similar'])
+export function fichaNodeHasOptions(field: string): boolean {
+  return OPTION_FIELDS.has(field)
+}
+
+/**
+ * Lo que la ficha necesita para funcionar y no se oculta —ni de la lista de
+ * secciones ni por tamaño de pantalla—: las migas, la galería, la tarjeta
+ * principal con el título, el precio con la próxima visita, la barra de
+ * apartados y «Atendido por» con su formulario (la vía de contacto). Se les
+ * cambia el aspecto, nunca su presencia.
+ */
+export const FICHA_REQUIRED_NODES: readonly string[] = ['b.breadcrumbs', 'b.gallery', 'b.summary', 'd.title', 'b.nav', 'b.price', 'b.contact']
+export function fichaNodeRequired(field: string): boolean {
+  return FICHA_REQUIRED_NODES.includes(field)
 }
 
 export function isFichaNodeField(field: unknown): field is string {

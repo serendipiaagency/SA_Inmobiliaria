@@ -40,6 +40,8 @@
         </button>
         <button type="button" class="toolbar-btn !h-6 !w-6" title="Acercar" :disabled="!canZoomIn" @click="emit('step-zoom', 1)">+</button>
       </div>
+      <!-- Lo que depende de la página que se edita (p. ej. «Previsualizar con» en la ficha). -->
+      <slot name="center" />
     </div>
 
     <!-- Right: history, view, publish — "Publicar cambios" is the one CTA that stands out -->

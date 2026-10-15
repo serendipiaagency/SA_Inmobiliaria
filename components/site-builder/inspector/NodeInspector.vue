@@ -26,10 +26,13 @@
       </template>
     </InspectorSection>
 
-    <!-- Un contenedor (la galería, una sección, el precio…) no tiene texto propio: su contenido son los datos de la propiedad. -->
-    <InspectorSection v-else title="Contenido">
-      <p class="text-[12px] leading-relaxed text-stone-500" data-testid="node-no-content">Este elemento enseña datos de la propiedad y no tiene texto propio. Cambia su aspecto en «Diseño».</p>
-    </InspectorSection>
+    <!-- Un contenedor de la ficha (la galería, una sección, el precio…) no tiene texto propio: su contenido son los datos de la propiedad. Sí tiene las opciones de presentación de su bloque. -->
+    <template v-else>
+      <FichaBlockOptions v-if="isFichaBlock" :content="block.content" :field="node.field" design-tab advanced />
+      <InspectorSection v-if="!hasBlockOptions" title="Contenido">
+        <p class="text-[12px] leading-relaxed text-stone-500" data-testid="node-no-content">Este elemento enseña datos de la propiedad y no tiene texto propio. Cambia su aspecto en «Diseño».</p>
+      </InspectorSection>
+    </template>
 
     <!-- --------------------------------------------------------------- Diseño -->
     <InspectorSection title="Dispositivo" tab="design">
@@ -97,6 +100,26 @@
       <NumberField v-if="kindHas(node.kind, 'opacity')" label="Opacidad" :model-value="own.opacity" :inherited="effective.opacity" :min="0" :max="100" unit="%" :overridden="isOwn('opacity')" @update:model-value="setProp('opacity', $event)" />
     </InspectorSection>
 
+    <!-- Avanzado de un elemento de la ficha: qué es y de dónde viene (la visibilidad y el orden de las secciones van en su bloque). -->
+    <InspectorSection v-if="isFicha" title="Este elemento" tab="advanced">
+      <dl class="space-y-1.5 text-[12px] text-stone-600" data-testid="node-advanced-info">
+        <div class="flex justify-between gap-3"><dt class="text-stone-400">Elemento</dt><dd class="text-right">{{ node.label }}</dd></div>
+        <div class="flex justify-between gap-3"><dt class="text-stone-400">Tipo</dt><dd class="text-right">{{ fichaRole }}</dd></div>
+        <div v-if="node.dynamic" class="flex justify-between gap-3"><dt class="text-stone-400">Origen</dt><dd class="text-right">{{ node.dynamic }}</dd></div>
+        <div class="flex justify-between gap-3"><dt class="text-stone-400">Identificador</dt><dd class="break-all text-right font-mono text-[11px]">{{ node.field }}</dd></div>
+      </dl>
+      <p class="mt-2 text-[11px] leading-relaxed text-stone-400">Los cambios de aspecto valen para todas las fichas de la web. Por tamaño de pantalla se ajustan en «Diseño», con la vista de Escritorio, Tablet o Móvil.</p>
+    </InspectorSection>
+
+    <!-- Visibilidad por tamaño: sigue la herencia (Escritorio → Tablet → Móvil). Lo que la ficha necesita no se oculta. -->
+    <InspectorSection v-if="isFicha" title="Visibilidad por tamaño" tab="advanced">
+      <template v-if="!fichaRequired">
+        <ToggleField :label="hideLabel" :model-value="own.display === 'none'" data-testid="node-hide-device" @update:model-value="(v) => setProp('display', v ? 'none' : undefined)" />
+        <p class="mt-1 text-[11px] leading-relaxed text-stone-400">{{ hideHint }} No borra nada: vuelve a verse al desmarcarlo.</p>
+      </template>
+      <p v-else class="text-[11px] leading-relaxed text-stone-400" data-testid="node-hide-blocked">Este elemento forma parte de lo que la ficha necesita y se ve en todos los tamaños.</p>
+    </InspectorSection>
+
     <InspectorSection v-if="hasAnyOverride" title="Restablecer" tab="design">
       <button type="button" class="btn-quiet w-full !py-2 !text-[11px]" data-testid="node-reset-all" @click="resetAll">Restablecer todos los estilos de este elemento</button>
       <p class="mt-1.5 text-[11px] text-stone-400">Vuelve al estilo global de la página en todos los dispositivos. Se puede deshacer.</p>
@@ -118,7 +141,7 @@ import {
 } from '~/utils/siteBuilder/nodes'
 import { fontDef } from '~/utils/siteBuilder/fonts'
 import { PAGE_CORE_TYPE } from '~/utils/siteBuilder/pages'
-import { fichaNode } from '~/utils/siteBuilder/fichaNodes'
+import { fichaNode, fichaNodeHasOptions, fichaNodeRequired } from '~/utils/siteBuilder/fichaNodes'
 import type { SiteNodeRef } from '~/composables/useSiteEditor'
 import InspectorSection from './InspectorSection.vue'
 import TextField from './fields/TextField.vue'
@@ -129,6 +152,8 @@ import FontFamilyField from './fields/FontFamilyField.vue'
 import ColorField from './fields/ColorField.vue'
 import NumberField from './fields/NumberField.vue'
 import LinkField from './fields/LinkField.vue'
+import FichaBlockOptions from './FichaBlockOptions.vue'
+import ToggleField from './fields/ToggleField.vue'
 
 /**
  * El inspector de un nodo (un título, un botón, una imagen…) — se construye
@@ -165,6 +190,22 @@ const content = computed(() => props.block.content)
 const hasContent = computed(() => kindHas(props.node.kind, 'text') || kindHas(props.node.kind, 'link') || kindHas(props.node.kind, 'media'))
 // Un texto fijo de la ficha editable: vacío, la web enseña el de siempre (el del registro, traducido).
 const textPlaceholder = computed(() => (props.block.type === PAGE_CORE_TYPE ? fichaNode(props.node.field)?.defaultText : undefined))
+// La ficha editable: un elemento de la zona dinámica de la ficha. Sus contenedores traen las opciones de su bloque.
+const isFicha = computed(() => props.block.type === PAGE_CORE_TYPE && props.block.content?.core === 'property-detail')
+const fichaDef = computed(() => (isFicha.value ? fichaNode(props.node.field) : undefined))
+const isFichaBlock = computed(() => fichaDef.value?.role === 'block')
+const hasBlockOptions = computed(() => isFichaBlock.value && fichaNodeHasOptions(props.node.field))
+const fichaRequired = computed(() => fichaNodeRequired(props.node.field))
+const hideLabel = computed(() => ({ desktop: 'Ocultar en Escritorio', tablet: 'Ocultar en Tablet', mobile: 'Ocultar en Móvil' })[props.device])
+const hideHint = computed(
+  () =>
+    ({
+      desktop: 'Se oculta en todos los tamaños.',
+      tablet: 'Se oculta en Tablet y en Móvil; en Escritorio se sigue viendo.',
+      mobile: 'Se oculta sólo en Móvil; en Escritorio y Tablet se sigue viendo.',
+    })[props.device],
+)
+const fichaRole = computed(() => ({ block: 'Contenedor', text: 'Texto fijo de la plantilla', data: 'Dato de la propiedad' })[fichaDef.value?.role || 'block'])
 const sourceName = computed(() => (props.node.dynamic || '').split('→')[0].trim() || 'su origen')
 
 const style = computed(() => props.block.nodeStyles?.[props.node.field])

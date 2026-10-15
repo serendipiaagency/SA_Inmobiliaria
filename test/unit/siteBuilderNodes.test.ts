@@ -266,3 +266,36 @@ describe('validación del documento con nodeStyles y styles', () => {
     expect(parsePageJson(JSON.stringify({ blocks: [], seo: {} })).styles).toBeUndefined()
   })
 })
+
+describe('visibilidad por tamaño (display)', () => {
+  it('sólo admite «none»; cualquier otro valor se descarta', () => {
+    expect(sanitizeNodeStyle({ display: 'none' })).toEqual({ display: 'none' })
+    expect(sanitizeNodeStyle({ display: 'block' })).toBeUndefined()
+    expect(sanitizeNodeStyle({ display: 'none; background:url(x)' })).toBeUndefined()
+    expect(sanitizeNodeStyle({ display: true })).toBeUndefined()
+  })
+
+  it('cuenta como un cambio y se escribe por dispositivo', () => {
+    expect(hasNodeOverrides({ display: 'none' })).toBe(true)
+    const mobile = withNodeProp(undefined, 'mobile', 'display', 'none')
+    expect(mobile).toEqual({ responsive: { mobile: { display: 'none' } } })
+    expect(withNodeProp(mobile, 'mobile', 'display', undefined)).toBeUndefined()
+  })
+
+  it('sigue la herencia: oculto en tablet lo está en móvil; oculto sólo en móvil, no en tablet', () => {
+    const tablet = withNodeProp(undefined, 'tablet', 'display', 'none')
+    expect(resolveNodeProps(tablet, 'desktop').display).toBeUndefined()
+    expect(resolveNodeProps(tablet, 'tablet').display).toBe('none')
+    expect(resolveNodeProps(tablet, 'mobile').display).toBe('none')
+    const mobile = withNodeProp(undefined, 'mobile', 'display', 'none')
+    expect(resolveNodeProps(mobile, 'tablet').display).toBeUndefined()
+    expect(ownNodeProps(mobile, 'mobile').display).toBe('none')
+  })
+
+  it('el CSS lo oculta sólo en el tamaño pedido', () => {
+    const css = nodeStyleCss('zona', 's.hipoteca', { responsive: { mobile: { display: 'none' } } })
+    expect(css).toContain(`@media ${BREAKPOINT_MEDIA.mobile}{${nodeSelector('zona', 's.hipoteca')}{display:none!important}}`)
+    expect(css.startsWith('@media')).toBe(true)
+    expect(styleDeclarations({ display: 'none' })).toEqual(['display:none'])
+  })
+})
