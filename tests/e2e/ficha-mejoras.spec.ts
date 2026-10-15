@@ -95,14 +95,15 @@ test.describe('Ficha: descripción, referencia, «Atendido por», energía y sec
     expect(pub.project).not.toHaveProperty('reference')
   })
 
-  test('descripción bajo el título con «Ver más»/«Ver menos», «Ref.» discreta y datos clave debajo', async ({ page }) => {
+  test('descripción bajo el título con «Ver más»/«Ver menos», «REF:» junto a las migas y datos clave debajo', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(`/propiedades/${rich.slug}`)
-    const summary = page.getByTestId('ficha-summary')
-    await expect(summary.getByTestId('ficha-reference')).toHaveText(new RegExp(`Ref\\.\\s*NOR-${RUN}`))
-    // Orden dentro de la tarjeta: título, ubicación, referencia, descripción, datos clave.
+    // La referencia del anuncio va arriba, junto a las migas (aquí el código comercial: no hay referencia de agencia), no en la tarjeta.
+    await expect(page.getByTestId('ficha-breadcrumbs').getByTestId('ficha-reference')).toHaveText(`REF: NOR-${RUN}`)
+    await expect(page.getByTestId('ficha-summary').getByTestId('ficha-reference')).toHaveCount(0)
+    // Orden dentro de la tarjeta: título, ubicación, descripción, datos clave.
     const tops = await page.evaluate(() =>
-      ['h1', '[data-testid="ficha-location"]', '[data-testid="ficha-reference"]', '[data-testid="ficha-description"]', '[data-testid="ficha-key-facts"]'].map((sel) => Math.round(document.querySelector(sel)!.getBoundingClientRect().top)),
+      ['h1', '[data-testid="ficha-location"]', '[data-testid="ficha-description"]', '[data-testid="ficha-key-facts"]'].map((sel) => Math.round(document.querySelector(sel)!.getBoundingClientRect().top)),
     )
     expect([...tops].sort((x, y) => x - y), tops.join(', ')).toEqual(tops)
     // Una sola descripción en toda la ficha.
@@ -121,11 +122,13 @@ test.describe('Ficha: descripción, referencia, «Atendido por», energía y sec
     await more.click()
     await expect(more).toHaveAttribute('aria-expanded', 'false')
 
-    // Corta: sin botón; sin referencia: sin «Ref.».
+    // Corta: sin botón. Sin código comercial ni referencia de agencia, «REF:» enseña la referencia propia de la propiedad.
     await page.goto(`/propiedades/${bare.slug}`)
     await expect(page.getByTestId('ficha-description-text')).toContainText('Piso pequeño junto al parque.')
     await expect(page.getByTestId('ficha-description-more')).toHaveCount(0)
-    await expect(page.getByTestId('ficha-reference')).toHaveCount(0)
+    const { row: bareRow } = await (await a.get(`/api/admin/developer-properties/${bare.id}`)).json()
+    expect(bareRow.reference, 'toda propiedad tiene referencia propia').toBeTruthy()
+    await expect(page.getByTestId('ficha-breadcrumbs').getByTestId('ficha-reference')).toHaveText(`REF: ${bareRow.reference}`)
   })
 
   test('eficiencia energética: siete clases, la de la vivienda marcada con sus valores reales; sin datos, no sale', async ({ page }) => {

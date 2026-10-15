@@ -46,6 +46,8 @@
 
 <script setup lang="ts">
 const props = defineProps<{ slug: string; price?: number | null; area?: number | null; rentalYield?: number | null }>()
+/** `empty`: no hay análisis que enseñar (sin respuesta o sin comparables en la zona); la ficha quita la sección. */
+const emit = defineEmits<{ empty: [] }>()
 const { format: formatPrice } = useCurrency()
 const { t } = useI18n()
 
@@ -82,6 +84,9 @@ onMounted(async () => {
     data.value = null
   } finally {
     loading.value = false
+    // Sin datos o sin comparables sólo quedaría un aviso, y un aviso no es
+    // información: la ficha, al recibir `empty`, no pinta la sección.
+    if (!data.value || !(data.value.market.comparableCount > 0)) emit('empty')
   }
 })
 </script>

@@ -69,9 +69,10 @@
             </div>
             <div class="mt-4 rounded-xl border border-[#ece8e1] bg-white px-4 py-3 text-[12px] text-stone-500">Fotos · Score · Datos clave · Plano · … · Similares</div>
             <div class="pcard mt-4">
+              <!-- La referencia del anuncio, que en la web va arriba, junto a las migas («REF: AG-77»). -->
+              <p v-if="ficha.showReference && sampleReference" class="mb-2 text-[11.5px] font-medium uppercase tracking-[0.08em] text-stone-500" data-testid="page-core-reference-preview">REF: <span class="font-semibold text-ink">{{ sampleReference }}</span></p>
               <h1 class="heading-serif text-3xl">{{ sample.name }}</h1>
-              <!-- Tarjeta principal: referencia y descripción, como saldrán en la web (megaprompt «ficha»). -->
-              <p v-if="ficha.showReference && sampleReference" class="mt-2 text-[12px] font-medium uppercase tracking-[0.08em] text-stone-400" data-testid="page-core-reference-preview">Ref. <span class="text-stone-500">{{ sampleReference }}</span></p>
+              <!-- Tarjeta principal: la descripción, como saldrá en la web (megaprompt «ficha»). -->
               <p v-if="ficha.showDescription && sampleDescription" class="mt-3 line-clamp-3 text-[13px] leading-relaxed text-stone-500" data-testid="page-core-description-preview">{{ sampleDescription }}</p>
               <p class="mt-2 text-xl font-semibold">{{ sample.price }}</p>
               <!-- Las secciones de la ficha en el orden y con la visibilidad de la zona (#110), como saldrán en la web.
@@ -175,7 +176,8 @@ const { sample: fichaSample } = props.content.core === 'property-detail' ? useFi
 const sampleData = computed(() => fichaSample.value?.property || null)
 const { t } = useI18n()
 const typeLabel = usePropertyTypeLabel()
-const sampleReference = computed(() => String(sampleData.value?.details?.commercialCode || '').trim())
+// La misma «REF:» que la ficha pública: la calcula el servidor (`referenceLabel`: referencia de agencia, código comercial o referencia propia).
+const sampleReference = computed(() => String(sampleData.value?.referenceLabel || '').trim())
 const sampleDescription = computed(() =>
   String(sampleData.value?.project?.description || '')
     .replace(/<[^>]+>/g, ' ')
