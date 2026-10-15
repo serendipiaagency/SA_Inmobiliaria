@@ -1,9 +1,10 @@
 <template>
-  <div class="group relative overflow-hidden rounded-xl border border-line bg-white transition hover:shadow-md">
+  <div class="group relative overflow-hidden rounded-xl border border-line bg-white transition hover:shadow-md" :class="{ 'demo-reference-frame': property.demoReference }" :data-demo-reference="property.demoReference ? '1' : undefined">
     <NuxtLink :to="`/admin/properties/${property.id}`" class="block">
       <div class="relative flex h-40 items-center justify-center bg-stone-50">
         <img v-if="property.mainImage" :src="mediaUrl(property.mainImage)" class="h-full w-full object-cover" loading="lazy" >
         <span v-else class="text-3xl">🏠</span>
+        <span v-if="property.demoReference" class="demo-reference-tag absolute bottom-2 left-2 z-[6]" :data-testid="`property-reference-tag-${property.id}`" title="Ejemplo de ficha trabajada a fondo en la demo; no es una certificación">Propiedad de referencia</span>
         <span
           class="absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold"
           :class="property.status === 'sold' ? 'bg-stone-800 text-white' : 'bg-emerald-100 text-emerald-700'"

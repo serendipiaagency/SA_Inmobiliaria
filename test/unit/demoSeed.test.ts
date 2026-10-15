@@ -7,8 +7,13 @@ import * as schema from '../../server/db/schema'
 import { advanceDemoProvisioning, requestDemoProvisioning, type DemoProgress } from '../../server/demo/runner'
 import { demoScopedTables, DEMO_ORG_SLUG } from '../../server/demo/purge'
 import { DEMO_SNAPSHOT_KEY, SNAPSHOT_SKIP_TABLES, orderTablesForInsert, type DemoSnapshot } from '../../server/demo/snapshot'
-import { DEMO_ACTIVE_STATUSES } from '../../server/demo/state'
-import { demoSeedEvent } from '../../server/demo/context'
+import { DEMO_ACTIVE_STATUSES, readDemoState } from '../../server/demo/state'
+import { buildDemoContext, demoSeedEvent } from '../../server/demo/context'
+import { buildDemoTimeline } from '../../server/demo/scenario'
+import { runEvent } from '../../server/demo/timeline'
+import { buildReferenceReport, loadReferenceInput } from '../../server/demo/completeness'
+import { REFERENCE_CONTENT } from '../../server/demo/dataset/referencia'
+import { DEMO_REFERENCE_PROPERTIES } from '../../server/demo/reference'
 import { storeAndRegisterFile } from '../../server/utils/media'
 import { DEMO_ADMIN, DEMO_ADMIN_PASSWORD_HASH_DEFAULT } from '../../server/demo/dataset/company'
 import { verifyPassword } from '../../server/utils/auth'
@@ -101,6 +106,41 @@ describe('cuenta demo Norte Astur', () => {
     expect(await countFor(db, schema.depositPayments, orgId)).toBe(6)
     expect(await countFor(db, schema.invoices, orgId)).toBe(16)
     expect(await countFor(db, schema.contacts, orgId)).toBeGreaterThanOrEqual(54)
+
+
+    // ── Propiedades de referencia (docs/demo.md): completas, coherentes y sin enlaces rotos ──
+    {
+      const { state } = await readDemoState(db)
+      const reportOf = async (key: string) => buildReferenceReport(await loadReferenceInput(db, orgId, key, (k) => MEDIA.objects.has(k), (k) => state!.ids[`prop:${k}`]!))
+      for (const key of DEMO_REFERENCE_PROPERTIES.map((r) => r.key)) {
+        const report = await reportOf(key)
+        // Nada pendiente en ninguna sección real del editor (un «no aplica» declarado no es un pendiente)…
+        expect(report.sections.flatMap((x) => x.pending.map((f) => `${x.key}.${f.key}`)), `${key}: pendiente`).toEqual([])
+        // …y ninguna comprobación de coherencia, multimedia o documentos falla.
+        expect(report.checks.filter((c) => !c.ok), `${key}: coherencia`).toEqual([])
+        expect(report.ok).toBe(true)
+        expect(report.totals.filled, key).toBeGreaterThan(120)
+        process.stdout.write(`DEMO-REFERENCIA ${key}: ${report.totals.filled}/${report.totals.fields} campos completos, ${report.totals.notApplicable} no aplican, ${report.sections.length} apartados\n`)
+      }
+      // Relaciones: comercial (todas) y propietarios (2ª mano) existen de verdad.
+      for (const r of DEMO_REFERENCE_PROPERTIES) {
+        const T: any = r.kind === 'developer' ? schema.developerProperties : schema.agentProperties
+        const [row] = await db.select({ agentId: T.agentId, agencyReference: T.agencyReference }).from(T).where(eq(T.id, state!.ids[`prop:${r.key}`]!))
+        expect(row.agencyReference, r.key).toBe(r.ref)
+        const [agent] = await db.select({ id: schema.teamMembers.id }).from(schema.teamMembers).where(and(eq(schema.teamMembers.id, row.agentId), eq(schema.teamMembers.organizationId, orgId)))
+        expect(agent, `${r.key}: comercial`).toBeTruthy()
+      }
+      // Idempotencia: ejecutar otra vez los pasos de referencia no duplica nada.
+      const tables = [schema.propertyDocuments, schema.developerPropertyRooms, schema.agentPropertyRooms, schema.floorPlans, schema.agentPropertyFloorPlans, schema.propertyTypes, schema.images, schema.propertyGalleryImages]
+      const count = async (t: any) => Number((await db.select({ n: sql<number>`count(*)` }).from(t))[0].n)
+      const before = await Promise.all([...tables.map(count), countFor(db, schema.mediaAssets, orgId)])
+      const events = buildDemoTimeline(state!.anchorDay!, Date.now()).filter((e) => e.label.startsWith('Referencia '))
+      expect(events).toHaveLength(REFERENCE_CONTENT.length * 5)
+      const ctx = buildDemoContext({ env, db, state: state!, assets, budgetMs: 600_000 })
+      for (const e of events) await runEvent(ctx, e)
+      const after = await Promise.all([...tables.map(count), countFor(db, schema.mediaAssets, orgId)])
+      expect(after).toEqual(before)
+    }
 
     // Comunicaciones, contenido y marketing.
     expect(await countFor(db, schema.commsCalls, orgId)).toBe(10)

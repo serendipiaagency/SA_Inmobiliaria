@@ -80,6 +80,92 @@ test('cuenta demo: se genera, la gerente entra sin opciones de super admin y nad
   expect(rows.length).toBe(10)
   expect(rows.every((p: any) => Boolean(p.mainImage))).toBeTruthy()
 
+  // 3b. Propiedades de referencia (docs/demo.md): las dos mejor documentadas de cada catálogo salen
+  // primero, marcadas, con el orden por defecto; cualquier otra ordenación, filtro o página las trata como a las demás.
+  const WEB_REFS = ['Villa de diseño frente al mar en Celorio', 'Ático con terraza junto al Campo San Francisco']
+  const web = (await (await page.request.get('/api/admin/developer-properties', { params: { perPage: '100' } })).json()).rows as any[]
+  expect(web.length).toBe(10)
+  expect(web.slice(0, 2).map((r) => r.name)).toEqual(WEB_REFS)
+  expect(web.slice(0, 2).every((r) => r.demoReference === true)).toBe(true)
+  expect(web.slice(2).every((r) => r.demoReference === false)).toBe(true)
+  // El resto conserva su orden de siempre («Más recientes»): el mismo que sin las de referencia.
+  const rest = web.slice(2).map((r) => r.id)
+  const newest = (await (await page.request.get('/api/admin/developer-properties', { params: { perPage: '100', sort: 'newest' } })).json()).rows as any[]
+  expect(newest.map((r) => r.id)).toEqual(web.map((r) => r.id))
+  const byPrice = (await (await page.request.get('/api/admin/developer-properties', { params: { perPage: '100', sort: 'price_asc' } })).json()).rows as any[]
+  const prices = byPrice.map((r) => r.price)
+  expect(prices).toEqual([...prices].sort((a, b) => a - b)) // ordenación explícita: manda el precio, no la referencia
+  expect(byPrice[0].demoReference).toBe(false)
+  expect(byPrice.filter((r) => r.demoReference).map((r) => r.name).sort()).toEqual([...WEB_REFS].sort()) // pero siguen marcadas
+  // Filtros: sólo lo que coincide (el ático de referencia y el otro ático), la de referencia primero.
+  const attics = (await (await page.request.get('/api/admin/developer-properties', { params: { perPage: '100', propertyType: 'Penthouse' } })).json()).rows as any[]
+  expect(attics.every((r) => r.propertyType === 'Penthouse')).toBe(true)
+  expect(attics[0].name).toBe(WEB_REFS[1])
+  expect(attics.slice(1).every((r) => r.demoReference === false)).toBe(true)
+  const villas = (await (await page.request.get('/api/admin/developer-properties', { params: { perPage: '100', propertyType: 'Apartment' } })).json()).rows as any[]
+  expect(villas.some((r) => r.demoReference)).toBe(false) // ninguna de referencia es un piso en la web: no se cuela
+  // Paginación: las de referencia sólo en la primera página; el total no cambia.
+  const p1 = await (await page.request.get('/api/admin/developer-properties', { params: { perPage: '3', page: '1' } })).json()
+  const p2 = await (await page.request.get('/api/admin/developer-properties', { params: { perPage: '3', page: '2' } })).json()
+  expect(p1.total).toBe(10)
+  expect((p1.rows as any[]).slice(0, 2).map((r) => r.name)).toEqual(WEB_REFS)
+  expect((p2.rows as any[]).some((r) => r.demoReference)).toBe(false)
+  expect([...p1.rows, ...p2.rows].map((r: any) => r.id).slice(2, 6)).toEqual(rest.slice(0, 4))
+
+  const used = (await (await page.request.get('/api/admin/properties', { params: { perPage: '100' } })).json()).rows as any[]
+  expect(used.length).toBe(10)
+  expect(used.slice(0, 2).map((r) => [r.propertyType, r.district])).toEqual([['Apartment', 'La Florida'], ['House', 'Posada']])
+  expect(used.slice(0, 2).every((r) => r.demoReference === true)).toBe(true)
+  expect(used.slice(2).every((r) => r.demoReference === false)).toBe(true)
+  const usedByPrice = (await (await page.request.get('/api/admin/properties', { params: { perPage: '100', sort: 'price_desc' } })).json()).rows as any[]
+  expect(usedByPrice.map((r) => r.price)).toEqual([...usedByPrice.map((r) => r.price)].sort((a, b) => b - a))
+  // La empresa real (la del super admin) no cambia: ni marca ni orden.
+  const realRows = (await (await owner.get('/api/admin/developer-properties', { params: { perPage: '100' } })).json()).rows as any[]
+  expect(realRows.every((r) => !('demoReference' in r))).toBe(true)
+
+  // Marco dorado y etiqueta en las tarjetas y en las filas, en escritorio, tableta y móvil, sin desbordar.
+  for (const [width, height] of [[1280, 900], [820, 1000], [390, 800]] as const) {
+    await page.setViewportSize({ width, height })
+    await page.goto('/admin/developer-properties')
+    const cards = page.locator('[data-demo-reference="1"]')
+    await expect(cards).toHaveCount(2)
+    await expect(page.locator('[data-testid^="property-reference-tag-"]')).toHaveCount(2)
+    await expect(cards.first().locator('[data-testid^="property-reference-tag-"]')).toHaveText('Propiedad de referencia')
+    const frame = await cards.first().evaluate((el) => {
+      const after = getComputedStyle(el, '::after')
+      return { color: after.borderTopColor, width: after.borderTopWidth, style: after.borderTopStyle, content: after.content }
+    })
+    expect(frame).toEqual({ color: 'rgb(198, 166, 103)', width: '2px', style: 'solid', content: '""' })
+    // Las de referencia son las dos primeras de la cuadrícula.
+    const grid = page.locator('div.group.relative.overflow-hidden.rounded-xl')
+    await expect(grid.nth(0)).toHaveAttribute('data-demo-reference', '1')
+    await expect(grid.nth(1)).toHaveAttribute('data-demo-reference', '1')
+    await expect(grid.nth(2)).not.toHaveAttribute('data-demo-reference', '1')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true)
+  }
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await page.goto('/admin/properties')
+  await expect(page.locator('[data-demo-reference="1"]')).toHaveCount(2)
+  await page.getByRole('button', { name: 'Lista', exact: true }).click()
+  await expect(page.locator('tr[data-demo-reference="1"]')).toHaveCount(2)
+  await expect(page.locator('tr[data-demo-reference="1"] [data-testid^="property-reference-tag-"]').first()).toHaveText('Propiedad de referencia')
+  await page.getByRole('button', { name: 'Grid', exact: true }).click()
+
+  // Las fichas públicas de las dos de la web, ya publicadas: descripción completa, fotos por estancia, plano y documentos.
+  for (const row of web.slice(0, 2)) {
+    const detail = await (await page.request.get(`/api/public/properties/${row.slug}`, { params: { vista_previa: String(orgId) } })).json()
+    expect(String(detail.project.description), row.name).toContain('Zona de noche')
+    expect(String(detail.project.description).length, row.name).toBeGreaterThan(2200)
+    expect((detail.gallery as any[]).length, row.name).toBeGreaterThanOrEqual(6)
+    expect((detail.gallery as any[]).every((g) => !!g.room && !!g.alt), `${row.name}: fotos clasificadas con alt`).toBe(true)
+    expect((detail.floorPlans as any[]).length, row.name).toBeGreaterThanOrEqual(1)
+    expect((detail.documents as any[]).length, row.name).toBeGreaterThanOrEqual(3)
+    expect((detail.documents as any[]).every((d) => /demostración|ficticia/i.test(`${d.title} ${d.notes ?? ''}`) || /plano de demostración/i.test(d.title)), `${row.name}: documentos de demostración`).toBe(true)
+    // Cada archivo se sirve (nada roto).
+    for (const g of detail.gallery as any[]) expect((await page.request.get(g.image.startsWith('/') ? g.image : `/api/media/${g.image}`)).status(), g.image).toBe(200)
+    for (const f of detail.floorPlans as any[]) expect((await page.request.get(String(f.image).startsWith('/') ? f.image : `/api/media/${f.image}`)).status(), f.image).toBe(200)
+  }
+
   // 4. La web de la demo en vista previa, sólo para su equipo, y tal cual se
   // publicará: sin franja negra, sin texto de «vista previa» ni botón de salir;
   // lo primero es la cabecera real de la inmobiliaria.

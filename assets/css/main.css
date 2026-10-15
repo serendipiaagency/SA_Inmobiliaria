@@ -89,6 +89,40 @@
   .heading-serif {
     @apply font-serif font-bold tracking-tight text-ink;
   }
+  /* Propiedad de referencia de la cuenta demo (server/demo/reference.ts): marco dorado de 2 px que rodea
+     la tarjeta entera sin mover nada de dentro (va en un ::after, no en el borde), sombra muy suave y
+     etiqueta discreta. Sólo lo pintan las tarjetas y filas de la demo. */
+  .demo-reference-frame {
+    box-shadow: 0 6px 18px -10px rgba(198, 166, 103, 0.55);
+  }
+  .demo-reference-frame::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    border: 2px solid #c6a667;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+  .demo-reference-row {
+    outline: 2px solid #c6a667;
+    outline-offset: -2px;
+    background: #fffdf7;
+  }
+  .demo-reference-tag {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #e3d2a6;
+    border-radius: 9999px;
+    background: #fbf5e4;
+    padding: 1px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #6b5218;
+    line-height: 1.5;
+  }
   /* Tarjetas de la ficha de la propiedad (#110): blanco, borde muy claro,
      radio 14, sombra mínima — el lenguaje de la referencia del rediseño. */
   .pcard {

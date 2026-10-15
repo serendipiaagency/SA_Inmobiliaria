@@ -20,6 +20,7 @@ import { customFieldValuesResourceGet, isCustomFieldValueResource } from '../../
 import { isTagLinkResource, tagLinksResourceGet, withTags } from '../../../utils/tags/service'
 import { haversineKm } from '../../../../utils/maps/geo'
 import { inJsonList } from '../../../utils/sqlChunks'
+import { demoReferenceFor, referenceFlagSql, referenceRankSql } from '../../../demo/reference'
 
 /** Tope de puntos de la vista Mapa del listado de propiedades: más que eso se pide acercar el mapa o filtrar. */
 const MAP_MAX_POINTS = 1000
@@ -269,9 +270,15 @@ export default defineEventHandler(async (event) => {
     }))
   }
 
+  // Cuenta demo: sus propiedades de referencia salen marcadas (`demoReference`) y, con el orden por defecto
+  // («Más recientes», sin radio ni papelera), primero. Cualquier otra ordenación, filtro o empresa va como siempre.
+  const reference = (isDeveloperProperties || isProperties) && !trashed ? await demoReferenceFor(db, orgId, isDeveloperProperties ? 'developer' : 'agent') : null
+  const defaultOrder = !byDistance && String(query.sort || 'newest') === 'newest'
+
   if (isDeveloperProperties) {
     const t = schema.developerProperties
     const sort = byDistance ? asc(squaredDistanceSql(t.lat, t.lng, radius)) : DEVELOPER_PROPERTY_SORTS[String(query.sort || 'newest')] || DEVELOPER_PROPERTY_SORTS.newest
+    const order = reference && defaultOrder ? [referenceRankSql(t.agencyReference, reference.refs), sort] : [sort]
     const rows = await db
       .select({
         id: t.id,
@@ -303,19 +310,21 @@ export default defineEventHandler(async (event) => {
         reference: t.reference,
         lat: t.lat,
         lng: t.lng,
+        ...(reference ? { demoReference: referenceFlagSql(t.agencyReference, reference.refs) } : {}),
       })
       .from(t)
       .leftJoin(schema.developers, eq(t.developerId, schema.developers.id))
       .where(where as any)
-      .orderBy(sort)
+      .orderBy(...order)
       .limit(perPage)
       .offset((page - 1) * perPage)
-    return { rows: await decorateProperties('developer', rows), total, page, perPage }
+    return { rows: await decorateProperties('developer', reference ? rows.map((r: any) => ({ ...r, demoReference: !!r.demoReference })) : rows), total, page, perPage }
   }
 
   if (isProperties) {
     const t = schema.agentProperties
     const sort = byDistance ? asc(squaredDistanceSql(t.lat, t.lng, radius)) : PROPERTIES_SORTS[String(query.sort || 'newest')] || PROPERTIES_SORTS.newest
+    const order = reference && defaultOrder ? [referenceRankSql(t.agencyReference, reference.refs), sort] : [sort]
     const rows = await db
       .select({
         id: t.id,
@@ -342,13 +351,14 @@ export default defineEventHandler(async (event) => {
         reference: t.reference,
         lat: t.lat,
         lng: t.lng,
+        ...(reference ? { demoReference: referenceFlagSql(t.agencyReference, reference.refs) } : {}),
       })
       .from(t)
       .where(where as any)
-      .orderBy(sort)
+      .orderBy(...order)
       .limit(perPage)
       .offset((page - 1) * perPage)
-    return { rows: await decorateProperties('agent', rows), total, page, perPage }
+    return { rows: await decorateProperties('agent', reference ? rows.map((r: any) => ({ ...r, demoReference: !!r.demoReference })) : rows), total, page, perPage }
   }
 
   if (isTeam) {

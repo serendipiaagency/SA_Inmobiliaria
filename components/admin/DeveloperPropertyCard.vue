@@ -1,9 +1,10 @@
 <template>
-  <div class="group relative overflow-hidden rounded-xl border border-line bg-white transition hover:shadow-md">
+  <div class="group relative overflow-hidden rounded-xl border border-line bg-white transition hover:shadow-md" :class="{ 'demo-reference-frame': property.demoReference }" :data-demo-reference="property.demoReference ? '1' : undefined">
     <NuxtLink :to="`/admin/developer-properties/${property.id}`" class="block">
       <div class="relative flex h-40 items-center justify-center bg-stone-50">
         <img v-if="property.coverImage" :src="mediaUrl(property.coverImage)" class="h-full w-full object-cover" loading="lazy" >
         <span v-else class="text-3xl">🏠</span>
+        <span v-if="property.demoReference" class="demo-reference-tag absolute bottom-2 left-2 z-[6]" :data-testid="`property-reference-tag-${property.id}`" title="Ejemplo de ficha trabajada a fondo en la demo; no es una certificación">Propiedad de referencia</span>
         <div class="absolute left-2 top-2 flex flex-wrap gap-1">
           <span v-if="property.isExclusive" class="rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold text-white">Exclusiva</span>
           <!-- Estado comercial común (cierre D1p); si no está indicado, la casilla «Reservada» de siempre. -->
