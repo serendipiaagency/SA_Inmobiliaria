@@ -1,5 +1,6 @@
 import { PROPERTY_TYPE_TREE, type Operation } from './searchState'
 import { relativeLuminance } from './contactTone'
+import { searchLocationOptions, searchTypeOptions, type SearchLocationOptions, type SearchTypeOptions } from './searchConfig'
 
 /**
  * El buscador del Hero de la portada (components/HeroSearch.vue): lo que el
@@ -43,6 +44,9 @@ export interface HeroSearchOptions {
   /** Color del botón «Buscar» y del selector activo (#rrggbb); vacío = el color de marca. */
   buttonColor: string
   radius: HeroSearchRadius
+  /** «Tipo de inmueble» y «Ubicación» (utils/searchConfig.ts): las mismas claves que en el panel de Propiedades. */
+  type: SearchTypeOptions
+  location: SearchLocationOptions
 }
 
 const isHex = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v)
@@ -71,6 +75,8 @@ export function heroSearchOptions(content: Record<string, any> | null | undefine
     defaultOperation: content?.defaultOperation === 'alquiler' ? 'alquiler' : 'venta',
     buttonColor: isHex(content?.searchButtonColor) ? content!.searchButtonColor.toLowerCase() : '',
     radius: content?.searchRadius === 'md' || content?.searchRadius === 'pill' ? content.searchRadius : 'lg',
+    type: searchTypeOptions(content),
+    location: searchLocationOptions(content),
   }
 }
 

@@ -1,4 +1,4 @@
-import { nearbyFromQuery } from './publicSearch'
+import { hasPolygon, nearbyFromQuery } from './publicSearch'
 import { PROPERTY_SUBTYPES } from './propertySheet'
 import {
   ESTADO_LABELS,
@@ -75,6 +75,7 @@ export function catalogChips(query: Query, t: Translate, formatPrice: (n: number
   if (['north', 'south', 'east', 'west'].every((k) => present(query[k]))) out.push({ key: 'area-map', label: t('catalog.mapArea', 'Zona del mapa'), clear: ['north', 'south', 'east', 'west'] })
   const nearby = nearbyFromQuery(query as Record<string, any>)
   if (nearby) out.push({ key: 'nearby', label: `${t('catalog.radius', 'Radio')} ${nearby.radiusKm} km`, clear: ['lat', 'lng', 'radiusKm'] })
+  if (hasPolygon(query)) out.push({ key: 'polygon', label: t('catalog.drawnArea', 'Zona dibujada'), clear: ['poly'] })
   const minP = num(query.minPrice)
   const maxP = num(query.maxPrice)
   if (minP || maxP) out.push({ key: 'price', label: range(minP, maxP, formatPrice, t), clear: ['minPrice', 'maxPrice'] })

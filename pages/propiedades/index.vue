@@ -36,7 +36,7 @@
           <!-- Panel de filtros (escritorio) -->
           <aside v-if="!collapsed && display.showPanel" class="hidden w-[335px] shrink-0 lg:block" data-testid="catalog-aside">
             <div class="sticky top-[92px]">
-              <CatalogFilters v-bind="panelProps" collapsible @patch="applyPatch" @clear="clearAll" @open-map="setView('mapa')" @show-results="showResults" @collapse="collapsed = true" @more="modalOpen = true" @new-search="newSearch" />
+              <CatalogFilters v-bind="panelProps" collapsible @patch="applyPatch" @clear="clearAll" @open-map="openMap" @show-results="showResults" @collapse="collapsed = true" @more="modalOpen = true" @new-search="newSearch" />
             </div>
           </aside>
 
@@ -121,7 +121,25 @@
             <!-- Mapa: las mismas propiedades filtradas, sobre el mapa de /mapa -->
             <div v-else class="mt-5 h-[70vh] min-h-[420px] overflow-hidden rounded-2xl border border-line" data-testid="catalog-map">
               <ClientOnly>
-                <MapExplorer :items="mapItems" :fit-to-items="!hasArea && !nearby" search-area nearby :nearby-circle="nearby" @marker-click="onMarkerClick" @search-area="onSearchArea" @search-nearby="onSearchNearby" />
+                <MapExplorer
+                  :items="mapItems"
+                  :fit-to-items="!hasArea && !nearby && !polygon"
+                  search-area
+                  nearby
+                  draw
+                  :nearby-circle="nearby"
+                  :polygon="polygon"
+                  :auto-draw="drawRequest > 0"
+                  :areas="mapAreas"
+                  :active-area-ids="activeAreaIds"
+                  @marker-click="onMarkerClick"
+                  @search-area="onSearchArea"
+                  @search-nearby="onSearchNearby"
+                  @draw-polygon="onDrawPolygon"
+                  @clear-polygon="onClearPolygon"
+                  @draw-started="drawRequest = 0"
+                  @area-toggle="onAreaToggle"
+                />
                 <template #fallback>
                   <div class="flex h-full items-center justify-center bg-stone-100 text-stone-400">{{ t('mapa.loading', 'Cargando mapa…') }}</div>
                 </template>
@@ -153,12 +171,14 @@
 </template>
 
 <script setup lang="ts">
-import { nearbyFromQuery, nearbyQuery, withoutNearby } from '~/utils/publicSearch'
+import { nearbyFromQuery, nearbyQuery, withoutNearby, withoutPolygon } from '~/utils/publicSearch'
 import { withValidCoords } from '~/utils/maps/coords'
+import { POLYGON_PARAM, parsePolygonParam, polygonParam, type GeoPoint } from '~/utils/maps/geo'
+import { mapAreasFromSuggestions, type MapArea } from '~/utils/maps/areas'
 import { catalogChips, chipRemovalPatch, type CatalogChip } from '~/utils/catalogChips'
 import { saveCatalogContext } from '~/utils/catalogContext'
 import { PAGE_CORE_TYPE, catalogDisplayOptions, catalogFilterKeys, catalogFilterOpenKeys } from '~/utils/siteBuilder/pages'
-import { SEARCH_PARAMS, firstString, mergeModalFilters, modalSeedFrom, parseOperation, parseSort, type SortKey } from '~/utils/searchState'
+import { SEARCH_PARAMS, firstString, locationsPatch, mergeModalFilters, modalSeedFrom, parseLocations, parseOperation, parseSort, type MapAction, type SortKey } from '~/utils/searchState'
 import SortBar from '~/components/search/SortBar.vue'
 
 /**
@@ -299,6 +319,8 @@ const panelProps = computed(() => ({
   operation: operation.value,
   showOperation: display.value.showOperation,
   showNewSearch: display.value.showNewSearch,
+  typeOptions: display.value.type,
+  locationOptions: display.value.location,
 }))
 const searchIsSaved = computed(() => isSaved(route.query as Record<string, any>))
 function onSaveSearch() {
@@ -352,9 +374,17 @@ function removeChip(c: CatalogChip) {
 function setView(v: 'galeria' | 'mapa') {
   applyPatch({ vista: v === 'mapa' ? 'mapa' : undefined })
 }
-function openMapFromDrawer() {
-  drawer.value = false
+// Desde «Ubicación» (Hero, panel): «Seleccionar en el mapa», «Dibujar una zona
+// en el mapa» (abre ya dibujando) y «Buscar alrededor de un punto». La
+// petición de dibujar vive en un estado compartido con el Hero.
+const drawRequest = useState<number>('map-draw-request', () => 0)
+function openMap(action: MapAction = 'select') {
+  drawRequest.value = action === 'draw' ? Date.now() : 0
   setView('mapa')
+}
+function openMapFromDrawer(action: MapAction = 'select') {
+  drawer.value = false
+  openMap(action)
 }
 function showResults() {
   drawer.value = false
@@ -397,18 +427,56 @@ function onSort(k: SortKey) {
   applyPatch({ sort: k || undefined, page: undefined })
 }
 
-// Vista Mapa: zona visible y radio, igual que /mapa (no se combinan).
+// Vista Mapa: zona visible, radio y zona dibujada, igual que /mapa (no se
+// combinan: elegir una quita las otras, para que lo que se ve sea lo que filtra).
 const AREA_KEYS = ['north', 'south', 'east', 'west'] as const
 const hasArea = computed(() => AREA_KEYS.every((k) => typeof route.query[k] === 'string' && route.query[k]))
 const nearby = computed(() => nearbyFromQuery(route.query))
+const polygon = computed<GeoPoint[] | null>(() => {
+  const raw = firstString(route.query[POLYGON_PARAM])
+  if (!raw) return null
+  try {
+    return parsePolygonParam(raw)
+  } catch {
+    return null
+  }
+})
 function withoutArea(query: Record<string, any>) {
   return Object.fromEntries(Object.entries(query).filter(([k]) => !(AREA_KEYS as readonly string[]).includes(k)))
 }
+const withoutGeo = (query: Record<string, any>) => withoutPolygon(withoutArea(withoutNearby(query)))
 function onSearchArea(b: { north: number; south: number; east: number; west: number }) {
-  router.push({ query: { ...withoutNearby(route.query), north: String(b.north), south: String(b.south), east: String(b.east), west: String(b.west) } })
+  router.push({ query: { ...withoutGeo(route.query), page: undefined, north: String(b.north), south: String(b.south), east: String(b.east), west: String(b.west) } })
 }
 function onSearchNearby(p: { lat: number; lng: number; radiusKm: number }) {
-  router.push({ query: { ...withoutArea(withoutNearby(route.query)), ...nearbyQuery(p.lat, p.lng, p.radiusKm) } })
+  router.push({ query: { ...withoutGeo(route.query), page: undefined, ...nearbyQuery(p.lat, p.lng, p.radiusKm) } })
+}
+// Zona dibujada: a la URL como `poly` (compartible y recargable); el servidor decide qué cae dentro.
+function onDrawPolygon(points: GeoPoint[]) {
+  router.push({ query: { ...withoutGeo(route.query), page: undefined, [POLYGON_PARAM]: polygonParam(points) } })
+}
+function onClearPolygon() {
+  router.push({ query: { ...withoutPolygon(route.query), page: undefined } })
+}
+
+// Áreas con propiedades sobre el mapa: las sugerencias sin texto (entidades
+// reales con inventario de ESTA agencia), sólo cuando se mira el mapa.
+const { data: areaData, execute: loadAreas } = useLazyFetch('/api/public/location-suggest', { key: 'catalog-map-areas', query: { q: '', limit: 24 }, immediate: false, watch: false })
+watch(
+  isMap,
+  (v) => {
+    if (v && !areaData.value) loadAreas()
+  },
+  { immediate: true },
+)
+const mapAreas = computed<MapArea[]>(() => mapAreasFromSuggestions(((areaData.value as any)?.items as any[]) || []))
+const activeAreaIds = computed(() => parseLocations(route.query).filter((l) => l.id).map((l) => l.id!))
+// Pulsar un área la elige en «Ubicación» (mismo `loc=`, mismo chip); pulsarla de nuevo la quita.
+function onAreaToggle(area: MapArea) {
+  const current = parseLocations(route.query)
+  const next = current.some((l) => l.id === area.id) ? current.filter((l) => l.id !== area.id) : [...current, { kind: area.kind, value: area.value, id: area.id, context: area.context }]
+  locationNames.remember(next.filter((l) => l.value))
+  applyPatch({ ...locationsPatch(next), page: undefined })
 }
 function onMarkerClick(id: number) {
   const p = mapItems.value.find((x: any) => x.id === id)

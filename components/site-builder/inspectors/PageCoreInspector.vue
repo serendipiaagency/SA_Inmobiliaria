@@ -66,6 +66,7 @@
       />
       <ToggleField label="«Ordenar por»" :model-value="display.showSort" data-testid="page-core-show-sort" @update:model-value="(v) => setDisplay('showSort', v)" />
       <ToggleField label="«Nueva búsqueda»" :model-value="display.showNewSearch" data-testid="page-core-show-new-search" @update:model-value="(v) => setDisplay('showNewSearch', v)" />
+      <SearchFieldsInspector :content="content" />
       <p class="mt-1 text-[11px] leading-relaxed text-stone-400">La operación de partida es la que se ve al entrar en Propiedades sin elegir otra, y a la que vuelve «Nueva búsqueda». Sin el panel, los filtros siguen aplicándose desde el buscador de la portada y sus etiquetas.</p>
     </InspectorSection>
     <!-- Ficha (#110): orden y visibilidad de sus secciones, para todas las fichas.
@@ -101,6 +102,7 @@
 
 <script setup lang="ts">
 import InspectorSection from '../inspector/InspectorSection.vue'
+import SearchFieldsInspector from '../inspector/SearchFieldsInspector.vue'
 import ToggleField from '../inspector/fields/ToggleField.vue'
 import TextField from '../inspector/fields/TextField.vue'
 import SegmentedField from '../inspector/fields/SegmentedField.vue'

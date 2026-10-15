@@ -36,6 +36,7 @@
         :disabled="modelValue.length >= MAX_LOCATIONS"
         data-testid="location-input"
         @focus="onFocus"
+        @click="onFocus"
         @input="onInput"
         @keydown="onKeydown"
       >
@@ -96,29 +97,36 @@
             <span class="loc-opt-name">{{ it.value }}</span>
             <span class="loc-opt-ctx">{{ kindLabel(it.kind) }}<template v-if="it.context"> · {{ it.context }}</template></span>
           </span>
-          <span v-if="it.count != null" class="loc-opt-count" :title="t('location.countTitle', 'Propiedades publicadas aquí')">{{ it.count }}</span>
+          <span v-if="showCounts && it.count != null" class="loc-opt-count" :title="t('location.countTitle', 'Propiedades publicadas aquí')">{{ it.count }}</span>
         </div>
       </template>
 
-      <!-- Herramientas del mapa: sólo las que existen de verdad -->
-      <div v-if="mapActions && !text.trim()" class="loc-actions">
-        <button type="button" class="loc-action" data-testid="location-map-select" @mousedown.prevent @click="emit('map-action', 'select')">
+      <!-- Herramientas del mapa: sólo las que existen de verdad y las que el Constructor ofrece -->
+      <div v-if="mapActions && tools.length && !text.trim()" class="loc-actions">
+        <button v-if="tools.includes('select')" type="button" class="loc-action" data-testid="location-map-select" @mousedown.prevent @click="emit('map-action', 'select')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 20 3 17V4l6 3 6-3 6 3v13l-6-3-6 3z" /><path d="M9 7v13M15 4v13" /></svg>
           {{ t('location.mapSelect', 'Seleccionar en el mapa') }}
         </button>
-        <button type="button" class="loc-action" data-testid="location-map-nearby" @mousedown.prevent @click="emit('map-action', 'nearby')">
+        <button v-if="tools.includes('draw')" type="button" class="loc-action" data-testid="location-map-draw" @mousedown.prevent @click="emit('map-action', 'draw')">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19l7-7 3 3-7 7-3-3z" /><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" /><path d="M2 2l7.586 7.586" /><circle cx="11" cy="11" r="2" /></svg>
+          {{ t('location.mapDraw', 'Dibujar una zona en el mapa') }}
+        </button>
+        <button v-if="tools.includes('nearby')" type="button" class="loc-action" data-testid="location-map-nearby" @mousedown.prevent @click="emit('map-action', 'nearby')">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3" /><path d="M12 3v3M12 18v3M3 12h3M18 12h3" /></svg>
           {{ t('location.mapNearby', 'Buscar alrededor de un punto') }}
         </button>
       </div>
       <p v-if="!text.trim() && sourceNote" class="loc-source">{{ sourceNote }}</p>
     </div>
+    <!-- Lectores de pantalla: cuántas sugerencias hay (la lista cambia sin recargar). -->
+    <p class="sr-only" role="status" aria-live="polite" data-testid="location-a11y-status">{{ a11yStatus }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
 import LocationKindIcon from '~/components/search/LocationKindIcon.vue'
-import { LOCATION_DISPLAY_ORDER, LOCATION_GROUP_LABELS, LOCATION_KIND_LABELS, MAX_LOCATIONS, coveredBy, locationKey, type LocationKind, type LocationSelection } from '~/utils/searchState'
+import { LOCATION_DISPLAY_ORDER, LOCATION_GROUP_LABELS, LOCATION_KIND_LABELS, MAP_ACTIONS, MAX_LOCATIONS, coveredBy, locationKey, type LocationKind, type LocationSelection, type MapAction } from '~/utils/searchState'
+import type { FeaturedLocation } from '~/utils/searchConfig'
 
 /**
  * Campo «Ubicación» del buscador (Hero y panel de Propiedades), el mismo en
@@ -133,14 +141,39 @@ import { LOCATION_DISPLAY_ORDER, LOCATION_GROUP_LABELS, LOCATION_KIND_LABELS, MA
  * respuestas viejas y con caché por texto. Teclado: ↑ ↓, Enter, Escape y
  * Retroceso en el campo vacío quita la última.
  */
-const props = withDefaults(defineProps<{ modelValue: LocationSelection[]; variant?: 'hero' | 'panel'; placeholder?: string; mapArea?: boolean; mapActions?: boolean; maxSuggestions?: number }>(), {
-  variant: 'panel',
-  placeholder: '',
-  mapArea: false,
-  mapActions: false,
-  maxSuggestions: 14,
-})
-const emit = defineEmits<{ 'update:modelValue': [LocationSelection[]]; 'clear-map-area': []; picked: [LocationSelection]; 'map-action': ['select' | 'nearby'] }>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: LocationSelection[]
+    variant?: 'hero' | 'panel'
+    placeholder?: string
+    mapArea?: boolean
+    /** Ofrece las herramientas del mapa bajo las sugerencias (las de `mapTools`). */
+    mapActions?: boolean
+    /** Qué herramientas del mapa se ofrecen (Constructor, utils/searchConfig.ts); sin la lista, todas. */
+    mapTools?: MapAction[] | null
+    maxSuggestions?: number
+    /** Las que la agencia destaca (Constructor): salen primero con el campo vacío; no limitan la búsqueda. */
+    featured?: FeaturedLocation[]
+    /** El número de propiedades junto a cada sugerencia. */
+    showCounts?: boolean
+    /** Recientes del visitante (sólo en su navegador); el inspector del Constructor los apaga. */
+    keepRecent?: boolean
+  }>(),
+  {
+    variant: 'panel',
+    placeholder: '',
+    mapArea: false,
+    mapActions: false,
+    mapTools: null,
+    maxSuggestions: 14,
+    featured: () => [],
+    showCounts: true,
+    keepRecent: true,
+  },
+)
+const tools = computed<MapAction[]>(() => props.mapTools ?? [...MAP_ACTIONS])
+const featuredIds = computed(() => props.featured.map((f) => f.id).join(','))
+const emit = defineEmits<{ 'update:modelValue': [LocationSelection[]]; 'clear-map-area': []; picked: [LocationSelection]; 'map-action': [MapAction] }>()
 
 const { t } = useI18n()
 const { remember } = useLocationNames()
@@ -163,6 +196,10 @@ const sourceNote = ref('')
 const RECENT_KEY = 'inmo:recent-locations'
 const recent = ref<LocationSelection[]>([])
 function loadRecent() {
+  if (!props.keepRecent) {
+    recent.value = []
+    return
+  }
   try {
     const raw = localStorage.getItem(RECENT_KEY)
     const list = raw ? (JSON.parse(raw) as LocationSelection[]) : []
@@ -172,6 +209,7 @@ function loadRecent() {
   }
 }
 function pushRecent(sel: LocationSelection) {
+  if (!props.keepRecent) return
   try {
     const next = [sel, ...recent.value.filter((l) => locationKey(l) !== locationKey(sel))].slice(0, 5)
     recent.value = next
@@ -193,6 +231,11 @@ const grouped = computed(() => {
 })
 const flat = computed<Array<LocationSelection & { index: number }>>(() => [...recentRows.value, ...grouped.value.flatMap((g) => g.items)])
 
+const a11yStatus = computed(() => {
+  if (!open.value || loading.value) return ''
+  const n = flat.value.length
+  return t('location.a11yResults', '{n} sugerencias').replace('{n}', String(n))
+})
 const groupLabel = (k: LocationKind) => t(LOCATION_GROUP_LABELS[k][0], LOCATION_GROUP_LABELS[k][1])
 const kindLabel = (k: LocationKind) => t(LOCATION_KIND_LABELS[k][0], LOCATION_KIND_LABELS[k][1])
 const isSelected = (it: LocationSelection) => props.modelValue.some((l) => locationKey(l) === locationKey(it))
@@ -215,7 +258,8 @@ async function fetchSuggestions(q: string) {
   const mine = ++seq
   controller?.abort()
   error.value = false
-  const hit = cache.get(q)
+  const cacheKey = `${featuredIds.value}|${q}`
+  const hit = cache.get(cacheKey)
   if (hit) {
     items.value = hit.items
     sourceNote.value = hit.source
@@ -230,11 +274,11 @@ async function fetchSuggestions(q: string) {
   controller = new AbortController()
   loading.value = true
   try {
-    const res = await $fetch<{ items: Item[]; source?: string }>('/api/public/location-suggest', { query: { q, limit: props.maxSuggestions }, signal: controller.signal })
+    const res = await $fetch<{ items: Item[]; source?: string }>('/api/public/location-suggest', { query: { q, limit: props.maxSuggestions, ...(featuredIds.value ? { featured: featuredIds.value } : {}) }, signal: controller.signal })
     if (mine !== seq) return
     const source = res.source ? t('location.source', 'Catálogo geográfico: {source}').replace('{source}', res.source) : ''
     if (cache.size > 120) cache.delete(cache.keys().next().value!)
-    cache.set(q, { items: res.items, source })
+    cache.set(cacheKey, { items: res.items, source })
     items.value = res.items
     sourceNote.value = source
     active.value = res.items.length && q ? recentRows.value.length : -1
@@ -257,6 +301,7 @@ function schedule() {
 }
 
 function onFocus() {
+  if (open.value) return
   open.value = true
   loadRecent()
   if (!items.value.length) fetchSuggestions(text.value.trim())

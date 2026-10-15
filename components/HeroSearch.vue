@@ -64,13 +64,13 @@
                     <svg class="hs-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /><path d="M10 21v-5.5h4V21" /></svg>
                     <span class="hs-text">
                       <span class="hs-label">{{ t('hero.type', 'Tipo de inmueble') }}</span>
-                      <span class="hs-value" :class="{ 'hs-placeholder': !typeSummary }">{{ typeSummary || t('hero.any', 'Cualquiera') }}</span>
+                      <span class="hs-value" :class="{ 'hs-placeholder': !typeSummary }">{{ typeSummary || opts.type.placeholder || t('hero.any', 'Cualquiera') }}</span>
                     </span>
                     <svg class="hs-chev" :class="{ 'rotate-180': open === 'type' }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
                   </button>
                   <transition name="pop">
                     <div v-if="open === 'type'" class="popover hs-pop-type" role="dialog" :aria-label="t('hero.type', 'Tipo de inmueble')" data-testid="hero-pop-type">
-                      <PropertyTypePicker :types="form.types" :subtypes="form.subtypes" :counts="typeCounts" variant="hero" @update="onTypes" />
+                      <PropertyTypePicker :types="form.types" :subtypes="form.subtypes" :counts="opts.type.showCounts ? typeCounts : null" variant="hero" @update="onTypes" />
                       <div class="pop-foot">
                         <button type="button" class="pop-link" :disabled="!form.types.length && !form.subtypes.length" data-testid="hero-type-clear" @click="onTypes({ types: [], subtypes: [] })">{{ t('hero.any', 'Cualquiera') }}</button>
                         <button type="button" class="pop-done" data-testid="hero-type-done" @click="open = null">{{ t('hero.done', 'Hecho') }}</button>
@@ -85,13 +85,26 @@
                     <svg class="hs-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.3a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" /><circle cx="12" cy="9.7" r="2.5" /></svg>
                     <span class="hs-text">
                       <span class="hs-label">{{ t('hero.location', 'Ubicación') }}</span>
-                      <span class="hs-value" :class="{ 'hs-placeholder': !locationLabel }">{{ locationLabel || t('hero.locationPlaceholder', 'Ciudad, zona o barrio') }}</span>
+                      <span class="hs-value" :class="{ 'hs-placeholder': !locationLabel }">{{ locationLabel || opts.location.placeholder || t('hero.locationPlaceholder', 'Ciudad, zona o barrio') }}</span>
                     </span>
                     <svg class="hs-chev" :class="{ 'rotate-180': open === 'location' }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
                   </button>
                   <transition name="pop">
                     <div v-if="open === 'location'" class="popover hs-pop-location" data-testid="hero-pop-location">
-                      <LocationAutocomplete ref="locAc" v-model="form.locations" variant="hero" :map-area="!!form.mapArea" map-actions @clear-map-area="form.mapArea = null" @map-action="onMapAction" />
+                      <LocationAutocomplete
+                        ref="locAc"
+                        v-model="form.locations"
+                        variant="hero"
+                        :placeholder="opts.location.placeholder"
+                        :featured="opts.location.featured"
+                        :max-suggestions="opts.location.maxSuggestions"
+                        :show-counts="opts.location.showCounts"
+                        :map-area="!!form.mapArea"
+                        map-actions
+                        :map-tools="searchMapTools(opts.location)"
+                        @clear-map-area="form.mapArea = null"
+                        @map-action="onMapAction"
+                      />
                     </div>
                   </transition>
                 </div>
@@ -331,11 +344,13 @@ import {
   subtypeParent,
   type EstadoKey,
   type LocationSelection,
+  type MapAction,
   type Operation,
   type SortKey,
 } from '~/utils/searchState'
 import { HERO_SLIDE_SECONDS, heroFrames } from '~/utils/siteBuilder/heroMedia'
 import { HERO_SEARCH_RADIUS_PX, countHeroExtraFilters, heroButtonColors, heroSearchOptions, heroTypeSummary } from '~/utils/heroSearch'
+import { searchMapTools } from '~/utils/searchConfig'
 import { TENANT_BRANDING_OVERRIDE } from '~/composables/useTenant'
 import LocationAutocomplete from '~/components/search/LocationAutocomplete.vue'
 import PriceRangeSlider from '~/components/search/PriceRangeSlider.vue'
@@ -486,9 +501,16 @@ const form = reactive({
 // los criterios de la búsqueda que se estaba viendo.
 const lastSearch = useState<Record<string, any> | null>('last-search', () => null)
 const locationNames = useLocationNames()
-/** «Seleccionar en el mapa» / «Buscar alrededor»: a Propiedades en vista Mapa con lo elegido hasta ahora (ahí están la zona del mapa y el radio). */
-function onMapAction(_action: 'select' | 'nearby') {
+/**
+ * «Seleccionar en el mapa» / «Dibujar una zona» / «Buscar alrededor»: a
+ * Propiedades en vista Mapa con lo elegido hasta ahora (ahí están las áreas,
+ * la zona dibujada y el radio). «Dibujar» abre el mapa ya dibujando: la
+ * petición viaja en un estado compartido que el mapa consume al arrancar.
+ */
+const drawRequest = useState<number>('map-draw-request', () => 0)
+function onMapAction(action: MapAction) {
   open.value = null
+  drawRequest.value = action === 'draw' ? Date.now() : 0
   navigateTo({ path: '/propiedades', query: { ...searchQuery(), vista: 'mapa' } })
 }
 function prefill(qy: Record<string, any> | null) {

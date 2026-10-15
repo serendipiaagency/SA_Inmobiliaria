@@ -38,6 +38,8 @@
             :operation="display.defaultOperation"
             :show-operation="display.showOperation"
             :show-new-search="display.showNewSearch"
+            :type-options="display.type"
+            :location-options="display.location"
           />
           <p v-if="hiddenFilters" class="mt-2 text-[11.5px] text-stone-400" data-testid="page-core-filters-hidden">{{ hiddenFilters === 1 ? '1 filtro oculto' : `${hiddenFilters} filtros ocultos` }} en esta web.</p>
         </div>

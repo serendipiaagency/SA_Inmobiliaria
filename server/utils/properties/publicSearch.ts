@@ -2,6 +2,8 @@ import { and, asc, desc, eq, gte, inArray, isNull, like, lte, or, sql, type SQL 
 import { schema } from '../db'
 import { livePropertyCond } from './trash'
 import { geoConds, parseGeoFilters, publicCoordsSql } from './geoSearch'
+import { inJsonList } from '../sqlChunks'
+import { pointInPolygon, polygonBounds, type GeoPolygon } from '../../../utils/maps/geo'
 import { locationVariants } from './locationIndex'
 import { locationCondById } from '../geo/locations'
 import { normalizePostalCode } from '../../../utils/publicSearch'
@@ -98,6 +100,31 @@ async function locationCond(db: any, orgId: number, sel: LocationSelection): Pro
   return and(inList(sql`${P.street}`, variants), sql`coalesce(${P.locationPrivacy}, 'exact') = 'exact'`)!
 }
 
+/**
+ * Zona dibujada (Parte II del buscador): SQL acota por la caja de la zona y
+ * aquí se decide, punto a punto y con las coordenadas QUE SE PUBLICAN, qué
+ * propiedades vivas de la agencia caen dentro (trazado de rayo,
+ * utils/maps/geo.ts). Los ids van en un solo parámetro (`inJsonList`); sin
+ * ninguno dentro, la condición es falsa (nunca «todas»).
+ */
+async function polygonIdsCond(db: any, orgId: number, coords: { lat: SQL; lng: SQL }, polygon: GeoPolygon): Promise<SQL> {
+  const b = polygonBounds(polygon)
+  const rows: { id: number; lat: number | null; lng: number | null }[] = await db
+    .select({ id: P.id, lat: coords.lat, lng: coords.lng })
+    .from(P)
+    .where(
+      and(
+        eq(P.organizationId, orgId),
+        livePropertyCond(P),
+        sql`${coords.lat} between ${b.south} and ${b.north}`,
+        sql`${coords.lng} between ${b.west} and ${b.east}`,
+      ),
+    )
+    .limit(5000)
+  const ids = rows.filter((r) => r.lat != null && r.lng != null && pointInPolygon({ lat: Number(r.lat), lng: Number(r.lng) }, polygon)).map((r) => r.id)
+  return ids.length ? inJsonList(P.id, ids) : sql`0`
+}
+
 export interface PublicSearch {
   conds: SQL[]
   sort: SortKey
@@ -143,9 +170,11 @@ export async function buildPublicSearch(db: any, orgId: number, query: Record<st
   if (firstString(query.community)) conds.push(like(P.community, `%${firstString(query.community)}%`))
   if (firstString(query.street)) conds.push(like(P.street, `%${firstString(query.street)}%`))
 
-  // Zona del mapa y radio, sobre las coordenadas que se publican.
+  // Zona del mapa, radio y zona dibujada, sobre las coordenadas que se publican.
   const coords = publicCoordsSql(P)
-  conds.push(...(geoConds(coords.lat, coords.lng, parseGeoFilters(query)) as SQL[]))
+  const geo = parseGeoFilters(query)
+  conds.push(...(geoConds(coords.lat, coords.lng, geo) as SQL[]))
+  if (geo.polygon) conds.push(await polygonIdsCond(db, orgId, coords, geo.polygon))
 
   // Precio (en la moneda base de la agencia) y superficie construida: rangos
   // coherentes; con un límite, la propiedad sin dato no entra.

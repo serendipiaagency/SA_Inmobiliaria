@@ -23,6 +23,9 @@
           <button v-if="nearby" type="button" class="text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-ink" data-testid="map-clear-nearby" @click="clearNearby">
             {{ t('mapa.clearNearby', 'Quitar radio') }} ({{ nearby.radiusKm }} km)
           </button>
+          <button v-if="polygon" type="button" class="text-[11px] font-semibold uppercase tracking-widest text-stone-400 hover:text-ink" data-testid="map-clear-polygon" @click="clearPolygon">
+            {{ t('map.draw.clear', 'Quitar zona dibujada') }}
+          </button>
           <button
             v-if="activeCount || q"
             type="button"
@@ -72,14 +75,23 @@
         <MapExplorer
           :items="items"
           :active-id="active"
-          :fit-to-items="!hasArea && !nearby"
+          :fit-to-items="!hasArea && !nearby && !polygon"
           search-area
           nearby
+          draw
           :nearby-circle="nearby"
+          :polygon="polygon"
+          :auto-draw="drawRequest > 0"
+          :areas="mapAreas"
+          :active-area-ids="activeAreaIds"
           @marker-hover="active = $event"
           @marker-click="onMarkerClick"
           @search-area="onSearchArea"
           @search-nearby="onSearchNearby"
+          @draw-polygon="onDrawPolygon"
+          @clear-polygon="clearPolygon"
+          @draw-started="drawRequest = 0"
+          @area-toggle="onAreaToggle"
         />
         <template #fallback>
           <div class="flex h-full items-center justify-center bg-stone-100 text-stone-400">{{ t('mapa.loading', 'Cargando mapa…') }}</div>
@@ -98,8 +110,10 @@
 
 <script setup lang="ts">
 import { withValidCoords } from '~/utils/maps/coords'
-import { countActivePublicFilters, nearbyFromQuery, nearbyQuery, withoutNearby } from '~/utils/publicSearch'
-import { mergeModalFilters, modalSeedFrom } from '~/utils/searchState'
+import { countActivePublicFilters, nearbyFromQuery, nearbyQuery, withoutNearby, withoutPolygon } from '~/utils/publicSearch'
+import { POLYGON_PARAM, parsePolygonParam, polygonParam, type GeoPoint } from '~/utils/maps/geo'
+import { mapAreasFromSuggestions, type MapArea } from '~/utils/maps/areas'
+import { firstString, locationsPatch, mergeModalFilters, modalSeedFrom, parseLocations } from '~/utils/searchState'
 
 const { t } = useI18n()
 const { tenant, load: loadTenant } = useTenant()
@@ -132,10 +146,11 @@ const hasArea = computed(() => AREA_KEYS.every((k) => typeof route.query[k] === 
 function withoutArea(query: Record<string, any>) {
   return Object.fromEntries(Object.entries(query).filter(([k]) => !(AREA_KEYS as readonly string[]).includes(k)))
 }
-// Zona visible y radio no se combinan: buscar por uno quita el otro, para
-// que lo que se ve en el mapa sea siempre exactamente lo que filtra.
+// Zona visible, radio y zona dibujada no se combinan: buscar por uno quita
+// los otros, para que lo que se ve en el mapa sea siempre exactamente lo que filtra.
+const withoutGeo = (query: Record<string, any>) => withoutPolygon(withoutArea(withoutNearby(query)))
 function onSearchArea(b: { north: number; south: number; east: number; west: number }) {
-  router.push({ query: { ...withoutNearby(route.query), north: String(b.north), south: String(b.south), east: String(b.east), west: String(b.west) } })
+  router.push({ query: { ...withoutGeo(route.query), north: String(b.north), south: String(b.south), east: String(b.east), west: String(b.west) } })
 }
 function clearArea() {
   router.push({ query: withoutArea(route.query) })
@@ -146,10 +161,43 @@ function clearArea() {
 // con la búsqueda.
 const nearby = computed(() => nearbyFromQuery(route.query))
 function onSearchNearby(p: { lat: number; lng: number; radiusKm: number }) {
-  router.push({ query: { ...withoutArea(withoutNearby(route.query)), ...nearbyQuery(p.lat, p.lng, p.radiusKm) } })
+  router.push({ query: { ...withoutGeo(route.query), ...nearbyQuery(p.lat, p.lng, p.radiusKm) } })
 }
 function clearNearby() {
   router.push({ query: withoutNearby(route.query) })
+}
+
+// Zona dibujada (Parte II del buscador): `poly` en la URL; el servidor decide qué cae dentro.
+const polygon = computed<GeoPoint[] | null>(() => {
+  const raw = firstString(route.query[POLYGON_PARAM])
+  if (!raw) return null
+  try {
+    return parsePolygonParam(raw)
+  } catch {
+    return null
+  }
+})
+const drawRequest = useState<number>('map-draw-request', () => 0)
+function onDrawPolygon(points: GeoPoint[]) {
+  router.push({ query: { ...withoutGeo(route.query), [POLYGON_PARAM]: polygonParam(points) } })
+}
+function clearPolygon() {
+  router.push({ query: withoutPolygon(route.query) })
+}
+
+// Áreas con propiedades (municipios, barrios y zonas con inventario), pulsables sobre el mapa.
+const { data: areaData } = await useLazyFetch('/api/public/location-suggest', { key: 'mapa-areas', query: { q: '', limit: 24 } })
+const mapAreas = computed<MapArea[]>(() => mapAreasFromSuggestions(((areaData.value as any)?.items as any[]) || []))
+const activeAreaIds = computed(() => parseLocations(route.query).filter((l) => l.id).map((l) => l.id!))
+const locationNames = useLocationNames()
+function onAreaToggle(area: MapArea) {
+  const current = parseLocations(route.query)
+  const next = current.some((l) => l.id === area.id) ? current.filter((l) => l.id !== area.id) : [...current, { kind: area.kind, value: area.value, id: area.id, context: area.context }]
+  locationNames.remember(next.filter((l) => l.value))
+  const patch = locationsPatch(next)
+  const merged: Record<string, any> = { ...route.query, ...patch }
+  const query = Object.fromEntries(Object.entries(merged).filter(([, v]) => v !== undefined))
+  router.push({ query })
 }
 const items = computed(() => withValidCoords((data.value?.rows as any[]) || []))
 

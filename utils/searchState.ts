@@ -103,6 +103,10 @@ export interface LocationSelection {
   /** Ids que la contienen (municipio → provincia y comunidad…), para avisar de redundancias. */
   parents?: string[]
 }
+/** Las herramientas del mapa que ofrece «Ubicación»: seleccionar áreas, dibujar una zona o buscar alrededor de un punto. */
+export type MapAction = 'select' | 'draw' | 'nearby'
+export const MAP_ACTIONS: MapAction[] = ['select', 'draw', 'nearby']
+
 /** Tope de ubicaciones a la vez: más no cabe en una URL legible ni en una consulta razonable. */
 export const MAX_LOCATIONS = 12
 /** Parámetro de la URL con los identificadores canónicos: ?loc=es:mun:33024,es:cp:33201 */
@@ -357,7 +361,7 @@ export function orderedRange(min: number | null, max: number | null): [number | 
 /** Todo lo que forma la búsqueda en la URL de /propiedades (lo que «Nueva búsqueda» borra). */
 export const SEARCH_PARAMS = [
   'q', 'operacion', 'sort', 'page',
-  LOCATION_ID_PARAM, ...LOCATION_KINDS, 'city', 'community', 'lat', 'lng', 'radiusKm', 'north', 'south', 'east', 'west',
+  LOCATION_ID_PARAM, ...LOCATION_KINDS, 'city', 'community', 'lat', 'lng', 'radiusKm', 'north', 'south', 'east', 'west', 'poly',
   'minPrice', 'maxPrice', 'minArea', 'maxArea', 'bedrooms', 'bathrooms',
   'type', 'subtype', 'estado', 'obra', 'status', 'new', 'condition', 'situacion', 'rentalTerm',
   ...FEATURE_KEYS, 'expensesIncluded', 'orientation', 'energy', 'minYear', 'minYield', 'developerId',

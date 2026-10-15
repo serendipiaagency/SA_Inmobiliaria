@@ -1,6 +1,6 @@
 import { sql, type SQL } from 'drizzle-orm'
 import { createError } from 'h3'
-import { GeoFilterError, KM_PER_DEG_LAT, kmPerDegLng, parseGeoQuery, radiusBounds, type GeoBBox, type GeoFilter, type GeoRadius } from '../../../utils/maps/geo'
+import { GeoFilterError, KM_PER_DEG_LAT, kmPerDegLng, parseGeoQuery, polygonBounds, radiusBounds, type GeoBBox, type GeoFilter, type GeoRadius } from '../../../utils/maps/geo'
 
 /**
  * Búsqueda geográfica (FASE 2) en SQL: zona visible del mapa (bounding box)
@@ -60,12 +60,16 @@ export function squaredDistanceSql(lat: unknown, lng: unknown, r: Pick<GeoRadius
  * ver `utils/maps/coords.ts`) nunca entra.
  */
 export function geoConds(lat: unknown, lng: unknown, geo: GeoFilter | undefined): SQL[] {
-  if (!geo || (!geo.bbox && !geo.radius)) return []
+  if (!geo || (!geo.bbox && !geo.radius && !geo.polygon)) return []
   const conds: SQL[] = [sql`(${lat} is not null and ${lng} is not null and not (${lat} = 0 and ${lng} = 0))`]
   if (geo.bbox) conds.push(bboxCond(lat, lng, geo.bbox))
   if (geo.radius) {
     conds.push(bboxCond(lat, lng, radiusBounds(geo.radius)))
     conds.push(sql`${squaredDistanceSql(lat, lng, geo.radius)} <= ${geo.radius.radiusKm * geo.radius.radiusKm}`)
   }
+  // Zona dibujada: en SQL sólo su caja; qué puntos caen dentro de verdad lo
+  // decide quien llama (la web pública, server/utils/properties/publicSearch.ts
+  // › polygonIdsCond). El listado del panel no usa `poly`.
+  if (geo.polygon) conds.push(bboxCond(lat, lng, polygonBounds(geo.polygon)))
   return conds
 }
