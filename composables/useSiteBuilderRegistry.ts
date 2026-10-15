@@ -322,6 +322,16 @@ export function blockLabel(type: string): string {
   return BLOCK_TYPE_LABELS[type] || type
 }
 
+/**
+ * El nombre de un bloque concreto en el editor. La zona dinámica de la ficha
+ * es la propia ficha de propiedad (un bloque editable, no «una zona»): se
+ * llama así; la de las demás páginas sigue siendo «Zona dinámica».
+ */
+export function blockLabelOf(block: { type: string; content?: Record<string, any> }): string {
+  if (block.type === PAGE_CORE_TYPE && block.content?.core === 'property-detail') return 'Ficha de propiedad'
+  return blockLabel(block.type)
+}
+
 const PROPERTIES_LAYOUT_LABELS: Record<string, string> = {
   row: 'Fila',
   'dark-grid': 'Oscuro',

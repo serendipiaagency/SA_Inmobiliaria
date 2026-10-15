@@ -180,6 +180,8 @@ const props = defineProps<{
   agent?: { id: number; slug?: string | null; name: string; position?: string | null; image?: string | null; phone?: string | null; whatsapp?: string | null } | null
   /** Fondo de la tarjeta; sin él, blanca. */
   tone?: ContactTone
+  /** Sólo se enseña: el formulario no envía (Constructor Web: lienzo y Vista previa). */
+  readonly?: boolean
   /** Hay agenda con la que reservar: enseña «Solicitar visita». */
   canBook?: boolean
   /** En escritorio, con la tarjeta fija y más alta que la pantalla: la cabecera se queda a la vista. */
@@ -220,7 +222,8 @@ const initials = computed(() =>
 )
 const subline = computed(() => (agent.value ? agent.value.position || t('contactCard.agentFallback', 'Comercial de esta propiedad') : t('contactCard.teamFallback', 'Te responde nuestro equipo')))
 const isDemo = computed(() => !!tenant.value?.isDemo)
-const previewBlocked = computed(() => !!tenant.value?.preview && !isDemo.value)
+// `readonly`: el lienzo y la Vista previa del Constructor enseñan la tarjeta pero no envían nada.
+const previewBlocked = computed(() => props.readonly || (!!tenant.value?.preview && !isDemo.value))
 
 // --- Contacto directo: sólo con un número que lo parezca; si no, no hay botón ---
 function digits(v: string | null | undefined): string {

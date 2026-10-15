@@ -163,6 +163,10 @@ export function useInlineText(
 ) {
   const shown = ref(text.value)
   let original = ''
+  // Lo último escrito: el modelo (el texto que llega por props) tarda un viaje de ida y vuelta
+  // al shell en reflejarlo. Si se confirma antes de que llegue —Enter justo tras la última tecla—,
+  // se conserva lo escrito en vez de volver al texto anterior y dejar el DOM desincronizado.
+  let lastSent: string | null = null
 
   watch(text, (t) => {
     if (!node.isEditing.value) shown.value = t
@@ -177,8 +181,10 @@ export function useInlineText(
       target.focus({ preventScroll: true })
       placeCaretAtEnd(target)
     } else {
-      shown.value = text.value
-      if (el.value && el.value.textContent !== text.value) el.value.textContent = text.value
+      const target = lastSent ?? text.value
+      lastSent = null
+      shown.value = target
+      if (el.value && el.value.textContent !== target) el.value.textContent = target
     }
   })
 
@@ -187,7 +193,8 @@ export function useInlineText(
   }
   function onInput() {
     if (!node.isEditing.value || !node.editor || !node.nodeRef.value) return
-    node.editor.updateText(node.nodeRef.value, readText())
+    lastSent = readText()
+    node.editor.updateText(node.nodeRef.value, lastSent)
   }
   function onKeydown(e: KeyboardEvent) {
     if (!node.isEditing.value || !node.editor || !node.nodeRef.value) return
@@ -196,6 +203,7 @@ export function useInlineText(
     if (e.key === 'Escape') {
       e.preventDefault()
       if (el.value) el.value.textContent = original
+      lastSent = original
       node.editor.updateText(node.nodeRef.value, original)
       node.editor.stopEdit()
       return

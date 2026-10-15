@@ -81,10 +81,10 @@
             >
               <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-stone-300" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="1.4" /><circle cx="8" cy="12" r="1.4" /><circle cx="8" cy="18" r="1.4" /><circle cx="16" cy="6" r="1.4" /><circle cx="16" cy="12" r="1.4" /><circle cx="16" cy="18" r="1.4" /></svg>
               <div class="min-w-0 flex-1" :class="isHiddenOnDevice(block) ? 'opacity-40' : ''">
-                <p class="truncate font-semibold text-ink">{{ pad2(i + 1) }} · {{ blockLabel(block.type) }}</p>
+                <p class="truncate font-semibold text-ink">{{ pad2(i + 1) }} · {{ blockLabelOf(block) }}</p>
                 <p class="truncate text-[12px] text-stone-450">{{ blockSubtitle(block) }}</p>
               </div>
-              <span v-if="isCore(block)" class="mt-0.5 shrink-0 text-stone-400" title="Zona dinámica: se rellena sola y no se puede borrar">
+              <span v-if="isCore(block)" class="mt-0.5 shrink-0 text-stone-400" title="Este contenedor no se puede borrar ni ocultar; todo lo que contiene sí se edita">
                 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2" /><path stroke-linecap="round" d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
               </span>
               <div v-else class="flex shrink-0 items-center gap-0.5">
@@ -98,6 +98,33 @@
                 <button type="button" class="structure-icon-btn text-stone-300 opacity-0 hover:!text-red-500 group-hover:opacity-100" title="Eliminar" @click.stop="deleteBlock(block.id)">
                   <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16z" /></svg>
                 </button>
+              </div>
+            </div>
+
+            <!-- La ficha de propiedad es editable: sus partes son nodos y se ven aquí como un árbol.
+                 Pulsar una la selecciona en el lienzo y abre su inspector; las secciones se ocultan y se reordenan. -->
+            <div v-if="isCore(block) && fichaRows.length" class="mb-2 ml-4 border-l border-line pl-1.5" data-testid="ficha-tree" role="tree" aria-label="Bloques de la ficha">
+              <div
+                v-for="row in fichaRows"
+                :key="row.def.field"
+                role="treeitem"
+                :aria-selected="selectedBlockId === block.id && selectedNode?.field === row.def.field"
+                :data-ficha-node="row.def.field"
+                :data-hidden="row.hidden ? '1' : undefined"
+                class="group/row flex cursor-pointer items-center gap-1 rounded-md py-1 pr-1 text-[12.5px] transition"
+                :class="selectedBlockId === block.id && selectedNode?.field === row.def.field ? 'bg-paper font-semibold text-ink' : 'text-stone-600 hover:bg-stone-50'"
+                :style="{ paddingLeft: `${6 + row.depth * 12}px` }"
+                @click="selectFichaNode(row.def.field)"
+              >
+                <span class="min-w-0 flex-1 truncate" :class="row.hidden ? 'line-through opacity-40' : ''" :title="row.def.dynamic ? `${row.def.label} · dato de Propiedades` : row.def.label">{{ row.def.label }}</span>
+                <template v-if="row.def.section">
+                  <button type="button" class="structure-icon-btn opacity-0 group-hover/row:opacity-100 focus:opacity-100" :aria-label="`Subir «${row.def.label}»`" :data-testid="`ficha-up-${row.def.section}`" @click.stop="moveFichaSection(row.def.section!, -1)">↑</button>
+                  <button type="button" class="structure-icon-btn opacity-0 group-hover/row:opacity-100 focus:opacity-100" :aria-label="`Bajar «${row.def.label}»`" :data-testid="`ficha-down-${row.def.section}`" @click.stop="moveFichaSection(row.def.section!, 1)">↓</button>
+                  <button type="button" class="structure-icon-btn" :class="row.hidden ? '' : 'opacity-0 group-hover/row:opacity-100 focus:opacity-100'" :aria-label="row.hidden ? `Mostrar «${row.def.label}»` : `Ocultar «${row.def.label}»`" :data-testid="`ficha-toggle-${row.def.section}`" @click.stop="toggleFichaSection(row.def.section!)">
+                    <svg v-if="row.hidden" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.9 17.9A10.1 10.1 0 0 1 12 20c-7 0-11-8-11-8a18.5 18.5 0 0 1 5.1-5.9M9.9 4.2A9.1 9.1 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.2 3.2M1 1l22 22" /></svg>
+                    <svg v-else class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                  </button>
+                </template>
               </div>
             </div>
           </template>
@@ -316,7 +343,7 @@
               <p class="truncate text-[11px] text-stone-500">{{ selectedNode ? (selectedNode.dynamic ? `Contenido dinámico · ${selectedNode.dynamic}` : nodeKindLabel(selectedNode.kind)) : blockSubtitle(selectedBlock) }}</p>
             </div>
           </div>
-          <div v-if="!isCore(selectedBlock)" class="flex gap-1 rounded-lg bg-stone-100 p-1">
+          <div v-if="!isCore(selectedBlock) || selectedNode" class="flex gap-1 rounded-lg bg-stone-100 p-1" data-testid="inspector-tabs">
             <button
               v-for="t in INSPECTOR_TABS"
               :key="t.key"
@@ -409,8 +436,9 @@ import type { SiteGlobalStyles } from '~/utils/siteBuilder/globalStyles'
 import { nodeKindLabel, normalizeColor, type NodeKind } from '~/utils/siteBuilder/nodes'
 import { isKnownFont } from '~/utils/siteBuilder/fonts'
 import type { SiteNodeRef } from '~/composables/useSiteEditor'
-import { BLOCK_PRESETS, BLOCK_CATEGORIES, BLOCK_INSPECTORS, RECOMMENDED_PRESET_IDS, blockLabel, blockSubtitle, newBlockId, presetsForPage, type BlockPreset } from '~/composables/useSiteBuilderRegistry'
-import { PAGE_CORE_TYPE, SITE_PAGES, sitePageDef } from '~/utils/siteBuilder/pages'
+import { BLOCK_PRESETS, BLOCK_CATEGORIES, BLOCK_INSPECTORS, RECOMMENDED_PRESET_IDS, blockLabelOf, blockSubtitle, newBlockId, presetsForPage, type BlockPreset } from '~/composables/useSiteBuilderRegistry'
+import { PAGE_CORE_TYPE, SITE_PAGES, normalizeFichaSections, sitePageDef } from '~/utils/siteBuilder/pages'
+import { fichaNode, fichaTree, type FichaNodeDef, type FichaTreeNode } from '~/utils/siteBuilder/fichaNodes'
 import InspectorSection from '~/components/site-builder/inspector/InspectorSection.vue'
 import CommonBlockSettings from '~/components/site-builder/inspector/CommonBlockSettings.vue'
 import NodeInspector from '~/components/site-builder/inspector/NodeInspector.vue'
@@ -548,6 +576,56 @@ function selectFromStructure(id: string) {
 }
 function clearSelection() {
   selectBlock(null)
+}
+
+// ---------------------------------------------------------------------------
+// La ficha de propiedad editable: sus partes son nodos de la zona dinámica
+// (utils/siteBuilder/fichaNodes.ts). «Estructura» las enseña como un árbol;
+// pulsar una la selecciona en el lienzo y abre su inspector, y las secciones se
+// ocultan y se reordenan con la misma lista (`sections`) que la web ya lee.
+// ---------------------------------------------------------------------------
+const coreBlock = computed(() => blocks.value.find((b) => isCore(b)) || null)
+const fichaRows = computed<{ def: FichaNodeDef; depth: number; hidden: boolean }[]>(() => {
+  const core = coreBlock.value
+  if (!core || core.content?.core !== 'property-detail') return []
+  const list = normalizeFichaSections(core.content.sections)
+  const hidden = new Set(list.filter((x) => !x.visible).map((x) => x.key))
+  const { top } = fichaTree(list.map((x) => x.key), hidden)
+  const rows: { def: FichaNodeDef; depth: number; hidden: boolean }[] = []
+  const walk = (nodes: FichaTreeNode[], depth: number, parentHidden: boolean) => {
+    for (const n of nodes) {
+      const isHidden = parentHidden || (!!n.def.section && hidden.has(n.def.section))
+      rows.push({ def: n.def, depth, hidden: isHidden })
+      walk(n.children, depth + 1, isHidden)
+    }
+  }
+  walk(top, 0, false)
+  return rows
+})
+function selectFichaNode(field: string) {
+  const core = coreBlock.value
+  const def = fichaNode(field)
+  if (!core || !def) return
+  selectBlock(core.id, { blockId: core.id, field, kind: def.kind, label: def.label, dynamic: def.dynamic ?? null, sourceHref: def.sourceHref ?? null, linkField: null, altField: null, multiline: false })
+  iframeEl.value?.contentWindow?.postMessage({ source: 'sa-builder-shell', type: 'scroll-to', id: core.id, field }, window.location.origin)
+}
+function toggleFichaSection(key: string) {
+  const core = coreBlock.value
+  if (!core) return
+  pushUndo()
+  const next = normalizeFichaSections(core.content.sections).map((x) => (x.key === key ? { ...x, visible: !x.visible } : x))
+  core.content.sections = next
+}
+function moveFichaSection(key: string, dir: -1 | 1) {
+  const core = coreBlock.value
+  if (!core) return
+  const next = normalizeFichaSections(core.content.sections)
+  const i = next.findIndex((x) => x.key === key)
+  const j = i + dir
+  if (i < 0 || j < 0 || j >= next.length) return
+  pushUndo()
+  ;[next[i], next[j]] = [next[j]!, next[i]!]
+  core.content.sections = next
 }
 
 // Session-only UI preference (not page state): read after mount to avoid an
@@ -705,7 +783,7 @@ function toggleFavorite(presetId: string) {
 function inspectorFor(type: string) {
   return BLOCK_INSPECTORS[type] || null
 }
-const breadcrumb = computed(() => (selectedBlock.value ? blockLabel(selectedBlock.value.type) : ''))
+const breadcrumb = computed(() => (selectedBlock.value ? blockLabelOf(selectedBlock.value) : ''))
 
 // Live catalogue data for the "Datos" sections (Propiedades/Comunidades
 // dynamic filters + manual selection) — fetched once here in the shell,
