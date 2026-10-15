@@ -1,5 +1,5 @@
 import { test, expect, request as pwRequest, type APIRequestContext } from '@playwright/test'
-import { STATE_A } from './global-setup'
+import { STATE_B } from './global-setup'
 
 /**
  * Configuración del buscador global en el Constructor Web (Parte III): lo
@@ -7,21 +7,30 @@ import { STATE_A } from './global-setup'
  * contadores, sugerencias, destacadas, herramientas del mapa) se guarda en
  * el bloque y se ve en la web; el Hero y el panel de Propiedades leen las
  * mismas claves. Sólo presentación: la búsqueda no cambia.
+ *
+ * Corre en la empresa B, no en la A: para enseñarlo en la web hay que
+ * publicar, y lo publicado queda en el historial de versiones de la empresa.
+ * La prueba de aislamiento de `cross-tenant` restaura en A «la versión con
+ * el número de la publicación de B»; si A tuviera versiones de esta prueba,
+ * esa restauración devolvería el borrador de esta prueba a la portada de A
+ * y arruinaría las del pie y el Hero, que vienen después.
  */
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8788'
 const CANVAS = 'iframe[title="Vista previa del Constructor Web"]'
 
 test.describe('Buscador global · Constructor', () => {
-  test.use({ storageState: STATE_A })
+  test.use({ storageState: STATE_B })
   let a: APIRequestContext
+  let orgId = 0
   let originalHome: Record<string, unknown> | null = null
   let originalCatalog: Record<string, unknown> | null = null
   let homePublished = false
   let catalogPublished = false
 
   test.beforeAll(async () => {
-    a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
+    a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_B })
+    orgId = (await (await a.get('/api/admin/active-org-info')).json()).id
     const home = await (await a.get('/api/admin/site-pages/home')).json()
     originalHome = { blocks: home.blocks, seo: home.seo, ...(home.styles ? { styles: home.styles } : {}) }
     const cat = await (await a.get('/api/admin/site-pages/propiedades')).json()
@@ -105,7 +114,7 @@ test.describe('Buscador global · Constructor', () => {
     // Publicada, la portada lo enseña: textos, sin «Dibujar», Madrid la primera sin escribir, sin contadores.
     const pub = await a.post('/api/admin/site-pages/home/publish')
     expect(pub.ok(), await pub.text()).toBeTruthy()
-    await page.goto('/?vista_previa=1')
+    await page.goto(`/?vista_previa=${orgId}`)
     const hero = page.locator('section.hero')
     await expect(hero.getByTestId('hero-cell-location')).toContainText('Dónde quieres vivir')
     await expect(hero.getByTestId('hero-cell-type')).toContainText('Qué buscas')
@@ -134,7 +143,7 @@ test.describe('Buscador global · Constructor', () => {
     expect(pub.ok(), await pub.text()).toBeTruthy()
 
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/propiedades?vista_previa=1')
+    await page.goto(`/propiedades?vista_previa=${orgId}`)
     const aside = page.getByTestId('catalog-aside')
     const head = aside.locator('[data-group="location"] > button')
     if ((await head.getAttribute('aria-expanded')) !== 'true') await head.click()
