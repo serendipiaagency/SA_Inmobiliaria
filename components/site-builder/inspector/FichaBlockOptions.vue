@@ -47,6 +47,12 @@
 
     <EnergyOptionsFields v-if="has('s.energia')" :value="content.energy" content-title="Eficiencia energética" :design-tab="designTab" @set="setEnergy" />
 
+    <!-- Exposición solar: la puntuación la da un proveedor con licencia y no se edita; aquí, su estado. -->
+    <InspectorSection v-if="has('s.exposicion')" title="Exposición solar" data-testid="page-core-solar">
+      <p class="rounded-lg bg-stone-100 px-3 py-2 text-[12px] leading-relaxed text-stone-600" data-testid="page-core-solar-status">{{ SOLAR_PROVIDER_STATUS.name }} · {{ SOLAR_PROVIDER_STATUS.message }}</p>
+      <p class="mt-2 text-[11px] leading-relaxed text-stone-400">La puntuación (SunScore), las horas de sol y el enlace al visor 3D son los del proveedor para cada propiedad: no se escriben ni se editan aquí. Con el acceso pendiente, la sección no sale en la web publicada. Aquí se ve con datos de demostración rotulados, para diseñarla. Se oculta o se reordena en «Avanzado» y el título se reescribe en el lienzo.</p>
+    </InspectorSection>
+
     <InspectorSection v-if="has('s.ubicacion')" title="Mapa de la ubicación">
       <SegmentedField
         label="Altura del mapa"
@@ -97,6 +103,7 @@
 </template>
 
 <script setup lang="ts">
+import { SOLAR_PROVIDER_STATUS } from '~/utils/solarExposure'
 import InspectorSection from './InspectorSection.vue'
 import ToggleField from './fields/ToggleField.vue'
 import TextField from './fields/TextField.vue'

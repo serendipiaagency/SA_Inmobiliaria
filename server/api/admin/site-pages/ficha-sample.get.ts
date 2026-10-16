@@ -3,6 +3,7 @@ import { useDb, schema } from '../../../utils/db'
 import { requireOrgScope } from '../../../utils/auth'
 import { livePropertyCond } from '../../../utils/properties/trash'
 import { loadPublicPropertyDetail } from '../../../utils/properties/publicDetail'
+import { SOLAR_DEMO_EXPOSURE } from '../../../../utils/solarExposure'
 
 /**
  * La propiedad de ejemplo de la página «Ficha de propiedad» del Constructor
@@ -15,6 +16,10 @@ import { loadPublicPropertyDetail } from '../../../utils/properties/publicDetail
  * empresa activa—. El color
  * de marca va aparte para el fondo de «Atendido por»: en el panel, la
  * empresa de la web no es la del dominio.
+ *
+ * «Exposición solar»: si la propiedad no tiene un dato real del proveedor, el
+ * lienzo enseña la tarjeta con datos de DEMOSTRACIÓN (`solar.demo`, rotulados
+ * como tales) para poder diseñarla; la ficha pública nunca los recibe.
  */
 export default defineEventHandler(async (event) => {
   const { orgId } = await requireOrgScope(event)
@@ -33,6 +38,11 @@ export default defineEventHandler(async (event) => {
   if (wanted !== null && !project) throw createError({ statusCode: 404, statusMessage: 'Propiedad no encontrada' })
   return {
     brandColor: org?.brandColor || null,
-    property: project ? await loadPublicPropertyDetail(db, project) : null,
+    property: project ? withSolarDemo(await loadPublicPropertyDetail(db, project)) : null,
   }
 })
+
+function withSolarDemo<T extends { solar?: unknown; availability?: Record<string, unknown> }>(detail: T): T {
+  if (detail.solar) return detail
+  return { ...detail, solar: SOLAR_DEMO_EXPOSURE, availability: { ...(detail.availability || {}), solar: true } }
+}

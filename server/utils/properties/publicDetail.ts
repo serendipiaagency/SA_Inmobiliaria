@@ -1,3 +1,4 @@
+import { solarExposureFor } from '../solar/service'
 import { and, asc, count, eq, inArray, ne } from 'drizzle-orm'
 import { schema, type useDb } from '../db'
 import { toPublicProperty, toPublicSheet } from '../propertyPrivacy'
@@ -104,7 +105,10 @@ export async function loadPublicPropertyDetail(db: ReturnType<typeof useDb>, pro
     db.select({ n: count() }).from(schema.priceHistory).where(eq(schema.priceHistory.developerPropertyId, project.id)),
     db.select({ n: count() }).from(P).where(and(eq(P.organizationId, project.organizationId), ne(P.id, project.id), livePropertyCond(P))),
   ])
+  // Exposición solar: sólo con un proveedor con licencia (server/utils/solar/service.ts); sin él, null y la sección no sale.
+  const solar = await solarExposureFor({ organizationId: project.organizationId, lat: project.lat, lng: project.lng, locationPrivacy: project.locationPrivacy })
   const availability = {
+    solar: !!solar,
     score: computeSerendipiaScore(project, market).overall != null,
     priceHistory: Number(historyRow?.n ?? 0) >= 2,
     similar: Number(othersRow?.n ?? 0) > 0,
@@ -133,6 +137,7 @@ export async function loadPublicPropertyDetail(db: ReturnType<typeof useDb>, pro
     customFields,
     agent: agentRows[0] || null,
     availability,
+    solar,
     referenceLabel: publicReferenceLabel(project, sheet),
   }
 }
