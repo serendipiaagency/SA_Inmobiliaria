@@ -393,7 +393,7 @@ test.describe('Vender propiedad: el bloque en el Constructor Web', () => {
     // La superficie, el nombre, el email y la privacidad no aparecen como opcionales.
     await expect(insp.getByTestId('seller-question-area')).toHaveCount(0)
     await expect(insp.getByText('no se pueden quitar')).toBeVisible()
-    for (const tab of ['Contenido', 'Diseño', 'Avanzado']) await expect(page.getByRole('tab', { name: tab }).first()).toBeVisible()
+    for (const tab of ['Contenido', 'Diseño', 'Avanzado']) await expect(page.getByRole('button', { name: tab, exact: true }).first()).toBeVisible()
     await ctx.close()
   })
 
