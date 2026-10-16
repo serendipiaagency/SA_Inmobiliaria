@@ -104,7 +104,9 @@ test.describe('Exposición solar en la ficha', () => {
     await page.goto('/admin/site-builder?pagina=ficha-propiedad')
     const canvas = page.frameLocator(CANVAS)
     await expect(canvas.locator('#exposicion')).toBeVisible({ timeout: 20_000 })
-    await canvas.locator('#exposicion').click({ position: { x: 4, y: 4 } })
+    // Se elige en «Estructura» (el nodo de la sección), como en el resto de inspectores de la ficha.
+    await page.locator('[data-ficha-node="s.exposicion"]').click()
+    await expect(page.getByTestId('node-inspector')).toBeVisible()
     const status = page.getByTestId('page-core-solar-status')
     await expect(status).toBeVisible({ timeout: 15_000 })
     await expect(status).toContainText('Shadowmap')
