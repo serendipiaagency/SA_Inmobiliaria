@@ -131,7 +131,7 @@ export default defineEventHandler(async (event) => {
 
   const reference = await demoReferenceFor(db, orgId, 'developer')
   const baseQuery = db
-    .select({ project: P, developerName: schema.developers.name, demoReference: reference ? referenceFlagSql(P.agencyReference, reference.refs) : sql<number>`0` })
+    .select({ project: P, developerName: schema.developers.name, ...(reference ? { demoReference: referenceFlagSql(P.agencyReference, reference.refs) } : {}) })
     .from(P)
     .leftJoin(schema.developers, eq(P.developerId, schema.developers.id))
     .where(where as any)
@@ -142,5 +142,5 @@ export default defineEventHandler(async (event) => {
   const withPhotos = await attachPhotos(db, merged)
   const publicRows = toPublicProperties(withPhotos)
 
-  return { rows: reference ? publicRows.map((p, i) => ({ ...p, demoReference: !!rows[i]?.demoReference })) : publicRows, total, page, perPage, ...(facets ? { facets } : {}) }
+  return { rows: reference ? publicRows.map((p, i) => ({ ...p, demoReference: !!(rows[i] as any)?.demoReference })) : publicRows, total, page, perPage, ...(facets ? { facets } : {}) }
 })
