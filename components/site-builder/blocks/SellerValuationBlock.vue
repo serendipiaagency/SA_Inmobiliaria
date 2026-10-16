@@ -245,7 +245,7 @@ function pickType(t: string) {
   propertyType.value = t
   subtype.value = ''
   // Cambiar de tipo cambia las preguntas: lo respondido que ya no aplica se quita.
-  for (const k of Object.keys(answers)) delete answers[k]
+  Object.keys(answers).forEach((k) => Reflect.deleteProperty(answers, k))
   error.value = ''
 }
 function onLocation(list: LocationSelection[]) {

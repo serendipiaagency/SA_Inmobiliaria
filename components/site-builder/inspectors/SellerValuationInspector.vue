@@ -80,9 +80,8 @@ function toggleQuestion(key: string, on: boolean) {
   props.content.hiddenQuestions = [...next]
 }
 function setLabel(key: string, v: string) {
-  const next = { ...labels.value }
+  const next = Object.fromEntries(Object.entries(labels.value).filter(([k]) => k !== key))
   if (v.trim()) next[key] = v
-  else delete next[key]
   props.content.questionLabels = next
 }
 </script>

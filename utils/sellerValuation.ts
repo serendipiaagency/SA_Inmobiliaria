@@ -246,6 +246,7 @@ export const SELLER_PHOTO_PREFIX = 'seller-uploads/'
 const LOCATION_ID = /^[a-z]{1,3}:[A-Za-z0-9._\-:|]{1,120}$/
 
 function text(value: unknown, max: number): string {
+  // eslint-disable-next-line no-control-regex
   return typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, max) : ''
 }
 
