@@ -112,6 +112,7 @@ describe('los bloques con efecto real no disparan nada desde el editor', () => {
   const SIDE_EFFECT_BLOCKS: Record<string, string> = {
     'lead-form': 'LeadFormBlock.vue',
     'book-visit': 'BookVisitBlock.vue',
+    'seller-valuation': 'SellerValuationBlock.vue',
   }
 
   it.each(Object.entries(SIDE_EFFECT_BLOCKS))('el renderizador le pasa `mode` a «%s»', (type) => {
