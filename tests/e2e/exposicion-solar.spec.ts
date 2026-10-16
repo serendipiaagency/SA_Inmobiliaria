@@ -136,15 +136,20 @@ test.describe('Exposición solar en la ficha', () => {
     await expect(canvas.locator('#exposicion')).toHaveCount(0)
   })
 
-  test('responsive: en móvil la tarjeta cabe en la pantalla', async ({ page }) => {
+  test('responsive: con el lienzo en Móvil la tarjeta cabe en la pantalla', async ({ page }) => {
     await a.delete('/api/admin/site-pages/ficha-propiedad')
-    await page.setViewportSize({ width: 390, height: 800 })
+    await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/admin/site-builder?pagina=ficha-propiedad')
     const canvas = page.frameLocator(CANVAS)
+    await expect(canvas.locator('#exposicion')).toBeVisible({ timeout: 20_000 })
+    await page.getByRole('button', { name: /^Móvil$/ }).click()
+    const frame = page.locator(CANVAS)
+    await expect.poll(async () => (await frame.boundingBox())?.width ?? 9999, { timeout: 10_000 }).toBeLessThan(500)
     const section = canvas.locator('#exposicion')
-    await expect(section).toBeVisible({ timeout: 20_000 })
+    await expect(section).toBeVisible()
+    const frameWidth = (await frame.boundingBox())!.width
     const box = await section.boundingBox()
-    expect(box!.width).toBeLessThanOrEqual(390)
+    expect(box!.width).toBeLessThanOrEqual(frameWidth)
     expect(await canvas.locator('body').evaluate((b) => b.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
   })
 })
