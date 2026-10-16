@@ -387,7 +387,7 @@ test.describe('Vender propiedad: el bloque en el Constructor Web', () => {
     await canvas.getByTestId('seller-valuation').click({ position: { x: 5, y: 5 } })
     const insp = page.getByTestId('seller-valuation-inspector')
     await expect(insp).toBeVisible({ timeout: 20_000 })
-    await expect(insp.getByText('Preguntas')).toBeVisible()
+    await expect(insp.getByText('Preguntas', { exact: true })).toBeVisible()
     await expect(insp.getByTestId('seller-type-Apartment')).toBeVisible()
     await expect(insp.getByTestId('seller-question-terraceArea')).toBeVisible()
     // La superficie, el nombre, el email y la privacidad no aparecen como opcionales.
