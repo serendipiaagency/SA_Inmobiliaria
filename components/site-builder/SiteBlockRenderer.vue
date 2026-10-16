@@ -60,6 +60,7 @@
              una cita) reciben `mode`: lo usan para no disparar nada desde el
              lienzo ni desde Vista previa. -->
         <LeadFormBlock v-else-if="block.type === 'lead-form'" :content="block.content" :mode="mode" />
+        <SellerValuationBlock v-else-if="block.type === 'seller-valuation'" :content="block.content" :mode="mode" />
         <BookVisitBlock v-else-if="block.type === 'book-visit'" :content="block.content" :team="homeData?.team || []" :mode="mode" />
         <EnergyBlock v-else-if="block.type === 'energy-efficiency'" :content="block.content" :mode="mode" />
         <TextBlock v-else-if="block.type === 'text'" :content="block.content" />
@@ -115,6 +116,7 @@ import AboutAgencyBlock from './blocks/AboutAgencyBlock.vue'
 import TrustPointsBlock from './blocks/TrustPointsBlock.vue'
 import OfficesBlock from './blocks/OfficesBlock.vue'
 import LeadFormBlock from './blocks/LeadFormBlock.vue'
+import SellerValuationBlock from './blocks/SellerValuationBlock.vue'
 import BookVisitBlock from './blocks/BookVisitBlock.vue'
 import TextBlock from './blocks/TextBlock.vue'
 import CtaBlock from './blocks/CtaBlock.vue'

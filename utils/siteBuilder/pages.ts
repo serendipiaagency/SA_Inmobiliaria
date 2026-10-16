@@ -448,7 +448,7 @@ export function seedPageBlocks(key: string): SeedBlock[] {
     case 'vender':
       // «Vender Propiedad» del menú (utils/siteNav.ts). La web la enseña desde
       // el primer día con este contenido; la inmobiliaria lo cambia y lo
-      // publica cuando quiera. El formulario es de captación (`purpose: 'seller'`).
+      // publica cuando quiera. El formulario es el de valoración de propiedad (`seller-valuation`): crea el lead de captación.
       return [
         {
           id: 'text-vender',
@@ -465,22 +465,17 @@ export function seedPageBlocks(key: string): SeedBlock[] {
           },
         },
         {
-          id: 'lead-form-vender',
-          type: 'lead-form',
+          id: 'seller-valuation-vender',
+          type: 'seller-valuation',
           version: 1,
           content: {
-            eyebrow: '',
+            eyebrow: 'Valoración sin compromiso',
             title: 'Cuéntanos qué quieres vender',
-            description: 'Te contactamos para conocer tu propiedad.',
-            submitLabel: 'Quiero vender',
-            messageLabel: 'Tu propiedad',
-            messagePlaceholder: 'Tipo de vivienda, zona o dirección, metros, habitaciones…',
-            successMessage: 'Gracias. Te llamaremos lo antes posible para hablar de tu propiedad.',
+            description: 'Responde unas preguntas sobre tu propiedad y un comercial te contactará para hablar de ella.',
+            submitLabel: 'Enviar mi propiedad',
+            successMessage: 'Hemos recibido los datos de tu propiedad',
             subject: 'Vender propiedad',
-            purpose: 'seller',
             privacyNote: '',
-            showPhone: true,
-            layout: 'centered',
           },
         },
       ]

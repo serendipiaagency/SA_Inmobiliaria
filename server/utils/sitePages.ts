@@ -5,6 +5,7 @@ import { sanitizeNodeStyles, type NodeStyle } from '../../utils/siteBuilder/node
 import { sanitizeGlobalStyles, type SiteGlobalStyles } from '../../utils/siteBuilder/globalStyles'
 import { PAGE_CORE_TYPE, SITE_PAGES, SITE_PAGE_KEYS, sanitizeCoreOptions, seedPageBlocks, sitePageDef } from '../../utils/siteBuilder/pages'
 import { compactEnergyOptions, normalizeEnergyOptions } from '../../utils/energyCertificate'
+import { compactSellerOptions } from '../../utils/sellerValuation'
 import { filterFichaNodeStyles, sanitizeFichaTexts } from '../../utils/siteBuilder/fichaNodes'
 
 /**
@@ -379,6 +380,8 @@ export function validatePageDocument(input: unknown, pageKey?: string): SitePage
     if (nodeStyles) block.nodeStyles = nodeStyles
     // «Eficiencia energética»: sólo su presentación, nunca valores (los da cada propiedad).
     if (type === 'energy-efficiency') block.content = compactEnergyOptions(normalizeEnergyOptions(block.content))
+    // «Valoración de propiedad»: tipos, preguntas y rótulos sólo de lo que existe en Property Core; las obligatorias no se ocultan.
+    if (type === 'seller-valuation') block.content = compactSellerOptions(block.content)
     return block
   })
 

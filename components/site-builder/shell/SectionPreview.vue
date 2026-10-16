@@ -120,6 +120,13 @@
       </template>
     </div>
 
+    <!-- Valoración de propiedad: barra de progreso y campos -->
+    <div v-else-if="type === 'seller-valuation'" class="flex w-[70%] flex-col gap-1.5 rounded bg-white p-1.5">
+      <div class="h-1 w-full rounded-full bg-stone-200"><div class="h-1 w-1/3 rounded-full bg-ink" /></div>
+      <div class="flex gap-1"><div class="h-2 flex-1 rounded-full bg-stone-200" /><div class="h-2 flex-1 rounded-full bg-ink" /><div class="h-2 flex-1 rounded-full bg-stone-200" /></div>
+      <div class="h-2 w-1/2 self-end rounded-sm bg-ink" />
+    </div>
+
     <!-- Lead form: text beside (or above) a stack of input pills + button -->
     <div v-else-if="type === 'lead-form'" class="flex w-[86%] items-center gap-3" :class="layout === 'centered' ? '!flex-col !gap-1.5' : ''">
       <div class="flex-1 space-y-1" :class="layout === 'centered' ? 'w-full text-center' : ''">

@@ -333,8 +333,9 @@ móvil y el lienzo (que pinta el mismo `SiteHeader.vue`). Comprar Propiedad
 lleva a `/propiedades?operacion=venta` (lo que no está en alquiler,
 `server/api/public/properties.get.ts`); Vender Propiedad a `/vender`, una
 página `content` del catálogo que, a diferencia de Servicios, se enseña
-desde el primer día con su siembra (`pages/vender.vue`). Su formulario es un
-`lead-form` con `purpose: 'seller'` → `form: 'seller'`: lead de captación
+desde el primer día con su siembra (`pages/vender.vue`). Su formulario es el
+bloque `seller-valuation` (ver más abajo; las páginas ya publicadas con un
+`lead-form` con `purpose: 'seller'` siguen igual) → `form: 'seller'`: lead de captación
 («Vender propiedad»), rol `seller` en el Contact y sin juntarse con un lead
 de comprador de la misma persona (`reuse: 'same_source_detail'`).
 
@@ -1287,3 +1288,45 @@ propiedad. El inspector ofrece **todo** el catálogo con su rótulo en
 castellano y el recuento actual (`propertyTypeOptions`), no sólo los tipos
 que ya tienen propiedades. Antes listaba únicamente esos, con la clave en
 inglés, y no se podía preparar una sección para un tipo todavía vacío.
+
+## Formulario de valoración de propiedad («Vender Propiedad»)
+
+Bloque `seller-valuation` (`components/site-builder/blocks/SellerValuationBlock.vue`,
+inspector `SellerValuationInspector.vue`, reglas puras en
+`utils/sellerValuation.ts`). Sólo se ofrece en la página `vender`, donde es el
+contenido de partida en lugar del formulario de captación anterior (las páginas
+ya publicadas con `lead-form` no cambian).
+
+- **Seis pasos con progreso real**: tipo, ubicación, superficie y distribución,
+  características y estado, información adicional y contacto. Un tipo sin
+  preguntas en un paso (un terreno no tiene «características») no lo enseña y
+  el contador lo refleja.
+- **Sin segundo catálogo**: tipos, grupos y subtipos son `PROPERTY_TYPES`,
+  `PROPERTY_TYPE_GROUPS` y `PROPERTY_SUBTYPES` (`utils/propertySheet.ts`); cada
+  pregunta lleva el nombre del campo real de la ficha. Una prueba comprueba que
+  cada tipo tiene preguntas y que cada una es un campo que el esquema de ese
+  tipo declara en `server/utils/propertySchema/registry.ts` (en suelo, la
+  superficie es `plotArea`, no `area`).
+- **Ubicación**: el autocompletado geográfico de la plataforma
+  (`LocationAutocomplete`, `/api/public/location-suggest`).
+- **Lead real**: `POST /api/public/contact` con `form: 'seller'` y `valuation`.
+  El servidor valida otra vez (`validateSellerValuation`), exige
+  `privacyAccepted`, y el resumen fiel de lo contado es el mensaje original del
+  lead y el cuerpo del hilo «Formulario web»; los campos van uno a uno en el
+  hilo (`answer.<campo>`) con la fecha del consentimiento. El contacto recibe el
+  rol `seller`. No se crea ninguna propiedad y no hay motor de valoración: la
+  confirmación no lleva cifras. Antispam: campo trampa, límite de tasa por IP e
+  identificador de envío (un doble clic no duplica).
+- **Fotos opcionales**: `POST /api/public/contact?channel=seller-photo&submissionId=…`
+  (una rama del endpoint, no una ruta nueva). Tipo por los bytes (JPG, PNG,
+  WebP), 5 MB, 6 por envío, cuota de la agencia; privadas, registradas en
+  `media_assets` y enlazadas al lead al enviar (`entity_type = 'lead'`). Sólo se
+  enlazan las claves que ese envío subió a esa agencia.
+- **Constructor**: textos editables en el lienzo; en el inspector, qué tipos se
+  ofrecen, qué preguntas opcionales salen y cómo se llaman, y fotos sí/no. La
+  superficie, el nombre, el email y la privacidad no se pueden quitar. En el
+  lienzo y en Vista previa se recorren los pasos pero no se envía nada.
+- **Eventos**: `inmo:seller-valuation` (paso y envío) sólo si el visitante dio
+  su consentimiento de analítica.
+- **Sin migración.** Pruebas: `test/unit/sellerValuation.test.ts` y
+  `tests/e2e/vender-valoracion.spec.ts`.

@@ -13,6 +13,7 @@ import AboutAgencyInspector from '~/components/site-builder/inspectors/AboutAgen
 import TrustPointsInspector from '~/components/site-builder/inspectors/TrustPointsInspector.vue'
 import OfficesInspector from '~/components/site-builder/inspectors/OfficesInspector.vue'
 import LeadFormInspector from '~/components/site-builder/inspectors/LeadFormInspector.vue'
+import SellerValuationInspector from '~/components/site-builder/inspectors/SellerValuationInspector.vue'
 import BookVisitInspector from '~/components/site-builder/inspectors/BookVisitInspector.vue'
 import PageCoreInspector from '~/components/site-builder/inspectors/PageCoreInspector.vue'
 import EnergyEfficiencyInspector from '~/components/site-builder/inspectors/EnergyEfficiencyInspector.vue'
@@ -232,6 +233,23 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     }),
   },
   {
+    presetId: 'seller-valuation',
+    type: 'seller-valuation',
+    label: 'Formulario de valoración de propiedad',
+    description: 'Formulario por pasos para propietarios que quieren vender: tipo, ubicación, superficie, características y contacto. Crea un lead real de captación en tu CRM.',
+    category: 'Captación',
+    pages: ['vender'],
+    createContent: () => ({
+      eyebrow: 'Valoración sin compromiso',
+      title: 'Cuéntanos qué quieres vender',
+      description: 'Responde unas preguntas sobre tu propiedad y un comercial te contactará para hablar de ella.',
+      submitLabel: 'Enviar mi propiedad',
+      successMessage: 'Hemos recibido los datos de tu propiedad',
+      subject: 'Vender propiedad',
+      privacyNote: '',
+    }),
+  },
+  {
     presetId: 'book-visit',
     type: 'book-visit',
     label: 'Reserva de visita',
@@ -289,6 +307,7 @@ export const PRESET_BADGES: Record<string, string> = {
   hero: 'Popular',
   'properties-ai': 'IA',
   'lead-form': 'Conversión',
+  'seller-valuation': 'Captación',
   'book-visit': 'Conversión',
   'properties-dark': 'Premium',
   cta: 'Conversión',
@@ -309,6 +328,7 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
   offices: 'Oficinas',
   team: 'Comerciales',
   'lead-form': 'Formulario de captación',
+  'seller-valuation': 'Valoración de propiedad',
   'book-visit': 'Reserva de visita',
   text: 'Texto',
   cta: 'Llamada a la acción',
@@ -372,6 +392,8 @@ export function blockSubtitle(block: { type: string; content?: Record<string, an
       return `${c.limit ?? 0} artículo${c.limit === 1 ? '' : 's'}`
     case 'lead-form':
       return c.subject ? `Lead → "${c.subject}"` : 'Crea un lead en el CRM'
+    case 'seller-valuation':
+      return 'Lead de captación · 6 pasos'
     case 'book-visit': {
       const channel = c.channel === 'video' ? 'Videollamada' : c.channel === 'phone' ? 'Llamada' : 'Presencial'
       return `Agenda real · ${channel}`
@@ -431,6 +453,7 @@ export const BLOCK_INSPECTORS: Record<string, BlockInspectorEntry> = {
   offices: { component: OfficesInspector, needsPreviewData: true },
   team: { component: TeamInspector, needsPreviewData: true },
   'lead-form': { component: LeadFormInspector },
+  'seller-valuation': { component: SellerValuationInspector },
   'book-visit': { component: BookVisitInspector, needsPreviewData: true },
   text: { component: TextInspector },
   cta: { component: CtaInspector },
