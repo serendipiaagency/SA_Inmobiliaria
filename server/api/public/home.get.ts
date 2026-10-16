@@ -7,17 +7,20 @@ import { livePropertyCond } from '../../utils/properties/trash'
 import { homeZones } from '../../utils/zones'
 import { publicOffices } from '../../utils/publicOffices'
 import { companyStats, publicCompanyProfile } from '../../utils/publicCompany'
+import { demoReferenceFor, referenceRankSql } from '../../demo/reference'
 
 export default defineEventHandler(async (event) => {
   const db = useDb(event)
   const orgId = resolvePublicOrgId(event)
+  // Cuenta demo: sus propiedades de referencia, primero y marcadas (server/demo/reference.ts). Otras empresas, sin cambios.
+  const reference = await demoReferenceFor(db, orgId, 'developer')
   const [projects, communities, developers, blogs, team] = await Promise.all([
     // Nada de la papelera en la portada.
     db
       .select()
       .from(schema.developerProperties)
       .where(and(eq(schema.developerProperties.organizationId, orgId), livePropertyCond(schema.developerProperties)))
-      .orderBy(desc(schema.developerProperties.id))
+      .orderBy(...(reference ? [referenceRankSql(schema.developerProperties.agencyReference, reference.refs)] : []), desc(schema.developerProperties.id))
       .limit(12),
     db.select().from(schema.communities).where(eq(schema.communities.organizationId, orgId)).orderBy(desc(schema.communities.id)).limit(6),
     db
@@ -53,7 +56,7 @@ export default defineEventHandler(async (event) => {
   // perfil de la empresa con sus cifras reales, en vivo.
   const [zones, offices, profile, stats] = await Promise.all([homeZones(db, orgId), publicOffices(db, orgId), publicCompanyProfile(db, orgId), companyStats(db, orgId)])
   return {
-    projects: toPublicProperties(await attachPhotos(db, projects)),
+    projects: toPublicProperties(await attachPhotos(db, projects)).map((p, i) => (reference ? { ...p, demoReference: !!projects[i]?.agencyReference && reference.refs.includes(projects[i]!.agencyReference as string) } : p)),
     communities,
     // Bloque «Zonas» de la portada: zonas publicadas con prioridad (docs/zonas.md).
     zones,
