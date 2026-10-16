@@ -12,6 +12,8 @@ import { recordWebFormSubmission } from '../../utils/comms/web'
 import { handlePublicWebChat, publicPropertyBySlug, samePagePath } from '../../utils/comms/webPublic'
 import { ensureContactRole } from '../../utils/contacts/crm'
 import { publicLeadLanguage } from '../../utils/leads/captureLanguage'
+import { handleSellerPhotoUpload, linkSellerPhotos, ownedSellerPhotoKeys } from '../../utils/sellerValuation'
+import { validateSellerValuation, sellerValuationSummary, SELLER_STEP_KEYS, type SellerValuationClean } from '../../../utils/sellerValuation'
 
 /**
  * POST /api/public/contact — formulario de contacto (y de captación del
@@ -46,6 +48,15 @@ import { publicLeadLanguage } from '../../utils/leads/captureLanguage'
  * junta con otra captación abierta de la misma persona —nunca con su lead de
  * comprador— y el rol «Vendedor» en su Contact.
  *
+ * Con `valuation` (bloque «Formulario de valoración de propiedad» del
+ * Constructor, utils/sellerValuation.ts) el envío trae lo que la persona contó
+ * de su propiedad: tipo y subtipo de Property Core, ubicación y las respuestas
+ * del tipo. Se valida otra vez aquí (no se fía del navegador), exige la
+ * aceptación de la política de privacidad y su resumen fiel es el «mensaje
+ * original» del lead y el cuerpo del hilo de la bandeja. No se crea ninguna
+ * propiedad ni se calcula ninguna cifra de valoración. `?channel=seller-photo`
+ * sube una foto opcional (server/utils/sellerValuation.ts).
+ *
  * Para todos los formularios: campo trampa `website` (un bot lo rellena, una
  * persona no lo ve), `submissionId` para que un doble clic no cree dos veces
  * lo mismo, y un tope de tamaño del cuerpo antes de leerlo.
@@ -55,6 +66,7 @@ const SELLER_DETAIL = 'Vender propiedad'
 const SUBMISSION_ID = /^[A-Za-z0-9_-]{8,64}$/
 export default defineEventHandler(async (event) => {
   if (getQuery(event).channel === 'chat') return handlePublicWebChat(event)
+  if (getQuery(event).channel === 'seller-photo') return handleSellerPhotoUpload(event)
 
   await rateLimit(event, 'contact', { limit: 5, windowSeconds: 600 })
 
@@ -65,7 +77,21 @@ export default defineEventHandler(async (event) => {
   // Campo trampa: invisible para una persona. Se responde como si nada para no
   // enseñarle al bot qué le ha delatado, y no se guarda nada.
   if (body?.website) return { ok: true }
-  const { name, message } = body || {}
+  const { name } = body || {}
+  let message = body?.message
+  // Valoración de propiedad: se valida y su resumen es el mensaje (más los comentarios de la persona).
+  let valuation: SellerValuationClean | null = null
+  if (body?.form === 'seller' && body.valuation && typeof body.valuation === 'object') {
+    const result = validateSellerValuation(body.valuation as any)
+    if (!result.ok || !result.clean) {
+      const first = SELLER_STEP_KEYS.map((k) => result.errors[k]).find(Boolean)
+      throw createError({ statusCode: 422, statusMessage: first || 'Revisa los datos de tu propiedad' })
+    }
+    if (body.privacyAccepted !== true) throw createError({ statusCode: 422, statusMessage: 'Tienes que aceptar la política de privacidad' })
+    if (body.phone && !isValidPhone(String(body.phone))) throw createError({ statusCode: 422, statusMessage: 'Revisa el teléfono' })
+    valuation = result.clean
+    message = 'valuation'
+  }
   if (!name || !body?.email || !message) {
     throw createError({ statusCode: 422, statusMessage: 'name, email and message are required' })
   }
@@ -89,6 +115,12 @@ export default defineEventHandler(async (event) => {
   // Un doble clic o un reintento con el mismo envío no crea nada dos veces.
   if (typeof body.submissionId === 'string' && SUBMISSION_ID.test(body.submissionId)) {
     if (!(await claimOnce(event, `contact:${orgId}:${body.submissionId}`))) return { ok: true, duplicate: true }
+  }
+  if (valuation) {
+    // Sólo las fotos que este envío subió de verdad a esta agencia.
+    valuation.photoKeys = await ownedSellerPhotoKeys(db, orgId, typeof body.submissionId === 'string' ? body.submissionId : null, valuation.photoKeys)
+    const photoLines = valuation.photoKeys.map((k, i) => `Foto ${i + 1}: /api/media/${k}`)
+    message = [sellerValuationSummary(valuation, typeof body.comments === 'string' ? body.comments.slice(0, 1500) : ''), ...(photoLines.length ? ['', ...photoLines] : [])].join('\n')
   }
   await db.insert(schema.contactMessages).values({
     organizationId: orgId,
@@ -124,6 +156,7 @@ export default defineEventHandler(async (event) => {
       }, form === 'property' ? { reuse: 'same_property', routingFallback: 'property_responsible' } : form === 'seller' ? { reuse: 'same_source_detail' } : {})
       leadId = lead?.id ?? null
       leadCreated = !!lead?.created
+      if (valuation && leadId) await linkSellerPhotos(db, orgId, leadId, valuation.photoKeys)
       // Captación: la persona queda en el CRM como «Vendedor» (rol del Contact, el mismo de Contactos).
       if (form === 'seller' && leadId) {
         const [row] = await db.select({ contactId: schema.leads.contactId }).from(schema.leads).where(and(eq(schema.leads.id, leadId), eq(schema.leads.organizationId, orgId))).limit(1)
@@ -144,7 +177,9 @@ export default defineEventHandler(async (event) => {
         fields: {
           subject: body.subject ? String(body.subject).slice(0, 300) : null,
           // Constancia del consentimiento: qué se aceptó y cuándo.
-          ...(form === 'property' ? { privacyAcceptedAt: now(), privacyPolicyUrl: '/privacidad' } : {}),
+          ...(form === 'property' || valuation ? { privacyAcceptedAt: now(), privacyPolicyUrl: '/privacidad' } : {}),
+          // La valoración: lo que contó la persona, campo a campo (el resumen va en el cuerpo del hilo).
+          ...(valuation ? { propertyType: valuation.propertyType, subtype: valuation.subtype, location: valuation.location.label, locationId: valuation.location.id || null, address: valuation.address, photos: valuation.photoKeys.length, ...Object.fromEntries(Object.entries(valuation.answers).map(([k, v]) => [`answer.${k}`, String(v)])) } : {}),
         },
         propertyId: property?.id ?? null,
         propertyKind: property ? 'developer' : null,
