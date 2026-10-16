@@ -341,7 +341,7 @@ describe('/api/public/contact — valoración de propiedad', () => {
     await handler(publicEvent(env, a.orgId, { body: submission() }))
     const msgs = await db.select().from(schema.commsWebMessages).where(eq(schema.commsWebMessages.organizationId, a.orgId))
     const msg = msgs.find((m: any) => String(m.fieldsJson).includes('seller'))!
-    const fields = JSON.parse(msg.fieldsJson)
+    const fields = JSON.parse(msg.fieldsJson || '{}')
     expect(fields).toMatchObject({ formType: 'seller', propertyType: 'Apartment', subtype: 'loft', location: 'Oviedo, Asturias', 'answer.area': '95', 'answer.bedrooms': '3', 'answer.condition': 'good', 'answer.hasElevator': 'true' })
     expect(fields.privacyAcceptedAt).toBeTruthy()
     expect(msg.body).toContain('Quiere vender')
