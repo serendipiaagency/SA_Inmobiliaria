@@ -21,7 +21,7 @@ export interface FichaDataContext {
   project: Record<string, any>
   details?: Record<string, any> | null
   /** Lo que sólo sabe el servidor (/api/public/properties/<slug> → availability). */
-  availability?: { score?: boolean; priceHistory?: boolean; similar?: boolean; analysis?: boolean } | null
+  availability?: { score?: boolean; priceHistory?: boolean; similar?: boolean; analysis?: boolean; solar?: boolean } | null
   counts?: Partial<Record<'quickFacts' | 'floorPlans' | 'condition' | 'building' | 'documents' | 'amenities' | 'customFields' | 'unitTypes' | 'photos' | 'resumen', number>>
   energy?: EnergyDisplayOptions
   /** Lo que el navegador averigua al cargar una sección (entorno sin servicios, similares sin parecidas). */
@@ -65,6 +65,9 @@ export function fichaSectionHasData(key: string, c: FichaDataContext): boolean {
       return hasValidCoords(p as any)
     case 'ubicacion':
       return hasValidCoords(p as any)
+    case 'exposicion':
+      // Sólo con un dato real del proveedor (o, en el Constructor, el de demostración): sin él, la sección no sale.
+      return c.availability?.solar === true
     case 'orientacion':
       return typeof p.orientation === 'string' && p.orientation.trim() !== ''
     case 'hipoteca':
@@ -83,7 +86,7 @@ export function fichaSectionHasData(key: string, c: FichaDataContext): boolean {
 }
 
 /** Las que, sin datos, no tienen nada que pintar: no salen nunca vacías, con la regla o sin ella. */
-export const FICHA_NEEDS_DATA = new Set(['energia', 'plano-estado', 'edificio-documentacion', 'staging'])
+export const FICHA_NEEDS_DATA = new Set(['energia', 'plano-estado', 'edificio-documentacion', 'staging', 'exposicion'])
 
 /**
  * ¿Sale la sección en la web? Con «Ocultar automáticamente si no hay datos»
@@ -113,6 +116,8 @@ export interface FichaPayload {
   customFields?: unknown[] | null
   unitTypes?: unknown[] | null
   availability?: FichaDataContext['availability']
+  /** La exposición solar validada (utils/solarExposure.ts); sin proveedor con licencia, no viene. */
+  solar?: import('./solarExposure').SolarExposure | null
 }
 
 /**

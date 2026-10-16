@@ -169,8 +169,10 @@ describe('secciones de la ficha en el Constructor', () => {
   it('el puesto de cada sección y las ocultas, para pintar la ficha', () => {
     const { order, hidden } = fichaSectionLayout([{ key: 'ubicacion' }, { key: 'score', visible: false }])
     expect(order.ubicacion).toBe(1)
-    expect(order.score).toBe(2)
-    expect(order.datos).toBe(3)
+    // «Exposición solar» entra siempre justo debajo de la ubicación, también en un orden ya guardado.
+    expect(order.exposicion).toBe(2)
+    expect(order.score).toBe(3)
+    expect(order.datos).toBe(4)
     expect([...hidden]).toEqual(['score'])
   })
 

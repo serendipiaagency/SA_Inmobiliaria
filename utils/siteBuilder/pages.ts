@@ -237,6 +237,7 @@ export const FICHA_SECTIONS: { key: string; label: string }[] = [
   { key: 'precio', label: 'Evolución de precio' },
   { key: 'servicios', label: 'Estilo de vida' },
   { key: 'ubicacion', label: 'Ubicación' },
+  { key: 'exposicion', label: 'Exposición solar' },
   { key: 'orientacion', label: 'Sol y orientación' },
   { key: 'hipoteca', label: 'Hipoteca y costes' },
   { key: 'preguntar', label: 'Pregúntale' },
@@ -279,7 +280,7 @@ function normalizeOrderedList(value: unknown, catalog: { key: string }[], anchor
 }
 
 /** Dónde entra una sección nueva de la ficha en un orden ya guardado. */
-const FICHA_SECTION_ANCHORS: Record<string, string> = { energia: 'datos' }
+const FICHA_SECTION_ANCHORS: Record<string, string> = { energia: 'datos', exposicion: 'ubicacion' }
 
 export function normalizeFichaSections(value: unknown): FichaSectionSetting[] {
   return normalizeOrderedList(value, FICHA_SECTIONS, FICHA_SECTION_ANCHORS)

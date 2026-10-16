@@ -221,6 +221,11 @@
           <!-- Guía de la zona (docs/zonas.md): «Descubre cómo es vivir en…», sólo si la agencia tiene una guía publicada para la ubicación. -->
           <ZoneLink v-if="show('ubicacion') && zoneLocation.municipality" class="mt-4" :municipality="zoneLocation.municipality" :neighborhood="zoneLocation.neighborhood" />
 
+          <!-- Exposición solar (utils/solarExposure.ts): sólo con un dato real del proveedor; en el Constructor, con datos de demostración rotulados. -->
+          <PropertySectionCard v-if="show('exposicion') && has('exposicion') && data.solar" id="exposicion" v-bind="n('s.exposicion')" title-field="t.exposicion.title" :title="tx('t.exposicion.title', t('propertyDetails.solar.heading', 'Exposición solar'))" :style="at('exposicion')">
+            <PropertySolarExposureCard :exposure="data.solar" />
+          </PropertySectionCard>
+
           <!-- Sol y orientación -->
           <PropertySectionCard v-if="show('orientacion') && has('orientacion')" id="orientacion" v-bind="n('s.orientacion')" title-field="t.orientacion.title" :title="tx('t.orientacion.title', t('propertyDetails.orientation.heading', 'Sol y orientación'))" :style="at('orientacion')">
             <LazySunOrientation hydrate-on-visible :orientation="data.project.orientation" :lat="data.project.lat" :lng="data.project.lng" />
@@ -508,6 +513,7 @@ const sections = computed(() => {
     { id: 'precio', key: 'precio', label: t('propertyDetails.nav.price', 'Precio'), when: has('precio') },
     { id: 'servicios', key: 'servicios', label: t('propertyDetails.nav.services', 'Servicios'), when: has('servicios') },
     { id: 'ubicacion', key: 'ubicacion', label: t('propertyDetails.nav.location', 'Ubicación'), when: has('ubicacion') },
+    { id: 'exposicion', key: 'exposicion', label: t('propertyDetails.nav.solar', 'Exposición solar'), when: has('exposicion') },
     { id: 'orientacion', key: 'orientacion', label: t('propertyDetails.nav.sun', 'Sol'), when: has('orientacion') },
     { id: 'hipoteca', key: 'hipoteca', label: t('propertyDetails.nav.mortgage', 'Hipoteca'), when: has('hipoteca') },
     { id: 'historia', key: 'historia', label: t('propertyDetails.nav.history', 'Historia'), when: has('historia') },

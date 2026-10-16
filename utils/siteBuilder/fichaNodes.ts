@@ -80,6 +80,7 @@ const SECTION_TITLES: Record<string, { field: string; label: string; defaultText
   precio: { field: 't.precio.title', label: 'Título de «Evolución de precio»', defaultText: 'Evolución de precio' },
   servicios: { field: 't.servicios.title', label: 'Título de «Estilo de vida»', defaultText: 'Estilo de vida' },
   ubicacion: { field: 't.ubicacion.title', label: 'Título de «Ubicación»', defaultText: 'Dónde está' },
+  exposicion: { field: 't.exposicion.title', label: 'Título de «Exposición solar»', defaultText: 'Exposición solar' },
   orientacion: { field: 't.orientacion.title', label: 'Título de «Sol y orientación»', defaultText: 'Sol y orientación' },
   hipoteca: { field: 't.hipoteca.title', label: 'Título de «Hipoteca y costes»', defaultText: 'Hipoteca y costes' },
   staging: { field: 't.staging.title', label: 'Título de «Visualiza el potencial»', defaultText: 'Visualiza el potencial' },
@@ -121,7 +122,7 @@ export function fichaNode(field: string): FichaNodeDef | undefined {
  * (components/site-builder/inspector/FichaBlockOptions.vue). Cada una cambia
  * algo que la web ya lee de la plantilla; los demás sólo se estilizan.
  */
-const OPTION_FIELDS = new Set(['b.summary', 'b.description', 'b.keyfacts', 'b.gallery', 's.energia', 's.ubicacion', 'b.contact', 'b.similar'])
+const OPTION_FIELDS = new Set(['b.summary', 'b.description', 'b.keyfacts', 'b.gallery', 's.energia', 's.ubicacion', 's.exposicion', 'b.contact', 'b.similar'])
 export function fichaNodeHasOptions(field: string): boolean {
   return OPTION_FIELDS.has(field)
 }

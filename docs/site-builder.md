@@ -1330,3 +1330,31 @@ ya publicadas con `lead-form` no cambian).
   su consentimiento de analítica.
 - **Sin migración.** Pruebas: `test/unit/sellerValuation.test.ts` y
   `tests/e2e/vender-valoracion.spec.ts`.
+
+## Exposición solar de la ficha
+
+Sección `exposicion` de la ficha de propiedad (`FICHA_SECTIONS`, justo bajo la
+ubicación también en las webs que ya guardaron su orden). La tarjeta es
+`components/property/SolarExposureCard.vue`: SunScore 0–100 en un círculo
+dorado (`#c6a667`), valoración con palabras (cinco tramos fijos de INMO), una
+frase que sólo dice lo que dicen los datos, gráfico de junio y diciembre, enlace
+«Ver simulación solar 3D» (pestaña nueva; sólo https y dominios del proveedor,
+nunca incrustado) y atribución «Proporcionado por …».
+
+- **Contrato y reglas puras**: `utils/solarExposure.ts` (`normalizeSolarExposure`
+  descarta el dato entero si la puntuación no está en 0–100 o las horas no son doce
+  valores de 0 a 24).
+- **Servicio**: `server/utils/solar/service.ts`. Un proveedor sólo se llama con
+  `access: 'ready'`. **Shadowmap no lo está**: su API «Sunscore for any building»
+  se concede a socios en alta temprana y no publica endpoints ni autenticación, así
+  que su adaptador no hace ninguna petición. Cuando haya licencia sólo cambia ese
+  adaptador. Caché en memoria del Worker (24 h el acierto, 1 h la ausencia, por
+  empresa y coordenadas redondeadas); un fallo no rompe la ficha y no se loguea
+  el detalle. **Privacidad**: sólo coordenadas exactas (`locationPrivacy = exact`).
+- **Sin dato real, la sección no sale** (`FICHA_NEEDS_DATA`), aunque «Ocultar si no
+  hay datos» esté apagado; `GET /api/public/properties/<slug>` devuelve `solar: null`.
+- **Constructor**: `ficha-sample` añade datos de DEMOSTRACIÓN (`demo: true`,
+  rotulados) para poder diseñar la tarjeta; la web pública nunca los recibe. El
+  inspector enseña el estado del proveedor y no permite editar la puntuación.
+- **Sin migración.** Pruebas: `test/unit/solarExposure.test.ts` y
+  `tests/e2e/exposicion-solar.spec.ts`.

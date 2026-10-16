@@ -1791,6 +1791,13 @@ export function useHelpContent() {
       tags: ['catálogo', 'propiedades', 'filtros', 'constructor web', 'orden', 'ocultar'],
     },
     {
+      id: 'faq-exposicion-solar',
+      question: '¿Qué es la sección «Exposición solar» de la ficha y por qué no aparece en mi web?',
+      answer:
+        'Es una tarjeta bajo el mapa con el SunScore (0–100) de la propiedad en un círculo dorado, su valoración con palabras, las horas de sol directo de junio y diciembre y un enlace «Ver simulación solar 3D» al visor del proveedor (se abre en una pestaña nueva, nunca incrustado), con su atribución. La puntuación la calcula un proveedor externo con licencia (Shadowmap): INMO no la inventa ni la estima. El acceso a la API de Shadowmap (Sunscore) se concede a socios y no publica sus endpoints, así que mientras no haya licencia y credenciales **la sección no sale en tu web publicada**: verás «Configuración pendiente» en su panel del Constructor. En Constructor Web → Ficha de propiedad se ve con datos de DEMOSTRACIÓN rotulados (no son de ninguna propiedad) para que puedas diseñarla: reescribir su título en el lienzo, cambiar su aspecto, reordenarla u ocultarla en «Avanzado». Sólo se consulta al proveedor con propiedades de ubicación exacta (con ubicación aproximada u oculta no se envía nada) y la puntuación no se puede editar a mano.',
+      tags: ['ficha', 'sol', 'sunscore', 'shadowmap', 'exposición solar', 'constructor web'],
+    },
+    {
       id: 'faq-ficha-secciones',
       question: '¿Puedo cambiar el orden de las secciones de la ficha o quitar alguna?',
       answer:
