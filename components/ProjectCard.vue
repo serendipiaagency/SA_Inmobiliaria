@@ -1,5 +1,5 @@
 <template>
-  <SbBox field="card" kind="card" label="Tarjeta de propiedad" :dynamic="dynamicLabel('property', 'Ficha')" :source-href="SOURCES.property.href" class="group relative" :class="{ 'pc-catalog': catalog }" :data-card-variant="variant" @mouseenter="onEnter" @mouseleave="onLeave">
+  <SbBox field="card" kind="card" label="Tarjeta de propiedad" :dynamic="dynamicLabel('property', 'Ficha')" :source-href="SOURCES.property.href" class="group relative" :class="{ 'pc-catalog': catalog, 'demo-reference-frame': project.demoReference }" :data-card-variant="variant" :data-demo-reference="project.demoReference ? '1' : undefined" @mouseenter="onEnter" @mouseleave="onLeave">
     <!-- Media -->
     <div class="pc-media relative overflow-hidden bg-stone-100" :class="catalog ? 'aspect-[33/20] rounded-[12px]' : 'aspect-[4/3] rounded-2xl'">
       <!-- Slides -->
@@ -34,6 +34,9 @@
         preload="none"
       />
       <div v-if="!catalog" class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-black/10" />
+
+      <!-- Cuenta demo: propiedad de referencia (server/demo/reference.ts) -->
+      <span v-if="project.demoReference" class="demo-reference-tag absolute bottom-2 left-2 z-20" data-testid="demo-reference-tag" title="Ejemplo de ficha trabajada a fondo en la demo">Propiedad de referencia</span>
 
       <!-- Stretched navigation link -->
       <NuxtLink :to="to" class="absolute inset-0 z-10" :aria-label="project.name" />
@@ -193,6 +196,8 @@ const props = withDefaults(defineProps<{
   variant?: 'default' | 'catalog'
   project: {
     id: number
+    /** Sólo la cuenta demo: propiedad de referencia (marco dorado). */
+    demoReference?: boolean
     slug?: string | null
     name: string
     community?: string | null
@@ -355,6 +360,13 @@ const publishedLabel = computed(() => {
 .pc-catalog:hover {
   transform: translateY(-2px);
   box-shadow: 0 14px 30px -18px rgba(28, 27, 25, 0.35);
+}
+.demo-reference-frame:not(.pc-catalog)::after {
+  inset: -5px;
+  border-radius: 22px;
+}
+.demo-reference-frame:not(.pc-catalog) {
+  box-shadow: none;
 }
 .pc-info {
   padding: 12px 8px 4px;

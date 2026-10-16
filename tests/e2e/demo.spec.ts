@@ -191,6 +191,35 @@ test('cuenta demo: se genera, la gerente entra sin opciones de super admin y nad
   await page.reload()
   await expect(page.getByText('Encuentra tu lugar')).toBeVisible()
   await expect(page.getByTestId('demo-notice')).toHaveCount(0)
+  // 4b. La WEB PÚBLICA de la demo (la que construye el Constructor Web): las de referencia, primero y con marco
+  // dorado en el catálogo y en la portada; un orden elegido, los filtros y la paginación se respetan.
+  const pub = (await (await page.request.get(`/api/public/properties?vista_previa=${orgId}&perPage=12`)).json()).rows as any[]
+  expect(pub.slice(0, 2).map((r) => r.name)).toEqual(WEB_REFS)
+  expect(pub.slice(0, 2).every((r) => r.demoReference === true)).toBe(true)
+  expect(pub.slice(2).every((r) => r.demoReference === false)).toBe(true)
+  expect(pub.every((r) => !('agencyReference' in r))).toBe(true) // la referencia de agencia sigue siendo interna
+  const pubPrice = (await (await page.request.get(`/api/public/properties?vista_previa=${orgId}&perPage=12&sort=price_asc`)).json()).rows as any[]
+  const pubPrices = pubPrice.map((r) => r.price)
+  expect(pubPrices).toEqual([...pubPrices].sort((a, b) => a - b))
+  const pubPage2 = (await (await page.request.get(`/api/public/properties?vista_previa=${orgId}&perPage=4&page=2`)).json()).rows as any[]
+  expect(pubPage2.some((r) => r.demoReference)).toBe(false)
+  const homeData = await (await page.request.get(`/api/public/home?vista_previa=${orgId}`)).json()
+  expect((homeData.projects as any[]).slice(0, 2).map((r) => r.name)).toEqual(WEB_REFS)
+  await page.goto(`/propiedades?vista_previa=${orgId}`)
+  const framed = page.locator('[data-demo-reference="1"]')
+  await expect(framed).toHaveCount(2)
+  await expect(page.locator('[data-demo-reference]').first()).toHaveAttribute('data-demo-reference', '1')
+  await expect(framed.first().getByTestId('demo-reference-tag')).toHaveText('Propiedad de referencia')
+  const border = await framed.first().evaluate((el) => {
+    const cs = getComputedStyle(el, '::after')
+    return { color: cs.borderTopColor, width: cs.borderTopWidth, anim: cs.animationName }
+  })
+  expect(border).toEqual({ color: 'rgb(198, 166, 103)', width: '2px', anim: 'none' })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
+  // Otra empresa (la inmobiliaria real del test): ni orden ni marco.
+  const real = (await (await owner.get('/api/public/properties?perPage=12')).json()).rows as any[]
+  expect(real.some((r) => 'demoReference' in r)).toBe(false)
+
   // La pestaña «Alquilar» tiene inventario: las dos promociones en alquiler (p05 y p06), con su renta mensual y «/mes».
   const rent = await (await page.request.get(`/api/public/properties?operacion=alquiler&vista_previa=${orgId}`)).json()
   expect((rent.rows as any[]).map((p) => p.transactionType)).toEqual(['rent', 'rent'])

@@ -105,6 +105,17 @@ paginación se comportan como siempre: sólo salen las que coinciden y las de
 referencia no se cuelan. Las filas de la demo llevan `demoReference`; ninguna otra
 empresa recibe ese campo ni cambia de orden.
 
+**Web pública (la del Constructor Web).** Es donde más importa: en la web de la demo
+el catálogo (`GET /api/public/properties`, página «Propiedades» y mapa) y la
+portada (`GET /api/public/home`, bloque «Propiedades») sacan primero las de
+**Propiedades (web)** (el chalet y el ático; la 2ª mano no se publica en la web).
+Con «Relevancia» (el orden por defecto) van primeras en cada petición y,
+por tanto, sólo en la primera página; un orden elegido (precio, recientes…), un
+filtro o la paginación se respetan. Las filas llevan `demoReference` (la
+referencia de agencia sigue siendo interna: sólo viaja el booleano) y la tarjeta
+pública (`ProjectCard.vue`, la misma del catálogo, la portada y el bloque
+Propiedades) pinta el marco y la etiqueta. Otras empresas, ni orden ni campo.
+
 **Marco dorado.** `.demo-reference-frame` (`assets/css/main.css`): 2 px de `#c6a667`
 en un `::after` que rodea la tarjeta entera sin mover nada de dentro, sombra
 muy suave, sin degradados ni animación. La etiqueta «Propiedad de referencia»
@@ -247,6 +258,9 @@ contraseña. Todo queda en la auditoría.
   planos que existen, PDF con su rótulo, y que la prioridad del listado sólo se
   aplica a la empresa demo) y la comprobación de completitud sobre la demo
   generada (dentro de `demoSeed.test.ts`, con la idempotencia de los pasos).
+- `test/unit/demoReferenciaWeb.test.ts`: la web pública de la demo (catálogo y
+  portada): primeras, marcadas, orden elegido, páginas, filtros, sin exponer la
+  referencia de agencia y sin efecto en otras empresas.
 - `tests/e2e/demo.spec.ts`: sobre el Worker, las de referencia primero y
   marcadas en los dos listados, el resto con su orden, ordenación explícita,
   filtros y paginación sin cuelas, marco dorado en escritorio, tableta y móvil,

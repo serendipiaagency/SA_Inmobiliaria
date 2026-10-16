@@ -7,6 +7,7 @@ import { buildPublicSearch, publicSearchOrder } from '../../utils/properties/pub
 import { inJsonList } from '../../utils/sqlChunks'
 import { orderPropertyTypes } from '../../../utils/propertySheet'
 import { SITUATION_KEYS } from '../../../utils/searchState'
+import { demoReferenceFor, referenceFlagSql, referenceRankSql } from '../../demo/reference'
 
 const P = schema.developerProperties
 
@@ -30,6 +31,12 @@ const MAP_MAX_PER_PAGE = 300
  *   price_drop | ppm2_asc | ppm2_desc — siempre en la base de datos, antes de paginar.
  * Params: page, perPage, countOnly, ids (favoritos/comparar), view=map (hasta
  *   300 por página), facets=types|filters.
+ *
+ * Cuenta demo: sus propiedades de referencia (server/demo/reference.ts) salen
+ * marcadas (`demoReference`, para el marco dorado de la tarjeta) y, con el
+ * orden por defecto («Relevancia»), primeras en el listado y en cada página;
+ * un orden elegido, los filtros y la paginación se respetan. Ninguna otra
+ * empresa recibe la marca ni cambia de orden.
  */
 export default defineEventHandler(async (event) => {
   const db = useDb(event)
@@ -122,16 +129,18 @@ export default defineEventHandler(async (event) => {
   // benefit, since countOnly callers already know to ignore `rows`.
   if (countOnly) return { rows: [], total, page, perPage, ...(facets ? { facets } : {}) }
 
+  const reference = await demoReferenceFor(db, orgId, 'developer')
   const baseQuery = db
-    .select({ project: P, developerName: schema.developers.name })
+    .select({ project: P, developerName: schema.developers.name, ...(reference ? { demoReference: referenceFlagSql(P.agencyReference, reference.refs) } : {}) })
     .from(P)
     .leftJoin(schema.developers, eq(P.developerId, schema.developers.id))
     .where(where as any)
-    .orderBy(...publicSearchOrder(search.sort))
+    .orderBy(...(reference && !search.sort ? [referenceRankSql(P.agencyReference, reference.refs)] : []), ...publicSearchOrder(search.sort))
   const rows = idList.length ? await baseQuery : await baseQuery.limit(perPage).offset((page - 1) * perPage)
 
   const merged = rows.map((r) => ({ ...r.project, developerName: r.developerName }))
   const withPhotos = await attachPhotos(db, merged)
+  const publicRows = toPublicProperties(withPhotos)
 
-  return { rows: toPublicProperties(withPhotos), total, page, perPage, ...(facets ? { facets } : {}) }
+  return { rows: reference ? publicRows.map((p, i) => ({ ...p, demoReference: !!(rows[i] as any)?.demoReference })) : publicRows, total, page, perPage, ...(facets ? { facets } : {}) }
 })
