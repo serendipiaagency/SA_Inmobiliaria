@@ -373,7 +373,7 @@ const props = withDefaults(
 const router = useRouter()
 const toast = useToast()
 // Panel: moneda de la agencia, sin convertir (utils/currency.ts) — no el selector del visitante de la web.
-const { format: formatCurrency, code: agencyCode } = useAgencyCurrency()
+const { code: agencyCode } = useAgencyCurrency()
 /** El importe con la moneda de la propiedad (o la de la inmobiliaria si no tiene propia), sin convertir. */
 const formatPrice = (n: number | null | undefined) => formatMoney(n, form.currency || agencyCode.value)
 
