@@ -300,6 +300,23 @@ describe('slug automático', () => {
     expect(await make('Villa del Mar')).toBe('villa-del-mar-3')
     expect(await make('Villa del Mar', { slug: 'mi-slug-a-mano' })).toBe('mi-slug-a-mano')
   })
+  it('un título larguísimo no rompe (D1 rechaza LIKE de más de 50 bytes) y se recorta; el sufijo no excede el máximo', async () => {
+    const { db } = createTestDb()
+    const a = await seedTenant(db, 'SlugLargo')
+    const def = adminResources['developer-properties']!
+    const largo = 'Ático-dúplex-con-terraza-panorámica-y-piscina-privada-en-primera-línea-de-playa-con-garaje-doble'
+    const make = async () => {
+      const r = await insertResourceRecord(db, 'developer-properties', def, { name: largo, developerId: a.developerId }, { orgId: a.orgId, user: { id: a.userId, role: 'admin' } as any })
+      const [row] = await db.select().from(schema.developerProperties).where((await import('drizzle-orm')).eq(schema.developerProperties.id, r.id))
+      return row.slug as string
+    }
+    const first = await make()
+    const second = await make()
+    expect(first.length).toBeLessThanOrEqual(80)
+    expect(second).not.toBe(first)
+    expect(second.length).toBeLessThanOrEqual(80)
+    expect(second).toMatch(/-2$/)
+  })
   it('otra empresa puede usar el mismo slug', async () => {
     const { db } = createTestDb()
     const a = await seedTenant(db, 'SlugC')

@@ -1,4 +1,4 @@
-import { and, eq, like } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { slugify } from '../db'
 
 /**
@@ -15,25 +15,36 @@ import { slugify } from '../db'
  */
 export const SLUG_MAX = 80
 
-/** Los slugs ya ocupados de la empresa que empiezan por `base` (el propio y sus sufijos). */
-async function takenSlugs(db: any, table: any, orgId: number, base: string): Promise<Set<string>> {
+/**
+ * Cuáles de estos slugs ya están ocupados en la empresa. Con `eq`/`inArray` y
+ * no con `LIKE`: D1 rechaza los patrones de más de 50 bytes («LIKE or GLOB
+ * pattern too complex») y un título largo da un slug más largo que eso.
+ */
+async function takenAmong(db: any, table: any, orgId: number, candidates: string[]): Promise<Set<string>> {
   const rows: { slug: string | null }[] = await db
     .select({ slug: table.slug })
     .from(table)
-    .where(and(eq(table.organizationId, orgId), like(table.slug, `${base.replace(/[%_]/g, '')}%`)))
+    .where(and(eq(table.organizationId, orgId), inArray(table.slug, candidates)))
   return new Set(rows.map((r) => String(r.slug)))
+}
+
+const SUFFIXES_PER_QUERY = 40
+
+function withSuffix(base: string, n: number): string {
+  const suffix = `-${n}`
+  return `${base.slice(0, SLUG_MAX - suffix.length)}${suffix}`
 }
 
 /** El primer slug libre para `title`, o null si el título no deja ningún carácter válido. */
 export async function uniquePropertySlug(db: any, table: any, orgId: number, title: unknown): Promise<string | null> {
-  const base = slugify(String(title ?? ''))
+  const base = slugify(String(title ?? '')).slice(0, SLUG_MAX).replace(/-+$/, '')
   if (!base) return null
-  const taken = await takenSlugs(db, table, orgId, base)
-  if (!taken.has(base)) return base
-  for (let n = 2; n < 1000; n++) {
-    const suffix = `-${n}`
-    const candidate = `${base.slice(0, SLUG_MAX - suffix.length)}${suffix}`
-    if (!taken.has(candidate)) return candidate
+  if (!(await takenAmong(db, table, orgId, [base])).has(base)) return base
+  for (let from = 2; from < 1000; from += SUFFIXES_PER_QUERY) {
+    const candidates = Array.from({ length: SUFFIXES_PER_QUERY }, (_, i) => withSuffix(base, from + i))
+    const taken = await takenAmong(db, table, orgId, candidates)
+    const free = candidates.find((c) => !taken.has(c))
+    if (free) return free
   }
   return `${base.slice(0, SLUG_MAX - 5)}-${Math.floor(Math.random() * 10000)}`
 }
