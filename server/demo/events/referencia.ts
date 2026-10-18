@@ -43,8 +43,8 @@ async function enrichSheet(ctx: DemoContext, p: DemoProperty, c: ReferenceConten
   const def = adminResources[resource]
   const id = propertyId(ctx, p.key)
   const body: Record<string, any> = { ...c.fields, keyHighlights: c.highlights.join('\n') }
+  body.description = c.description
   if (p.kind === 'developer') {
-    body.description = c.description
     // Logo de la promotora y, en el chalet, el esquema de la parcela como plano de situación de la finca.
     const dev = DEVELOPERS.find((d) => d.key === p.developer)
     if (dev?.logo) body.logo = await uploadDemoAsset(ctx, dev.logo, { category: 'logo' })

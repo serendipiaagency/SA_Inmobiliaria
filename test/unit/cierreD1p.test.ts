@@ -488,7 +488,7 @@ describe('resumen de la ficha: quién la creó y cuándo', () => {
     const s1 = await buildPropertySummary(ev(), db, {}, A.orgId, user, 'agent', own, { commercialStatus: 'reserved' })
     expect(s1).toMatchObject({ createdBy: A.userId, createdByName: 'D1pAlpha Admin', createdAt: '2026-03-02 10:00:00', statusTitle: 'Disponibilidad', commercialStatusLabel: 'Reservada', pricePerM2: 20 })
     const s2 = await buildPropertySummary(ev(), db, {}, A.orgId, user, 'developer', foreign, {})
-    expect(s2).toMatchObject({ createdBy: userB.id, createdByName: null, statusTitle: 'Estado de la obra' })
+    expect(s2).toMatchObject({ createdBy: userB.id, createdByName: null, statusTitle: 'Fase de la obra' })
     const s3 = await buildPropertySummary(ev(), db, {}, A.orgId, user, 'developer', legacy, {})
     expect(s3).toMatchObject({ createdBy: null, createdByName: null })
   })
@@ -498,9 +498,9 @@ describe('rótulos del panel: estado de la obra / disponibilidad, dormitorios, r
   const fieldsOf = (resource: string) => PROPERTY_BUILDER_SECTIONS[resource].flatMap((sec: any) => (sec.fields || []) as FieldSpec[])
 
   it('el `status` de cada catálogo tiene su propio nombre, en el listado y en el editor', () => {
-    expect(PROPERTY_LIST_CONFIG['developer-properties'].statusTitle).toBe('Estado de la obra')
+    expect(PROPERTY_LIST_CONFIG['developer-properties'].statusTitle).toBe('Fase de la obra')
     expect(PROPERTY_LIST_CONFIG.properties.statusTitle).toBe('Disponibilidad')
-    expect(fieldsOf('developer-properties').find((f) => f.key === 'status')?.label).toBe('Estado de la obra')
+    expect(fieldsOf('developer-properties').find((f) => f.key === 'status')?.label).toBe('Fase de la obra')
     expect(fieldsOf('properties').find((f) => f.key === 'status')?.label).toBe('Disponibilidad')
     expect(adminResources.properties.fields.status.label).toBe('Disponibilidad')
     for (const r of ['developer-properties', 'properties']) expect(fieldsOf(r).some((f) => f.key === 'commercialStatus')).toBe(true)

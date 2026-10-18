@@ -135,7 +135,7 @@ test.describe('Property Editor — los cuatro recorridos', () => {
     })
   }
 
-  test('los pasos se recorren con la columna y con Siguiente, y el último ofrece Finalizar', async ({ page }) => {
+  test('los pasos se recorren con la columna y con Siguiente, y el último ofrece Guardar', async ({ page }) => {
     await page.goto(`/admin/properties/${existing.properties}`)
     // El editor se rellena tras hidratar (carga la ficha en onMounted), así
     // que hay que esperarlo antes de contar: `count()` no reintenta y un
@@ -153,7 +153,7 @@ test.describe('Property Editor — los cuatro recorridos', () => {
     for (let i = 1; i < total; i++) await visible(page, 'property-editor-next').click()
     await expect(visible(page, 'property-editor-step-indicator')).toHaveText(`Paso ${total} de ${total}`)
     await expect(visible(page, 'property-editor-next')).toHaveCount(0)
-    await expect(visible(page, 'property-editor-finish')).toBeVisible()
+    await expect(visible(page, 'property-editor-guardar')).toBeVisible()
 
     await visible(page, 'property-editor-prev').click()
     await expect(visible(page, 'property-editor-step-indicator')).toHaveText(`Paso ${total - 1} de ${total}`)
@@ -163,6 +163,8 @@ test.describe('Property Editor — los cuatro recorridos', () => {
     const slug = `editor-ui-2h-${RUN}`
     await page.goto('/admin/properties/new')
 
+    // El slug vive en el grupo «SEO», plegado por defecto.
+    await page.getByTestId('property-group-toggle-info').filter({ hasText: 'SEO' }).click()
     await page.locator('[data-field="slug"] input').fill(slug)
     await page.locator('[data-field="propertyType"] select').selectOption('Villa')
 
@@ -193,6 +195,7 @@ test.describe('Property Editor — los cuatro recorridos', () => {
 
     await page.locator('[data-field="name"] input').fill(name)
     await page.locator('[data-field="developerId"] select').selectOption({ label: `Editor E2E promotora ${RUN}` })
+    await step(page, 'features').click()
     await page.locator('[data-field="status"] select').selectOption('ready')
 
     await step(page, 'price').click()
@@ -209,6 +212,7 @@ test.describe('Property Editor — los cuatro recorridos', () => {
     expect(row.price).toBe(980000)
     expect(row.status).toBe('ready')
 
+    await step(page, 'features').click()
     // El desplegable enseña la etiqueta en castellano, no el valor crudo que
     // guarda la columna.
     await expect(page.locator('[data-field="status"] select')).toHaveValue('ready')
@@ -437,7 +441,7 @@ test.describe('Property Editor — permisos', () => {
       // `exact`: el menú lateral también tiene «Vista previa del sitio».
       await expect(page.getByRole('link', { name: 'Vista previa', exact: true })).toBeVisible()
       await step(page, 'commercial').click()
-      await expect(page.getByTestId('property-editor-finish')).toHaveCount(0)
+      await expect(page.getByTestId('property-editor-guardar')).toHaveCount(0)
 
       // …y los campos están deshabilitados de verdad, no sólo apagados.
       await step(page, 'price').click()

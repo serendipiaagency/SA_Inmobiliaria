@@ -2,6 +2,7 @@ import type { H3Event } from 'h3'
 import type { SessionUser } from './auth'
 import { buildPayload, syncTranslations, assertPayloadReferences, rethrowUniqueViolation, type ResourceDef } from './adminResources'
 import { authorizeRecord } from './tenantPolicy'
+import { uniquePropertySlug } from './properties/slug'
 import { validatePermissionsInput } from './permissions'
 import { getPropertySchemaFor, validateAgainstSchema } from './propertySchema/registry'
 import { validatePropertyContact, validateNotePayload, ensureContactRole } from './contacts/crm'
@@ -46,6 +47,10 @@ export async function insertResourceRecord(
   // for direct-policy resources it's the org column, for child resources it's
   // the parent FK, which must point at a row this tenant already owns.
   delete data.organizationId
+  // Propiedades: el slug sale del título, limpio y único en la empresa (sin sufijo al azar salvo colisión). Si se escribió uno a mano, se respeta.
+  if ((key === 'developer-properties' || key === 'properties') && orgId && !(body && body.slug) && data.name) {
+    data.slug = (await uniquePropertySlug(db, def.table, orgId, data.name)) ?? data.slug
+  }
   await assertPayloadReferences(db, def, data, orgId, { isCreate: true })
   // Only an existing super_admin may mint another one — otherwise an org
   // admin could self-escalate to platform-wide access via a raw API call.

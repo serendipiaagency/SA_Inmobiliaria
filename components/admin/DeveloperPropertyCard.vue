@@ -26,7 +26,7 @@
       </div>
       <div class="p-4">
         <div class="mb-1 flex items-center justify-between gap-2">
-          <span class="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-stone-600" title="Estado de la obra">{{ STATUS_LABELS[property.status] || property.status }}</span>
+          <span class="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-stone-600" title="Fase de la obra">{{ STATUS_LABELS[property.status] || property.status }}</span>
           <span class="text-[11px] text-stone-400">Ref. #{{ property.id }}</span>
         </div>
         <p class="line-clamp-1 font-medium text-ink">{{ property.name }}</p>

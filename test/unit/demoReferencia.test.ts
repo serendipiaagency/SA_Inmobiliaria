@@ -9,7 +9,7 @@ import { REFERENCE_CONTENT, DEMO_DISCLAIMER, isUsableRoom } from '../../server/d
 import { DEMO_REFERENCE_PROPERTIES, demoReferenceFor, demoReferenceRefs, isDemoReferenceRef, referenceFlagSql, referenceRankSql } from '../../server/demo/reference'
 import { renderDemoDocumentPdf } from '../../server/demo/pdf'
 import { adminResources } from '../../server/utils/adminResources'
-import { PROPERTY_BUILDER_SECTIONS } from '../../composables/usePropertyBuilderConfig'
+import { PROPERTY_BUILDER_SECTIONS, sectionFieldSpecs } from '../../composables/usePropertyBuilderConfig'
 import { PROPERTY_SHEET_FIELD_MAP, PROPERTY_DOCUMENT_TYPES, DOCUMENT_VISIBILITIES } from '../../utils/propertySheet'
 import { MEDIA_ROOMS } from '../../utils/mediaRooms'
 import { createTestDb } from './helpers/tenantFixtures'
@@ -63,7 +63,7 @@ describe('propiedades de referencia: contenido dentro de catálogo', () => {
     const keys = new Set<string>()
     for (const s of PROPERTY_BUILDER_SECTIONS[kind === 'developer' ? 'developer-properties' : 'properties']!) {
       keys.add(s.key)
-      if ('fields' in s) for (const f of s.fields) keys.add(f.key)
+      for (const f of sectionFieldSpecs(s)) keys.add(f.key)
       if (s.kind === 'location') {
         keys.add(s.latField)
         keys.add(s.lngField)

@@ -178,38 +178,65 @@
                       </button>
                       <template v-if="!g.label || groupLabelIsRedundant(g) || !isCollapsed(s.key, g.label)">
 
-                      <!-- Un grupo que es todo casillas se dibuja como
-                           interruptores en píldora: leer ocho casillas en
-                           columna es mucho más lento que ver ocho chips. -->
-                      <div v-if="allCheckboxes(g.fields)" class="flex flex-wrap gap-2">
-                        <button
-                          v-for="f in g.fields"
-                          :key="f.key"
-                          type="button"
-                          class="pe-chip"
-                          :class="form[f.key] ? 'pe-chip-on' : 'pe-chip-off'"
-                          :aria-pressed="!!form[f.key]"
-                          @click="form[f.key] = !form[f.key]"
-                        >
-                          <svg v-if="form[f.key]" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" /></svg>
-                          {{ f.label }}
-                        </button>
-                      </div>
-
-                      <div v-else class="grid gap-4 sm:grid-cols-2">
+                      <!-- Dentro de cada grupo, primero los desplegables y los
+                           campos (alineados en la misma cuadrícula) y después
+                           las casillas como interruptores en píldora: leer
+                           ocho casillas en columna es mucho más lento que ver
+                           ocho chips, y mezcladas con los desplegables se
+                           desordenaba la cuadrícula. -->
+                      <div v-if="nonCheckboxes(g.fields).length" class="grid gap-4 sm:grid-cols-2" :data-testid="`property-group-fields-${s.key}`">
                         <PropertyBuilderField
-                          v-for="f in g.fields"
+                          v-for="f in nonCheckboxes(g.fields)"
                           :key="f.key"
                           :spec="f"
                           :model-value="f.type === 'computed' && f.compute ? f.compute(form) : form[f.key]"
                           :upload-folder="resource"
+                          :internal="isInternal(f)"
+                          :locked="!isNew && f.key === 'slug' && !!loadedValues.slug"
                           :class="highlightKey === f.key ? 'rounded-xl ring-2 ring-amber-300 ring-offset-4' : ''"
                           @update:model-value="(v) => (form[f.key] = v)"
                         />
                       </div>
+                      <div v-if="checkboxes(g.fields).length" class="flex flex-wrap gap-2" :class="nonCheckboxes(g.fields).length ? 'mt-5' : ''" :data-testid="`property-group-checks-${s.key}`">
+                        <button
+                          v-for="f in checkboxes(g.fields)"
+                          :key="f.key"
+                          type="button"
+                          class="pe-chip"
+                          :class="[form[f.key] ? 'pe-chip-on' : 'pe-chip-off', highlightKey === f.key ? 'ring-2 ring-amber-300 ring-offset-2' : '']"
+                          :aria-pressed="!!form[f.key]"
+                          :data-field="f.key"
+                          @click="form[f.key] = !form[f.key]"
+                        >
+                          <svg v-if="form[f.key]" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" /></svg>
+                          {{ f.label }}
+                          <span v-if="isInternal(f)" class="pe-tag pe-tag-internal !ml-1" data-testid="field-tag-internal">Dato interno</span>
+                        </button>
+                      </div>
                       </template>
                     </div>
+
+                    <!-- Bloques que acompañan a los campos de la sección (traducciones, tipologías…). -->
+                    <template v-for="(ex, xi) in (s as FieldsSection).extras || []" :key="xi">
+                      <TranslationsEditor v-if="ex.kind === 'translations'" v-model="translations" />
+                      <div v-else-if="ex.kind === 'child-table'" :data-testid="`property-extra-${ex.childResource}`">
+                        <p class="mb-1 text-[15px] font-medium text-ink">{{ ex.title }}</p>
+                        <p v-if="ex.description" class="mb-3 text-[12px] text-stone-450">{{ ex.description }}</p>
+                        <ChildCardManager :child-resource="ex.childResource" :parent-field="ex.parentField" :parent-id="recordId" :columns="ex.columns" />
+                      </div>
+                    </template>
                   </div>
+
+                  <PropertyMediaSuite
+                    v-else-if="s.kind === 'media'"
+                    :section="s as any"
+                    :form="form"
+                    :parent-id="recordId"
+                    :can-edit="canEdit"
+                    :trashed="!!trashedAt"
+                    :upload-folder="resource"
+                    @update:field="(k, v) => (form[k] = v)"
+                  />
 
                   <LocationSection
                     v-else-if="s.kind === 'location'"
@@ -219,7 +246,6 @@
                     :lng-field="s.lngField"
                     :upload-folder="resource"
                   />
-                  <TranslationsEditor v-else-if="s.kind === 'translations'" v-model="translations" />
                   <GalleryManager
                     v-else-if="s.kind === 'gallery'"
                     :child-resource="s.childResource"
@@ -251,9 +277,11 @@
                   :saving="saving"
                   :hint="footerHint"
                   :can-edit="canEdit"
+                  :state="saveState"
+                  :error="error"
                   @prev="goTo(sections[i - 1].key)"
                   @next="goTo(sections[i + 1].key)"
-                  @finish="save"
+                  @save="save"
                 />
               </div>
             </template>
@@ -283,9 +311,10 @@
 </template>
 
 <script setup lang="ts">
-import { PROPERTY_BUILDER_SECTIONS, groupFields, type BuilderSection, type FieldSpec, type FieldsSection, type LocationSection as LocationSectionSpec } from '~/composables/usePropertyBuilderConfig'
+import { PROPERTY_BUILDER_SECTIONS, groupFields, type BuilderSection, type FieldSpec, type FieldsSection, type LocationSection as LocationSectionSpec, type MediaSection } from '~/composables/usePropertyBuilderConfig'
 import { usePropertySchemaRegistry } from '~/composables/usePropertySchemaRegistry'
-import { PROPERTY_SUBTYPES, propertyTypeLabel } from '~/utils/propertySheet'
+import { PROPERTY_CONDITION_LABELS, PROPERTY_SUBTYPES, propertyTypeLabel } from '~/utils/propertySheet'
+import { formatMoney } from '~/utils/currency'
 import { CATALOG_STATUS_TITLES, commercialStatusForAvailability, commercialStatusLabel, rowChangesForCommercialStatus } from '~/utils/propertyCommercialStatus'
 import PropertyBuilderField from './PropertyBuilderField.vue'
 import PropertyEditorHeader from './PropertyEditorHeader.vue'
@@ -301,6 +330,7 @@ import SocialLinksManager from './SocialLinksManager.vue'
 import PropertyRoomManager from './PropertyRoomManager.vue'
 import PropertyContactsManager from './PropertyContactsManager.vue'
 import PropertyBuyerMatches from './PropertyBuyerMatches.vue'
+import PropertyMediaSuite from './PropertyMediaSuite.vue'
 import PropertyCommunications from './PropertyCommunications.vue'
 import PropertyPriceHistory from './PropertyPriceHistory.vue'
 import PropertyCrmPanels from '~/components/admin/property/PropertyCrmPanels.vue'
@@ -343,7 +373,9 @@ const props = withDefaults(
 const router = useRouter()
 const toast = useToast()
 // Panel: moneda de la agencia, sin convertir (utils/currency.ts) — no el selector del visitante de la web.
-const { format: formatCurrency } = useAgencyCurrency()
+const { format: formatCurrency, code: agencyCode } = useAgencyCurrency()
+/** El importe con la moneda de la propiedad (o la de la inmobiliaria si no tiene propia), sin convertir. */
+const formatPrice = (n: number | null | undefined) => formatMoney(n, form.currency || agencyCode.value)
 
 const staticSections = PROPERTY_BUILDER_SECTIONS[props.resource] as BuilderSection[]
 const activeKey = ref(staticSections[0].key)
@@ -383,6 +415,10 @@ function isShownByCondition(f: FieldSpec): boolean {
 /** El subtipo ofrece sólo los subtipos del tipo elegido (utils/propertySheet.ts); un rótulo que depende de la ficha («Renta mensual» en alquiler) se resuelve aquí. */
 function withDynamicOptions(spec: FieldSpec): FieldSpec {
   const f = spec.labelFor ? { ...spec, label: spec.labelFor(form) } : spec
+  // «Estado»: una ficha que tenía marcada la casilla «Reformado» (dato anterior) no se convierte sola: se avisa para que lo decida quien edita.
+  if (f.key === 'condition' && !form.condition && loadedValues.isRenovated) {
+    return { ...f, hint: `${f.hint ? `${f.hint} ` : ''}Esta ficha tiene marcada la casilla «Reformado» (dato anterior): si es correcto, elige «Reformado» aquí; no se cambia sola.` }
+  }
   if (f.key !== 'subtype') return f
   const labels = PROPERTY_SUBTYPES[form.propertyType] || {}
   return { ...f, options: Object.keys(labels), optionLabels: labels, hint: form.propertyType ? f.hint : 'Elige primero el tipo de propiedad.' }
@@ -418,7 +454,8 @@ const translations = ref([
   { locale: 'en', title: '', description: '' },
   { locale: 'ar', title: '', description: '' },
 ])
-const hasTranslationsSection = staticSections.some((s) => s.kind === 'translations')
+// Las traducciones (en/ar) son un bloque que acompaña a Información básica en 2ª mano.
+const hasTranslationsSection = staticSections.some((s) => s.kind === 'fields' && (s as FieldsSection).extras?.some((e) => e.kind === 'translations'))
 
 // A ref, not a plain variable: isDirty must re-evaluate the instant a save
 // updates the baseline, not just when form/translations change again.
@@ -481,7 +518,7 @@ const saveStateLabel = computed(() => {
  */
 const footerHint = computed(() => {
   if (!props.canEdit) return 'Estás viendo la ficha en modo consulta.'
-  if (isNew.value) return 'Pulsa "Crear propiedad" para empezar a guardar — a partir de ahí, los cambios se guardan solos.'
+  if (isNew.value) return 'Pulsa «Guardar» para crear la propiedad (basta con lo imprescindible) — a partir de ahí, los cambios se guardan solos.'
   if (saveState.value === 'error') return 'No se ha podido guardar el último cambio — sigue intentándolo o pulsa Guardar.'
   return 'Los cambios se guardan automáticamente.'
 })
@@ -613,14 +650,25 @@ function normalize(text: string): string {
     .toLowerCase()
 }
 
+/** Los campos de «Multimedia y planos» que tienen su propio control en la sección (la búsqueda salta a ellos). */
+function mediaSearchFields(m: MediaSection): FieldSpec[] {
+  return [
+    { key: m.coverField, label: 'Imagen de portada', type: 'image', group: 'Portada' },
+    ...m.projectImages,
+    { ...m.videoField, group: 'Vídeos' },
+    ...m.planTexts,
+    ...m.tourFields,
+  ]
+}
+
 /** Busca por rótulo, grupo y pista en los campos que se ven ahora (los que el tipo de inmueble no admite no aparecen). */
 const fieldMatches = computed<FieldMatch[]>(() => {
   const q = normalize(fieldQuery.value.trim())
   if (!q) return []
   const out: FieldMatch[] = []
   for (const s of sections.value) {
-    if (s.kind !== 'fields' && s.kind !== 'location') continue
-    for (const f of (s as FieldsSection).fields) {
+    const fields = s.kind === 'media' ? mediaSearchFields(s as MediaSection) : sectionFields(s)
+    for (const f of fields) {
       if (normalize(`${f.label} ${f.group || ''} ${f.hint || ''}`).includes(q)) out.push({ section: s.key, sectionLabel: s.label, field: f })
     }
   }
@@ -642,7 +690,9 @@ function jumpToField(m: FieldMatch) {
   }, 2500)
 }
 
-const collapsed = reactive<Record<string, boolean>>({})
+const collapsed = reactive<Record<string, boolean>>(
+  Object.fromEntries(staticSections.flatMap((s) => (s.kind === 'fields' ? ((s as FieldsSection).collapsedGroups || []).map((g) => [`${s.key}:${g}`, true]) : []))),
+)
 function isCollapsed(section: string, group: string): boolean {
   return !!collapsed[`${section}:${group}`]
 }
@@ -661,8 +711,20 @@ function goTo(key: string) {
   nextTick(() => formCardEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
 }
 
-function allCheckboxes(fields: FieldSpec[]): boolean {
-  return fields.length > 1 && fields.every((f) => f.type === 'checkbox')
+/** Los desplegables y demás campos de un grupo, y aparte sus casillas: primero unos, después otras. */
+const nonCheckboxes = (fields: FieldSpec[]) => fields.filter((f) => f.type !== 'checkbox')
+const checkboxes = (fields: FieldSpec[]) => fields.filter((f) => f.type === 'checkbox')
+
+/**
+ * «Dato interno»: un campo que, según las reglas REALES de visibilidad del
+ * registro de esquemas (`publicExposable`), no sale en la ficha pública. No se
+ * supone nada por el nombre del grupo: un campo sin regla (virtual, heredado)
+ * no se etiqueta.
+ */
+function isInternal(f: FieldSpec): boolean {
+  if (f.virtual) return false
+  const rule = getSchemaFor(catalog, form.propertyType)?.fields?.[f.key]
+  return !!rule && rule.publicExposable === false
 }
 
 function groupLabelIsRedundant(g: { label: string | null; fields: FieldSpec[] }): boolean {
@@ -675,9 +737,22 @@ function isFilled(f: { key: string; type: string }): boolean {
   return v !== null && v !== undefined && v !== ''
 }
 
-function trackedFields(s: BuilderSection): FieldSpec[] {
+/** Los campos de una sección que se ven en el formulario: los de «campos» y «ubicación», y la portada de «Multimedia y planos». */
+function sectionFields(s: BuilderSection): FieldSpec[] {
+  if (s.kind === 'media') return [{ key: (s as MediaSection).coverField, label: 'Imagen de portada', type: 'image', recommended: true }]
   if (s.kind !== 'fields' && s.kind !== 'location') return []
-  return (s as FieldsSection).fields.filter((f) => f.required || f.recommended)
+  return (s as FieldsSection).fields
+}
+
+/**
+ * Lo que cuenta para el progreso: campos obligatorios o recomendados que
+ * APLICAN a este tipo de propiedad (los que su esquema no declara ya están
+ * filtrados) y que se rellenan a mano. Un campo automático (slug, referencia,
+ * precio por m²) nunca cuenta: no se puede penalizar algo que todavía no
+ * puede generarse antes del primer guardado.
+ */
+function trackedFields(s: BuilderSection): FieldSpec[] {
+  return sectionFields(s).filter((f) => (f.required || f.recommended) && !f.auto && f.type !== 'computed')
 }
 
 /**
@@ -689,11 +764,11 @@ function trackedFields(s: BuilderSection): FieldSpec[] {
 const sectionStates = computed<Record<string, 'complete' | 'error' | 'neutral'>>(() => {
   const out: Record<string, 'complete' | 'error' | 'neutral'> = {}
   for (const s of sections.value) {
-    if (s.kind !== 'fields' && s.kind !== 'location') {
+    const fields = sectionFields(s)
+    if (!fields.length) {
       out[s.key] = 'neutral'
       continue
     }
-    const fields = (s as FieldsSection).fields
     if (fields.some((f) => f.required && !isFilled(f))) out[s.key] = 'error'
     else {
       const tracked = trackedFields(s)
@@ -707,11 +782,7 @@ const sectionStates = computed<Record<string, 'complete' | 'error' | 'neutral'>>
 const sectionPending = computed<Record<string, number>>(() => {
   const out: Record<string, number> = {}
   for (const s of sections.value) {
-    if (s.kind !== 'fields' && s.kind !== 'location') {
-      out[s.key] = 0
-      continue
-    }
-    out[s.key] = (s as FieldsSection).fields.filter((f) => f.required && !isFilled(f)).length
+    out[s.key] = sectionFields(s).filter((f) => f.required && !isFilled(f)).length
   }
   return out
 })
@@ -746,7 +817,7 @@ const TRANSACTION_LABELS: Record<string, string> = { sale: 'Venta', rent: 'Alqui
 
 const isSecondHand = computed(() => props.resource === 'properties')
 
-/** Una vivienda de 2ª mano no tiene nombre propio: se identifica por tipo y referencia. */
+/** El título de la propiedad; mientras no tenga, su tipo y referencia (las de 2ª mano anteriores no tenían título). */
 const headerTitle = computed(() => {
   if (isNew.value) return isSecondHand.value ? 'Nueva propiedad de 2ª mano' : 'Nueva propiedad'
   return form.name || translations.value.find((t) => t.title)?.title || (form.propertyType ? propertyTypeLabel(form.propertyType) : '') || form.slug || `Propiedad #${recordId.value}`
@@ -783,7 +854,9 @@ const previewRows = computed(() => {
     rows.push({ label: 'Entrega', value: String(form.handoverDate) })
   }
   const rent = form.transactionType === 'rent'
-  rows.push({ label: rent ? 'Renta mensual' : 'Precio', value: typeof form.price === 'number' ? `${formatCurrency(form.price)}${rent ? ' /mes' : ''}` : '—' })
+  rows.push({ label: rent ? 'Renta mensual' : 'Precio', value: typeof form.price === 'number' ? `${formatPrice(form.price)}${rent ? ' /mes' : ''}` : '—' })
+  rows.push({ label: 'Moneda', value: form.currency || `${agencyCode.value} (la de la inmobiliaria)` })
+  if (form.condition) rows.push({ label: 'Estado', value: PROPERTY_CONDITION_LABELS[form.condition] || form.condition })
   return rows
 })
 
@@ -818,6 +891,16 @@ async function putPropertyBody() {
  * primero descarta cualquier autoguardado pendiente: nunca deja una versión
  * a medio escribir compitiendo con este guardado explícito.
  */
+/** Lo mínimo para crear el registro: lo que el servidor exige al dar de alta (no se pide completar la ficha para guardar avances). */
+const CREATE_REQUIRED: Record<string, { key: string; label: string }[]> = {
+  'developer-properties': [
+    { key: 'name', label: 'Título' },
+    { key: 'developerId', label: 'Promotora' },
+  ],
+  properties: [],
+}
+const missingToCreate = () => (CREATE_REQUIRED[props.resource] || []).filter((f) => form[f.key] === null || form[f.key] === undefined || form[f.key] === '')
+
 async function save() {
   if (!props.canEdit) return
   if (autosaveTimer) {
@@ -828,6 +911,12 @@ async function save() {
   error.value = ''
   try {
     if (isNew.value) {
+      const missing = missingToCreate()
+      if (missing.length) {
+        error.value = `Para guardar por primera vez falta: ${missing.map((m) => m.label).join(', ')}.`
+        toast.error(error.value)
+        return
+      }
       const res = await $fetch<{ id: number }>(`/api/admin/${props.resource}`, { method: 'POST', body: requestBody() })
       recordId.value = res.id
       router.replace(`/admin/${props.resource}/${res.id}`)

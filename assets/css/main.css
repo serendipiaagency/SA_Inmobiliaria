@@ -200,6 +200,17 @@
   .pe-chip-on {
     @apply border-amber-300 bg-amber-50 text-ink;
   }
+  /* Etiquetas discretas junto al nombre de un campo: «Automático» (lo genera el
+     sistema) y «Dato interno» (sólo lo ve la inmobiliaria, no sale en la ficha pública). */
+  .pe-tag {
+    @apply ml-2 inline-flex items-center rounded-full px-2 py-px align-middle text-[10px] font-semibold normal-case tracking-normal;
+  }
+  .pe-tag-auto {
+    @apply bg-sky-50 text-sky-700;
+  }
+  .pe-tag-internal {
+    @apply bg-stone-100 text-stone-600;
+  }
   /* Zona de arrastre / estado vacío con borde discontinuo. */
   .pe-drop {
     @apply flex w-full flex-col items-center justify-center rounded-xl border border-dashed border-line bg-surface/50 px-6 py-10 text-center transition hover:border-stone-400;

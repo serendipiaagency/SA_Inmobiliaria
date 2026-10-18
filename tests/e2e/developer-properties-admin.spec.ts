@@ -199,7 +199,8 @@ test.describe('Propiedades (web) — listado admin', () => {
     await expect(page.getByRole('button', { name: 'URL externa' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Subir archivo' })).toBeVisible()
 
-    await nav.getByRole('button', { name: 'Redes sociales' }).click()
-    await expect(page.getByRole('button', { name: '+ Añadir red social' })).toBeVisible()
+    // «Redes sociales» ya no es un apartado del constructor: compartir sigue
+    // funcionando desde la ficha, pero no hay editor de redes.
+    await expect(nav.getByRole('button', { name: 'Redes sociales' })).toHaveCount(0)
   })
 })

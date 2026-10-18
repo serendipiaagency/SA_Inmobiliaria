@@ -118,6 +118,9 @@ async function captureProperty(ctx: DemoContext, p: DemoProperty) {
       location: `${p.district}, ${p.city}`,
       community,
       status: 'available',
+      // Título y descripción en castellano (migraciones 0098 y 0099): el mismo constructor que obra nueva.
+      name: p.title,
+      description: p.description,
       translations: [{ locale: 'es', title: p.title, description: p.description }],
     })
   }

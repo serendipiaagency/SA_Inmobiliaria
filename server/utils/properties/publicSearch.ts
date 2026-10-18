@@ -210,7 +210,8 @@ export async function buildPublicSearch(db: any, orgId: number, query: Record<st
   if (axisNew.length === 1) conds.push(axisNew[0] === 'obra_nueva' ? NEW_BUILD_SQL : sql`not ${NEW_BUILD_SQL}`)
   const conservation: SQL[] = []
   if (estado.includes('a_estrenar')) conservation.push(eq(P.condition, 'new'))
-  if (estado.includes('reformado')) conservation.push(details(sql`pd.is_renovated = 1`))
+  // «Reformado»: el estado `renovated` de la ficha y, como siempre, la casilla «Reformado» de la ficha ampliada.
+  if (estado.includes('reformado')) conservation.push(eq(P.condition, 'renovated'), details(sql`pd.is_renovated = 1`))
   if (estado.includes('buen_estado')) conservation.push(inArray(P.condition, ['good', 'excellent']))
   if (estado.includes('para_reformar')) conservation.push(inArray(P.condition, ['to_renovate', 'to_reform']))
   if (conservation.length) conds.push(or(...conservation)!)

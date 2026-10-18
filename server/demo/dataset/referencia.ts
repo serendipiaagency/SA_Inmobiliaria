@@ -90,8 +90,6 @@ const DEMO_NOTE = 'Propiedad ficticia de la cuenta demo: los datos energéticos,
 
 /** Lo que no aplica a un inmueble que no es de una comunidad de vecinos (chalet, casa). */
 const NO_COMMUNITY = 'Vivienda unifamiliar independiente: no hay zonas comunes.'
-const NO_SOCIAL = 'La demo no tiene perfiles reales en redes sociales: no se inventan.'
-const NO_PREMIUM_PHOTO = 'No hay una foto de este tipo con licencia compatible en la demo: no se sustituye por otra.'
 const NO_TOUR = 'No hay un tour virtual propio con licencia compatible: no se enlaza ninguno que no exista.'
 
 const COMMON_NA_COMMUNITY: Record<string, string> = Object.fromEntries(
@@ -100,11 +98,6 @@ const COMMON_NA_COMMUNITY: Record<string, string> = Object.fromEntries(
 const NO_PORTALS = 'La demo no publica en portales (ningún canal está conectado a un portal real).'
 const COMMON_NA_MEDIA: Record<string, string> = {
   virtualTourUrl: NO_TOUR,
-  dronePhoto: NO_PREMIUM_PHOTO,
-  nightPhoto: NO_PREMIUM_PHOTO,
-  beforePhoto: NO_PREMIUM_PHOTO,
-  afterPhoto: NO_PREMIUM_PHOTO,
-  aiStagedPhoto: NO_PREMIUM_PHOTO,
   videoUrl: 'No hay un vídeo propio con licencia compatible: no se enlaza ninguno que no exista.',
 }
 const COMMON_NA_ADMIN: Record<string, string> = {
@@ -186,6 +179,8 @@ const P10_LOCATION_DESCRIPTION = `<p>Celorio, concejo de Llanes: a cinco minutos
 const P10_CONTENT: ReferenceContent = {
   key: 'p10',
   fields: {
+    // Moneda del precio (Cola 11): euros, la de la demo.
+    currency: 'EUR',
     commercialCode: 'CEL-0010',
     // Dimensiones y superficies
     toilets: 1,
@@ -369,7 +364,6 @@ const P10_CONTENT: ReferenceContent = {
     commercialArea: 'Uso residencial.',
     serviceChargeAnnual: 'Dato anterior: la comunidad se indica en «Comunidad (mensual)».',
     locationMap: 'El mapa de la ficha es interactivo y sale de las coordenadas; no hay una imagen estática.',
-    social: NO_SOCIAL,
     priceChangeReason: 'Sólo se rellena al cambiar el precio desde el editor.',
     featuresReviewedAt: 'Se marca desde el editor al repasar las características.',
     externalSource: 'No procede de un sistema externo.',
@@ -411,6 +405,8 @@ const P02_DESCRIPTION = `<p><strong>Presentación.</strong> Ático de ${P02.area
 const P02_CONTENT: ReferenceContent = {
   key: 'p02',
   fields: {
+    // Moneda del precio (Cola 11): euros, la de la demo.
+    currency: 'EUR',
     commercialCode: 'OVI-0002',
     toilets: 0,
     livingRooms: 1,
@@ -595,7 +591,6 @@ const P02_CONTENT: ReferenceContent = {
     locationMap: 'El mapa de la ficha es interactivo y sale de las coordenadas; no hay una imagen estática.',
     masterPlanImage: 'Vivienda en altura: no hay plano de parcela.',
     masterPlanDescription: 'Vivienda en altura: no hay plano de parcela.',
-    social: NO_SOCIAL,
     priceChangeReason: 'Sólo se rellena al cambiar el precio desde el editor.',
     featuresReviewedAt: 'Se marca desde el editor al repasar las características.',
   },
@@ -647,6 +642,8 @@ Información comercial relevante. Encargo de venta en exclusiva con Norte Astur 
 const P11_CONTENT: ReferenceContent = {
   key: 'p11',
   fields: {
+    // Moneda del precio (Cola 11): euros, la de la demo.
+    currency: 'EUR',
     commercialCode: 'OVI-0011',
     terraceArea: 9,
     storageArea: 5,
@@ -812,7 +809,6 @@ const P11_CONTENT: ReferenceContent = {
     serviceChargeAnnual: 'Dato anterior: la comunidad se indica en «Comunidad (mensual)».',
     paymentPlan: 'Reventa: el pago es al contado o con la hipoteca del comprador, sin plan de pagos.',
     location: 'Campo heredado: la dirección se indica con los campos de arriba.',
-    social: NO_SOCIAL,
     priceChangeReason: 'Sólo se rellena al cambiar el precio desde el editor.',
     featuresReviewedAt: 'Se marca desde el editor al repasar las características.',
   },
@@ -872,6 +868,8 @@ Información comercial relevante. Encargo de venta en exclusiva con Norte Astur 
 const P19_CONTENT: ReferenceContent = {
   key: 'p19',
   fields: {
+    // Moneda del precio (Cola 11): euros, la de la demo.
+    currency: 'EUR',
     commercialCode: 'LLA-0019',
     toilets: 0,
     livingRooms: 1,
@@ -1034,7 +1032,6 @@ const P19_CONTENT: ReferenceContent = {
     priceOld: 'El precio no ha cambiado desde la captación.',
     paymentPlan: 'Reventa: el pago es al contado o con la hipoteca del comprador, sin plan de pagos.',
     location: 'Campo heredado: la dirección se indica con los campos de arriba.',
-    social: NO_SOCIAL,
     priceChangeReason: 'Sólo se rellena al cambiar el precio desde el editor.',
     featuresReviewedAt: 'Se marca desde el editor al repasar las características.',
   },

@@ -24,6 +24,8 @@
   <div v-else class="block" :class="spec.span === 2 ? 'sm:col-span-2' : ''" :data-field="spec.key">
     <span v-if="spec.type !== 'checkbox'" class="pe-label">
       {{ spec.label }} <span v-if="spec.required" class="text-red-500">*</span>
+      <span v-if="spec.auto" class="pe-tag pe-tag-auto" data-testid="field-tag-auto">Automático</span>
+      <span v-if="internal" class="pe-tag pe-tag-internal" data-testid="field-tag-internal">Dato interno</span>
     </span>
 
     <!-- `aria-label` en cada control y no un <label for>: el envoltorio no
@@ -83,6 +85,7 @@
     >
       <svg v-if="modelValue" class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" /></svg>
       {{ spec.label }}
+      <span v-if="internal" class="pe-tag pe-tag-internal !ml-1" data-testid="field-tag-internal">Dato interno</span>
     </button>
 
     <PaymentPlanEditor v-else-if="spec.type === 'payment-plan'" :model-value="modelValue" @update:model-value="emitUpdate" />
@@ -101,7 +104,19 @@
     <!-- Valor calculado (precio por m²…): se enseña, nunca se edita ni se guarda. -->
     <p v-else-if="spec.type === 'computed'" class="pe-input bg-stone-50 text-stone-600" :aria-label="spec.label" data-computed="true">{{ modelValue }}</p>
     <input v-else-if="spec.type === 'url'" :value="modelValue ?? ''" type="url" placeholder="https://…" :aria-label="spec.label" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value)" >
-    <input v-else :value="modelValue ?? ''" :aria-label="spec.label" :class="inputCls" @input="emitUpdate(($event.target as HTMLInputElement).value)" >
+    <input
+      v-else
+      :value="modelValue ?? ''"
+      :aria-label="spec.label"
+      :class="[inputCls, lockedNow ? 'bg-stone-50 text-stone-600' : '']"
+      :readonly="lockedNow"
+      :placeholder="spec.auto && !modelValue ? '<Generado automáticamente>' : undefined"
+      :data-testid="spec.auto ? `field-auto-${spec.key}` : undefined"
+      @input="emitUpdate(($event.target as HTMLInputElement).value)"
+    >
+    <!-- Campo automático: cómo se genera y, si se puede sobrescribir, la opción avanzada (con aviso). -->
+    <span v-if="spec.auto" class="mt-1.5 block text-[11px] text-stone-450" data-testid="field-auto-note">{{ spec.auto }}</span>
+    <button v-if="spec.autoOverridable && lockedNow" type="button" class="mt-1 text-[11px] font-semibold text-stone-600 underline hover:text-ink" data-testid="field-auto-unlock" @click="unlock">Editar a mano (opción avanzada)</button>
 
     <!-- Fecha escrita a mano antes de que fuera un selector (cierre D1p): se enseña tal cual estaba y cómo se entiende. -->
     <span v-if="legacyDateNote" class="mt-1.5 block text-[11px] text-amber-700" :data-testid="`field-legacy-date-${spec.key}`">{{ legacyDateNote }}</span>
@@ -119,7 +134,15 @@ import StepperField from './StepperField.vue'
 import RichTextField from './RichTextField.client.vue'
 import { isStrictIsoDate, parsePropertyDate } from '~/utils/propertyDates'
 
-const props = defineProps<{ spec: FieldSpec; modelValue: any; uploadFolder: string }>()
+const props = defineProps<{
+  spec: FieldSpec
+  modelValue: any
+  uploadFolder: string
+  /** «Dato interno»: según las reglas de visibilidad reales del registro, no se enseña en la ficha pública. */
+  internal?: boolean
+  /** Un campo automático de una propiedad ya creada empieza bloqueado (no se regenera ni se pisa sin querer). */
+  locked?: boolean
+}>()
 const emit = defineEmits<{ 'update:modelValue': [value: any] }>()
 
 /**
@@ -144,6 +167,12 @@ const legacyDateNote = computed(() => {
  * límites básicos de la fila), dicho junto al campo en cuanto se escribe —
  * no al guardar. Es ayuda: el servidor vuelve a validar cada PUT.
  */
+const unlocked = ref(false)
+const lockedNow = computed(() => !!props.spec.auto && !!props.locked && !unlocked.value)
+function unlock() {
+  if (typeof window !== 'undefined' && !window.confirm('Si cambias esta dirección, los enlaces que ya estén publicados dejarán de funcionar (no se crean redirecciones). ¿Quieres editarla a mano?')) return
+  unlocked.value = true
+}
 const touched = ref(false)
 const fieldError = computed(() => validatePropertyField(props.spec, props.modelValue, touched.value))
 const inputCls = computed(() => (fieldError.value ? 'pe-input !border-red-400' : 'pe-input'))

@@ -31,7 +31,7 @@
         </button>
       </div>
 
-      <!-- El `status` propio del catálogo («Estado de la obra» / «Disponibilidad») y, aparte, el estado comercial común (cierre D1p). -->
+      <!-- El `status` propio del catálogo («Fase de la obra» / «Disponibilidad») y, aparte, el estado comercial común (cierre D1p). -->
       <select v-model="status" class="input !w-44" :aria-label="config.statusTitle" :title="config.statusTitle" data-testid="property-status-filter" @change="applyAndReset">
         <option value="">{{ config.statusAllLabel }}</option>
         <option v-for="s in config.statusOptions" :key="s.value" :value="s.value">{{ s.label }}</option>
@@ -646,7 +646,7 @@ const LIST_COLUMNS = [
   { key: 'details', label: 'Detalles' },
   // Cierre D1p: el estado comercial común, aparte del `status` del catálogo (cuyo rótulo es `config.statusTitle`).
   { key: 'commercialStatus', label: 'Estado comercial' },
-  { key: 'status', label: 'Estado de la obra / disponibilidad' },
+  { key: 'status', label: 'Fase de la obra / disponibilidad' },
   // Cierre C1: el comercial (agentId) se ve y se cambia desde la fila.
   { key: 'agent', label: 'Comercial' },
   { key: 'updatedAt', label: 'Actualizado' },
