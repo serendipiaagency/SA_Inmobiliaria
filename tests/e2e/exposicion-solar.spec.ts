@@ -18,13 +18,14 @@ test.describe('Exposición solar en la ficha', () => {
   test.use({ storageState: STATE_A })
   let a: APIRequestContext
   const cleanup: Array<() => Promise<unknown>> = []
+  let developerId = 0
   let prop = { id: 0, slug: '', name: '' }
 
   test.beforeAll(async () => {
     a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
     const dev = await a.post('/api/admin/developers', { data: { name: `Promotora Sol ${RUN}`, email: `sol-${RUN}@mm.test`, status: 'active' } })
     expect(dev.ok(), await dev.text()).toBeTruthy()
-    const developerId = (await dev.json()).id
+    developerId = (await dev.json()).id
     cleanup.push(() => a.delete(`/api/admin/developers/${developerId}`))
     const up = await a.post('/api/admin/upload', { multipart: { file: { name: 'portada.png', mimeType: 'image/png', buffer: Buffer.from(buildPng(320, 200)) }, folder: 'properties' } })
     const cover = (await up.json()).key as string
@@ -54,26 +55,54 @@ test.describe('Exposición solar en la ficha', () => {
     await anon.dispose()
   })
 
-  test('la web pública, sin proveedor con licencia, no trae exposición solar', async () => {
+  test('la web pública, sin proveedor con licencia, trae una estimación por orientación y latitud', async () => {
     const detail = await (await a.get(`/api/public/properties/${prop.slug}`)).json()
-    expect(detail.solar).toBeNull()
-    expect(detail.availability.solar).toBe(false)
+    // La propiedad tiene orientación Sur y coordenadas: estimación real (astronomía), no datos de un proveedor ni de demostración.
+    expect(detail.solar).toMatchObject({ estimated: true, provider: 'Estimación por orientación', viewerUrl: null, confidence: 'low' })
+    expect(detail.solar.score).toBeGreaterThan(0)
+    expect(detail.solar.score).toBeLessThanOrEqual(100)
+    expect(detail.solar.monthlyHours).toHaveLength(12)
+    expect(detail.availability.solar).toBe(true)
     expect(JSON.stringify(detail)).not.toContain('Datos de demostración')
   })
 
-  test('la ficha publicada no enseña la sección, ni SunScore, ni el rótulo de demostración', async ({ browser }) => {
+  test('la ficha publicada enseña la estimación, rotulada como tal (sin «proveedor» ni «demostración»)', async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: ANON_STATE })
     const page = await ctx.newPage()
     await page.goto(`/propiedades/${prop.slug}`)
     await expect(page.locator('h1')).toHaveText(prop.name, { timeout: 20_000 })
-    await expect(page.locator('#exposicion')).toHaveCount(0)
-    await expect(page.getByTestId('solar-exposure')).toHaveCount(0)
+    const section = page.locator('#exposicion')
+    await expect(section).toBeVisible()
+    await expect(section.getByTestId('solar-exposure').first()).toBeVisible()
+    await expect(section.getByTestId('solar-estimate-note').first()).toContainText('No tiene en cuenta las sombras')
+    await expect(section.getByTestId('solar-attribution').first()).toHaveText('Estimación de INMO según orientación y latitud')
     const html = await page.content()
-    expect(html).not.toContain('SunScore')
     expect(html).not.toContain('Datos de demostración')
     // La sección de orientación de siempre sigue ahí.
     await expect(page.locator('#orientacion')).toBeVisible()
     await ctx.close()
+  })
+
+  test('una propiedad sin orientación no trae estimación (la sección no sale)', async ({ browser }) => {
+    const name = `Solar sin orientacion ${RUN}`
+    const created = await a.post('/api/admin/developer-properties', {
+      data: { developerId, name, price: 300000, bedrooms: 2, area: 90, status: 'ready', transactionType: 'sale', lat: 43.5453, lng: -5.6619, description: 'Sin orientación.' },
+    })
+    const id = (await created.json()).id
+    const slug = (await (await a.get(`/api/admin/developer-properties/${id}`)).json()).row.slug
+    try {
+      const detail = await (await a.get(`/api/public/properties/${slug}`)).json()
+      expect(detail.solar).toBeNull()
+      expect(detail.availability.solar).toBe(false)
+      const ctx = await browser.newContext({ storageState: ANON_STATE })
+      const page = await ctx.newPage()
+      await page.goto(`/propiedades/${slug}`)
+      await expect(page.locator('h1')).toHaveText(name, { timeout: 20_000 })
+      await expect(page.locator('#exposicion')).toHaveCount(0)
+      await ctx.close()
+    } finally {
+      await a.delete(`/api/admin/developer-properties/${id}?hard=1`)
+    }
   })
 
   test('el lienzo la enseña bajo la ubicación, con el círculo dorado, el gráfico y la atribución, y el rótulo de demostración', async ({ page }) => {

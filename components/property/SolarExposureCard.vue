@@ -1,6 +1,7 @@
 <template>
   <div class="solar-card" data-testid="solar-exposure">
     <p v-if="exposure.demo" class="solar-demo" role="note" data-testid="solar-demo-note">Datos de demostración: no son la exposición solar de esta propiedad. Sólo se ven en el Constructor Web.</p>
+    <p v-else-if="exposure.estimated" class="solar-demo" role="note" data-testid="solar-estimate-note">Estimación a partir de la orientación y la latitud (cielo despejado). No tiene en cuenta las sombras de edificios o del relieve cercanos.</p>
 
     <div class="solar-body">
       <div class="solar-gauge" role="img" :aria-label="`SunScore ${exposure.score} sobre 100`" data-testid="solar-score">
@@ -20,7 +21,7 @@
     </div>
 
     <figure v-if="months" class="solar-chart" data-testid="solar-chart">
-      <figcaption class="solar-cap">Horas de sol directo al día</figcaption>
+      <figcaption class="solar-cap">Horas de sol directo al día{{ exposure.estimated ? ' (estimadas)' : '' }}</figcaption>
       <div class="solar-bars">
         <div v-for="b in bars" :key="b.key" class="solar-bar">
           <span class="solar-bar-val">{{ b.text }} h</span>
@@ -33,7 +34,7 @@
     <div class="solar-foot">
       <a v-if="exposure.viewerUrl && !exposure.demo" :href="exposure.viewerUrl" target="_blank" rel="noopener noreferrer" class="solar-link" data-testid="solar-viewer-link">Ver simulación solar 3D<span aria-hidden="true"> ↗</span></a>
       <span v-else-if="exposure.demo" class="solar-link solar-link-off" aria-disabled="true">Ver simulación solar 3D</span>
-      <p class="solar-attr" data-testid="solar-attribution">Proporcionado por {{ exposure.provider }}</p>
+      <p class="solar-attr" data-testid="solar-attribution">{{ exposure.estimated ? 'Estimación de INMO según orientación y latitud' : `Proporcionado por ${exposure.provider}` }}</p>
     </div>
   </div>
 </template>

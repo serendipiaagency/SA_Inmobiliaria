@@ -1,4 +1,5 @@
 import { solarExposureFor } from '../solar/service'
+import { estimateSolarExposureByOrientation } from '../../../utils/solarExposure'
 import { and, asc, count, eq, inArray, ne } from 'drizzle-orm'
 import { schema, type useDb } from '../db'
 import { toPublicProperty, toPublicSheet } from '../propertyPrivacy'
@@ -106,7 +107,11 @@ export async function loadPublicPropertyDetail(db: ReturnType<typeof useDb>, pro
     db.select({ n: count() }).from(P).where(and(eq(P.organizationId, project.organizationId), ne(P.id, project.id), livePropertyCond(P))),
   ])
   // Exposición solar: sólo con un proveedor con licencia (server/utils/solar/service.ts); sin él, null y la sección no sale.
-  const solar = await solarExposureFor({ organizationId: project.organizationId, lat: project.lat, lng: project.lng, locationPrivacy: project.locationPrivacy })
+  // Exposición solar: primero un proveedor con licencia (sombras reales de edificios); si no hay,
+  // una estimación propia por orientación y latitud (geometría solar real, cielo despejado), marcada como estimación.
+  const solar =
+    (await solarExposureFor({ organizationId: project.organizationId, lat: project.lat, lng: project.lng, locationPrivacy: project.locationPrivacy })) ??
+    estimateSolarExposureByOrientation(project.lat, project.orientation)
   const availability = {
     solar: !!solar,
     score: computeSerendipiaScore(project, market).overall != null,

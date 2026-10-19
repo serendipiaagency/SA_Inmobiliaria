@@ -233,9 +233,14 @@ describe('la ficha pública', () => {
 describe('la tarjeta', () => {
   const card = readFileSync(join(import.meta.dirname, '../../components/property/SolarExposureCard.vue'), 'utf8')
   it('atribuye al proveedor y rotula la demostración', () => {
-    expect(card).toContain('Proporcionado por {{ exposure.provider }}')
+    expect(card).toContain('Proporcionado por ${exposure.provider}')
     expect(card).toContain('Datos de demostración')
     expect(card).toContain('v-if="exposure.demo"')
+  })
+  it('la estimación por orientación se rotula como tal y no como un proveedor', () => {
+    expect(card).toContain('solar-estimate-note')
+    expect(card).toContain('No tiene en cuenta las sombras')
+    expect(card).toContain('Estimación de INMO según orientación y latitud')
   })
   it('el visor 3D es un enlace externo, nunca incrustado', () => {
     expect(card).toContain('target="_blank"')
