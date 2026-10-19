@@ -689,13 +689,8 @@ export function buildPropertySections(catalog: BuilderCatalog): BuilderSection[]
     },
     videoField: { key: 'videoUrl', label: 'Vídeo', type: 'video', span: 2 },
     tourFields: sheetGroup('media', 'Vistas 360° y tours virtuales').map((f) => ({ ...f, span: 2 as const })),
-    projectImages: dev
-      ? [
-          { key: 'logo', label: 'Logo', type: 'image', group: 'Identidad del proyecto' },
-          { key: 'masterPlanImage', label: 'Imagen del master plan', type: 'image', group: 'Identidad del proyecto' },
-          { key: 'locationMap', label: 'Mapa de ubicación', type: 'image', group: 'Identidad del proyecto' },
-        ]
-      : [],
+    // «Identidad del proyecto» (logo, imagen del master plan y mapa de ubicación) ya no se edita aquí: los ficheros que ya tuvieran las fichas siguen guardados.
+    projectImages: [],
     planTexts: dev
       ? [
           { key: 'masterPlanDescription', label: 'Descripción del master plan', type: 'rich-text', span: 2, group: 'Textos de los planos' },

@@ -52,7 +52,7 @@ describe('un solo constructor para los dos catálogos', () => {
     const agent = new Set(fieldsOf(AGENT).map((f) => f.key))
     const onlyDev = [...dev].filter((k) => !agent.has(k)).sort()
     const onlyAgent = [...agent].filter((k) => !dev.has(k)).sort()
-    expect(onlyDev).toEqual(['constructionPercentage', 'developerId', 'downPercentage', 'handoverDate', 'handoverPercentage', 'coverImage', 'locationMap', 'locationMapDescription', 'logo', 'masterPlanDescription', 'masterPlanImage', 'floorPlanDescription'].sort())
+    expect(onlyDev).toEqual(['constructionPercentage', 'developerId', 'downPercentage', 'handoverDate', 'handoverPercentage', 'coverImage', 'locationMapDescription', 'masterPlanDescription', 'floorPlanDescription'].sort())
     expect(onlyAgent).toEqual(['location', 'mainImage'].sort())
   })
   it('ningún campo está repetido dentro de un catálogo', () => {
@@ -434,5 +434,16 @@ describe('«Dato interno»: no es decorativo, el dato no sale en lo público', (
     const keys = new Set([...internalKeys('developer'), ...internalKeys('agent')])
     for (const k of ['reference', 'agencyReference', 'externalSource', 'externalReference', 'captureDate', 'captureSource', 'mandateType', 'cadastralReference']) expect(keys.has(k), k).toBe(true)
     for (const k of ['name', 'description', 'price', 'slug']) expect(keys.has(k), k).toBe(false)
+  })
+})
+
+describe('Multimedia y planos: sin «Identidad del proyecto»', () => {
+  it('ni Propiedades (web) ni 2ª mano editan logo, imagen del master plan ni mapa de ubicación', () => {
+    for (const sections of [DEV, AGENT]) {
+      const media = sections.find((s) => s.kind === 'media') as MediaSection
+      expect(media.projectImages).toEqual([])
+      const keys = sectionFieldSpecs(media).map((f) => f.key)
+      for (const k of ['logo', 'masterPlanImage', 'locationMap']) expect(keys).not.toContain(k)
+    }
   })
 })
