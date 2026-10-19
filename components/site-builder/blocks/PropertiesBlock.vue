@@ -42,7 +42,7 @@
           <div class="aspect-[4/3] overflow-hidden rounded-2xl bg-black/30">
             <SbImage field="card.image" label="Foto de la propiedad" :dynamic="dynamicLabel('property', 'Foto de portada')" :source-href="SOURCES.property.href" :src="mediaUrl(p.coverImage)" :alt="p.name" class="h-full w-full object-cover opacity-90 transition duration-700 group-hover:scale-105 group-hover:opacity-100" loading="lazy" />
           </div>
-          <SbText v-if="cardFields.price" tag="p" field="card.price" label="Precio" :dynamic="dynamicLabel('property', 'Precio')" :source-href="SOURCES.property.href" class="mt-4 text-lg font-semibold" :text="formatPrice(p.price, p.transactionType)" />
+          <SbText v-if="cardFields.price" tag="p" field="card.price" label="Precio" :dynamic="dynamicLabel('property', 'Precio')" :source-href="SOURCES.property.href" class="mt-4 text-lg font-semibold" :text="formatPrice(p.price, p.transactionType, p.currency)" />
           <SbText v-if="cardFields.name" tag="h3" field="card.name" kind="heading" label="Nombre de la propiedad" :dynamic="dynamicLabel('property', 'Nombre')" :source-href="SOURCES.property.href" class="font-serif text-xl font-medium" :text="p.name" />
           <SbText v-if="cardFields.community && p.community" tag="p" field="card.community" kind="caption" label="Comunidad" :dynamic="dynamicLabel('property', 'Comunidad')" :source-href="SOURCES.property.href" class="text-[13px] text-white/60" :text="p.community" />
         </SbBox>

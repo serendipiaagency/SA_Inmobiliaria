@@ -23,6 +23,7 @@ interface MapTeaserPin {
   lng: number
   name: string
   slug?: string | null
+  currency?: string | null
   community?: string | null
   price?: number | null
 }
@@ -81,7 +82,7 @@ watchEffect(() => {
 const { format: formatPrice } = useCurrency()
 
 function makeIcon(p: MapTeaserPin) {
-  const label = p.price ? formatPrice(p.price) : p.name
+  const label = p.price ? formatPrice(p.price, undefined, p.currency) : p.name
   return L.divIcon({ className: '', html: `<div class="mtm-pin">${label}</div>`, iconSize: [76, 28], iconAnchor: [38, 28] })
 }
 
@@ -104,7 +105,7 @@ function render() {
     marker.bindPopup(
       `<div class="mtm-card"><a href="${href}" class="mtm-card-name">${p.name}</a>` +
         (p.community ? `<p class="mtm-card-loc">${p.community}</p>` : '') +
-        (p.price ? `<p class="mtm-card-price">${formatPrice(p.price)}</p>` : '') +
+        (p.price ? `<p class="mtm-card-price">${formatPrice(p.price, undefined, p.currency)}</p>` : '') +
         `</div>`,
       { className: 'mtm-popup', maxWidth: 200 },
     )

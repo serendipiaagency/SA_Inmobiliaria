@@ -14,7 +14,7 @@ import {
 import type { AdminArea } from '../../utils/adminAreas'
 import { getRequestId } from './requestId'
 import { selectInChunks } from './sqlChunks'
-import { CURRENCIES } from '../../utils/currency'
+import { ISO_4217_CODES } from '../../utils/currency'
 import { DOCUMENT_VISIBILITIES, DOCUMENT_VISIBILITY_LABELS, PROPERTY_CONDITION_LABELS, PROPERTY_DOCUMENT_TYPES, PROPERTY_DOCUMENT_TYPE_LABELS, PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '../../utils/propertySheet'
 import {
   CONTACT_SOURCES,
@@ -367,7 +367,7 @@ export const adminResources: Record<string, ResourceDef> = {
       description: { type: 'textarea', label: 'Descripción' },
       slug: { type: 'text', label: 'Slug' },
       // Moneda del precio (ISO 4217, utils/currency.ts). Vacío = la moneda de la inmobiliaria; nunca se convierte al guardar.
-      currency: { type: 'select', label: 'Tipo de moneda', options: CURRENCIES.map((c) => c.code), optionLabels: Object.fromEntries(CURRENCIES.map((c) => [c.code, c.label])) },
+      currency: { type: 'select', label: 'Tipo de moneda', options: [...ISO_4217_CODES] },
       location: { type: 'text', label: 'Ubicación' },
       country: { type: 'text', label: 'País' },
       city: { type: 'text', label: 'Ciudad' },
@@ -475,7 +475,7 @@ export const adminResources: Record<string, ResourceDef> = {
       name: { type: 'text', label: 'Título', required: true },
       slug: { type: 'text', label: 'Slug' },
       // Moneda del precio (ISO 4217, utils/currency.ts). Vacío = la moneda de la inmobiliaria; nunca se convierte al guardar.
-      currency: { type: 'select', label: 'Tipo de moneda', options: CURRENCIES.map((c) => c.code), optionLabels: Object.fromEntries(CURRENCIES.map((c) => [c.code, c.label])) },
+      currency: { type: 'select', label: 'Tipo de moneda', options: [...ISO_4217_CODES] },
       // «Estado de la obra»: la fase de construcción, no el estado comercial (cierre D1p).
       status: { type: 'select', label: 'Fase de la obra', options: ['new', 'under_construction', 'ready'], optionLabels: { new: 'Obra nueva', under_construction: 'En construcción', ready: 'Lista' } },
       price: { type: 'number', label: 'Precio desde' },

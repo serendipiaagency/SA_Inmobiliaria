@@ -108,7 +108,7 @@
 
     <!-- Info: la del catálogo sigue el orden de la referencia (#109) -->
     <div v-if="catalog" class="pc-info">
-      <SbText tag="p" field="card.price" label="Precio" :dynamic="dynamicLabel('property', 'Precio')" :source-href="SOURCES.property.href" class="pc-price" :text="formatPrice(project.price, project.transactionType)" />
+      <SbText tag="p" field="card.price" label="Precio" :dynamic="dynamicLabel('property', 'Precio')" :source-href="SOURCES.property.href" class="pc-price" :text="formatPrice(project.price, project.transactionType, project.currency)" />
       <p class="pc-m2">{{ pricePerM2 ? `${pricePerM2}${perM2Suffix(project.transactionType)}` : '\u00a0' }}</p>
       <SbText tag="h3" field="card.name" kind="heading" label="Nombre de la propiedad" :dynamic="dynamicLabel('property', 'Nombre')" :source-href="SOURCES.property.href" class="pc-title" :text="project.name" />
       <p v-if="locationLine" class="pc-loc">
@@ -140,7 +140,7 @@
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <p class="flex items-baseline gap-2">
-            <SbText tag="span" field="card.price" label="Precio" :dynamic="dynamicLabel('property', 'Precio')" :source-href="SOURCES.property.href" class="text-lg font-semibold tracking-tight" :text="formatPrice(project.price, project.transactionType)" />
+            <SbText tag="span" field="card.price" label="Precio" :dynamic="dynamicLabel('property', 'Precio')" :source-href="SOURCES.property.href" class="text-lg font-semibold tracking-tight" :text="formatPrice(project.price, project.transactionType, project.currency)" />
             <span v-if="priceDrop" class="text-xs font-semibold text-emerald-600">−{{ priceDrop }}%</span>
           </p>
           <p v-if="pricePerM2" class="text-[12px] text-stone-400">{{ pricePerM2 }}{{ perM2Suffix(project.transactionType) }}</p>
@@ -206,6 +206,7 @@ const props = withDefaults(defineProps<{
     photos?: string[]
     price?: number | null
     priceOld?: number | null
+    currency?: string | null
     /** sale | rent: en alquiler el precio es la renta mensual y se pinta con «/mes». */
     transactionType?: string | null
     area?: number | null
@@ -315,7 +316,7 @@ const priceDrop = computed(() => {
 })
 const pricePerM2 = computed(() => {
   if (!props.project.price || !props.project.area) return ''
-  return formatPrice(Math.round(props.project.price / props.project.area))
+  return formatPrice(Math.round(props.project.price / props.project.area), undefined, props.project.currency)
 })
 
 const badges = computed(() => {

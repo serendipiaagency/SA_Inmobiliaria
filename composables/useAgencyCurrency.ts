@@ -1,4 +1,4 @@
-import { agencyCurrencyOrDefault, currencySymbol, formatMoney, type FormatMoneyOptions } from '~/utils/currency'
+import { agencyCurrencyOrDefault, currencySymbol, formatMoney, normalizeIsoCurrency, type FormatMoneyOptions } from '~/utils/currency'
 
 /**
  * La moneda de la agencia en el PANEL (regla completa en `utils/currency.ts`):
@@ -23,8 +23,10 @@ export function useAgencyCurrency() {
   /** Para rótulos: «Presupuesto (€)», «Importe (AED)». */
   const symbol = computed(() => currencySymbol(code.value))
 
-  function format(amount: number | null | undefined, opts: FormatMoneyOptions = {}): string {
-    return formatMoney(amount, code.value, opts)
+  /** Con `currency` (la de la propiedad, ISO 4217) se enseña en ella, sin convertir; sin ella, la de la agencia. */
+  function format(amount: number | null | undefined, opts: FormatMoneyOptions & { currency?: unknown } = {}): string {
+    const { currency, ...rest } = opts
+    return formatMoney(amount, normalizeIsoCurrency(currency) || code.value, rest)
   }
 
   function set(next: string | null | undefined, record?: string | null) {

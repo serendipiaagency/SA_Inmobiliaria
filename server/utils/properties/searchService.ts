@@ -10,6 +10,7 @@ import { inJsonList } from '../sqlChunks'
 import { PROPERTY_AMENITY_KEYS } from '../../../utils/propertySheet'
 import { COMMERCIAL_STATUS_NONE, isCommercialStatus } from '../../../utils/propertyCommercialStatus'
 import { addDaysToIsoDate, parsePropertyDate } from '../../../utils/propertyDates'
+import { agencyCurrencyOrDefault, priceFactorsTo } from '../../../utils/currency'
 
 /**
  * Property Search Service (FASE 27) — el filtro profesional único sobre
@@ -190,7 +191,19 @@ export function propertyTableFor(kind: PropertyKind) {
  * la vista Papelera del listado admin, lo contrario. Así el mismo filtro
  * sirve para las dos vistas sin contradecirse.
  */
-export function buildPropertyFilterConds(kind: PropertyKind, filters: PropertySearchFilters): SQL[] {
+/**
+ * El precio de una propiedad en la moneda de la agencia, para filtrar por rango:
+ * sin moneda propia o con la de la agencia, tal cual; con otra moneda con tasa,
+ * convertido con la tasa orientativa (utils/currency.ts); en una moneda sin tasa,
+ * NULL (no entra en ningún rango: no se compara lo que no se puede comparar).
+ */
+export function priceInAgencyCurrencySql(t: any, agency: unknown): SQL {
+  const to = agencyCurrencyOrDefault(agency)
+  const whens = priceFactorsTo(to).map((f) => sql`when ${t.currency} = ${f.code} then ${t.price} * ${f.factor}`)
+  return sql`(case when ${t.currency} is null or ${t.currency} = '' or ${t.currency} = ${to} then ${t.price} ${sql.join(whens, sql` `)} else null end)`
+}
+
+export function buildPropertyFilterConds(kind: PropertyKind, filters: PropertySearchFilters, agencyCurrency?: string | null): SQL[] {
   const t = propertyTableFor(kind) as any
   const conds: SQL[] = []
   // Toda subconsulta se correlaciona con el id, el catálogo y la ORGANIZACIÓN
@@ -198,8 +211,10 @@ export function buildPropertyFilterConds(kind: PropertyKind, filters: PropertySe
   // agencia no coincide con nada.
   const details = (cond: SQL) =>
     sql`exists (select 1 from property_details pd where pd.organization_id = ${t.organizationId} and pd.property_kind = ${kind} and pd.property_id = ${t.id} and ${cond})`
-  if (filters.priceMin != null) conds.push(gte(t.price, filters.priceMin))
-  if (filters.priceMax != null) conds.push(lte(t.price, filters.priceMax))
+  // Con la moneda de la agencia a mano, los precios en otra moneda se comparan convertidos; sin ella, tal cual (como siempre).
+  const priceCol = agencyCurrency ? priceInAgencyCurrencySql(t, agencyCurrency) : t.price
+  if (filters.priceMin != null) conds.push(gte(priceCol, filters.priceMin))
+  if (filters.priceMax != null) conds.push(lte(priceCol, filters.priceMax))
   if (filters.country) conds.push(like(t.country, `%${filters.country}%`))
   if (filters.city) conds.push(like(t.city, `%${filters.city}%`))
   if (filters.district) conds.push(like(t.district, `%${filters.district}%`))

@@ -128,6 +128,8 @@ const LOCATION_FIELDS: PropertyFieldRule[] = [
 ]
 
 const PRICE_FIELDS: PropertyFieldRule[] = [
+  // La moneda ISO 4217 en la que están los importes de la propiedad (vacía = la de la agencia): la web pública la necesita para enseñarlos bien.
+  rule('currency'),
   rule('price', { requiredForPublish: true, requiredForPortal: true }),
   rule('priceOld'),
   rule('rentalYield'),

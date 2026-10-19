@@ -3,6 +3,7 @@ import { createError } from 'h3'
 import { now, schema } from '../db'
 import { savePropertySheet, type PropertyKind, type SheetPayload } from './extendedSheet'
 import { commercialStatusForAvailability, isCommercialStatus, rowChangesForCommercialStatus } from '../../../utils/propertyCommercialStatus'
+import { normalizeIsoCurrency } from '../../../utils/currency'
 import { PROPERTY_DATE_FIELDS, PROPERTY_DATE_FIELD_LABELS, isStrictIsoDate, parsePropertyDate } from '../../../utils/propertyDates'
 
 /**
@@ -37,6 +38,21 @@ export async function loadCommercialStatus(db: any, orgId: number, kind: Propert
  * si el vencimiento de la exclusiva queda antes de su inicio. `existing` es la
  * fila guardada (null al crear: entonces todo lo que llega es un cambio).
  */
+/**
+ * La moneda propia de una propiedad (ISO 4217): vacía = la de la agencia; con
+ * valor, tiene que ser una de las que la plataforma ofrece. Se guarda en
+ * mayúsculas. Cualquier otra cosa, 422.
+ */
+export function assertPropertyCurrencyOnSave(data: Record<string, any>): void {
+  if (!('currency' in data) || data.currency === null || data.currency === undefined || data.currency === '') {
+    if ('currency' in data) data.currency = null
+    return
+  }
+  const code = normalizeIsoCurrency(data.currency)
+  if (!code) throw createError({ statusCode: 422, statusMessage: 'Tipo de moneda no válido: usa un código ISO 4217 de la lista (por ejemplo EUR, USD o MXN).' })
+  data.currency = code
+}
+
 export function assertPropertyDatesOnSave(data: Record<string, any>, existing: Record<string, any> | null): void {
   const changed = (key: string) => key in data && (!existing || (data[key] ?? null) !== (existing[key] ?? null))
   for (const key of PROPERTY_DATE_FIELDS) {

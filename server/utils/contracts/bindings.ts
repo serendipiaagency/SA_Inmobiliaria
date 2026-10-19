@@ -3,7 +3,7 @@ import { createError, type H3Event } from 'h3'
 import { useDb, schema } from '../db'
 import { trashedPropertyMessage } from '../properties/trash'
 import { organizationCurrency } from '../currency'
-import { formatMoney } from '../../../utils/currency'
+import { formatMoney, propertyCurrency } from '../../../utils/currency'
 import { clockNow } from '../clock'
 
 const TOKEN_RE = /\{\{([a-zA-Z0-9_.]+)\}\}/g
@@ -43,7 +43,7 @@ export async function resolveContractBindings(
     values['property.name'] = property.name
     values['property.community'] = property.community || ''
     // En la moneda de la agencia, en la que está guardado el precio (utils/currency.ts) — antes «€» fijo.
-    values['property.price'] = property.price != null ? formatMoney(property.price, await organizationCurrency(db, orgId)) : ''
+    values['property.price'] = property.price != null ? formatMoney(property.price, propertyCurrency(property, await organizationCurrency(db, orgId))) : ''
   }
 
   return values

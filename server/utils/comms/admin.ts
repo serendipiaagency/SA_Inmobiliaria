@@ -14,7 +14,7 @@ import { formatPhone, whatsappClickToChatUrl } from './phone'
 import { NO_CAPABILITIES, PROVIDERS } from './providers/registry'
 import type { ChannelView, LoadedChannel, OutboundMessage, ProviderCapabilities } from './types'
 import { organizationCurrency } from '../currency'
-import { formatMoney } from '../../../utils/currency'
+import { formatMoney, propertyCurrency } from '../../../utils/currency'
 
 /**
  * Lo que comparten los endpoints de /api/admin/comms: cargar una
@@ -352,6 +352,7 @@ export async function buildPropertyShare(db: any, orgId: number, propertyId: num
         name: schema.developerProperties.name,
         slug: schema.developerProperties.slug,
         price: schema.developerProperties.price,
+        currency: schema.developerProperties.currency,
         community: schema.developerProperties.community,
         coverImage: schema.developerProperties.coverImage,
         bedrooms: schema.developerProperties.bedrooms,
@@ -368,7 +369,7 @@ export async function buildPropertyShare(db: any, orgId: number, propertyId: num
     if (raw.deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('enviarla') })
     const p = toPublicProperty(raw)
     const url = `${origin.replace(/\/$/, '')}/propiedades/${p.slug || p.id}`
-    const facts = [formatPriceEs(p.price, currency), p.bedrooms ? `${p.bedrooms} dorm.` : null, p.area ? `${Math.round(p.area)} m²` : null].filter(Boolean).join(' · ')
+    const facts = [formatPriceEs(p.price, propertyCurrency(p as any, currency)), p.bedrooms ? `${p.bedrooms} dorm.` : null, p.area ? `${Math.round(p.area)} m²` : null].filter(Boolean).join(' · ')
     const lines = [`🏠 ${p.name}`, p.community || null, facts || null, note?.trim() || null, url].filter(Boolean)
     return { id: p.id, kind, name: p.name, url, text: lines.join('\n'), imageLink: p.coverImage ? toMediaLink(String(p.coverImage), origin) : null }
   }
@@ -380,6 +381,7 @@ export async function buildPropertyShare(db: any, orgId: number, propertyId: num
     .select({
       id: schema.agentProperties.id,
       price: schema.agentProperties.price,
+      currency: schema.agentProperties.currency,
       city: schema.agentProperties.city,
       street: schema.agentProperties.street,
       mainImage: schema.agentProperties.mainImage,
@@ -396,7 +398,7 @@ export async function buildPropertyShare(db: any, orgId: number, propertyId: num
   if (raw.deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('enviarla') })
   const p = toPublicProperty(raw) as typeof raw
   const name = p.street || p.city || `Inmueble #${p.id}`
-  const facts = [formatPriceEs(p.price, currency), p.bedrooms ? `${p.bedrooms} dorm.` : null, p.area ? `${Math.round(p.area)} m²` : null].filter(Boolean).join(' · ')
+  const facts = [formatPriceEs(p.price, propertyCurrency(p as any, currency)), p.bedrooms ? `${p.bedrooms} dorm.` : null, p.area ? `${Math.round(p.area)} m²` : null].filter(Boolean).join(' · ')
   const lines = [`🏠 ${name}`, p.city || null, facts || null, note?.trim() || null].filter(Boolean)
   return { id: p.id, kind, name, url: null, text: lines.join('\n'), imageLink: p.mainImage ? toMediaLink(String(p.mainImage), origin) : null }
 }

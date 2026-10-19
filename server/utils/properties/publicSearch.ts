@@ -1,5 +1,7 @@
 import { and, asc, desc, eq, gte, inArray, isNull, like, lte, or, sql, type SQL } from 'drizzle-orm'
 import { schema } from '../db'
+import { organizationCurrency } from '../currency'
+import { priceInAgencyCurrencySql } from './searchService'
 import { livePropertyCond } from './trash'
 import { geoConds, parseGeoFilters, publicCoordsSql } from './geoSearch'
 import { inJsonList } from '../sqlChunks'
@@ -179,8 +181,9 @@ export async function buildPublicSearch(db: any, orgId: number, query: Record<st
   // Precio (en la moneda base de la agencia) y superficie construida: rangos
   // coherentes; con un límite, la propiedad sin dato no entra.
   const [minPrice, maxPrice] = orderedRange(parseAmount(query.minPrice), parseAmount(query.maxPrice))
-  if (minPrice) conds.push(gte(P.price, minPrice))
-  if (maxPrice) conds.push(lte(P.price, maxPrice))
+  const priceCol: SQL | typeof P.price = minPrice || maxPrice ? priceInAgencyCurrencySql(P, await organizationCurrency(db, orgId)) : P.price
+  if (minPrice) conds.push(gte(priceCol as any, minPrice))
+  if (maxPrice) conds.push(lte(priceCol as any, maxPrice))
   const [minArea, maxArea] = orderedRange(parseAmount(query.minArea, 1e6), parseAmount(query.maxArea, 1e6))
   if (minArea) conds.push(gte(P.area, minArea))
   if (maxArea) conds.push(lte(P.area, maxArea))

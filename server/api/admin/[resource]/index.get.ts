@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, isNull, like, or, sql } from 'drizzle-orm'
 import { schema, useDb } from '../../../utils/db'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
+import { organizationCurrency } from '../../../utils/currency'
 import { getResource } from '../../../utils/adminResources'
 import { buildTenantWhere } from '../../../utils/tenantPolicy'
 import { buildPropertyFilterConds, parsePropertyFilters, propertyTextSearchCond, exportPropertyRows, commercialStatusColumnSql, DEVELOPER_PROPERTY_SORTS, PROPERTIES_SORTS, rowsToCsv } from '../../../utils/properties/searchService'
@@ -145,7 +146,9 @@ export default defineEventHandler(async (event) => {
   const isProperties = key === 'properties'
   const propertyFilters = isDeveloperProperties || isProperties ? parsePropertyFilters(query) : null
   if (propertyFilters) {
-    conds.push(...buildPropertyFilterConds(isDeveloperProperties ? 'developer' : 'agent', propertyFilters))
+    // El rango de precio compara en la moneda de la agencia (una propiedad puede tener la suya).
+    const filterCurrency = propertyFilters.priceMin != null || propertyFilters.priceMax != null ? await organizationCurrency(db, orgId!) : null
+    conds.push(...buildPropertyFilterConds(isDeveloperProperties ? 'developer' : 'agent', propertyFilters, filterCurrency))
     // Bulk Actions (FASE 28 incremento 2) — "exportar seleccionadas" reutiliza
     // este mismo endpoint con un filtro por ids, no un mecanismo nuevo (ver
     // docs/bulk-actions.md). Sólo se activa si `ids` llega — el resto de

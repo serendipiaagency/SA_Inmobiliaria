@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNull, lte, or, sql } from 'drizzle-orm'
+import { and, eq, gte, inArray, isNotNull, isNull, lte, or, sql } from 'drizzle-orm'
 import type { H3Event } from 'h3'
 import { useDb, schema, now } from '../db'
 import { evaluateMatch, importanceOf, RULES_VERSION, type MatchResult, type MatchableProperty, type MatchableRequirement } from './engine'
@@ -193,10 +193,10 @@ async function candidatesInCatalog(event: H3Event, orgId: number, kind: Property
     filters.push(or(isNull(P.propertyType), inArray(P.propertyType, matchable.propertyTypes))!)
   }
   if (matchable.priceMax != null) {
-    filters.push(or(isNull(P.price), lte(P.price, matchable.priceMax * (1 + PREFILTER_SLACK)))!)
+    filters.push(or(isNull(P.price), isNotNull(P.currency), lte(P.price, matchable.priceMax * (1 + PREFILTER_SLACK)))!)
   }
   if (matchable.priceMin != null) {
-    filters.push(or(isNull(P.price), gte(P.price, matchable.priceMin * (1 - PREFILTER_SLACK)))!)
+    filters.push(or(isNull(P.price), isNotNull(P.currency), gte(P.price, matchable.priceMin * (1 - PREFILTER_SLACK)))!)
   }
 
   const candidates = await db.select().from(P).where(and(...filters)).limit(MAX_CANDIDATES)

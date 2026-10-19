@@ -349,7 +349,12 @@ const props = withDefaults(defineProps<{ data: any; slug: string; coreOptions?: 
   mode: 'production',
 })
 const { t } = useI18n()
-const { format: formatPrice } = useCurrency()
+// La moneda de la propiedad (si tiene la suya) es la base de todo lo que se pinta en su ficha: precio, hipoteca, análisis…
+// FichaView no ve lo que provee él mismo, así que su propio formato la pasa explícita.
+const { format: formatBasePrice } = useCurrency()
+const propertyCurrency = computed(() => (data.value as any)?.project?.currency ?? null)
+provide('propertyCurrency', propertyCurrency)
+const formatPrice = (amount: number | null | undefined, transactionType?: unknown) => formatBasePrice(amount, transactionType, propertyCurrency.value)
 const { tenant } = useTenant()
 const data = computed<any>(() => props.data)
 const slug = computed(() => props.slug)

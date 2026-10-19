@@ -18,9 +18,12 @@
  * entrada en los dos.
  */
 
-import { CURRENCIES, currencySymbol, DEFAULT_AGENCY_CURRENCY } from '~/utils/currency'
+import { CURRENCIES, currencySymbol, DEFAULT_AGENCY_CURRENCY, ISO_4217_CODES, isoCurrencyLabel } from '~/utils/currency'
 import { PROPERTY_CONDITIONS, PROPERTY_CONDITION_LABELS, PROPERTY_SHEET_GROUPS, PROPERTY_TYPES, PROPERTY_TYPE_LABELS, isRentTransaction, pricePerSquareMeter, type SheetField } from '~/utils/propertySheet'
 import { CATALOG_STATUS_TITLES } from '~/utils/propertyCommercialStatus'
+
+/** Las monedas con tasa (las de la agencia) primero; luego el resto de ISO 4217 por código. */
+const CURRENCY_OPTIONS = [...CURRENCIES.map((c) => c.code), ...ISO_4217_CODES.filter((c) => !CURRENCIES.some((k) => k.code === c))]
 
 export interface FieldSpec {
   key: string
@@ -567,9 +570,9 @@ export function buildPropertySections(catalog: BuilderCatalog): BuilderSection[]
         key: 'currency',
         label: 'Tipo de moneda',
         type: 'select',
-        options: CURRENCIES.map((c) => c.code),
-        optionLabels: Object.fromEntries(CURRENCIES.map((c) => [c.code, `${c.code} — ${c.label}`])),
-        hint: 'La moneda en la que está expresado el precio. Vacío: la moneda de la inmobiliaria. No se convierte ningún importe al guardar.',
+        options: CURRENCY_OPTIONS,
+        optionLabels: Object.fromEntries(CURRENCY_OPTIONS.map((code) => [code, isoCurrencyLabel(code)])),
+        hint: 'La moneda ISO 4217 en la que está expresado el precio. Vacío: la moneda de la inmobiliaria. No se convierte ningún importe al guardar; la web pública sólo lo convierte para el visitante si hay tasa para esa moneda (si no, lo enseña en la de la propiedad).',
         group: 'Precio principal',
       },
       { key: 'price', label: 'Precio', labelFor: priceLabel('Precio'), type: 'number', required: true, group: 'Precio principal' },

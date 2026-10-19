@@ -87,13 +87,13 @@ function act(action: 'toggle-sold' | 'duplicate' | 'delete') {
   emit(action as any, props.property.id)
 }
 
-// Moneda de la agencia, sin convertir (utils/currency.ts) — antes «€» fijo.
+// Moneda de la propiedad (o la de la agencia si no tiene), sin convertir (utils/currency.ts).
 // En alquiler el precio es la renta de cada mes (cierre D1p): «1.200 € /mes».
 const { format: formatAgencyMoney } = useAgencyCurrency()
 function formatPrice(v: number | null | undefined) {
   if (typeof v !== 'number') return '—'
   const suffix = priceSuffixFor(props.property.transactionType)
-  return `${formatAgencyMoney(v)}${suffix ? ` ${suffix}` : ''}`
+  return `${formatAgencyMoney(v, { currency: props.property.currency })}${suffix ? ` ${suffix}` : ''}`
 }
 function formatDate(v: string | null | undefined) {
   return v ? new Date(v).toLocaleDateString('es-ES') : '—'

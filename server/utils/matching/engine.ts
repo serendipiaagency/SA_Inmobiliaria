@@ -32,7 +32,7 @@
 import type { Importance, ZoneRef } from '../buyerRequirements/service'
 import { CRITERION_LABELS, FEATURE_CRITERIA, FEATURE_SOURCES, defaultImportanceOf, type FeatureCriterion } from '../../../utils/buyerRequirementCatalog'
 import { PROPERTY_CONDITION_LABELS, PROPERTY_TYPE_LABELS } from '../../../utils/propertySheet'
-import { formatMoney } from '../../../utils/currency'
+import { agencyCurrencyOrDefault, canConvert, convertAmount, formatMoney, normalizeIsoCurrency } from '../../../utils/currency'
 
 /**
  * Sube cuando cambian los pesos o las reglas, para que un breakdown guardado siga siendo interpretable.
@@ -120,6 +120,8 @@ export interface MatchableProperty {
   transactionType?: string | null
   propertyType?: string | null
   price?: number | null
+  /** Moneda propia del inmueble (ISO 4217); vacía = la de la agencia. */
+  currency?: string | null
   area?: number | null
   bedrooms?: number | null
   bathrooms?: number | null
@@ -527,7 +529,20 @@ export function evaluateMatch(property: MatchableProperty, requirement: Matchabl
     }
   }
 
-  push('price', evaluateRange(property.price, requirement.priceMin, requirement.priceMax, money, 'precio'))
+  // El presupuesto de la necesidad está en la moneda de la agencia; el precio de un inmueble en otra moneda se compara convertido
+  // con la tasa orientativa y, si no hay tasa, no se da por bueno ni por malo (utils/currency.ts, «Política de moneda»).
+  const agency = agencyCurrencyOrDefault(opts.currency)
+  const own = normalizeIsoCurrency(property.currency)
+  if (own && own !== agency && property.price != null && (requirement.priceMin != null || requirement.priceMax != null)) {
+    push(
+      'price',
+      canConvert(own, agency)
+        ? evaluateRange(Math.round(convertAmount(property.price, own, agency)), requirement.priceMin, requirement.priceMax, money, 'precio')
+        : { outcome: 'unknown', detail: `el precio está en ${own} y no hay una tasa para compararlo con ${agency}` },
+    )
+  } else {
+    push('price', evaluateRange(property.price, requirement.priceMin, requirement.priceMax, money, 'precio'))
+  }
   push('area', evaluateRange(property.area, requirement.areaMin, requirement.areaMax, (n) => `${n} m²`, 'superficie'))
   push('bedrooms', evaluateRange(property.bedrooms, requirement.bedroomsMin, null, (n) => `${n} dorm.`, 'número de dormitorios'))
   push('bathrooms', evaluateRange(property.bathrooms, requirement.bathroomsMin, null, (n) => `${n} baños`, 'número de baños'))
