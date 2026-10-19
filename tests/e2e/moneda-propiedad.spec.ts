@@ -10,6 +10,7 @@ const RUN = Date.now().toString(36)
  * propia sigue en la de la agencia.
  */
 test.describe('Moneda por propiedad', () => {
+  test.use({ storageState: STATE_A })
   let a: APIRequestContext
   let developerId: number
   const ids: number[] = []
@@ -49,7 +50,7 @@ test.describe('Moneda por propiedad', () => {
     expect((pub.project || pub).currency).toBe('MXN')
 
     await page.goto(`/propiedades/${row.slug}`)
-    const price = page.getByTestId('ficha-price')
+    const price = page.getByTestId('ficha-aside').getByTestId('ficha-price')
     await expect(price).toBeVisible()
     await expect(price).toContainText('MXN')
     await expect(price).toContainText('4.500.000')
@@ -59,7 +60,7 @@ test.describe('Moneda por propiedad', () => {
     const row = await create({})
     expect(row.currency ?? null).toBeNull()
     await page.goto(`/propiedades/${row.slug}`)
-    const price = page.getByTestId('ficha-price')
+    const price = page.getByTestId('ficha-aside').getByTestId('ficha-price')
     await expect(price).toBeVisible()
     await expect(price).not.toContainText('MXN')
   })

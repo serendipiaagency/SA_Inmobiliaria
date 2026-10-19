@@ -22,7 +22,7 @@ import {
   savePropertySheet,
   type SheetPayload,
 } from './properties/extendedSheet'
-import { applyCommercialStatusRulesOnSave, assertPropertyDatesOnSave } from './properties/commercialStatus'
+import { applyCommercialStatusRulesOnSave, assertPropertyCurrencyOnSave, assertPropertyDatesOnSave } from './properties/commercialStatus'
 
 /**
  * El alta genérica de una fila de un recurso del panel
@@ -95,6 +95,7 @@ export async function insertResourceRecord(
     await assertSheetReferences(db, sheet, orgId!)
     // Cierre D1p: fechas de gestión en AAAA-MM-DD y estado comercial ↔ «Reservada» / disponibilidad.
     assertPropertyDatesOnSave(data, null)
+    assertPropertyCurrencyOnSave(data)
     await applyCommercialStatusRulesOnSave(db, orgId!, propertyKind, null, data, sheet, null)
     // Quién dio de alta la propiedad: siempre la sesión, nunca el cliente.
     data.createdBy = user.id

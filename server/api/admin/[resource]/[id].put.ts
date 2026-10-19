@@ -29,7 +29,7 @@ import {
   type SheetPayload,
 } from '../../../utils/properties/extendedSheet'
 import { isSubtypeOf } from '../../../../utils/propertySheet'
-import { applyCommercialStatusRulesOnSave, assertPropertyDatesOnSave } from '../../../utils/properties/commercialStatus'
+import { applyCommercialStatusRulesOnSave, assertPropertyCurrencyOnSave, assertPropertyDatesOnSave } from '../../../utils/properties/commercialStatus'
 import { isPropertyTrashed } from '../../../utils/properties/trash'
 import { documentUpdateFromBody, grantDocumentAccess, revokeDocumentAccess } from '../../../utils/properties/documents'
 import { PROPERTY_FILE_COLUMNS, enforceSingleMainMedia, releaseMediaKeyIfUnreferenced, syncMediaKeyVisibility, assertOwnedThumbKey, validatePropertyMedia } from '../../../utils/properties/media'
@@ -253,6 +253,7 @@ export default defineEventHandler(async (event) => {
     // convivencia del estado comercial con «Reservada» y la disponibilidad
     // (sólo si el estado comercial o la disponibilidad cambian).
     assertPropertyDatesOnSave(data, existing as Record<string, any>)
+    assertPropertyCurrencyOnSave(data)
     await applyCommercialStatusRulesOnSave(db, orgId!, propertyKind, id, data, sheet, existing as Record<string, any>)
   }
   // Motivo del cambio de precio (opcional): viaja con el PUT de la ficha y
