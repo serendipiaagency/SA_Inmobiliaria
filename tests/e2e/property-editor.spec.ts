@@ -185,6 +185,39 @@ test.describe('Property Editor — los cuatro recorridos', () => {
     expect(row.propertyType).toBe('Villa')
   })
 
+  test('Propietarios antes del primer guardado: se añaden en una ficha nueva y se persisten con el alta', async ({ page }) => {
+    const slug = `editor-ui-dueno-${RUN}`
+    const contactName = `Dueña Pendiente ${RUN}`
+    const c = await a.post('/api/admin/contacts', { data: { name: contactName, email: `duena-${RUN}@mm.test` } })
+    expect(c.ok()).toBeTruthy()
+    const contactId = (await c.json()).id
+    await page.goto('/admin/properties/new')
+    await page.getByTestId('property-group-toggle-info').filter({ hasText: 'SEO' }).click()
+    await page.locator('[data-field="slug"] input').fill(slug)
+    await page.locator('[data-field="propertyType"] select').selectOption('Villa')
+    await step(page, 'price').click()
+    await page.locator('[data-field="price"] input').fill('300000')
+
+    await step(page, 'owners').click()
+    await expect(visible(page, 'property-contacts-pending-note')).toBeVisible()
+    await page.getByTestId('property-contact-search').fill(contactName)
+    await page.getByTestId(`property-contact-result-${contactId}`).click()
+    await page.getByTestId('property-contact-new-pct').fill('100')
+    await page.getByTestId('property-contact-add').click()
+    await expect(page.getByTestId('property-contact-row')).toHaveCount(1)
+
+    await page.getByTestId('property-editor-save').click()
+    await expect(page).toHaveURL(/\/admin\/properties\/\d+$/)
+    const id = Number(page.url().split('/').pop())
+    createdProperties.push(id)
+    const rows = (await (await a.get('/api/admin/property-contacts', { params: { propertyKind: 'agent', propertyId: String(id) } })).json()).rows
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ contactId, role: 'owner', ownershipPct: 100 })
+    await step(page, 'owners').click()
+    await expect(page.getByTestId('property-contact-row')).toHaveCount(1)
+    await expect(visible(page, 'property-contacts-pending-note')).toHaveCount(0)
+  })
+
   test('crear una propiedad web desde el editor persiste nombre, promotora y precio', async ({ page }) => {
     const name = `Editor UI torre ${RUN}`
     await page.goto('/admin/developer-properties/new')

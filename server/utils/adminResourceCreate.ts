@@ -1,3 +1,5 @@
+import { and, eq } from 'drizzle-orm'
+import { schema } from './db'
 import type { H3Event } from 'h3'
 import type { SessionUser } from './auth'
 import { buildPayload, syncTranslations, assertPayloadReferences, rethrowUniqueViolation, type ResourceDef } from './adminResources'
@@ -5,7 +7,7 @@ import { authorizeRecord } from './tenantPolicy'
 import { uniquePropertySlug } from './properties/slug'
 import { validatePermissionsInput } from './permissions'
 import { getPropertySchemaFor, validateAgainstSchema } from './propertySchema/registry'
-import { validatePropertyContact, validateNotePayload, ensureContactRole } from './contacts/crm'
+import { validatePropertyContact, validateNotePayload, ensureContactRole, validateInitialOwners, insertInitialOwners, type InitialOwner } from './contacts/crm'
 import { validateRoutingRule } from './leads/routing'
 import { enforceSingleMainMedia, syncMediaKeyVisibility, assertOwnedThumbKey, validatePropertyMedia } from './properties/media'
 import { validateCustomFieldDefinition } from './customFields/service'
@@ -81,6 +83,7 @@ export async function insertResourceRecord(
   // incompleta debe poder crearse como borrador (§21); ver docs/property-schema-registry.md.
   const propertyKind = propertyKindForResource(key)
   let sheet: SheetPayload | null = null
+  let initialOwners: InitialOwner[] = []
   if (propertyKind) {
     const propertySchema = getPropertySchemaFor(key === 'developer-properties' ? 'developer' : 'agent', data.propertyType ?? null)
     const result = validateAgainstSchema(propertySchema, data, 'save')
@@ -95,6 +98,8 @@ export async function insertResourceRecord(
     await applyCommercialStatusRulesOnSave(db, orgId!, propertyKind, null, data, sheet, null)
     // Quién dio de alta la propiedad: siempre la sesión, nunca el cliente.
     data.createdBy = user.id
+    // Propietarios elegidos antes del primer guardado: se validan TODOS antes de crear nada.
+    initialOwners = await validateInitialOwners(db, orgId!, body?.owners)
   }
   // Propietarios/contactos de una propiedad y notas: la propiedad o la
   // entidad a la que apuntan se valida por tipo (y por organización) antes de
@@ -134,7 +139,17 @@ export async function insertResourceRecord(
   // Una foto que nace privada deja de servirse sin sesión desde el primer momento.
   // (la propiedad padre ya se comprobó de esta agencia en assertPayloadReferences).
   if ((key === 'project-images' || key === 'gallery-images') && data.isPrivate) await syncMediaKeyVisibility(db, orgId!, data.image)
-  if (propertyKind && sheet && hasSheetChanges(sheet)) await savePropertySheet(db, orgId!, propertyKind, id, sheet, user.id)
+  if (propertyKind) {
+    // Todo o nada: si los propietarios o la ficha ampliada no se pueden escribir, la propiedad recién creada no se queda a medias.
+    try {
+      if (sheet && hasSheetChanges(sheet)) await savePropertySheet(db, orgId!, propertyKind, id, sheet, user.id)
+      await insertInitialOwners(db, orgId!, propertyKind, id, initialOwners, user.id)
+    } catch (e) {
+      await db.delete(schema.propertyContacts).where(and(eq(schema.propertyContacts.organizationId, orgId!), eq(schema.propertyContacts.propertyKind, propertyKind), eq(schema.propertyContacts.propertyId, id))).catch(() => {})
+      await db.delete(def.table).where(eq(def.table.id, id)).catch(() => {})
+      throw e
+    }
+  }
   // Vincular a alguien como propietario de una propiedad le da el rol «Propietario».
   if (key === 'property-contacts' && (data.role === 'owner' || data.role === 'co_owner')) await ensureContactRole(db, orgId!, data.contactId, 'owner', user.id)
 
