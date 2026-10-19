@@ -6,7 +6,7 @@ import { trashedPropertyMessage } from '../properties/trash'
 import { toPublicProperty } from '../propertyPrivacy'
 import { listPublicGallery } from '../properties/media'
 import { organizationCurrency } from '../currency'
-import { formatMoney } from '../../../utils/currency'
+import { formatMoney, propertyCurrency } from '../../../utils/currency'
 import { PROPERTY_TYPE_LABELS } from '../../../utils/propertySheet'
 
 export interface AssetBindings {
@@ -15,7 +15,7 @@ export interface AssetBindings {
   images: Record<string, string | null>
 }
 
-/** Precio en la moneda de la agencia, en la que se guarda (utils/currency.ts) — antes «€» fijo. */
+/** Precio en la moneda de la propiedad (o la de la agencia si no tiene la suya), en la que se guarda (utils/currency.ts). */
 function formatPrice(price: number | null | undefined, currency: string): string {
   if (price == null) return 'Precio a consultar'
   return formatMoney(price, currency)
@@ -96,8 +96,8 @@ export async function resolveAssetBindings(
   const values: Record<string, string> = {
     'asset.title': asset.name || '',
     'asset.reference': String(asset.id),
-    'asset.price': formatPrice(asset.price, currency),
-    'asset.pricePerSquareMeter': asset.price && asset.area ? formatPrice(asset.price / asset.area, currency) : '',
+    'asset.price': formatPrice(asset.price, propertyCurrency(asset, currency)),
+    'asset.pricePerSquareMeter': asset.price && asset.area ? formatPrice(asset.price / asset.area, propertyCurrency(asset, currency)) : '',
     'asset.location': asset.community || asset.street || '',
     'asset.city': asset.community || '',
     'asset.propertyType': typeLabel(asset.propertyType),
@@ -193,8 +193,8 @@ export async function resolveAgentAssetBindings(event: H3Event, params: { orgId:
   const values: Record<string, string> = {
     'asset.title': agentCatalogTitle(p),
     'asset.reference': String(asset.id),
-    'asset.price': formatPrice(p.price, currency),
-    'asset.pricePerSquareMeter': p.price && p.area ? formatPrice(p.price / p.area, currency) : '',
+    'asset.price': formatPrice(p.price, propertyCurrency(p, currency)),
+    'asset.pricePerSquareMeter': p.price && p.area ? formatPrice(p.price / p.area, propertyCurrency(p, currency)) : '',
     'asset.location': agentCatalogZone(p),
     'asset.city': p.city || '',
     'asset.propertyType': typeLabel(p.propertyType),

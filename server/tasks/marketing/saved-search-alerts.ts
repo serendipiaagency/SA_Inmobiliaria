@@ -4,7 +4,7 @@ import * as schema from '../../db/schema'
 import { sendTransactionalEmail } from '../../utils/email/send'
 import { buildPublicSearch } from '../../utils/properties/publicSearch'
 import { organizationCurrency } from '../../utils/currency'
-import { formatMoney } from '../../../utils/currency'
+import { formatMoney, propertyCurrency } from '../../../utils/currency'
 
 function fmt(d: Date): string {
   return d.toISOString().replace('T', ' ').slice(0, 19)
@@ -71,7 +71,7 @@ export default defineTask<{ skipped: true; reason: string } | { checked: number;
         const currency = await organizationCurrency(db, search.organizationId)
         const items = matches
           .slice(0, 10)
-          .map((p) => `${p.name}${p.community ? ` — ${p.community}` : ''}${p.price ? ` — ${formatMoney(p.price, currency)}` : ''}`)
+          .map((p) => `${p.name}${p.community ? ` — ${p.community}` : ''}${p.price ? ` — ${formatMoney(p.price, propertyCurrency(p, currency))}` : ''}`)
         const [result] = await sendTransactionalEmail(db, env, {
           organizationId: search.organizationId,
           template: 'saved_search_alert',

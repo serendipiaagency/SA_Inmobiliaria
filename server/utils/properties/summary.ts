@@ -236,6 +236,8 @@ export async function buildPropertySummary(event: H3Event, db: any, env: Record<
     commercialStatus,
     commercialStatusLabel: commercialStatus ? COMMERCIAL_STATUS_LABELS[commercialStatus] || commercialStatus : null,
     transactionType: row.transactionType ?? null,
+    // La moneda propia de la propiedad (ISO 4217); vacía = la de la agencia.
+    currency: row.currency ?? null,
     price: row.price ?? null,
     priceOld: row.priceOld ?? null,
     isExclusive: !!row.isExclusive,

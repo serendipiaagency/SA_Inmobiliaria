@@ -1,4 +1,4 @@
-import { CURRENCIES, DEFAULT_AGENCY_CURRENCY, currencyInfo, formatDisplayPrice, normalizeCurrency, type CurrencyInfo } from '~/utils/currency'
+import { CURRENCIES, DEFAULT_AGENCY_CURRENCY, currencyInfo, formatDisplayPrice, normalizeCurrency, normalizeIsoCurrency, type CurrencyInfo } from '~/utils/currency'
 import { isRentTransaction } from '~/utils/propertySheet'
 
 /**
@@ -13,6 +13,12 @@ import { isRentTransaction } from '~/utils/propertySheet'
  * - Dentro del panel (Constructor Web, inspectores, editor de propiedades) la
  *   base es la moneda de la agencia de la sesión (`agency-currency`, que pone
  *   `layouts/admin.vue`) y nunca se convierte: el panel no tiene visitante.
+ *
+ * - Una propiedad puede tener SU moneda (`currency`, ISO 4217): en una ficha,
+ *   `FichaView` la ofrece con `provide('propertyCurrency')` y pasa a ser la
+ *   base de todo lo que se pinta debajo (precio, hipoteca, análisis); en un
+ *   listado, cada tarjeta la pasa como 3.er argumento de `format`/`compact`.
+ *   Si no hay tasa para ella, se enseña en la suya sin convertir.
  *
  * La elección del visitante vive en la cookie `display_currency`. La de antes
  * (`currency`) se escribía siempre con «AED» por defecto, así que no dice
@@ -32,10 +38,18 @@ export function useCurrency() {
 
   const inAdmin = computed(() => !!agencyCurrency.value && route.path.startsWith('/admin'))
   /** Moneda en la que están guardados los importes que se pintan. */
-  const base = computed(() => (inAdmin.value ? normalizeCurrency(agencyCurrency.value) : normalizeCurrency(tenant.value?.currency)) || DEFAULT_AGENCY_CURRENCY)
+  const agencyBase = computed(() => (inAdmin.value ? normalizeCurrency(agencyCurrency.value) : normalizeCurrency(tenant.value?.currency)) || DEFAULT_AGENCY_CURRENCY)
+  // La moneda de la propiedad que se está viendo (ficha), si la tiene.
+  const injected = getCurrentInstance() ? inject<Ref<unknown> | null>('propertyCurrency', null) : null
+  const base = computed(() => normalizeIsoCurrency(injected?.value) || agencyBase.value)
   /** Moneda en la que se enseñan. */
   const code = computed(() => (inAdmin.value ? base.value : chosen.value || base.value))
   const current = computed<CurrencyInfo>(() => currencyInfo(code.value))
+
+  /** La base de UNA propiedad de un listado: la suya, o la general (agencia / ficha). */
+  function forProperty(propertyCurrency?: unknown): string {
+    return normalizeIsoCurrency(propertyCurrency) || base.value
+  }
 
   function setCurrency(next: string) {
     const c = normalizeCurrency(next)
@@ -50,8 +64,8 @@ export function useCurrency() {
    * el idioma del visitante (`utils/propertySheet.ts`: el precio de un
    * alquiler ES la renta mensual).
    */
-  function format(amount: number | null | undefined, transactionType?: unknown): string {
-    const out = formatDisplayPrice(amount, base.value, code.value)
+  function format(amount: number | null | undefined, transactionType?: unknown, propertyCurrency?: unknown): string {
+    const out = formatDisplayPrice(amount, forProperty(propertyCurrency), code.value)
     return isRentTransaction(transactionType) ? `${out}${t('price.perMonth', '/mes')}` : out
   }
 
@@ -61,8 +75,8 @@ export function useCurrency() {
   }
 
   /** Forma compacta para mapas e insignias: «AED 1.2M», «312k €», «$1.4M». */
-  function compact(amount: number | null | undefined): string {
-    return formatDisplayPrice(amount, base.value, code.value, { compact: true })
+  function compact(amount: number | null | undefined, propertyCurrency?: unknown): string {
+    return formatDisplayPrice(amount, forProperty(propertyCurrency), code.value, { compact: true })
   }
 
   return { code, base, current, currencies: CURRENCIES, setCurrency, format, perM2Suffix, compact }

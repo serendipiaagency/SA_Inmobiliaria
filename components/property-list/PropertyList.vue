@@ -385,7 +385,7 @@
                   type="number"
                   :label="p.transactionType === 'rent' ? 'Renta mensual' : 'Precio'"
                   :value="p.price ?? null"
-                  :display="formatPrice(p.price, p.transactionType)"
+                  :display="formatPrice(p.price, p.transactionType, p.currency)"
                   :editable="canWriteProperties"
                   :validate="validateInlinePrice"
                   placeholder="p. ej. 450.000"
@@ -989,10 +989,10 @@ watch(
 )
 
 /** Con operación alquiler el precio es la renta de cada mes (cierre D1p): «1.200 € /mes». En la moneda de la agencia, sin convertir (D3b). */
-function formatPrice(v: number | null | undefined, transactionType?: string | null) {
+function formatPrice(v: number | null | undefined, transactionType?: string | null, currency?: string | null) {
   if (typeof v !== 'number') return '—'
   const suffix = priceSuffixFor(transactionType)
-  return `${formatAgencyMoney(v)}${suffix ? ` ${suffix}` : ''}`
+  return `${formatAgencyMoney(v, { currency })}${suffix ? ` ${suffix}` : ''}`
 }
 
 /**

@@ -367,7 +367,7 @@ function setBase(key: TileKey) {
 function makeIcon(p: any, active = false) {
   return L.divIcon({
     className: '',
-    html: `<div class="map-pin${active ? ' map-pin-active' : ''}">${p.price ? priceShort(p.price) : '—'}</div>`,
+    html: `<div class="map-pin${active ? ' map-pin-active' : ''}">${p.price ? priceShort(p.price, p.currency) : '—'}</div>`,
     iconSize: [64, 28],
     iconAnchor: [32, 28],
   })
@@ -438,7 +438,7 @@ function buildMarkers() {
         `<div class="map-card-body">` +
         `<a href="${href}" class="map-card-name">${p.name}</a>` +
         `<p class="map-card-loc">${p.community || ''}</p>` +
-        `<p class="map-card-price">${formatPrice(p.price || 0, p.transactionType)}</p>` +
+        `<p class="map-card-price">${formatPrice(p.price || 0, p.transactionType, p.currency)}</p>` +
         `<div class="map-card-links">` +
         `<a href="${href}">${t('map.popup.viewDetails', 'Ver ficha')}</a>` +
         `<a href="${sv}" target="_blank" rel="noopener">${t('map.popup.streetView', 'Street View')}</a></div></div></div>`,

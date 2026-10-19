@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import type { MarketStats } from './market'
 import { loopbackOrigin } from './loopback'
-import { DEFAULT_AGENCY_CURRENCY, convertAmount, formatMoney } from '../../utils/currency'
+import { DEFAULT_AGENCY_CURRENCY, convertAmount, formatMoney, propertyCurrency } from '../../utils/currency'
 
 /**
  * AI content engine.
@@ -75,7 +75,7 @@ function statusText(s: string) {
 function fallback(kind: ContentKind, p: any, orgName?: string, currency: string = DEFAULT_AGENCY_CURRENCY): string {
   const brand = orgName || 'nuestra inmobiliaria'
   const name = p.name
-  const price = money(p.price, currency)
+  const price = money(p.price, propertyCurrency(p, currency))
   const fx = features(p)
   const fxText = fx.length ? fx.join(', ') : 'acabados de calidad'
   const loc = p.community || 'una ubicación privilegiada'
@@ -230,7 +230,7 @@ function propContext(p: any, currency: string = DEFAULT_AGENCY_CURRENCY): string
     `Nombre: ${p.name}`,
     `Tipo: ${p.propertyType || '—'}`,
     `Estado: ${statusText(p.status)}`,
-    `Precio: ${money(p.price, currency)}`,
+    `Precio: ${money(p.price, propertyCurrency(p, currency))}`,
     `Dormitorios: ${p.bedrooms ?? '—'}`,
     `Baños: ${p.bathrooms ?? '—'}`,
     `Superficie: ${p.area ? Math.round(p.area) + ' m²' : '—'}`,
@@ -309,7 +309,7 @@ function fallbackAnalysis(p: any, m: MarketStats, currency: string = DEFAULT_AGE
   }
 
   if (p.priceOld && p.price && p.priceOld > p.price) {
-    parts.push(`El precio ya ha bajado desde ${money(p.priceOld, currency)}, lo que puede indicar margen de negociación adicional.`)
+    parts.push(`El precio ya ha bajado desde ${money(p.priceOld, propertyCurrency(p, currency))}, lo que puede indicar margen de negociación adicional.`)
   }
 
   parts.push(

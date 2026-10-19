@@ -28,9 +28,9 @@
         </div>
         <div>
           <dt class="text-[11px] uppercase tracking-wide text-stone-400">{{ isRent ? 'Renta mensual' : 'Precio' }}</dt>
-          <dd class="font-medium text-ink" data-testid="property-summary-price">{{ summary.price != null ? `${formatCurrency(summary.price)}${isRent ? ' /mes' : ''}` : '—' }}</dd>
-          <dd v-if="summary.priceOld" class="text-[11px] text-stone-400 line-through">{{ formatCurrency(summary.priceOld) }}</dd>
-          <dd v-if="summary.pricePerM2" class="text-[11px] text-stone-500" data-testid="property-summary-price-m2">{{ formatCurrency(summary.pricePerM2) }}{{ pricePerM2SuffixFor(summary.transactionType) }}</dd>
+          <dd class="font-medium text-ink" data-testid="property-summary-price">{{ summary.price != null ? `${formatCurrency(summary.price, { currency: summary.currency })}${isRent ? ' /mes' : ''}` : '—' }}</dd>
+          <dd v-if="summary.priceOld" class="text-[11px] text-stone-400 line-through">{{ formatCurrency(summary.priceOld, { currency: summary.currency }) }}</dd>
+          <dd v-if="summary.pricePerM2" class="text-[11px] text-stone-500" data-testid="property-summary-price-m2">{{ formatCurrency(summary.pricePerM2, { currency: summary.currency }) }}{{ pricePerM2SuffixFor(summary.transactionType) }}</dd>
         </div>
         <div>
           <dt class="text-[11px] uppercase tracking-wide text-stone-400">Canales</dt>

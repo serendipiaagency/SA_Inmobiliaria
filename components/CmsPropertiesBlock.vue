@@ -9,7 +9,7 @@
           <img :src="mediaUrl(p.coverImage)" :alt="p.name" class="h-full w-full object-cover" loading="lazy" >
         </div>
         <p class="mt-3 font-serif text-lg font-medium">{{ p.name }}</p>
-        <p class="text-sm text-stone-450">{{ p.community }} · {{ p.bedrooms }} hab · {{ formatPrice(p.price, p.transactionType) }}</p>
+        <p class="text-sm text-stone-450">{{ p.community }} · {{ p.bedrooms }} hab · {{ formatPrice(p.price, p.transactionType, p.currency) }}</p>
       </NuxtLink>
     </div>
     <p v-else class="text-sm text-stone-450">No hay propiedades disponibles ahora mismo.</p>

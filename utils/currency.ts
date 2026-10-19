@@ -22,6 +22,18 @@
  *     igual que `DEFAULT_AGENCY_TIMEZONE` es Asia/Dubái. No se cambia ningún
  *     dato: una agencia que trabaja en euros elige EUR en Configuración.
  *
+ *
+ * Política de moneda POR PROPIEDAD (Cola 11): una propiedad puede llevar su
+ * propia moneda ISO 4217 (`currency`, vacía = la de la agencia). Sus importes
+ * (precio, precio anterior, gastos de comunidad…) están SIEMPRE en esa moneda:
+ * nada se convierte al guardar ni al leer. El panel, los emails, PDFs y
+ * exportaciones la enseñan en la suya (`propertyCurrency`). La web pública
+ * convierte para el visitante sólo si hay tasa orientativa (`canConvert`); si
+ * no, enseña el importe en la moneda de la propiedad. Los cálculos que
+ * comparan importes de propiedades distintas (compatibilidad con el
+ * presupuesto, filtros de precio) comparan en la moneda de la agencia y no
+ * dan por bueno un importe en otra moneda sin tasa.
+ *
  * Sin dependencias de Nuxt ni del navegador: lo importan los composables,
  * los componentes y `server/utils` (con ruta relativa) por igual.
  */
@@ -57,6 +69,55 @@ export const DEFAULT_AGENCY_CURRENCY = 'AED'
 
 const BY_CODE = new Map(CURRENCIES.map((c) => [c.code, c]))
 
+/**
+ * Monedas ISO 4217 en uso habitual que se pueden asignar a UNA PROPIEDAD
+ * (selector «Tipo de moneda» del editor). Son más que las `CURRENCIES` de la
+ * agencia y de la web pública, que son las únicas con tasa orientativa: una
+ * propiedad puede estar en cualquier moneda de esta lista y se enseña SIEMPRE
+ * en la suya; sólo se convierte (selector del visitante) entre las que
+ * tienen tasa. Nunca se inventa una tasa que no existe.
+ */
+export const ISO_4217_CODES: readonly string[] = [
+  'AED', 'ALL', 'AMD', 'ARS', 'AUD', 'AZN', 'BAM', 'BBD', 'BDT', 'BGN', 'BHD', 'BOB', 'BRL', 'BSD', 'BYN', 'CAD', 'CHF', 'CLP', 'CNY', 'COP',
+  'CRC', 'CUP', 'CZK', 'DKK', 'DOP', 'DZD', 'EGP', 'ETB', 'EUR', 'GBP', 'GEL', 'GHS', 'GTQ', 'HKD', 'HNL', 'HUF', 'IDR', 'ILS', 'INR', 'ISK',
+  'JMD', 'JOD', 'JPY', 'KES', 'KRW', 'KWD', 'KZT', 'LBP', 'LKR', 'MAD', 'MDL', 'MKD', 'MUR', 'MXN', 'MYR', 'NGN', 'NIO', 'NOK', 'NZD', 'OMR',
+  'PAB', 'PEN', 'PHP', 'PKR', 'PLN', 'PYG', 'QAR', 'RON', 'RSD', 'RUB', 'SAR', 'SEK', 'SGD', 'THB', 'TND', 'TRY', 'TTD', 'TWD', 'TZS', 'UAH',
+  'UGX', 'USD', 'UYU', 'VES', 'VND', 'XAF', 'XOF', 'ZAR',
+]
+const ISO_SET = new Set(ISO_4217_CODES)
+
+/** Código ISO 4217 en mayúsculas si la plataforma lo ofrece para una propiedad («eur» → «EUR»); null si no. */
+export function normalizeIsoCurrency(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const code = value.trim().toUpperCase()
+  return ISO_SET.has(code) ? code : null
+}
+
+/**
+ * La moneda en la que está expresado el importe de una propiedad: la suya si
+ * la tiene (ISO válido) y, si no, la de la agencia. Ver «Política de moneda»
+ * más abajo.
+ */
+export function propertyCurrency(property: { currency?: unknown } | null | undefined, agency: unknown): string {
+  return normalizeIsoCurrency(property?.currency) || agencyCurrencyOrDefault(agency)
+}
+
+/** ¿Hay tasa orientativa para convertir entre estas dos monedas? Sólo entre las de `CURRENCIES`. */
+export function canConvert(from: unknown, to: unknown): boolean {
+  return typeof from === 'string' && typeof to === 'string' && BY_CODE.has(from.toUpperCase()) && BY_CODE.has(to.toUpperCase())
+}
+
+/** Nombre en castellano de una moneda ISO («Euro», «Dólar estadounidense»), con el código. */
+export function isoCurrencyLabel(code: string): string {
+  let name = code
+  try {
+    name = new Intl.DisplayNames(['es'], { type: 'currency' }).of(code) || code
+  } catch {
+    /* sin Intl.DisplayNames: el código a secas */
+  }
+  return `${code} — ${name.charAt(0).toUpperCase()}${name.slice(1)}`
+}
+
 /** Código ISO en mayúsculas si es una moneda que la plataforma conoce («eur» → «EUR»); null si no. */
 export function normalizeCurrency(value: unknown): string | null {
   if (typeof value !== 'string') return null
@@ -75,7 +136,8 @@ export function currencyInfo(code: unknown): CurrencyInfo {
 
 /** Rótulo corto para etiquetas de formulario: «€», «AED», «$». */
 export function currencySymbol(code: unknown): string {
-  return currencyInfo(code).symbol
+  const iso = normalizeIsoCurrency(code)
+  return iso && !BY_CODE.has(iso) ? iso : currencyInfo(code).symbol
 }
 
 /**
@@ -123,7 +185,7 @@ export interface FormatMoneyOptions {
  */
 export function formatMoney(amount: number | null | undefined, currency: unknown, opts: FormatMoneyOptions = {}): string {
   if (amount === null || amount === undefined || !Number.isFinite(Number(amount))) return opts.empty ?? '—'
-  const code = agencyCurrencyOrDefault(currency)
+  const code = normalizeIsoCurrency(currency) || agencyCurrencyOrDefault(currency)
   const n = Number(amount)
   if (opts.compact && Math.abs(n) >= 1e3) {
     const value = plainSpaces(Math.abs(n) >= 1e6 ? `${new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 }).format(n / 1e6)} M` : `${new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 }).format(Math.round(n / 1e3))} mil`)
@@ -141,6 +203,8 @@ export function formatMoney(amount: number | null | undefined, currency: unknown
  */
 export function formatDisplayPrice(amount: number | null | undefined, base: unknown, display: unknown, opts: FormatMoneyOptions = {}): string {
   if (amount === null || amount === undefined || !Number.isFinite(Number(amount))) return opts.empty ?? '—'
+  // Sin tasa para alguna de las dos (una propiedad en una moneda fuera de `CURRENCIES`): se enseña en su moneda, sin convertir.
+  if (!canConvert(base, display) && normalizeIsoCurrency(base) && !BY_CODE.has(String(base).toUpperCase())) return formatMoney(amount, base, opts)
   const c = currencyInfo(display)
   const value = convertAmount(Number(amount), base, c.code)
   if (opts.compact) {
@@ -150,4 +214,15 @@ export function formatDisplayPrice(amount: number | null | undefined, base: unkn
     return c.code === 'AED' ? `AED ${num}` : `${c.symbol}${num}`
   }
   return plainSpaces(new Intl.NumberFormat(c.locale, { style: 'currency', currency: c.code, maximumFractionDigits: 0, minimumFractionDigits: 0 }).format(Math.round(value)))
+}
+
+/**
+ * Para un filtro de precio en SQL: el factor por el que hay que multiplicar el
+ * precio de una propiedad guardado en `from` para tenerlo en la moneda de la
+ * agencia, por cada moneda con tasa. Una propiedad en una moneda sin tasa no
+ * aparece aquí: no se compara (ni entra ni sale de un rango de precio).
+ */
+export function priceFactorsTo(agency: unknown): { code: string; factor: number }[] {
+  const to = agencyCurrencyOrDefault(agency)
+  return CURRENCIES.filter((c) => c.code !== to).map((c) => ({ code: c.code, factor: convertAmount(1, c.code, to) }))
 }
