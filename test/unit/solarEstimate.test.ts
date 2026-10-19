@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estimateSolarExposureByOrientation, solarBand, type SolarExposure } from '../../utils/solarExposure'
+import { estimateSolarExposureByOrientation, solarBand } from '../../utils/solarExposure'
 
 const madridLat = 40.4
 
@@ -14,7 +14,10 @@ describe('estimación de exposición solar por orientación (astronomía real)',
     expect(e.monthlyHours).toHaveLength(12)
     expect(e.score).toBeGreaterThanOrEqual(0)
     expect(e.score).toBeLessThanOrEqual(100)
-    for (const h of e.monthlyHours!) expect(h).toBeGreaterThanOrEqual(0), expect(h).toBeLessThanOrEqual(24)
+    for (const h of e.monthlyHours!) {
+      expect(h).toBeGreaterThanOrEqual(0)
+      expect(h).toBeLessThanOrEqual(24)
+    }
   })
 
   it('en el hemisferio norte el sur recibe mucho más sol directo que el norte', () => {
