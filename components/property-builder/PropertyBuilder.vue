@@ -259,7 +259,7 @@
                   <ChildCardManager v-else-if="s.kind === 'child-table'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" :columns="s.columns" :order-field="s.orderField" :visible-field="s.visibleField" />
                   <SocialLinksManager v-else-if="s.kind === 'social'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" />
                   <PropertyRoomManager v-else-if="s.kind === 'rooms'" :child-resource="s.childResource" :parent-field="s.parentField" :parent-id="recordId" />
-                  <PropertyContactsManager v-else-if="s.kind === 'owners'" :parent-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" :can-edit="canEdit" />
+                  <PropertyContactsManager v-else-if="s.kind === 'owners'" :parent-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" :can-edit="canEdit" :pending="pendingOwners" @update:pending="(v) => (pendingOwners = v)" />
                   <PropertyDocumentsManager v-else-if="s.kind === 'panel' && s.panel === 'documents'" :parent-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" :can-edit="canEdit" :trashed="!!trashedAt" @changed="summaryKey++" />
                   <PropertyPortalsPanel v-else-if="s.kind === 'panel' && s.panel === 'portals'" :parent-id="recordId" :kind="resource === 'developer-properties' ? 'developer' : 'agent'" :active="activeKey === s.key" />
                   <PropertyBuyerMatches
@@ -901,6 +901,9 @@ const CREATE_REQUIRED: Record<string, { key: string; label: string }[]> = {
 }
 const missingToCreate = () => (CREATE_REQUIRED[props.resource] || []).filter((f) => form[f.key] === null || form[f.key] === undefined || form[f.key] === '')
 
+/** Propietarios elegidos antes del primer guardado: se mandan con el alta y los persiste el servidor en la misma petición. */
+const pendingOwners = ref<any[]>([])
+
 async function save() {
   if (!props.canEdit) return
   if (autosaveTimer) {
@@ -917,7 +920,11 @@ async function save() {
         toast.error(error.value)
         return
       }
-      const res = await $fetch<{ id: number }>(`/api/admin/${props.resource}`, { method: 'POST', body: requestBody() })
+      const res = await $fetch<{ id: number }>(`/api/admin/${props.resource}`, {
+        method: 'POST',
+        body: { ...requestBody(), owners: pendingOwners.value.map((o) => ({ contactId: o.contactId, role: o.role, ownershipPct: o.ownershipPct, isPrimary: o.isPrimary })) },
+      })
+      pendingOwners.value = []
       recordId.value = res.id
       router.replace(`/admin/${props.resource}/${res.id}`)
     } else {

@@ -1,16 +1,16 @@
 <template>
   <div data-testid="property-contacts">
-    <p v-if="!parentId" class="rounded-xl border border-dashed border-line px-6 py-8 text-center text-sm text-stone-500">
-      Guarda la propiedad primero; después podrás añadir sus propietarios y contactos.
-    </p>
-    <template v-else>
+    <div>
+      <p v-if="localMode" class="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-900" data-testid="property-contacts-pending-note">
+        La propiedad todavía no está guardada: los propietarios que añadas aquí se quedan pendientes y se guardan junto con la propiedad, al pulsar «Guardar».
+      </p>
       <p class="mb-3 text-[13px] text-stone-500">
         Propietarios, copropietarios (con su % de propiedad), apoderados, inquilinos y otros contactos de esta propiedad. Cada persona es un contacto del CRM: lo que se apunte aquí aparece también en su ficha, pestaña «Propiedades».
       </p>
 
       <ul v-if="rows.length" class="mb-4 divide-y divide-line rounded-xl border border-line bg-white">
         <li v-for="r in rows" :key="r.id" class="flex flex-wrap items-center gap-3 px-4 py-3" data-testid="property-contact-row">
-          <NuxtLink :to="`/admin/contactos/${r.contactId}`" class="min-w-0 flex-1">
+          <NuxtLink :to="`/admin/contactos/${r.contactId}`" class="min-w-0 flex-1" :target="localMode ? '_blank' : undefined">
             <span class="block truncate text-[14px] font-medium text-ink">{{ r.contact?.name || `Contacto #${r.contactId}` }}</span>
             <span class="block truncate text-[11px] text-stone-400">{{ [r.contact?.phone, r.contact?.email].filter(Boolean).join(' · ') || 'Sin datos de contacto' }}</span>
           </NuxtLink>
@@ -86,7 +86,7 @@
           </button>
         </div>
       </div>
-    </template>
+    </div>
   </div>
 </template>
 
@@ -99,15 +99,33 @@ import { OWNERSHIP_ROLES, PROPERTY_CONTACT_ROLES, PROPERTY_CONTACT_ROLE_LABELS, 
  * `property-contacts`. El servidor valida que la propiedad y el contacto sean
  * de la agencia, el papel y que los propietarios no pasen del 100 %.
  */
-const props = withDefaults(defineProps<{ parentId: number | null; kind: 'agent' | 'developer'; canEdit?: boolean }>(), { canEdit: true })
+interface PendingOwner {
+  contactId: number
+  name: string
+  phone?: string | null
+  email?: string | null
+  role: string
+  ownershipPct: number | null
+  isPrimary: number
+}
+
+const props = withDefaults(defineProps<{ parentId: number | null; kind: 'agent' | 'developer'; canEdit?: boolean; pending?: PendingOwner[] }>(), { canEdit: true, pending: () => [] })
+const emit = defineEmits<{ (e: 'update:pending', v: PendingOwner[]): void }>()
+// Sin propiedad guardada (alta nueva) las relaciones viven en el estado del formulario y las persiste el alta.
+const localMode = computed(() => !props.parentId)
 const toast = useToast()
 const { confirm } = useConfirm()
 
-const rows = ref<any[]>([])
+const savedRows = ref<any[]>([])
+const rows = computed<any[]>(() =>
+  localMode.value
+    ? props.pending.map((o, i) => ({ id: i, contactId: o.contactId, contact: { name: o.name, phone: o.phone, email: o.email }, role: o.role, ownershipPct: o.ownershipPct, isPrimary: o.isPrimary }))
+    : savedRows.value,
+)
 async function load() {
   if (!props.parentId) return
   const res = await $fetch<{ rows: any[] }>('/api/admin/property-contacts', { query: { propertyKind: props.kind, propertyId: props.parentId, perPage: 100 } }).catch(() => ({ rows: [] }))
-  rows.value = res.rows
+  savedRows.value = res.rows
 }
 onMounted(load)
 watch(() => props.parentId, load)
@@ -123,7 +141,16 @@ function numOrNull(v: string) {
   return Number.isFinite(n) ? n : null
 }
 
+function setPending(list: PendingOwner[]) {
+  emit('update:pending', list)
+}
+
 async function update(r: any, patch: Record<string, unknown>) {
+  if (localMode.value) {
+    if (patch.role && !isOwnership(String(patch.role))) patch.ownershipPct = null
+    const list = props.pending.map((o, i) => (i === r.id ? { ...o, ...patch } as PendingOwner : (patch.isPrimary ? { ...o, isPrimary: 0 } : o)))
+    return setPending(list)
+  }
   try {
     if (patch.role && !isOwnership(String(patch.role))) patch.ownershipPct = null
     await $fetch<{ ok: true }>(`/api/admin/property-contacts/${r.id}`, { method: 'PUT', body: patch })
@@ -135,6 +162,7 @@ async function update(r: any, patch: Record<string, unknown>) {
 }
 
 async function remove(r: any) {
+  if (localMode.value) return setPending(props.pending.filter((_, i) => i !== r.id))
   const ok = await confirm(`${r.contact?.name || 'Este contacto'} dejará de figurar en esta propiedad (el contacto no se borra).`, { title: '¿Quitar de la propiedad?', confirmLabel: 'Quitar', danger: true })
   if (!ok) return
   try {
@@ -190,6 +218,20 @@ async function add(force = false) {
       }
     }
     if (!contactId) return
+    if (localMode.value) {
+      const name = picked.value?.name || newContact.name.trim()
+      const pct = isOwnership(newRole.value) ? newPct.value : null
+      if (props.pending.some((o) => o.contactId === contactId && o.role === newRole.value)) return toast.error('Ese contacto ya está añadido con ese papel')
+      if (pct != null && props.pending.filter((o) => isOwnership(o.role)).reduce((t, o) => t + (o.ownershipPct || 0), 0) + pct > 100.0001) return toast.error('La suma de porcentajes de propiedad pasaría del 100 %')
+      setPending([...props.pending, { contactId, name, phone: picked.value ? null : newContact.phone.trim() || null, email: picked.value ? null : newContact.email.trim() || null, role: newRole.value, ownershipPct: pct, isPrimary: 0 }])
+      picked.value = null
+      newPct.value = null
+      creating.value = false
+      createDuplicates.value = []
+      Object.assign(newContact, { name: '', phone: '', email: '' })
+      toast.success('Añadido; se guardará con la propiedad')
+      return
+    }
     await $fetch('/api/admin/property-contacts', {
       method: 'POST',
       body: { propertyKind: props.kind, propertyId: props.parentId, contactId, role: newRole.value, ownershipPct: isOwnership(newRole.value) ? newPct.value : null },

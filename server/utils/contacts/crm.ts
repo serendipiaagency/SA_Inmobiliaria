@@ -475,6 +475,61 @@ export async function validatePropertyContact(db: any, orgId: number, data: Reco
   if (dup) fail(409, 'Ese contacto ya está vinculado a esta propiedad con ese papel')
 }
 
+export const MAX_INITIAL_OWNERS = 20
+
+export type InitialOwner = { contactId: number; role: string; ownershipPct: number | null; isPrimary: number }
+
+/**
+ * Los propietarios/contactos que llegan con el alta de una propiedad (antes de
+ * que exista su id): mismas reglas que `validatePropertyContact` — contacto de
+ * la agencia, papel válido, % entre 0 y 100 sólo para propietarios, suma de
+ * propietarios sin pasar del 100 % y ningún contacto repetido con el mismo
+ * papel— pero sobre la lista entera y ANTES de escribir nada, de modo que un
+ * propietario inválido rechaza el alta completa sin dejar una propiedad a medias.
+ */
+export async function validateInitialOwners(db: any, orgId: number, raw: unknown): Promise<InitialOwner[]> {
+  if (raw == null) return []
+  if (!Array.isArray(raw)) fail(422, 'Los propietarios no tienen un formato válido')
+  if (raw.length > MAX_INITIAL_OWNERS) fail(422, `Máximo ${MAX_INITIAL_OWNERS} propietarios o contactos por propiedad`)
+  const out: InitialOwner[] = []
+  const seen = new Set<string>()
+  let total = 0
+  let primaries = 0
+  for (const r of raw as Record<string, any>[]) {
+    const contactId = Number(r?.contactId)
+    if (!Number.isInteger(contactId) || contactId <= 0) fail(422, 'Falta el contacto')
+    const role = String(r?.role)
+    if (!(PROPERTY_CONTACT_ROLES as readonly string[]).includes(role)) fail(422, 'Papel no válido')
+    let ownershipPct: number | null = null
+    if (r?.ownershipPct != null && r.ownershipPct !== '') {
+      ownershipPct = Number(r.ownershipPct)
+      if (!Number.isFinite(ownershipPct) || ownershipPct < 0 || ownershipPct > 100) fail(422, 'El porcentaje de propiedad debe estar entre 0 y 100')
+      if (!OWNERSHIP_ROLES.includes(role as never)) fail(422, 'Sólo un propietario o copropietario tiene porcentaje de propiedad')
+      total += ownershipPct
+    }
+    if (total > 100.0001) fail(422, `La suma de porcentajes de propiedad pasaría del 100 % (${total} %)`)
+    const key = `${contactId}:${role}`
+    if (seen.has(key)) fail(409, 'Ese contacto ya está vinculado a esta propiedad con ese papel')
+    seen.add(key)
+    await assertOwnedRef(db, schema.contacts, contactId, orgId, 'Contacto')
+    const isPrimary = r?.isPrimary ? 1 : 0
+    primaries += isPrimary
+    out.push({ contactId, role, ownershipPct, isPrimary })
+  }
+  if (primaries > 1) fail(422, 'Sólo un contacto puede ser el principal')
+  return out
+}
+
+/** Escribe los propietarios ya validados de una propiedad recién creada, y les da el rol «Propietario» en el CRM. */
+export async function insertInitialOwners(db: any, orgId: number, kind: PropertyKind, propertyId: number, owners: InitialOwner[], userId: number | null): Promise<void> {
+  if (!owners.length) return
+  const ts = now()
+  await db.insert(schema.propertyContacts).values(
+    owners.map((o) => ({ organizationId: orgId, propertyKind: kind, propertyId, contactId: o.contactId, role: o.role, ownershipPct: o.ownershipPct, isPrimary: o.isPrimary, createdBy: userId, createdAt: ts, updatedAt: ts })),
+  )
+  for (const o of owners) if (o.role === 'owner' || o.role === 'co_owner') await ensureContactRole(db, orgId, o.contactId, 'owner', userId)
+}
+
 /** Los contactos (vivos) de una propiedad, con su nombre y datos de contacto. */
 export async function listPropertyContacts(db: any, orgId: number, kind: PropertyKind, propertyId: number) {
   return db
