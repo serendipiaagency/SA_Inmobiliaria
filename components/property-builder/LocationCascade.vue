@@ -28,7 +28,7 @@ import PropertyBuilderField from './PropertyBuilderField.vue'
 const props = defineProps<{ form: Record<string, any>; uploadFolder: string }>()
 
 const OTHER = '__otro__'
-const geo = ref<GeoCascade | null>(null)
+const geo = shallowRef<GeoCascade | null>(null)
 let geoPromise: Promise<GeoRaw> | null = null
 onMounted(async () => {
   try {
