@@ -175,12 +175,14 @@ describe('Precio, Características e Instalaciones', () => {
     for (const sections of [DEV, AGENT]) {
       const f = (section(sections, 'price') as FieldsSection).fields.find((x) => x.key === 'currency')!
       expect(f.label).toBe('Tipo de moneda')
-      expect(f.options).toEqual(CURRENCIES.map((c) => c.code))
-      expect(f.options).toEqual(expect.arrayContaining(['EUR', 'USD', 'GBP']))
+      // Las monedas con tasa primero, y después el resto de ISO 4217.
+      expect(f.options!.slice(0, CURRENCIES.length)).toEqual(CURRENCIES.map((c) => c.code))
+      expect(f.options).toEqual(expect.arrayContaining(['EUR', 'USD', 'GBP', 'MXN']))
       expect(f.optionLabels!.EUR).toContain('EUR')
     }
-    expect(adminResources.properties!.fields.currency!.options).toEqual(CURRENCIES.map((c) => c.code))
-    expect(adminResources['developer-properties']!.fields.currency!.options).toEqual(CURRENCIES.map((c) => c.code))
+    expect(adminResources.properties!.fields.currency!.options).toEqual(expect.arrayContaining(CURRENCIES.map((c) => c.code)))
+    expect(adminResources.properties!.fields.currency!.options).toContain('MXN')
+    expect(adminResources['developer-properties']!.fields.currency!.options).toEqual(expect.arrayContaining(CURRENCIES.map((c) => c.code)))
   })
   it('«Estado físico» desaparece de Características (es el mismo campo «Estado»)', () => {
     for (const sections of [DEV, AGENT]) expect((section(sections, 'features') as FieldsSection).fields.some((f) => f.key === 'condition')).toBe(false)
