@@ -60,7 +60,7 @@ test.describe('Gestor de la galería', () => {
   async function openGallery(page: import('@playwright/test').Page) {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(`/admin/developer-properties/${propertyId}`)
-    await page.locator('aside').getByRole('button', { name: /Galería/ }).click()
+    await page.locator('[data-testid="property-editor-step-media"]:visible').click()
     await expect(page.getByTestId('gallery-manager')).toBeVisible()
   }
 

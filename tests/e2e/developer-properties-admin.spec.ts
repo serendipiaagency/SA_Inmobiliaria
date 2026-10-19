@@ -196,10 +196,12 @@ test.describe('Propiedades (web) — listado admin', () => {
 
     // «Multimedia» a secas: «Galería y multimedia» (bloque N7a) también lo contiene.
     await nav.getByTestId('property-editor-step-media').click()
-    await expect(page.getByRole('button', { name: 'URL externa' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Subir archivo' })).toBeVisible()
+    // En «Multimedia y planos» hay dos alta de ficheros (galería y vídeos): basta con ver la primera.
+    await expect(page.getByTestId('property-media-add').getByRole('button', { name: 'URL externa' })).toBeVisible()
+    await expect(page.getByTestId('property-media-add').getByRole('button', { name: 'Subir archivo' })).toBeVisible()
 
-    await nav.getByRole('button', { name: 'Redes sociales' }).click()
-    await expect(page.getByRole('button', { name: '+ Añadir red social' })).toBeVisible()
+    // «Redes sociales» ya no es un apartado del constructor: compartir sigue
+    // funcionando desde la ficha, pero no hay editor de redes.
+    await expect(nav.getByRole('button', { name: 'Redes sociales' })).toHaveCount(0)
   })
 })

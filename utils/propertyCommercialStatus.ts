@@ -10,7 +10,7 @@
  *   catálogos): disponible, reservada, vendida, alquilada, retirada o
  *   borrador. Es el que la agencia gestiona: se filtra, se ve en la fila, se
  *   cambia en bloque y desde la fila.
- * - «Estado de la obra» (obra nueva, `developer_properties.status`): obra
+ * - «Fase de la obra» (antes «Estado de la obra»; obra nueva, `developer_properties.status`): obra
  *   nueva, en construcción o lista. Es la fase de construcción, no si se
  *   puede vender; no se toca nunca desde el estado comercial.
  * - «Disponibilidad» (2ª mano, `agent_properties.status`): disponible o
@@ -44,7 +44,7 @@ export const COMMERCIAL_STATUS_NONE = 'none'
 
 /** Rótulo del `status` propio de cada catálogo, para que nunca se lea como «el estado» a secas. */
 export const CATALOG_STATUS_TITLES: Record<CommercialStatusKind, string> = {
-  developer: 'Estado de la obra',
+  developer: 'Fase de la obra',
   agent: 'Disponibilidad',
 }
 

@@ -56,13 +56,20 @@ export const PROPERTY_TYPE_LABELS: Record<string, string> = {
  * distinto del estado comercial. Lo usan el editor y el motor de matching
  * (criterio «Estado» frente a `conditionPref` de la necesidad).
  */
-export const PROPERTY_CONDITIONS = ['new', 'excellent', 'good', 'to_renovate', 'to_reform'] as const
+export const PROPERTY_CONDITIONS = ['new', 'excellent', 'good', 'renovated', 'to_renovate', 'to_reform'] as const
+/**
+ * Los seis estados del selector «Estado» de Información básica, en este orden
+ * (Cola 11). `renovated` («Reformado») es el valor nuevo: hasta ahora «reformado»
+ * sólo existía como casilla de la ficha ampliada (`is_renovated`), que se
+ * conserva tal cual y NO se convierte sola en este estado.
+ */
 export const PROPERTY_CONDITION_LABELS: Record<string, string> = {
   new: 'A estrenar',
   excellent: 'Excelente',
   good: 'Buen estado',
-  to_renovate: 'A renovar',
-  to_reform: 'A reformar',
+  renovated: 'Reformado',
+  to_renovate: 'Para renovar',
+  to_reform: 'Para reformar',
 }
 
 /** Subtipos por tipo. Un subtipo sólo es válido para su tipo (lo comprueba el servidor). */

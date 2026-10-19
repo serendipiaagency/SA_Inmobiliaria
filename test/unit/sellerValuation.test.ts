@@ -93,7 +93,7 @@ describe('catálogo: Property Core, no un segundo catálogo', () => {
 
   it('los estados son los de Property Core', () => {
     const condition = sellerQuestions('Apartment', 'features').find((q) => q.key === 'condition')!
-    expect(condition.options!.map((o) => o.value)).toEqual(['new', 'excellent', 'good', 'to_renovate', 'to_reform'])
+    expect(condition.options!.map((o) => o.value)).toEqual(['new', 'excellent', 'good', 'renovated', 'to_renovate', 'to_reform'])
   })
 
   it('un tipo desconocido no tiene preguntas', () => {

@@ -132,8 +132,16 @@ const PROPERTY_FICHA_111_HELP_STEPS: string[] = [
   'Indicadores y Decisión rápida sólo salen con datos: los indicadores, con las visitas a la ficha de la última semana, las visitas reservadas y las personas que la tienen guardada (lo que está a cero no aparece); la decisión rápida, con Comprar, Inversión, Revalorización y Liquidez en estrellas, y «Cómo se calcula» explica cada una. No se enseña ningún «responde en menos de X minutos»: no hay un dato público que lo respalde.',
 ]
 
+/** Constructor de propiedades unificado (Cola 11): el mismo en Propiedades (web) y en 2ª mano. */
+const PROPERTY_BUILDER_UNIFIED_HELP_STEPS: string[] = [
+  'El constructor de propiedades es el mismo en «Propiedades (web)» y en «2ª mano» y tiene 13 apartados: Información básica, Ubicación, Precio, Características, Estancias personalizadas, Instalaciones y exteriores, Multimedia y planos, Comercial/Inversión, Propietarios, Legal y certificados, Documentos, Portales y Compradores compatibles. Al final de cada apartado hay un botón «Guardar» que muestra su estado (sin cambios, cambios pendientes, guardando, guardado o error); el autoguardado sigue funcionando al editar.',
+  'En «Información básica», el campo que antes se llamaba «Nombre» es ahora «Título» y la «Descripción» va justo debajo. Los grupos «Referencias» y «SEO» están plegados: el slug (la dirección pública) se genera solo a partir del título al crear la propiedad, es único dentro de tu inmobiliaria y no cambia después aunque edites el título.',
+  'Las etiquetas «Automático» y «Dato interno» indican qué rellena la plataforma sola y qué nunca se publica en la web. El «Estado» del inmueble tiene seis opciones: A estrenar, Excelente, Buen estado, Reformado, Para renovar y Para reformar. Los valores antiguos que no se pueden convertir con seguridad se conservan y se te pide elegir uno.',
+  '«Multimedia y planos» reúne la Portada (una sola), la Galería por estancias (con subida múltiple y clasificación masiva), los Vídeos, los Planos y los tours 360°. «Instalaciones y exteriores» muestra primero los desplegables y después las casillas. Los antiguos «Fotografía Premium», «Tipos de unidad» y «Redes sociales» ya no son apartados; los datos que tuvieran las fichas no se pierden.',
+]
+
 const PROPERTY_D1P_HELP_STEPS: string[] = [
-  'Tres datos distintos, cada uno con su nombre: el «Estado comercial» (disponible, reservada, vendida, alquilada, retirada o borrador) es el que gestiona la agencia y es igual en los dos catálogos; el «Estado de la obra» (obra nueva, en construcción, lista) es sólo la fase de construcción de Propiedades (web); y la «Disponibilidad» (disponible o vendida) es la de 2ª mano, la que mira el matching.',
+  'Tres datos distintos, cada uno con su nombre: el «Estado comercial» (disponible, reservada, vendida, alquilada, retirada o borrador) es el que gestiona la agencia y es igual en los dos catálogos; la «Fase de la obra» (obra nueva, en construcción, lista; antes «Estado de la obra») es sólo la fase de construcción de Propiedades (web); y la «Disponibilidad» (disponible o vendida) es la de 2ª mano, la que mira el matching.',
   'En el listado, el desplegable «Todo estado comercial» (junto al de estado de la obra o disponibilidad) filtra por estado comercial, también «sin indicar». En la vista Lista, la columna «Estado comercial» enseña el chip y, con permiso de escritura, se cambia haciendo clic en él (como el precio). En bloque: marca las propiedades y elige «Cambiar estado comercial»; queda en la auditoría como el resto de acciones masivas.',
   'Al cambiar el estado comercial: «Reservada» pone la etiqueta «Reservada» de la web y cualquier otro estado la quita; en 2ª mano, «Vendida» y «Disponible» ponen igual la disponibilidad. Al revés, marcar una propiedad de 2ª mano como vendida (a mano, en bloque o al cerrar una operación) pasa a «Vendida» un estado comercial que ya estuviera indicado. Las fichas que no se tocan no cambian.',
   'La fecha de captación y el inicio y vencimiento de la exclusiva se eligen ahora en un calendario. Si una ficha antigua la tenía escrita a mano (por ejemplo «15/03/2025»), se sigue entendiendo —el editor dice cómo la lee— y se guarda en el formato nuevo en cuanto eliges la fecha. El vencimiento no puede ser anterior al inicio.',
@@ -623,7 +631,7 @@ export function useHelpContent() {
         'Los campos de descripción larga (Descripción, Descripción del master plan, de los planos y del mapa de ubicación) tienen un editor de texto enriquecido: negrita, cursiva, listas y enlaces, con el resultado publicado tal cual en la ficha pública — no hace falta escribir HTML a mano.',
         '"Redes sociales" usa "+ Añadir red social": elige la plataforma (Instagram, Facebook, LinkedIn, TikTok, YouTube, X/Twitter, Pinterest, WhatsApp, Telegram…) y luego su URL; arrastra para reordenar o pulsa el icono de papelera para quitarla.',
         'La sección "Comercial/Inversión" incluye el selector "Comercial asignado" — busca en tu equipo de Comerciales y muestra su foto/iniciales, nombre y cargo; "Sin asignar" la deja sin comercial. Marca "Exclusiva" para que aparezca destacada en la web; "Reservada" se pone con el "Estado comercial" (Información básica) — la casilla antigua sólo aparece en las fichas que la tenían marcada. El tipo de mandato y las fechas de inicio/vencimiento de la exclusividad, si las hay, se guardan en los campos "Tipo de mandato" y "Exclusividad — inicio/vencimiento" de ese mismo grupo — son datos internos, nunca se publican.',
-        'El "Estado de la obra" (obra nueva / en construcción / lista) se refleja en la ficha pública automáticamente. Es la fase de la construcción: si se puede vender o no lo dice el "Estado comercial".',
+        'La "Fase de la obra" (obra nueva / en construcción / lista; está en Características) se refleja en la ficha pública automáticamente. Es la fase de la construcción: si se puede vender o no lo dice el "Estado comercial".',
         '"Información básica" incluye un grupo "Identificación": la "Referencia interna" (formato W-XXXXXX) se genera sola si la dejas vacía, y también puedes anotar la referencia de agencia y, si la propiedad viene de un portal o sistema externo, su origen y referencia externa. El grupo "Captación" guarda cuándo y por qué vía llegó la propiedad (fecha y origen de captación) — información interna de gestión, nunca aparece en la ficha pública.',
         'En "Ubicación", el desplegable "Privacidad de la ubicación" controla qué ve el público: "Exacta" publica coordenadas y dirección tal cual; "Aproximada" redondea el mapa a la zona y oculta número/portal/bloque/planta/letra; "Ocultar número" muestra el mapa exacto pero sin esos datos de portal. El "Radio de privacidad" es solo una referencia visual del área aproximada y no se publica.',
         'En "Características", además de dormitorios y baños hay aseos, salones, cocinas y plazas de garaje (con el mismo control +/−), y un grupo "Superficies" con útil, parcela, terraza, jardín, balcón y trastero — todas opcionales, en m². El grupo "Estado" recoge el estado físico (a estrenar, excelente, buen estado, a renovar, a reformar) y si está amueblada. La casilla "Características repasadas" (al final de Equipamiento) marca que alguien ha revisado de verdad el equipamiento de la ficha — sin marcarla, un "No" en ascensor/piscina/etc. se interpreta como "todavía sin repasar", no como una respuesta negativa confirmada; esto lo usa el motor de compatibilidad de leads.',
@@ -637,6 +645,7 @@ export function useHelpContent() {
         ...PROPERTY_SEARCH_N7B_HELP_STEPS,
         ...PROPERTY_INLINE_EDIT_HELP_STEPS,
         ...PROPERTY_D1P_HELP_STEPS,
+        ...PROPERTY_BUILDER_UNIFIED_HELP_STEPS,
         ...PROPERTY_FICHA_110_HELP_STEPS,
         ...PROPERTY_FICHA_111_HELP_STEPS,
         ...PROPERTY_FICHA_MEJORAS_HELP_STEPS,
@@ -747,6 +756,7 @@ export function useHelpContent() {
         ...PROPERTY_SEARCH_N7B_HELP_STEPS,
         ...PROPERTY_INLINE_EDIT_HELP_STEPS,
         ...PROPERTY_D1P_HELP_STEPS,
+        ...PROPERTY_BUILDER_UNIFIED_HELP_STEPS,
       ],
     },
     {
@@ -1407,9 +1417,9 @@ export function useHelpContent() {
     },
     {
       id: 'faq-estado-comercial',
-      question: '¿Qué diferencia hay entre «Estado comercial», «Estado de la obra» y «Disponibilidad»?',
+      question: '¿Qué diferencia hay entre «Estado comercial», «Fase de la obra» y «Disponibilidad»?',
       answer:
-        'El «Estado comercial» (disponible, reservada, vendida, alquilada, retirada o borrador) es el que gestionas tú y es igual en Propiedades (web) y en 2ª mano: se filtra, se ve en la columna «Estado comercial» del listado, se cambia desde la fila o en bloque («Cambiar estado comercial»). El «Estado de la obra» es la fase de construcción de una promoción (obra nueva, en construcción, lista). La «Disponibilidad» es el disponible / vendida de 2ª mano que usa el matching. Al cambiar el estado comercial, «Reservada» pone la etiqueta de la web y, en 2ª mano, «Vendida» o «Disponible» ponen igual la disponibilidad.',
+        'El «Estado comercial» (disponible, reservada, vendida, alquilada, retirada o borrador) es el que gestionas tú y es igual en Propiedades (web) y en 2ª mano: se filtra, se ve en la columna «Estado comercial» del listado, se cambia desde la fila o en bloque («Cambiar estado comercial»). La «Fase de la obra» (antes «Estado de la obra») es la fase de construcción de una promoción (obra nueva, en construcción, lista). La «Disponibilidad» es el disponible / vendida de 2ª mano que usa el matching. Al cambiar el estado comercial, «Reservada» pone la etiqueta de la web y, en 2ª mano, «Vendida» o «Disponible» ponen igual la disponibilidad.',
       tags: ['estado', 'estado comercial', 'reservada', 'vendida', 'alquilada', 'retirada', 'disponibilidad', 'obra'],
     },
     {

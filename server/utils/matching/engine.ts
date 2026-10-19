@@ -404,7 +404,7 @@ function evaluateFeature(requirement: MatchableRequirement, property: MatchableP
 }
 
 /** Estados físicos en los que se puede entrar a vivir sin obra. */
-const READY_CONDITIONS = ['new', 'excellent', 'good']
+const READY_CONDITIONS = ['new', 'excellent', 'good', 'renovated']
 /** Estados que piden obra: «a renovar» (actualizar) es menos que «a reformar». */
 const WORK_CONDITIONS = ['to_renovate', 'to_reform']
 

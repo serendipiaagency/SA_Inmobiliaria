@@ -252,8 +252,13 @@ export const agentProperties = sqliteTable(
     livingRooms: integer('living_rooms'),
     kitchens: integer('kitchens'),
     garageSpaces: integer('garage_spaces'),
-    condition: text('condition'), // new | excellent | good | to_renovate | to_reform — estado físico, distinto de `status` (comercial)
+    condition: text('condition'), // new | excellent | good | renovated | to_renovate | to_reform — estado físico, distinto de `status` (comercial)
     furnished: text('furnished'), // yes | no | partially — NULL = no especificado
+    // Migraciones 0098 y 0099 — título, descripción en castellano y moneda de la propiedad de 2ª mano.
+    name: text('name'),
+    description: text('description'),
+    /** Código ISO 4217 de la moneda del precio. NULL = la moneda de la inmobiliaria. */
+    currency: text('currency'),
     // Migración 0086 — autor del alta y borrado lógico (Papelera).
     createdBy: integer('created_by'),
     deletedAt: text('deleted_at'),
@@ -609,8 +614,10 @@ export const developerProperties = sqliteTable(
     livingRooms: integer('living_rooms'),
     kitchens: integer('kitchens'),
     garageSpaces: integer('garage_spaces'),
-    condition: text('condition'), // new | excellent | good | to_renovate | to_reform — estado físico, distinto de `status` (comercial)
+    condition: text('condition'), // new | excellent | good | renovated | to_renovate | to_reform — estado físico, distinto de `status` (comercial)
     furnished: text('furnished'), // yes | no | partially — NULL = no especificado
+    /** Migración 0098 — código ISO 4217 de la moneda del precio. NULL = la moneda de la inmobiliaria. */
+    currency: text('currency'),
     featuresReviewedAt: text('features_reviewed_at'),
     featuresReviewedBy: integer('features_reviewed_by'),
     // Migración 0086 — autor del alta y borrado lógico (Papelera).

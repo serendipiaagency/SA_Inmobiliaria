@@ -14,7 +14,8 @@ import {
 import type { AdminArea } from '../../utils/adminAreas'
 import { getRequestId } from './requestId'
 import { selectInChunks } from './sqlChunks'
-import { DOCUMENT_VISIBILITIES, DOCUMENT_VISIBILITY_LABELS, PROPERTY_DOCUMENT_TYPES, PROPERTY_DOCUMENT_TYPE_LABELS, PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '../../utils/propertySheet'
+import { CURRENCIES } from '../../utils/currency'
+import { DOCUMENT_VISIBILITIES, DOCUMENT_VISIBILITY_LABELS, PROPERTY_CONDITION_LABELS, PROPERTY_DOCUMENT_TYPES, PROPERTY_DOCUMENT_TYPE_LABELS, PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from '../../utils/propertySheet'
 import {
   CONTACT_SOURCES,
   CONTACT_SOURCE_LABELS,
@@ -361,7 +362,12 @@ export const adminResources: Record<string, ResourceDef> = {
     table: schema.agentProperties,
     label: 'Propiedades (2ª mano)',
     fields: {
+      // Título y descripción en castellano (migraciones 0098 y 0099): el mismo constructor que obra nueva.
+      name: { type: 'text', label: 'Título' },
+      description: { type: 'textarea', label: 'Descripción' },
       slug: { type: 'text', label: 'Slug' },
+      // Moneda del precio (ISO 4217, utils/currency.ts). Vacío = la moneda de la inmobiliaria; nunca se convierte al guardar.
+      currency: { type: 'select', label: 'Tipo de moneda', options: CURRENCIES.map((c) => c.code), optionLabels: Object.fromEntries(CURRENCIES.map((c) => [c.code, c.label])) },
       location: { type: 'text', label: 'Ubicación' },
       country: { type: 'text', label: 'País' },
       city: { type: 'text', label: 'Ciudad' },
@@ -439,7 +445,7 @@ export const adminResources: Record<string, ResourceDef> = {
       livingRooms: { type: 'number', label: 'Salones' },
       kitchens: { type: 'number', label: 'Cocinas' },
       garageSpaces: { type: 'number', label: 'Plazas de garaje' },
-      condition: { type: 'select', label: 'Estado físico', options: ['new', 'excellent', 'good', 'to_renovate', 'to_reform'] },
+      condition: { type: 'select', label: 'Estado', options: ['new', 'excellent', 'good', 'renovated', 'to_renovate', 'to_reform'], optionLabels: PROPERTY_CONDITION_LABELS },
       furnished: { type: 'select', label: 'Amueblado', options: ['yes', 'no', 'partially'] },
       featuresReviewedAt: { type: 'text', label: 'Características repasadas el' },
       featuresReviewedBy: { type: 'number', label: 'Características repasadas por (ID)' },
@@ -466,10 +472,12 @@ export const adminResources: Record<string, ResourceDef> = {
     label: 'Proyectos sobre plano',
     fields: {
       developerId: { type: 'number', label: 'Promotora (ID)', required: true },
-      name: { type: 'text', label: 'Nombre', required: true },
+      name: { type: 'text', label: 'Título', required: true },
       slug: { type: 'text', label: 'Slug' },
+      // Moneda del precio (ISO 4217, utils/currency.ts). Vacío = la moneda de la inmobiliaria; nunca se convierte al guardar.
+      currency: { type: 'select', label: 'Tipo de moneda', options: CURRENCIES.map((c) => c.code), optionLabels: Object.fromEntries(CURRENCIES.map((c) => [c.code, c.label])) },
       // «Estado de la obra»: la fase de construcción, no el estado comercial (cierre D1p).
-      status: { type: 'select', label: 'Estado de la obra', options: ['new', 'under_construction', 'ready'], optionLabels: { new: 'Obra nueva', under_construction: 'En construcción', ready: 'Lista' } },
+      status: { type: 'select', label: 'Fase de la obra', options: ['new', 'under_construction', 'ready'], optionLabels: { new: 'Obra nueva', under_construction: 'En construcción', ready: 'Lista' } },
       price: { type: 'number', label: 'Precio desde' },
       description: { type: 'textarea', label: 'Descripción' },
       keyHighlights: { type: 'textarea', label: 'Puntos destacados' },
@@ -565,7 +573,7 @@ export const adminResources: Record<string, ResourceDef> = {
       kitchens: { type: 'number', label: 'Cocinas' },
       garageSpaces: { type: 'number', label: 'Plazas de garaje' },
       // Características (FASE 4).
-      condition: { type: 'select', label: 'Estado físico', options: ['new', 'excellent', 'good', 'to_renovate', 'to_reform'] },
+      condition: { type: 'select', label: 'Estado', options: ['new', 'excellent', 'good', 'renovated', 'to_renovate', 'to_reform'], optionLabels: PROPERTY_CONDITION_LABELS },
       furnished: { type: 'select', label: 'Amueblado', options: ['yes', 'no', 'partially'] },
       featuresReviewedAt: { type: 'text', label: 'Características repasadas el' },
       featuresReviewedBy: { type: 'number', label: 'Características repasadas por (ID)' },

@@ -1,7 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import * as schema from '../db/schema'
 import { loadPropertySheet } from '../utils/properties/extendedSheet'
-import { PROPERTY_BUILDER_SECTIONS, type BuilderSection, type FieldSpec } from '../../composables/usePropertyBuilderConfig'
+import { PROPERTY_BUILDER_SECTIONS, sectionFieldSpecs, type BuilderSection, type FieldSpec } from '../../composables/usePropertyBuilderConfig'
 import { pricePerSquareMeter } from '../../utils/propertySheet'
 import { isMediaRoom } from '../../utils/mediaRooms'
 import { DEMO_DISCLAIMER, REFERENCE_CONTENT, isUsableRoom, type ReferenceContent } from './dataset/referencia'
@@ -113,22 +113,36 @@ export async function buildReferenceReport(input: ReferenceInput): Promise<Refer
   const resource = kind === 'developer' ? 'developer-properties' : 'properties'
   const sections: SectionReport[] = []
   for (const s of PROPERTY_BUILDER_SECTIONS[resource]!) {
-    if (s.kind === 'fields') sections.push(fieldSection(s, s.fields, input))
-    else if (s.kind === 'location') {
+    if (s.kind === 'fields') {
+      const report = fieldSection(s, s.fields, input)
+      // Bloques que acompañan a los campos (tipologías de la promoción): una partida más de la sección.
+      for (const ex of s.extras || []) {
+        if (ex.kind !== 'child-table') continue
+        const part = itemSection(s, input.unitTypes >= 1, 'unittypes', input)
+        report.total += part.total
+        report.filled += part.filled
+        report.notApplicable.push(...part.notApplicable)
+        report.pending.push(...part.pending)
+      }
+      sections.push(report)
+    } else if (s.kind === 'media') {
+      // «Multimedia y planos»: portada, vídeo y tours (campos) más la galería y los planos (partidas).
+      const report = fieldSection(s, sectionFieldSpecs(s), input)
+      for (const part of [itemSection(s, input.gallery.length >= 4, 'gallery', input), itemSection(s, input.plans.length >= c.plans.length && c.plans.length > 0, 'floorplans', input)]) {
+        report.total += part.total
+        report.filled += part.filled
+        report.notApplicable.push(...part.notApplicable)
+        report.pending.push(...part.pending)
+      }
+      sections.push(report)
+    } else if (s.kind === 'location') {
       // Dirección, privacidad y las coordenadas del mapa.
       const coords: FieldSpec[] = [
         { key: s.latField, label: 'Latitud', type: 'number' },
         { key: s.lngField, label: 'Longitud', type: 'number' },
       ]
       sections.push(fieldSection(s, [...s.fields, ...coords], input))
-    } else if (s.kind === 'translations') {
-      const es = input.translations.find((t) => t.locale === 'es')
-      sections.push(itemSection(s, !!es?.title && (es.description || '').length >= 800, 'translations', input))
     } else if (s.kind === 'rooms') sections.push(itemSection(s, input.rooms.length >= c.rooms.length && c.rooms.length > 0, 'rooms', input))
-    else if (s.kind === 'gallery') sections.push(itemSection(s, input.gallery.length >= 4, 'gallery', input))
-    else if (s.kind === 'child-table' && s.key === 'floorplans') sections.push(itemSection(s, input.plans.length >= c.plans.length && c.plans.length > 0, 'floorplans', input))
-    else if (s.kind === 'child-table' && s.key === 'unittypes') sections.push(itemSection(s, input.unitTypes >= 1, 'unittypes', input))
-    else if (s.kind === 'social') sections.push(itemSection(s, false, s.key, input))
     else if (s.kind === 'owners') sections.push(itemSection(s, input.owners.length >= 1, 'owners', input))
     else if (s.kind === 'panel' && s.panel === 'documents') sections.push(itemSection(s, input.documents.length >= c.documents.length, 'documents', input))
     else if (s.kind === 'panel' && s.panel === 'portals') sections.push(itemSection(s, false, 'portals', input))
@@ -163,7 +177,7 @@ export async function buildReferenceReport(input: ReferenceInput): Promise<Refer
   check('los datos energéticos no llevan un número de registro oficial', String(values.energyCertificateNumber || '').startsWith('DEMO'), String(values.energyCertificateNumber))
   check('la referencia catastral es inequívocamente ficticia', String(values.cadastralReference || '').startsWith('DEMO'), String(values.cadastralReference))
   check('la finca registral es inequívocamente ficticia', String(values.registryPropertyNumber || '').startsWith('DEMO'), String(values.registryPropertyNumber))
-  const description = kind === 'developer' ? String(values.description || '') : String(input.translations.find((t) => t.locale === 'es')?.description || '')
+  const description = String(values.description || '')
   const headings = ['Presentación', 'Ubicación y entorno', 'Distribución', 'Zona de día', 'Zona de noche', 'Espacios exteriores', 'Calidades|Estado y reforma|Antigüedad, estado y reformas', 'Instalaciones', 'Características diferenciales', 'Perfil de comprador', 'Información comercial relevante']
   const missingHeading = headings.filter((h) => !new RegExp(h).test(description))
   check('la descripción cubre las partes de una descripción completa', missingHeading.length === 0, `faltan: ${missingHeading.join(', ')}`)

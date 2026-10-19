@@ -18,7 +18,7 @@
  * entrada en los dos.
  */
 
-import { currencySymbol, DEFAULT_AGENCY_CURRENCY } from '~/utils/currency'
+import { CURRENCIES, currencySymbol, DEFAULT_AGENCY_CURRENCY } from '~/utils/currency'
 import { PROPERTY_CONDITIONS, PROPERTY_CONDITION_LABELS, PROPERTY_SHEET_GROUPS, PROPERTY_TYPES, PROPERTY_TYPE_LABELS, isRentTransaction, pricePerSquareMeter, type SheetField } from '~/utils/propertySheet'
 import { CATALOG_STATUS_TITLES } from '~/utils/propertyCommercialStatus'
 
@@ -66,6 +66,19 @@ export interface FieldSpec {
    */
   legacyOnly?: boolean
   /**
+   * Campo que genera el sistema (Cola 11): se rotula «Automático» y esta frase
+   * dice cómo se genera. Un campo así nunca se marca si exige intervención
+   * manual.
+   */
+  auto?: string
+  /**
+   * Sólo con `auto`: el valor automático se puede sobrescribir, como opción
+   * avanzada y controlada (en una propiedad ya creada empieza bloqueado y
+   * desbloquearlo avisa de que cambiar la dirección pública rompe los enlaces
+   * ya publicados).
+   */
+  autoOverridable?: boolean
+  /**
    * Campo de la interfaz que no es una columna de la propiedad (el motivo de
    * un cambio de precio, un valor calculado): el filtrado por schema
    * (PropertySchemaRegistry) no lo oculta.
@@ -81,9 +94,17 @@ interface BaseSection {
   description: string
 }
 
+/** Un bloque que se pinta DESPUÉS de los campos de una sección de campos (traducciones, tipologías…). */
+export type SectionExtra =
+  | { kind: 'translations' }
+  | { kind: 'child-table'; title: string; description?: string; childResource: string; parentField: string; columns: FieldSpec[] }
+
 export interface FieldsSection extends BaseSection {
   kind: 'fields'
   fields: FieldSpec[]
+  /** Grupos (rótulo de `group`) que arrancan plegados: Referencias y SEO en Información básica. */
+  collapsedGroups?: string[]
+  extras?: SectionExtra[]
 }
 
 export interface LocationSection extends BaseSection {
@@ -154,7 +175,26 @@ export interface PanelSection extends BaseSection {
   panel: 'documents' | 'portals'
 }
 
-export type BuilderSection = FieldsSection | LocationSection | GallerySection | ChildTableSection | SocialSection | TranslationsSection | RoomsSection | OwnersSection | BuyerMatchesSection | PanelSection
+/**
+ * «Multimedia y planos» (Cola 11): un solo apartado con Portada, Galería (por
+ * estancias), Vídeos, Planos y Vistas 360° / tours. Reutiliza los gestores de
+ * siempre; no hay un segundo modelo de multimedia.
+ */
+export interface MediaSection extends BaseSection {
+  kind: 'media'
+  /** Columna de la portada: `coverImage` (obra nueva) o `mainImage` (2ª mano). */
+  coverField: string
+  gallery: { childResource: string; parentField: string }
+  floorPlans: { childResource: string; parentField: string; orderField: string; visibleField: string; columns: FieldSpec[] }
+  videoField: FieldSpec
+  tourFields: FieldSpec[]
+  /** Imágenes de identidad y de proyecto que sólo tiene la obra nueva (logo, master plan, mapa). */
+  projectImages: FieldSpec[]
+  /** Textos que acompañan a los planos y al mapa (sólo obra nueva). */
+  planTexts: FieldSpec[]
+}
+
+export type BuilderSection = MediaSection | FieldsSection | LocationSection | GallerySection | ChildTableSection | SocialSection | TranslationsSection | RoomsSection | OwnersSection | BuyerMatchesSection | PanelSection
 
 /**
  * Splits a section's fields into visual subsections by their `group` label,
@@ -243,6 +283,7 @@ const PRICE_PER_M2: FieldSpec = {
   labelFor: (form) => (isRentTransaction(form.transactionType) ? `Renta por m² (${agencySymbol()}/m²·mes)` : `Precio por m² (${agencySymbol()}/m²)`),
   type: 'computed',
   virtual: true,
+  auto: 'Calculado: precio ÷ superficie construida (en alquiler, renta mensual ÷ superficie). Nunca se guarda.',
   hint: 'Calculado: precio ÷ superficie construida (en alquiler, renta mensual ÷ superficie).',
   group: 'Precio principal',
   compute: (form) => {
@@ -322,22 +363,6 @@ function commercialStatusField(group: string, kind: 'developer' | 'agent'): Fiel
     .filter((f) => f.key === 'commercialStatus')
     .map((f) => ({ ...f, hint: kind === 'agent' ? COMMERCIAL_STATUS_HINT_AGENT : COMMERCIAL_STATUS_HINT }))
 }
-const SHEET_BUILDING_SECTION: FieldsSection = {
-  key: 'building',
-  label: 'Edificio y vivienda',
-  icon: 'building',
-  description: 'Datos del edificio y calidades de la vivienda.',
-  kind: 'fields',
-  fields: [...sheetGroup('building'), ...sheetGroup('dwelling')],
-}
-const SHEET_INSTALLATIONS_SECTION: FieldsSection = {
-  key: 'installations',
-  label: 'Instalaciones y exteriores',
-  icon: 'sparkles',
-  description: 'Instalaciones, zonas comunes y exteriores.',
-  kind: 'fields',
-  fields: [...sheetGroup('installations'), ...sheetGroup('common'), ...sheetGroup('exterior')],
-}
 const OWNERS_SECTION: OwnersSection = {
   key: 'owners',
   label: 'Propietarios',
@@ -381,486 +406,346 @@ const SHEET_LEGAL_SECTION: FieldsSection = {
   fields: [...sheetGroup('legal'), ...sheetGroup('energy')],
 }
 
-export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
-  'developer-properties': [
-    {
-      key: 'info',
-      label: 'Información básica',
-      icon: 'doc',
-      description: 'Completa los datos principales de la propiedad.',
-      kind: 'fields',
-      fields: [
-        { key: 'name', label: 'Nombre', type: 'text', required: true, span: 2, group: 'Identificación' },
-        { key: 'slug', label: 'Slug', type: 'text', hint: 'Se genera solo si lo dejas vacío.', group: 'Identificación' },
-        { key: 'reference', label: 'Referencia interna', type: 'text', hint: 'Se genera sola si la dejas vacía.', group: 'Identificación' },
-        { key: 'agencyReference', label: 'Referencia de agencia', type: 'text', group: 'Identificación' },
-        { key: 'externalSource', label: 'Origen externo', type: 'text', hint: 'De dónde procede si viene de un sistema externo.', group: 'Identificación' },
-        { key: 'externalReference', label: 'Referencia externa', type: 'text', group: 'Identificación' },
-        { key: 'developerId', label: 'Promotora', type: 'relation', relationResource: 'developers', required: true, group: 'Clasificación' },
-        {
-          key: 'status',
-          label: CATALOG_STATUS_TITLES.developer,
-          type: 'select',
-          options: ['new', 'under_construction', 'ready'],
-          optionLabels: { new: 'Obra nueva', under_construction: 'En construcción', ready: 'Lista' },
-          hint: 'La fase de la construcción. Si se puede vender o no lo dice el «Estado comercial».',
-          group: 'Clasificación',
-        },
-        { key: 'transactionType', label: 'Operación', type: 'select', options: ['sale', 'rent'], optionLabels: { sale: 'Venta', rent: 'Alquiler' }, group: 'Clasificación' },
-        { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, optionLabels: PROPERTY_TYPE_LABELS, group: 'Clasificación' },
-        ...sheetGroup('identification', 'Clasificación').filter((f) => f.key === 'subtype'),
-        ...commercialStatusField('Clasificación', 'developer'),
-        { key: 'yearBuilt', label: 'Año de construcción', type: 'number', group: 'Clasificación' },
-        ...sheetGroup('identification', 'Identificación comercial').filter((f) => f.key === 'commercialCode'),
-        { key: 'captureDate', label: 'Fecha de captación', type: 'date', hint: DATE_HINT_LEGACY, group: 'Captación' },
-        { key: 'captureSource', label: 'Origen de captación', type: 'text', group: 'Captación' },
-      ],
-    },
-    {
-      key: 'location',
-      label: 'Ubicación',
-      icon: 'building',
-      description: 'Dirección completa y ubicación en el mapa.',
-      kind: 'location',
-      latField: 'lat',
-      lngField: 'lng',
-      fields: [
-        { key: 'country', label: 'País', type: 'text', recommended: true },
-        { key: 'city', label: 'Localidad', type: 'text', recommended: true },
-        { key: 'street', label: 'Calle', type: 'text' },
-        { key: 'streetNumber', label: 'Número', type: 'text' },
-        { key: 'community', label: 'Urbanización', type: 'text' },
-        { key: 'block', label: 'Bloque', type: 'text' },
-        { key: 'portal', label: 'Portal', type: 'text' },
-        { key: 'floor', label: 'Piso', type: 'text' },
-        { key: 'doorLetter', label: 'Letra', type: 'text' },
-        { key: 'postalCode', label: 'Código postal', type: 'text' },
-        { key: 'district', label: 'Distrito', type: 'text' },
-        ...sheetGroupFlat('location'),
-        {
-          key: 'locationPrivacy',
-          label: 'Privacidad de la ubicación',
-          type: 'select',
-          options: LOCATION_PRIVACY_OPTIONS,
-          optionLabels: LOCATION_PRIVACY_LABELS,
-          hint: 'Exacta: se publica tal cual. Aproximada: coordenadas redondeadas y sin número. Ocultar número: coordenadas exactas pero sin número/portal/bloque/planta/letra en público.',
-          span: 2,
-        },
-        { key: 'locationPrivacyRadius', label: 'Radio de privacidad (m)', type: 'number', hint: 'Con «Ubicación aproximada», el punto público se redondea a una cuadrícula de este tamaño (mínimo unos 110 m): cuanto mayor, menos precisa la ubicación que se publica.' },
-      ],
-    },
-    {
-      key: 'price',
-      label: 'Precio',
-      icon: 'invoice',
-      description: 'Precio de salida, evolución y plan de pagos.',
-      kind: 'fields',
-      fields: [
-        { key: 'price', label: 'Precio de salida', labelFor: priceLabel('Precio de salida'), type: 'number', required: true, group: 'Precio principal' },
-        { key: 'priceOld', label: 'Precio anterior', type: 'number', hint: 'Para mostrar un precio tachado si ha bajado.', group: 'Precio principal' },
-        PRICE_PER_M2,
-        PRICE_CHANGE_REASON,
-        { key: 'handoverDate', label: 'Fecha de entrega', type: 'text', group: 'Condiciones' },
-        { key: 'handoverPercentage', label: '% a la entrega', type: 'text', group: 'Condiciones' },
-        { key: 'downPercentage', label: '% de entrada', type: 'text', group: 'Condiciones' },
-        { key: 'constructionPercentage', label: '% durante construcción', type: 'text', group: 'Condiciones' },
-        ...SHEET_PRICE_FIELDS,
-        { key: 'paymentPlan', label: 'Plan de pagos', type: 'payment-plan', span: 2, group: 'Plan de pagos' },
-      ],
-    },
-    {
-      key: 'features',
-      label: 'Características',
-      icon: 'layers',
-      description: 'Distribución, superficie y equipamiento.',
-      kind: 'fields',
-      fields: [
-        { key: 'bedrooms', label: 'Dormitorios', type: 'stepper', recommended: true, group: 'Dimensiones' },
-        { key: 'bathrooms', label: 'Baños', type: 'stepper', recommended: true, group: 'Dimensiones' },
-        { key: 'toilets', label: 'Aseos', type: 'stepper', group: 'Dimensiones' },
-        { key: 'livingRooms', label: 'Salones', type: 'stepper', group: 'Dimensiones' },
-        { key: 'kitchens', label: 'Cocinas', type: 'stepper', group: 'Dimensiones' },
-        { key: 'garageSpaces', label: 'Plazas de garaje', type: 'stepper', group: 'Dimensiones' },
-        { key: 'area', label: 'Superficie construida (m²)', type: 'number', recommended: true, group: 'Superficies' },
-        { key: 'usableArea', label: 'Superficie útil (m²)', type: 'number', group: 'Superficies' },
-        { key: 'plotArea', label: 'Superficie de parcela (m²)', type: 'number', group: 'Superficies' },
-        { key: 'terraceArea', label: 'Superficie de terraza (m²)', type: 'number', group: 'Superficies' },
-        { key: 'gardenArea', label: 'Superficie de jardín (m²)', type: 'number', group: 'Superficies' },
-        { key: 'balconyArea', label: 'Superficie de balcón (m²)', type: 'number', group: 'Superficies' },
-        { key: 'storageArea', label: 'Superficie de trastero (m²)', type: 'number', group: 'Superficies' },
-        ...sheetGroup('surfaces', 'Superficies'),
-        ...sheetGroup('distribution', 'Distribución'),
-        { key: 'condition', label: 'Estado físico', type: 'select', options: CONDITION_OPTIONS, optionLabels: CONDITION_LABELS, group: 'Estado' },
-        { key: 'furnished', label: 'Amueblado', type: 'select', options: FURNISHED_OPTIONS, optionLabels: FURNISHED_LABELS, group: 'Estado' },
-        { key: 'orientation', label: 'Orientación', type: 'select', options: ORIENTATION_OPTIONS, group: 'Certificación' },
-        { key: 'energyRating', label: 'Calificación energética', type: 'select', options: ENERGY_OPTIONS, group: 'Certificación' },
-        { key: 'hasElevator', label: 'Ascensor', type: 'checkbox', group: 'Equipamiento' },
-        { key: 'hasPool', label: 'Piscina', type: 'checkbox', group: 'Equipamiento' },
-        { key: 'hasGarage', label: 'Garaje', type: 'checkbox', group: 'Equipamiento' },
-        { key: 'hasTerrace', label: 'Terraza', type: 'checkbox', group: 'Equipamiento' },
-        { key: 'hasGarden', label: 'Jardín', type: 'checkbox', group: 'Equipamiento' },
-        { key: 'petsAllowed', label: 'Se admiten mascotas', type: 'checkbox', group: 'Equipamiento' },
-        { key: 'accessible', label: 'Accesible', type: 'checkbox', group: 'Equipamiento' },
-        {
-          key: 'featuresReviewedAt',
-          label: 'Características repasadas',
-          type: 'checkbox',
-          hint: 'Márcalo tras revisar el equipamiento de arriba — así un "No" marcado se distingue de "todavía sin repasar" (usado por el motor de compatibilidad).',
-          group: 'Equipamiento',
-        },
-      ],
-    },
-    {
-      key: 'rooms',
-      label: 'Estancias personalizadas',
-      icon: 'layers',
-      description: 'Dormitorios, despachos u otras estancias con su propia superficie y orientación.',
-      kind: 'rooms',
-      childResource: 'developer-property-rooms',
-      parentField: 'developerPropertyId',
-    },
-    SHEET_BUILDING_SECTION,
-    SHEET_INSTALLATIONS_SECTION,
-    {
-      key: 'description',
-      label: 'Descripción',
-      icon: 'doc',
-      description: 'Contenido editorial y puntos clave para la ficha pública.',
-      kind: 'fields',
-      fields: [
-        { key: 'description', label: 'Descripción', type: 'rich-text', span: 2, recommended: true, group: 'Contenido principal' },
-        { key: 'keyHighlights', label: 'Puntos clave', type: 'textarea', span: 2, group: 'Contenido principal' },
-        { key: 'masterPlanDescription', label: 'Descripción del master plan', type: 'rich-text', span: 2, group: 'Documentación técnica' },
-        { key: 'floorPlanDescription', label: 'Descripción de los planos', type: 'rich-text', span: 2, group: 'Documentación técnica' },
-        { key: 'locationMapDescription', label: 'Descripción del mapa de ubicación', type: 'rich-text', span: 2, group: 'Documentación técnica' },
-      ],
-    },
-    {
-      key: 'media',
-      label: 'Multimedia',
-      icon: 'widget',
-      description: 'Logo, portada e imágenes destacadas del proyecto.',
-      kind: 'fields',
-      fields: [
-        { key: 'logo', label: 'Logo', type: 'image', group: 'Identidad visual' },
-        { key: 'coverImage', label: 'Imagen de portada', type: 'image', recommended: true, group: 'Identidad visual' },
-        { key: 'masterPlanImage', label: 'Imagen del master plan', type: 'image', group: 'Planos y ubicación' },
-        { key: 'locationMap', label: 'Mapa de ubicación', type: 'image', group: 'Planos y ubicación' },
-        { key: 'videoUrl', label: 'Vídeo', type: 'video', span: 2, group: 'Vídeo' },
-        ...sheetGroup('media', 'Tour virtual').map((f) => ({ ...f, span: 2 as const })),
-        { key: 'dronePhoto', label: 'Foto aérea (drone)', type: 'image', group: 'Fotografía premium' },
-        { key: 'nightPhoto', label: 'Foto nocturna', type: 'image', group: 'Fotografía premium' },
-        { key: 'beforePhoto', label: 'Foto "antes"', type: 'image', group: 'Fotografía premium' },
-        { key: 'afterPhoto', label: 'Foto "después"', type: 'image', group: 'Fotografía premium' },
-        { key: 'aiStagedPhoto', label: 'Foto con staging IA', type: 'image', group: 'Fotografía premium' },
-      ],
-    },
-    {
-      key: 'gallery',
-      label: 'Galería y multimedia',
-      icon: 'widget',
-      description: 'Fotografías del proyecto (orden, portada, datos de cada foto, ocultar y descargar) y sus vídeos, tours, renders, PDF, drone y 360°.',
-      kind: 'gallery',
-      childResource: 'project-images',
-      parentField: 'developerPropertyId',
-    },
-    {
-      key: 'floorplans',
-      label: 'Planos',
-      icon: 'layers',
-      description: 'Los planos de la vivienda: se ven en la ficha pública («Plano de la vivienda» y la pestaña «Plano» de la galería), en este orden, con su título. Desmarca «Visible en la web» para guardar uno sólo en el panel.',
-      kind: 'child-table',
-      childResource: 'floor-plans',
-      parentField: 'developerPropertyId',
-      orderField: 'sortOrder',
-      visibleField: 'isPublic',
-      columns: [
-        { key: 'title', label: 'Título', type: 'text', hint: 'Lo que se lee en la web: «Planta baja», «Primera planta», «Ático»…' },
-        { key: 'image', label: 'Imagen del plano', type: 'image' },
-        { key: 'isPublic', label: 'Visible en la web', type: 'checkbox' },
-        { key: 'category', label: 'Categoría', type: 'text' },
-        { key: 'unitType', label: 'Tipo de unidad', type: 'text' },
-        { key: 'floorDetails', label: 'Detalles', type: 'text' },
-        { key: 'sizes', label: 'Tamaños', type: 'text' },
-        { key: 'type', label: 'Tipo', type: 'text' },
-      ],
-    },
-    {
-      key: 'unittypes',
-      label: 'Tipos de unidad',
-      icon: 'badge',
-      description: 'Tipologías disponibles y sus tamaños.',
-      kind: 'child-table',
-      childResource: 'property-types',
-      parentField: 'developerPropertyId',
-      columns: [
-        { key: 'propertyType', label: 'Tipo', type: 'text', required: true },
-        { key: 'unitType', label: 'Unidad', type: 'text', required: true },
-        { key: 'size', label: 'Tamaño', type: 'text', required: true },
-      ],
-    },
-    {
-      key: 'social',
-      label: 'Redes sociales',
-      icon: 'sparkles',
-      description: 'Redes sociales asociadas a esta promoción.',
-      kind: 'social',
-      childResource: 'social-media',
-      parentField: 'developerPropertyId',
-    },
-    {
-      key: 'commercial',
-      label: 'Comercial / Inversión',
-      icon: 'chart',
-      description: 'Comercial asignado, condiciones y datos de inversión.',
-      kind: 'fields',
-      fields: [
-        { key: 'agentId', label: 'Comercial asignado', type: 'agent', group: 'Comercial' },
-        ...sheetGroup('identification', 'Comercial').filter((f) => f.key === 'officeId' || f.key === 'teamId'),
-        { key: 'mandateType', label: 'Tipo de mandato', type: 'text', group: 'Comercial' },
-        { key: 'exclusiveFrom', label: 'Exclusividad — inicio', type: 'date', hint: DATE_HINT_LEGACY, group: 'Comercial' },
-        { key: 'exclusiveUntil', label: 'Exclusividad — vencimiento', type: 'date', hint: 'El resumen avisa cuando falten 30 días o menos y cuando haya vencido; el listado filtra por ello.', group: 'Comercial' },
-        { key: 'isExclusive', label: 'Exclusiva', type: 'checkbox', group: 'Inversión' },
-        LEGACY_RESERVED,
-        { key: 'hasTour', label: 'Tiene tour virtual', type: 'checkbox', group: 'Inversión' },
-        { key: 'rentalYield', label: 'Rentabilidad estimada (%)', type: 'number', group: 'Inversión' },
-        LEGACY_SERVICE_CHARGE,
-      ],
-    },
-    OWNERS_SECTION,
-    SHEET_LEGAL_SECTION,
-    DOCUMENTS_SECTION,
-    PORTALS_SECTION,
-    BUYER_MATCHES_SECTION,
-  ],
 
-  // Parity with 'developer-properties' (migration 0059) — every field above
-  // that's equally applicable to a resale unit now exists here too. No
-  // 'unittypes' section: "Tipos de unidad" is a menu of typologies for a
-  // multi-unit development under construction, which doesn't apply to a
-  // single resale property — deliberately not added, not a gap.
-  properties: [
-    {
-      key: 'info',
-      label: 'Información básica',
-      icon: 'doc',
-      description: 'Datos principales de la vivienda.',
-      kind: 'fields',
-      fields: [
-        { key: 'slug', label: 'Slug', type: 'text', span: 2, group: 'Identificación' },
-        { key: 'reference', label: 'Referencia interna', type: 'text', hint: 'Se genera sola si la dejas vacía.', group: 'Identificación' },
-        { key: 'agencyReference', label: 'Referencia de agencia', type: 'text', group: 'Identificación' },
-        { key: 'externalSource', label: 'Origen externo', type: 'text', hint: 'De dónde procede si viene de un sistema externo.', group: 'Identificación' },
-        { key: 'externalReference', label: 'Referencia externa', type: 'text', group: 'Identificación' },
-        { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, optionLabels: PROPERTY_TYPE_LABELS, recommended: true, group: 'Clasificación' },
-        ...sheetGroup('identification', 'Clasificación').filter((f) => f.key === 'subtype'),
-        { key: 'transactionType', label: 'Operación', type: 'select', options: ['sale', 'rent'], optionLabels: { sale: 'Venta', rent: 'Alquiler' }, recommended: true, group: 'Clasificación' },
-        {
-          key: 'status',
-          label: CATALOG_STATUS_TITLES.agent,
-          type: 'select',
-          options: ['available', 'sold'],
-          optionLabels: { available: 'Disponible', sold: 'Vendida' },
-          hint: 'La que lee el matching. «Vendida» pasa también a «Vendida» un estado comercial ya indicado.',
-          group: 'Clasificación',
-        },
-        ...commercialStatusField('Clasificación', 'agent'),
-        { key: 'yearBuilt', label: 'Año de construcción', type: 'number', group: 'Clasificación' },
-        ...sheetGroup('identification', 'Identificación comercial').filter((f) => f.key === 'commercialCode'),
-        { key: 'captureDate', label: 'Fecha de captación', type: 'date', hint: DATE_HINT_LEGACY, group: 'Captación' },
-        { key: 'captureSource', label: 'Origen de captación', type: 'text', group: 'Captación' },
-        { key: 'keyHighlights', label: 'Puntos clave', type: 'textarea', span: 2, group: 'Contenido' },
-      ],
-    },
-    {
-      key: 'location',
-      label: 'Ubicación',
-      icon: 'building',
-      description: 'Dirección completa y ubicación en el mapa.',
-      kind: 'location',
-      latField: 'lat',
-      lngField: 'lng',
-      fields: [
-        { key: 'country', label: 'País', type: 'text', recommended: true },
-        { key: 'city', label: 'Localidad', type: 'text', recommended: true },
-        { key: 'street', label: 'Calle', type: 'text' },
-        { key: 'streetNumber', label: 'Número', type: 'text' },
-        { key: 'community', label: 'Urbanización', type: 'text' },
-        { key: 'block', label: 'Bloque', type: 'text' },
-        { key: 'portal', label: 'Portal', type: 'text' },
-        { key: 'floor', label: 'Piso', type: 'text' },
-        { key: 'doorLetter', label: 'Letra', type: 'text' },
-        { key: 'postalCode', label: 'Código postal', type: 'text' },
-        { key: 'district', label: 'Distrito', type: 'text' },
-        ...sheetGroupFlat('location'),
-        { key: 'location', label: 'Referencia de ubicación (heredado)', type: 'text', span: 2, hint: 'Campo de texto libre anterior. Se conserva por compatibilidad; usa los campos de arriba para direcciones nuevas.' },
-        {
-          key: 'locationPrivacy',
-          label: 'Privacidad de la ubicación',
-          type: 'select',
-          options: LOCATION_PRIVACY_OPTIONS,
-          optionLabels: LOCATION_PRIVACY_LABELS,
-          hint: 'Exacta: se publica tal cual. Aproximada: coordenadas redondeadas y sin número. Ocultar número: coordenadas exactas pero sin número/portal/bloque/planta/letra en público.',
-          span: 2,
-        },
-        { key: 'locationPrivacyRadius', label: 'Radio de privacidad (m)', type: 'number', hint: 'Con «Ubicación aproximada», el punto público se redondea a una cuadrícula de este tamaño (mínimo unos 110 m): cuanto mayor, menos precisa la ubicación que se publica.' },
-      ],
-    },
-    {
-      key: 'price',
-      label: 'Precio',
-      icon: 'invoice',
-      description: 'Precio de venta o alquiler.',
-      kind: 'fields',
-      fields: [
-        { key: 'price', label: 'Precio de venta', labelFor: priceLabel('Precio de venta'), type: 'number', required: true, group: 'Precio principal' },
-        { key: 'priceOld', label: 'Precio anterior', type: 'number', hint: 'Para mostrar un precio tachado si ha bajado.', group: 'Precio principal' },
-        PRICE_PER_M2,
-        PRICE_CHANGE_REASON,
-        ...SHEET_PRICE_FIELDS,
-        { key: 'paymentPlan', label: 'Plan de pagos', type: 'payment-plan', span: 2, group: 'Plan de pagos' },
-      ],
-    },
-    {
-      key: 'features',
-      label: 'Características',
-      icon: 'layers',
-      description: 'Superficie, dormitorios, baños y equipamiento.',
-      kind: 'fields',
-      fields: [
-        { key: 'area', label: 'Superficie construida (m²)', type: 'number', recommended: true, group: 'Dimensiones' },
-        { key: 'bedrooms', label: 'Dormitorios', type: 'stepper', recommended: true, group: 'Dimensiones' },
-        { key: 'bathrooms', label: 'Baños', type: 'stepper', recommended: true, group: 'Dimensiones' },
-        { key: 'toilets', label: 'Aseos', type: 'stepper', group: 'Dimensiones' },
-        { key: 'livingRooms', label: 'Salones', type: 'stepper', group: 'Dimensiones' },
-        { key: 'kitchens', label: 'Cocinas', type: 'stepper', group: 'Dimensiones' },
-        { key: 'garageSpaces', label: 'Plazas de garaje', type: 'stepper', group: 'Dimensiones' },
-        { key: 'usableArea', label: 'Superficie útil (m²)', type: 'number', group: 'Superficies' },
-        { key: 'plotArea', label: 'Superficie de parcela (m²)', type: 'number', group: 'Superficies' },
-        { key: 'terraceArea', label: 'Superficie de terraza (m²)', type: 'number', group: 'Superficies' },
-        { key: 'gardenArea', label: 'Superficie de jardín (m²)', type: 'number', group: 'Superficies' },
-        { key: 'balconyArea', label: 'Superficie de balcón (m²)', type: 'number', group: 'Superficies' },
-        { key: 'storageArea', label: 'Superficie de trastero (m²)', type: 'number', group: 'Superficies' },
-        ...sheetGroup('surfaces', 'Superficies'),
-        ...sheetGroup('distribution', 'Distribución'),
-        { key: 'condition', label: 'Estado físico', type: 'select', options: CONDITION_OPTIONS, optionLabels: CONDITION_LABELS, group: 'Estado' },
-        { key: 'furnished', label: 'Amueblado', type: 'select', options: FURNISHED_OPTIONS, optionLabels: FURNISHED_LABELS, group: 'Estado' },
-        { key: 'orientation', label: 'Orientación', type: 'select', options: ORIENTATION_OPTIONS, group: 'Certificación' },
-        { key: 'energyRating', label: 'Calificación energética', type: 'select', options: ENERGY_OPTIONS, group: 'Certificación' },
-        { key: 'hasElevator', label: 'Ascensor', type: 'checkbox', group: 'Equipamiento' },
-        { key: 'hasPool', label: 'Piscina', type: 'checkbox', group: 'Equipamiento' },
-        { key: 'hasGarage', label: 'Garaje', type: 'checkbox', group: 'Equipamiento' },
-        { key: 'hasTerrace', label: 'Terraza', type: 'checkbox', group: 'Equipamiento' },
-        { key: 'hasGarden', label: 'Jardín', type: 'checkbox', group: 'Equipamiento' },
-        { key: 'petsAllowed', label: 'Se admiten mascotas', type: 'checkbox', group: 'Equipamiento' },
-        { key: 'accessible', label: 'Accesible', type: 'checkbox', group: 'Equipamiento' },
-        {
-          key: 'featuresReviewedAt',
-          label: 'Características repasadas',
-          type: 'checkbox',
-          hint: 'Márcalo tras revisar el equipamiento de arriba — así un "No" marcado se distingue de "todavía sin repasar" (usado por el motor de compatibilidad).',
-          group: 'Equipamiento',
-        },
-      ],
-    },
-    {
-      key: 'rooms',
-      label: 'Estancias personalizadas',
-      icon: 'layers',
-      description: 'Dormitorios, despachos u otras estancias con su propia superficie y orientación.',
-      kind: 'rooms',
-      childResource: 'agent-property-rooms',
-      parentField: 'propertyId',
-    },
-    SHEET_BUILDING_SECTION,
-    SHEET_INSTALLATIONS_SECTION,
-    {
-      key: 'description',
-      label: 'Descripción',
-      icon: 'doc',
-      description: 'Título y descripción de la vivienda, por idioma.',
-      kind: 'translations',
-    },
-    {
-      key: 'media',
-      label: 'Multimedia',
-      icon: 'widget',
-      description: 'Imagen principal y vídeo de la vivienda.',
-      kind: 'fields',
-      fields: [
-        { key: 'mainImage', label: 'Imagen principal', type: 'image', recommended: true, group: 'Identidad visual' },
-        { key: 'videoUrl', label: 'Vídeo', type: 'video', span: 2, group: 'Vídeo' },
-        ...sheetGroup('media', 'Tour virtual').map((f) => ({ ...f, span: 2 as const })),
-        { key: 'dronePhoto', label: 'Foto aérea (drone)', type: 'image', group: 'Fotografía premium' },
-        { key: 'nightPhoto', label: 'Foto nocturna', type: 'image', group: 'Fotografía premium' },
-        { key: 'beforePhoto', label: 'Foto "antes"', type: 'image', group: 'Fotografía premium' },
-        { key: 'afterPhoto', label: 'Foto "después"', type: 'image', group: 'Fotografía premium' },
-        { key: 'aiStagedPhoto', label: 'Foto con staging IA', type: 'image', group: 'Fotografía premium' },
-      ],
-    },
-    {
-      key: 'gallery',
-      label: 'Galería y multimedia',
-      icon: 'widget',
-      description: 'Fotografías de la vivienda (orden, portada, datos de cada foto, ocultar y descargar) y sus vídeos, tours, renders, PDF, drone y 360°.',
-      kind: 'gallery',
-      childResource: 'gallery-images',
-      parentField: 'propertyId',
-      coverField: 'mainImage',
-    },
-    {
-      key: 'floorplans',
-      label: 'Planos',
-      icon: 'layers',
-      description: 'Planos de la vivienda, si están disponibles, en este orden y con su título.',
-      kind: 'child-table',
-      childResource: 'agent-property-floor-plans',
-      parentField: 'propertyId',
+export type BuilderCatalog = 'developer' | 'agent'
+
+/** El estado general del inmueble (columna `condition`), con sus seis opciones en este orden. */
+const CONDITION_FIELD: FieldSpec = {
+  key: 'condition',
+  label: 'Estado',
+  type: 'select',
+  options: CONDITION_OPTIONS,
+  optionLabels: CONDITION_LABELS,
+  group: 'Clasificación',
+  hint: 'El estado general del inmueble. Es el antiguo «Estado físico» (mismo dato). La fase de la obra de una promoción está en Características.',
+}
+
+/** «Fase de la obra» (obra nueva): lo que antes se llamaba «Estado de la obra». Se conserva como dato, en Características. */
+const CONSTRUCTION_PHASE_FIELD: FieldSpec = {
+  key: 'status',
+  label: 'Fase de la obra',
+  type: 'select',
+  options: ['new', 'under_construction', 'ready'],
+  optionLabels: { new: 'Obra nueva', under_construction: 'En construcción', ready: 'Lista' },
+  hint: 'La fase de la construcción. Si se puede vender o no lo dice el «Estado comercial».',
+  group: 'Edificio y vivienda',
+}
+
+/** Un campo de la ficha ampliada que ya tiene un sitio mejor: se conserva si la ficha lo traía relleno. */
+function legacyFrom(fields: FieldSpec[], key: string, hint: string): FieldSpec[] {
+  return fields.map((f) => (f.key === key ? { ...f, legacyOnly: true, hint } : f))
+}
+
+const LOCATION_FIELDS_COMMON: FieldSpec[] = [
+  { key: 'country', label: 'País', type: 'text', recommended: true },
+  { key: 'city', label: 'Localidad', type: 'text', recommended: true },
+  { key: 'street', label: 'Calle', type: 'text' },
+  { key: 'streetNumber', label: 'Número', type: 'text' },
+  { key: 'community', label: 'Urbanización', type: 'text' },
+  { key: 'block', label: 'Bloque', type: 'text' },
+  { key: 'portal', label: 'Portal', type: 'text' },
+  { key: 'floor', label: 'Piso', type: 'text' },
+  { key: 'doorLetter', label: 'Letra', type: 'text' },
+  { key: 'postalCode', label: 'Código postal', type: 'text' },
+  { key: 'district', label: 'Distrito', type: 'text' },
+]
+
+const PRIVACY_FIELDS: FieldSpec[] = [
+  {
+    key: 'locationPrivacy',
+    label: 'Privacidad de la ubicación',
+    type: 'select',
+    options: LOCATION_PRIVACY_OPTIONS,
+    optionLabels: LOCATION_PRIVACY_LABELS,
+    hint: 'Exacta: se publica tal cual. Aproximada: coordenadas redondeadas y sin número. Ocultar número: coordenadas exactas pero sin número/portal/bloque/planta/letra en público.',
+    span: 2,
+  },
+  { key: 'locationPrivacyRadius', label: 'Radio de privacidad (m)', type: 'number', hint: 'Con «Ubicación aproximada», el punto público se redondea a una cuadrícula de este tamaño (mínimo unos 110 m): cuanto mayor, menos precisa la ubicación que se publica.' },
+]
+
+const PLAN_COLUMNS: FieldSpec[] = [
+  { key: 'title', label: 'Título', type: 'text', hint: 'Lo que se lee en la web: «Planta baja», «Primera planta», «Ático»…' },
+  { key: 'image', label: 'Imagen del plano', type: 'image' },
+  { key: 'isPublic', label: 'Visible en la web', type: 'checkbox' },
+  { key: 'category', label: 'Categoría', type: 'text' },
+  { key: 'unitType', label: 'Tipo de unidad', type: 'text' },
+  { key: 'floorDetails', label: 'Detalles', type: 'text' },
+  { key: 'sizes', label: 'Tamaños', type: 'text' },
+  { key: 'type', label: 'Tipo', type: 'text' },
+]
+
+/**
+ * **El** constructor de propiedades: los mismos 13 apartados, los mismos
+ * campos y las mismas validaciones para Propiedades (web) y Propiedades 2ª
+ * mano. Lo único que cambia entre las dos son las capacidades que sólo tiene
+ * un catálogo (promotora, plan de pagos, imágenes de proyecto, tipologías,
+ * traducciones…) y los recursos hijos a los que apunta cada gestor.
+ *
+ * Los pasos que desaparecen (Descripción, Edificio y vivienda, Galería,
+ * Planos, Tipos de unidad, Redes sociales) no pierden datos: sus campos están
+ * ahora dentro de los apartados que los absorben, o siguen guardados sin
+ * pantalla (redes sociales, fotografía «premium»).
+ */
+export function buildPropertySections(catalog: BuilderCatalog): BuilderSection[] {
+  const dev = catalog === 'developer'
+
+  const info: FieldsSection = {
+    key: 'info',
+    label: 'Información básica',
+    icon: 'doc',
+    description: 'Título, descripción y datos principales de la propiedad.',
+    kind: 'fields',
+    collapsedGroups: ['Referencias', 'SEO'],
+    fields: [
+      { key: 'name', label: 'Título', type: 'text', span: 2, required: dev, recommended: !dev, group: 'Título y descripción' },
+      { key: 'description', label: 'Descripción', type: 'rich-text', span: 2, recommended: true, group: 'Título y descripción' },
+      { key: 'keyHighlights', label: 'Puntos clave', type: 'textarea', span: 2, group: 'Título y descripción' },
+      ...(dev ? [{ key: 'developerId', label: 'Promotora', type: 'relation', relationResource: 'developers', required: true, group: 'Clasificación' } as FieldSpec] : []),
+      CONDITION_FIELD,
+      { key: 'transactionType', label: 'Operación', type: 'select', options: ['sale', 'rent'], optionLabels: { sale: 'Venta', rent: 'Alquiler' }, recommended: true, group: 'Clasificación' },
+      { key: 'propertyType', label: 'Tipo de propiedad', type: 'select', options: PROPERTY_TYPE_OPTIONS, optionLabels: PROPERTY_TYPE_LABELS, recommended: true, group: 'Clasificación' },
+      ...sheetGroup('identification', 'Clasificación').filter((f) => f.key === 'subtype'),
+      ...(dev
+        ? []
+        : [
+            {
+              key: 'status',
+              label: CATALOG_STATUS_TITLES.agent,
+              type: 'select',
+              options: ['available', 'sold'],
+              optionLabels: { available: 'Disponible', sold: 'Vendida' },
+              hint: 'La que lee el matching. «Vendida» pasa también a «Vendida» un estado comercial ya indicado.',
+              group: 'Clasificación',
+            } as FieldSpec,
+          ]),
+      ...commercialStatusField('Clasificación', catalog),
+      { key: 'yearBuilt', label: 'Año de construcción', type: 'number', group: 'Clasificación' },
+      ...sheetGroup('identification', 'Clasificación').filter((f) => f.key === 'commercialCode'),
+      { key: 'reference', label: 'Referencia interna', type: 'text', auto: 'Se genera sola la primera vez que se guarda y no se vuelve a generar: guardar de nuevo no la cambia.', hint: 'Déjala vacía para que se genere.', group: 'Referencias' },
+      { key: 'agencyReference', label: 'Referencia de agencia', type: 'text', group: 'Referencias' },
+      { key: 'externalSource', label: 'Origen externo', type: 'text', hint: 'De dónde procede si viene de un sistema externo.', group: 'Referencias' },
+      { key: 'externalReference', label: 'Referencia externa', type: 'text', group: 'Referencias' },
+      {
+        key: 'slug',
+        label: 'Slug',
+        type: 'text',
+        span: 2,
+        auto: 'Se genera a partir del título al crear la propiedad y no cambia aunque cambies el título: la dirección pública no se rompe.',
+        autoOverridable: true,
+        hint: 'La parte final de la dirección pública de la ficha. Es opcional escribirlo a mano.',
+        group: 'SEO',
+      },
+    ],
+    // Las traducciones sólo existen en 2ª mano (property_translations).
+    ...(dev ? {} : { extras: [{ kind: 'translations' }] as SectionExtra[] }),
+  }
+
+  const location: LocationSection = {
+    key: 'location',
+    label: 'Ubicación',
+    icon: 'building',
+    description: 'Dirección completa y ubicación en el mapa.',
+    kind: 'location',
+    latField: 'lat',
+    lngField: 'lng',
+    fields: [
+      ...LOCATION_FIELDS_COMMON,
+      ...sheetGroupFlat('location'),
+      ...(dev ? [] : [{ key: 'location', label: 'Referencia de ubicación (heredado)', type: 'text', span: 2, legacyOnly: true, hint: 'Campo de texto libre anterior. Se conserva por compatibilidad; usa los campos de arriba para direcciones nuevas.' } as FieldSpec]),
+      ...PRIVACY_FIELDS,
+    ],
+  }
+
+  const price: FieldsSection = {
+    key: 'price',
+    label: 'Precio',
+    icon: 'invoice',
+    description: dev ? 'Moneda, precio, evolución y plan de pagos.' : 'Moneda y precio de venta o alquiler.',
+    kind: 'fields',
+    fields: [
+      {
+        key: 'currency',
+        label: 'Tipo de moneda',
+        type: 'select',
+        options: CURRENCIES.map((c) => c.code),
+        optionLabels: Object.fromEntries(CURRENCIES.map((c) => [c.code, `${c.code} — ${c.label}`])),
+        hint: 'La moneda en la que está expresado el precio. Vacío: la moneda de la inmobiliaria. No se convierte ningún importe al guardar.',
+        group: 'Precio principal',
+      },
+      { key: 'price', label: 'Precio', labelFor: priceLabel('Precio'), type: 'number', required: true, group: 'Precio principal' },
+      { key: 'priceOld', label: 'Precio anterior', type: 'number', hint: 'Para mostrar un precio tachado si ha bajado.', group: 'Precio principal' },
+      PRICE_PER_M2,
+      PRICE_CHANGE_REASON,
+      ...(dev
+        ? [
+            { key: 'handoverDate', label: 'Fecha de entrega', type: 'text', group: 'Condiciones' } as FieldSpec,
+            { key: 'handoverPercentage', label: '% a la entrega', type: 'text', group: 'Condiciones' } as FieldSpec,
+            { key: 'downPercentage', label: '% de entrada', type: 'text', group: 'Condiciones' } as FieldSpec,
+            { key: 'constructionPercentage', label: '% durante construcción', type: 'text', group: 'Condiciones' } as FieldSpec,
+          ]
+        : []),
+      ...SHEET_PRICE_FIELDS,
+      { key: 'paymentPlan', label: 'Plan de pagos', type: 'payment-plan', span: 2, group: 'Plan de pagos' },
+    ],
+  }
+
+  const features: FieldsSection = {
+    key: 'features',
+    label: 'Características',
+    icon: 'layers',
+    description: 'Superficies y distribución, edificio y vivienda, equipamiento y características adicionales.',
+    kind: 'fields',
+    fields: [
+      { key: 'bedrooms', label: 'Dormitorios', type: 'stepper', recommended: true, group: 'Superficies y distribución' },
+      { key: 'bathrooms', label: 'Baños', type: 'stepper', recommended: true, group: 'Superficies y distribución' },
+      { key: 'toilets', label: 'Aseos', type: 'stepper', group: 'Superficies y distribución' },
+      { key: 'livingRooms', label: 'Salones', type: 'stepper', group: 'Superficies y distribución' },
+      { key: 'kitchens', label: 'Cocinas', type: 'stepper', group: 'Superficies y distribución' },
+      { key: 'garageSpaces', label: 'Plazas de garaje', type: 'stepper', group: 'Superficies y distribución' },
+      { key: 'area', label: 'Superficie construida (m²)', type: 'number', recommended: true, group: 'Superficies y distribución' },
+      { key: 'usableArea', label: 'Superficie útil (m²)', type: 'number', group: 'Superficies y distribución' },
+      { key: 'plotArea', label: 'Superficie de parcela (m²)', type: 'number', group: 'Superficies y distribución' },
+      { key: 'terraceArea', label: 'Superficie de terraza (m²)', type: 'number', group: 'Superficies y distribución' },
+      { key: 'gardenArea', label: 'Superficie de jardín (m²)', type: 'number', group: 'Superficies y distribución' },
+      { key: 'balconyArea', label: 'Superficie de balcón (m²)', type: 'number', group: 'Superficies y distribución' },
+      { key: 'storageArea', label: 'Superficie de trastero (m²)', type: 'number', group: 'Superficies y distribución' },
+      ...sheetGroup('surfaces', 'Superficies y distribución'),
+      ...sheetGroup('distribution', 'Superficies y distribución'),
+      ...(dev ? [CONSTRUCTION_PHASE_FIELD] : []),
+      ...sheetGroup('building', 'Edificio y vivienda'),
+      ...legacyFrom(sheetGroup('dwelling', 'Edificio y vivienda'), 'isRenovated', 'Dato anterior. Ahora el inmueble reformado se indica en Información básica → Estado → «Reformado»; si la ficha lo tenía marcado, se conserva aquí.'),
+      { key: 'furnished', label: 'Amueblado', type: 'select', options: FURNISHED_OPTIONS, optionLabels: FURNISHED_LABELS, group: 'Equipamiento y dimensiones' },
+      { key: 'orientation', label: 'Orientación', type: 'select', options: ORIENTATION_OPTIONS, group: 'Equipamiento y dimensiones' },
+      { key: 'energyRating', label: 'Calificación energética', type: 'select', options: ENERGY_OPTIONS, group: 'Equipamiento y dimensiones' },
+      { key: 'hasElevator', label: 'Ascensor', type: 'checkbox', group: 'Equipamiento y dimensiones' },
+      { key: 'hasPool', label: 'Piscina', type: 'checkbox', group: 'Equipamiento y dimensiones' },
+      { key: 'hasGarage', label: 'Garaje', type: 'checkbox', group: 'Equipamiento y dimensiones' },
+      { key: 'hasTerrace', label: 'Terraza', type: 'checkbox', group: 'Equipamiento y dimensiones' },
+      { key: 'hasGarden', label: 'Jardín', type: 'checkbox', group: 'Equipamiento y dimensiones' },
+      { key: 'petsAllowed', label: 'Se admiten mascotas', type: 'checkbox', group: 'Características adicionales' },
+      { key: 'accessible', label: 'Accesible', type: 'checkbox', group: 'Características adicionales' },
+      {
+        key: 'featuresReviewedAt',
+        label: 'Características repasadas',
+        type: 'checkbox',
+        hint: 'Márcalo tras revisar el equipamiento de arriba — así un "No" marcado se distingue de "todavía sin repasar" (usado por el motor de compatibilidad).',
+        group: 'Características adicionales',
+      },
+    ],
+    // Las tipologías de una promoción se gestionan dentro de Características (ya no es un paso aparte).
+    ...(dev
+      ? {
+          extras: [
+            {
+              kind: 'child-table',
+              title: 'Tipologías de la promoción',
+              description: 'Tipologías disponibles y sus tamaños: salen en la sección «Tipologías» de la ficha pública.',
+              childResource: 'property-types',
+              parentField: 'developerPropertyId',
+              columns: [
+                { key: 'propertyType', label: 'Tipo', type: 'text', required: true },
+                { key: 'unitType', label: 'Unidad', type: 'text', required: true },
+                { key: 'size', label: 'Tamaño', type: 'text', required: true },
+              ],
+            },
+          ] as SectionExtra[],
+        }
+      : {}),
+  }
+
+  const rooms: RoomsSection = {
+    key: 'rooms',
+    label: 'Estancias personalizadas',
+    icon: 'layers',
+    description: 'Dormitorios, despachos u otras estancias con su propia superficie y orientación.',
+    kind: 'rooms',
+    childResource: dev ? 'developer-property-rooms' : 'agent-property-rooms',
+    parentField: dev ? 'developerPropertyId' : 'propertyId',
+  }
+
+  const installations: FieldsSection = {
+    key: 'installations',
+    label: 'Instalaciones y exteriores',
+    icon: 'sparkles',
+    description: 'Instalaciones, zonas comunes y exteriores: primero los desplegables y después las casillas.',
+    kind: 'fields',
+    fields: [...sheetGroup('installations'), ...sheetGroup('common'), ...sheetGroup('exterior')],
+  }
+
+  const media: MediaSection = {
+    key: 'media',
+    label: 'Multimedia y planos',
+    icon: 'widget',
+    description: 'Portada, galería por estancias, vídeos, planos y tours virtuales.',
+    kind: 'media',
+    coverField: dev ? 'coverImage' : 'mainImage',
+    gallery: dev ? { childResource: 'project-images', parentField: 'developerPropertyId' } : { childResource: 'gallery-images', parentField: 'propertyId' },
+    floorPlans: {
+      childResource: dev ? 'floor-plans' : 'agent-property-floor-plans',
+      parentField: dev ? 'developerPropertyId' : 'propertyId',
       orderField: 'sortOrder',
       visibleField: 'isPublic',
-      columns: [
-        { key: 'title', label: 'Título', type: 'text', hint: 'Por ejemplo «Planta baja» o «Ático».' },
-        { key: 'image', label: 'Imagen del plano', type: 'image' },
-        { key: 'isPublic', label: 'Visible en la web', type: 'checkbox' },
-        { key: 'category', label: 'Categoría', type: 'text' },
-        { key: 'unitType', label: 'Tipo de unidad', type: 'text' },
-        { key: 'floorDetails', label: 'Detalles', type: 'text' },
-        { key: 'sizes', label: 'Tamaños', type: 'text' },
-        { key: 'type', label: 'Tipo', type: 'text' },
-      ],
+      columns: PLAN_COLUMNS,
     },
-    {
-      key: 'social',
-      label: 'Redes sociales',
-      icon: 'sparkles',
-      description: 'Redes sociales asociadas a esta vivienda.',
-      kind: 'social',
-      childResource: 'agent-property-social-media',
-      parentField: 'propertyId',
-    },
-    {
-      key: 'commercial',
-      label: 'Comercial / Inversión',
-      icon: 'chart',
-      description: 'Comercial asignado, condiciones y datos de inversión.',
-      kind: 'fields',
-      fields: [
-        { key: 'agentId', label: 'Comercial asignado', type: 'agent', span: 2, group: 'Comercial' },
-        ...sheetGroup('identification', 'Comercial').filter((f) => f.key === 'officeId' || f.key === 'teamId'),
-        { key: 'mandateType', label: 'Tipo de mandato', type: 'text', group: 'Comercial' },
-        { key: 'exclusiveFrom', label: 'Exclusividad — inicio', type: 'date', hint: DATE_HINT_LEGACY, group: 'Comercial' },
-        { key: 'exclusiveUntil', label: 'Exclusividad — vencimiento', type: 'date', hint: 'El resumen avisa cuando falten 30 días o menos y cuando haya vencido; el listado filtra por ello.', group: 'Comercial' },
-        { key: 'isExclusive', label: 'Exclusiva', type: 'checkbox', group: 'Inversión' },
-        LEGACY_RESERVED,
-        { key: 'hasTour', label: 'Tiene tour virtual', type: 'checkbox', group: 'Inversión' },
-        { key: 'rentalYield', label: 'Rentabilidad estimada (%)', type: 'number', group: 'Inversión' },
-        LEGACY_SERVICE_CHARGE,
-      ],
-    },
-    OWNERS_SECTION,
-    SHEET_LEGAL_SECTION,
-    DOCUMENTS_SECTION,
-    PORTALS_SECTION,
-    BUYER_MATCHES_SECTION,
-  ],
+    videoField: { key: 'videoUrl', label: 'Vídeo', type: 'video', span: 2 },
+    tourFields: sheetGroup('media', 'Vistas 360° y tours virtuales').map((f) => ({ ...f, span: 2 as const })),
+    projectImages: dev
+      ? [
+          { key: 'logo', label: 'Logo', type: 'image', group: 'Identidad del proyecto' },
+          { key: 'masterPlanImage', label: 'Imagen del master plan', type: 'image', group: 'Identidad del proyecto' },
+          { key: 'locationMap', label: 'Mapa de ubicación', type: 'image', group: 'Identidad del proyecto' },
+        ]
+      : [],
+    planTexts: dev
+      ? [
+          { key: 'masterPlanDescription', label: 'Descripción del master plan', type: 'rich-text', span: 2, group: 'Textos de los planos' },
+          { key: 'floorPlanDescription', label: 'Descripción de los planos', type: 'rich-text', span: 2, group: 'Textos de los planos' },
+          { key: 'locationMapDescription', label: 'Descripción del mapa de ubicación', type: 'rich-text', span: 2, group: 'Textos de los planos' },
+        ]
+      : [],
+  }
+
+  const commercial: FieldsSection = {
+    key: 'commercial',
+    label: 'Comercial / Inversión',
+    icon: 'chart',
+    description: 'Comercial asignado, captación, condiciones y datos de inversión.',
+    kind: 'fields',
+    fields: [
+      { key: 'agentId', label: 'Comercial asignado', type: 'agent', span: 2, group: 'Comercial' },
+      ...sheetGroup('identification', 'Comercial').filter((f) => f.key === 'officeId' || f.key === 'teamId'),
+      { key: 'mandateType', label: 'Tipo de mandato', type: 'text', group: 'Comercial' },
+      { key: 'exclusiveFrom', label: 'Exclusividad — inicio', type: 'date', hint: DATE_HINT_LEGACY, group: 'Comercial' },
+      { key: 'exclusiveUntil', label: 'Exclusividad — vencimiento', type: 'date', hint: 'El resumen avisa cuando falten 30 días o menos y cuando haya vencido; el listado filtra por ello.', group: 'Comercial' },
+      { key: 'captureDate', label: 'Fecha de captación', type: 'date', hint: DATE_HINT_LEGACY, group: 'Captación' },
+      { key: 'captureSource', label: 'Origen de captación', type: 'text', group: 'Captación' },
+      { key: 'isExclusive', label: 'Exclusiva', type: 'checkbox', group: 'Inversión' },
+      LEGACY_RESERVED,
+      { key: 'hasTour', label: 'Tiene tour virtual', type: 'checkbox', group: 'Inversión' },
+      { key: 'rentalYield', label: 'Rentabilidad estimada (%)', type: 'number', group: 'Inversión' },
+      LEGACY_SERVICE_CHARGE,
+    ],
+  }
+
+  return [info, location, price, features, rooms, installations, media, commercial, OWNERS_SECTION, SHEET_LEGAL_SECTION, DOCUMENTS_SECTION, PORTALS_SECTION, BUYER_MATCHES_SECTION]
+}
+
+/** Por recurso: Propiedades (web) y Propiedades 2ª mano, con la misma estructura (`buildPropertySections`). */
+export const PROPERTY_BUILDER_SECTIONS: Record<string, BuilderSection[]> = {
+  'developer-properties': buildPropertySections('developer'),
+  properties: buildPropertySections('agent'),
+}
+
+/**
+ * Todos los campos de una sección que se guardan con la propiedad, estén donde
+ * estén dentro de ella (campos, ubicación, portada/vídeo/tours de «Multimedia y
+ * planos»). Lo usan la comprobación de completitud de la demo y las pruebas.
+ */
+export function sectionFieldSpecs(s: BuilderSection): FieldSpec[] {
+  if (s.kind === 'media') {
+    const m = s as MediaSection
+    return [{ key: m.coverField, label: 'Imagen de portada', type: 'image' }, ...m.projectImages, m.videoField, ...m.tourFields, ...m.planTexts]
+  }
+  if (s.kind === 'fields' || s.kind === 'location') return (s as FieldsSection).fields
+  return []
 }

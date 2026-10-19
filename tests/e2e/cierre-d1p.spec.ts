@@ -253,6 +253,7 @@ test.describe('Cierre D1p — ficha y búsqueda de propiedades', () => {
     await expect(visible(page, 'property-summary')).toBeVisible()
     await expect(visible(page, 'property-summary-price')).toContainText('/mes')
     await expect(visible(page, 'property-summary-created')).toContainText('Creada por')
+    await visible(page, 'property-editor-step-commercial').click()
     await expect(visible(page, 'field-date-captureDate')).toHaveAttribute('type', 'date')
     await visible(page, 'property-editor-step-price').click()
     await expect(page.getByLabel('Renta mensual', { exact: true }).first()).toBeVisible()

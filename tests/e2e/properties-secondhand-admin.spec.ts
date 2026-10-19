@@ -135,7 +135,7 @@ test.describe('Propiedades 2ª mano — listado admin', () => {
 
     await page.goto(`/admin/properties/${id}`)
     const nav = page.locator('aside')
-    await nav.getByRole('button', { name: 'Galería' }).click()
+    await nav.getByTestId('property-editor-step-media').click()
     await page.getByRole('button', { name: 'Usar como portada' }).click()
     await page.getByTestId('property-editor-save').click()
     // El indicador de la cabecera y no un `getByText('Guardado')` suelto: el
