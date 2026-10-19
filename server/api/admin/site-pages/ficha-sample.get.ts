@@ -43,6 +43,7 @@ export default defineEventHandler(async (event) => {
 })
 
 function withSolarDemo<T extends { solar?: unknown; availability?: Record<string, unknown> }>(detail: T): T {
-  if (detail.solar) return detail
+  // El Constructor SIEMPRE muestra datos de demostración rotulados: su fin es diseñar la tarjeta,
+  // no enseñar la exposición de esta propiedad (la real —proveedor o estimación— va en la ficha pública).
   return { ...detail, solar: SOLAR_DEMO_EXPOSURE, availability: { ...(detail.availability || {}), solar: true } }
 }

@@ -24,6 +24,8 @@ export interface SolarExposure {
   fetchedAt: string | null
   /** Datos de demostración del Constructor Web: la web pública nunca los recibe. */
   demo?: boolean
+  /** Estimación propia por orientación y latitud (no de un proveedor; cielo despejado, sin sombras de edificios). */
+  estimated?: boolean
 }
 
 /** Dominios desde los que se acepta un visor externo. */
@@ -68,6 +70,7 @@ export function normalizeSolarExposure(raw: unknown, provider: string): SolarExp
     provider: provider.slice(0, 60),
     fetchedAt,
     ...(r.demo === true ? { demo: true } : {}),
+    ...(r.estimated === true ? { estimated: true } : {}),
   }
 }
 
@@ -126,4 +129,85 @@ export const SOLAR_PROVIDER_STATUS = {
   name: 'Shadowmap',
   state: 'pending_access' as 'pending_access' | 'ready',
   message: 'Configuración pendiente: la API de Shadowmap (Sunscore) se concede a socios en alta temprana y no publica sus endpoints. Sin licencia y credenciales no se calcula ni se enseña ninguna exposición solar real.',
+}
+
+/**
+ * Estimación de la exposición solar de una propiedad a partir de SU ORIENTACIÓN
+ * y SU LATITUD, con geometría solar real (las mismas fórmulas NOAA que
+ * `composables/useSunPosition.ts`): NADA inventado y ningún proveedor externo.
+ *
+ * Es una estimación teórica de cielo despejado: cuenta las horas en que el sol
+ * está sobre el horizonte y da sobre la fachada de esa orientación (±90º de su
+ * normal), para un día representativo de cada mes. NO tiene en cuenta las
+ * sombras de edificios o del relieve cercanos —eso lo dará Shadowmap cuando
+ * haya licencia—, así que se marca `estimated: true` y la ficha lo dice.
+ *
+ * El SunScore (0–100) es la fracción de horas de luz del año en que la fachada
+ * recibe sol directo: una fachada sur en el hemisferio norte se acerca a 100 y
+ * una norte queda baja. Es un cociente real, no una cifra arbitraria.
+ */
+export const ORIENTATION_AZIMUTH: Record<string, number> = { N: 0, NE: 45, E: 90, SE: 135, S: 180, SW: 225, W: 270, NW: 315 }
+
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+
+function solarDeclination(dayOfYear: number): number {
+  const g = ((2 * Math.PI) / 365) * (dayOfYear - 1)
+  return (
+    0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 0.006758 * Math.cos(2 * g) + 0.000907 * Math.sin(2 * g) - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g)
+  )
+}
+
+/** Horas de luz y horas de sol directo sobre la fachada, para un día (paso de 5 min). */
+function facadeDayHours(latDeg: number, decl: number, facadeAz: number): { daylight: number; facade: number } {
+  const rad = Math.PI / 180
+  const lat = latDeg * rad
+  const stepDeg = 1.25 // 5 minutos de ángulo horario
+  const stepHours = stepDeg / 15
+  let daylight = 0
+  let facade = 0
+  for (let H = -180; H < 180; H += stepDeg) {
+    const Hr = H * rad
+    const sinElev = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(Hr)
+    const elev = Math.asin(Math.max(-1, Math.min(1, sinElev)))
+    if (elev <= 0) continue
+    daylight += stepHours
+    const cosAz = (Math.sin(decl) - Math.sin(lat) * sinElev) / (Math.cos(lat) * Math.cos(elev))
+    let az = (Math.acos(Math.max(-1, Math.min(1, cosAz))) / rad)
+    if (H > 0) az = 360 - az
+    let diff = Math.abs(az - facadeAz) % 360
+    if (diff > 180) diff = 360 - diff
+    if (diff < 90) facade += stepHours
+  }
+  return { daylight, facade }
+}
+
+export function estimateSolarExposureByOrientation(latDeg: unknown, orientation: unknown): SolarExposure | null {
+  if (latDeg === null || latDeg === undefined || latDeg === '') return null
+  const lat = Number(latDeg)
+  if (!Number.isFinite(lat) || lat < -66.5 || lat > 66.5) return null // fuera de latitudes con día/noche normal no aplica esta estimación
+  const key = typeof orientation === 'string' ? orientation.trim().toUpperCase() : ''
+  const facadeAz = ORIENTATION_AZIMUTH[key]
+  if (facadeAz === undefined) return null
+
+  const monthlyHours: number[] = []
+  let facadeYear = 0
+  let daylightYear = 0
+  for (let m = 0; m < 12; m++) {
+    const dayOfYear = DAYS_IN_MONTH.slice(0, m).reduce((a, b) => a + b, 0) + 15
+    const decl = solarDeclination(dayOfYear)
+    const { daylight, facade } = facadeDayHours(lat, decl, facadeAz)
+    monthlyHours.push(round1(facade))
+    facadeYear += facade * DAYS_IN_MONTH[m]!
+    daylightYear += daylight * DAYS_IN_MONTH[m]!
+  }
+  const score = daylightYear > 0 ? Math.round((facadeYear / daylightYear) * 100) : 0
+  return {
+    score: Math.max(0, Math.min(100, score)),
+    monthlyHours,
+    confidence: 'low',
+    viewerUrl: null,
+    provider: 'Estimación por orientación',
+    fetchedAt: null,
+    estimated: true,
+  }
 }
