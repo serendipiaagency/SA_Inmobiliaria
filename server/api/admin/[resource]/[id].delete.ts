@@ -11,6 +11,8 @@ import { collectPropertyFileKeys, releaseMediaKeyIfUnreferenced, releaseProperty
 import { purgeDocumentFile, purgePropertyDocuments, trashDocumentFile } from '../../../utils/properties/documents'
 import { deleteCustomFieldValues, isCustomFieldValueResource } from '../../../utils/customFields/service'
 import { assertTagLinkScope, deleteEntityTagLinks } from '../../../utils/tags/service'
+import { releaseUserReferences } from '../../../utils/users/release'
+import { OrganizationDeleteRefused, deleteOrganizationCompletely } from '../../../utils/organizations/delete'
 
 /** Hijas de una propiedad cuya fila guarda una imagen en `image` (fotos de galería y planos). */
 const IMAGE_CHILD_RESOURCES = new Set(['project-images', 'gallery-images', 'floor-plans', 'agent-property-floor-plans'])
@@ -56,6 +58,21 @@ export default defineEventHandler(async (event) => {
   if (key === 'property-saved-views') assertOwnsSavedView(row as any, user.id)
   // Quitar una etiqueta: sólo desde el recurso del área de esa entidad.
   assertTagLinkScope(key, row)
+
+  // Eliminar una empresa la borra entera (usuarios y correos incluidos), no sólo su fila.
+  if (key === 'organizations') {
+    try {
+      const { r2Deleted } = await deleteOrganizationCompletely(db, cfEnv(event) as Record<string, any>, id)
+      await logAdminAction(event, { user, orgId: null, action: 'delete', resource: key, resourceId: id, detail: `completa (${(row as any).name}; ${r2Deleted} ficheros)` })
+    } catch (e) {
+      if (e instanceof OrganizationDeleteRefused) throw createError({ statusCode: e.statusCode, statusMessage: e.message })
+      throw e
+    }
+    return { ok: true }
+  }
+
+  // Un usuario eliminado libera su correo: lo que firmó conserva su fila y sólo pierde la autoría.
+  if (key === 'users') await releaseUserReferences(db, id)
 
   const tenantWhere = buildTenantWhere(db, def.table, def.tenantPolicy, orgId)
   const idCond = eq(def.table.id, id)
