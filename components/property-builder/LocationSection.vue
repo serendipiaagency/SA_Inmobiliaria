@@ -1,8 +1,9 @@
 <template>
   <div class="space-y-6">
+    <LocationCascade :form="form" :upload-folder="uploadFolder" />
     <div class="grid gap-4 sm:grid-cols-2">
       <PropertyBuilderField
-        v-for="f in fields"
+        v-for="f in otherFields"
         :key="f.key"
         :spec="f"
         :model-value="form[f.key]"
@@ -42,6 +43,7 @@
 import type { FieldSpec } from '~/composables/usePropertyBuilderConfig'
 import PropertyBuilderField from './PropertyBuilderField.vue'
 import LocationPicker from './LocationPicker.client.vue'
+import LocationCascade from './LocationCascade.vue'
 
 const props = defineProps<{
   fields: FieldSpec[]
@@ -50,6 +52,10 @@ const props = defineProps<{
   lngField: string
   uploadFolder: string
 }>()
+
+// País, comunidad, provincia, municipio y localidad los pinta el desplegable dependiente.
+const CASCADE_KEYS = ['country', 'region', 'province', 'municipality', 'city']
+const otherFields = computed(() => props.fields.filter((f) => !CASCADE_KEYS.includes(f.key)))
 
 const geocoding = ref(false)
 const geocodeError = ref('')

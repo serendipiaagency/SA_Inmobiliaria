@@ -218,6 +218,48 @@ test.describe('Property Editor — los cuatro recorridos', () => {
     await expect(visible(page, 'property-contacts-pending-note')).toHaveCount(0)
   })
 
+  test('Ubicación con desplegables dependientes: cada nivel sólo ofrece lo de su padre, cambiar uno vacía los inferiores y se persiste', async ({ page }) => {
+    const slug = `editor-ui-ubic-${RUN}`
+    await page.goto('/admin/properties/new')
+    await page.getByTestId('property-group-toggle-info').filter({ hasText: 'SEO' }).click()
+    await page.locator('[data-field="slug"] input').fill(slug)
+    await page.locator('[data-field="propertyType"] select').selectOption('Villa')
+    await step(page, 'location').click()
+    const sel = (k: string) => page.locator(`[data-field="${k}"] select`)
+    await expect(page.getByTestId('location-cascade')).toBeVisible()
+    // El catálogo llega por red: esperar a que haya comunidades.
+    await expect.poll(async () => await sel('region').locator('option').count(), { timeout: 15000 }).toBeGreaterThan(10)
+    await sel('region').selectOption({ label: 'Principado de Asturias' })
+    await expect(sel('province').locator('option')).toHaveText(['—', 'Asturias'])
+    await sel('province').selectOption('Asturias')
+    const oviedo = sel('municipality').locator('option', { hasText: /^Oviedo/ }).first()
+    await expect(oviedo).toHaveCount(1)
+    await sel('municipality').selectOption({ label: (await oviedo.textContent())!.trim() })
+    // El municipio elegido ya queda como localidad; no hay opciones de otras provincias.
+    await expect(sel('city')).not.toHaveValue('')
+    // Cambiar la comunidad vacía provincia, municipio y localidad.
+    await sel('region').selectOption({ label: 'Comunidad de Madrid' })
+    await expect(sel('province')).toHaveValue('')
+    await expect(sel('municipality')).toHaveValue('')
+    await expect(sel('city')).toHaveValue('')
+    await sel('province').selectOption('Madrid')
+    await sel('municipality').selectOption('Madrid')
+    await sel('city').selectOption('Madrid')
+
+    await step(page, 'price').click()
+    await page.locator('[data-field="price"] input').fill('250000')
+    await page.getByTestId('property-editor-save').click()
+    await expect(page).toHaveURL(/\/admin\/properties\/\d+$/)
+    const id = Number(page.url().split('/').pop())
+    createdProperties.push(id)
+    const row = (await (await a.get(`/api/admin/properties/${id}`)).json()).row
+    expect(row.country).toBe('España')
+    expect(row.city).toBe('Madrid')
+    await step(page, 'location').click()
+    await expect.poll(async () => await sel('municipality').inputValue(), { timeout: 15000 }).toBe('Madrid')
+    await expect(sel('region')).toHaveValue('Comunidad de Madrid')
+  })
+
   test('crear una propiedad web desde el editor persiste nombre, promotora y precio', async ({ page }) => {
     const name = `Editor UI torre ${RUN}`
     await page.goto('/admin/developer-properties/new')
