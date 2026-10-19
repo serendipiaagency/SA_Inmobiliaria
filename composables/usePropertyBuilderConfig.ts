@@ -19,11 +19,11 @@
  */
 
 import { CURRENCIES, currencySymbol, DEFAULT_AGENCY_CURRENCY, ISO_4217_CODES, isoCurrencyLabel } from '~/utils/currency'
+import { PROPERTY_CONDITIONS, PROPERTY_CONDITION_LABELS, PROPERTY_SHEET_GROUPS, PROPERTY_TYPES, PROPERTY_TYPE_LABELS, isRentTransaction, pricePerSquareMeter, type SheetField } from '~/utils/propertySheet'
+import { CATALOG_STATUS_TITLES } from '~/utils/propertyCommercialStatus'
 
 /** Las monedas con tasa (las de la agencia) primero; luego el resto de ISO 4217 por código. */
 const CURRENCY_OPTIONS = [...CURRENCIES.map((c) => c.code), ...ISO_4217_CODES.filter((c) => !CURRENCIES.some((k) => k.code === c))]
-import { PROPERTY_CONDITIONS, PROPERTY_CONDITION_LABELS, PROPERTY_SHEET_GROUPS, PROPERTY_TYPES, PROPERTY_TYPE_LABELS, isRentTransaction, pricePerSquareMeter, type SheetField } from '~/utils/propertySheet'
-import { CATALOG_STATUS_TITLES } from '~/utils/propertyCommercialStatus'
 
 export interface FieldSpec {
   key: string
