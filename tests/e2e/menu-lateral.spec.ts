@@ -118,11 +118,12 @@ test.describe('Menú lateral — categorías desplegables', () => {
     await expect(group(page, 'web')).toHaveAttribute('aria-controls', 'nav-group-web')
 
     // Portal Web y Blog abiertos; al ir a Leads se abre además CRM; al recargar sigue igual.
+    // Leads vive dentro de «Gestión de contactos» (Cola 15), que es la entrada que se marca.
     await page.goto('/admin/leads')
     await expectOpen(page, 'crm', true)
     await page.reload()
     for (const id of ['web', 'cms', 'crm']) await expectOpen(page, id, true)
-    await expectActive(page, 'crm', 'Leads')
+    await expectActive(page, 'crm', 'Gestión de contactos')
 
     // Cerrada y guardada así, la categoría de la página a la que se llega se abre igualmente.
     await group(page, 'finance').click()
@@ -149,7 +150,7 @@ test.describe('Menú lateral — categorías desplegables', () => {
       await expect(page.getByTestId('admin-nav')).toBeVisible()
       const groups = await page.getByTestId('admin-nav').locator('[data-testid^="nav-group-"][aria-controls]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')))
       expect(groups).toEqual(['nav-group-crm', 'nav-group-help'])
-      await expectActive(page, 'crm', 'Leads')
+      await expectActive(page, 'crm', 'Gestión de contactos')
       // «Comerciales» está en CRM, pero es de Portal Web: no la ve.
       await expect(items(page, 'crm').getByRole('link', { name: 'Comerciales', exact: true })).toHaveCount(0)
       await context.close()

@@ -6,17 +6,21 @@ import { ADMIN_AREAS, type AdminArea } from '../../utils/adminAreas'
 import { adminResources } from '../../server/utils/adminResources'
 
 /**
- * Menú lateral reorganizado en categorías desplegables (oct-2026). La regla:
- * reubicar, nunca quitar. Este inventario es el menú TAL COMO ERA antes de
- * reorganizarlo — ruta, etiqueta, área de permisos y si era sólo de super
- * admin —, y cada entrada tiene que seguir existiendo con el mismo permiso.
+ * Menú lateral reorganizado en categorías desplegables (oct-2026). La regla
+ * era: reubicar, nunca quitar. Cola 15 (aprobada por el propietario) es la
+ * PRIMERA excepción: «Leads», «Contactos» y «Clientes» se unifican en UNA
+ * entrada «Gestión de contactos» (área crm). Las tres rutas siguen existiendo
+ * y protegidas como crm (vía el `match` de esa entrada); sólo desaparecen como
+ * entradas sueltas del menú. Este inventario ya refleja la unificación: la
+ * entrada de Contactos pasa a llamarse «Gestión de contactos» y las de Leads y
+ * Clientes salen de aquí (su permiso se comprueba aparte, ver UNIFIED_ROUTES).
  */
 const BEFORE: Array<[to: string, label: string, area: AdminArea | null, superAdminOnly: boolean]> = [
   ['/admin', 'Dashboard', 'general', false], ['/admin/analytics', 'Analytics', 'general', false],
   ['/admin/rendimiento', 'Rendimiento', 'crm', false], ['/admin/inmo', 'INMO', 'crm', false], ['/admin/inmo-ajustes', 'INMO: conocimiento', 'crm', false],
-  ['/admin/contactos', 'Contactos', 'crm', false], ['/admin/compatibilidades', 'Compatibilidades', 'crm', false], ['/admin/leads', 'Leads', 'crm', false],
+  ['/admin/contactos', 'Gestión de contactos', 'crm', false], ['/admin/compatibilidades', 'Compatibilidades', 'crm', false],
   ['/admin/enrutamiento', 'Enrutamiento y SLA', 'crm', false], ['/admin/campos-personalizados', 'Campos personalizados', 'crm', false],
-  ['/admin/offices', 'Oficinas', 'crm', false], ['/admin/teams', 'Equipos', 'crm', false], ['/admin/clientes', 'Clientes', 'crm', false],
+  ['/admin/offices', 'Oficinas', 'crm', false], ['/admin/teams', 'Equipos', 'crm', false],
   ['/admin/comunicaciones', 'Comunicaciones', 'crm', false], ['/admin/visitas', 'Visitas', 'crm', false], ['/admin/tareas', 'Tareas', 'crm', false],
   ['/admin/automatizaciones', 'Automatizaciones', 'crm', false], ['/admin/ofertas', 'Ofertas', 'crm', false], ['/admin/deal-operations', 'Operaciones', 'crm', false],
   ['/admin/citas-analytics', 'Analítica de citas', 'crm', false], ['/admin/reservas', 'Reservas', 'crm', false], ['/admin/referidos', 'Referidos', 'crm', false],
@@ -49,6 +53,17 @@ const ADDED: Array<[to: string, label: string, area: AdminArea | null, superAdmi
   ['/admin/zones', 'Zonas', 'web', false],
 ]
 
+/**
+ * Cola 15: rutas que antes eran entradas sueltas del CRM y ahora viven bajo
+ * «Gestión de contactos» (/admin/contactos) como pestañas. Ya no son entradas
+ * del menú, pero su página y su permiso (crm) siguen intactos: lo comprueba
+ * la sección de permisos más abajo.
+ */
+const UNIFIED_ROUTES: Array<[to: string, area: AdminArea]> = [
+  ['/admin/leads', 'crm'],
+  ['/admin/clientes', 'crm'],
+]
+
 const entries = ADMIN_NAV.flatMap((group) => group.items.map((item) => ({ group, item })))
 const ALL_AREAS = ADMIN_AREAS.map((a) => a.key)
 
@@ -57,8 +72,8 @@ function groupOf(to: string): NavGroup {
 }
 
 describe('menú lateral — inventario: reubicar, nunca quitar', () => {
-  it('las 67 entradas de antes siguen existiendo, con la misma ruta, etiqueta, permiso y restricción de super admin', () => {
-    expect(BEFORE).toHaveLength(67)
+  it('las 65 entradas vigentes existen, con la misma ruta, etiqueta, permiso y restricción de super admin', () => {
+    expect(BEFORE).toHaveLength(65)
     expect(entries).toHaveLength(BEFORE.length + ADDED.length)
     for (const [to, label, area, superAdminOnly] of [...BEFORE, ...ADDED]) {
       const found = entries.find((e) => e.item.to === to && e.item.label === label)
@@ -112,6 +127,19 @@ describe('menú lateral — permisos', () => {
     expect(isSuperAdminOnlyAdminPath('/admin/users')).toBe(false)
   })
 
+  it('Cola 15: las rutas unificadas bajo «Gestión de contactos» siguen protegidas como crm y la marcan activa', () => {
+    for (const [to, area] of UNIFIED_ROUTES) {
+      // Ya no son entradas del menú…
+      expect(entries.find((e) => e.item.to === to), `${to} ya no es entrada suelta`).toBeFalsy()
+      // …pero su permiso (crm) se preserva por el `match` de «Gestión de contactos».
+      expect(areaForAdminPath(to), to).toBe(area)
+      expect(areaForAdminPath(`${to}/123`), `${to}/123`).toBe(area)
+      // …y navegar a ellas marca activa la entrada unificada.
+      expect(navMatchForPath(to)?.item.label, to).toBe('Gestión de contactos')
+      expect(navMatchForPath(`${to}/123`)?.item.label, `${to}/123`).toBe('Gestión de contactos')
+    }
+  })
+
   it('el super admin ve Empresas, Errores y Estado del sistema; un admin de empresa no', () => {
     const sa = visibleAdminNav(ADMIN_NAV, { isSuperAdmin: true, allowed: ALL_AREAS }).flatMap((g) => g.items.map((i) => i.label))
     const admin = visibleAdminNav(ADMIN_NAV, { isSuperAdmin: false, allowed: ALL_AREAS }).flatMap((g) => g.items.map((i) => i.label))
@@ -119,9 +147,11 @@ describe('menú lateral — permisos', () => {
       expect(sa).toContain(label)
       expect(admin).not.toContain(label)
     }
-    const addedForAll = ADDED.filter(([, , , superAdminOnly]) => !superAdminOnly).length
-    expect(sa).toHaveLength(67 + ADDED.length)
-    expect(admin).toHaveLength(64 + addedForAll)
+    // Derivado de las entradas reales: el super admin las ve todas; el admin de
+    // empresa, todas menos las superAdminOnly.
+    const superOnlyCount = entries.filter((e) => e.item.superAdminOnly).length
+    expect(sa).toHaveLength(entries.length)
+    expect(admin).toHaveLength(entries.length - superOnlyCount)
   })
 
   it('un comercial con sólo CRM ve el CRM (sin Comerciales, que es de Portal Web) y la Ayuda, y ninguna categoría vacía', () => {

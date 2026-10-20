@@ -1,5 +1,6 @@
 <template>
   <div>
+    <AdminContactHubTabs />
     <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">Clientes</h1>
