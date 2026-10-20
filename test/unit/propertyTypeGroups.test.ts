@@ -36,15 +36,19 @@ describe('grupos canónicos del catálogo de tipos', () => {
     }
   })
 
-  it('el resumen nombra un grupo entero por su nombre, también sin familias', () => {
+  it('el resumen del Hero nombra una categoría grande por su nombre (Cola 13)', () => {
     const t = (k: string, fb: string) => messages.es![k] ?? fb
     const all = [...PROPERTY_TYPES]
     const sum = (types: string[]) => heroTypeSummary(types, [], all, t, (ty) => PROPERTY_TYPE_LABELS[ty]!, (s) => s)
-    expect(sum(['Retail', 'Office', 'Warehouse', 'Building'])).toBe('Inmuebles comerciales')
-    expect(sum(['Garage', 'Development'])).toBe('Otros inmuebles')
-    expect(sum(['Apartment', 'Penthouse', 'Duplex', 'Studio', 'House', 'Villa', 'Townhouse', 'Finca'])).toBe('Viviendas')
-    expect(sum(['Apartment', 'Penthouse', 'Duplex', 'Studio'])).toBe('Pisos')
+    // «Viviendas» es la categoría del Hero: incluye también Edificio y Promoción.
+    expect(sum(['Apartment', 'House', 'Villa', 'Townhouse', 'Penthouse', 'Duplex', 'Studio', 'Finca', 'Building', 'Development'])).toBe('Viviendas')
+    expect(sum(['Retail'])).toBe('Locales')
+    expect(sum(['Office'])).toBe('Oficinas')
+    expect(sum(['Garage'])).toBe('Garaje')
     expect(sum(['Land'])).toBe('Terreno')
-    expect(sum(['Retail', 'Office'])).toBe('Local y oficina')
+    expect(sum(['Warehouse'])).toBe('Naves')
+    expect(sum(['Retail', 'Office'])).toBe('Locales y oficinas')
+    // Parte de «Viviendas» (llegando por URL) se nombra por tipos sueltos, no como «Viviendas».
+    expect(sum(['Apartment'])).toBe('Piso')
   })
 })

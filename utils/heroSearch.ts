@@ -1,4 +1,5 @@
-import { PROPERTY_TYPE_TREE, type Operation } from './searchState'
+import { HERO_TYPE_CATEGORIES } from './propertySheet'
+import { type Operation } from './searchState'
 import { relativeLuminance } from './contactTone'
 import { searchLocationOptions, searchTypeOptions, type SearchLocationOptions, type SearchTypeOptions } from './searchConfig'
 
@@ -118,32 +119,24 @@ export function heroButtonColors(chosen: string | null | undefined, brand: strin
 type Translate = (key: string, fallback: string) => string
 
 /**
- * «Viviendas», «Pisos», «Piso y ático» o «3 tipos seleccionados». Una
- * categoría o familia entera (de lo que la agencia tiene publicado) cuenta
- * como una: así «Viviendas» no se lee «8 tipos seleccionados». Vacío = sin
- * tipo elegido (el campo enseña «Cualquiera»).
+ * «Viviendas», «Locales», «Locales y oficinas» o «3 tipos seleccionados». El
+ * Hero enseña SÓLO las seis categorías grandes (HERO_TYPE_CATEGORIES), así que
+ * una categoría elegida entera se nombra por su nombre y no se lee «10 tipos
+ * seleccionados». Si se llega por URL con sólo parte de una categoría, esos
+ * tipos sueltos se nombran por su etiqueta. Vacío = sin tipo elegido (el campo
+ * enseña «Cualquiera»).
  */
 export function heroTypeSummary(types: string[], subtypes: string[], available: string[], t: Translate, typeLabel: (type: string) => string, subtypeLabel: (subtype: string) => string): string {
   const avail = new Set(available)
   const chosen = new Set(types)
   const items: string[] = []
   const used = new Set<string>()
-  for (const cat of PROPERTY_TYPE_TREE) {
-    // Un grupo de varios tipos elegido entero se nombra por el grupo («Viviendas», «Inmuebles comerciales»)…
-    const catTypes = cat.families.flatMap((f) => f.types).filter((ty) => avail.has(ty))
-    if (catTypes.length > 1 && catTypes.every((ty) => chosen.has(ty))) {
+  for (const cat of HERO_TYPE_CATEGORIES) {
+    // Una categoría del Hero elegida entera se nombra por su nombre («Viviendas», «Locales»…).
+    const catTypes = cat.types.filter((ty) => avail.has(ty))
+    if (catTypes.length && catTypes.every((ty) => chosen.has(ty))) {
       items.push(t(cat.label[0], cat.label[1]))
       catTypes.forEach((ty) => used.add(ty))
-      continue
-    }
-    // …y una familia entera de un grupo con familias, por la familia («Pisos», «Casas y chalets»).
-    if (cat.families.length < 2) continue
-    for (const fam of cat.families) {
-      const famTypes = fam.types.filter((ty) => avail.has(ty))
-      if (famTypes.length > 1 && famTypes.every((ty) => chosen.has(ty))) {
-        items.push(t(fam.label[0], fam.label[1]))
-        famTypes.forEach((ty) => used.add(ty))
-      }
     }
   }
   for (const ty of types) if (!used.has(ty)) items.push(typeLabel(ty))

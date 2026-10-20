@@ -62,14 +62,18 @@ describe('«Tipo de inmueble»: lo elegido, resumido', () => {
   it('nada elegido: vacío (el campo dice «Cualquiera»)', () => {
     expect(sum([])).toBe('')
   })
-  it('todas las viviendas publicadas: «Viviendas»; todos los pisos: «Pisos»', () => {
+  it('una categoría del Hero entera (de lo publicado) se nombra por su nombre', () => {
+    // «Viviendas» = los cinco tipos residenciales publicados de la categoría.
     expect(sum(['Apartment', 'Penthouse', 'Duplex', 'House', 'Villa'])).toBe('Viviendas')
-    expect(sum(['Apartment', 'Penthouse', 'Duplex'])).toBe('Pisos')
+    expect(sum(['Retail'])).toBe('Locales')
+    expect(sum(['Garage'])).toBe('Garaje')
+    expect(sum(['Land'])).toBe('Terreno')
   })
-  it('dos: «Piso y ático»; tres o más: «3 tipos seleccionados»', () => {
+  it('parte de una categoría: tipos sueltos; dos → «A y b»; tres o más → «N tipos seleccionados»', () => {
     expect(sum(['Apartment', 'Penthouse'])).toBe('Piso y ático')
+    expect(sum(['Apartment', 'Penthouse', 'Duplex'])).toBe('3 tipos seleccionados')
     expect(sum(['Apartment', 'Retail', 'Garage'])).toBe('3 tipos seleccionados')
-    expect(sum(['Retail'], ['urban'])).toBe('Local y urban')
+    expect(sum(['Retail'], ['urban'])).toBe('Locales y urban')
   })
 })
 
