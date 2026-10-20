@@ -47,12 +47,12 @@
         label="Diseño"
         type="properties"
         :model-value="content.layout || 'row'"
-        :options="[{ value: 'row', label: 'Fila' }, { value: 'dark-grid', label: 'Oscuro' }, { value: 'ai-grid', label: 'IA' }]"
+        :options="[{ value: 'row', label: 'Fila' }, { value: 'light-grid', label: 'Claro' }, { value: 'dark-grid', label: 'Oscuro' }, { value: 'ai-grid', label: 'IA' }]"
         @update:model-value="(v) => (content.layout = v)"
       />
       <TextField v-if="content.layout === 'ai-grid'" label="Insignia" :model-value="content.badge || ''" placeholder="IA" @update:model-value="(v) => (content.badge = v)" />
 
-      <template v-if="content.layout === 'dark-grid'">
+      <template v-if="content.layout === 'dark-grid' || content.layout === 'light-grid'">
         <p class="label mb-1">Campos visibles en la tarjeta</p>
         <ToggleField label="Precio" :model-value="cardField('price')" @update:model-value="(v) => setCardField('price', v)" />
         <ToggleField label="Nombre" :model-value="cardField('name')" @update:model-value="(v) => setCardField('name', v)" />

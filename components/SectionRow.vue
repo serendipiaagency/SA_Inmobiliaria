@@ -2,7 +2,7 @@
   <section v-reveal class="mx-auto max-w-screen-2xl px-6 py-14 lg:px-10">
     <div class="mb-8 flex items-end justify-between gap-4">
       <div>
-        <SbText tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow" :text="eyebrow" />
+        <SbText v-if="eyebrow" tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow" :text="eyebrow" />
         <SbText tag="h2" field="title" kind="heading" label="Título" class="heading-serif mt-3 text-3xl md:text-4xl" :text="title" />
       </div>
       <SbLink v-if="to" field="cta" link-field="ctaTo" label="Botón" :to="to" class="btn-quiet hidden shrink-0 md:inline-flex" :text="cta || 'Ver todas'" />

@@ -9,12 +9,15 @@
     :cta="content.cta || undefined"
   />
 
-  <!-- layout: dark-grid (Propiedades Premium) -->
-  <section v-else-if="content.layout === 'dark-grid'" v-reveal class="bg-ink py-16 text-white">
+  <!-- layout: dark-grid / light-grid (Propiedades Premium).
+       La misma rejilla en dos tonos: `dark-grid` es la de siempre y
+       `light-grid` la versión editorial sobre blanco. Comparten marcado para
+       que no puedan divergir — un cambio en la tarjeta vale para las dos. -->
+  <section v-else-if="grid" v-reveal class="py-16" :class="grid.section">
     <div class="mx-auto max-w-screen-2xl px-6 lg:px-10">
       <div class="mb-8 flex items-end justify-between">
         <div>
-          <SbText tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow !text-white/50" :text="content.eyebrow || ''" />
+          <SbText v-if="content.eyebrow" tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow" :class="grid.eyebrow" :text="content.eyebrow || ''" />
           <SbText tag="h2" field="title" kind="heading" label="Título" class="mt-3 font-serif text-3xl font-medium md:text-4xl" :text="content.title || ''" />
         </div>
         <SbLink
@@ -23,7 +26,8 @@
           link-field="ctaTo"
           label="Botón"
           :to="content.ctaTo"
-          class="hidden shrink-0 border border-white/40 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-widest2 transition hover:bg-white hover:text-ink md:inline-flex"
+          class="hidden shrink-0 border px-5 py-2.5 text-[11px] font-semibold uppercase tracking-widest2 transition md:inline-flex"
+          :class="grid.cta"
           :text="content.cta"
         />
       </div>
@@ -39,12 +43,12 @@
           :source-href="SOURCES.property.href"
           class="group block"
         >
-          <div class="aspect-[4/3] overflow-hidden rounded-2xl bg-black/30">
+          <div class="aspect-[4/3] overflow-hidden rounded-2xl" :class="grid.thumb">
             <SbImage field="card.image" label="Foto de la propiedad" :dynamic="dynamicLabel('property', 'Foto de portada')" :source-href="SOURCES.property.href" :src="mediaUrl(p.coverImage)" :alt="p.name" class="h-full w-full object-cover opacity-90 transition duration-700 group-hover:scale-105 group-hover:opacity-100" loading="lazy" />
           </div>
           <SbText v-if="cardFields.price" tag="p" field="card.price" label="Precio" :dynamic="dynamicLabel('property', 'Precio')" :source-href="SOURCES.property.href" class="mt-4 text-lg font-semibold" :text="formatPrice(p.price, p.transactionType, p.currency)" />
           <SbText v-if="cardFields.name" tag="h3" field="card.name" kind="heading" label="Nombre de la propiedad" :dynamic="dynamicLabel('property', 'Nombre')" :source-href="SOURCES.property.href" class="font-serif text-xl font-medium" :text="p.name" />
-          <SbText v-if="cardFields.community && p.community" tag="p" field="card.community" kind="caption" label="Comunidad" :dynamic="dynamicLabel('property', 'Comunidad')" :source-href="SOURCES.property.href" class="text-[13px] text-white/60" :text="p.community" />
+          <SbText v-if="cardFields.community && p.community" tag="p" field="card.community" kind="caption" label="Comunidad" :dynamic="dynamicLabel('property', 'Comunidad')" :source-href="SOURCES.property.href" class="text-[13px]" :class="grid.meta" :text="p.community" />
         </SbBox>
       </div>
     </div>
@@ -55,7 +59,7 @@
     <div class="mx-auto max-w-screen-2xl px-6 lg:px-10">
       <div class="flex items-center gap-2">
         <SbText v-if="content.badge" tag="span" field="badge" kind="eyebrow" label="Insignia" class="rounded-full bg-ink px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest2 text-white" :text="content.badge" />
-        <SbText tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow !text-stone-450" :text="content.eyebrow || ''" />
+        <SbText v-if="content.eyebrow" tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow !text-stone-450" :text="content.eyebrow || ''" />
       </div>
       <SbText tag="h2" field="title" kind="heading" label="Título" class="heading-serif mt-3 text-3xl md:text-4xl" :text="content.title || ''" />
       <div class="mt-8 grid gap-x-6 gap-y-10" :class="gridClasses">
@@ -112,6 +116,32 @@ const cardFields = computed(() => ({
   name: props.content.cardFields?.name !== false,
   community: props.content.cardFields?.community !== false,
 }))
+
+/**
+ * Los dos tonos de la rejilla «Propiedades Premium». Las clases van escritas
+ * enteras por lo mismo que las columnas de abajo: el escáner de Tailwind no
+ * ejecuta JS y sólo ve literales.
+ *
+ * `dark-grid` reproduce exactamente lo que había antes de que existiera el
+ * tono claro; cualquier cambio en ella es una regresión, no un rediseño.
+ */
+const GRID_TONES: Record<string, { section: string; eyebrow: string; cta: string; thumb: string; meta: string }> = {
+  'dark-grid': {
+    section: 'bg-ink text-white',
+    eyebrow: '!text-white/50',
+    cta: 'border-white/40 hover:bg-white hover:text-ink',
+    thumb: 'bg-black/30',
+    meta: 'text-white/60',
+  },
+  'light-grid': {
+    section: 'bg-white text-ink',
+    eyebrow: '!text-stone-450',
+    cta: 'border-line hover:bg-ink hover:text-white',
+    thumb: 'bg-stone-100',
+    meta: 'text-stone-500',
+  },
+}
+const grid = computed(() => GRID_TONES[String(props.content.layout || '')] || null)
 
 // Tailwind's content scanner needs the full class string literally present
 // somewhere in this file (it doesn't execute JS), so every mobile/tablet/

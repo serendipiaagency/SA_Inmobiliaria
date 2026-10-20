@@ -2,7 +2,7 @@
   <section v-reveal class="border-y border-line bg-white">
     <div class="mx-auto grid max-w-screen-2xl gap-10 px-6 py-16 lg:grid-cols-2 lg:items-center lg:px-10">
       <div>
-        <SbText tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow" :text="content.eyebrow || ''" />
+        <SbText v-if="content.eyebrow" tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow" :text="content.eyebrow || ''" />
         <SbText tag="h2" field="title" kind="heading" label="Título" class="heading-serif mt-3 text-3xl md:text-4xl" :text="content.title || ''" />
         <SbText tag="p" field="text" label="Texto" multiline class="mt-4 max-w-md text-[15px] leading-relaxed text-stone-500" :text="content.text || ''" />
         <SbLink v-if="content.cta" field="cta" link-field="ctaTo" label="Botón" :to="content.ctaTo || '/propiedades'" class="btn-primary mt-8" :text="content.cta" />
