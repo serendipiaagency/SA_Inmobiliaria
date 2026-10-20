@@ -1,5 +1,5 @@
 import { HERO_TYPE_CATEGORIES } from './propertySheet'
-import { type Operation } from './searchState'
+import type { Operation } from './searchState'
 import { relativeLuminance } from './contactTone'
 import { searchLocationOptions, searchTypeOptions, type SearchLocationOptions, type SearchTypeOptions } from './searchConfig'
 
