@@ -2,6 +2,7 @@
   <div class="solar-card" data-testid="solar-exposure">
     <p v-if="exposure.demo" class="solar-demo" role="note" data-testid="solar-demo-note">Datos de demostración: no son la exposición solar de esta propiedad. Sólo se ven en el Constructor Web.</p>
     <p v-else-if="exposure.estimated" class="solar-demo" role="note" data-testid="solar-estimate-note">Estimación a partir de la orientación y la latitud (cielo despejado). No tiene en cuenta las sombras de edificios o del relieve cercanos.</p>
+    <p v-else-if="isPvgis" class="solar-demo" role="note" data-testid="solar-pvgis-note">Calculado con datos reales de irradiación de PVGIS (Comisión Europea) para la orientación de la fachada. Tiene en cuenta el clima de la zona y el relieve, pero no las sombras de edificios cercanos.</p>
 
     <div class="solar-body">
       <div class="solar-gauge" role="img" :aria-label="`SunScore ${exposure.score} sobre 100`" data-testid="solar-score">
@@ -56,6 +57,7 @@ const arc = computed(() => (Math.max(0, Math.min(100, props.exposure.score)) / 1
 const band = computed(() => solarBand(props.exposure.score))
 const explanation = computed(() => solarExplanation(props.exposure))
 const months = computed(() => solarJuneDecember(props.exposure))
+const isPvgis = computed(() => !props.exposure.demo && !props.exposure.estimated && /PVGIS/i.test(props.exposure.provider))
 const fmt = (n: number) => String(n).replace('.', ',')
 const bars = computed(() => {
   const m = months.value

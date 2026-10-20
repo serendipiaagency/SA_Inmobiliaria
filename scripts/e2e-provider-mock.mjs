@@ -189,6 +189,28 @@ const server = createServer((req, res) => {
       })
     }
 
+    // PVGIS (PVGIS_BASE_URL, sólo loopback — server/utils/solar/pvgis.ts): serie horaria sintética
+    // donde la componente directa depende de la orientación, para que el sur reciba más sol que el norte.
+    if (req.method === 'GET' && url.pathname === '/api/v5_3/seriescalc') {
+      const aspect = Number(url.searchParams.get('aspect') || '0') // PVGIS: 0 = sur, ±180 = norte
+      const facing = Math.cos((aspect * Math.PI) / 180) // 1 sur, −1 norte
+      const hourly = []
+      const daysIn = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+      for (let m = 1; m <= 12; m++) {
+        for (let d = 1; d <= daysIn[m - 1]; d++) {
+          for (let h = 5; h <= 19; h++) {
+            // El sol «mira» a la fachada a mediodía si está orientada al sur; de espaldas, apenas.
+            const noon = 1 - Math.abs(h - 12) / 7 // 0..1
+            const seasonal = 0.6 + 0.4 * Math.cos(((m - 6) / 12) * 2 * Math.PI) // algo en invierno para el sur
+            const beam = Math.max(0, 700 * noon * (0.5 + 0.5 * facing) * seasonal)
+            const diff = 60 * noon
+            hourly.push({ time: `2020${String(m).padStart(2, '0')}${String(d).padStart(2, '0')}:${String(h).padStart(2, '0')}10`, 'Gb(i)': Math.round(beam), 'Gd(i)': Math.round(diff), 'Gr(i)': 0 })
+          }
+        }
+      }
+      return send(res, 200, { inputs: { meteo_data: { radiation_db: 'PVGIS-SARAH3' } }, outputs: { hourly } })
+    }
+
     return send(res, 404, { error: { message: `El simulador e2e no implementa ${req.method} ${url.pathname}`, type: 'OAuthException', code: 100 } })
   })
 })

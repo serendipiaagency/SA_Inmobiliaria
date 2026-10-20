@@ -181,6 +181,22 @@ function facadeDayHours(latDeg: number, decl: number, facadeAz: number): { dayli
   return { daylight, facade }
 }
 
+/**
+ * Horas de sol directo al año que recibiría una fachada SUR con cielo despejado
+ * a esta latitud (geometría solar pura). Sirve de techo para normalizar a 0–100
+ * las horas REALES que da un proveedor (PVGIS): una fachada que recibe tanto sol
+ * como el máximo posible se acerca a 100; una norte, poco.
+ */
+export function southClearSkyAnnualHours(latDeg: number): number {
+  const declOf = (d: number) => solarDeclination(d)
+  let total = 0
+  for (let m = 0; m < 12; m++) {
+    const dayOfYear = DAYS_IN_MONTH.slice(0, m).reduce((a, b) => a + b, 0) + 15
+    total += facadeDayHours(latDeg, declOf(dayOfYear), ORIENTATION_AZIMUTH.S!).facade * DAYS_IN_MONTH[m]!
+  }
+  return total
+}
+
 export function estimateSolarExposureByOrientation(latDeg: unknown, orientation: unknown): SolarExposure | null {
   if (latDeg === null || latDeg === undefined || latDeg === '') return null
   const lat = Number(latDeg)

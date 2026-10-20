@@ -101,13 +101,27 @@ describe('servicio con caché y privacidad', () => {
   const ready = (fetch: SolarProvider['fetch']): SolarProvider => ({ key: 'fake', name: 'Fake', access: 'ready', fetch })
   const prop = { organizationId: 1, lat: 43.5453, lng: -5.6619, locationPrivacy: 'exact' }
 
-  it('Shadowmap no tiene acceso concedido: no se llama a nada y no hay dato', async () => {
+  it('Shadowmap sigue sin acceso concedido (la precisión con sombras queda para cuando haya licencia)', async () => {
     expect(SOLAR_PROVIDER_STATUS.state).toBe('pending_access')
     expect(shadowmapProvider.access).toBe('pending_access')
     const spy = vi.spyOn(shadowmapProvider, 'fetch')
-    expect(await solarExposureFor(prop)).toBeNull()
+    // Aislado a Shadowmap: sin acceso, no se le llama y no hay dato.
+    expect(await solarExposureFor(prop, { providers: [shadowmapProvider] })).toBeNull()
     expect(spy).not.toHaveBeenCalled()
-    expect(SOLAR_PROVIDERS.every((p) => p.access === 'pending_access')).toBe(true)
+  })
+  it('PVGIS es el proveedor real gratuito y está listo; Shadowmap queda pendiente', () => {
+    const pvgis = SOLAR_PROVIDERS.find((p) => p.key === 'pvgis')!
+    expect(pvgis.access).toBe('ready')
+    expect(pvgis.name).toContain('PVGIS')
+    expect(SOLAR_PROVIDERS.find((p) => p.key === 'shadowmap')!.access).toBe('pending_access')
+  })
+  it('un proveedor que ya devuelve una exposición completa (como PVGIS) se usa tal cual, sin re-normalizar', async () => {
+    const full = { score: 42, monthlyHours: null, confidence: 'medium' as const, viewerUrl: null, provider: 'PVGIS (Comisión Europea)', fetchedAt: '2026-01-01T00:00:00Z' }
+    const e = await solarExposureFor(prop, { providers: [ready(async () => full)] })
+    expect(e).toMatchObject({ score: 42, provider: 'PVGIS (Comisión Europea)', confidence: 'medium' })
+  })
+  it('si el proveedor real no da dato, el servicio devuelve null (la ficha cae a la estimación geométrica)', async () => {
+    expect(await solarExposureFor(prop, { providers: [ready(async () => null)] })).toBeNull()
   })
   it('con un proveedor con acceso devuelve el dato validado', async () => {
     const e = await solarExposureFor(prop, { providers: [ready(async () => good)] })
@@ -172,10 +186,16 @@ describe('servicio con caché y privacidad', () => {
     expect(await solarExposureFor({ ...prop, locationPrivacy: 'approximate' }, { providers: [ready(fetch)] })).toBeNull()
     expect(fetch).not.toHaveBeenCalled()
   })
-  it('al proveedor le llegan sólo las coordenadas y la empresa', async () => {
+  it('al proveedor le llegan las coordenadas, la empresa y la orientación (dato público, no es ubicación); nada más sensible', async () => {
     const fetch = vi.fn(async (_: unknown) => good)
-    await solarExposureFor(prop, { providers: [ready(fetch)] })
-    expect(fetch.mock.calls[0]![0]).toEqual({ lat: 43.5453, lng: -5.6619, orgId: 1 })
+    await solarExposureFor({ ...prop, orientation: 'S' }, { providers: [ready(fetch)], env: null })
+    const arg = fetch.mock.calls[0]![0] as Record<string, unknown>
+    expect(arg.lat).toBe(43.5453)
+    expect(arg.lng).toBe(-5.6619)
+    expect(arg.orgId).toBe(1)
+    expect(arg.orientation).toBe('S')
+    // No se cuela nada más que pudiera identificar al inmueble (dirección, referencia…).
+    expect(Object.keys(arg).sort()).toEqual(['env', 'lat', 'lng', 'orgId', 'orientation'])
   })
 })
 
