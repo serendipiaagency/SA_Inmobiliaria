@@ -121,6 +121,35 @@ export const PROPERTY_TYPE_GROUPS: PropertyTypeGroup[] = [
   { key: 'other', label: ['types.other', 'Otros inmuebles'], families: [{ key: 'other', label: ['types.other', 'Otros inmuebles'], types: ['Garage', 'Development'] }] },
 ]
 
+/**
+ * Las SEIS categorías del selector «Tipo de inmueble» del Hero de la portada
+ * (Cola 13): una taxonomía REDUCIDA, de presentación, exclusiva de la barra de
+ * búsqueda. NO sustituye a `PROPERTY_TYPE_GROUPS` —que el panel de Propiedades
+ * (CatalogFilters) y el editor siguen usando con el catálogo entero, tipos
+ * sueltos y subtipos—: aquí se enseñan seis grupos grandes y nada más. Cada
+ * categoría mapea a uno o varios tipos reales de Property Core, de modo que al
+ * elegirla se filtra por esa lista de tipos (el buscador ya acepta varios
+ * `type=`). Cada tipo real cae en una (y sólo una) categoría, así que NINGÚN
+ * inmueble queda inalcanzable desde el Hero: «Edificio» y «Promoción» se
+ * muestran dentro de «Viviendas», que es su caso habitual (edificio de
+ * viviendas / obra nueva residencial). Lo comprueba
+ * test/unit/heroTypeCategories.test.ts.
+ */
+export interface HeroTypeCategory {
+  key: string
+  /** [clave i18n, texto en castellano] */
+  label: [string, string]
+  types: PropertyTypeKey[]
+}
+export const HERO_TYPE_CATEGORIES: HeroTypeCategory[] = [
+  { key: 'homes', label: ['heroTypes.homes', 'Viviendas'], types: ['Apartment', 'House', 'Villa', 'Townhouse', 'Penthouse', 'Duplex', 'Studio', 'Finca', 'Building', 'Development'] },
+  { key: 'retail', label: ['heroTypes.retail', 'Locales'], types: ['Retail'] },
+  { key: 'office', label: ['heroTypes.office', 'Oficinas'], types: ['Office'] },
+  { key: 'garage', label: ['heroTypes.garage', 'Garaje'], types: ['Garage'] },
+  { key: 'land', label: ['heroTypes.land', 'Terreno'], types: ['Land'] },
+  { key: 'warehouse', label: ['heroTypes.warehouse', 'Naves'], types: ['Warehouse'] },
+]
+
 export function propertyTypeLabel(value: string | null | undefined): string {
   if (!value) return '—'
   return PROPERTY_TYPE_LABELS[value] || value

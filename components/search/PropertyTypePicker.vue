@@ -1,11 +1,30 @@
 <template>
   <div class="tp" :class="`tp-${variant}`" role="group" :aria-label="t('hero.type', 'Tipo de inmueble')" data-testid="type-tree">
     <!--
-      El catálogo ENTERO de Property Core, siempre a la vista: grupos como
+      HERO: sólo las SEIS categorías grandes (Viviendas, Locales, Oficinas,
+      Garaje, Terreno, Naves). Cada una marca de golpe todos sus tipos reales;
+      ni familias ni subtipos ni tipos sueltos a la vista (Cola 13).
+    -->
+    <template v-if="variant === 'hero'">
+      <label v-for="cat in heroCategories" :key="cat.key" class="tp-check tp-hero-cat" :data-category="cat.key">
+        <input
+          type="checkbox"
+          :checked="allOn(cat.types)"
+          :indeterminate.prop="someOn(cat.types) && !allOn(cat.types)"
+          :data-testid="`type-cat-${cat.key}`"
+          @change="setMany(cat.types, !allOn(cat.types))"
+        >
+        <span class="tp-name">{{ t(cat.label[0], cat.label[1]) }}</span>
+        <span v-if="countOf(cat.types)" class="tp-count" aria-hidden="true">{{ countOf(cat.types) }}</span>
+      </label>
+    </template>
+
+    <!--
+      PANEL: el catálogo ENTERO de Property Core, siempre a la vista: grupos como
       encabezados (con su casilla de todo/parte/nada), cada tipo con su casilla
       y sus subtipos en línea. Nada se esconde tras un desplegable.
     -->
-    <section v-for="cat in categories" :key="cat.key" class="tp-cat" :data-category="cat.key">
+    <section v-for="cat in (variant === 'hero' ? [] : categories)" :key="cat.key" class="tp-cat" :data-category="cat.key">
       <label class="tp-check tp-cat-head">
         <input
           type="checkbox"
@@ -49,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { PROPERTY_SUBTYPES } from '~/utils/propertySheet'
+import { HERO_TYPE_CATEGORIES, PROPERTY_SUBTYPES } from '~/utils/propertySheet'
 import { PROPERTY_TYPE_TREE, subtypeParent, type TypeCategory } from '~/utils/searchState'
 
 /**
@@ -71,6 +90,8 @@ const { t } = useI18n()
 const typeLabel = usePropertyTypeLabel()
 
 const categories = PROPERTY_TYPE_TREE
+/** Hero: las seis categorías grandes (utils/propertySheet.ts). */
+const heroCategories = HERO_TYPE_CATEGORIES
 const catTypes = (c: TypeCategory) => c.families.flatMap((f) => f.types)
 const subsOf = (ty: string) => Object.keys(PROPERTY_SUBTYPES[ty] || {})
 const subLabel = (ty: string, s: string) => t(`filters.subtype.${s}`, PROPERTY_SUBTYPES[ty]?.[s] || s)
@@ -218,17 +239,25 @@ function toggleSub(s: string) {
   width: 14px;
   accent-color: var(--sb-accent, var(--sb-ink, #1c1b19));
 }
-/* En el Hero de escritorio, dos columnas: Viviendas a la izquierda, el resto a la derecha. */
-@media (min-width: 1024px) {
+/* Hero: las seis categorías grandes, como lista de casillas; nada de familias ni subtipos. */
+.tp-hero {
+  gap: 2px;
+}
+.tp-hero-cat {
+  min-height: 42px;
+  font-size: 15px;
+}
+.tp-hero-cat .tp-name {
+  font-weight: 600;
+}
+.tp-hero-cat:has(input:checked) {
+  background: var(--sb-paper, #f6f3ee);
+}
+/* En escritorio, las seis en dos columnas. */
+@media (min-width: 720px) {
   .tp-hero {
     grid-template-columns: 1fr 1fr;
-    column-gap: 22px;
-  }
-  .tp-hero .tp-cat[data-category='homes'] {
-    grid-row: span 3;
-    border-bottom: 0;
-    border-right: 1px solid var(--sb-line, #ece8e1);
-    padding-right: 18px;
+    column-gap: 18px;
   }
 }
 </style>

@@ -2,12 +2,13 @@ import { test, expect, request as pwRequest, type APIRequestContext, type Page }
 import { STATE_A } from './global-setup'
 
 /**
- * «Tipo de inmueble» del buscador global (megaprompt «Evolución global del
- * buscador», Parte I): el catálogo entero de Property Core a la vista nada más
- * abrir el desplegable —sin paso intermedio—, agrupado, con selección
- * individual, múltiple, por grupo (con estado parcial), limpieza y resumen en
- * el campo; lo mismo con Comprar y con Alquilar; un tipo sin inventario se
- * puede elegir. El mismo selector en el panel de Propiedades.
+ * «Tipo de inmueble» del buscador global. En el HERO de la portada el selector
+ * se simplifica a SEIS categorías grandes (Cola 13): Viviendas, Locales,
+ * Oficinas, Garaje, Terreno y Naves —sin tipos sueltos, familias ni subtipos—;
+ * elegir una busca todos sus tipos reales a la vez. El PANEL de Propiedades
+ * conserva el catálogo entero de Property Core (los 15 tipos y sus subtipos).
+ * Lo mismo con Comprar y con Alquilar; una categoría sin inventario se puede
+ * elegir y da cero resultados.
  */
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8788'
@@ -16,11 +17,11 @@ const HOME = '/?vista_previa=1'
 const CITY = `Tiposville ${RUN}`
 const N = (k: string) => `Tipos ${k} ${RUN}`
 const ALL_TYPES = ['Apartment', 'House', 'Villa', 'Townhouse', 'Penthouse', 'Duplex', 'Studio', 'Finca', 'Land', 'Retail', 'Office', 'Warehouse', 'Garage', 'Building', 'Development']
+const HERO_CATS = ['homes', 'retail', 'office', 'garage', 'land', 'warehouse']
 
 async function noHorizontalScroll(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0)
 }
-const indeterminate = (page: Page, testId: string) => page.getByTestId(testId).evaluate((el) => (el as HTMLInputElement).indeterminate)
 
 test.describe('Buscador global · Tipo de inmueble', () => {
   test.use({ storageState: STATE_A })
@@ -59,105 +60,86 @@ test.describe('Buscador global · Tipo de inmueble', () => {
     return ((await (await anon.get(`/api/public/properties?${qs}`)).json()) as { total: number }).total
   }
 
-  test('1–4 · se abre directamente con el catálogo completo: grupos, los 15 tipos y sus subtipos a la vista, sin desplegables', async ({ page }) => {
+  test('Hero · se abre con las seis categorías grandes, sin tipos sueltos, familias ni subtipos', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(HOME)
     await page.locator('section.hero').getByTestId('hero-cell-type').click()
     const pop = page.getByTestId('hero-pop-type')
     await expect(pop).toBeVisible()
-    // Sin paso intermedio: ningún botón de desplegar; los cuatro grupos y todos los tipos.
+    // Sin paso intermedio: ningún botón de desplegar.
     await expect(pop.locator('.tt-exp, [aria-expanded]')).toHaveCount(0)
-    for (const g of ['homes', 'commercial', 'land', 'other']) await expect(pop.getByTestId(`type-cat-${g}`)).toBeVisible()
-    for (const ty of ALL_TYPES) await expect(pop.getByTestId(`public-filter-type-${ty}`), ty).toBeVisible()
-    // Familias de Viviendas y subtipos visibles sin pulsar nada.
-    await expect(pop.getByTestId('type-family-flats')).toBeVisible()
-    await expect(pop.getByTestId('type-family-houses')).toBeVisible()
-    await expect(pop.getByTestId('public-filter-subtype-penthouse')).toBeVisible()
-    await expect(pop.getByTestId('public-filter-subtype-detached_villa')).toBeVisible()
-    await expect(pop.getByTestId('public-filter-subtype-urban')).toBeVisible()
-    // El número junto a un tipo es el inventario real de la agencia (y un tipo a cero sigue ahí).
-    const apartments = await apiTotal({ type: 'Apartment' })
-    await expect(pop.locator('[data-type="Apartment"] .tp-count')).toHaveText(String(apartments))
-    await expect(pop.locator('[data-type="Warehouse"] .tp-count')).toHaveCount(0)
-    await expect(pop.getByTestId('public-filter-type-Warehouse')).toBeEnabled()
+    // Exactamente las seis categorías, y nada más (ni tipos sueltos, ni familias, ni subtipos).
+    await expect(pop.locator('.tp-hero-cat')).toHaveCount(6)
+    for (const g of HERO_CATS) await expect(pop.getByTestId(`type-cat-${g}`)).toBeVisible()
+    await expect(pop.locator('[data-testid^="public-filter-type-"]')).toHaveCount(0)
+    await expect(pop.locator('[data-testid^="public-filter-subtype-"]')).toHaveCount(0)
+    await expect(pop.getByTestId('type-family-flats')).toHaveCount(0)
+    // El número junto a una categoría es el inventario real de la agencia.
+    const retail = await apiTotal({ type: 'Retail' })
+    await expect(pop.locator('[data-category="retail"] .tp-count')).toHaveText(String(retail))
+    // Una categoría sin inventario (Naves) sigue ahí, seleccionable, y sin número.
+    await expect(pop.locator('[data-category="warehouse"] .tp-count')).toHaveCount(0)
+    await expect(pop.getByTestId('type-cat-warehouse')).toBeEnabled()
   })
 
-  test('5–10 · selección individual, múltiple, de grupo (con estado parcial) y de subtipo; limpieza y resumen del campo', async ({ page }) => {
+  test('Hero · selección simple, múltiple y de categoría entera; limpieza y resumen del campo', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(HOME)
     const cell = page.locator('section.hero').getByTestId('hero-cell-type')
     await cell.click()
     const pop = page.getByTestId('hero-pop-type')
     await expect(cell).toContainText('Cualquiera')
-    await pop.getByTestId('public-filter-type-Apartment').check()
-    await expect(cell).toContainText('Piso')
-    await pop.getByTestId('public-filter-type-Penthouse').check()
-    await expect(cell).toContainText('Piso y ático')
-    await pop.getByTestId('public-filter-type-Retail').check()
+    await pop.getByTestId('type-cat-retail').check()
+    await expect(cell).toContainText('Locales')
+    await pop.getByTestId('type-cat-office').check()
+    await expect(cell).toContainText('Locales y oficinas')
+    await pop.getByTestId('type-cat-warehouse').check()
     await expect(cell).toContainText('3 tipos seleccionados')
-    // Quitar una selección no reinicia el resto.
-    await pop.getByTestId('public-filter-type-Retail').uncheck()
-    await expect(cell).toContainText('Piso y ático')
+    // Quitar una no reinicia el resto.
+    await pop.getByTestId('type-cat-warehouse').uncheck()
+    await expect(cell).toContainText('Locales y oficinas')
     // Limpiar.
     await pop.getByTestId('hero-type-clear').click()
     await expect(cell).toContainText('Cualquiera')
-    for (const ty of ALL_TYPES) await expect(pop.getByTestId(`public-filter-type-${ty}`)).not.toBeChecked()
+    for (const g of HERO_CATS) await expect(pop.getByTestId(`type-cat-${g}`)).not.toBeChecked()
 
-    // Un grupo entero: sus cuatro tipos y el nombre del grupo en el campo.
-    await pop.getByTestId('type-cat-commercial').check()
-    for (const ty of ['Retail', 'Office', 'Warehouse', 'Building']) await expect(pop.getByTestId(`public-filter-type-${ty}`)).toBeChecked()
-    await expect(cell).toContainText('Inmuebles comerciales')
-    // Quitar uno: el grupo queda parcial, el resto sigue.
-    await pop.getByTestId('public-filter-type-Office').uncheck()
-    expect(await indeterminate(page, 'type-cat-commercial')).toBe(true)
-    await expect(pop.getByTestId('type-cat-commercial')).not.toBeChecked()
-    await expect(cell).toContainText('3 tipos seleccionados')
-    // Pulsar el grupo parcial lo completa (como una casilla de tres estados); otra vez, lo vacía entero.
-    await pop.getByTestId('type-cat-commercial').click()
-    await expect(pop.getByTestId('type-cat-commercial')).toBeChecked()
-    await expect(cell).toContainText('Inmuebles comerciales')
-    await pop.getByTestId('type-cat-commercial').click()
-    await expect(cell).toContainText('Cualquiera')
-
-    // Una familia entera («Pisos») y un subtipo suelto: el tipo queda parcial.
-    await pop.getByTestId('type-family-flats').check()
-    await expect(cell).toContainText('Pisos')
-    expect(await indeterminate(page, 'type-cat-homes')).toBe(true)
-    await pop.getByTestId('type-family-flats').uncheck()
-    await pop.getByTestId('public-filter-subtype-penthouse').check()
-    expect(await indeterminate(page, 'public-filter-type-Penthouse')).toBe(true)
-    await expect(cell).toContainText('Ático')
+    // «Viviendas» entera: marca todos sus tipos (pisos, casas, chalets… y también edificios y promociones) y se nombra por la categoría.
+    await pop.getByTestId('type-cat-homes').check()
+    await expect(cell).toContainText('Viviendas')
     await pop.getByTestId('hero-type-done').click()
     await expect(pop).toHaveCount(0)
 
-    // Lo elegido llega a Propiedades con sus resultados reales.
+    // Lo elegido llega a Propiedades con varios type= (los de la categoría) y el panel los marca.
     await page.locator('section.hero').getByTestId('hero-search').click()
-    await expect(page).toHaveURL(/\/propiedades\?.*subtype=penthouse/)
-    await expect(page.getByTestId('catalog-total')).toContainText(String(await apiTotal({ subtype: 'penthouse', operacion: 'venta' })))
-    await expect(page.getByTestId('catalog-aside').getByTestId('public-filter-subtype-penthouse')).toBeChecked()
+    await expect(page).toHaveURL(/\/propiedades\?/)
+    await expect(page).toHaveURL(/type=Apartment/)
+    await expect(page).toHaveURL(/type=Building/)
+    const aside = page.getByTestId('catalog-aside')
+    const typeHead = aside.locator('[data-group="type"] > button')
+    if ((await typeHead.getAttribute('aria-expanded')) !== 'true') await typeHead.click()
+    for (const ty of ['Apartment', 'House', 'Building', 'Development']) await expect(aside.getByTestId(`public-filter-type-${ty}`), ty).toBeChecked()
   })
 
-  test('11–13 · Comprar y Alquilar comparten catálogo y conservan lo elegido; un tipo sin inventario se elige y da cero resultados', async ({ page }) => {
+  test('Hero · Comprar y Alquilar comparten catálogo y conservan lo elegido; Naves (sin inventario) da cero', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(HOME)
     const hero = page.locator('section.hero')
     await hero.getByTestId('hero-cell-type').click()
-    await page.getByTestId('hero-pop-type').getByTestId('public-filter-type-Warehouse').check()
+    await page.getByTestId('hero-pop-type').getByTestId('type-cat-warehouse').check()
     await page.getByTestId('hero-type-done').click()
-    await expect(hero.getByTestId('hero-cell-type')).toContainText('Nave')
-    // Cambiar a Alquilar no pierde el tipo (sólo el precio, que no comparte escala).
+    await expect(hero.getByTestId('hero-cell-type')).toContainText('Naves')
+    // Cambiar a Alquilar no pierde la categoría (sólo el precio, que no comparte escala).
     await hero.getByTestId('hero-operation').locator('button[data-op="rent"]').click()
-    await expect(hero.getByTestId('hero-cell-type')).toContainText('Nave')
+    await expect(hero.getByTestId('hero-cell-type')).toContainText('Naves')
     await hero.getByTestId('hero-cell-type').click()
-    await expect(page.getByTestId('hero-pop-type').getByTestId('public-filter-type-Warehouse')).toBeChecked()
-    await expect(page.getByTestId('hero-pop-type').getByTestId('public-filter-type-Apartment')).toBeVisible()
+    await expect(page.getByTestId('hero-pop-type').getByTestId('type-cat-warehouse')).toBeChecked()
     await page.getByTestId('hero-type-done').click()
     await hero.getByTestId('hero-search').click()
     await expect(page).toHaveURL(/operacion=alquiler/)
     await expect(page).toHaveURL(/type=Warehouse/)
     expect(await apiTotal({ type: 'Warehouse', operacion: 'alquiler' })).toBe(0)
     await expect(page.getByTestId('catalog-total')).toContainText('0')
-    // En el panel sigue el catálogo entero y la nave marcada.
+    // En el panel sigue el catálogo ENTERO y la nave marcada.
     const aside = page.getByTestId('catalog-aside')
     const typeHead = aside.locator('[data-group="type"] > button')
     if ((await typeHead.getAttribute('aria-expanded')) !== 'true') await typeHead.click()
@@ -166,7 +148,7 @@ test.describe('Buscador global · Tipo de inmueble', () => {
     await expect(aside.locator('.tt-exp')).toHaveCount(0)
   })
 
-  test('móvil: el selector se abre como hoja inferior con todo el catálogo, sin desbordes', async ({ page }) => {
+  test('Hero móvil: el selector se abre como hoja inferior con las seis categorías, sin desbordes', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto(HOME)
     // La entrada del buscador (animación «rise», 0,9 s) termina antes de medir: mientras dura,
@@ -191,9 +173,9 @@ test.describe('Buscador global · Tipo de inmueble', () => {
       expect(Math.abs(b.y + b.height - 844), `hoja en y=${b.y} h=${b.height}; ancestros: ${blockers.join(' | ') || 'ninguno'}`).toBeLessThanOrEqual(2)
       expect(b.width).toBeGreaterThanOrEqual(388)
     }).toPass({ timeout: 4000 })
-    for (const ty of ALL_TYPES) await expect(pop.getByTestId(`public-filter-type-${ty}`), ty).toBeAttached()
-    await pop.getByTestId('public-filter-type-Studio').check()
-    await expect(page.locator('section.hero').getByTestId('hero-cell-type')).toContainText('Estudio')
+    for (const g of HERO_CATS) await expect(pop.getByTestId(`type-cat-${g}`), g).toBeAttached()
+    await pop.getByTestId('type-cat-land').check()
+    await expect(page.locator('section.hero').getByTestId('hero-cell-type')).toContainText('Terreno')
     await noHorizontalScroll(page)
     await pop.getByTestId('hero-type-done').click()
     await expect(pop).toHaveCount(0)
