@@ -218,6 +218,49 @@ test.describe('Catálogo de propiedades', () => {
     expect(await apiTotal({ neighborhood: zone })).toBe(1)
   })
 
+  test('la 2ª mano sale en el catálogo público (con su `catalog` y sin campos internos); lo vendido no', async () => {
+    const city = `SegundaMano ${RUN}`
+    const mk = async (slug: string, extra: Record<string, any>) => {
+      const r = await a.post('/api/admin/properties', { data: { slug: `${slug}-${RUN}`, name: `2M ${slug} ${RUN}`, price: 199000, transactionType: 'sale', status: 'available', propertyType: 'Apartment', city, ...extra } })
+      expect(r.ok(), await r.text()).toBeTruthy()
+      const id = (await r.json()).id as number
+      cleanup.push(() => a.delete(`/api/admin/properties/${id}?hard=1`))
+      return id
+    }
+    await mk('viva', {})
+    await mk('vendida', { status: 'sold' })
+
+    const res = await (await anon.get('/api/public/properties', { params: { q: city } })).json()
+    const rows = res.rows as any[]
+    const viva = rows.find((r) => r.name === `2M viva ${RUN}`)
+    expect(viva, 'la 2ª mano viva aparece en el catálogo público').toBeTruthy()
+    expect(rows.map((r) => r.name), 'la vendida no aparece').not.toContain(`2M vendida ${RUN}`)
+    expect(viva.catalog).toBe('agent')
+    // Ni la referencia interna (que toda propiedad tiene autogenerada) ni los demás campos internos salen.
+    for (const k of ['reference', 'agencyReference', 'externalReference', 'mandateType', 'mandateStart', 'captureDate', 'deletedAt', 'locationPrivacyRadius']) {
+      expect(viva[k], `fuga de campo interno: ${k}`).toBeUndefined()
+    }
+    // Buscable por su municipio real (el índice de ubicaciones cuenta los dos catálogos).
+    expect(await apiTotal({ municipality: city })).toBeGreaterThanOrEqual(1)
+    // Y su municipio sale como opción de filtro.
+    const facets = (await (await anon.get('/api/public/properties', { params: { countOnly: '1', facets: 'filters' } })).json()).facets
+    expect(facets.municipalities).toContain(city)
+
+    // La ficha pública de la 2ª mano carga (no 404), con su catálogo y sin las
+    // secciones de obra nueva (Score, análisis, historial, similares) activas.
+    const ficha = await anon.get(`/api/public/properties/viva-${RUN}`)
+    expect(ficha.ok(), await ficha.text()).toBeTruthy()
+    const detail = await ficha.json()
+    expect(detail.catalog).toBe('agent')
+    expect(detail.project.name).toBe(`2M viva ${RUN}`)
+    expect(detail.availability).toMatchObject({ score: false, analysis: false, priceHistory: false, similar: false })
+    for (const k of ['reference', 'agencyReference', 'mandateType', 'captureDate', 'deletedAt']) {
+      expect(detail.project[k], `fuga de campo interno en la ficha: ${k}`).toBeUndefined()
+    }
+    // Una vendida: su ficha por enlace directo sigue resolviendo (no se promociona, pero no es 404).
+    expect((await anon.get(`/api/public/properties/vendida-${RUN}`)).ok()).toBeTruthy()
+  })
+
   test.describe('desde el Constructor', () => {
     test.use({ storageState: STATE_A })
 

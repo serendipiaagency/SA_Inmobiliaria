@@ -41,7 +41,20 @@ export default defineEventHandler(async (event) => {
     .where(and(eq(schema.developerProperties.slug, slug), eq(schema.developerProperties.organizationId, orgId), livePropertyCond(schema.developerProperties)))
     .limit(1)
   const project = rows[0]
-  if (!project) throw createError({ statusCode: 404, statusMessage: 'Project not found' })
+  if (!project) {
+    // La ficha de 2ª mano también pide esto al pintarse. El contador de visitas
+    // y los enlaces personales son hoy de obra nueva (property_views y los
+    // contadores viven en developer_properties); en 2ª mano la llamada se
+    // responde en firme sin contar, para no dar 404, hasta que haya columnas
+    // para ello (migración aparte).
+    const [agentRow] = await db
+      .select({ id: schema.agentProperties.id })
+      .from(schema.agentProperties)
+      .where(and(eq(schema.agentProperties.slug, slug), eq(schema.agentProperties.organizationId, orgId), livePropertyCond(schema.agentProperties)))
+      .limit(1)
+    if (agentRow) return { ok: true, counted: false, personalLink: false }
+    throw createError({ statusCode: 404, statusMessage: 'Project not found' })
+  }
 
   const body = ((await readBody(event).catch(() => null)) || {}) as Record<string, unknown>
   const personal = body.f ? await recordPropertyShareLinkOpen(db, orgId, project.id, body.f) : { counted: false }
