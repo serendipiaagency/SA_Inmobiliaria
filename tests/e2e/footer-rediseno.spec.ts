@@ -124,13 +124,17 @@ test.describe('Pie global rediseñado', () => {
     await ctx.close()
   })
 
-  test('4 · Explorar / Empresa / Servicios: etiqueta en píldora y enlaces a páginas que existen (ninguna rota)', async ({ browser }) => {
+  test('4 · Explorar / Empresa / Servicios: etiqueta serif con filete y enlaces a páginas que existen (ninguna rota)', async ({ browser }) => {
     const { ctx, footer } = await anonPage(browser)
     for (const key of ['explore', 'company', 'services']) {
       const heading = footer.getByTestId(`footer-col-${key}`).locator('.sf-heading')
       await expect(heading).toBeVisible()
-      expect(await heading.evaluate((el) => getComputedStyle(el).textTransform)).toBe('uppercase')
-      expect(await heading.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('9999px')
+      // Estilo premium por defecto («rule»): serif, caja normal (no mayúsculas) y un filete corto debajo.
+      expect(await heading.evaluate((el) => getComputedStyle(el).textTransform)).toBe('none')
+      expect(await heading.evaluate((el) => getComputedStyle(el).fontFamily.toLowerCase())).toContain('serif')
+      const ruleHeight = await heading.evaluate((el) => getComputedStyle(el, '::after').height)
+      expect(ruleHeight).not.toBe('0px')
+      expect(ruleHeight).not.toBe('auto')
     }
     const hrefs = await footer.locator('a[data-link-id]').evaluateAll((els) => els.map((e) => e.getAttribute('href')!))
     expect(hrefs.length).toBeGreaterThanOrEqual(10)

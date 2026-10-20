@@ -227,7 +227,7 @@ export interface FooterConfig {
     text: string
     headingBackground: string
     headingText: string
-    headingStyle: 'pill' | 'plain'
+    headingStyle: 'pill' | 'plain' | 'rule'
     /** Iconos sociales al pasar el ratón y botón del newsletter; vacío = color de marca. */
     accent: string
     bottomBackground: string
@@ -276,7 +276,7 @@ export function defaultFooterConfig(): FooterConfig {
       text: '',
       headingBackground: '',
       headingText: '',
-      headingStyle: 'pill',
+      headingStyle: 'rule',
       accent: '',
       bottomBackground: '',
       bottomText: '',
@@ -396,7 +396,7 @@ export function normalizeFooterConfig(raw: unknown): FooterConfig {
       text: hex(g.text),
       headingBackground: hex(g.headingBackground),
       headingText: hex(g.headingText),
-      headingStyle: oneOf(g.headingStyle, ['pill', 'plain'] as const, 'pill'),
+      headingStyle: oneOf(g.headingStyle, ['pill', 'plain', 'rule'] as const, 'rule'),
       accent: hex(g.accent),
       bottomBackground: hex(g.bottomBackground),
       bottomText: hex(g.bottomText),
