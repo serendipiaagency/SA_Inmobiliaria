@@ -23,6 +23,13 @@ async function openForm(browser: any, n: number, viewport = { width: 1280, heigh
 const next = (page: Page) => page.getByTestId('seller-next').click()
 const progress = (page: Page) => page.getByTestId('seller-progress')
 
+// El simulador del proveedor (scripts/e2e-provider-mock.mjs) guarda cada POST /emails.
+const MOCK_URL = process.env.E2E_PROVIDER_MOCK_URL || 'http://127.0.0.1:8799'
+async function emailsTo(address: string) {
+  const all = (await (await fetch(`${MOCK_URL}/__requests`)).json()) as any[]
+  return all.filter((r) => r.method === 'POST' && r.path === '/emails' && String(r.body?.to).toLowerCase() === address.toLowerCase()).map((r) => r.body)
+}
+
 async function pickLocation(page: Page, text = 'Oviedo') {
   const box = page.getByTestId('location-autocomplete').locator('input')
   await box.fill(text)
@@ -239,6 +246,13 @@ test.describe('Vender propiedad: el formulario de valoración', () => {
     // No se ha creado ninguna propiedad.
     const propsAfter = (await (await admin.get('/api/admin/properties', { params: { q: `Oviedo` } })).json()).total
     expect(propsAfter).toBe(propsBefore)
+    // Cola 12: el vendedor recibe el acuse de recibo con el remitente de la agencia
+    // (en su idioma: Playwright navega en inglés, así que sale en inglés).
+    const isWelcome = (b: any) => /solicitud de venta|received your sale request/i.test(String(b.subject))
+    await expect.poll(async () => (await emailsTo(email)).filter(isWelcome).length, { timeout: 15_000 }).toBeGreaterThan(0)
+    const welcome = (await emailsTo(email)).find(isWelcome)
+    expect(welcome, 'se envió el correo de bienvenida al vendedor').toBeTruthy()
+    expect(String(welcome.html)).toMatch(/venta de tu propiedad|sell your property/)
   })
 
   test('las fotos son opcionales: se suben, se enlazan al lead y sólo las abre el equipo con sesión', async ({ browser }) => {

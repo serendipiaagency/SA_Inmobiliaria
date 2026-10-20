@@ -4,7 +4,7 @@ import { useDb, schema, now, resolvePublicOrgId, cfEnv } from '../../utils/db'
 import { upsertLead } from '../../utils/leads'
 import { claimOnce, rateLimit } from '../../utils/rateLimit'
 import { isValidPhone, requireValidEmail } from '../../utils/validate'
-import { sendInternalNotification } from '../../utils/email/send'
+import { sendInternalNotification, sendTransactionalEmail } from '../../utils/email/send'
 import { platformBaseUrl } from '../../utils/email/links'
 import { getRequestId } from '../../utils/requestId'
 import { readFirstTouch } from '../../utils/firstTouch'
@@ -187,6 +187,25 @@ export default defineEventHandler(async (event) => {
       })
     } catch {
       // El hilo de la bandeja es un extra: el mensaje y el lead ya están guardados.
+    }
+    // Cola 12: acuse de recibo al VENDEDOR que completó «Vender propiedad».
+    // Sale con la identidad y la marca de su inmobiliaria (sendTransactionalEmail
+    // resuelve remitente y Brand Kit). Idempotente: una sola vez por envío, igual
+    // que el lead (el doble clic ya lo frena `claimOnce` por submissionId). Un
+    // fallo del email nunca deshace la solicitud ya guardada.
+    if (form === 'seller') {
+      try {
+        await sendTransactionalEmail(db, cfEnv(event), {
+          organizationId: orgId,
+          template: 'seller_welcome',
+          to: email,
+          data: { name: String(name).trim() || null },
+          locale: publicLeadLanguage(event, body.language) === 'en' ? 'en' : 'es',
+          requestId: getRequestId(event),
+        })
+      } catch {
+        // La solicitud del vendedor ya está registrada: un fallo del correo no la pierde.
+      }
     }
     // Un lead nuevo ya avisa por su cuenta («lead_created», server/utils/leads.ts):
     // desde la ficha no se manda además el aviso genérico de mensaje.
