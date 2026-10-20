@@ -1,6 +1,7 @@
 import { requireOrgScope } from '../../../utils/auth'
 import { useDb } from '../../../utils/db'
 import { appointmentStatusCounts, getAppointment, listAppointments, trashedAppointmentCount } from '../../../utils/appointments/query'
+import { ownCommercialScope } from '../../../utils/dashboard/commercial'
 
 const positiveInt = (v: unknown) => {
   const n = parseInt(String(v ?? ''), 10)
@@ -24,22 +25,27 @@ const positiveInt = (v: unknown) => {
  * del botón «Papelera».
  */
 export default defineEventHandler(async (event) => {
-  const { orgId } = await requireOrgScope(event)
+  const { user, orgId } = await requireOrgScope(event)
   const db = useDb(event)
   const q = getQuery(event)
+
+  // Un comercial vinculado a su ficha sólo ve SUS visitas: el servidor fuerza su
+  // comercial en el listado, los contadores y la ficha de una cita suelta, pida
+  // lo que pida el navegador (el resto de la agencia ve todas).
+  const ownCommercial = await ownCommercialScope(db, orgId, user)
 
   if (q.id !== undefined) {
     const id = positiveInt(q.id)
     if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
     const row = await getAppointment(db, orgId, id)
-    if (!row) throw createError({ statusCode: 404, statusMessage: 'Visita no encontrada' })
+    if (!row || (ownCommercial !== null && row.agentId !== ownCommercial)) throw createError({ statusCode: 404, statusMessage: 'Visita no encontrada' })
     return { row }
   }
 
   const rows = await listAppointments(db, orgId, {
     status: q.status ? String(q.status) : null,
     type: q.type ? String(q.type) : null,
-    agentId: positiveInt(q.agentId),
+    agentId: ownCommercial ?? positiveInt(q.agentId),
     officeId: positiveInt(q.officeId),
     contactId: positiveInt(q.contactId),
     leadId: positiveInt(q.leadId),
@@ -47,7 +53,7 @@ export default defineEventHandler(async (event) => {
     order: 'desc',
     limit: 200,
   })
-  const counts = await appointmentStatusCounts(db, orgId)
-  const trashedCount = await trashedAppointmentCount(db, orgId)
+  const counts = await appointmentStatusCounts(db, orgId, ownCommercial)
+  const trashedCount = await trashedAppointmentCount(db, orgId, ownCommercial)
   return { rows, counts, trashedCount }
 })

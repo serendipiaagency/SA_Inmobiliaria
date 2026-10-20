@@ -133,6 +133,23 @@ export function applyDashboardVisibility(s: DashboardScope, visibility: Dashboar
   return s
 }
 
+/**
+ * Para los LISTADOS de CRM (leads, visitas, tareas): el id del comercial al que
+ * hay que acotar el listado, o `null` para ver toda la agencia. Reutiliza la
+ * MISMA regla que el dashboard (`dashboardVisibilityFor`): sólo una cuenta
+ * restringida VINCULADA a su ficha de comercial (modo «own») se acota a lo
+ * suyo. El administrador, el gerente (restringido con `system:write`) y el
+ * super_admin ven toda la agencia; una cuenta restringida SIN ficha vinculada
+ * también ve toda la agencia (su acceso al CRM es una concesión explícita del
+ * administrador, no un comercial), igual que hasta ahora — así esto no cambia
+ * a nadie salvo para cerrar el hueco: un comercial deja de ver los leads, las
+ * visitas y las tareas de los demás, que es el comportamiento documentado.
+ */
+export async function ownCommercialScope(db: any, orgId: number, user: { id: number; role: string; permissions?: string | null }): Promise<number | null> {
+  const vis = await dashboardVisibilityFor(db, orgId, user)
+  return vis.mode === 'own' ? vis.commercialId : null
+}
+
 const start = (d: string) => `${d} 00:00:00`
 const end = (d: string) => `${d} 23:59:59`
 

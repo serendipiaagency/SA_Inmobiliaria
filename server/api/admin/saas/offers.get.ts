@@ -1,5 +1,6 @@
 import { requireOrgScope } from '../../../utils/auth'
 import { useDb } from '../../../utils/db'
+import { ownCommercialScope } from '../../../utils/dashboard/commercial'
 import { listOffers, withOfferLabels, OFFER_STATUSES, type ListOffersFilter, type OfferStatusFilter } from '../../../utils/offers/service'
 import { PROPERTY_KINDS, type PropertyKind } from '../../../utils/matching/service'
 
@@ -14,9 +15,12 @@ import { PROPERTY_KINDS, type PropertyKind } from '../../../utils/matching/servi
  * comprador, vendedores, inmueble, comercial y su operación si la hay.
  */
 export default defineEventHandler(async (event) => {
-  const { orgId } = await requireOrgScope(event)
+  const { user, orgId } = await requireOrgScope(event)
   const db = useDb(event)
   const q = getQuery(event)
+
+  // Un comercial vinculado a su ficha sólo ve SUS ofertas (su comercial forzado).
+  const ownCommercial = await ownCommercialScope(db, orgId, user)
 
   const filter: ListOffersFilter = {}
   const kind = (PROPERTY_KINDS as string[]).includes(String(q.propertyKind)) ? (q.propertyKind as PropertyKind) : undefined
@@ -30,6 +34,7 @@ export default defineEventHandler(async (event) => {
   if (q.sellerContactId) filter.sellerContactId = Number(q.sellerContactId)
   if (q.leadId) filter.leadId = Number(q.leadId)
   if (q.commercialId) filter.commercialId = Number(q.commercialId)
+  if (ownCommercial !== null) filter.commercialId = ownCommercial
   if (q.status && (q.status === 'open' || (OFFER_STATUSES as readonly string[]).includes(String(q.status)))) filter.status = q.status as OfferStatusFilter
 
   const rows = await withOfferLabels(db, orgId, await listOffers(db, orgId, filter))
