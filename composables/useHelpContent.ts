@@ -1325,15 +1325,22 @@ export function useHelpContent() {
       id: 'faq-catalogo-segunda-mano',
       question: '¿Puedo hacer un catálogo PDF con propiedades de 2ª mano?',
       answer:
-        'Sí. En Propiedades 2ª mano, selecciona hasta 30 propiedades en la vista de lista y elige la acción «Crear catálogo», o en Portal Web → Catálogos combinados elige «2ª mano». Sólo salen datos y fotos publicables, con la ubicación según la privacidad de cada ficha, y sin QR porque la 2ª mano no tiene página pública.',
+        'Sí. En Propiedades 2ª mano, selecciona hasta 30 propiedades en la vista de lista y elige la acción «Crear catálogo», o en Portal Web → Catálogos combinados elige «2ª mano». Sólo salen datos y fotos publicables, con la ubicación según la privacidad de cada ficha. La 2ª mano ya tiene ficha pública en tu web, aunque su QR todavía no se añade en este catálogo combinado.',
       tags: ['catálogo', 'pdf', 'segunda mano', '2ª mano', 'asset export', 'acción masiva'],
     },
     {
       id: 'faq-catalogo-opciones',
       question: 'En el panel de filtros de mi web faltan municipios, barrios o tipos de propiedad, ¿por qué?',
       answer:
-        'Porque el panel sólo ofrece lo que tienes publicado: los municipios, barrios, códigos postales, tipos y estados salen de tus propiedades vivas en Propiedades (web), así ningún visitante elige una opción que no devuelve nada. Si falta uno, revisa que alguna propiedad publicada lo tenga en su ficha (Ubicación → municipio, barrio o código postal; Información básica → tipo). En cuanto la publiques, aparece solo, sin tocar el Constructor.',
-      tags: ['web', 'filtros', 'catálogo', 'municipio', 'barrio', 'tipo', 'propiedades'],
+        'Porque el panel sólo ofrece lo que tienes publicado: los municipios, barrios, códigos postales, tipos y estados salen de tus propiedades vivas de los dos catálogos —Propiedades (web) y Propiedades 2ª mano—, así ningún visitante elige una opción que no devuelve nada. Si falta uno, revisa que alguna propiedad publicada lo tenga en su ficha (Ubicación → municipio, barrio o código postal; Información básica → tipo). En cuanto la publiques, aparece solo, sin tocar el Constructor.',
+      tags: ['web', 'filtros', 'catálogo', 'municipio', 'barrio', 'tipo', 'propiedades', '2ª mano'],
+    },
+    {
+      id: 'faq-segunda-mano-web-publica',
+      question: '¿Salen las propiedades de 2ª mano en mi web pública?',
+      answer:
+        'Sí. El catálogo de tu web, el buscador y el mapa muestran a la vez tus dos catálogos: Propiedades (web, obra nueva) y Propiedades 2ª mano. Cada propiedad de 2ª mano viva (fuera de la papelera y que no esté marcada como «Vendida») sale con sus mismos filtros, su orden y su ficha pública propia (fotos, precio, descripción, características, mapa, exposición solar y formulario de contacto), igual que la obra nueva. Las secciones que son sólo de obra nueva —Serendipia Score, análisis de inversión, evolución de precio y «similares»— no aparecen en una ficha de 2ª mano. No hay que configurar nada: en cuanto una propiedad de 2ª mano está publicada (y no vendida), está en la web; marcarla como «Vendida» la retira del catálogo, aunque su enlace directo siga abriendo la ficha.',
+      tags: ['web', '2ª mano', 'segunda mano', 'catálogo', 'ficha', 'propiedades', 'buscador', 'mapa'],
     },
     {
       id: 'faq-ordenar-relevancia',

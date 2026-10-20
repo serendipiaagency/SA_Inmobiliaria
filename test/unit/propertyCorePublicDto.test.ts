@@ -39,11 +39,24 @@ describe('los endpoints públicos que devuelven properties usan propertyPrivacy'
   })
 })
 
+describe('el catálogo público proyecta cada fila con SU catálogo (2ª mano no filtra campos internos)', () => {
+  it('properties.get.ts pasa `catalog` a toPublicProperties y trata los dos catálogos', () => {
+    const source = readFileSync(join(ROOT, 'server/api/public/properties.get.ts'), 'utf8')
+    // La proyección sale con el catálogo de cada grupo (no el 'developer' por defecto).
+    expect(source).toMatch(/toPublicProperties\([^)]*\{\s*catalog:/)
+    // Y recorre obra nueva y 2ª mano.
+    expect(source).toMatch(/'developer'/)
+    expect(source).toMatch(/'agent'/)
+  })
+})
+
 describe('la ficha pública y la propiedad de ejemplo del Constructor pasan por la misma carga redactada', () => {
   it.each(['server/api/public/properties/[slug].get.ts', 'server/api/admin/site-pages/ficha-sample.get.ts'])('%s devuelve loadPublicPropertyDetail', (file) => {
     const source = readFileSync(join(ROOT, file), 'utf8')
     expect(source).toMatch(/from ['"].*properties\/publicDetail['"]/)
-    expect(source).toMatch(/loadPublicPropertyDetail\(db, project\)/)
+    // La ficha pública resuelve el catálogo (obra nueva o 2ª mano) y pasa project + kind;
+    // la propiedad de ejemplo del Constructor sigue con la fila de obra nueva.
+    expect(source).toMatch(/loadPublicPropertyDetail\(db, (project|found\.project, found\.kind)\)/)
     // Nada de la fila sin redactar fuera de esa carga.
     expect(source).not.toMatch(/return \{[^}]*project[,:]/)
   })

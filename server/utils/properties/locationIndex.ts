@@ -1,7 +1,8 @@
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, getTableName, sql } from 'drizzle-orm'
 import { schema } from '../db'
 import { livePropertyCond } from './trash'
 import { normalizeText, type LocationKind } from '../../../utils/searchState'
+import { PROPERTY_KINDS, type PropertyKind } from '../matching/service'
 
 /**
  * Las ubicaciones REALES de las propiedades publicadas de una agencia, por
@@ -12,14 +13,19 @@ import { normalizeText, type LocationKind } from '../../../utils/searchState'
  * después se encuentra. Nada inventado: sin propiedades publicadas en un sitio,
  * ese sitio no existe aquí.
  *
+ * Cuenta los DOS catálogos de Property Core: obra nueva (developer_properties)
+ * y 2ª mano (agent_properties), para que una ubicación con sólo propiedades de
+ * 2ª mano también se sugiera y se encuentre.
+ *
  * Se agrupa sin tildes ni mayúsculas («Oviedo», «OVIEDO» → una entrada con sus
  * dos variantes guardadas). La calle sólo sale de propiedades con ubicación
  * exacta: la de una publicada como aproximada no se puede buscar.
  */
 
-const P = schema.developerProperties
-const P_ID = sql.raw('"developer_properties"."id"')
-const P_ORG = sql.raw('"developer_properties"."organization_id"')
+const PROPERTY_TABLES: Record<PropertyKind, typeof schema.developerProperties> = {
+  developer: schema.developerProperties,
+  agent: schema.agentProperties as unknown as typeof schema.developerProperties,
+}
 
 /** Niveles que salen del inventario (la comunidad autónoma y las zonas de la agencia no: el catálogo y las zonas van aparte). */
 export type InventoryLocationKind = Exclude<LocationKind, 'zone' | 'region'>
@@ -42,7 +48,7 @@ interface Acc {
   key: string
   variants: Map<string, number>
   contexts: Map<string, number>
-  ids: Set<number>
+  ids: Set<string>
 }
 
 // Por organización, en este aislado, mientras sus propiedades no cambien:
@@ -58,24 +64,29 @@ export function forgetLocationIndex(orgId?: number) {
 }
 
 async function indexStamp(db: any, orgId: number): Promise<string> {
-  const [row] = (await db
-    .select({
-      n: sql<number>`count(*)`,
-      ids: sql<number>`coalesce(sum(${P.id}), 0)`,
-      at: sql<string | null>`max(${P.updatedAt})`,
-      details: sql<string | null>`(select max(pd.updated_at) || ':' || count(*) from property_details pd where pd.organization_id = ${orgId} and pd.property_kind = 'developer')`,
-    })
-    .from(P)
-    .where(and(eq(P.organizationId, orgId), livePropertyCond(P)))) as Array<Record<string, unknown>>
-  return [row?.n, row?.ids, row?.at, row?.details].join('|')
+  const parts: unknown[] = []
+  for (const kind of PROPERTY_KINDS) {
+    const P = PROPERTY_TABLES[kind]
+    const [row] = (await db
+      .select({
+        n: sql<number>`count(*)`,
+        ids: sql<number>`coalesce(sum(${P.id}), 0)`,
+        at: sql<string | null>`max(${P.updatedAt})`,
+        details: sql<string | null>`(select max(pd.updated_at) || ':' || count(*) from property_details pd where pd.organization_id = ${orgId} and pd.property_kind = ${kind})`,
+      })
+      .from(P)
+      .where(and(eq(P.organizationId, orgId), livePropertyCond(P)))) as Array<Record<string, unknown>>
+    parts.push(row?.n, row?.ids, row?.at, row?.details)
+  }
+  return parts.join('|')
 }
 
-export async function locationIndex(db: any, orgId: number): Promise<LocationEntry[]> {
-  const stamp = await indexStamp(db, orgId)
-  const hit = cache.get(orgId)
-  if (hit && hit.stamp === stamp) return hit.entries
-  const detail = (col: string) => sql<string | null>`(select pd.${sql.raw(col)} from property_details pd where pd.organization_id = ${P_ORG} and pd.property_kind = 'developer' and pd.property_id = ${P_ID} limit 1)`
-  const rows = (await db
+/** Las ubicaciones de un catálogo: su columna propia y la de su ficha ampliada. */
+async function catalogLocationRows(db: any, orgId: number, kind: PropertyKind): Promise<Array<Record<string, string | number | null>>> {
+  const P = PROPERTY_TABLES[kind]
+  const name = sql.identifier(getTableName(P as any))
+  const detail = (col: string) => sql<string | null>`(select pd.${sql.raw(col)} from property_details pd where pd.organization_id = ${name}.organization_id and pd.property_kind = ${kind} and pd.property_id = ${name}.id limit 1)`
+  return (await db
     .select({
       id: P.id,
       city: P.city,
@@ -89,14 +100,27 @@ export async function locationIndex(db: any, orgId: number): Promise<LocationEnt
     })
     .from(P)
     .where(and(eq(P.organizationId, orgId), livePropertyCond(P)))) as Array<Record<string, string | number | null>>
+}
+
+export async function locationIndex(db: any, orgId: number): Promise<LocationEntry[]> {
+  const stamp = await indexStamp(db, orgId)
+  const hit = cache.get(orgId)
+  if (hit && hit.stamp === stamp) return hit.entries
+  // Los dos catálogos a la vez. Los ids de agrupación/recuento llevan el
+  // catálogo como prefijo para que un id de obra nueva y uno de 2ª mano no se
+  // confundan al contar cuántas propiedades hay en una ubicación.
+  const rows: Array<Record<string, string | number | null>> = []
+  for (const kind of PROPERTY_KINDS) {
+    for (const r of await catalogLocationRows(db, orgId, kind)) rows.push({ ...r, id: `${kind}:${r.id}` as unknown as string })
+  }
 
   const acc = new Map<string, Acc>()
-  const add = (kind: InventoryLocationKind, raw: unknown, context: unknown, id: number) => {
+  const add = (kind: InventoryLocationKind, raw: unknown, context: unknown, id: string) => {
     const value = typeof raw === 'string' ? raw.trim() : ''
     if (!value) return
     const key = normalizeText(value)
     const k = `${kind}:${key}`
-    const a = acc.get(k) ?? { kind, key, variants: new Map(), contexts: new Map(), ids: new Set<number>() }
+    const a = acc.get(k) ?? { kind, key, variants: new Map(), contexts: new Map(), ids: new Set<string>() }
     a.variants.set(value, (a.variants.get(value) ?? 0) + 1)
     const ctx = typeof context === 'string' ? context.trim() : ''
     if (ctx && normalizeText(ctx) !== key) a.contexts.set(ctx, (a.contexts.get(ctx) ?? 0) + 1)
@@ -104,7 +128,7 @@ export async function locationIndex(db: any, orgId: number): Promise<LocationEnt
     acc.set(k, a)
   }
   for (const r of rows) {
-    const id = Number(r.id)
+    const id = String(r.id)
     const municipality = (r.municipality || r.city) as string | null
     add('province', r.province, r.region, id)
     // Las dos columnas que mira el filtro de municipio, y las dos del de barrio.

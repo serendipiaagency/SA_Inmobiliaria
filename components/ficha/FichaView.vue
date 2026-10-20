@@ -276,8 +276,9 @@
           </div>
           <!-- Última actualización, fecha de publicación y la misma «REF:» de las migas: sin datos, no existe. -->
           <PropertyListingMeta v-bind="n('b.listing-meta')" :project="data.project" :reference="reference" />
-          <PropertyIndicatorsCard v-bind="n('b.indicators')" :slug="slug" />
-          <PropertyQuickDecisionCard v-bind="n('b.quick-decision')" :slug="slug" />
+          <!-- Indicadores (visitas/leads) y Decisión rápida (Serendipia Score): de obra nueva; en 2ª mano no se piden. -->
+          <PropertyIndicatorsCard v-if="!isAgent" v-bind="n('b.indicators')" :slug="slug" />
+          <PropertyQuickDecisionCard v-if="!isAgent" v-bind="n('b.quick-decision')" :slug="slug" />
           <div v-if="data.developer" v-bind="n('b.developer')" class="pcard" data-testid="ficha-developer">
             <span class="eyebrow">{{ t('propertyDetails.developer.eyebrow', 'Promotora') }}</span>
             <div class="mt-4 flex items-center gap-4">
@@ -358,6 +359,9 @@ const formatPrice = (amount: number | null | undefined, transactionType?: unknow
 const { tenant } = useTenant()
 const data = computed<any>(() => props.data)
 const slug = computed(() => props.slug)
+// 2ª mano: el Score, los indicadores y las secciones de obra nueva (análisis,
+// historial de precios, similares) no aplican y su endpoint no existe para ella.
+const isAgent = computed(() => data.value?.catalog === 'agent')
 const coreOptions = computed<Record<string, any>>(() => props.coreOptions || {})
 // Lo demás de la zona (megaprompt «ficha»): referencia y descripción en la
 // tarjeta principal, fondo de «Atendido por», presentación de la tabla
