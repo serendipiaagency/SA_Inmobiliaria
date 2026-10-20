@@ -147,6 +147,40 @@ describe('sendTransactionalEmail — simulated successful provider', () => {
   })
 })
 
+describe('seller_welcome — acuse al vendedor que completa «Vender propiedad»', () => {
+  it('sale con la identidad de la agencia (NO el remitente de Portal INMO), porque es un email a su cliente', async () => {
+    stubSuccessfulResend()
+    const { db } = createTestDb()
+    const a = await seedTenant(db, 'EmailSellerWelcome')
+    // Aunque la empresa tenga dominio verificado, este email es suyo a su cliente: usa su remitente.
+    await db.update(schema.organizations).set({ emailSenderName: 'Norte Astur', emailSenderAddress: 'hola@norteastur.example', emailSenderDomainVerified: 1 }).where(eq(schema.organizations.id, a.orgId))
+
+    const [result] = await sendTransactionalEmail(db, { RESEND_API_KEY: 'k' }, { organizationId: a.orgId, template: 'seller_welcome', to: 'vendedor@example.com', data: { name: 'Laura' }, locale: 'es' })
+    expect(result.status).toBe('sent')
+    const [row] = await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, result.logId))
+    expect(row.fromHeader).toBe('Norte Astur <hola@norteastur.example>')
+    expect(row.kind).toBe('transactional')
+    expect(row.subject).toBe('Hemos recibido tu solicitud de venta')
+    expect(row.html).toContain('Laura')
+    expect(row.html).toContain('venta de tu propiedad')
+  })
+
+  it('rinde la versión en inglés con el nombre y sin saludo cuando no hay nombre', async () => {
+    stubSuccessfulResend()
+    const { db } = createTestDb()
+    const a = await seedTenant(db, 'EmailSellerWelcomeEn')
+
+    const [withName] = await sendTransactionalEmail(db, { RESEND_API_KEY: 'k' }, { organizationId: a.orgId, template: 'seller_welcome', to: 'seller@example.com', data: { name: 'John' }, locale: 'en' })
+    const [rowEn] = await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, withName.logId))
+    expect(rowEn.subject).toBe('We\'ve received your sale request')
+    expect(rowEn.html).toContain('Hi John,')
+
+    const [noName] = await sendTransactionalEmail(db, { RESEND_API_KEY: 'k' }, { organizationId: a.orgId, template: 'seller_welcome', to: 'seller2@example.com', data: { name: null }, locale: 'es' })
+    const [rowNoName] = await db.select().from(schema.emailLog).where(eq(schema.emailLog.id, noName.logId))
+    expect(rowNoName.html).toContain('Hola: ')
+  })
+})
+
 describe('sendInternalNotification', () => {
   it('sends to every configured internal recipient, one email_log row each', async () => {
     stubSuccessfulResend()

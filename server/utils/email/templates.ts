@@ -22,6 +22,8 @@ export type TemplateKey =
   | 'whatsapp_message_received'
   // Núcleo N8a: respuesta del equipo a un hilo web (formulario o chat) desde Comunicaciones.
   | 'web_thread_reply'
+  // Cola 12: acuse al vendedor que completa «Vender propiedad» — sale con la identidad y la marca de la agencia.
+  | 'seller_welcome'
   // Email de plataforma (server/utils/email/platform.ts): salen siempre con el
   // remitente corporativo central, nunca con la identidad de una empresa.
   | 'company_registration_welcome'
@@ -174,6 +176,25 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
       emailHeading(l === 'en' ? 'Appointment cancelled' : 'Cita cancelada') +
       emailParagraph(l === 'en' ? 'The following appointment was cancelled:' : 'Se ha cancelado la siguiente cita:') +
       emailInfoTable([[l === 'en' ? 'Date & time' : 'Fecha y hora', d.scheduledAt || '—']]),
+  },
+
+  seller_welcome: {
+    kind: 'transactional',
+    audience: 'client',
+    subject: (d, l) => (l === 'en' ? 'We\'ve received your sale request' : 'Hemos recibido tu solicitud de venta'),
+    body: (d, l) =>
+      emailHeading(l === 'en' ? 'Thank you for trusting us' : 'Gracias por confiar en nosotros') +
+      emailParagraph(
+        l === 'en'
+          ? `${d.name ? `Hi ${escapeHtml(String(d.name))}, ` : ''}thank you for choosing us to help you sell your property.`
+          : `${d.name ? `Hola ${escapeHtml(String(d.name))}: ` : 'Hola: '}muchas gracias por confiar en nosotros para ayudarte con la venta de tu propiedad.`,
+      ) +
+      emailParagraph(
+        l === 'en'
+          ? 'We have received the information you sent through our website. One of our agents will review it and get in touch with you soon to continue with the valuation of your property.'
+          : 'Hemos recibido correctamente la información que nos has facilitado a través de nuestra web. Nuestro equipo la revisará y uno de nuestros comerciales se pondrá en contacto contigo próximamente para continuar con la evaluación de la venta.',
+      ) +
+      emailParagraph(l === 'en' ? 'We look forward to helping you take the next step.' : 'Estamos encantados de acompañarte y ayudarte a dar el siguiente paso.'),
   },
 
   appointment_reminder_24h: {
