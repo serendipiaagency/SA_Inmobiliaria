@@ -3030,6 +3030,44 @@ export const newsletterSubscriptions = sqliteTable(
   ],
 )
 
+// Newsletter: plantillas y campañas que la agencia redacta con el editor
+// (migración 0100). No envían nada: se redactan, previsualizan y exportan para
+// enviarse con la herramienta de la agencia. Los suscriptores viven aparte, en
+// newsletterSubscriptions.
+export const newsletterTemplates = sqliteTable(
+  'newsletter_templates',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    subject: text('subject').notNull().default(''),
+    contentJson: text('content_json').notNull().default('[]'), // bloques del editor (formato CMS)
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('newsletter_templates_org').on(t.organizationId, t.updatedAt)],
+)
+
+export const newsletterCampaigns = sqliteTable(
+  'newsletter_campaigns',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    name: text('name').notNull(),
+    subject: text('subject').notNull().default(''),
+    contentJson: text('content_json').notNull().default('[]'),
+    status: text('status').notNull().default('draft'), // draft | ready | exported
+    segment: text('segment').notNull().default('subscribed'),
+    recipientCount: integer('recipient_count'),
+    lastExportedAt: text('last_exported_at'),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('newsletter_campaigns_org_status').on(t.organizationId, t.status, t.createdAt)],
+)
+
 export const deals = sqliteTable(
   'deals',
   {
