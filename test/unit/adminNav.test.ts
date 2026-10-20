@@ -6,14 +6,21 @@ import { ADMIN_AREAS, type AdminArea } from '../../utils/adminAreas'
 import { adminResources } from '../../server/utils/adminResources'
 
 /**
- * Menú lateral reorganizado en categorías desplegables (oct-2026). La regla
- * era: reubicar, nunca quitar. Cola 15 (aprobada por el propietario) es la
- * PRIMERA excepción: «Leads», «Contactos» y «Clientes» se unifican en UNA
- * entrada «Gestión de contactos» (área crm). Las tres rutas siguen existiendo
- * y protegidas como crm (vía el `match` de esa entrada); sólo desaparecen como
- * entradas sueltas del menú. Este inventario ya refleja la unificación: la
- * entrada de Contactos pasa a llamarse «Gestión de contactos» y las de Leads y
- * Clientes salen de aquí (su permiso se comprueba aparte, ver UNIFIED_ROUTES).
+ * Menú lateral. La regla de fondo: una entrada puede cambiar de categoría o de
+ * etiqueta, pero NUNCA de permiso. Este inventario fija, por ruta, la etiqueta,
+ * el ÁREA de permisos y si es sólo de super admin; da igual en qué categoría
+ * esté — lo que se protege es su `area` efectiva.
+ *
+ * Reorganizaciones aplicadas:
+ *  - Cola 15: «Leads», «Contactos» y «Clientes» se unen en «Gestión de
+ *    contactos» (las rutas de Leads y Clientes siguen como crm, vía `match`;
+ *    ver UNIFIED_ROUTES).
+ *  - Cola 16: el menú se reagrupa en siete categorías por tarea («Dashboard
+ *    operativo», «Mi negocio» = CRM+Finanzas, «Chatbot», «Comunicación y
+ *    mensajes», «Web y contenido» = Portal Web+Blog&CMS, «Sistema», «Ayuda»).
+ *    NINGUNA entrada cambia de permiso; las que caen en una categoría de otra
+ *    área llevan `area` propia. La única entrada NUEVA es «Chat de la web»
+ *    (ADDED), que abre los ajustes del chat público.
  */
 const BEFORE: Array<[to: string, label: string, area: AdminArea | null, superAdminOnly: boolean]> = [
   ['/admin', 'Dashboard', 'general', false], ['/admin/analytics', 'Analytics', 'general', false],
@@ -51,6 +58,8 @@ const ADDED: Array<[to: string, label: string, area: AdminArea | null, superAdmi
   ['/admin/solicitudes-demo', 'Solicitudes de demo', 'system', true],
   // Guías de zonas (migración 0095): la jerarquía región → municipio → barrio de la web.
   ['/admin/zones', 'Zonas', 'web', false],
+  // Cola 16: acceso directo a los ajustes del chat de la web pública (bajo «Chatbot»); mismo permiso crm.
+  ['/admin/comunicaciones/configuracion', 'Chat de la web', 'crm', false],
 ]
 
 /**
@@ -83,18 +92,31 @@ describe('menú lateral — inventario: reubicar, nunca quitar', () => {
     }
   })
 
-  it('las cinco entradas que cambiaron de categoría están donde deben', () => {
-    expect(groupOf('/admin/comerciales').label).toBe('CRM')
-    expect(groupOf('/admin/widgets').label).toBe('Portal Web')
-    expect(groupOf('/admin/api').label).toBe('Sistema')
-    expect(groupOf('/admin/marketplace').label).toBe('Sistema')
-    expect(groupOf('/admin/blogs').label).toBe('Blog & CMS')
-    // Y sólo esas: el resto sigue en su categoría de siempre.
-    const moved = BEFORE.filter(([to, , area]) => {
-      const g = groupOf(to)
-      return g.area !== area && !(g.area === undefined && area === null)
-    }).map(([to]) => to)
-    expect(moved.sort()).toEqual(['/admin/api', '/admin/blogs', '/admin/comerciales', '/admin/marketplace', '/admin/widgets'])
+  it('las siete categorías de Cola 16, con su id, etiqueta y algunas entradas representativas', () => {
+    expect(ADMIN_NAV.map((g) => [g.id, g.label])).toEqual([
+      ['general', 'Dashboard operativo'],
+      ['crm', 'Mi negocio'],
+      ['chatbot', 'Chatbot'],
+      ['comunicacion', 'Comunicación y mensajes'],
+      ['web', 'Web y contenido'],
+      ['system', 'Sistema'],
+      ['help', 'Ayuda'],
+    ])
+    // «Mi negocio» = CRM + Finanzas: contiene lo comercial y lo financiero.
+    expect(groupOf('/admin/contactos').id).toBe('crm')
+    expect(groupOf('/admin/facturacion').id).toBe('crm')
+    expect(groupOf('/admin/ai').id).toBe('crm')
+    // «Chatbot» = INMO interno + chat de la web.
+    expect(groupOf('/admin/inmo').id).toBe('chatbot')
+    expect(groupOf('/admin/comunicaciones/configuracion').id).toBe('chatbot')
+    // «Comunicación y mensajes».
+    expect(groupOf('/admin/comunicaciones').id).toBe('comunicacion')
+    expect(groupOf('/admin/emails').id).toBe('comunicacion')
+    expect(groupOf('/admin/suscriptores').id).toBe('comunicacion')
+    // «Web y contenido» = Portal Web + Blog & CMS.
+    expect(groupOf('/admin/developer-properties').id).toBe('web')
+    expect(groupOf('/admin/cms/articles').id).toBe('web')
+    expect(groupOf('/admin/blogs').id).toBe('web')
   })
 
   it('cada entrada es navegable: ruta única de /admin, icono, y una página real detrás', () => {
@@ -154,24 +176,42 @@ describe('menú lateral — permisos', () => {
     expect(admin).toHaveLength(entries.length - superOnlyCount)
   })
 
-  it('un comercial con sólo CRM ve el CRM (sin Comerciales, que es de Portal Web) y la Ayuda, y ninguna categoría vacía', () => {
+  it('un comercial con sólo CRM ve las categorías con entradas crm y la Ayuda, sin Comerciales (Portal Web) ni categorías vacías', () => {
     const nav = visibleAdminNav(ADMIN_NAV, { isSuperAdmin: false, allowed: ['crm'] })
-    expect(nav.map((g) => g.label)).toEqual(['CRM', 'Ayuda'])
-    expect(nav[0].items.map((i) => i.label)).not.toContain('Comerciales')
+    // Las entradas crm se reparten en «Mi negocio», «Chatbot» y «Comunicación y mensajes»; más la Ayuda.
+    expect(nav.map((g) => g.label)).toEqual(['Mi negocio', 'Chatbot', 'Comunicación y mensajes', 'Ayuda'])
+    // «Comerciales» es área web: no la ve, aunque viva en «Mi negocio».
+    expect(nav.find((g) => g.id === 'crm')?.items.map((i) => i.label)).not.toContain('Comerciales')
+    // En «Comunicación y mensajes» sólo ve Comunicaciones (crm), no Emails (system) ni Suscriptores (web).
+    expect(nav.find((g) => g.id === 'comunicacion')?.items.map((i) => i.label)).toEqual(['Comunicaciones'])
     expect(nav.every((g) => g.items.length > 0)).toBe(true)
   })
 
   it('cada entrada movida la ve quien tenía su permiso, en su categoría nueva', () => {
     const web = visibleAdminNav(ADMIN_NAV, { isSuperAdmin: false, allowed: ['web'] })
+    // Área web: Comerciales (en «Mi negocio»), Suscriptores (en «Comunicación y mensajes») y el Portal Web (en «Web y contenido»), sin los del blog ni Widgets.
     expect(web.find((g) => g.id === 'crm')?.items.map((i) => i.label)).toEqual(['Comerciales'])
-    expect(web.find((g) => g.id === 'web')?.items.map((i) => i.label)).not.toContain('Widgets')
+    expect(web.find((g) => g.id === 'comunicacion')?.items.map((i) => i.label)).toEqual(['Suscriptores'])
+    const webItems = web.find((g) => g.id === 'web')?.items.map((i) => i.label) ?? []
+    expect(webItems).toContain('Propiedades (web)')
+    expect(webItems).not.toContain('Widgets') // área finance
+    expect(webItems).not.toContain('Artículos') // área cms
 
     const finance = visibleAdminNav(ADMIN_NAV, { isSuperAdmin: false, allowed: ['finance'] })
+    // Finanzas vive dentro de «Mi negocio»; API/Marketplace en «Sistema»; Widgets en «Web y contenido».
+    expect(finance.find((g) => g.id === 'crm')?.items.map((i) => i.label)).toEqual(['Facturación', 'Cierres y comisiones', 'Ingresos', 'Contratos', 'Depósitos', 'Tasador (AVM)', 'AI Studio'])
     expect(finance.find((g) => g.id === 'system')?.items.map((i) => i.label)).toEqual(['API', 'Marketplace'])
     expect(finance.find((g) => g.id === 'web')?.items.map((i) => i.label)).toEqual(['Widgets'])
 
+    // El blog vive ahora en «Web y contenido».
+    const cms = visibleAdminNav(ADMIN_NAV, { isSuperAdmin: false, allowed: ['cms'] })
+    expect(cms.find((g) => g.id === 'web')?.items.map((i) => i.label)).toEqual(['Dashboard', 'Artículos', 'Categorías', 'Etiquetas', 'Autores', 'Media Library', 'Comentarios', 'Redirecciones', 'Papelera', 'Config. Blog'])
     const content = visibleAdminNav(ADMIN_NAV, { isSuperAdmin: false, allowed: ['content'] })
-    expect(content.find((g) => g.id === 'cms')?.items.map((i) => i.label)).toEqual(['Blog (legacy)'])
+    expect(content.find((g) => g.id === 'web')?.items.map((i) => i.label)).toEqual(['Blog (legacy)'])
+
+    // Emails (system) se muestra en «Comunicación y mensajes».
+    const system = visibleAdminNav(ADMIN_NAV, { isSuperAdmin: false, allowed: ['system'] })
+    expect(system.find((g) => g.id === 'comunicacion')?.items.map((i) => i.label)).toEqual(['Emails'])
 
     // Sin ningún área, sólo la Ayuda.
     expect(visibleAdminNav(ADMIN_NAV, { isSuperAdmin: false, allowed: [] }).map((g) => g.label)).toEqual(['Ayuda'])
@@ -181,7 +221,8 @@ describe('menú lateral — permisos', () => {
 describe('menú lateral — entrada activa', () => {
   it('marca la entrada de ruta más larga: Artículos, no el Dashboard del blog', () => {
     expect(navMatchForPath('/admin/cms/articles/5')?.item.label).toBe('Artículos')
-    expect(navMatchForPath('/admin/cms/articles/5')?.group.id).toBe('cms')
+    // El blog vive ahora en «Web y contenido» (Cola 16).
+    expect(navMatchForPath('/admin/cms/articles/5')?.group.id).toBe('web')
     expect(navMatchForPath('/admin/cms')?.item.label).toBe('Dashboard')
     expect(navMatchForPath('/admin')?.item.to).toBe('/admin')
     expect(navMatchForPath('/admin/site-builder?x=1')?.group.id).toBe('web')

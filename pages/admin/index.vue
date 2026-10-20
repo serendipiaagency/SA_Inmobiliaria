@@ -3,8 +3,8 @@
     <!-- Header -->
     <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p class="mt-1 text-sm text-stone-500">Resumen de los últimos 30 días · datos a {{ dt.date(data?.anchor) }}</p>
+        <h1 class="text-2xl font-semibold tracking-tight">Dashboard operativo</h1>
+        <p class="mt-1 text-sm text-stone-500">Tu día a día: leads, visitas y cobros, con el resumen de los últimos 30 días · datos a {{ dt.date(data?.anchor) }}</p>
       </div>
       <div class="flex items-center gap-2">
         <NuxtLink to="/admin/analytics" class="dash-btn">Ver analytics</NuxtLink>
