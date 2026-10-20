@@ -166,6 +166,9 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: 'Emails', to: '/admin/emails', icon: 'mail', area: 'system' },
       // La lista del «Suscríbete» del pie de la web; su permiso sigue siendo Portal Web.
       { label: 'Suscriptores', to: '/admin/suscriptores', icon: 'mail', area: 'web' },
+      // Newsletter (Cola 17): redactar campañas y plantillas con el editor de
+      // bloques y exportarlas para enviar. Mismos suscriptores y marca → Portal Web.
+      { label: 'Newsletter', to: '/admin/newsletter', icon: 'mail', area: 'web', match: ['/admin/newsletter'] },
     ],
   },
   {

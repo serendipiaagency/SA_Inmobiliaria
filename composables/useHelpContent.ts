@@ -730,6 +730,21 @@ export function useHelpContent() {
       ],
     },
     {
+      key: 'newsletter',
+      group: 'Comunicación y mensajes',
+      title: 'Newsletter',
+      route: '/admin/newsletter',
+      summary: 'Redacta boletines con un editor de bloques y guárdalos como campañas o plantillas reutilizables. Se previsualizan como email con tu marca. De momento no se envían desde aquí: se exportan (el HTML y la lista de suscriptores) para enviarlos con tu herramienta de correo.',
+      steps: [
+        'Dos pestañas: «Campañas» (cada boletín concreto) y «Plantillas» (contenido base que reutilizas). En las dos, «Nueva…» abre el editor; cada fila tiene «Editar» y «Eliminar».',
+        'El editor tiene un nombre interno (para ti) y el asunto del email (lo que verá quien lo reciba). Debajo compones el contenido con bloques: «Título», «Texto», «Botón» (texto + enlace) e «Imagen» (URL + texto alternativo). Cada bloque se puede subir, bajar o quitar. A la derecha, la vista previa muestra en vivo cómo quedará el email, con el logo y el color de tu Brand Kit.',
+        'Por seguridad del correo, un botón sólo admite enlaces http(s) o mailto y una imagen sólo una URL http(s); lo demás se descarta al guardar. El texto se escapa (no se puede colar HTML).',
+        'Una campaña tiene estado: «Borrador» mientras la trabajas y «Lista» cuando la das por terminada (lo cambias al guardar). «Exportada» lo pone el sistema solo, al exportar.',
+        'Para enviarla, usa los dos botones de una campaña guardada: «Exportar HTML» descarga el email listo para pegar en tu herramienta de correo (lleva el marcador {{unsubscribe}}, que esa herramienta sustituye por el enlace de baja de cada persona — nunca envíes sin opción de baja), y «Exportar destinatarios» descarga el CSV con los emails de tus suscriptores activos (los de «Suscriptores», respetando las bajas). Al exportar el HTML, la campaña queda marcada como «Exportada» con la fecha y a cuántos suscriptores iba.',
+        'INMO no hace el envío masivo todavía: prepara el material y tú lo envías fuera. El alta de suscriptores sigue en el «Suscríbete» del pie de tu web y las bajas/supresión, en «Suscriptores». Cada inmobiliaria sólo ve sus campañas, plantillas y suscriptores.',
+      ],
+    },
+    {
       key: 'properties',
       group: 'Web y contenido',
       title: 'Propiedades 2ª mano',

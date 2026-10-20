@@ -60,6 +60,8 @@ const ADDED: Array<[to: string, label: string, area: AdminArea | null, superAdmi
   ['/admin/zones', 'Zonas', 'web', false],
   // Cola 16: acceso directo a los ajustes del chat de la web pública (bajo «Chatbot»); mismo permiso crm.
   ['/admin/comunicaciones/configuracion', 'Chat de la web', 'crm', false],
+  // Cola 17: el módulo de newsletter (campañas y plantillas) en «Comunicación y mensajes»; permiso Portal Web.
+  ['/admin/newsletter', 'Newsletter', 'web', false],
 ]
 
 /**
@@ -191,7 +193,7 @@ describe('menú lateral — permisos', () => {
     const web = visibleAdminNav(ADMIN_NAV, { isSuperAdmin: false, allowed: ['web'] })
     // Área web: Comerciales (en «Mi negocio»), Suscriptores (en «Comunicación y mensajes») y el Portal Web (en «Web y contenido»), sin los del blog ni Widgets.
     expect(web.find((g) => g.id === 'crm')?.items.map((i) => i.label)).toEqual(['Comerciales'])
-    expect(web.find((g) => g.id === 'comunicacion')?.items.map((i) => i.label)).toEqual(['Suscriptores'])
+    expect(web.find((g) => g.id === 'comunicacion')?.items.map((i) => i.label)).toEqual(['Suscriptores', 'Newsletter'])
     const webItems = web.find((g) => g.id === 'web')?.items.map((i) => i.label) ?? []
     expect(webItems).toContain('Propiedades (web)')
     expect(webItems).not.toContain('Widgets') // área finance
