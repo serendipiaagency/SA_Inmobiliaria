@@ -148,6 +148,13 @@ const RULES: Rule[] = [
   { pattern: /^site-footer(?:\/|$)/, resolve: area('web') }, // Constructor Web → pie global (borrador, publicación)
   { pattern: /^site-consent(?:\/|$)/, resolve: area('web') }, // Constructor Web → avisos de cookies y de demostración (borrador, publicación)
   { pattern: /^newsletter$/, resolve: area('web') }, // Portal Web → Suscriptores (el «Suscríbete» del pie)
+  // Newsletter (Cola 17): campañas, plantillas y la vista previa del editor.
+  // Viven en «Comunicación y mensajes» pero son parte del Portal Web (mismos
+  // suscriptores, misma marca), así que comparten el área `web`. Exportar el
+  // HTML/destinatarios es una escritura (saca los emails y marca la campaña
+  // exportada), por eso su GET se fija a write pese a ser lectura por método.
+  { pattern: /^newsletter\/campaigns\/\d+\/export$/, resolve: fixed('web', 'write') },
+  { pattern: /^newsletter\/(campaigns|templates|preview)(?:\/|$)/, resolve: area('web') },
   // Disponibilidad y bloqueos de un comercial (`team_members`). A pesar del
   // path `saas/agents`, respaldan pages/admin/comerciales/[id]/horario.vue.
   //
