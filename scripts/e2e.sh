@@ -125,6 +125,7 @@ npx wrangler dev --local --port "${PORT}" \
   --var AI_API_KEY:e2e_ai_key_placeholder \
   --var "RESEND_BASE_URL:${MOCK_URL}" \
   --var RESEND_API_KEY:e2e_resend_key_placeholder \
+  --var "PVGIS_BASE_URL:${MOCK_URL}" \
   --var 'DEMO_ADMIN_PASSWORD_HASH:pbkdf2$100000$9dTMU/ZZ+Y02mnOruChwjA==$s/rZWZVMWDEHSRt9LVuxtEKDi3/szaoU2Iadwlf3+LU=' \
   >"${LOG_FILE}" 2>&1 &
 PID=$!

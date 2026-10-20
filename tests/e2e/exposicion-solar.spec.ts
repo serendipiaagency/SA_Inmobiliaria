@@ -55,10 +55,12 @@ test.describe('Exposición solar en la ficha', () => {
     await anon.dispose()
   })
 
-  test('la web pública, sin proveedor con licencia, trae una estimación por orientación y latitud', async () => {
+  test('la web pública trae la exposición real de PVGIS (Comisión Europea) para la orientación de la fachada', async () => {
     const detail = await (await a.get(`/api/public/properties/${prop.slug}`)).json()
-    // La propiedad tiene orientación Sur y coordenadas: estimación real (astronomía), no datos de un proveedor ni de demostración.
-    expect(detail.solar).toMatchObject({ estimated: true, provider: 'Estimación por orientación', viewerUrl: null, confidence: 'low' })
+    // El simulador e2e hace de PVGIS (PVGIS_BASE_URL → loopback): datos reales de un proveedor gratuito, no estimación ni demostración.
+    expect(detail.solar).toMatchObject({ provider: 'PVGIS (Comisión Europea)', viewerUrl: null, confidence: 'medium' })
+    expect(detail.solar.estimated).toBeUndefined()
+    expect(detail.solar.demo).toBeUndefined()
     expect(detail.solar.score).toBeGreaterThan(0)
     expect(detail.solar.score).toBeLessThanOrEqual(100)
     expect(detail.solar.monthlyHours).toHaveLength(12)
@@ -66,7 +68,7 @@ test.describe('Exposición solar en la ficha', () => {
     expect(JSON.stringify(detail)).not.toContain('Datos de demostración')
   })
 
-  test('la ficha publicada enseña la estimación, rotulada como tal (sin «proveedor» ni «demostración»)', async ({ browser }) => {
+  test('la ficha publicada enseña la exposición de PVGIS, atribuida y sin «demostración»', async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: ANON_STATE })
     const page = await ctx.newPage()
     await page.goto(`/propiedades/${prop.slug}`)
@@ -74,8 +76,8 @@ test.describe('Exposición solar en la ficha', () => {
     const section = page.locator('#exposicion')
     await expect(section).toBeVisible()
     await expect(section.getByTestId('solar-exposure').first()).toBeVisible()
-    await expect(section.getByTestId('solar-estimate-note').first()).toContainText('No tiene en cuenta las sombras')
-    await expect(section.getByTestId('solar-attribution').first()).toHaveText('Estimación de INMO según orientación y latitud')
+    await expect(section.getByTestId('solar-pvgis-note').first()).toContainText('PVGIS')
+    await expect(section.getByTestId('solar-attribution').first()).toHaveText('Proporcionado por PVGIS (Comisión Europea)')
     const html = await page.content()
     expect(html).not.toContain('Datos de demostración')
     // La sección de orientación de siempre sigue ahí.

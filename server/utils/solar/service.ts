@@ -1,4 +1,6 @@
 import { SOLAR_PROVIDER_STATUS, normalizeSolarExposure, type SolarExposure } from '../../../utils/solarExposure'
+import { fetchPvgisExposure } from './pvgis'
+import { loopbackOrigin } from '../loopback'
 
 /**
  * Servicio de «Exposición solar»: pide la exposición de una propiedad a un
@@ -22,7 +24,7 @@ export interface SolarProvider {
   key: string
   name: string
   access: 'pending_access' | 'ready'
-  fetch(input: { lat: number; lng: number; orgId: number }): Promise<unknown>
+  fetch(input: { lat: number; lng: number; orgId: number; orientation: string | null; env: Record<string, any> | null }): Promise<unknown>
 }
 
 /** Shadowmap: sin acceso concedido ni documentación pública de la API, no se llama a nada. */
@@ -35,7 +37,25 @@ export const shadowmapProvider: SolarProvider = {
   },
 }
 
-export const SOLAR_PROVIDERS: SolarProvider[] = [shadowmapProvider]
+/**
+ * PVGIS (Comisión Europea): proveedor real y gratuito. Devuelve ya una SolarExposure
+ * (no un crudo que normalizar), así que el servicio la usa tal cual. Necesita la
+ * orientación de la fachada. El simulador e2e se enchufa con PVGIS_BASE_URL a loopback.
+ */
+export const pvgisProvider: SolarProvider = {
+  key: 'pvgis',
+  name: 'PVGIS (Comisión Europea)',
+  access: 'ready',
+  async fetch(input) {
+    if (!input.orientation) return null
+    const env = input.env ?? ((globalThis as any).__env__ as Record<string, any> | undefined) ?? null
+    const baseUrl = loopbackOrigin(env?.PVGIS_BASE_URL) ?? undefined
+    return fetchPvgisExposure({ lat: input.lat, lng: input.lng, orientation: input.orientation, baseUrl })
+  },
+}
+
+// Orden de preferencia: primero PVGIS (datos reales de irradiación); Shadowmap queda listo para cuando haya licencia (sombras de edificios).
+export const SOLAR_PROVIDERS: SolarProvider[] = [pvgisProvider, shadowmapProvider]
 
 const HIT_TTL_MS = 24 * 60 * 60 * 1000
 const MISS_TTL_MS = 60 * 60 * 1000
@@ -51,6 +71,8 @@ export interface SolarProperty {
   lat?: number | string | null
   lng?: number | string | null
   locationPrivacy?: string | null
+  /** Orientación de la fachada (N, S, E, W, SE…), que PVGIS necesita. */
+  orientation?: string | null
 }
 
 /** Las coordenadas que pueden salir hacia un tercero: las exactas y válidas, redondeadas a 5 decimales (~1 m). */
@@ -66,21 +88,24 @@ export function solarCoordinates(p: SolarProperty): { lat: number; lng: number }
 
 export async function solarExposureFor(
   p: SolarProperty,
-  opts: { providers?: SolarProvider[]; now?: () => number; log?: (msg: string) => void } = {},
+  opts: { providers?: SolarProvider[]; now?: () => number; log?: (msg: string) => void; env?: Record<string, any> | null } = {},
 ): Promise<SolarExposure | null> {
   const coords = solarCoordinates(p)
   if (!coords) return null
   const providers = (opts.providers ?? SOLAR_PROVIDERS).filter((x) => x.access === 'ready')
   if (!providers.length) return null
   const now = opts.now ?? Date.now
-  const key = `${p.organizationId}:${coords.lat},${coords.lng}`
+  // La orientación entra en la clave: PVGIS da una exposición distinta por fachada aunque el edificio (coordenadas) sea el mismo.
+  const key = `${p.organizationId}:${coords.lat},${coords.lng}:${(p.orientation ?? "").toString().trim().toUpperCase()}`
   const hit = cache.get(key)
   if (hit && now() - hit.at < (hit.value ? HIT_TTL_MS : MISS_TTL_MS)) return hit.value
 
   let value: SolarExposure | null = null
   for (const provider of providers) {
     try {
-      value = normalizeSolarExposure(await provider.fetch({ ...coords, orgId: p.organizationId }), provider.name)
+      const raw = await provider.fetch({ ...coords, orgId: p.organizationId, orientation: p.orientation ?? null, env: opts.env ?? null })
+      // PVGIS ya devuelve una SolarExposure válida; Shadowmap (y futuros) devuelven un crudo que se normaliza.
+      value = raw && typeof (raw as SolarExposure).score === 'number' && (raw as SolarExposure).provider ? (raw as SolarExposure) : normalizeSolarExposure(raw, provider.name)
     } catch (e) {
       // Sin detalles del error en el log (podrían llevar la credencial); la ficha sigue sin la sección.
       opts.log?.(`solar: el proveedor ${provider.key} no respondió (${e instanceof Error ? e.name : 'error'})`)

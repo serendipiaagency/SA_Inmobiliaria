@@ -110,7 +110,7 @@ export async function loadPublicPropertyDetail(db: ReturnType<typeof useDb>, pro
   // Exposición solar: primero un proveedor con licencia (sombras reales de edificios); si no hay,
   // una estimación propia por orientación y latitud (geometría solar real, cielo despejado), marcada como estimación.
   const solar =
-    (await solarExposureFor({ organizationId: project.organizationId, lat: project.lat, lng: project.lng, locationPrivacy: project.locationPrivacy })) ??
+    (await solarExposureFor({ organizationId: project.organizationId, lat: project.lat, lng: project.lng, locationPrivacy: project.locationPrivacy, orientation: project.orientation })) ??
     estimateSolarExposureByOrientation(project.lat, project.orientation)
   const availability = {
     solar: !!solar,
