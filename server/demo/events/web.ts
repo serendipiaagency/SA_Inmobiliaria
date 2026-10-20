@@ -110,6 +110,74 @@ async function buildHome(ctx: DemoContext) {
   await publishPage(ctx.db, orgId(ctx), 'home', admin(ctx).id)
 }
 
+/**
+ * «Nosotros»: la página corporativa como composición editorial de bloques
+ * independientes (Cola 14) —historia, valores, cifras de la agencia, equipo
+ * (los seis comerciales reales con su info bajo la foto) y oficinas—,
+ * publicada en el Constructor como cualquier inmobiliaria la montaría.
+ */
+async function buildNosotros(ctx: DemoContext) {
+  const aboutImage = await uploadDemoAsset(ctx, 'oficinas/oficina-02.jpg', { category: 'upload', createdBy: admin(ctx).id })
+  const trustImage = await uploadDemoAsset(ctx, 'asturias/costa-02.jpg', { category: 'upload', createdBy: admin(ctx).id })
+  const doc = validatePageDocument({
+    seo: {
+      title: `Sobre ${DEMO_COMPANY.name} · Inmobiliaria en Asturias`,
+      description: 'Quiénes somos: una inmobiliaria asturiana de obra nueva y segunda mano en Oviedo, Gijón, Avilés y el oriente. Cuenta de demostración con datos ficticios.',
+    },
+    blocks: [
+      {
+        id: 'text-nos01', type: 'text', version: 1,
+        content: {
+          eyebrow: 'Nuestra historia', title: 'Asturianos, de aquí y para los de aquí.', subtitle: '',
+          body: 'Norte Astur nació para hacer sencillo lo que parecía complicado: comprar, vender o alquilar vivienda en Asturias con alguien que conoce el terreno de verdad.\n\nTrabajamos obra nueva, segunda mano e inversión en Oviedo, Gijón, Avilés y el oriente. Conocemos cada barrio porque vivimos en ellos, y acompañamos a cada cliente —valoración, visitas, financiación y notaría— con información clara y trato cercano.',
+          align: 'left', maxWidth: 'md', columns: 1,
+        },
+      },
+      {
+        id: 'trust-nos02', type: 'trust-points', version: 1, style: { background: 'surface' },
+        content: {
+          eyebrow: 'Por qué elegir Norte Astur', title: 'Experiencia local. Tu tranquilidad.',
+          text: 'Conocemos Asturias, sus pueblos, sus ciudades y sus oportunidades. Te ofrecemos un servicio profesional, transparente y adaptado a lo que necesitas.',
+          image: trustImage, imageAlt: mediaAlt('asturias/costa-02.jpg'), count: 4,
+          point1Title: 'Conocemos Asturias', point1Text: 'Asesoramiento basado en el conocimiento real del territorio: barrios, promociones y lo que se mueve en cada zona.',
+          point2Title: 'Atención personal', point2Text: 'Un profesional de referencia que te acompaña en cada paso, con un trato cercano y transparente.',
+          point3Title: 'Todo en un solo lugar', point3Text: 'Compra, venta, alquiler y asesoramiento financiero, de la mano de un mismo equipo.',
+          point4Title: 'Tu confianza es lo primero', point4Text: 'Información clara y honesta para que tomes decisiones con seguridad.',
+        },
+      },
+      {
+        id: 'about-nos03', type: 'about-agency', version: 1,
+        content: {
+          eyebrow: 'Nuestra inmobiliaria', title: 'Mucho más que encontrar una casa.',
+          text: 'Somos un equipo asturiano especializado en vivienda residencial. Te acompañamos en todo el proceso para que encuentres un lugar donde de verdad quieras vivir.',
+          cta: 'Habla con el equipo', ctaTo: '/contacto', image: aboutImage, imageAlt: mediaAlt('oficinas/oficina-02.jpg'),
+          stats: ['team', 'offices', 'properties'], labelTeam: 'asesores que conocen Asturias', labelOffices: 'oficinas en Oviedo, Gijón y Llanes', labelProperties: 'viviendas publicadas ahora mismo',
+        },
+      },
+      {
+        id: 'team-nos04', type: 'team', version: 1, style: { background: 'surface' },
+        content: {
+          eyebrow: 'Nuestro equipo', title: 'Las personas detrás de cada historia.',
+          text: 'Un equipo local, cercano y con un profundo conocimiento del mercado asturiano. Cada comercial, con su foto, su puesto y cómo contactarlo.',
+          cta: 'Conoce todo el equipo', ctaTo: '/equipo', source: 'dynamic', limit: 8, layout: 'editorial',
+          cardFields: { position: true, description: true, specialties: true, contact: true },
+        },
+      },
+      {
+        id: 'offices-nos05', type: 'offices', version: 1,
+        content: {
+          eyebrow: 'Nuestras oficinas', title: 'Un equipo cercano, estés donde estés.',
+          text: 'Visítanos en Oviedo, Gijón o Llanes, o contáctanos: estaremos encantados de atenderte y asesorarte personalmente.',
+          cta: 'Ver todas las oficinas', ctaTo: '/oficinas', source: 'dynamic', limit: 3, layout: 'auto',
+        },
+      },
+      { id: 'cta-nos06', type: 'cta', version: 1, content: { eyebrow: '', title: '¿Hablamos de tu próxima casa en Asturias?', description: 'Oficinas en Oviedo, Gijón y Llanes.', ctaPrimary: 'Ver propiedades', ctaPrimaryTo: '/propiedades', ctaSecondary: 'Contactar', ctaSecondaryTo: '/contacto', align: 'center' } },
+    ],
+  })
+  await saveDraft(ctx.db, orgId(ctx), 'nosotros', doc)
+  await publishPage(ctx.db, orgId(ctx), 'nosotros', admin(ctx).id)
+}
+
 async function createArticle(ctx: DemoContext, a: (typeof ARTICLES)[number]) {
   const org = orgId(ctx)
   const cover = await uploadDemoAsset(ctx, a.cover, { category: 'blog-image', createdBy: admin(ctx).id })
@@ -206,6 +274,8 @@ export function addWebEvents(tl: TimelineBuilder): void {
   tl.add(-29, '09:30', 'Zonas: guías de Asturias', createZones)
   // La portada se publica cuando ya hay propiedades y artículos que enseñar.
   tl.add(-27, '19:00', 'Portada de la web', buildHome)
+  // «Nosotros», con el equipo y las oficinas ya sembrados.
+  tl.add(-27, '19:10', 'Página «Nosotros»', buildNosotros)
 
   tl.add(-170, '12:00', 'INMO: Conocimiento', async (ctx) => {
     for (const d of KNOWLEDGE_DOCS) {

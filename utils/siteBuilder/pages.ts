@@ -376,6 +376,8 @@ interface SeedBlock {
   type: string
   version: number
   content: Record<string, any>
+  /** Fondo/estilo de sección (p. ej. { background: 'surface' }); lo sanea validatePageDocument. */
+  style?: Record<string, any>
 }
 
 /** El texto en español que la página enseña hoy (i18n/messages.ts), para sembrar el borrador con él. */
@@ -394,6 +396,13 @@ export function seedPageBlocks(key: string): SeedBlock[] {
   if (def.kind === 'functional') return [{ id: PAGE_CORE_TYPE, type: PAGE_CORE_TYPE, version: 1, content: { core: def.core } }]
   switch (key) {
     case 'nosotros':
+      // «Nosotros» arranca como una composición editorial de bloques
+      // independientes (Cola 14), no un único bloque de texto: historia,
+      // valores, cifras de la agencia, equipo (conectado a Comerciales) y
+      // cierre. Cada bloque se reordena, se oculta o se edita por separado.
+      // El equipo y las cifras se rellenan solos cuando la inmobiliaria
+      // publica sus comerciales; hasta entonces el bloque de equipo enseña
+      // un aviso, sin romper la página.
       return [
         {
           id: 'text-nosotros',
@@ -407,6 +416,59 @@ export function seedPageBlocks(key: string): SeedBlock[] {
             align: 'left',
             maxWidth: 'md',
             columns: 1,
+          },
+        },
+        {
+          id: 'trust-nosotros',
+          type: 'trust-points',
+          version: 1,
+          style: { background: 'surface' },
+          content: {
+            eyebrow: 'Por qué elegirnos',
+            title: 'Experiencia local. Tu tranquilidad.',
+            text: '',
+            image: '',
+            imageAlt: '',
+            count: 4,
+            point1Title: 'Conocemos la zona',
+            point1Text: 'Asesoramiento basado en el conocimiento real del territorio y de sus particularidades.',
+            point2Title: 'Atención personal',
+            point2Text: 'Un profesional que te acompaña en cada paso, con un trato cercano y transparente.',
+            point3Title: 'Todo en un solo lugar',
+            point3Text: 'Compra, venta, alquiler y asesoramiento financiero, de la mano de un mismo equipo.',
+            point4Title: 'Tu confianza es lo primero',
+            point4Text: 'Información clara y honesta para que tomes decisiones con seguridad.',
+          },
+        },
+        {
+          id: 'about-nosotros',
+          type: 'about-agency',
+          version: 1,
+          content: {
+            eyebrow: 'Nuestra inmobiliaria',
+            title: 'Mucho más que encontrar una casa.',
+            text: 'Conocemos nuestro territorio, sus personas y sus oportunidades. Te acompañamos en todo el proceso —valoración, visitas, financiación y firma— para que encuentres un lugar donde de verdad quieras vivir.',
+            cta: 'Habla con el equipo',
+            ctaTo: '/contacto',
+            image: '',
+            imageAlt: '',
+            stats: ['team', 'offices', 'properties'],
+          },
+        },
+        {
+          id: 'team-nosotros',
+          type: 'team',
+          version: 1,
+          content: {
+            eyebrow: 'Nuestro equipo',
+            title: 'Las personas detrás de cada operación.',
+            text: 'Un equipo cercano y con conocimiento real del mercado. Estamos a tu lado para ayudarte a tomar la mejor decisión.',
+            cta: 'Conoce todo el equipo',
+            ctaTo: '/equipo',
+            source: 'dynamic',
+            limit: 8,
+            layout: 'editorial',
+            cardFields: { position: true, description: true, specialties: true, contact: true },
           },
         },
         {
