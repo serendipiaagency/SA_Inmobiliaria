@@ -388,6 +388,26 @@ onBeforeUnmount(() => {
   background: var(--sf-head-bg);
   padding: 0.35rem 0.85rem;
 }
+/* Serif con un filete corto debajo: el estilo premium por defecto. El título
+   va en serif y en caja normal (no mayúsculas), y bajo él un trazo corto con
+   el color de acento (el de marca de la empresa). */
+.sf-heading-rule {
+  font-family: Georgia, 'Times New Roman', 'Noto Serif', serif;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: 0.005em;
+  line-height: 1.2;
+  text-transform: none;
+}
+.sf-heading-rule::after {
+  content: '';
+  display: block;
+  width: 2rem;
+  height: 2px;
+  margin-top: 0.6rem;
+  border-radius: 2px;
+  background: var(--sf-accent);
+}
 .sf-heading-btn {
   display: flex;
   width: 100%;
