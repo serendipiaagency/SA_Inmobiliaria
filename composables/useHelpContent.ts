@@ -210,7 +210,7 @@ export function useHelpContent() {
       title: 'Contactos',
       route: '/admin/contactos',
       summary:
-        'Las personas. Un contacto es la ficha de alguien —comprador, vendedor, inquilino— independiente de cuántas veces te haya escrito o de si ya es cliente.',
+        'Las personas. Un contacto es la ficha de alguien —comprador, vendedor, inquilino— independiente de cuántas veces te haya escrito o de si ya es cliente. En el menú, «Leads», «Contactos» y «Clientes» están unidos en una sola sección, «Gestión de contactos»: arriba de cada una hay tres pestañas para pasar de una a otra sin salir de la sección.',
       steps: [
         'Al crear un contacto («Nuevo contacto»: nombre, tipo, email, teléfono, WhatsApp e id externo con su sistema), el sistema busca duplicados por email, teléfono, WhatsApp e id externo dentro de tu agencia y te avisa mientras rellenas el formulario. Nunca fusiona a dos personas por su cuenta: te enseña el candidato y tú decides.',
         'Ante un candidato tienes tres opciones: «Abrir» (ver el que ya existe), «Unificar» o «Crear igualmente». «Unificar» no crea otro contacto: completa el existente con los datos que acabas de escribir y que le faltan (por ejemplo su WhatsApp o su id de Idealista) y lo abre. Nunca cambia un dato que ya tenía —si escribiste otro email, se queda el suyo— ni le pone un teléfono o un id externo que ya sea de otra persona de tu agencia. Queda en su pestaña Actividad como «Completado con un alta nueva», con qué datos se añadieron y cuáles no se pisaron.',
@@ -375,7 +375,7 @@ export function useHelpContent() {
       group: 'CRM',
       title: 'Leads',
       route: '/admin/leads',
-      summary: 'Pipeline Kanban de todos los contactos interesados: nuevo → contactado → cualificando → cualificado → visita → oferta → negociación → ganado, con "perdido" como columna aparte.',
+      summary: 'Pipeline Kanban de todos los contactos interesados: nuevo → contactado → cualificando → cualificado → visita → oferta → negociación → ganado, con "perdido" como columna aparte. Es la pestaña «Leads» de la sección «Gestión de contactos» (junto a Contactos y Clientes).',
       steps: [
         'Arrastra una tarjeta a otra columna para mover el lead de fase: te pide el motivo y, al confirmarlo, se guarda y queda registrado en su historial (quién lo movió, desde qué fase, hasta cuál y por qué). Si cancelas, la tarjeta vuelve a su sitio.',
         'El nombre del lead abre su ficha: todos los datos de captación (teléfono, email, WhatsApp, idioma, origen y su detalle, portal, id externo, campaña, UTM, página de entrada, referrer y el mensaje original tal cual llegó), la fase, el comercial, la oficina y el equipo, los tiempos (entrada, primer contacto, primera respuesta humana, cualificado, primera cita, conversión, último contacto y próxima acción) y las pestañas Historial de fases, Asignaciones, Notas, Tareas, Actividad, Visitas, Ofertas y Comunicaciones. Si el lead ya tiene identificada a la persona, «Ver contacto» lleva a su ficha de contacto.',
@@ -440,7 +440,7 @@ export function useHelpContent() {
       group: 'CRM',
       title: 'Clientes',
       route: '/admin/clientes',
-      summary: 'Cartera de clientes con ficha individual: datos, propiedades relacionadas y todo su histórico en una sola pantalla.',
+      summary: 'Cartera de clientes con ficha individual: datos, propiedades relacionadas y todo su histórico en una sola pantalla. Es la pestaña «Clientes» de la sección «Gestión de contactos» (junto a Leads y Contactos).',
       steps: [
         'El listado busca por nombre, email, teléfono o ubicación a la vez, y filtra por tipo, estado y comercial responsable. Cada fila muestra el contacto, el estado, quién lo lleva y su actividad real (visitas, operaciones y cuándo fue lo último).',
         'Pulsa el nombre de un cliente — o "Ver perfil" en el menú "···" — para abrir su ficha completa. No es una ventana emergente: es una página propia, con su URL, que puedes compartir con tu equipo.',

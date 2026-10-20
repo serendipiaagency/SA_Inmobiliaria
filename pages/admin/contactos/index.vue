@@ -1,5 +1,6 @@
 <template>
   <div class="max-w-5xl">
+    <AdminContactHubTabs />
     <div class="mb-6 flex items-start justify-between gap-4">
       <div>
         <h1 class="text-2xl font-semibold tracking-tight">Contactos</h1>

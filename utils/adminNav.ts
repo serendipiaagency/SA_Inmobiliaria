@@ -31,6 +31,14 @@ export interface NavItem {
    * una entrada de sitio nunca debe cambiar quién puede abrirla.
    */
   area?: AdminArea
+  /**
+   * Otras rutas que esta entrada «posee» además de `to`: se marcan activas con
+   * ella y heredan su área de permisos, aunque no sean su prefijo. Lo usa
+   * «Gestión de contactos» (Cola 15), que unifica tres secciones del CRM
+   * —Leads, Contactos y Clientes— en una sola entrada: las tres rutas siguen
+   * existiendo y protegidas como `crm`, pero el menú enseña una entrada.
+   */
+  match?: string[]
   /** Not set by any item today — the template already supports it for a future per-item counter/notice. */
   badge?: string
   /** Not set by any item today — the template already supports it for a future "beta"/"nuevo" style label. */
@@ -83,9 +91,12 @@ export const ADMIN_NAV: NavGroup[] = [
     area: 'crm',
     items: [
       // Ciclo comercial: lead → contacto → compatibilidades → visita → oferta → operación.
-      { label: 'Leads', to: '/admin/leads', icon: 'contact' },
-      { label: 'Contactos', to: '/admin/contactos', icon: 'users' },
-      { label: 'Clientes', to: '/admin/clientes', icon: 'users' },
+      // «Gestión de contactos» (Cola 15) unifica en una sola entrada las tres
+      // secciones de personas del CRM —Leads, Contactos y Clientes—, con una
+      // barra de pestañas dentro. Cada ruta sigue existiendo (y sus fichas y
+      // enlaces internos no cambian); `match` hace que las tres sigan siendo
+      // área `crm` y marquen activa esta entrada.
+      { label: 'Gestión de contactos', to: '/admin/contactos', icon: 'users', match: ['/admin/leads', '/admin/clientes'] },
       { label: 'Compatibilidades', to: '/admin/compatibilidades', icon: 'sparkles' },
       { label: 'Visitas', to: '/admin/visitas', icon: 'calendar' },
       { label: 'Reservas', to: '/admin/reservas', icon: 'bookmark' },
@@ -229,6 +240,31 @@ function cleanAdminPath(path: string): string {
   return (path.split('?')[0].split('#')[0] || '/admin').replace(/\/+$/, '') || '/admin'
 }
 
+/** Todas las rutas que una entrada reclama: su `to` y sus `match`. */
+function itemPaths(item: NavItem): string[] {
+  return item.match?.length ? [item.to, ...item.match] : [item.to]
+}
+
+/**
+ * Longitud del prefijo más largo de la entrada (su `to` o un `match`) que
+ * contiene `clean`, o -1 si ninguno. Así una entrada con `match` gana la ruta a
+ * la que apunta ese `match` igual que si fuera su propia ruta.
+ *
+ * `/admin` (el Dashboard) se trata distinto en cada consumidor y por eso es un
+ * parámetro: para MARCAR la entrada activa sólo casa su ruta exacta (si no, el
+ * Dashboard saldría activo en todas las páginas); para resolver el ÁREA de
+ * permisos sí es el prefijo comodín que reclama cualquier `/admin/*` sin
+ * entrada propia (área «general»), comportamiento histórico.
+ */
+function itemMatchLength(item: NavItem, clean: string, dashboardIsPrefix = false): number {
+  let best = -1
+  for (const p of itemPaths(item)) {
+    const matches = p === '/admin' && !dashboardIsPrefix ? clean === '/admin' : clean === p || clean.startsWith(`${p}/`)
+    if (matches && p.length > best) best = p.length
+  }
+  return best
+}
+
 /**
  * La entrada del menú que se marca como activa para una URL: la de ruta más
  * larga que la contiene, así «Artículos» (/admin/cms/articles) gana a
@@ -237,14 +273,14 @@ function cleanAdminPath(path: string): string {
  */
 export function navMatchForPath(path: string, groups: NavGroup[] = ADMIN_NAV): { group: NavGroup; item: NavItem } | null {
   const clean = cleanAdminPath(path)
-  let best: { group: NavGroup; item: NavItem } | null = null
+  let best: { group: NavGroup; item: NavItem; length: number } | null = null
   for (const group of groups) {
     for (const item of group.items) {
-      const matches = item.to === '/admin' ? clean === '/admin' : clean === item.to || clean.startsWith(`${item.to}/`)
-      if (matches && (!best || item.to.length > best.item.to.length)) best = { group, item }
+      const length = itemMatchLength(item, clean)
+      if (length >= 0 && (!best || length > best.length)) best = { group, item, length }
     }
   }
-  return best
+  return best ? { group: best.group, item: best.item } : null
 }
 
 /**
@@ -281,10 +317,14 @@ export function areaForAdminPath(path: string): AdminArea | null {
   let best: { length: number; area: AdminArea | null } | null = null
   for (const group of ADMIN_NAV) {
     for (const item of group.items) {
-      if (clean !== item.to && !clean.startsWith(`${item.to}/`)) continue
+      // Considera `to` y los `match` de la entrada: una ruta unificada bajo
+      // «Gestión de contactos» hereda su área igual que las propias. Aquí
+      // `/admin` es el prefijo comodín (área «general») como siempre.
+      const length = itemMatchLength(item, clean, true)
+      if (length < 0) continue
       // El área de la ENTRADA, no la de su categoría: mover una entrada de
       // categoría no cambia quién puede abrirla.
-      if (!best || item.to.length > best.length) best = { length: item.to.length, area: itemArea(group, item) }
+      if (!best || length > best.length) best = { length, area: itemArea(group, item) }
     }
   }
   return best ? best.area : null
