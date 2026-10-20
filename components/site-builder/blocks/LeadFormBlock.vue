@@ -1,14 +1,43 @@
 <template>
-  <section v-reveal :class="layout === 'split' ? 'border-y border-line bg-paper' : ''">
-    <div class="mx-auto max-w-screen-2xl px-6 py-16 lg:px-10">
-      <div :class="layout === 'split' ? 'grid items-start gap-10 lg:grid-cols-2' : 'mx-auto max-w-xl text-center'">
-        <div>
+  <section
+    v-reveal
+    data-testid="lead-form-block"
+    :class="layout === 'split' ? 'border-y border-line bg-paper' : ''"
+  >
+    <div class="mx-auto max-w-screen-2xl px-6 py-20 lg:px-10 lg:py-24">
+      <div :class="layout === 'split' ? 'grid items-stretch gap-10 lg:grid-cols-2 lg:gap-16' : 'mx-auto max-w-xl text-center'">
+        <!-- Columna editorial -->
+        <div :class="layout === 'split' ? 'flex flex-col justify-center' : ''">
           <SbText v-if="content.eyebrow" tag="p" field="eyebrow" kind="eyebrow" label="Etiqueta" class="eyebrow" :text="content.eyebrow" />
-          <SbText tag="h2" field="title" kind="heading" label="Título" class="heading-serif mt-3 text-3xl md:text-4xl" :text="content.title || ''" />
-          <SbText v-if="content.description" tag="p" field="description" label="Descripción" multiline class="mt-4 text-[15px] text-stone-500" :class="layout === 'split' ? 'max-w-md' : ''" :text="content.description" />
+          <SbText tag="h2" field="title" kind="heading" label="Título" class="heading-serif mt-4 text-3xl tracking-tight md:text-4xl lg:text-[2.75rem] lg:leading-[1.1]" :text="content.title || ''" />
+          <!-- Filete con el color de marca (Brand Kit); sin él, la tinta de la web. -->
+          <div
+            v-if="layout === 'split'"
+            class="mt-6 h-[3px] w-14 rounded-full"
+            :style="{ backgroundColor: ruleColor }"
+          />
+          <SbText
+            v-if="content.description"
+            tag="p"
+            field="description"
+            label="Descripción"
+            multiline
+            class="mt-6 text-[15px] leading-relaxed text-stone-500"
+            :class="layout === 'split' ? 'max-w-md' : ''"
+            :text="content.description"
+          />
         </div>
 
-        <SbBox tag="form" field="form" kind="box" label="Formulario" class="card space-y-4 p-6 text-left sm:p-8" :class="layout === 'split' ? '' : 'mt-8'" @submit.prevent="submit">
+        <!-- Tarjeta blanca del formulario -->
+        <SbBox
+          tag="form"
+          field="form"
+          kind="box"
+          label="Formulario"
+          class="space-y-4 rounded-3xl border border-line bg-white p-6 text-left shadow-[0_1px_2px_rgba(20,21,15,0.04),0_28px_56px_-32px_rgba(20,21,15,0.3)] sm:p-9"
+          :class="layout === 'split' ? '' : 'mt-10'"
+          @submit.prevent="submit"
+        >
           <div>
             <label class="label"><SbText tag="span" field="nameLabel" kind="caption" label="Etiqueta del campo" :text="content.nameLabel || 'Nombre'" /> *</label>
             <input v-model="form.name" class="input" required :disabled="locked" >
@@ -29,11 +58,14 @@
           <!-- En el lienzo no se usa `disabled` (un botón deshabilitado no
                recibe clics y no se podría seleccionar): la intercepción del
                clic y el `if (locked) return` de submit() ya protegen. En
-               Vista previa y en producción sí. -->
+               Vista previa y en producción sí. El color del botón sale del
+               Brand Kit de la empresa (contraste garantizado); sin color de
+               marca, la tinta de la web (btn-primary). -->
           <SbButton
             type="submit"
-            class="btn-primary w-full"
+            class="btn-primary mt-1 w-full"
             :class="mode === 'builder' && locked ? 'opacity-40' : ''"
+            :style="buttonStyle"
             :disabled="mode === 'builder' ? undefined : sending || locked"
             :aria-disabled="locked ? 'true' : undefined"
             field="submitLabel"
@@ -60,6 +92,8 @@
 import SbText from '../nodes/SbText.vue'
 import SbBox from '../nodes/SbBox.vue'
 import SbButton from '../nodes/SbButton.vue'
+import { heroButtonColors } from '~/utils/heroSearch'
+import { TENANT_BRANDING_OVERRIDE } from '~/composables/useTenant'
 
 /**
  * Formulario de captación.
@@ -81,6 +115,13 @@ import SbButton from '../nodes/SbButton.vue'
  * formulario que lo escondiera tendría que inventarse un texto para que la
  * petición pasara, y ese texto acabaría en el CRM como si lo hubiera escrito
  * la persona.
+ *
+ * Diseño (Cola 18): composición premium a dos columnas con la tarjeta del
+ * formulario en blanco y elevada, y el color de marca del Brand Kit en el
+ * botón de envío y el filete bajo el título. El color del botón se calcula
+ * con `heroButtonColors` (oscurece el color de marca hasta que el texto
+ * blanco contrasta), el mismo helper que la barra del Hero: así el acento es
+ * coherente en toda la web y nunca queda un botón ilegible.
  */
 const props = withDefaults(
   defineProps<{
@@ -92,6 +133,22 @@ const props = withDefaults(
 )
 
 const layout = computed(() => (props.content.layout === 'centered' ? 'centered' : 'split'))
+
+// Color de marca de la empresa (Brand Kit). En el Constructor, la vista previa
+// inyecta un override para enseñar el color elegido sin recargar.
+const { tenant } = useTenant()
+const brandingOverride = inject(TENANT_BRANDING_OVERRIDE, null)
+const brandColor = computed(() => brandingOverride?.value?.brandColor ?? tenant.value?.brandColor ?? null)
+
+// Botón: color de marca con contraste garantizado; sin marca, se deja
+// `.btn-primary` (tinta de la web) sin estilo en línea.
+const buttonStyle = computed(() => {
+  if (!brandColor.value) return undefined
+  const c = heroButtonColors(null, brandColor.value)
+  return { backgroundColor: c.bg, color: c.fg }
+})
+// Filete bajo el título: color de marca o, sin él, la tinta de la web.
+const ruleColor = computed(() => (brandColor.value ? heroButtonColors(null, brandColor.value).bg : '#16150f'))
 
 /**
  * En el lienzo el clic está interceptado y no llega a enviar, pero **Vista
