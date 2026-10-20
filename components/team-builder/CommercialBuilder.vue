@@ -99,6 +99,23 @@
               </select>
               <span class="mt-1 block text-[11px] text-stone-400">La cuenta con la que esta persona entra al panel: así sabe qué leads, visitas y tareas son suyos.</span>
             </label>
+            <!-- Cola 12-C: invitar al comercial a la plataforma (crea/vincula su cuenta con el preset «comercial» y le manda el enlace para definir su contraseña). -->
+            <div v-if="!isNew" class="rounded-lg border border-stone-200 bg-stone-50 p-3" data-testid="commercial-access">
+              <span class="label">Acceso al panel</span>
+              <p class="mt-1 text-[12px] text-stone-500">
+                <template v-if="form.userId">Tiene cuenta de acceso: entra al panel y ve sólo sus leads, visitas, tareas, ofertas y operaciones.</template>
+                <template v-else>Invítalo a la plataforma: recibirá un email para definir su contraseña y entrar a su panel. No hace falta crear la cuenta a mano.</template>
+              </p>
+              <div class="mt-2 flex flex-wrap gap-2">
+                <button v-if="!form.userId" type="button" class="btn-primary !py-1.5 text-[12px]" :disabled="accessBusy || !form.email" data-testid="commercial-invite" @click="commercialAccess('invite')">{{ accessBusy ? 'Enviando…' : 'Invitar a la plataforma' }}</button>
+                <template v-else>
+                  <button type="button" class="btn-quiet !py-1.5 text-[12px]" :disabled="accessBusy" data-testid="commercial-resend" @click="commercialAccess('resend')">Reenviar invitación</button>
+                  <button type="button" class="btn-quiet !py-1.5 text-[12px] !text-rose-600" :disabled="accessBusy" data-testid="commercial-revoke" @click="commercialAccess('revoke')">Revocar acceso</button>
+                </template>
+              </div>
+              <p v-if="!form.email && !form.userId" class="mt-1 text-[11px] text-amber-600">Añade un email al comercial (pestaña «Personal») para poder invitarlo.</p>
+              <p v-if="accessMsg" class="mt-1 text-[11px] text-stone-600" data-testid="commercial-access-msg">{{ accessMsg }}</p>
+            </div>
             <label class="block">
               <span class="label">Oficina (texto anterior)</span>
               <input v-model="form.officeName" class="input" >
@@ -366,6 +383,34 @@ onMounted(() => {
   loadRelationOptions('teams').then((r) => (teamOptions.value = r))
   loadRelationOptions('users').then((r) => (userOptions.value = r))
 })
+
+// Cola 12-C — «Invitar a la plataforma»: crea/vincula la cuenta con el preset
+// comercial y manda el enlace de un solo uso; reenviar o revocar el acceso.
+const accessBusy = ref(false)
+const accessMsg = ref('')
+async function commercialAccess(action: 'invite' | 'resend' | 'revoke') {
+  if (!recordId.value || accessBusy.value) return
+  accessBusy.value = true
+  accessMsg.value = ''
+  try {
+    const res = await $fetch<{ userId: number | null; invite?: string }>('/api/admin/saas/commercial-access', { method: 'POST', body: { teamMemberId: recordId.value, action } })
+    form.userId = res.userId
+    accessMsg.value =
+      action === 'revoke'
+        ? 'Acceso revocado: la cuenta queda sin permisos y desvinculada.'
+        : res.invite === 'sent'
+          ? 'Invitación enviada por email.'
+          : res.invite === 'queued'
+            ? 'Invitación en cola de envío.'
+            : 'Cuenta vinculada, pero el correo no pudo salir: puede entrar con «¿Olvidaste tu contraseña?» en la pantalla de acceso.'
+    snapshot() // el nuevo vínculo no cuenta como «cambios sin guardar»
+    loadRelationOptions('users').then((r) => (userOptions.value = r))
+  } catch (e: any) {
+    accessMsg.value = e?.data?.statusMessage || e?.data?.message || 'No se pudo completar la acción.'
+  } finally {
+    accessBusy.value = false
+  }
+}
 
 // contractType is free text on the model — offer the common options as a
 // select, but never silently drop a legacy custom value that isn't among them.

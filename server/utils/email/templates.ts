@@ -34,6 +34,8 @@ export type TemplateKey =
   | 'company_approved'
   | 'company_pending'
   | 'company_admin_invite'
+  // Cola 12-C: invitación de un comercial de la agencia a acceder al panel (define su contraseña).
+  | 'commercial_invite'
   | 'demo_request_received'
   | 'admin_demo_requested'
 
@@ -569,6 +571,26 @@ export const TEMPLATES: Record<TemplateKey, TemplateDef> = {
         en(l)
           ? `You are the administrator of ${d.companyName} in Portal INMO (${d.email}). Set your password to get started.`
           : `Eres administrador/a de ${d.companyName} en Portal INMO (${d.email}). Define tu contraseña para empezar.`,
+      ],
+      cta: cta(en(l) ? 'Set my password' : 'Definir mi contraseña', d.setPasswordUrl),
+      footnote: en(l)
+        ? 'The link expires in 1 hour; after that, use "Forgot password" on the sign-in page.'
+        : 'El enlace caduca en 1 hora; después, usa «¿Olvidaste tu contraseña?» en la pantalla de acceso.',
+    }),
+  },
+
+  commercial_invite: {
+    kind: 'transactional',
+    audience: 'user',
+    subject: (d, l) => (en(l) ? `Your access to ${d.companyName} in Portal INMO` : `Tu acceso a ${d.companyName} en Portal INMO`),
+    master: (d, l) => ({
+      eyebrow: EYEBROW.activity(l),
+      title: en(l) ? 'Welcome to\nPortal INMO' : 'Te damos la bienvenida a\nPortal INMO',
+      greetingName: d.name,
+      paragraphs: [
+        en(l)
+          ? `${d.companyName} has invited you to Portal INMO as a commercial agent (${d.email}). Set your password to access your panel: your leads, visits, tasks and the CRM.`
+          : `${d.companyName} te ha invitado a Portal INMO como comercial (${d.email}). Define tu contraseña para entrar a tu panel: tus leads, visitas, tareas y el CRM.`,
       ],
       cta: cta(en(l) ? 'Set my password' : 'Definir mi contraseña', d.setPasswordUrl),
       footnote: en(l)

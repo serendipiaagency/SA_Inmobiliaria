@@ -159,6 +159,10 @@ const RULES: Rule[] = [
   // aparece en su menú. **Esto cambia quién puede editar horarios**: pasa de
   // `content` a `web`, la misma área que ya gobierna Comerciales.
   { pattern: /^saas\/agents(?:\/|$)/, resolve: area('web') },
+  // Invitar a un comercial al panel / reenviar / revocar: crea o vincula una
+  // CUENTA de acceso con el preset «comercial», así que es Sistema (como
+  // gestionar usuarios), no la edición de la ficha del comercial (web).
+  { pattern: /^saas\/commercial-access$/, resolve: fixed('system', 'write') },
   // Marking a publication notification as read acknowledges something the
   // caller is already allowed to see; it changes no business data, so it
   // stays at read level (the bell itself is hidden without web:read).

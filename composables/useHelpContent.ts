@@ -313,6 +313,7 @@ export function useHelpContent() {
         'Crea el equipo con "+ Nuevo", elige su oficina (si la tiene) y su responsable entre tus comerciales.',
         'Cada comercial pertenece a un equipo desde su ficha (Comerciales → "Equipo"), y cada propiedad puede asignarse a un equipo en el editor (paso "Comercial / Inversión").',
         'En la ficha del comercial, "Usuario del panel" vincula a esa persona con su cuenta de acceso: es lo que permite saber qué leads, visitas y tareas son "suyos".',
+        'Para darle acceso sin crear la cuenta a mano, usa «Acceso al panel → Invitar a la plataforma» en su ficha (hace falta un email). El sistema crea o reutiliza su cuenta con el rol «Comercial» (lleva el CRM, no ve facturación, RGPD ni usuarios), la vincula a la ficha y le manda un correo con un enlace de un solo uso (60 minutos) para que defina su contraseña — nunca se envían contraseñas. Si ya tenía cuenta con ese email en tu agencia, se reutiliza; no se duplica. «Reenviar invitación» manda un enlace nuevo, y «Revocar acceso» deja la cuenta sin permisos y la desvincula (reversible: vuelve a invitarla). Invitar o revocar lo hace un administrador (o gerencia); un comercial no puede.',
         'Igual que las oficinas, eliminar un equipo lo manda a la Papelera, desde donde se puede restaurar.',
       ],
     },
