@@ -92,15 +92,23 @@ describe('siembra: el primer borrador es lo que la web ya enseña', () => {
     expect(JSON.parse(page.draftJson).blocks).toEqual([])
   })
 
-  it('Nosotros: los textos de la página actual, editables', async () => {
+  it('Nosotros: composición editorial de bloques independientes, con el equipo del CRM', async () => {
     const page = await getOrCreateSitePage(db, A.orgId, 'nosotros')
     const blocks = JSON.parse(page.draftJson).blocks
-    expect(blocks.map((b: any) => b.type)).toEqual(['text', 'cta'])
+    // Bloques editoriales independientes (Cola 14): historia, valores, cifras, equipo y cierre.
+    expect(blocks.map((b: any) => b.type)).toEqual(['text', 'trust-points', 'about-agency', 'team', 'cta'])
     expect(blocks[0].content.title).toBe(messages.es['aboutUs.hero.title'])
     expect(blocks[0].content.body).toContain(messages.es['aboutUs.body.paragraph1'])
     expect(blocks[0].content.body).toContain(messages.es['aboutUs.body.paragraph2'])
-    expect(blocks[1].content.ctaPrimaryTo).toBe('/propiedades')
-    expect(blocks[1].content.ctaSecondaryTo).toBe('/contacto')
+    // El equipo sale en vivo de Comerciales, con la info bajo cada foto (layout editorial).
+    const team = blocks.find((b: any) => b.type === 'team')
+    expect(team.content.source).toBe('dynamic')
+    expect(team.content.layout).toBe('editorial')
+    expect(team.content.cardFields.description).toBe(true)
+    // El cierre mantiene los enlaces de siempre.
+    const cta = blocks.find((b: any) => b.type === 'cta')
+    expect(cta.content.ctaPrimaryTo).toBe('/propiedades')
+    expect(cta.content.ctaSecondaryTo).toBe('/contacto')
   })
 
   it('Contacto: el formulario, que crea un lead real', async () => {

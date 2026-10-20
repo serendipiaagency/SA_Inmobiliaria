@@ -11,13 +11,13 @@
       </section>
       <div class="mx-auto max-w-3xl space-y-8 px-6 py-20 text-[15px] leading-[1.9] text-stone-600 lg:px-0">
         <p>
-          {{ t('aboutUs.body.paragraph1', 'M&M Real Estate presenta proyectos off-plan, propiedades de segunda venta y comunidades residenciales en todos los Emiratos Árabes Unidos. Trabajamos directamente con promotores y agentes autorizados para que los compradores puedan explorar anuncios verificados con planes de pago transparentes, planos y mapas de ubicación.') }}
+          {{ t('aboutUs.body.paragraph1', 'Somos una inmobiliaria cercana, especializada en nuestra zona. Trabajamos con obra nueva, segunda mano y alquiler, y acompañamos a cada persona —compradora, vendedora o inversora— con información clara, anuncios verificados y un trato personal de principio a fin.') }}
         </p>
         <p>
-          {{ t('aboutUs.body.paragraph2', 'Ya sea que busques tu primera vivienda, una propiedad de inversión o un espacio para tu negocio, nuestro equipo está listo para guiarte en cada paso, desde la primera visita hasta la entrega.') }}
+          {{ t('aboutUs.body.paragraph2', 'Ya busques tu primera vivienda, una propiedad de inversión o un espacio para tu negocio, nuestro equipo te guía en cada paso: valoración, visitas, financiación y firma. Sin prisas y con todo explicado.') }}
         </p>
         <div class="flex flex-wrap gap-4 pt-4">
-          <NuxtLink to="/propiedades" class="btn-primary">{{ t('aboutUs.cta.browse', 'Ver proyectos') }}</NuxtLink>
+          <NuxtLink to="/propiedades" class="btn-primary">{{ t('aboutUs.cta.browse', 'Ver propiedades') }}</NuxtLink>
           <NuxtLink to="/contacto" class="btn-secondary">{{ t('aboutUs.cta.talk', 'Habla con nosotros') }}</NuxtLink>
         </div>
       </div>
@@ -32,8 +32,8 @@ const { t } = useI18n()
 const { page: sitePage, homeData: sitePageData } = await useSitePage('nosotros')
 useHead(
   seoHead({
-    title: sitePage.value?.seo?.title || 'About us — M&M Real Estate',
-    description: sitePage.value?.seo?.description || 'M&M Real Estate presenta proyectos off-plan, propiedades de segunda venta y comunidades residenciales en todos los Emiratos Árabes Unidos.',
+    title: sitePage.value?.seo?.title || t('aboutUs.hero.title', 'Te guiamos hacia lo extraordinario.'),
+    description: sitePage.value?.seo?.description || t('aboutUs.body.paragraph1', 'Somos una inmobiliaria cercana, especializada en nuestra zona. Trabajamos con obra nueva, segunda mano y alquiler.'),
   }),
 )
 </script>

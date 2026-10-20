@@ -45,7 +45,7 @@ test.describe('Constructor Web — páginas editables', () => {
     // El lienzo enseña la página de siempre, ya hecha secciones.
     const canvas = page.frameLocator(CANVAS)
     await expect(canvas.getByText('Te guiamos hacia lo extraordinario.')).toBeVisible({ timeout: 10_000 })
-    await expect(canvas.getByRole('link', { name: 'Ver proyectos' })).toBeVisible()
+    await expect(canvas.getByRole('link', { name: 'Ver propiedades' })).toBeVisible()
 
     // Editar el título desde el inspector.
     await page.locator('[data-block-row="text-nosotros"]').click()
