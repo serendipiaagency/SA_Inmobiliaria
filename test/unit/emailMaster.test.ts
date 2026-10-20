@@ -52,7 +52,7 @@ const DATA = {
 
 describe('plantilla maestra: estructura', () => {
   it('los emails propios de Portal INMO son los de plataforma, cuenta, sistema y avisos al equipo; los de clientes, no', () => {
-    for (const k of ['company_registration_welcome', 'admin_company_registered', 'company_admin_invite', 'company_status_changed', 'company_deactivated', 'user_welcome', 'password_reset', 'lead_created', 'contact_message', 'whatsapp_message_received', 'domain_check_failed'] as TemplateKey[]) {
+    for (const k of ['company_registration_welcome', 'admin_company_registered', 'company_admin_invite', 'commercial_invite', 'company_status_changed', 'company_deactivated', 'user_welcome', 'password_reset', 'lead_created', 'contact_message', 'whatsapp_message_received', 'domain_check_failed'] as TemplateKey[]) {
       expect(isPortalInmoTemplate(k), k).toBe(true)
     }
     for (const k of ['appointment_created', 'appointment_reminder_24h', 'contract_sent', 'deposit_received', 'payment_failed', 'saved_search_alert', 'web_thread_reply'] as TemplateKey[]) {
