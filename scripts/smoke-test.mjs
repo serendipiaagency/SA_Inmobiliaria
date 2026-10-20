@@ -78,15 +78,34 @@ async function fetchWithTimeout(path) {
   }
 }
 
+// Un arranque en frío del Worker sobre la página más pesada (la ficha, que
+// además consulta el proveedor solar) puede pasar del timeout en la PRIMERA
+// lectura y tumbar todo el despliegue por un fallo transitorio. Por eso cada
+// comprobación se reintenta una vez tras una pausa: una superficie de verdad
+// rota falla igualmente en los dos intentos, pero una que sólo estaba
+// calentándose pasa en el segundo. (El build servido ya se fijó antes en
+// waitForExpectedBuild, así que el reintento no enmascara un deploy viejo.)
+const CHECK_RETRIES = Number(process.env.SMOKE_CHECK_RETRIES || 1)
+const CHECK_RETRY_GAP_MS = Number(process.env.SMOKE_CHECK_RETRY_GAP_MS || 3_000)
+
 async function check(name, path, assertFn) {
-  try {
-    const res = await fetchWithTimeout(path)
-    await assertFn(res)
-    console.log(`✓ ${name} (${path}) — ${res.status}`)
-  } catch (err) {
-    failures++
-    console.error(`✗ ${name} (${path}): ${err.message}`)
+  let lastErr = null
+  for (let attempt = 0; attempt <= CHECK_RETRIES; attempt++) {
+    try {
+      const res = await fetchWithTimeout(path)
+      await assertFn(res)
+      console.log(`✓ ${name} (${path}) — ${res.status}${attempt ? ` (al 2º intento)` : ''}`)
+      return
+    } catch (err) {
+      lastErr = err
+      if (attempt < CHECK_RETRIES) {
+        console.log(`  … ${name} falló («${err.message}»); reintento en ${CHECK_RETRY_GAP_MS / 1000}s`)
+        await sleep(CHECK_RETRY_GAP_MS)
+      }
+    }
   }
+  failures++
+  console.error(`✗ ${name} (${path}): ${lastErr?.message}`)
 }
 
 function expectStatus(res, ...allowed) {
