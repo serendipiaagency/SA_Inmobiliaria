@@ -75,9 +75,19 @@ export interface NavGroup {
  * Cada una conserva su área de permisos (`area`).
  */
 export const ADMIN_NAV: NavGroup[] = [
+  // Reorganización Cola 16 (oct-2026, aprobada por el propietario): siete
+  // categorías por tarea del día a día —«Dashboard operativo», «Mi negocio»,
+  // «Chatbot», «Comunicación y mensajes», «Web y contenido», «Sistema» y
+  // «Ayuda»—. Es un cambio SÓLO de presentación: cada entrada conserva su
+  // ruta, su etiqueta y su ÁREA de permisos. Al mover una entrada a una
+  // categoría de otra área, lleva su `area` propia explícita para no cambiar
+  // quién la abre (lo comprueba test/unit/adminNav.test.ts). Se reutilizan los
+  // id 'general', 'crm', 'web', 'system' y 'help' (y así el menú no pierde su
+  // estado abierto/cerrado guardado) aunque cambie su etiqueta; 'chatbot' y
+  // 'comunicacion' son nuevos.
   {
     id: 'general',
-    label: 'General',
+    label: 'Dashboard operativo',
     area: 'general',
     defaultOpen: true,
     items: [
@@ -86,121 +96,112 @@ export const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
+    // «Mi negocio»: todo el ciclo comercial (CRM) y las finanzas, juntos. El id
+    // sigue siendo 'crm' (era la categoría CRM) para no perder su estado del menú.
     id: 'crm',
-    label: 'CRM',
+    label: 'Mi negocio',
     area: 'crm',
     items: [
       // Ciclo comercial: lead → contacto → compatibilidades → visita → oferta → operación.
-      // «Gestión de contactos» (Cola 15) unifica en una sola entrada las tres
-      // secciones de personas del CRM —Leads, Contactos y Clientes—, con una
-      // barra de pestañas dentro. Cada ruta sigue existiendo (y sus fichas y
-      // enlaces internos no cambian); `match` hace que las tres sigan siendo
-      // área `crm` y marquen activa esta entrada.
+      // «Gestión de contactos» (Cola 15) unifica Leads, Contactos y Clientes en
+      // una entrada con pestañas; `match` mantiene las tres rutas como área crm.
       { label: 'Gestión de contactos', to: '/admin/contactos', icon: 'users', match: ['/admin/leads', '/admin/clientes'] },
       { label: 'Compatibilidades', to: '/admin/compatibilidades', icon: 'sparkles' },
       { label: 'Visitas', to: '/admin/visitas', icon: 'calendar' },
       { label: 'Reservas', to: '/admin/reservas', icon: 'bookmark' },
       { label: 'Analítica de citas', to: '/admin/citas-analytics', icon: 'chart' },
       { label: 'Tareas', to: '/admin/tareas', icon: 'checklist' },
-      // Bloque N6 (FASES 23-24): las ofertas de toda la agencia y el pipeline
-      // de operaciones (Kanban por etapas). Área CRM, como su API.
       { label: 'Ofertas', to: '/admin/ofertas', icon: 'badge' },
       { label: 'Operaciones', to: '/admin/deal-operations', icon: 'layers' },
-      { label: 'Comunicaciones', to: '/admin/comunicaciones', icon: 'chat' },
       { label: 'Referidos', to: '/admin/referidos', icon: 'sparkles' },
       { label: 'Rendimiento', to: '/admin/rendimiento', icon: 'chart' },
-      // INMO y las automatizaciones trabajan sobre los datos del CRM.
-      { label: 'INMO', to: '/admin/inmo', icon: 'chat' },
-      // Bloque N8b: base de conocimiento, memoria y cerebros de INMO.
-      { label: 'INMO: conocimiento', to: '/admin/inmo-ajustes', icon: 'doc' },
-      // Bloque N8b: automatizaciones reales sobre eventos de CRM (antes, una
-      // demo en Finanzas que no ejecutaba nada).
       { label: 'Automatizaciones', to: '/admin/automatizaciones', icon: 'bolt' },
-      // Configuración del CRM y del equipo comercial.
       { label: 'Enrutamiento y SLA', to: '/admin/enrutamiento', icon: 'bolt' },
-      // Bloque N7b (FASE 0): los campos extra de propiedades, contactos, leads,
-      // citas y operaciones de la agencia. Área CRM, como su recurso.
       { label: 'Campos personalizados', to: '/admin/campos-personalizados', icon: 'layers' },
-      // Antes en Portal Web; su permiso sigue siendo el de Portal Web.
+      // Su permiso es el de Portal Web, no el de la categoría.
       { label: 'Comerciales', to: '/admin/comerciales', icon: 'badge', area: 'web' },
       { label: 'Oficinas', to: '/admin/offices', icon: 'building' },
       { label: 'Equipos', to: '/admin/teams', icon: 'team' },
+      // Finanzas & Growth, ahora dentro de «Mi negocio». Cada una conserva su
+      // permiso de Finanzas (`area: 'finance'`), distinto del de la categoría.
+      { label: 'Facturación', to: '/admin/facturacion', icon: 'invoice', area: 'finance' },
+      // La pantalla antigua (tabla legacy `deals`). «Operaciones» (arriba) es el
+      // pipeline completo (/admin/deal-operations); ésta mantiene su URL.
+      { label: 'Cierres y comisiones', to: '/admin/operaciones', icon: 'invoice', area: 'finance' },
+      { label: 'Ingresos', to: '/admin/ingresos', icon: 'chart', area: 'finance' },
+      { label: 'Contratos', to: '/admin/contratos', icon: 'doc', area: 'finance' },
+      { label: 'Depósitos', to: '/admin/depositos', icon: 'key', area: 'finance' },
+      { label: 'Tasador (AVM)', to: '/admin/tasador', icon: 'badge', area: 'finance' },
+      { label: 'AI Studio', to: '/admin/ai', icon: 'sparkles', area: 'finance' },
     ],
   },
   {
+    // «Chatbot»: el asistente interno INMO y el chat de la web pública.
+    id: 'chatbot',
+    label: 'Chatbot',
+    area: 'crm',
+    items: [
+      // INMO: el asistente interno del equipo (trabaja sobre los datos del CRM).
+      { label: 'INMO', to: '/admin/inmo', icon: 'chat' },
+      // Base de conocimiento, memoria y cerebros de INMO.
+      { label: 'INMO: conocimiento', to: '/admin/inmo-ajustes', icon: 'doc' },
+      // El chat de cara al visitante se activa y se ajusta en la configuración
+      // de Comunicaciones (apartado «chat de la web»); misma área (crm).
+      { label: 'Chat de la web', to: '/admin/comunicaciones/configuracion', icon: 'chat' },
+    ],
+  },
+  {
+    // «Comunicación y mensajes»: todo lo de hablar con la gente. El área de la
+    // categoría es inbox; las entradas de otra área llevan la suya propia.
+    id: 'comunicacion',
+    label: 'Comunicación y mensajes',
+    area: 'inbox',
+    items: [
+      // Centro de comunicaciones (WhatsApp/voz); su permiso es crm.
+      { label: 'Comunicaciones', to: '/admin/comunicaciones', icon: 'chat', area: 'crm' },
+      { label: 'Mensajes', to: '/admin/contact-messages', icon: 'contact' },
+      { label: 'Solicitudes', to: '/admin/visitor-submissions', icon: 'inbox' },
+      { label: 'Proveedores', to: '/admin/vendor-registrations', icon: 'inbox' },
+      // Emails de la plataforma; su permiso sigue siendo Sistema.
+      { label: 'Emails', to: '/admin/emails', icon: 'mail', area: 'system' },
+      // La lista del «Suscríbete» del pie de la web; su permiso sigue siendo Portal Web.
+      { label: 'Suscriptores', to: '/admin/suscriptores', icon: 'mail', area: 'web' },
+    ],
+  },
+  {
+    // «Web y contenido»: el Portal Web y el Blog & CMS juntos. El id sigue
+    // siendo 'web'. Las entradas del blog conservan su permiso (`area: 'cms'`).
     id: 'web',
-    label: 'Portal Web',
+    label: 'Web y contenido',
     area: 'web',
     items: [
       { label: 'Propiedades (web)', to: '/admin/developer-properties', icon: 'building' },
       { label: 'Propiedades 2ª mano', to: '/admin/properties', icon: 'layers' },
       { label: 'Constructor Web', to: '/admin/site-builder', icon: 'widget' },
-      { label: 'Suscriptores', to: '/admin/suscriptores', icon: 'mail' },
       { label: 'Comunidades', to: '/admin/communities', icon: 'store' },
       { label: 'Zonas', to: '/admin/zones', icon: 'map' },
       { label: 'Publicación multicanal', to: '/admin/scheduler', icon: 'bolt' },
-      // Antes en Finanzas & Growth; su permiso sigue siendo el de Finanzas & Growth.
+      // Su permiso es el de Finanzas & Growth, no el de la categoría.
       { label: 'Widgets', to: '/admin/widgets', icon: 'widget', area: 'finance' },
       { label: 'Brand Kit', to: '/admin/asset-export/brand-kit', icon: 'sparkles' },
       { label: 'Plantillas de Export', to: '/admin/asset-export/templates', icon: 'layers' },
       { label: 'Piezas generadas', to: '/admin/asset-export/projects', icon: 'doc' },
       { label: 'Catálogos combinados', to: '/admin/asset-export/catalogs', icon: 'doc' },
       { label: 'Exportación masiva', to: '/admin/asset-export/batches', icon: 'bolt' },
-    ],
-  },
-  {
-    id: 'finance',
-    label: 'Finanzas & Growth',
-    area: 'finance',
-    items: [
-      { label: 'Facturación', to: '/admin/facturacion', icon: 'invoice' },
-      // La pantalla antigua (tabla legacy `deals`: cierres ya hechos y su
-      // comisión). Mantiene su URL para no romper enlaces; «Operaciones» en
-      // CRM es ahora el pipeline completo (/admin/deal-operations).
-      { label: 'Cierres y comisiones', to: '/admin/operaciones', icon: 'invoice' },
-      { label: 'Ingresos', to: '/admin/ingresos', icon: 'chart' },
-      { label: 'Contratos', to: '/admin/contratos', icon: 'doc' },
-      { label: 'Depósitos', to: '/admin/depositos', icon: 'key' },
-      { label: 'Tasador (AVM)', to: '/admin/tasador', icon: 'badge' },
-      { label: 'AI Studio', to: '/admin/ai', icon: 'sparkles' },
-    ],
-  },
-  {
-    id: 'cms',
-    label: 'Blog & CMS',
-    area: 'cms',
-    items: [
-      { label: 'Dashboard', to: '/admin/cms', icon: 'sparkles' },
-      { label: 'Artículos', to: '/admin/cms/articles', icon: 'doc' },
-      { label: 'Categorías', to: '/admin/cms-categories', icon: 'layers' },
-      { label: 'Etiquetas', to: '/admin/cms-tags', icon: 'badge' },
-      { label: 'Autores', to: '/admin/cms-authors', icon: 'team' },
-      { label: 'Media Library', to: '/admin/cms/media', icon: 'widget' },
-      { label: 'Comentarios', to: '/admin/cms-comments', icon: 'contact' },
-      { label: 'Redirecciones', to: '/admin/cms-redirects', icon: 'code' },
-      { label: 'Papelera', to: '/admin/cms/papelera', icon: 'inbox' },
-      { label: 'Config. Blog', to: '/admin/cms/configuracion', icon: 'settings' },
-      // Antes en «Contenido»; su permiso sigue siendo el de Contenido.
-      // ("Equipo" también vivía en Contenido y editaba el horario de las
-      // mismas personas que "Comerciales"; el horario es ahora una subruta de
-      // la ficha del comercial, /admin/comerciales/:id/horario.)
+      // Blog & CMS, ahora dentro de «Web y contenido». Permiso Blog & CMS (cms).
+      { label: 'Dashboard', to: '/admin/cms', icon: 'sparkles', area: 'cms' },
+      { label: 'Artículos', to: '/admin/cms/articles', icon: 'doc', area: 'cms' },
+      { label: 'Categorías', to: '/admin/cms-categories', icon: 'layers', area: 'cms' },
+      { label: 'Etiquetas', to: '/admin/cms-tags', icon: 'badge', area: 'cms' },
+      { label: 'Autores', to: '/admin/cms-authors', icon: 'team', area: 'cms' },
+      { label: 'Media Library', to: '/admin/cms/media', icon: 'widget', area: 'cms' },
+      { label: 'Comentarios', to: '/admin/cms-comments', icon: 'contact', area: 'cms' },
+      { label: 'Redirecciones', to: '/admin/cms-redirects', icon: 'code', area: 'cms' },
+      { label: 'Papelera', to: '/admin/cms/papelera', icon: 'inbox', area: 'cms' },
+      { label: 'Config. Blog', to: '/admin/cms/configuracion', icon: 'settings', area: 'cms' },
+      // Su permiso sigue siendo el de Contenido.
       { label: 'Blog (legacy)', to: '/admin/blogs', icon: 'doc', area: 'content' },
     ],
-  },
-  {
-    id: 'inbox',
-    label: 'Bandeja',
-    area: 'inbox',
-    items: [
-      { label: 'Solicitudes', to: '/admin/visitor-submissions', icon: 'inbox' },
-      { label: 'Proveedores', to: '/admin/vendor-registrations', icon: 'inbox' },
-      { label: 'Mensajes', to: '/admin/contact-messages', icon: 'contact' },
-    ],
-  },
-  {
-    id: 'help',
-    label: 'Ayuda',
-    items: [{ label: 'Ayuda y documentación', to: '/admin/ayuda', icon: 'help' }],
   },
   {
     id: 'system',
@@ -210,9 +211,8 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: 'Empresas', to: '/admin/organizations', icon: 'store', superAdminOnly: true },
       { label: 'Usuarios', to: '/admin/users', icon: 'key' },
       { label: 'Configuración', to: '/admin/configuracion', icon: 'settings' },
-      { label: 'Emails', to: '/admin/emails', icon: 'mail' },
       { label: 'Webhooks', to: '/admin/webhooks', icon: 'code' },
-      // Antes en Finanzas & Growth; su permiso sigue siendo el de Finanzas & Growth.
+      // Su permiso es el de Finanzas & Growth.
       { label: 'API', to: '/admin/api', icon: 'code', area: 'finance' },
       { label: 'Marketplace', to: '/admin/marketplace', icon: 'store', area: 'finance' },
       { label: 'Privacidad (RGPD)', to: '/admin/privacidad', icon: 'alert' },
@@ -228,6 +228,11 @@ export const ADMIN_NAV: NavGroup[] = [
       // Quien pide una demo desde la landing de INMO (platform_demo_requests): de la plataforma, no de una empresa.
       { label: 'Solicitudes de demo', to: '/admin/solicitudes-demo', icon: 'mail', superAdminOnly: true },
     ],
+  },
+  {
+    id: 'help',
+    label: 'Ayuda',
+    items: [{ label: 'Ayuda y documentación', to: '/admin/ayuda', icon: 'help' }],
   },
 ]
 

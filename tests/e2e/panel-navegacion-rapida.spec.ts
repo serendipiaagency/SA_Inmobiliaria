@@ -27,8 +27,9 @@ const link = (page: Page, gid: string, to: string) => page.getByTestId(`nav-grou
 
 const SCENARIOS: { name: string; start: string; steps: [string, string][]; target: [string, string, string] }[] = [
   { name: 'Oficinas → Equipos → Propiedades (web)', start: '/admin/leads', steps: [['crm', '/admin/offices'], ['crm', '/admin/teams']], target: ['web', '/admin/developer-properties', 'Propiedades (web)'] },
-  { name: 'Etiquetas → Autores → Media Library', start: '/admin/cms', steps: [['cms', '/admin/cms-tags'], ['cms', '/admin/cms-authors']], target: ['cms', '/admin/cms/media', 'Media Library'] },
-  { name: 'Comentarios → Redirecciones → Papelera', start: '/admin/cms', steps: [['cms', '/admin/cms-comments'], ['cms', '/admin/cms-redirects']], target: ['cms', '/admin/cms/papelera', 'Papelera'] },
+  // El blog vive ahora en «Web y contenido» (grupo id 'web'), tras la reorganización de Cola 16.
+  { name: 'Etiquetas → Autores → Media Library', start: '/admin/cms', steps: [['web', '/admin/cms-tags'], ['web', '/admin/cms-authors']], target: ['web', '/admin/cms/media', 'Media Library'] },
+  { name: 'Comentarios → Redirecciones → Papelera', start: '/admin/cms', steps: [['web', '/admin/cms-comments'], ['web', '/admin/cms-redirects']], target: ['web', '/admin/cms/papelera', 'Papelera'] },
   { name: 'Comerciales → Oficinas → Equipos (genéricas seguidas)', start: '/admin/leads', steps: [['crm', '/admin/comerciales'], ['crm', '/admin/offices']], target: ['crm', '/admin/teams', 'Equipos'] },
 ]
 

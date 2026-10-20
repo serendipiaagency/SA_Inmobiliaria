@@ -35,7 +35,7 @@ const PROPERTY_SHEET_HELP_STEPS: string[] = [
   'El paso "Instalaciones y exteriores" recoge calefacción, agua caliente, aire acondicionado, suelo radiante, chimenea, domótica, alarma, fibra, placas solares y aerotermia; las zonas comunes (piscina y jardín comunitarios, gimnasio, pádel, tenis, zona infantil, coworking, salón social, seguridad); y el exterior (vistas, primera línea, jardín y piscina privados, porche, patio, balcón).',
   'En "Precio": el precio por m² se calcula solo (precio ÷ superficie construida) y nunca se guarda; "Motivo del cambio de precio" es opcional y, si cambias el precio, queda en el histórico junto al precio anterior y a quién lo cambió. Con operación "Venta" aparecen el precio mínimo autorizado y el recomendado (internos); con "Alquiler", la fianza, el depósito o garantía adicional y si los gastos están incluidos. Siempre: comunidad mensual, IBI y tasa de basuras, y las comisiones (tipo, importe o %, IVA, honorarios de comprador y de propietario). Los importes no llevan moneda fija: se muestran con la moneda de tu agencia.',
   'El paso "Legal y certificados" recoge referencia catastral, situación registral, finca registral, registro de la propiedad, cargas, hipoteca, ocupación, licencias, cédula de habitabilidad, ITE/IEE y el certificado energético completo (nº de registro, caducidad, consumo, letra y valor de emisiones). Todo es interno salvo la parte energética.',
-  'En "Comercial / Inversión" la propiedad se asigna, además de a un comercial, a una oficina y a un equipo (CRM → Oficinas y CRM → Equipos). En "Multimedia", "Enlace del tour virtual" guarda la URL de Matterport, Kuula u otro visor 360.',
+  'En "Comercial / Inversión" la propiedad se asigna, además de a un comercial, a una oficina y a un equipo (Mi negocio → Oficinas y Mi negocio → Equipos). En "Multimedia", "Enlace del tour virtual" guarda la URL de Matterport, Kuula u otro visor 360.',
   'El "Histórico de precios" muestra en cada fila la fecha, el precio anterior, el precio nuevo (con su variación en %), quién lo cambió y el motivo. "Actualizar precio" en bloque admite un precio fijo o un porcentaje sobre el precio de cada propiedad (p. ej. -5 o +3) y su propio motivo.',
   'Según el tipo de inmueble, el editor sólo enseña lo que aplica: un terreno no pide calefacción ni cocina, un garaje no pide distribución de vivienda. Salvo un subtipo que ya no corresponde, ningún dato se borra al cambiar de tipo: sólo deja de mostrarse.',
 ]
@@ -75,7 +75,7 @@ const PROPERTY_N7A_HELP_STEPS: string[] = [
   'Debajo de las fotos, «Vídeos, tours, renders, PDF, drone y 360°»: elige el tipo, pega un enlace https:// (YouTube, Vimeo, Matterport, Kuula…) o sube el fichero, ponle título, texto alternativo e idioma y pulsa «Añadir». Puedes añadir todos los vídeos que quieras; «Principal de su tipo» marca el que va primero. Cada recurso tiene las mismas casillas publicable / privado / oculto y se edita, descarga o manda a la papelera igual que las fotos.',
   'En la web pública, la pestaña 360° sólo aparece si la propiedad tiene un tour virtual o una foto 360 de verdad; los vídeos de YouTube o Vimeo se abren en otra pestaña y los subidos se reproducen en la ficha; los renders tienen su pestaña y los PDF publicables y los documentos públicos salen en «Folletos y documentos».',
   'Eliminar una foto ya no deja su fichero ocupando espacio: si ninguna otra ficha de tu agencia lo usa (por ejemplo, una promoción duplicada o la portada), deja de contar en tu almacenamiento al momento y se borra del todo a los 30 días.',
-  'Paso «Portales»: la web pública de tu agencia y cada canal de la publicación multicanal (Idealista, Fotocasa, redes, mensajería…) con su estado: publicada, programada, retirada, con error, bloqueada o sin programar, y si el canal tiene integración real. Hoy ningún portal la tiene, y el paso lo dice. Programar o retirar se hace en Portal Web → Publicación multicanal. A un portal sólo se le entregan los campos que el registro de esquemas permite y las fotos y recursos publicables.',
+  'Paso «Portales»: la web pública de tu agencia y cada canal de la publicación multicanal (Idealista, Fotocasa, redes, mensajería…) con su estado: publicada, programada, retirada, con error, bloqueada o sin programar, y si el canal tiene integración real. Hoy ningún portal la tiene, y el paso lo dice. Programar o retirar se hace en Web y contenido → Publicación multicanal. A un portal sólo se le entregan los campos que el registro de esquemas permite y las fotos y recursos publicables.',
   'Al crear una propiedad, el editor ya trae rellenado lo habitual: operación «Venta», ubicación exacta, el país y la localidad más frecuentes de tu agencia y, si tu usuario está vinculado a un comercial, ese comercial con su oficina y equipo. Puedes cambiar cualquiera. Mientras escribes, cada campo avisa al momento si algo no vale (un número negativo, un enlace sin https://, una fecha imposible).',
   'El tipo de inmueble decide qué campos se ven en los dos catálogos: una promoción de obra nueva de garajes, locales, naves o suelo tampoco pide dormitorios, y para publicarla se exige lo de su tipo (por ejemplo, la parcela en un suelo).',
 ]
@@ -87,7 +87,7 @@ const PROPERTY_SEARCH_N7B_HELP_STEPS: string[] = [
   'Búsqueda en el mapa: el botón «Mapa» enseña sobre el mapa todas las propiedades del filtro que tienen ubicación (hasta 1.000; si hay más, acerca el mapa o filtra). «Buscar en esta zona» filtra por lo que se ve en el mapa; «Buscar alrededor de un punto» + un radio en km: pulsa en el mapa y busca en ese radio, ordenando por cercanía («Más cerca primero») y enseñando la distancia en cada fila. «Quitar zona» lo deshace. También puedes escribir las coordenadas a mano en Filtros → «Cerca de unas coordenadas».',
   'Las propiedades sin ubicación guardada (o con 0,0) nunca salen en una búsqueda por zona o radio: sitúalas en el mapa del paso «Ubicación» de su ficha.',
   'Etiquetas: se ven en la lista y en las tarjetas. En la ficha de la propiedad (debajo del editor, una vez creada) escribe una etiqueta y pulsa «Añadir» — si ya existe en tu agencia se reutiliza —, o quítala con la ×. Son las mismas que pone la acción masiva «Añadir etiqueta».',
-  'Campos personalizados: en la ficha, debajo del editor, el panel «Campos personalizados» enseña los campos que tu agencia haya creado para propiedades (CRM → Campos personalizados), por sección. Rellénalos y pulsa «Guardar campos»; los marcados «Público» salen en la ficha pública de Propiedades (web), en «Más información». Los demás nunca salen de la agencia.',
+  'Campos personalizados: en la ficha, debajo del editor, el panel «Campos personalizados» enseña los campos que tu agencia haya creado para propiedades (Mi negocio → Campos personalizados), por sección. Rellénalos y pulsa «Guardar campos»; los marcados «Público» salen en la ficha pública de Propiedades (web), en «Más información». Los demás nunca salen de la agencia.',
 ]
 
 /**
@@ -181,7 +181,7 @@ export function useHelpContent() {
     // --- General ---------------------------------------------------------
     {
       key: 'dashboard',
-      group: 'General',
+      group: 'Dashboard operativo',
       title: 'Dashboard',
       route: '/admin',
       summary: 'Resumen general del negocio: leads recientes, visitas próximas, propiedades destacadas y KPIs clave de un vistazo.',
@@ -194,7 +194,7 @@ export function useHelpContent() {
     },
     {
       key: 'analytics',
-      group: 'General',
+      group: 'Dashboard operativo',
       title: 'Analytics',
       route: '/admin/analytics',
       summary: 'Estadísticas de tráfico y comportamiento de tu web pública (visitas a fichas, orígenes, propiedades más vistas).',
@@ -206,7 +206,7 @@ export function useHelpContent() {
     // --- CRM ---------------------------------------------------------------
     {
       key: 'contactos',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Contactos',
       route: '/admin/contactos',
       summary:
@@ -226,13 +226,13 @@ export function useHelpContent() {
         'Notas: escribe notas internas sobre la persona; se pueden fijar arriba, editar y eliminar (van a la papelera). Nunca se envían al cliente.',
         'Actividad: la cronología completa de la persona — leads, necesidades, coincidencias, citas y visitas, tareas, ofertas (también contraofertas y nuevas ofertas), operaciones, fichas enviadas y abiertas, llamadas —, con quién lo hizo y un enlace a cada cosa. Los botones de arriba filtran por tipo; «Ver más antigua» carga lo anterior.',
         'Etiquetas: los contactos ya se pueden etiquetar. En la cabecera de la ficha, escribe una etiqueta en «+ Etiqueta» y pulsa «Añadir» (si ya existe en tu agencia, se reutiliza); la × la quita. Se ven en el listado de Contactos, que se puede filtrar por etiqueta con el desplegable «Todas las etiquetas».',
-        'Campos personalizados: en la pestaña «Ficha y duplicados», el panel «Campos personalizados» enseña los campos que tu agencia haya creado para contactos (CRM → Campos personalizados). Rellénalos y pulsa «Guardar campos»; un campo obligatorio vacío no deja guardar y te dice cuál falta.',
-        'Foto: en «Editar», «Añadir foto» sube un retrato de la persona (se guarda en la biblioteca de medios de tu agencia); se ve en la cabecera de la ficha y en el listado. Sin foto se muestran sus iniciales. «Quitar» la elimina de la ficha. Las oficinas también tienen foto (CRM → Oficinas).',
+        'Campos personalizados: en la pestaña «Ficha y duplicados», el panel «Campos personalizados» enseña los campos que tu agencia haya creado para contactos (Mi negocio → Campos personalizados). Rellénalos y pulsa «Guardar campos»; un campo obligatorio vacío no deja guardar y te dice cuál falta.',
+        'Foto: en «Editar», «Añadir foto» sube un retrato de la persona (se guarda en la biblioteca de medios de tu agencia); se ve en la cabecera de la ficha y en el listado. Sin foto se muestran sus iniciales. «Quitar» la elimina de la ficha. Las oficinas también tienen foto (Mi negocio → Oficinas).',
       ],
     },
     {
       key: 'necesidades',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Necesidades del comprador',
       route: '/admin/contactos',
       summary:
@@ -253,7 +253,7 @@ export function useHelpContent() {
     },
     {
       key: 'compatibilidades',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Compatibilidades (matching)',
       route: '/admin/compatibilidades',
       summary:
@@ -266,7 +266,7 @@ export function useHelpContent() {
         'Si un imprescindible no se puede comprobar, el inmueble no se descarta: sale como "revisar", porque esconderlo por una ficha incompleta haría perder operaciones.',
         'Además del tipo, la zona, el precio, la superficie, los dormitorios y baños y las características, el desglose compara el estado del inmueble con lo que busca el comprador (en buen estado / para reformar) y si es obra nueva, segunda mano o reformado. Si la ficha no tiene el dato, la línea lo dice ("no consta") en vez de suponerlo.',
         'Las acciones son las mismas en Compatibilidades, en la ficha de la propiedad (paso "Compradores compatibles") y en la ficha del contacto (Necesidades → "Buscar propiedades"): "Seleccionar" / "Quitar selección", "Enviar propiedad", "Crear selección" (nueva o añadiendo a una que ya tenga esa persona), "Crear visita" (comercial, fecha y canal; se comprueba que no tenga otra cita a esa hora y queda en Visitas y en la ficha del contacto) y "Descartar" con motivo ("Recuperar" lo deshace). Crear una selección o una visita deja el match en "Seleccionado" si estaba sin decidir. Consultar compatibilidades no guarda nada.',
-        'Con un match "Seleccionado" aparece "Crear oferta": pide el importe y da de alta una oferta real en borrador (CRM → ficha del cliente → pestaña "Ofertas"), ya ligada a esa necesidad y a ese match. No se envía sola — se revisa y se envía desde ahí.',
+        'Con un match "Seleccionado" aparece "Crear oferta": pide el importe y da de alta una oferta real en borrador (Mi negocio → ficha del cliente → pestaña "Ofertas"), ya ligada a esa necesidad y a ese match. No se envía sola — se revisa y se envía desde ahí.',
         '"Enviar propiedad" abre (o reutiliza) la conversación de WhatsApp del contacto en Comunicaciones y le manda el inmueble con foto y ficha — con enlace público si es de Propiedades (web), sólo con foto y texto si es de 2ª mano. El match sólo pasa a "Enviado" cuando el envío se ha confirmado de verdad, nunca sólo por pulsarlo. Si el contacto no tiene teléfono ni WhatsApp, el botón está desactivado y lo dice; si la agencia no tiene ningún número de WhatsApp conectado, la ventana lo explica y ofrece abrir WhatsApp con su número — y la propiedad no queda marcada como enviada.',
         'El estado del match avanza solo cuando las cosas pasan de verdad: "Enviado" cuando el WhatsApp sale, "Visita" cuando anotas el resultado de una visita a ese inmueble (si el cliente dice que no le interesa, queda descartado con ese motivo) y "Ofertado" cuando se crea una oferta. Nunca retrocede y nunca recupera un descarte: eso lo decides tú.',
         'En un inmueble sin características repasadas, lo que no está marcado cuenta como desconocido. Pulsa "He repasado las características" para que a partir de ahí un hueco signifique de verdad "no lo tiene".',
@@ -274,7 +274,7 @@ export function useHelpContent() {
     },
     {
       key: 'selecciones',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Selecciones de propiedades',
       route: '/admin/contactos',
       summary:
@@ -291,7 +291,7 @@ export function useHelpContent() {
     },
     {
       key: 'oficinas',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Oficinas',
       route: '/admin/offices',
       summary: 'Las oficinas de tu agencia como fichas propias (nombre, código, dirección, teléfono, email, zona horaria y, para la web, presentación, horario, mapa, oficina principal, visibilidad y orden). Lo que filtra y reparte por oficina — comerciales, propiedades, leads y citas — apunta a estas fichas, no a un texto libre.',
@@ -305,7 +305,7 @@ export function useHelpContent() {
     },
     {
       key: 'equipos',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Equipos',
       route: '/admin/teams',
       summary: 'Equipos comerciales (p. ej. "Lujo", "Alquiler", "Captación"), opcionalmente dentro de una oficina y con un responsable.',
@@ -319,15 +319,15 @@ export function useHelpContent() {
     },
     {
       key: 'rendimiento',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Rendimiento comercial',
       route: '/admin/rendimiento',
       summary: 'Dashboard comercial con datos reales: leads nuevos y sin atender, primera respuesta, cualificados, visitas, ofertas, operaciones, conversión y el embudo de la cohorte, con filtros combinables.',
       steps: [
         'Elige el periodo arriba (hoy, 7 días, 30 días, mes o trimestre actual, o fechas a medida). Todas las fechas son UTC. "Comparar con el periodo anterior" añade, en las tarjetas que lo permiten, el valor del periodo inmediatamente anterior de la misma duración — nunca se enseña un "+12 %" sin decir contra qué.',
         'Cada tarjeta dice debajo exactamente qué cuenta y de dónde sale (por ejemplo, "Leads sin atender" son las alertas de SLA abiertas ahora mismo, no los leads en estado "nuevo"). Las de la primera fila — sin atender, visitas próximas, ofertas pendientes y tareas vencidas — son "ahora mismo" y no dependen del periodo.',
-        'Haz clic en una tarjeta para abrir el detalle: "Leads nuevos", "Leads cualificados" y "Leads sin atender" abren CRM → Leads ya filtrado con el mismo periodo y filtros (un botón "Filtrado desde el dashboard · quitar" lo deshace); las demás llevan a Visitas, Tareas, Compatibilidades u Operaciones.',
-        'Los filtros se combinan: comercial, oficina, origen, portal, campaña e inmueble. La oficina es la de CRM → Oficinas: cuenta lo que tiene esa oficina asignada (el lead, la visita o la operación) y, si un registro no tiene oficina propia, la de su comercial. Todas las tarjetas, el embudo y la tabla usan exactamente el mismo filtro. Sólo aparecen opciones que existen de verdad en tu agencia. «Portal» sólo aparece cuando hay leads que llegaron de un portal por la API (origen «Portal inmobiliario»): la plataforma no está conectada directamente a ningún portal.',
+        'Haz clic en una tarjeta para abrir el detalle: "Leads nuevos", "Leads cualificados" y "Leads sin atender" abren Mi negocio → Leads ya filtrado con el mismo periodo y filtros (un botón "Filtrado desde el dashboard · quitar" lo deshace); las demás llevan a Visitas, Tareas, Compatibilidades u Operaciones.',
+        'Los filtros se combinan: comercial, oficina, origen, portal, campaña e inmueble. La oficina es la de Mi negocio → Oficinas: cuenta lo que tiene esa oficina asignada (el lead, la visita o la operación) y, si un registro no tiene oficina propia, la de su comercial. Todas las tarjetas, el embudo y la tabla usan exactamente el mismo filtro. Sólo aparecen opciones que existen de verdad en tu agencia. «Portal» sólo aparece cuando hay leads que llegaron de un portal por la API (origen «Portal inmobiliario»): la plataforma no está conectada directamente a ningún portal.',
         'El embudo parte de los leads creados en el periodo y cuenta cuántos de ESOS leads llegaron a cada etapa (respuesta humana real, cualificado, visita no cancelada, oferta, operación). "Conversión" es la misma cohorte: los que ya tienen una operación cerrada entre los creados en el periodo.',
         'No se muestran importes: el dashboard cuenta, no suma dinero.',
         'Cada comercial ve sólo lo suyo: un usuario con permisos restringidos (Sistema → Usuarios) y vinculado a su ficha de comercial (campo «Usuario del panel» en la ficha del comercial) ve únicamente sus leads, visitas, ofertas, operaciones y tareas — no sólo en el dashboard, también en los listados de CRM (Leads, Visitas, Tareas, Compatibilidades/Ofertas y Operaciones): el servidor fuerza su comercial aunque el navegador pida otro, en el listado, en los contadores, al abrir una ficha por su enlace y en las acciones en bloque. Los administradores sin restricciones y quien tenga escritura en Sistema (gerencia) ven toda la agencia y pueden filtrar por cualquiera; una cuenta restringida que no esté vinculada a ninguna ficha de comercial sigue viendo toda la agencia (su acceso al CRM es una concesión del administrador), salvo el dashboard comercial, que necesita el vínculo.',
@@ -335,7 +335,7 @@ export function useHelpContent() {
     },
     {
       key: 'inmo',
-      group: 'CRM',
+      group: 'Chatbot',
       title: 'INMO (asistente)',
       route: '/admin/inmo',
       summary: 'Asistente que responde con los datos reales de tu agencia: busca propiedades con criterios estructurados, encuentra contactos y leads, calcula compatibilidades con el motor de Matching y prepara visitas, tareas, envíos y ofertas — siempre con tu usuario y tus permisos.',
@@ -358,7 +358,7 @@ export function useHelpContent() {
     },
     {
       key: 'inmo-ajustes',
-      group: 'CRM',
+      group: 'Chatbot',
       title: 'INMO: conocimiento, memoria y perfiles',
       route: '/admin/inmo-ajustes',
       summary: 'Lo que INMO sabe de tu agencia: la base de conocimiento que consulta y cita, los hechos que ha guardado con tu confirmación y los ajustes de cada perfil.',
@@ -372,7 +372,7 @@ export function useHelpContent() {
     },
     {
       key: 'leads',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Leads',
       route: '/admin/leads',
       summary: 'Pipeline Kanban de todos los contactos interesados: nuevo → contactado → cualificando → cualificado → visita → oferta → negociación → ganado, con "perdido" como columna aparte. Es la pestaña «Leads» de la sección «Gestión de contactos» (junto a Contactos y Clientes).',
@@ -388,30 +388,30 @@ export function useHelpContent() {
         'El primer contacto y la primera respuesta humana se rellenan solos con lo que de verdad pasa: un WhatsApp enviado desde Comunicaciones, una llamada contestada o anotada, o pasar el lead a «Contactado» o más allá. La primera cita, al crear una cita o un tour para el lead desde el panel o al reservarla el cliente.',
         'Cada tarjeta tiene un desplegable con el comercial asignado — cámbialo ahí mismo para reasignar el lead a otra persona, o a "Sin asignar", sin salir del listado. Queda registrado quién lo tenía, a quién pasó y cuándo en su historial de asignaciones.',
         'Edición en la vista Tabla: haz clic en la «Fase» o en el «Comercial» de una fila (sale un lápiz al pasar por encima), elige el valor nuevo en el desplegable y se guarda al momento (la fase, tras escribir o elegir su motivo); Esc (o la ×) cancela sin cambiar nada. La fase pasa por el mismo sitio que arrastrar en el Pipeline, así que queda en el «Historial de fases» con quién y cuándo, y el comercial por la misma reasignación, que queda en su historial de asignaciones. Elegir «Perdido» abre la ventana del motivo, igual que en el Pipeline (si la cancelas, no cambia nada); elegir una fase para un lead perdido lo reactiva y lo lleva a esa fase. Si el servidor rechaza el cambio, el motivo se queda en rojo bajo el desplegable. Sólo se ofrece si puedes escribir en CRM.',
-        'Los leads se crean solos desde el formulario público, las reservas de visita, el chat de la web y el programa de referidos — no hace falta darlos de alta a mano salvo excepción. Llegan con el idioma de quien escribe (el que eligió en la web o, si no eligió, el de su navegador) y, si vienen de la ficha de una promoción, con esa propiedad de interés. Si el email o el teléfono coincide con un contacto que ya existe en tu agencia, el lead se enlaza automáticamente a esa ficha en vez de crear una persona duplicada. Si tienes reglas de enrutado configuradas (CRM → Enrutamiento y SLA), el comercial se asigna solo al crearse — salvo que ya llegue con uno explícito, como una reserva de cita con un comercial concreto.',
-        '"Próxima acción" (debajo de la tarjeta y en la columna del mismo nombre de la vista Tabla) dice qué toca y cuándo — p. ej. «Tarea · Llamada · mañana» o «Cita · Visita a inmueble · en 3 d» — y sale en rojo si ya pasó. Es la tarea abierta o la cita futura más próxima de ese lead: nunca algo que se escriba a mano, se recalcula sola. En la ficha del lead aparece en «Tiempos (SLA)» con su tipo. El botón "+ Tarea" de cada tarjeta crea una tarea ligada a ese lead, visible también en CRM → Tareas.',
+        'Los leads se crean solos desde el formulario público, las reservas de visita, el chat de la web y el programa de referidos — no hace falta darlos de alta a mano salvo excepción. Llegan con el idioma de quien escribe (el que eligió en la web o, si no eligió, el de su navegador) y, si vienen de la ficha de una promoción, con esa propiedad de interés. Si el email o el teléfono coincide con un contacto que ya existe en tu agencia, el lead se enlaza automáticamente a esa ficha en vez de crear una persona duplicada. Si tienes reglas de enrutado configuradas (Mi negocio → Enrutamiento y SLA), el comercial se asigna solo al crearse — salvo que ya llegue con uno explícito, como una reserva de cita con un comercial concreto.',
+        '"Próxima acción" (debajo de la tarjeta y en la columna del mismo nombre de la vista Tabla) dice qué toca y cuándo — p. ej. «Tarea · Llamada · mañana» o «Cita · Visita a inmueble · en 3 d» — y sale en rojo si ya pasó. Es la tarea abierta o la cita futura más próxima de ese lead: nunca algo que se escriba a mano, se recalcula sola. En la ficha del lead aparece en «Tiempos (SLA)» con su tipo. El botón "+ Tarea" de cada tarjeta crea una tarea ligada a ese lead, visible también en Mi negocio → Tareas.',
         'En la vista Tabla, marca la casilla de una o varias filas (o la de la cabecera, para marcarlas todas) para actuar sobre varios leads a la vez: cambiar el comercial, cambiar la fase, añadir una etiqueta, o crear una tarea idéntica para cada uno. Aparece un botón "Aplicar" que pide confirmación con el número exacto de leads afectados (en «Cambiar fase», la confirmación es la ventana del motivo, que queda en el historial de cada uno) y muestra el progreso mientras corre; si algo falla en una fila concreta (por ejemplo, una fase inválida), el resto de la selección sigue procesándose igual. "Exportar seleccionados" descarga un CSV sólo con esos leads.',
         'El número de cada lead es su Lead Score (0-100): una puntuación por reglas fijas de tu agencia sobre señales reales — presupuesto validado, compra prevista pronto, si ha respondido en las últimas horas, si tiene una visita pedida, si su financiación está validada y cuántas fichas enviadas ha abierto de verdad (lectura confirmada de WhatsApp, o su enlace personal abierto cuando se le envió por email o por el chat de la web). Haz clic en el número para ver "¿Por qué?": qué criterios suman, cuáles no y con qué dato, más su historial. Los filtros "Puntuación ≥" y "Mayor puntuación primero" ordenan y filtran por él.',
         'La vista Tabla va por páginas de 100, con «← Anterior» / «Siguiente →» y el total de leads del filtro debajo. El Pipeline enseña los 200 más recientes del filtro y avisa si hay más. «Exportar CSV (N)» descarga TODOS los leads del filtro actual, sin límite de filas, con una columna de etiquetas. Al marcar todas las filas de la página aparece «Seleccionar los N que cumplen el filtro» para aplicar una acción masiva (o exportar) a todos ellos, hasta 2.000 por acción.',
         'Etiquetas: se ven en las tarjetas del Pipeline y en la Tabla, y el desplegable «Todas las etiquetas» filtra por una. En la ficha del lead, bajo el nombre, «+ Etiqueta» añade una (nueva o existente) y la × la quita; son las mismas que pone la acción masiva «Añadir etiqueta».',
-        'Campos personalizados: en la ficha del lead, pestaña «Datos», el panel «Campos personalizados» enseña los campos que tu agencia haya creado para leads (CRM → Campos personalizados). Rellénalos y pulsa «Guardar campos».',
+        'Campos personalizados: en la ficha del lead, pestaña «Datos», el panel «Campos personalizados» enseña los campos que tu agencia haya creado para leads (Mi negocio → Campos personalizados). Rellénalos y pulsa «Guardar campos».',
         'Un número con asterisco (*) es una puntuación del sistema anterior, que sumaba puntos fijos cada vez que alguien volvía a escribir y no se puede explicar. Pulsa "Recalcular con las señales actuales" en su detalle, o selecciónalos en la vista Tabla y usa la acción "Recalcular puntuación". El Lead Score no es la compatibilidad con un inmueble (eso es Compatibilidades/Matching), no reparte leads y no sustituye al SLA.',
       ],
     },
     {
       key: 'enrutamiento',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Enrutamiento y SLA',
       route: '/admin/enrutamiento',
       summary: 'A qué comercial va cada lead nuevo, y si se está atendiendo a tiempo: reglas de reparto automático y alertas cuando un lead lleva demasiado tiempo sin moverse.',
       steps: [
         'Las reglas de reparto se gestionan en "Gestionar reglas de enrutado" (enlace en la cabecera de esta página): cada regla tiene una prioridad (se evalúan de menor a mayor, gana la primera que encaje) y un ámbito — propiedad (el comercial responsable de la propiedad de interés del lead, en su catálogo: 2ª mano u obra nueva), zona, oficina, idioma, tipo de propiedad, obra nueva, equipo, o un reparto general/por departamento sin condición, típicamente la última como red de seguridad.',
-        'Al crear o editar una regla, el valor a comparar cambia con el ámbito y se elige de una lista: «Oficina» → las oficinas de tu agencia («Cualquier oficina» aplica a todos los leads); «Equipo» → tus equipos (CRM → Equipos), y el reparto se hace entre sus comerciales; «Idioma» → la lista de idiomas; «Tipo de inmueble» → los tipos de la ficha; «Zona» → escribe el distrito o la localidad. «Comercial fijo» y «Repartir dentro de la oficina» también son desplegables.',
+        'Al crear o editar una regla, el valor a comparar cambia con el ámbito y se elige de una lista: «Oficina» → las oficinas de tu agencia («Cualquier oficina» aplica a todos los leads); «Equipo» → tus equipos (Mi negocio → Equipos), y el reparto se hace entre sus comerciales; «Idioma» → la lista de idiomas; «Tipo de inmueble» → los tipos de la ficha; «Zona» → escribe el distrito o la localidad. «Comercial fijo» y «Repartir dentro de la oficina» también son desplegables.',
         '«Idioma» compara con el idioma del lead, que se rellena en el alta manual, en INMO y en la captación: los formularios de la web pública (contacto, captación, reserva de visita, verificación de visitante, referidos y chat) envían el idioma que la persona eligió en la web o, si no eligió ninguno, el de su navegador, y la API pública acepta «language». WhatsApp no informa del idioma, así que esos leads llegan sin él (puedes ponerlo en «Editar»).',
         'Una regla puede apuntar a un comercial concreto, o a un grupo repartido por Round Robin (por turnos, siempre el siguiente de la lista) o por Carga de trabajo (al que menos leads activos tiene ahora mismo). El grupo son los comerciales activos del departamento indicado, de la oficina de «Repartir dentro de la oficina» y/o del equipo de la regla.',
         '«Sólo en un horario» limita cuándo aplica una regla: marca los días (L a D), la franja «Desde»–«Hasta» y la zona horaria, o usa un atajo («Laborables 9:00-18:00», «Fines de semana», «Noches 22:00-06:00»); debajo se resume en palabras. Fuera de ese horario se prueba la siguiente regla — así puedes mandar lo que entra de noche o en fin de semana a un equipo de guardia. Admite franjas que cruzan la medianoche (22:00 a 06:00). Cada regla tiene una franja: para dos franjas distintas, crea dos reglas.',
         'El reparto ocurre solo, en cuanto se crea un lead nuevo sin comercial ya asignado (por ejemplo, uno que llega con una cita reservada con un comercial concreto no se reasigna). Si ninguna regla aplica, o el grupo de destino no tiene nadie disponible, el lead se queda sin asignar en vez de bloquear su creación — queda en la cola, recuperable a mano.',
-        'Desde la ficha de un lead (CRM → Leads) puedes reasignarlo manualmente a otro comercial en cualquier momento; queda constancia de quién lo tenía, a quién pasó y por qué en su historial de asignaciones.',
+        'Desde la ficha de un lead (Mi negocio → Leads) puedes reasignarlo manualmente a otro comercial en cualquier momento; queda constancia de quién lo tenía, a quién pasó y por qué en su historial de asignaciones.',
         'En esta página fijas los tres umbrales de SLA de tu agencia (nunca una regla universal): minutos hasta que un lead nuevo se considera "sin atender", horas sin próxima acción prevista tras cualificarlo, y días sin contacto antes de darlo por inactivo. Se recalculan cada hora.',
         '"Alertas abiertas" lista los leads que están incumpliendo alguno de esos tres umbrales ahora mismo (el nombre abre la ficha del lead). Se resuelven solas en cuanto el lead deja de cumplir la condición (alguien le escribe o le llama, avanza de fase, hay una próxima acción), o puedes marcarlas resueltas a mano si ya la has revisado y no hace falta actuar. «Sin contacto» cuenta también los contactos que salen de la agencia, no sólo los que entran.',
         '"Lead Score" fija las reglas de puntuación de tu agencia: activa o desactiva cada criterio, cambia sus puntos y su ventana (días para "compra prevista", horas para "respondió", mínimo de fichas abiertas, estados de hipoteca que cuentan como financiación validada). Hay una penalización opcional, desactivada por defecto, para leads que no responden en N días. Cada criterio dice de dónde sale su dato — nunca se deduce de una conversación ni se inventan aperturas.',
@@ -420,7 +420,7 @@ export function useHelpContent() {
     },
     {
       key: 'campos-personalizados',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Campos personalizados',
       route: '/admin/campos-personalizados',
       summary:
@@ -437,7 +437,7 @@ export function useHelpContent() {
     },
     {
       key: 'clientes',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Clientes',
       route: '/admin/clientes',
       summary: 'Cartera de clientes con ficha individual: datos, propiedades relacionadas y todo su histórico en una sola pantalla. Es la pestaña «Clientes» de la sección «Gestión de contactos» (junto a Leads y Contactos).',
@@ -446,9 +446,9 @@ export function useHelpContent() {
         'Pulsa el nombre de un cliente — o "Ver perfil" en el menú "···" — para abrir su ficha completa. No es una ventana emergente: es una página propia, con su URL, que puedes compartir con tu equipo.',
         'La ficha se organiza en pestañas. "Resumen" es su tablero: visitas, operaciones cerradas, volumen, propiedades relacionadas y actividad reciente. "Información" reúne todos los datos guardados. "Propiedades" muestra las viviendas vinculadas. "Actividad" es la cronología completa.',
         'La pestaña "Actividad" combina visitas, operaciones, reservas, contratos, leads y auditoría con los hitos del lead asociado al cliente: asignación o reasignación de comercial, cualificación, necesidad de compra/alquiler dada de alta y decisión sobre un match (seleccionado o descartado, con el motivo si lo hay). Cada hito aparece una sola vez, en el momento en que ocurrió de verdad.',
-        'La pestaña "Tareas" muestra el trabajo pendiente sobre esa persona — llamadas, seguimientos, lo que haga falta — y deja crear una nueva con "+ Nueva tarea". "Completar" la cierra; queda también en CRM → Tareas, la vista de todas las tareas de la agencia. Sólo existe si la ficha tiene un Contact moderno vinculado.',
+        'La pestaña "Tareas" muestra el trabajo pendiente sobre esa persona — llamadas, seguimientos, lo que haga falta — y deja crear una nueva con "+ Nueva tarea". "Completar" la cierra; queda también en Mi negocio → Tareas, la vista de todas las tareas de la agencia. Sólo existe si la ficha tiene un Contact moderno vinculado.',
         'La pestaña "Ofertas" muestra las propuestas económicas donde esta persona es compradora o vendedora, con el importe actual y su estado (Borrador, Enviada, Contraoferta, Aceptada, Rechazada, Retirada, Vencida). "+ Nueva oferta" busca el inmueble (de los dos catálogos) y la crea en borrador; desde ahí se Envía, se registra una Contraoferta con un importe nuevo, se Acepta o se Rechaza. Ningún importe anterior se pierde nunca — el histórico completo de la negociación queda guardado, no sólo el último número.',
-        'Cuando una oferta llega a "Aceptada", aparece el botón "Crear operación" — nunca ocurre solo. Abre la ficha de la Operación (etapas desde "Oferta aceptada" hasta "Cerrada", pasando por reserva, arras, financiación, documentación, notaría y firma), con su propio timeline, tareas y citas, y abajo las comunicaciones con el comprador (WhatsApp, llamadas y emails enviados) — las de notaría/firma son citas reales, así que salen también en CRM → Visitas. La pestaña "Operaciones" de este cliente lista las suyas, como comprador o como vendedor. No confundir con "Operaciones" (Finanzas & Growth → Operaciones): esa es el registro plano de comisiones ya cerradas; ésta es el seguimiento de la operación mientras está en marcha. Al cerrarla aquí, se crea automáticamente su fila en "Operaciones" (con comisión en 0, a rellenar), así que también cuenta en Ingresos sin tener que darla de alta dos veces.',
+        'Cuando una oferta llega a "Aceptada", aparece el botón "Crear operación" — nunca ocurre solo. Abre la ficha de la Operación (etapas desde "Oferta aceptada" hasta "Cerrada", pasando por reserva, arras, financiación, documentación, notaría y firma), con su propio timeline, tareas y citas, y abajo las comunicaciones con el comprador (WhatsApp, llamadas y emails enviados) — las de notaría/firma son citas reales, así que salen también en Mi negocio → Visitas. La pestaña "Operaciones" de este cliente lista las suyas, como comprador o como vendedor. No confundir con "Operaciones" (Mi negocio → Cierres y comisiones): esa es el registro plano de comisiones ya cerradas; ésta es el seguimiento de la operación mientras está en marcha. Al cerrarla aquí, se crea automáticamente su fila en "Operaciones" (con comisión en 0, a rellenar), así que también cuenta en Ingresos sin tener que darla de alta dos veces.',
         'Las propiedades relacionadas se leen del catálogo **en vivo**: si cambias el precio o la foto en Propiedades (web) o en Propiedades 2ª mano, la ficha del cliente lo refleja al instante, porque aquí no se guarda ninguna copia. Cada tarjeta indica por qué está relacionada (visita, operación, reserva o interés) y te lleva a la ficha original de la propiedad.',
         'El histórico de un cliente (sus visitas, operaciones, reservas y contratos) se cruza por su email, o por su nombre exacto si no tiene email. Rellenar el email hace ese cruce mucho más fiable: es lo que une a esa persona con todo lo demás.',
         '"Editar cliente" abre el mismo editor que usas para dar uno de alta, con validación y aviso de cambios sin guardar. "Nuevo cliente" está en el listado.',
@@ -458,7 +458,7 @@ export function useHelpContent() {
     },
     {
       key: 'comunicaciones',
-      group: 'CRM',
+      group: 'Comunicación y mensajes',
       title: 'Comunicaciones',
       route: '/admin/comunicaciones',
       summary: 'Bandeja de la agencia dentro del panel: WhatsApp, los formularios de la web y el chat de la web en una sola lista (y, con el email entrante activo, las respuestas por email a sus hilos). Recibir y responder, compartir propiedades, vincular cada conversación a su contacto, lead y propiedad, anotar llamadas y programar seguimientos.',
@@ -477,7 +477,7 @@ export function useHelpContent() {
         'Un mensaje ⚠ no entregado tiene «Reintentar»: se vuelve a enviar como un mensaje nuevo y el fallido se queda en el hilo tal cual, para que el historial no mienta. Si era una propiedad, se manda con su precio y su foto de ahora, no con los del primer intento. Las reglas de WhatsApp siguen aplicando: pasadas 24 h desde el último mensaje del cliente, un texto ya no se puede reintentar (sólo una plantilla).',
         'Un número que no está en ningún cliente ni lead aparece como "Contacto desconocido". Desde la ficha del contacto se vincula a uno existente (buscador) o se crea un lead nuevo con origen "whatsapp". En Ajustes puedes hacer que los desconocidos se conviertan en lead automáticamente. En los dos casos el lead entra igual que uno del formulario de la web: con su Contacto (si ese teléfono o email ya es de alguien, se enlaza a esa persona en vez de duplicarla), reparto automático según tus reglas, entrada en la Actividad y aviso al equipo. Al abrir una conversación desde la ficha de un cliente o de un lead no se crea ningún lead nuevo: esa ficha ya es la persona.',
         'La ficha del contacto también fija el estado de la conversación (abierta, pendiente, cerrada), el comercial asignado, la propiedad de contexto y el consentimiento: un mensaje del cliente lo pone en "acepta mensajes"; si escribe STOP o BAJA queda dado de baja y no se le envía nada (ni plantillas) hasta que vuelva a escribir o alguien lo cambie a mano.',
-        '"Programar seguimiento" crea una cita real en la agenda del comercial (llamada, videollamada o visita), la misma que ves en CRM → Visitas, con la comprobación de huecos ocupados. Si el contacto está vinculado a un lead, la cita queda ligada a ese lead y pasa a ser su "próxima acción" en el tablero de Leads.',
+        '"Programar seguimiento" crea una cita real en la agenda del comercial (llamada, videollamada o visita), la misma que ves en Mi negocio → Visitas, con la comprobación de huecos ocupados. Si el contacto está vinculado a un lead, la cita queda ligada a ese lead y pasa a ser su "próxima acción" en el tablero de Leads.',
         'Con la conversación vinculada a un lead o cliente, la ficha muestra un bloque «Contexto»: la próxima acción del lead (en rojo si ya venció), sus necesidades de compra/alquiler activas y sus próximas citas. No se copia nada a la conversación: se lee en vivo cada vez que abres el hilo.',
         'Llamadas: con un número de Meta con las llamadas activas, "Llamar por WhatsApp" llama desde el navegador (pide el micrófono); el contacto tiene que haber dado permiso antes ("Pedir permiso" en su ficha; Meta limita las peticiones a 1 al día y 2 por semana). La llamada sigue en un widget abajo a la derecha aunque cambies de página, se puede minimizar, y al colgar se anota el resultado. Las entrantes aparecen como aviso para contestar o rechazar. No se graba ni se transcribe nada: el audio va directo entre tu navegador y WhatsApp.',
         'Si el número no admite llamadas (Twilio, o Meta sin la función activa), "Llamar" marca con el teléfono y abre "Registrar llamada" para anotar dirección, resultado, duración y notas; también cuenta como actividad de la ficha.',
@@ -487,7 +487,7 @@ export function useHelpContent() {
     },
     {
       key: 'visitas',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Visitas',
       route: '/admin/visitas',
       summary: 'La agenda de citas — visitas, llamadas, videollamadas, reuniones, tasaciones, captaciones, firmas, notarías y open house — en Lista, Calendario (Día/Semana/Mes/Agenda) y Tours, con el resultado estructurado de cada visita.',
@@ -509,14 +509,14 @@ export function useHelpContent() {
         '"Editar / reordenar" en un tour ya creado cambia el cliente, el lead, el contacto y las notas (se aplican a todas sus paradas) y el orden de la ruta, recalculando las horas si lo marcas. Cada parada movida se comprueba contra la agenda de su comercial y se avisa al cliente. Si el tour ya empezó (alguna parada completada), las horas se mueven parada a parada con "Editar".',
         '"+ Parada" en la cabecera de un tour ya creado añade otra visita a la ruta: elige el inmueble (obra nueva o 2ª mano, con el mismo buscador que al crear el tour), el comercial, la duración y cuándo — "Al final de la ruta" (empieza al acabar la última parada activa más el desplazamiento que elijas; la ventana te dice a qué hora quedará) o "A una hora concreta". La parada nueva es una cita real del mismo cliente, lead y contacto que el resto del tour; se comprueba que el inmueble sea de tu agencia y no esté en la papelera, que no pise otra parada del tour ni otra cita del comercial, queda en la Actividad y se avisa al cliente. Va al final de la ruta: si tiene que ir antes, usa "Editar / reordenar".',
         '"Quitar" en una parada agendada la saca de la ruta: pide un motivo y su cita queda "Cancelada" con ese motivo (no se borra: sigue en el tour, tachada, para que se vea qué pasó), se avisa al cliente y el resto de la ruta no se mueve. Una parada ya hecha no se quita, y la única parada activa de un tour tampoco — un tour no se queda vacío; si esa visita ya no se hace, ábrela con "Ver" y cancélala.',
-        'La ficha de la cita tiene también el panel «Campos personalizados» con los campos que tu agencia haya creado para citas (CRM → Campos personalizados): rellénalos ahí y pulsa «Guardar campos».',
+        'La ficha de la cita tiene también el panel «Campos personalizados» con los campos que tu agencia haya creado para citas (Mi negocio → Campos personalizados): rellénalos ahí y pulsa «Guardar campos».',
         'Cada cita avisa al cliente por email y, si tiene teléfono, por WhatsApp (confirmación, recordatorios 24 h y 1 h antes, cancelación y cambios); la ficha dice si los recordatorios están pendientes o enviados. El WhatsApp sale de verdad cuando la plataforma tiene conectado Twilio — Sistema → Estado del sistema lo dice; si no, el aviso queda registrado como "no conectado". El teléfono necesita prefijo internacional (+34…).',
         'Las reservas que hacen los visitantes desde la ficha de una propiedad («Próxima visita disponible» o «Solicitar visita») entran aquí como cita del comercial responsable, con la propiedad y el contacto de su lead, y el comercial recibe el aviso en la campana del panel. Quien reserva ha aceptado la política de privacidad, y la cita queda «pendiente» hasta que confirma su asistencia desde su enlace.',
       ],
     },
     {
       key: 'tareas',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Tareas',
       route: '/admin/tareas',
       summary: 'Trabajo pendiente de toda la agencia: llamadas, WhatsApp, documentos, seguimientos… — distinto de las citas (tiempo reservado) y de la Actividad (lo que ya ocurrió).',
@@ -533,7 +533,7 @@ export function useHelpContent() {
     },
     {
       key: 'ofertas',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Ofertas',
       route: '/admin/ofertas',
       summary: 'Todas las ofertas de la agencia en un listado, con la negociación completa de cada una: oferta, contraoferta, nueva oferta, aceptada o rechazada — sin perder nunca un importe anterior.',
@@ -543,12 +543,12 @@ export function useHelpContent() {
         'Al pulsar una oferta se abre su detalle con las acciones que tocan según su estado. Enviada: "Contraoferta del vendedor", "El vendedor acepta" o "El vendedor rechaza". Con contraoferta: "Nueva oferta del comprador", otra contraoferta, aceptarla o rechazarla. Contraoferta y nueva oferta llevan los mismos términos que la oferta: importe, condiciones, financiación y vencimiento.',
         'El "Historial de la negociación" lista cada movimiento con sus términos completos, quién lo hizo y cuándo. Es inmutable: una contraoferta nunca sobrescribe la oferta anterior, se añade debajo.',
         'Si mientras miras una oferta otra persona registra un movimiento, "Aceptar" no acepta lo que ya no está vigente: avisa y recarga el detalle para que veas los términos actuales.',
-        'Una oferta aceptada tiene el botón "Crear operación", que abre su seguimiento en CRM → Operaciones. Las ofertas también se ven y se crean desde la ficha de la propiedad (panel «Ofertas»), desde la ficha del cliente y desde Compatibilidades o el resultado de una visita.',
+        'Una oferta aceptada tiene el botón "Crear operación", que abre su seguimiento en Mi negocio → Operaciones. Las ofertas también se ven y se crean desde la ficha de la propiedad (panel «Ofertas»), desde la ficha del cliente y desde Compatibilidades o el resultado de una visita.',
       ],
     },
     {
       key: 'deal-operations',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Operaciones',
       route: '/admin/deal-operations',
       summary: 'El seguimiento de cada operación desde la oferta aceptada hasta la firma, en un Kanban por etapas: oferta aceptada, reserva, arras, financiación, documentación, notaría, firma y cerrada.',
@@ -558,7 +558,7 @@ export function useHelpContent() {
         'Una operación nace siempre de una oferta aceptada ("Crear operación" en el detalle de la oferta). En su ficha: la etapa (con un motivo opcional que queda en el historial), el historial de etapas, la oferta aceptada con toda su negociación, las partes, y la oficina y el comercial, que se pueden cambiar ahí mismo (sólo oficinas de tu agencia).',
         '«Reserva, arras y contratos» vincula a la operación lo que ya existe en Reservas, Depósitos y Contratos: elige uno del desplegable y pulsa "Vincular"; "Desvincular" lo suelta sin borrarlo. Sólo se ofrecen los de tu agencia que aún no pertenecen a otra operación. Arras y contratos son de Finanzas: sin permiso de Finanzas no se ven ni se vinculan.',
         'La ficha tiene también sus tareas (créalas con "+ Nueva tarea": la operación, el comprador y el inmueble vienen ya puestos), sus citas de notaría o firma (aparecen en el Calendario) y la «Actividad»: todo lo ocurrido en la operación, en su oferta, en sus tareas y en sus citas.',
-        'En la columna derecha de la ficha, «Campos personalizados» recoge los campos que tu agencia haya creado para operaciones (CRM → Campos personalizados), con «Guardar campos».',
+        'En la columna derecha de la ficha, «Campos personalizados» recoge los campos que tu agencia haya creado para operaciones (Mi negocio → Campos personalizados), con «Guardar campos».',
         'Bajo el número de la operación se ve quién la abrió y cuándo («Creado por…»; «usuario eliminado» si ese usuario ya no existe). El panel «Notas» guarda las notas internas del equipo sobre la operación (con autor y fecha; se pueden fijar, editar y eliminar), que nunca se envían al cliente.',
         'Cerrar crea solo su apunte en Finanzas → «Cierres y comisiones» (con la comisión a 0 para que pongas el % real) y, en 2ª mano en venta, marca el inmueble como vendido. Cancelar pide un motivo y no borra nada.',
         'Mandar a la papelera: «Mandar a la papelera» en la ficha, o «Papelera» en su fila de la vista «Lista». Pide confirmación; la operación sale del Kanban y de la lista y su ficha deja de abrirse, pero no se borra nada (historial, tareas, citas y actividad se conservan). No se puede con una operación cerrada (ya tiene su apunte en «Cierres y comisiones») ni con una que tenga reserva, arras o contrato vinculados: el aviso dice cuáles, desvincúlalos antes en «Reserva, arras y contratos».',
@@ -567,7 +567,7 @@ export function useHelpContent() {
     },
     {
       key: 'citas-analytics',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Analítica de citas',
       route: '/admin/citas-analytics',
       summary: 'No-shows, ocupación por comercial y conversión de cita a venta.',
@@ -575,15 +575,15 @@ export function useHelpContent() {
     },
     {
       key: 'reservas',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Reservas',
       route: '/admin/reservas',
       summary: 'Reservas de unidades sobre plano hechas por clientes desde la web pública.',
-      steps: ['Una reserva se vincula a su operación desde la ficha de la operación (CRM → Operaciones → «Reserva, arras y contratos»). En esta lista aparece entonces «Operación #…» bajo la referencia, con el enlace.'],
+      steps: ['Una reserva se vincula a su operación desde la ficha de la operación (Mi negocio → Operaciones → «Reserva, arras y contratos»). En esta lista aparece entonces «Operación #…» bajo la referencia, con el enlace.'],
     },
     {
       key: 'referidos',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Referidos',
       route: '/admin/referidos',
       summary: 'Programa de recomendación: cada cliente o comercial recibe un enlace propio para recomendar la inmobiliaria.',
@@ -597,7 +597,7 @@ export function useHelpContent() {
     // --- Portal Web ------------------------------------------------------------
     {
       key: 'developer-properties',
-      group: 'Portal Web',
+      group: 'Web y contenido',
       title: 'Propiedades (web)',
       route: '/admin/developer-properties',
       summary: 'Catálogo principal de propiedades sobre plano/promociones que se muestran en la web pública.',
@@ -657,7 +657,7 @@ export function useHelpContent() {
     },
     {
       key: 'site-builder',
-      group: 'Portal Web',
+      group: 'Web y contenido',
       title: 'Constructor Web',
       route: '/admin/site-builder',
       summary: 'Editor visual de las páginas de tu web pública (Inicio, Propiedades, Ficha de propiedad, Nosotros, Servicios, Contacto y Blog) — pulsa cualquier texto, botón o imagen del lienzo y edítalo ahí mismo; añade, ordena y reordena secciones sin tocar código.',
@@ -672,7 +672,7 @@ export function useHelpContent() {
         'Pulsa en el hueco de una tarjeta (no sobre su texto) para seleccionar la tarjeta entera; pulsa en el fondo de una sección para seleccionar la sección; usa la miga de pan del panel ("Sección › Elemento") o "↑ Sección" para subir de nivel, y Escape para bajar la selección paso a paso (sale de la edición, luego del elemento, luego de la sección).',
         'La cabecera también se ve en el lienzo, pero es un elemento global de toda la web (no sólo de Inicio): al pulsarla, el panel explica de dónde sale (logo y nombre en Sistema → Empresas) en vez de dejarte crear una copia distinta sólo para la portada. Si la empresa tiene logo, la cabecera y el pie enseñan el logo y, a su derecha, el nombre comercial (o el nombre de la empresa); sin logo, sólo el nombre.',
         'El pie de página es global (el mismo en todas las páginas) y se edita pulsándolo en el lienzo. Tiene cinco columnas en escritorio: identidad (logo, descripción y redes sociales en círculos), «Explorar», «Empresa», «Servicios» (con su etiqueta en píldora) y «Suscríbete» con el contacto debajo (teléfono con horario y ciudad con «Ver en el mapa»); abajo, la barra oscura con «© año Empresa. Todos los derechos reservados.», Política de privacidad, Términos, Política de cookies, «Configurar cookies» (abre el panel real del aviso), el selector de idioma y el botón «volver arriba». En «Contenido» cambias la descripción, las redes (las del Brand Kit o una lista propia; sólo se enseñan las que tienen una dirección real de su red), el título y los enlaces de cada columna (páginas de tu web elegidas de una lista, o enlaces externos https/mailto/tel; se añaden, reordenan, ocultan y quitan), el texto de «Suscríbete», el teléfono, el horario y la ubicación (vacíos = los de tu empresa: Brand Kit, datos legales y oficina principal; lo que no exista no se enseña) y qué sale en la barra inferior. En «Diseño»: colores (de partida, blanco cálido, etiquetas melocotón y tu color de marca en el botón, los iconos y la barra), tamaño del texto, márgenes, separación de columnas, etiquetas en píldora o texto, estilo de los iconos y el paisaje decorativo del fondo (liso, un dibujo —costa con faro, montañas, ciudad, campo— o una imagen propia, con opacidad y altura). En «Avanzado»: orden y visibilidad de las columnas, redes, contacto, y qué se oculta o se pliega en el móvil. Se autoguarda como borrador y llega a la web con «Publicar cambios» (si hay cambios en el pie, se publica junto con la página). Un enlace a una página que ya no existe o que aún no está publicada (Servicios) se queda en la lista con su aviso y no se enseña en la web: nada se borra en silencio.',
-        'El «Suscríbete» del pie es real: quien escribe su email y marca «Acepto la política de privacidad» queda apuntado en Portal Web → Suscriptores, con la fecha de su consentimiento; si repite, no se duplica. Nunca se envía ningún email automático (ni de bienvenida ni newsletter): la lista es tuya para exportarla. A quien se apunta se le ofrece al momento un enlace para darse de baja; en el lienzo del Constructor el formulario no guarda nada.',
+        'El «Suscríbete» del pie es real: quien escribe su email y marca «Acepto la política de privacidad» queda apuntado en Comunicación y mensajes → Suscriptores, con la fecha de su consentimiento; si repite, no se duplica. Nunca se envía ningún email automático (ni de bienvenida ni newsletter): la lista es tuya para exportarla. A quien se apunta se le ofrece al momento un enlace para darse de baja; en el lienzo del Constructor el formulario no guarda nada.',
         '"Estilos globales" (icono "Aa" de la barra superior) fija la tipografía de los títulos, la del texto y el radio de los botones de toda la página; cada elemento hereda de ahí salvo que le des un estilo propio. Se guarda y publica con la página.',
         'Atajos: Enter edita el texto seleccionado; Esc sube de nivel; Supr elimina la sección seleccionada (pide confirmación); Ctrl/Cmd+D la duplica; Ctrl/Cmd+Z y Ctrl/Cmd+Mayús+Z deshacen y rehacen cualquier cambio (texto, color, fuente, imagen, espaciado, estilos globales y estructura), agrupados por ráfaga de cambios y no por tecla.',
         'La lista "Estructura" (izquierda) muestra una tarjeta por sección con su número, nombre y un resumen real (p. ej. "4 propiedades · Fila") — así puedes distinguir de un vistazo varias secciones del mismo tipo. Debajo, "Páginas" lista las páginas de tu web: pulsa una y se abre en el lienzo para editarla (la que está abierta se ve resaltada y la Estructura pasa a ser la suya).',
@@ -693,11 +693,11 @@ export function useHelpContent() {
         'El lienzo se ajusta solo al espacio disponible (evita el scroll horizontal) manteniendo el tamaño real del dispositivo elegido — usa los controles "− % +" para hacer zoom manual, o "Ajustar" para volver al ajuste automático. Contrae los paneles "Estructura" o "Propiedades del bloque" (flecha en su cabecera) si necesitas más espacio para el lienzo — el ajuste se recalcula solo y no pierdes ni la selección ni el scroll.',
         'La categoría «Empresa» de la biblioteca añade la inmobiliaria detrás del catálogo, para que la web no parezca un portal genérico: «Conoce nuestra inmobiliaria» (texto, fotografía corporativa grande, botón a Nosotros y hasta cuatro cifras), «Nuestra experiencia, tu tranquilidad» (tres o cuatro argumentos propios, con fotografía opcional) y «Nuestras oficinas» (tus oficinas reales con foto, dirección, horario, teléfono, email, mapa y «Cómo llegar»). Los tres se activan, ordenan, ocultan y editan como cualquier otra sección, y cada inmobiliaria tiene los suyos: lo que escribes aquí es sólo de tu web.',
         'Las cifras de «Conoce nuestra inmobiliaria» no se inventan: en «Cifras» eliges cuáles enseñar entre las que la plataforma cuenta en vivo (comerciales publicados, oficinas publicadas, viviendas en el catálogo, guías de zona, idiomas del equipo; el panel enseña el valor actual de cada una) y, si quieres, cifras propias con su texto («+15 · años de experiencia») sólo para datos que puedas acreditar. Una cifra en vivo a cero no se enseña, y puedes cambiar el texto de cada una («asesores que conocen Asturias»).',
-        '«Nuestras oficinas» lee en vivo CRM → Oficinas: salen las activas con «Mostrar en la web» (1), la principal primero y después por «Orden en la web». Con una oficina (o eligiendo el diseño «Editorial») se ve la composición de foto, ficha y mapa; con varias, una cuadrícula. En «Diseño» decides qué campos se ven (presentación, horario, teléfono, email, mapa, «Cómo llegar»); lo que una oficina no tiene rellenado no aparece. Rellena en cada oficina la presentación, el horario, la latitud y longitud del mapa y si es la principal. La web también tiene la página /oficinas con todas, enlazada desde el botón del bloque.',
+        '«Nuestras oficinas» lee en vivo Mi negocio → Oficinas: salen las activas con «Mostrar en la web» (1), la principal primero y después por «Orden en la web». Con una oficina (o eligiendo el diseño «Editorial») se ve la composición de foto, ficha y mapa; con varias, una cuadrícula. En «Diseño» decides qué campos se ven (presentación, horario, teléfono, email, mapa, «Cómo llegar»); lo que una oficina no tiene rellenado no aparece. Rellena en cada oficina la presentación, el horario, la latitud y longitud del mapa y si es la principal. La web también tiene la página /oficinas con todas, enlazada desde el botón del bloque.',
         'La sección "Comerciales" de la biblioteca añade a la portada a tu propio equipo, en tres diseños: "Tarjetas" (foto cuadrada, más pequeña que la columna y encuadrada arriba para no cortar caras, con nombre y puesto debajo), "Compacto" (una fila de retratos redondos, útil como prueba de confianza junto a un formulario) y "Editorial" («Conoce a nuestro equipo»: texto y botón a la izquierda, retratos verticales con nombre, puesto, una línea de su presentación y «Ver perfil»). Cada tarjeta enlaza a la ficha pública del comercial; no hace falta un segundo bloque de equipo para tener la versión editorial.',
         'Ese bloque solo muestra a quien tenga activado "Mostrar este comercial en la web" en su ficha (Comerciales → Perfil y presentación), y respeta el orden que fijes ahí. Puedes elegir "Todos" con un número máximo, o seleccionar comerciales concretos a mano; en los dos casos los datos se leen en vivo, así que cambiar una foto o un puesto se ve en la web sin volver a publicar. En "Diseño" decides si además de la foto y el nombre se ven el puesto, las especialidades y el teléfono/email.',
-        'La sección "Captación" añade los dos bloques que convierten visitas en clientes. El "Formulario de captación" crea un lead real en CRM → Leads (origen "web"), guarda el mensaje en Bandeja → Mensajes y, si tienes destinatarios configurados, avisa por email; en su inspector eliges los textos, si pides teléfono y una "Referencia interna" que viaja con cada envío para saber de qué formulario vino cada lead.',
-        'La "Reserva de visita" abre la misma agenda que la ficha pública del comercial: ofrece solo sus huecos libres, respeta sus días bloqueados y su tope diario, y la cita aparece en CRM → Visitas. Elige con qué comercial (o deja "el primero de la lista") y si la cita es presencial, videollamada o llamada. Si el comercial elegido deja de estar publicado, el bloque te avisa en el editor y la web sigue funcionando con el primero disponible.',
+        'La sección "Captación" añade los dos bloques que convierten visitas en clientes. El "Formulario de captación" crea un lead real en Mi negocio → Leads (origen "web"), guarda el mensaje en Comunicación y mensajes → Mensajes y, si tienes destinatarios configurados, avisa por email; en su inspector eliges los textos, si pides teléfono y una "Referencia interna" que viaja con cada envío para saber de qué formulario vino cada lead.',
+        'La "Reserva de visita" abre la misma agenda que la ficha pública del comercial: ofrece solo sus huecos libres, respeta sus días bloqueados y su tope diario, y la cita aparece en Mi negocio → Visitas. Elige con qué comercial (o deja "el primero de la lista") y si la cita es presencial, videollamada o llamada. Si el comercial elegido deja de estar publicado, el bloque te avisa en el editor y la web sigue funcionando con el primero disponible.',
         'Esos dos bloques están desactivados mientras editas y también en Vista previa, a propósito: probar tu propia portada no debe llenarte el CRM de leads inventados ni la agenda de citas falsas. Funcionan en cuanto publicas.',
         'El fondo de la portada (sección Hero) se elige en su pestaña «Contenido» › «Multimedia» › «Fondo»: «Bucle de imágenes» va alternando las imágenes que subas, una cada 7 segundos, con un fundido y un zoom lento (con una sola imagen, el fondo queda fijo); «Imagen fija» deja una sola imagen quieta, la que elijas en «Imagen de fondo» o, si no eliges ninguna, la primera del bucle. Las imágenes del bucle no se borran al cambiar a «Imagen fija», así que puedes volver a él cuando quieras.',
         'Los bloques de Propiedades, Comunidades y Blog siempre muestran tus datos reales y actuales — en su pestaña "Contenido" puedes elegir un criterio automático (más recientes, destacadas, por comunidad o tipo…) o seleccionar propiedades/comunidades concretas a mano; en ambos casos se siguen leyendo en vivo, nunca se copian. Con "Tipo de propiedad" eliges entre todos los tipos del catálogo (Piso, Casa, Chalet, Ático, Local, Garaje…), con cuántas propiedades tienes de cada uno entre paréntesis; puedes elegir uno que aún no tenga ninguna y la sección se llenará sola cuando la añadas.',
@@ -718,7 +718,7 @@ export function useHelpContent() {
     },
     {
       key: 'suscriptores',
-      group: 'Portal Web',
+      group: 'Comunicación y mensajes',
       title: 'Suscriptores',
       route: '/admin/suscriptores',
       summary: 'La lista de quienes se apuntan en «Suscríbete», al pie de tu web, con su consentimiento. Sin envíos automáticos: filtrar, exportar, dar de baja y borrar.',
@@ -731,7 +731,7 @@ export function useHelpContent() {
     },
     {
       key: 'properties',
-      group: 'Portal Web',
+      group: 'Web y contenido',
       title: 'Propiedades 2ª mano',
       route: '/admin/properties',
       summary: 'Catálogo separado para propiedades de segunda mano/reventa (no promociones de obra nueva).',
@@ -765,7 +765,7 @@ export function useHelpContent() {
     },
     {
       key: 'agents',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Comerciales',
       route: '/admin/comerciales',
       summary: 'Ficha profesional completa de cada comercial: datos laborales, especialización, propiedades asignadas, rendimiento y perfil público.',
@@ -786,7 +786,7 @@ export function useHelpContent() {
     },
     {
       key: 'communities',
-      group: 'Portal Web',
+      group: 'Web y contenido',
       title: 'Comunidades',
       route: '/admin/communities',
       summary: 'Zonas o urbanizaciones que agrupan propiedades y alimentan los filtros de búsqueda.',
@@ -794,7 +794,7 @@ export function useHelpContent() {
     },
     {
       key: 'zones',
-      group: 'Portal Web',
+      group: 'Web y contenido',
       title: 'Zonas',
       route: '/admin/zones',
       summary: 'Guías de zona de la web (región → municipio → localidad o barrio): directorio /zonas/<región>, página por municipio y por barrio, y bloque «Zonas» de la portada. Cada zona enlaza con el catálogo filtrado y cuenta sus viviendas reales.',
@@ -808,7 +808,7 @@ export function useHelpContent() {
     },
     {
       key: 'scheduler',
-      group: 'Portal Web',
+      group: 'Web y contenido',
       title: 'Publicación multicanal',
       route: '/admin/scheduler',
       summary: 'Programa la publicación automática de propiedades en portales externos (Idealista, Fotocasa) y redes sociales.',
@@ -819,7 +819,7 @@ export function useHelpContent() {
     },
     {
       key: 'brand-kit',
-      group: 'Portal Web',
+      group: 'Web y contenido',
       title: 'Brand Kit',
       route: '/admin/asset-export/brand-kit',
       summary: 'Logo, colores y datos de contacto de tu marca, usados en todas las piezas generadas automáticamente (PDFs, catálogos, contratos).',
@@ -827,7 +827,7 @@ export function useHelpContent() {
     },
     {
       key: 'asset-export-templates',
-      group: 'Portal Web',
+      group: 'Web y contenido',
       title: 'Plantillas de Export',
       route: '/admin/asset-export/templates',
       summary: 'Diseña plantillas visuales (ficha de propiedad, dossier, cartel) con un editor de arrastrar y soltar.',
@@ -835,7 +835,7 @@ export function useHelpContent() {
     },
     {
       key: 'asset-export-projects',
-      group: 'Portal Web',
+      group: 'Web y contenido',
       title: 'Piezas generadas',
       route: '/admin/asset-export/projects',
       summary: 'Piezas individuales (PDF, y PNG para redes cuando la plataforma tiene activado el renderizado de imágenes) ya generadas a partir de una plantilla y una propiedad concreta.',
@@ -846,7 +846,7 @@ export function useHelpContent() {
     },
     {
       key: 'asset-export-batches',
-      group: 'Portal Web',
+      group: 'Web y contenido',
       title: 'Exportación masiva',
       route: '/admin/asset-export/batches',
       summary: 'Genera piezas para muchas propiedades a la vez y descárgalas todas juntas en un ZIP.',
@@ -854,7 +854,7 @@ export function useHelpContent() {
     },
     {
       key: 'asset-export-catalogs',
-      group: 'Portal Web',
+      group: 'Web y contenido',
       title: 'Catálogos combinados',
       route: '/admin/asset-export/catalogs',
       summary: 'Un único PDF-catálogo con portada, índice y varias propiedades combinadas, de obra nueva o de 2ª mano.',
@@ -868,7 +868,7 @@ export function useHelpContent() {
     // --- Finanzas & Growth -----------------------------------------------
     {
       key: 'facturacion',
-      group: 'Finanzas & Growth',
+      group: 'Mi negocio',
       title: 'Facturación',
       route: '/admin/facturacion',
       summary: 'Tu plan de suscripción a la plataforma, uso y facturas.',
@@ -876,21 +876,21 @@ export function useHelpContent() {
     },
     {
       key: 'operaciones',
-      group: 'Finanzas & Growth',
+      group: 'Mi negocio',
       title: 'Cierres y comisiones',
       route: '/admin/operaciones',
-      summary: 'Registro de ventas y alquileres ya cerrados, con el cálculo de la comisión de cada comercial. (Antes se llamaba «Operaciones»; el seguimiento de una operación en marcha está en CRM → Operaciones.)',
+      summary: 'Registro de ventas y alquileres ya cerrados, con el cálculo de la comisión de cada comercial. (Antes se llamaba «Operaciones»; el seguimiento de una operación en marcha está en Mi negocio → Operaciones.)',
       steps: [
         'Pulsa "Registrar operación", indica cliente, tipo (venta/alquiler), valor y porcentaje de comisión, para dar de alta un cierre que no pasó por el pipeline.',
         'La comisión se calcula sola; márcala como "pagada" cuando la liquides con el comercial.',
         'Estos datos alimentan directamente el panel de Ingresos.',
-        'Cerrar una operación en CRM → Operaciones crea aquí su fila automáticamente, con la comisión en 0 — complétala tú con el % real. No hace falta registrarla dos veces.',
+        'Cerrar una operación en Mi negocio → Operaciones crea aquí su fila automáticamente, con la comisión en 0 — complétala tú con el % real. No hace falta registrarla dos veces.',
         'Los enlaces antiguos a esta pantalla (/admin/operaciones) siguen funcionando: sólo ha cambiado su nombre en el menú.',
       ],
     },
     {
       key: 'ingresos',
-      group: 'Finanzas & Growth',
+      group: 'Mi negocio',
       title: 'Ingresos',
       route: '/admin/ingresos',
       summary: 'Dashboard de ingresos y comisiones, agregado por mes y por comercial a partir de las operaciones reales registradas.',
@@ -898,7 +898,7 @@ export function useHelpContent() {
     },
     {
       key: 'contratos',
-      group: 'Finanzas & Growth',
+      group: 'Mi negocio',
       title: 'Contratos',
       route: '/admin/contratos',
       summary: 'Genera contratos (reserva, arras, alquiler, compraventa) a partir de plantillas y recoge la aceptación del cliente online.',
@@ -908,12 +908,12 @@ export function useHelpContent() {
         'Pulsa "Enviar" para generar el enlace de aceptación y cópialo para el cliente.',
         'El cliente lee el contrato en su enlace propio y lo acepta con su nombre, un aviso legal y un clic — queda registrada su IP y la fecha/hora. Es una firma electrónica simple, no cualificada.',
         'Al aceptarse, se genera un PDF final con el sello de aceptación, descargable desde esta página o desde el portal del propio cliente.',
-        'Un contrato se vincula a su operación desde la ficha de la operación (CRM → Operaciones → «Reserva, arras y contratos»). Aquí, debajo del título, aparece «Operación #…» con el enlace.',
+        'Un contrato se vincula a su operación desde la ficha de la operación (Mi negocio → Operaciones → «Reserva, arras y contratos»). Aquí, debajo del título, aparece «Operación #…» con el enlace.',
       ],
     },
     {
       key: 'depositos',
-      group: 'Finanzas & Growth',
+      group: 'Mi negocio',
       title: 'Depósitos',
       route: '/admin/depositos',
       summary: 'Cobro de fianzas o señales asociadas a un contrato, a través de Stripe Checkout, con confirmación automática por webhook.',
@@ -923,12 +923,12 @@ export function useHelpContent() {
         'El estado pasa a "Pagado" solo (automáticamente) en cuanto Stripe confirma el pago por webhook — nunca porque el cliente haya vuelto a la página de éxito, que no es una prueba de pago.',
         '"Comprobar estado" fuerza una consulta manual a Stripe, por si quieres verificar antes de que llegue el webhook o la reconciliación horaria.',
         'El historial de eventos de Stripe, debajo de la lista de depósitos, muestra cada notificación recibida y qué se hizo con ella — útil si un cliente dice haber pagado y no se refleja.',
-        'Unas arras se vinculan a su operación desde la ficha de la operación (CRM → Operaciones → «Reserva, arras y contratos»); aquí aparece entonces «Operación #…» bajo el contrato.',
+        'Unas arras se vinculan a su operación desde la ficha de la operación (Mi negocio → Operaciones → «Reserva, arras y contratos»); aquí aparece entonces «Operación #…» bajo el contrato.',
       ],
     },
     {
       key: 'tasador',
-      group: 'Finanzas & Growth',
+      group: 'Mi negocio',
       title: 'Tasador (AVM)',
       route: '/admin/tasador',
       summary: 'Estimación automática de valor de una propiedad, calculada solo a partir de comparables reales de tu propio catálogo.',
@@ -939,7 +939,7 @@ export function useHelpContent() {
     },
     {
       key: 'automatizaciones',
-      group: 'CRM',
+      group: 'Mi negocio',
       title: 'Automatizaciones',
       route: '/admin/automatizaciones',
       summary: 'Reglas reales del tipo «cuando pase X, si se cumple Y, haz Z» sobre lo que ocurre en tu CRM: se ejecutan solas cada minuto y dejan registro de cada ejecución.',
@@ -956,7 +956,7 @@ export function useHelpContent() {
     },
     {
       key: 'ai',
-      group: 'Finanzas & Growth',
+      group: 'Mi negocio',
       title: 'AI Studio',
       route: '/admin/ai',
       summary: 'Herramientas de generación de contenido asistidas por IA (descripciones, textos de marketing).',
@@ -964,7 +964,7 @@ export function useHelpContent() {
     },
     {
       key: 'widgets',
-      group: 'Portal Web',
+      group: 'Web y contenido',
       title: 'Widgets',
       route: '/admin/widgets',
       summary: 'Fragmentos embebibles (buscador de propiedades, formulario de contacto) para insertar en otras webs.',
@@ -995,7 +995,7 @@ export function useHelpContent() {
     // --- Blog & CMS --------------------------------------------------------
     {
       key: 'cms-dashboard',
-      group: 'Blog & CMS',
+      group: 'Web y contenido',
       title: 'Dashboard del blog',
       route: '/admin/cms',
       summary: 'Resumen de artículos publicados, borradores y comentarios pendientes.',
@@ -1003,7 +1003,7 @@ export function useHelpContent() {
     },
     {
       key: 'cms-articles',
-      group: 'Blog & CMS',
+      group: 'Web y contenido',
       title: 'Artículos',
       route: '/admin/cms/articles',
       summary: 'Editor de artículos del blog: título, contenido, categoría, etiquetas, imagen destacada y SEO.',
@@ -1014,7 +1014,7 @@ export function useHelpContent() {
     },
     {
       key: 'cms-guias-compra',
-      group: 'Blog & CMS',
+      group: 'Web y contenido',
       title: 'Guías de compra y bloques editoriales',
       route: '/admin/cms/articles',
       summary: 'Seis guías evergreen para compradores (paso a paso, gastos e impuestos con calculadora, qué revisar, precio, obra nueva o segunda mano, preguntas) y los bloques interactivos del blog: resumen, línea temporal, checklist, calculadora, gráfico de factores, comparador y desplegables.',
@@ -1028,7 +1028,7 @@ export function useHelpContent() {
     },
     {
       key: 'cms-categories',
-      group: 'Blog & CMS',
+      group: 'Web y contenido',
       title: 'Categorías',
       route: '/admin/cms-categories',
       summary: 'Organiza los artículos del blog en categorías.',
@@ -1036,7 +1036,7 @@ export function useHelpContent() {
     },
     {
       key: 'cms-tags',
-      group: 'Blog & CMS',
+      group: 'Web y contenido',
       title: 'Etiquetas',
       route: '/admin/cms-tags',
       summary: 'Etiquetas libres para artículos, usadas en filtros y relacionados.',
@@ -1044,7 +1044,7 @@ export function useHelpContent() {
     },
     {
       key: 'cms-authors',
-      group: 'Blog & CMS',
+      group: 'Web y contenido',
       title: 'Autores',
       route: '/admin/cms-authors',
       summary: 'Perfiles de autor que se muestran en cada artículo del blog.',
@@ -1052,7 +1052,7 @@ export function useHelpContent() {
     },
     {
       key: 'cms-media',
-      group: 'Blog & CMS',
+      group: 'Web y contenido',
       title: 'Media Library',
       route: '/admin/cms/media',
       summary: 'Biblioteca central de imágenes subidas, reutilizable en artículos y propiedades.',
@@ -1060,7 +1060,7 @@ export function useHelpContent() {
     },
     {
       key: 'cms-comments',
-      group: 'Blog & CMS',
+      group: 'Web y contenido',
       title: 'Comentarios',
       route: '/admin/cms-comments',
       summary: 'Modera los comentarios que dejan los lectores en los artículos del blog.',
@@ -1068,7 +1068,7 @@ export function useHelpContent() {
     },
     {
       key: 'cms-redirects',
-      group: 'Blog & CMS',
+      group: 'Web y contenido',
       title: 'Redirecciones',
       route: '/admin/cms-redirects',
       summary: 'Redirecciones 301 manuales, útiles al cambiar la URL de un artículo ya indexado.',
@@ -1076,7 +1076,7 @@ export function useHelpContent() {
     },
     {
       key: 'cms-papelera',
-      group: 'Blog & CMS',
+      group: 'Web y contenido',
       title: 'Papelera',
       route: '/admin/cms/papelera',
       summary: 'Artículos eliminados, recuperables durante un tiempo antes de borrarse definitivamente.',
@@ -1084,7 +1084,7 @@ export function useHelpContent() {
     },
     {
       key: 'cms-config',
-      group: 'Blog & CMS',
+      group: 'Web y contenido',
       title: 'Config. Blog',
       route: '/admin/cms/configuracion',
       summary: 'Ajustes generales del blog (SEO por defecto, moderación de comentarios).',
@@ -1093,16 +1093,16 @@ export function useHelpContent() {
     // --- Contenido -----------------------------------------------------------
     {
       key: 'blogs-legacy',
-      group: 'Blog & CMS',
+      group: 'Web y contenido',
       title: 'Blog (legacy)',
       route: '/admin/blogs',
       summary: 'Sistema de blog anterior, mantenido solo por compatibilidad con contenido antiguo.',
-      steps: ['Para contenido nuevo usa siempre "Blog & CMS → Artículos", no esta sección.'],
+      steps: ['Para contenido nuevo usa siempre "Web y contenido → Artículos", no esta sección.'],
     },
     // --- Bandeja -------------------------------------------------------------
     {
       key: 'visitor-submissions',
-      group: 'Bandeja',
+      group: 'Comunicación y mensajes',
       title: 'Solicitudes',
       route: '/admin/visitor-submissions',
       summary: 'Formularios genéricos rellenados por visitantes de la web pública.',
@@ -1110,7 +1110,7 @@ export function useHelpContent() {
     },
     {
       key: 'vendor-registrations',
-      group: 'Bandeja',
+      group: 'Comunicación y mensajes',
       title: 'Proveedores',
       route: '/admin/vendor-registrations',
       summary: 'Solicitudes de alta de proveedores/colaboradores externos.',
@@ -1118,7 +1118,7 @@ export function useHelpContent() {
     },
     {
       key: 'contact-messages',
-      group: 'Bandeja',
+      group: 'Comunicación y mensajes',
       title: 'Mensajes',
       route: '/admin/contact-messages',
       summary: 'Mensajes enviados desde el formulario de contacto público de tu web.',
@@ -1170,7 +1170,7 @@ export function useHelpContent() {
     },
     {
       key: 'emails',
-      group: 'Sistema',
+      group: 'Comunicación y mensajes',
       title: 'Emails',
       route: '/admin/emails',
       summary: 'Desde qué dirección envía tu empresa sus emails a clientes y equipo (con la verificación de tu dominio), y el historial real de envíos vía Resend.',
@@ -1290,6 +1290,12 @@ export function useHelpContent() {
 
   const faqs: HelpFaq[] = [
     {
+      id: 'faq-menu-reorganizado',
+      question: '¿Dónde está cada cosa en el menú? Lo veo reorganizado',
+      tags: ['menú', 'navegación', 'secciones', 'dónde está', 'categorías'],
+      answer: 'El menú se agrupa por tarea del día a día: **Dashboard operativo** (tu resumen y Analytics), **Mi negocio** (todo el CRM y las finanzas: contactos, visitas, ofertas, operaciones, comerciales, oficinas, facturación, ingresos, contratos…), **Chatbot** (INMO para tu equipo y los ajustes del chat de la web), **Comunicación y mensajes** (comunicaciones, mensajes, solicitudes, proveedores, emails y suscriptores), **Web y contenido** (Portal Web y Blog & CMS juntos) y **Sistema**. «Leads», «Contactos» y «Clientes» viven dentro de **Mi negocio → Gestión de contactos**, con pestañas para pasar de una a otra. Para abrir tu web pública, usa **VER MI WEB**, debajo del menú. Cambió dónde aparece cada cosa, no quién puede abrirla: tus permisos son exactamente los mismos.',
+    },
+    {
       id: 'faq-pie-editar',
       question: '¿Cómo cambio los enlaces, las redes o el teléfono del pie de mi web?',
       tags: ['constructor web', 'pie', 'footer', 'enlaces', 'redes sociales', 'contacto'],
@@ -1299,7 +1305,7 @@ export function useHelpContent() {
       id: 'faq-pie-newsletter',
       question: '¿Qué pasa cuando alguien se suscribe desde el pie de la web?',
       tags: ['newsletter', 'suscriptores', 'pie', 'rgpd', 'consentimiento'],
-      answer: 'Queda apuntado en Portal Web → Suscriptores, con la fecha en que aceptó la política de privacidad, y recibe en pantalla un enlace para darse de baja. No se le envía ningún email automático, ni de bienvenida ni newsletter: INMO guarda la lista con su consentimiento para que la exportes y la uses con tu herramienta de envíos, respetando las bajas. Quien se apunta dos veces no se duplica. Los datos de una persona se pueden exportar o suprimir desde Privacidad (RGPD) como el resto.',
+      answer: 'Queda apuntado en Comunicación y mensajes → Suscriptores, con la fecha en que aceptó la política de privacidad, y recibe en pantalla un enlace para darse de baja. No se le envía ningún email automático, ni de bienvenida ni newsletter: INMO guarda la lista con su consentimiento para que la exportes y la uses con tu herramienta de envíos, respetando las bajas. Quien se apunta dos veces no se duplica. Los datos de una persona se pueden exportar o suprimir desde Privacidad (RGPD) como el resto.',
     },
     {
       id: 'faq-landing-demo',
@@ -1326,7 +1332,7 @@ export function useHelpContent() {
       id: 'faq-catalogo-segunda-mano',
       question: '¿Puedo hacer un catálogo PDF con propiedades de 2ª mano?',
       answer:
-        'Sí. En Propiedades 2ª mano, selecciona hasta 30 propiedades en la vista de lista y elige la acción «Crear catálogo», o en Portal Web → Catálogos combinados elige «2ª mano». Sólo salen datos y fotos publicables, con la ubicación según la privacidad de cada ficha. La 2ª mano ya tiene ficha pública en tu web, aunque su QR todavía no se añade en este catálogo combinado.',
+        'Sí. En Propiedades 2ª mano, selecciona hasta 30 propiedades en la vista de lista y elige la acción «Crear catálogo», o en Web y contenido → Catálogos combinados elige «2ª mano». Sólo salen datos y fotos publicables, con la ubicación según la privacidad de cada ficha. La 2ª mano ya tiene ficha pública en tu web, aunque su QR todavía no se añade en este catálogo combinado.',
       tags: ['catálogo', 'pdf', 'segunda mano', '2ª mano', 'asset export', 'acción masiva'],
     },
     {
@@ -1375,7 +1381,7 @@ export function useHelpContent() {
       id: 'faq-campo-personalizado',
       question: '¿Cómo añado un dato que no existe en la ficha (por ejemplo, «Cliente VIP» o «Fecha de llaves»)?',
       answer:
-        'Con un campo personalizado: CRM → Campos personalizados, elige a qué se aplica (propiedades, contactos, leads, citas u operaciones) y «+ Nuevo campo». A partir de ahí aparece en todas las fichas de ese tipo, en el panel «Campos personalizados». Si es de propiedades y marcas «Visible en la web pública», sale también en la ficha pública. El tipo de un campo no se puede cambiar una vez que alguna ficha tiene valor: archívalo y crea otro.',
+        'Con un campo personalizado: Mi negocio → Campos personalizados, elige a qué se aplica (propiedades, contactos, leads, citas u operaciones) y «+ Nuevo campo». A partir de ahí aparece en todas las fichas de ese tipo, en el panel «Campos personalizados». Si es de propiedades y marcas «Visible en la web pública», sale también en la ficha pública. El tipo de un campo no se puede cambiar una vez que alguna ficha tiene valor: archívalo y crea otro.',
       tags: ['campo personalizado', 'campos', 'ficha', 'dato', 'personalizar'],
     },
     {
@@ -1410,7 +1416,7 @@ export function useHelpContent() {
       id: 'faq-exportar-leads',
       question: '¿Puedo exportar más de 200 leads?',
       answer:
-        'Sí. «Exportar CSV (N)» en CRM → Leads descarga todos los leads del filtro que tengas puesto, sin límite de filas. La Tabla va por páginas; para una acción masiva sobre todos los del filtro, marca la casilla de la cabecera y pulsa «Seleccionar los N que cumplen el filtro» (hasta 2.000 por acción).',
+        'Sí. «Exportar CSV (N)» en Mi negocio → Leads descarga todos los leads del filtro que tengas puesto, sin límite de filas. La Tabla va por páginas; para una acción masiva sobre todos los del filtro, marca la casilla de la cabecera y pulsa «Seleccionar los N que cumplen el filtro» (hasta 2.000 por acción).',
       tags: ['leads', 'exportar', 'csv', 'límite', 'paginación'],
     },
     {
@@ -1424,7 +1430,7 @@ export function useHelpContent() {
       id: 'faq-cita-hora-calendario-externo',
       question: 'Las citas salen con otra hora en mi Google Calendar u Outlook, ¿por qué?',
       answer:
-        'La suscripción iCal convierte cada cita con su zona horaria: la de la propia cita, si la tiene; si no, la de su oficina (CRM → Oficinas); si no, la de la agencia (Sistema → Configuración). Si una cita sale desplazada, revisa esa zona horaria: una oficina en Canarias debe tener "Atlantic/Canary" y una en la península "Europe/Madrid". La conexión directa con Google Calendar u Outlook (en los dos sentidos) todavía no existe.',
+        'La suscripción iCal convierte cada cita con su zona horaria: la de la propia cita, si la tiene; si no, la de su oficina (Mi negocio → Oficinas); si no, la de la agencia (Sistema → Configuración). Si una cita sale desplazada, revisa esa zona horaria: una oficina en Canarias debe tener "Atlantic/Canary" y una en la península "Europe/Madrid". La conexión directa con Google Calendar u Outlook (en los dos sentidos) todavía no existe.',
       tags: ['calendario', 'ical', 'google', 'outlook', 'zona horaria', 'hora'],
     },
     {
@@ -1452,7 +1458,7 @@ export function useHelpContent() {
       id: 'faq-editar-contacto',
       question: '¿Cómo cambio el teléfono, el idioma o la próxima acción de un contacto?',
       answer:
-        'Abre el contacto (CRM → Contactos) y pulsa «Editar» en la cabecera. Ahí están todos los datos de la persona, sus roles y la próxima acción con su fecha. Si el teléfono o email nuevos ya pertenecen a otro contacto de tu agencia, se te avisa antes de guardar.',
+        'Abre el contacto (Mi negocio → Contactos) y pulsa «Editar» en la cabecera. Ahí están todos los datos de la persona, sus roles y la próxima acción con su fecha. Si el teléfono o email nuevos ya pertenecen a otro contacto de tu agencia, se te avisa antes de guardar.',
       tags: ['contacto', 'editar', 'roles', 'próxima acción'],
     },
     {
@@ -1487,7 +1493,7 @@ export function useHelpContent() {
       id: 'faq-lead-score',
       question: '¿Por qué un lead tiene esta puntuación? ¿Puedo cambiarla a mano?',
       answer:
-        'Haz clic en el número del lead (CRM → Leads): verás cada criterio que suma o no, con el dato real que lo justifica, y su historial. La puntuación no se edita a mano — sale de reglas fijas sobre señales reales (presupuesto validado, fecha deseada, respuesta reciente, visita pedida, financiación, fichas abiertas). Si quieres que algo pese más o menos, cambia las reglas de tu agencia en CRM → Enrutamiento y SLA → Lead Score y pulsa "Recalcular todos los leads".',
+        'Haz clic en el número del lead (Mi negocio → Leads): verás cada criterio que suma o no, con el dato real que lo justifica, y su historial. La puntuación no se edita a mano — sale de reglas fijas sobre señales reales (presupuesto validado, fecha deseada, respuesta reciente, visita pedida, financiación, fichas abiertas). Si quieres que algo pese más o menos, cambia las reglas de tu agencia en Mi negocio → Enrutamiento y SLA → Lead Score y pulsa "Recalcular todos los leads".',
       tags: ['lead score', 'puntuación', 'score', 'por qué', 'leads'],
     },
     {
@@ -1648,21 +1654,21 @@ export function useHelpContent() {
       id: 'faq-proxima-accion',
       question: '¿Puedo cambiar a mano la "próxima acción" de un lead?',
       answer:
-        'No directamente — es un cálculo, no un campo editable. Es la tarea abierta o la cita futura más próxima de ese lead: para cambiarla, crea/completa/cancela una tarea (CRM → Tareas, o "+ Tarea" en su tarjeta) o mueve/cancela su cita en Calendario, y se recalcula sola. Se hizo así a propósito: si se pudiera escribir a mano, podría dejar de coincidir con lo que de verdad hay agendado.',
+        'No directamente — es un cálculo, no un campo editable. Es la tarea abierta o la cita futura más próxima de ese lead: para cambiarla, crea/completa/cancela una tarea (Mi negocio → Tareas, o "+ Tarea" en su tarjeta) o mueve/cancela su cita en Calendario, y se recalcula sola. Se hizo así a propósito: si se pudiera escribir a mano, podría dejar de coincidir con lo que de verdad hay agendado.',
       tags: ['tareas', 'leads', 'crm', 'next action'],
     },
     {
       id: 'faq-tarea-borrada',
       question: 'He borrado una tarea por error, ¿se ha perdido?',
       answer:
-        'No se borra de verdad: va a la papelera. Deja de verse en los listados, en la ficha de su operación y en la próxima acción de su lead, pero la fila se conserva y lo que ya ocurrió (que se creó, que se completó) sigue en la Actividad. Para recuperarla, en CRM → Tareas pulsa «Papelera», búscala y pulsa «Restaurar»: vuelve tal cual estaba (estado, fecha, responsable y relaciones) y vuelve a contar para la próxima acción de su lead. Tanto el borrado como la restauración quedan anotados en la Actividad con quién lo hizo.',
+        'No se borra de verdad: va a la papelera. Deja de verse en los listados, en la ficha de su operación y en la próxima acción de su lead, pero la fila se conserva y lo que ya ocurrió (que se creó, que se completó) sigue en la Actividad. Para recuperarla, en Mi negocio → Tareas pulsa «Papelera», búscala y pulsa «Restaurar»: vuelve tal cual estaba (estado, fecha, responsable y relaciones) y vuelve a contar para la próxima acción de su lead. Tanto el borrado como la restauración quedan anotados en la Actividad con quién lo hizo.',
       tags: ['tareas', 'papelera', 'crm', 'restaurar', 'recuperar'],
     },
     {
       id: 'faq-operacion-papelera',
       question: '¿Por qué no puedo mandar una operación a la papelera?',
       answer:
-        'Hay dos casos en los que no se puede, y el aviso dice cuál es. Una operación cerrada ya creó su apunte en Finanzas → «Cierres y comisiones» (y, en una venta de 2ª mano, marcó el inmueble como vendido): es historia de la agencia y esconderla dejaría una comisión sin la operación que la explica. Y una operación con reserva, arras o contrato vinculados: esos documentos siguen apuntando a ella, así que primero desvincúlalos en «Reserva, arras y contratos» de su ficha (las arras y los contratos sólo puede desvincularlos alguien con acceso a Finanzas). Una operación activa o cancelada sin documentos sí va a la papelera, y desde ahí se restaura tal cual (CRM → Operaciones → «Papelera» → «Restaurar»).',
+        'Hay dos casos en los que no se puede, y el aviso dice cuál es. Una operación cerrada ya creó su apunte en Finanzas → «Cierres y comisiones» (y, en una venta de 2ª mano, marcó el inmueble como vendido): es historia de la agencia y esconderla dejaría una comisión sin la operación que la explica. Y una operación con reserva, arras o contrato vinculados: esos documentos siguen apuntando a ella, así que primero desvincúlalos en «Reserva, arras y contratos» de su ficha (las arras y los contratos sólo puede desvincularlos alguien con acceso a Finanzas). Una operación activa o cancelada sin documentos sí va a la papelera, y desde ahí se restaura tal cual (Mi negocio → Operaciones → «Papelera» → «Restaurar»).',
       tags: ['operaciones', 'papelera', 'deal', 'restaurar', 'crm'],
     },
     {
@@ -1683,7 +1689,7 @@ export function useHelpContent() {
       id: 'faq-tarea-oficina',
       question: '¿De qué oficina es una tarea?',
       answer:
-        'De la que elijas en su formulario; si lo dejas en «La de su responsable», de la oficina del comercial que la tiene asignada en cada momento (si cambias de responsable, la tarea le sigue). El filtro de oficina de CRM → Tareas y el KPI «Tareas vencidas» del dashboard comercial usan esa misma regla, así que siempre cuadran. Una tarea sin oficina propia y sin responsable no es de ninguna oficina.',
+        'De la que elijas en su formulario; si lo dejas en «La de su responsable», de la oficina del comercial que la tiene asignada en cada momento (si cambias de responsable, la tarea le sigue). El filtro de oficina de Mi negocio → Tareas y el KPI «Tareas vencidas» del dashboard comercial usan esa misma regla, así que siempre cuadran. Una tarea sin oficina propia y sin responsable no es de ninguna oficina.',
       tags: ['tareas', 'oficina', 'dashboard', 'crm'],
     },
     {
@@ -1704,14 +1710,14 @@ export function useHelpContent() {
       id: 'faq-oferta-historial',
       question: 'Al registrar una contraoferta, ¿se pierde el importe anterior?',
       answer:
-        'No, nunca. Cada envío, contraoferta, nueva oferta o decisión queda como una fila propia en el historial de la oferta, con su importe, condiciones, financiación y vencimiento — no se sobrescribe nada. Lo que ves como "importe actual" es sólo la última; la negociación completa (quién ofreció qué y cuándo) está en el detalle de la oferta (CRM → Ofertas, o el panel «Ofertas» de la propiedad), en «Historial de la negociación».',
+        'No, nunca. Cada envío, contraoferta, nueva oferta o decisión queda como una fila propia en el historial de la oferta, con su importe, condiciones, financiación y vencimiento — no se sobrescribe nada. Lo que ves como "importe actual" es sólo la última; la negociación completa (quién ofreció qué y cuándo) está en el detalle de la oferta (Mi negocio → Ofertas, o el panel «Ofertas» de la propiedad), en «Historial de la negociación».',
       tags: ['ofertas', 'negociación', 'crm'],
     },
     {
       id: 'faq-operacion-vs-operaciones-cerradas',
       question: '¿Por qué hay dos sitios que hablan de "operaciones"?',
       answer:
-        'Son dos cosas distintas. CRM → Operaciones es el seguimiento de una operación mientras está en marcha: el Kanban por etapas desde la oferta aceptada hasta la firma, con su historial, tareas, citas, reserva, arras y contratos. Finanzas → «Cierres y comisiones» (la antigua pantalla «Operaciones», en la misma dirección de siempre) es el registro plano de ventas/alquileres ya cerrados, para calcular comisiones — y la fuente de Ingresos. Al cerrar una operación en CRM se crea sola su fila en «Cierres y comisiones» (con comisión en 0, a completar), así que no hay que registrarla dos veces.',
+        'Son dos cosas distintas. Mi negocio → Operaciones es el seguimiento de una operación mientras está en marcha: el Kanban por etapas desde la oferta aceptada hasta la firma, con su historial, tareas, citas, reserva, arras y contratos. Finanzas → «Cierres y comisiones» (la antigua pantalla «Operaciones», en la misma dirección de siempre) es el registro plano de ventas/alquileres ya cerrados, para calcular comisiones — y la fuente de Ingresos. Al cerrar una operación en CRM se crea sola su fila en «Cierres y comisiones» (con comisión en 0, a completar), así que no hay que registrarla dos veces.',
       tags: ['operaciones', 'deal', 'comisiones', 'crm'],
     },
     {
@@ -1900,7 +1906,7 @@ export function useHelpContent() {
       id: 'faq-lead-sin-asignar',
       question: 'Un lead nuevo se quedó sin comercial asignado, ¿por qué?',
       answer:
-        'Porque ninguna regla de Enrutamiento aplicaba, o la que aplicaba apuntaba a un equipo (Departamento) sin nadie disponible en ese momento. Nunca se bloquea la creación del lead por eso: se queda en cola, sin dueño, y se reasigna a mano desde su ficha cuando quieras. Revisa CRM → Enrutamiento y SLA → "Gestionar reglas de enrutado" para añadir una regla de reparto general como red de seguridad.',
+        'Porque ninguna regla de Enrutamiento aplicaba, o la que aplicaba apuntaba a un equipo (Departamento) sin nadie disponible en ese momento. Nunca se bloquea la creación del lead por eso: se queda en cola, sin dueño, y se reasigna a mano desde su ficha cuando quieras. Revisa Mi negocio → Enrutamiento y SLA → "Gestionar reglas de enrutado" para añadir una regla de reparto general como red de seguridad.',
       tags: ['leads', 'enrutamiento', 'routing', 'asignacion'],
     },
     {
@@ -1914,7 +1920,7 @@ export function useHelpContent() {
       id: 'faq-sla-alerta',
       question: 'Una alerta de SLA dice que un lead está "sin atender" pero ya le respondí, ¿por qué sigue abierta?',
       answer:
-        'Las alertas se recalculan una vez por hora (el cron de SLA), así que puede tardar hasta esa siguiente pasada en resolverse sola. Si no puede esperar, márcala como resuelta a mano desde CRM → Enrutamiento y SLA.',
+        'Las alertas se recalculan una vez por hora (el cron de SLA), así que puede tardar hasta esa siguiente pasada en resolverse sola. Si no puede esperar, márcala como resuelta a mano desde Mi negocio → Enrutamiento y SLA.',
       tags: ['leads', 'sla', 'alertas'],
     },
     {

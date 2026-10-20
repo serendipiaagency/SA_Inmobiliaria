@@ -3,11 +3,11 @@ import { STATE_A, ANON_STATE } from './global-setup'
 
 /**
  * Menú lateral en categorías desplegables (utils/adminNav.ts,
- * layouts/admin.vue). Recorrido del megaprompt: Dashboard → Portal Web →
- * Propiedades (web) → Constructor Web → Blog & CMS → Artículos → Categorías →
- * Finanzas & Growth → Facturación → Sistema → Empresas, comprobando en cada
- * paso la URL, la entrada activa y la categoría abierta. Además: enlace
- * directo, teclado, lo que se recuerda al recargar y un usuario restringido.
+ * layouts/admin.vue), reorganizado en Cola 16: Dashboard operativo, Mi negocio
+ * (CRM+Finanzas), Chatbot, Comunicación y mensajes, Web y contenido (Portal
+ * Web+Blog&CMS), Sistema y Ayuda. El recorrido comprueba en cada paso la URL,
+ * la entrada activa y la categoría abierta. Además: enlace directo, teclado,
+ * lo que se recuerda al recargar y un usuario restringido.
  */
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8788'
@@ -39,15 +39,15 @@ test.describe('Menú lateral — categorías desplegables', () => {
     await page.evaluate(() => localStorage.removeItem('sa_admin_nav_open'))
     await page.reload()
 
-    // Al entrar: sólo «General» (con el Dashboard) abierta; el resto, cerradas.
+    // Al entrar: sólo «Dashboard operativo» (id general) abierta; el resto, cerradas.
     await expectOpen(page, 'general', true)
-    for (const id of ['crm', 'web', 'finance', 'cms', 'inbox', 'system']) await expectOpen(page, id, false)
+    for (const id of ['crm', 'chatbot', 'comunicacion', 'web', 'system']) await expectOpen(page, id, false)
     await expectActive(page, 'general', 'Dashboard')
     // Mucho menos menú: con todo cerrado cabe sin apenas desplazamiento.
     const nav = page.getByTestId('admin-nav')
     const closedHeight = await nav.evaluate((el) => el.scrollHeight)
 
-    // Portal Web → Propiedades (web).
+    // «Web y contenido» → Propiedades (web).
     await group(page, 'web').click()
     await expectOpen(page, 'web', true)
     await items(page, 'web').getByRole('link', { name: 'Propiedades (web)', exact: true }).click()
@@ -61,30 +61,21 @@ test.describe('Menú lateral — categorías desplegables', () => {
     await expect(page).toHaveURL(/\/admin\/developer-properties$/)
     await expectOpen(page, 'web', true)
 
-    // Cerrar Portal Web.
+    // El blog vive ahora en «Web y contenido» (Cola 16): Artículos, y «Blog (legacy)» a la vista.
+    await items(page, 'web').getByRole('link', { name: 'Artículos', exact: true }).click()
+    await expect(page).toHaveURL(/\/admin\/cms\/articles$/)
+    await expectActive(page, 'web', 'Artículos')
+    await expect(items(page, 'web').getByRole('link', { name: 'Blog (legacy)', exact: true })).toBeVisible()
     await group(page, 'web').click()
     await expectOpen(page, 'web', false)
 
-    // Blog & CMS → Artículos → Categorías.
-    await group(page, 'cms').click()
-    await items(page, 'cms').getByRole('link', { name: 'Artículos', exact: true }).click()
-    await expect(page).toHaveURL(/\/admin\/cms\/articles$/)
-    // Sólo «Artículos» marcada, no también el Dashboard del blog (/admin/cms).
-    await expectActive(page, 'cms', 'Artículos')
-    await items(page, 'cms').getByRole('link', { name: 'Categorías', exact: true }).click()
-    await expect(page).toHaveURL(/\/admin\/cms-categories$/)
-    await expectActive(page, 'cms', 'Categorías')
-    await expect(items(page, 'cms').getByRole('link', { name: 'Blog (legacy)', exact: true })).toBeVisible()
-    await group(page, 'cms').click()
-    await expectOpen(page, 'cms', false)
-
-    // Finanzas & Growth → Facturación.
-    await group(page, 'finance').click()
-    await items(page, 'finance').getByRole('link', { name: 'Facturación', exact: true }).click()
+    // «Mi negocio» → Facturación (Finanzas vive aquí ahora).
+    await group(page, 'crm').click()
+    await items(page, 'crm').getByRole('link', { name: 'Facturación', exact: true }).click()
     await expect(page).toHaveURL(/\/admin\/facturacion$/)
-    await expectActive(page, 'finance', 'Facturación')
+    await expectActive(page, 'crm', 'Facturación')
 
-    // Sistema → Empresas (con su «+ Nuevo»), y API ahora vive aquí.
+    // Sistema → Empresas (con su «+ Nuevo»), y API sigue aquí.
     await group(page, 'system').click()
     await expect(items(page, 'system').getByRole('link', { name: 'API', exact: true })).toBeVisible()
     await items(page, 'system').getByRole('link', { name: 'Empresas', exact: true }).click()
@@ -93,9 +84,9 @@ test.describe('Menú lateral — categorías desplegables', () => {
     await expect(page.getByRole('link', { name: '+ Nuevo' })).toBeVisible()
 
     // Con varias categorías abiertas el menú crece y se puede desplazar.
-    for (const id of ['crm', 'web', 'cms']) if ((await group(page, id).getAttribute('aria-expanded')) === 'false') await group(page, id).click()
+    for (const id of ['crm', 'web', 'chatbot']) if ((await group(page, id).getAttribute('aria-expanded')) === 'false') await group(page, id).click()
     expect(await nav.evaluate((el) => el.scrollHeight)).toBeGreaterThan(closedHeight)
-    // El pie (cuenta, salir, vista previa) sigue en su sitio.
+    // El pie (cuenta, salir, VER MI WEB) sigue en su sitio.
     await expect(page.getByTestId('nav-mi-cuenta')).toBeVisible()
   })
 
@@ -103,38 +94,38 @@ test.describe('Menú lateral — categorías desplegables', () => {
     await page.goto('/admin')
     await page.evaluate(() => localStorage.removeItem('sa_admin_nav_open'))
 
+    // «Etiquetas» (del blog) vive ahora en «Web y contenido» (Cola 16).
     await page.goto('/admin/cms-tags')
-    await expectOpen(page, 'cms', true)
-    await expectActive(page, 'cms', 'Etiquetas')
-    await expectOpen(page, 'web', false)
-
-    // Teclado: Enter y Espacio sobre la cabecera de la categoría.
-    await group(page, 'web').focus()
-    await page.keyboard.press('Enter')
     await expectOpen(page, 'web', true)
-    await page.keyboard.press('Space')
-    await expectOpen(page, 'web', false)
-    await page.keyboard.press('Enter')
-    await expect(group(page, 'web')).toHaveAttribute('aria-controls', 'nav-group-web')
+    await expectActive(page, 'web', 'Etiquetas')
+    await expectOpen(page, 'system', false)
 
-    // Portal Web y Blog abiertos; al ir a Leads se abre además CRM; al recargar sigue igual.
+    // Teclado: Enter y Espacio sobre la cabecera de una categoría (Sistema).
+    await group(page, 'system').focus()
+    await page.keyboard.press('Enter')
+    await expectOpen(page, 'system', true)
+    await page.keyboard.press('Space')
+    await expectOpen(page, 'system', false)
+    await page.keyboard.press('Enter')
+    await expect(group(page, 'system')).toHaveAttribute('aria-controls', 'nav-group-system')
+
+    // Al ir a Leads se abre «Mi negocio» (crm); al recargar sigue abierto lo que estaba abierto.
     // Leads vive dentro de «Gestión de contactos» (Cola 15), que es la entrada que se marca.
     await page.goto('/admin/leads')
     await expectOpen(page, 'crm', true)
     await page.reload()
-    for (const id of ['web', 'cms', 'crm']) await expectOpen(page, id, true)
+    for (const id of ['web', 'system', 'crm']) await expectOpen(page, id, true)
     await expectActive(page, 'crm', 'Gestión de contactos')
 
     // Cerrada y guardada así, la categoría de la página a la que se llega se abre igualmente.
-    await group(page, 'finance').click()
-    await group(page, 'finance').click()
-    await expectOpen(page, 'finance', false)
-    await page.goto('/admin/facturacion')
-    await expectOpen(page, 'finance', true)
-    await expectActive(page, 'finance', 'Facturación')
+    await group(page, 'system').click()
+    await expectOpen(page, 'system', false)
+    await page.goto('/admin/users')
+    await expectOpen(page, 'system', true)
+    await expectActive(page, 'system', 'Usuarios')
   })
 
-  test('un comercial con sólo CRM ve el CRM y la Ayuda, nunca una categoría vacía ni Sistema', async ({ browser }) => {
+  test('un comercial con sólo CRM ve sus categorías (Mi negocio, Chatbot, Comunicación) y la Ayuda, nunca una vacía ni Sistema', async ({ browser }) => {
     const a = await pwRequest.newContext({ baseURL: BASE_URL, storageState: STATE_A })
     const email = `menu-${RUN}@sa-inmobiliaria.com`
     const password = `Menu-${RUN}-xyz`
@@ -149,9 +140,10 @@ test.describe('Menú lateral — categorías desplegables', () => {
       await page.goto('/admin/leads')
       await expect(page.getByTestId('admin-nav')).toBeVisible()
       const groups = await page.getByTestId('admin-nav').locator('[data-testid^="nav-group-"][aria-controls]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')))
-      expect(groups).toEqual(['nav-group-crm', 'nav-group-help'])
+      // Las entradas crm se reparten (Cola 16) en «Mi negocio», «Chatbot» y «Comunicación y mensajes», más la Ayuda.
+      expect(groups).toEqual(['nav-group-crm', 'nav-group-chatbot', 'nav-group-comunicacion', 'nav-group-help'])
       await expectActive(page, 'crm', 'Gestión de contactos')
-      // «Comerciales» está en CRM, pero es de Portal Web: no la ve.
+      // «Comerciales» vive en «Mi negocio», pero es de Portal Web: no la ve.
       await expect(items(page, 'crm').getByRole('link', { name: 'Comerciales', exact: true })).toHaveCount(0)
       await context.close()
     } finally {
