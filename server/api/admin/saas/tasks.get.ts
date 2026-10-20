@@ -2,6 +2,7 @@ import { requireOrgScope } from '../../../utils/auth'
 import { useDb } from '../../../utils/db'
 import { listTasks, withTaskLabels, TASK_PRIORITIES, TASK_TYPES, type ListTasksFilter, type TaskStatusFilter, type TaskType, type TaskPriority } from '../../../utils/tasks/service'
 import { PROPERTY_KINDS, type PropertyKind } from '../../../utils/matching/service'
+import { ownCommercialScope } from '../../../utils/dashboard/commercial'
 
 /**
  * GET /api/admin/saas/tasks — la vista "Tareas" (FASE 22). Sin filtros lee
@@ -23,12 +24,17 @@ import { PROPERTY_KINDS, type PropertyKind } from '../../../utils/matching/servi
 const STATUS_FILTERS: TaskStatusFilter[] = ['open', 'in_progress', 'completed', 'cancelled', 'active']
 
 export default defineEventHandler(async (event) => {
-  const { orgId } = await requireOrgScope(event)
+  const { user, orgId } = await requireOrgScope(event)
   const db = useDb(event)
   const q = getQuery(event)
 
+  // Un comercial vinculado a su ficha sólo ve SUS tareas: el servidor fuerza su
+  // responsable, pida lo que pida el navegador (el resto de la agencia ve todo).
+  const ownCommercial = await ownCommercialScope(db, orgId, user)
+
   const filter: ListTasksFilter = {}
   if (q.assigneeId) filter.assigneeId = Number(q.assigneeId)
+  if (ownCommercial !== null) filter.assigneeId = ownCommercial
   if (q.status && STATUS_FILTERS.includes(q.status as TaskStatusFilter)) filter.status = q.status as TaskStatusFilter
   if (q.type && (TASK_TYPES as readonly string[]).includes(String(q.type))) filter.type = q.type as TaskType
   if (q.priority && (TASK_PRIORITIES as readonly string[]).includes(String(q.priority))) filter.priority = q.priority as TaskPriority

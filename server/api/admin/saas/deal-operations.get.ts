@@ -1,6 +1,8 @@
+import { and, eq } from 'drizzle-orm'
 import { requireOrgScope } from '../../../utils/auth'
-import { useDb } from '../../../utils/db'
+import { schema, useDb } from '../../../utils/db'
 import { hasAreaAccess } from '../../../utils/permissions'
+import { ownCommercialScope } from '../../../utils/dashboard/commercial'
 import { countDealRecords, getDealDetail, listDeals, withDealLabels, DEAL_STAGES, DEAL_STATUSES, type DealStatus, type DealStage } from '../../../utils/deals/service'
 import { PROPERTY_KINDS, type PropertyKind } from '../../../utils/matching/service'
 
@@ -37,10 +39,16 @@ export default defineEventHandler(async (event) => {
   const q = getQuery(event)
   const db = useDb(event)
   const includeFinance = hasAreaAccess(user, 'finance', 'read')
+  // Un comercial vinculado a su ficha sólo ve SUS operaciones (su comercial forzado).
+  const ownCommercial = await ownCommercialScope(db, orgId, user)
 
   if (q.id) {
     const dealId = Number(q.id)
     if (!Number.isFinite(dealId)) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
+    if (ownCommercial !== null) {
+      const [owner] = await db.select({ commercialId: schema.dealOperations.commercialId }).from(schema.dealOperations).where(and(eq(schema.dealOperations.id, dealId), eq(schema.dealOperations.organizationId, orgId))).limit(1)
+      if (!owner || owner.commercialId !== ownCommercial) throw createError({ statusCode: 404, statusMessage: 'Operación no encontrada' })
+    }
     return getDealDetail(db, orgId, dealId, { includeFinance })
   }
 
@@ -50,7 +58,7 @@ export default defineEventHandler(async (event) => {
     buyerContactId: q.buyerContactId ? Number(q.buyerContactId) : undefined,
     sellerContactId: q.sellerContactId ? Number(q.sellerContactId) : undefined,
     leadId: q.leadId ? Number(q.leadId) : undefined,
-    commercialId: q.commercialId ? Number(q.commercialId) : undefined,
+    commercialId: ownCommercial ?? (q.commercialId ? Number(q.commercialId) : undefined),
     officeId: q.officeId ? Number(q.officeId) : undefined,
     status: (DEAL_STATUSES as readonly string[]).includes(String(q.status)) ? (q.status as DealStatus) : undefined,
     stage: (DEAL_STAGES as readonly string[]).includes(String(q.stage)) ? (q.stage as DealStage) : undefined,

@@ -1,5 +1,6 @@
-import { eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { cfEnv, schema, useDb } from '../../../utils/db'
+import { ownCommercialScope } from '../../../utils/dashboard/commercial'
 import { requireOrgScope, requireSuperAdmin, type SessionUser } from '../../../utils/auth'
 import { getResource } from '../../../utils/adminResources'
 import { logAdminAction } from '../../../utils/audit'
@@ -138,6 +139,10 @@ export default defineEventHandler(async (event) => {
     }
     // «Cambiar fase» en bloque exige su motivo (FASE 13), antes de crear nada.
     const leadJobParams = validateLeadBulkParams(body.action, body.params || {})
+    // Un comercial sólo puede actuar en bloque sobre SUS leads: el servidor
+    // fuerza su comercial en la selección filtrada y descarta de una selección
+    // explícita cualquier lead que no sea suyo (el resto de la agencia, igual).
+    const ownCommercial = await ownCommercialScope(db, orgId!, user)
     // Única excepción (FASE 32): «Recalcular Lead Score» para TODOS los leads
     // de la agencia tras cambiar sus reglas — no es una selección de pantalla
     // sino la organización entera, resuelta aquí y con el mismo tope de 2000.
@@ -147,12 +152,25 @@ export default defineEventHandler(async (event) => {
       // pagina, así que la selección completa la resuelve el servidor con el
       // MISMO filtro que la Tabla (server/utils/leads/list.ts), con el tope de
       // siempre.
-      ids = await resolveFilteredLeadIds(d1Runner(cfEnv(event).DB), orgId!, body.filters, 2000)
+      const filters = ownCommercial !== null ? { ...body.filters, agentId: ownCommercial } : body.filters
+      ids = await resolveFilteredLeadIds(d1Runner(cfEnv(event).DB), orgId!, filters, 2000)
       if (ids.length > 2000) throw createError({ statusCode: 422, statusMessage: `La selección filtrada tiene más de 2000 leads — el máximo por acción masiva es 2000. Añade más filtros para acotarla.` })
     } else if (body.selectAllFiltered && body.action === 'recalculate_score') {
-      const rows = await db.select({ id: schema.leads.id }).from(schema.leads).where(eq(schema.leads.organizationId, orgId!)).limit(2001)
+      const rows = await db
+        .select({ id: schema.leads.id })
+        .from(schema.leads)
+        .where(ownCommercial !== null ? and(eq(schema.leads.organizationId, orgId!), eq(schema.leads.agentId, ownCommercial)) : eq(schema.leads.organizationId, orgId!))
+        .limit(2001)
       if (rows.length > 2000) throw createError({ statusCode: 422, statusMessage: 'La agencia tiene más de 2000 leads — recalcula por partes desde el listado.' })
       ids = rows.map((r: { id: number }) => r.id)
+    } else if (ownCommercial !== null && ids.length) {
+      // Selección explícita de filas: sólo las que de verdad son suyas.
+      const owned = await db
+        .select({ id: schema.leads.id })
+        .from(schema.leads)
+        .where(and(eq(schema.leads.organizationId, orgId!), eq(schema.leads.agentId, ownCommercial), inArray(schema.leads.id, ids)))
+      const ownedIds = new Set(owned.map((r: { id: number }) => r.id))
+      ids = ids.filter((id) => ownedIds.has(id))
     }
     const job = await createBulkActionJob(event, orgId!, user.id, { entityType: 'lead', action: body.action, params: leadJobParams, ids })
     await logAdminAction(event, { user, orgId, action: 'create', resource: key, resourceId: job.id, detail: `${job.action} × ${job.totalCount}` })

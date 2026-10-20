@@ -233,20 +233,20 @@ export async function getAppointment(db: any, orgId: number, id: number, opts: {
 }
 
 /** Cuántas citas hay en la papelera (el contador del botón «Papelera»). */
-export async function trashedAppointmentCount(db: any, orgId: number): Promise<number> {
+export async function trashedAppointmentCount(db: any, orgId: number, agentId?: number | null): Promise<number> {
   const [row] = await db
     .select({ n: sql<number>`count(*)` })
     .from(V)
-    .where(and(eq(V.organizationId, orgId), isNotNull(V.deletedAt)))
+    .where(and(eq(V.organizationId, orgId), isNotNull(V.deletedAt), ...(agentId ? [eq(V.agentId, agentId)] : [])))
   return Number(row?.n ?? 0)
 }
 
-/** Cuántas citas hay en cada estado (los contadores de la Lista). */
-export async function appointmentStatusCounts(db: any, orgId: number): Promise<Record<string, number>> {
+/** Cuántas citas hay en cada estado (los contadores de la Lista). Con `agentId`, sólo las de ese comercial (un comercial ve sólo las suyas). */
+export async function appointmentStatusCounts(db: any, orgId: number, agentId?: number | null): Promise<Record<string, number>> {
   const rows = await db
     .select({ status: V.status, n: sql<number>`count(*)` })
     .from(V)
-    .where(and(eq(V.organizationId, orgId), isNull(V.deletedAt)))
+    .where(and(eq(V.organizationId, orgId), isNull(V.deletedAt), ...(agentId ? [eq(V.agentId, agentId)] : [])))
     .groupBy(V.status)
   const counts: Record<string, number> = {}
   for (const r of rows as any[]) counts[r.status] = Number(r.n)
