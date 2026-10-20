@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import { schema } from './db'
-import { buildPublicSearch } from './properties/publicSearch'
+import { buildPublicSearchFor } from './properties/publicSearch'
 import { socialLinksFromBrandKit, type FooterSocialLink } from '../../utils/siteFooter'
 
 /**
@@ -85,20 +85,29 @@ export async function companyStats(db: any, orgId: number): Promise<CompanyStats
   const O = schema.offices
   const T = schema.teamMembers
   const Z = schema.zones
-  const P = schema.developerProperties
-  const search = await buildPublicSearch(db, orgId, {})
-  const [offices, teamRows, zones, properties] = await Promise.all([
+  // «Viviendas publicadas» es lo MISMO que cuenta el catálogo público: obra
+  // nueva (developer_properties) Y segunda mano (agent_properties). Contar
+  // sólo obra nueva dejaba la cifra por debajo del catálogo desde que la 2ª
+  // mano entró en la web pública (Cola 12-B).
+  const propertyCounts = await Promise.all(
+    (['developer', 'agent'] as const).map(async (kind) => {
+      const fns = buildPublicSearchFor(kind)
+      const search = await fns.buildConds(db, orgId, {})
+      const [row] = await db.select({ n: sql<number>`count(*)` }).from(fns.table).where(and(...search.conds))
+      return Number(row?.n || 0)
+    }),
+  )
+  const [offices, teamRows, zones] = await Promise.all([
     db.select({ n: sql<number>`count(*)` }).from(O).where(and(eq(O.organizationId, orgId), eq(O.status, 'active'), eq(O.showOnWeb, 1), isNull(O.deletedAt))),
     db.select({ languages: T.languages }).from(T).where(and(eq(T.organizationId, orgId), eq(T.showOnWeb, 1))),
     db.select({ n: sql<number>`count(*)` }).from(Z).where(and(eq(Z.organizationId, orgId), eq(Z.status, 'published'), isNull(Z.deletedAt), sql`${Z.intro} IS NOT NULL AND trim(${Z.intro}) <> ''`)),
-    db.select({ n: sql<number>`count(*)` }).from(P).where(and(...search.conds)),
   ])
   const languages = new Set<string>()
   for (const r of teamRows) for (const l of parseLanguages(r.languages)) if (l.trim()) languages.add(l.trim().toLowerCase())
   return {
     offices: Number(offices[0]?.n || 0),
     team: teamRows.length,
-    properties: Number(properties[0]?.n || 0),
+    properties: propertyCounts.reduce((a, b) => a + b, 0),
     zones: Number(zones[0]?.n || 0),
     languages: languages.size,
   }
