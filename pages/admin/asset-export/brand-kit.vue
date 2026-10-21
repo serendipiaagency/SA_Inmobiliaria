@@ -46,9 +46,14 @@
         <div class="grid gap-4 sm:grid-cols-3">
           <label v-for="f in fontFields" :key="f.key" class="block">
             <span class="mb-1.5 block text-[12px] font-medium text-stone-600">{{ f.label }}</span>
-            <input v-model="form[f.key]" class="cfg-input" placeholder="Inter" >
+            <select v-model="form[f.key]" class="cfg-input" :data-testid="`brand-font-${f.key}`">
+              <option value="">Por defecto</option>
+              <option v-for="ff in SITE_FONTS" :key="ff.family" :value="ff.family">{{ ff.family }}</option>
+              <option v-if="form[f.key] && !isKnownFont(form[f.key])" :value="form[f.key]">{{ form[f.key] }} (actual)</option>
+            </select>
           </label>
         </div>
+        <p class="mt-3 text-xs text-stone-400">Estas tipografías son la marca de tu inmobiliaria: se usan por defecto en tu web, en los emails y en los carteles. En el Constructor puedes afinar la tipografía de una página concreta.</p>
       </AdminPanel>
 
       <AdminPanel title="Contacto y legal" class="mt-4">
@@ -83,6 +88,8 @@
 </template>
 
 <script setup lang="ts">
+import { SITE_FONTS, isKnownFont } from '~/utils/siteBuilder/fonts'
+
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 useHead({ title: 'Brand Kit — M&M Real Estate' })
 
