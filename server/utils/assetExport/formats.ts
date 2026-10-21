@@ -40,6 +40,7 @@ export const FORMATS: FormatDef[] = [
   { key: 'pdf_a5_portrait', family: 'pdf', label: 'PDF A5 vertical', ...mm(148, 210), orientation: 'portrait', renderReady: true },
   { key: 'pdf_dossier', family: 'pdf', label: 'Dossier multipágina (A4 vertical)', ...mm(210, 297), orientation: 'portrait', renderReady: true },
   { key: 'print_a3_portrait', family: 'print', label: 'Cartel A3 vertical', ...mm(297, 420), orientation: 'portrait', renderReady: true },
+  { key: 'print_a3_landscape', family: 'print', label: 'Cartel A3 horizontal', ...mm(420, 297), orientation: 'landscape', renderReady: true },
   { key: 'social_feed_square', family: 'social', label: 'Feed cuadrado 1080×1080', ...px(1080, 1080), orientation: 'square', renderReady: false },
   { key: 'social_feed_portrait', family: 'social', label: 'Feed vertical 1080×1350', ...px(1080, 1350), orientation: 'portrait', renderReady: false },
   { key: 'social_story', family: 'social', label: 'Story 1080×1920', ...px(1080, 1920), orientation: 'portrait', renderReady: false },
