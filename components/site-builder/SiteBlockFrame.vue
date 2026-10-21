@@ -49,7 +49,9 @@ import type { SiteBlock } from '~/server/utils/sitePages'
 import { blockLabelOf } from '~/composables/useSiteBuilderRegistry'
 import { PAGE_CORE_TYPE } from '~/utils/siteBuilder/pages'
 import { NODE_KINDS, nodeId } from '~/utils/siteBuilder/nodes'
+import { blockBackgroundRender } from '~/utils/siteBuilder/background'
 import { SITE_BLOCK_KEY, SITE_EDITOR_KEY, nodeRefFromElement, type SiteNodeRef } from '~/composables/useSiteEditor'
+import { TENANT_BRANDING_OVERRIDE } from '~/composables/useTenant'
 
 /**
  * El marco de un bloque: el `<div>` envolvente que existía en
@@ -101,7 +103,12 @@ provide(SITE_BLOCK_KEY, {
 const hiddenOnDevice = computed(() => props.block.visibility?.[props.device] === false)
 const locked = computed(() => props.block.type === PAGE_CORE_TYPE)
 
-const BACKGROUND_CLASS: Record<string, string> = { paper: 'bg-paper', white: 'bg-white', surface: 'bg-surface', ink: 'bg-ink' }
+// Color de marca (Brand Kit) para el fondo «Color corporativo» (Cola 27): en
+// el lienzo, el de la empresa editada (override); en la web, el del dominio.
+const { tenant } = useTenant()
+const brandingOverride = inject(TENANT_BRANDING_OVERRIDE, null)
+const brandColor = computed(() => brandingOverride?.value?.brandColor ?? tenant.value?.brandColor ?? null)
+
 const SPACING_REM: Record<string, string> = { sm: '1.5rem', lg: '3rem' }
 
 /** El nodo bajo `target` que pertenece a ESTE bloque, o null. */
@@ -157,8 +164,14 @@ const wrapperAttrs = computed(() => {
   const style = props.block.style || {}
   const common: Record<string, any> = {}
   if (style.anchorId) common.id = style.anchorId
-  const classes = ['relative', style.background ? BACKGROUND_CLASS[style.background] : '']
-  const inlineStyle: Record<string, string> = {}
+  // Fondo: color de tema (clase), color corporativo (en vivo) o imagen con
+  // superposición y respaldo — todo lo decide utils/siteBuilder/background.ts.
+  const bg = blockBackgroundRender(style, {
+    brandColor: brandColor.value,
+    imageUrl: style.backgroundImage ? mediaUrl(style.backgroundImage) : '',
+  })
+  const classes = ['relative', ...bg.classes]
+  const inlineStyle: Record<string, string> = { ...bg.inline }
   if (style.paddingTop && SPACING_REM[style.paddingTop]) inlineStyle.paddingTop = SPACING_REM[style.paddingTop]
   if (style.paddingBottom && SPACING_REM[style.paddingBottom]) inlineStyle.paddingBottom = SPACING_REM[style.paddingBottom]
   if (Object.keys(inlineStyle).length) common.style = inlineStyle
