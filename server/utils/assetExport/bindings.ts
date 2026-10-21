@@ -34,6 +34,9 @@ export interface TenantBindings {
   email: string
   primaryColor: string
   secondaryColor: string
+  backgroundColor: string
+  textColor: string
+  accentColor: string
   logo: string | null
   orgName: string
 }
@@ -48,6 +51,15 @@ export async function resolveTenantBindings(event: H3Event, orgId: number): Prom
   const org = orgRows[0] || null
 
   const origin = getRequestURL(event).origin
+  // Primer color auxiliar del Brand Kit como «acento»; si no hay, el secundario.
+  let firstAccent = ''
+  try {
+    const accents = JSON.parse(brandKit?.colorAccentsJson || '[]')
+    if (Array.isArray(accents) && typeof accents[0] === 'string') firstAccent = accents[0]
+  } catch {
+    firstAccent = ''
+  }
+  const secondaryColor = brandKit?.colorSecondary || '#B08D57'
   return {
     website: org?.domain ? `https://${org.domain}` : origin,
     legalText: brandKit?.legalText || '',
@@ -55,7 +67,10 @@ export async function resolveTenantBindings(event: H3Event, orgId: number): Prom
     whatsapp: brandKit?.whatsapp || '',
     email: brandKit?.email || '',
     primaryColor: brandKit?.colorPrimary || '#16150f',
-    secondaryColor: brandKit?.colorSecondary || '#B08D57',
+    secondaryColor,
+    backgroundColor: brandKit?.colorBackground || '#ffffff',
+    textColor: brandKit?.colorText || '#16150f',
+    accentColor: firstAccent || secondaryColor,
     logo: brandKit?.logo || org?.logo || null,
     orgName: org?.name || '',
   }
@@ -114,6 +129,9 @@ export async function resolveAssetBindings(
     'tenant.email': tenant.email,
     'tenant.primaryColor': tenant.primaryColor,
     'tenant.secondaryColor': tenant.secondaryColor,
+    'tenant.backgroundColor': tenant.backgroundColor,
+    'tenant.textColor': tenant.textColor,
+    'tenant.accentColor': tenant.accentColor,
   }
 
   const images: Record<string, string | null> = {
@@ -211,6 +229,9 @@ export async function resolveAgentAssetBindings(event: H3Event, params: { orgId:
     'tenant.email': tenant.email,
     'tenant.primaryColor': tenant.primaryColor,
     'tenant.secondaryColor': tenant.secondaryColor,
+    'tenant.backgroundColor': tenant.backgroundColor,
+    'tenant.textColor': tenant.textColor,
+    'tenant.accentColor': tenant.accentColor,
   }
 
   const images: Record<string, string | null> = {
