@@ -83,9 +83,8 @@
 </template>
 
 <script setup lang="ts">
-import { mosaicLayout, GALLERY_COVER_RATIO, type GalleryCategoryKey, type GalleryDisplayOptions, type GalleryModel } from '~/utils/mediaGallery'
+import { mosaicLayout, galleryNavChips, GALLERY_COVER_RATIO, type GalleryCategoryKey, type GalleryDisplayOptions, type GalleryModel } from '~/utils/mediaGallery'
 import { galleryIconSvg } from '~/utils/mediaGalleryIcons'
-import { MEDIA_ROOM_ICON } from '~/utils/mediaRooms'
 
 const props = defineProps<{
   model: GalleryModel
@@ -102,10 +101,9 @@ const shownPhotos = computed(() => props.model.photos.slice(0, layout.value.show
 const icon = (key: string, size: number) => galleryIconSvg(key, size, props.options.iconStyle)
 
 // Categorías y, después, las estancias con fotos (misma fila, como en la referencia).
-const chips = computed(() => [
-  ...props.model.categories.map((c) => ({ id: `c-${c.key}`, category: c.key, room: null as string | null, label: c.label, icon: c.icon, count: c.count, thumb: c.thumb })),
-  ...props.model.rooms.map((r) => ({ id: `r-${r.key}`, category: 'photos' as GalleryCategoryKey, room: r.key as string, label: r.label, icon: MEDIA_ROOM_ICON[r.key], count: r.count, thumb: r.thumb })),
-])
+// Cuando hay barra de navegación propia (options.navBar), el mosaico no pinta
+// su fila interna: la barra la sustituye para no duplicar la navegación.
+const chips = computed(() => (props.options.navBar !== 'off' ? [] : galleryNavChips(props.model)))
 
 // La proporción del mosaico entero en escritorio: la portada ocupa la mitad (o dos tercios), así
 // que la proporción del contenedor es la de la portada por lo que ésta no ocupa.

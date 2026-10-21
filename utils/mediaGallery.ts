@@ -13,7 +13,7 @@
  *    es la fuente única; el Constructor sólo decide la presentación.
  */
 import type { PublicFloorPlan } from './floorPlans'
-import { isMediaRoom, MEDIA_ROOMS, type MediaRoom } from './mediaRooms'
+import { isMediaRoom, MEDIA_ROOM_ICON, MEDIA_ROOMS, type MediaRoom } from './mediaRooms'
 import { videoEmbed, tourEmbed } from './videoEmbed'
 
 export type GalleryCategoryKey = 'photos' | 'videos' | 'plans' | 'pano360' | 'tour' | 'renders' | 'drone' | 'night' | 'compare' | 'staging' | 'social'
@@ -361,6 +361,33 @@ export function buildGalleryModel(d: GalleryInput, t: Translate): GalleryModel {
 }
 
 // ---------------------------------------------------------------------------
+// Chips de navegación (categorías + estancias con fotos)
+// ---------------------------------------------------------------------------
+
+export interface GalleryNavChip {
+  id: string
+  category: GalleryCategoryKey
+  /** Estancia a filtrar dentro de «fotos», o null si es una categoría. */
+  room: MediaRoom | null
+  label: string
+  icon: string
+  count: number
+  thumb: string | null
+}
+
+/**
+ * La lista de chips de navegación de la galería: primero las categorías con
+ * contenido real y, después, las estancias con fotos (como en la referencia).
+ * Pura: la comparten el mosaico y la barra de navegación propia.
+ */
+export function galleryNavChips(model: GalleryModel): GalleryNavChip[] {
+  return [
+    ...model.categories.map((c) => ({ id: `c-${c.key}`, category: c.key, room: null as MediaRoom | null, label: c.label, icon: c.icon, count: c.count, thumb: c.thumb })),
+    ...model.rooms.map((r) => ({ id: `r-${r.key}`, category: 'photos' as GalleryCategoryKey, room: r.key, label: r.label, icon: MEDIA_ROOM_ICON[r.key], count: r.count, thumb: r.thumb })),
+  ]
+}
+
+// ---------------------------------------------------------------------------
 // Mosaico (portada grande + secundarias)
 // ---------------------------------------------------------------------------
 
@@ -381,6 +408,8 @@ export function mosaicLayout(count: number): { layout: MosaicLayout; shown: numb
 export type GalleryHeight = 'compact' | 'standard' | 'tall'
 export type GalleryCategoriesStyle = 'chips' | 'cards' | 'hidden'
 export type GalleryIconStyle = 'outline' | 'solid'
+/** Barra de navegación propia de la galería, fuera del mosaico: oculta, fija sobre el mosaico, o anclada (sticky) al desplazar la ficha. */
+export type GalleryNavMode = 'off' | 'top' | 'sticky'
 
 export interface GalleryDisplayOptions {
   /** Altura del mosaico en escritorio (proporción de la portada). */
@@ -396,6 +425,13 @@ export interface GalleryDisplayOptions {
   iconStyle: GalleryIconStyle
   /** Fila de categorías bajo el mosaico: chips, tarjetas con miniatura o nada (el visor las sigue teniendo). */
   categories: GalleryCategoriesStyle
+  /**
+   * Barra de navegación propia (categorías + estancias) como elemento aparte,
+   * no dentro del mosaico: 'off' (ninguna), 'top' (fija sobre el mosaico) o
+   * 'sticky' (anclada arriba al desplazar). Cuando no es 'off', el mosaico
+   * deja de pintar su fila interna de categorías para no duplicarla.
+   */
+  navBar: GalleryNavMode
   /** Color de los estados activos (chip activo, botón «Ver todas»); vacío = color de marca. */
   accent: string | null
   /** Tipografía de etiquetas y contadores: la del texto o la de los títulos del sitio. */
@@ -410,6 +446,7 @@ export const GALLERY_DEFAULTS: GalleryDisplayOptions = {
   showAllButton: true,
   iconStyle: 'outline',
   categories: 'chips',
+  navBar: 'off',
   accent: null,
   font: 'inherit',
 }
@@ -433,6 +470,7 @@ export function normalizeGalleryOptions(value: unknown): GalleryDisplayOptions {
     showAllButton: v.showAllButton !== false,
     iconStyle: v.iconStyle === 'solid' ? 'solid' : 'outline',
     categories: v.categories === 'cards' || v.categories === 'hidden' ? v.categories : 'chips',
+    navBar: v.navBar === 'top' || v.navBar === 'sticky' ? v.navBar : 'off',
     accent,
     font: v.font === 'display' ? 'display' : 'inherit',
   }

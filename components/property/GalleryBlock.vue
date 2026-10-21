@@ -1,12 +1,13 @@
 <template>
   <section data-testid="ficha-gallery">
+    <PropertyGalleryNavBar v-if="options.navBar !== 'off' && navChips.length > 1" :model="model" :options="options" :accent="accent" @open="open" />
     <PropertyGalleryMosaic :model="model" :options="options" :status-label="statusLabel" :accent="accent" @open="open" />
     <LazyPropertyGalleryViewer v-if="viewer" :model="model" :options="options" :name="name" :start="viewer" :accent="accent" @close="close" />
   </section>
 </template>
 
 <script setup lang="ts">
-import { buildGalleryModel, type GalleryCategoryKey, type GalleryDisplayOptions, type GalleryInput } from '~/utils/mediaGallery'
+import { buildGalleryModel, galleryNavChips, type GalleryCategoryKey, type GalleryDisplayOptions, type GalleryInput } from '~/utils/mediaGallery'
 
 /**
  * El bloque de galería de la ficha (Cola 5): construye el modelo una vez a
@@ -22,6 +23,7 @@ const props = defineProps<{
 }>()
 const { t } = useI18n()
 const model = computed(() => buildGalleryModel(props.data, t))
+const navChips = computed(() => galleryNavChips(model.value))
 const name = computed(() => String(props.data.project?.name || ''))
 
 type Target = { category: GalleryCategoryKey; key?: string; room?: string }
