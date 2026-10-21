@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GALLERY_CATEGORY_ORDER, GALLERY_DEFAULTS, GALLERY_RADIUS_MAX, buildGalleryModel, compactGalleryOptions, galleryUrl, mosaicLayout, normalizeGalleryOptions } from '../../utils/mediaGallery'
+import { GALLERY_CATEGORY_ORDER, GALLERY_DEFAULTS, GALLERY_RADIUS_MAX, buildGalleryModel, compactGalleryOptions, galleryNavChips, galleryUrl, mosaicLayout, normalizeGalleryOptions } from '../../utils/mediaGallery'
 import { MEDIA_ROOMS, isMediaRoom, normalizeMediaRoom } from '../../utils/mediaRooms'
 import { GALLERY_ICON_KEYS, galleryIconSvg } from '../../utils/mediaGalleryIcons'
 import { tourEmbed, videoEmbed } from '../../utils/videoEmbed'
@@ -118,6 +118,32 @@ describe('mosaico', () => {
   })
 })
 
+describe('barra de navegación de la galería (chips)', () => {
+  it('primero las categorías con contenido y después las estancias con fotos; una sola categoría no es navegación', () => {
+    // Una propiedad con fotos de dos estancias + un vídeo: categorías (fotos, vídeos) y estancias (salón, cocina).
+    const m = buildGalleryModel(
+      {
+        project: { name: 'X', videoUrl: 'https://youtu.be/dQw4w9WgXcQ' },
+        gallery: [{ id: 1, image: 'k/a.jpg', room: 'living' }, { id: 2, image: 'k/b.jpg', room: 'kitchen' }],
+      },
+      t,
+    )
+    const chips = galleryNavChips(m)
+    expect(chips.map((c) => [c.category, c.room])).toEqual([
+      ['photos', null],
+      ['videos', null],
+      ['photos', 'living'],
+      ['photos', 'kitchen'],
+    ])
+    expect(chips.find((c) => c.room === 'living')!.count).toBe(1)
+    expect(chips[0]!.icon).toBeTruthy()
+
+    // Sólo fotos sin estancia: una única categoría → la ficha no pinta barra (length 1).
+    const one = galleryNavChips(buildGalleryModel({ project: { name: 'X' }, gallery: [{ id: 1, image: 'k/a.jpg' }] }, t))
+    expect(one).toHaveLength(1)
+  })
+})
+
 describe('estancias e iconos', () => {
   it('catálogo cerrado: una estancia válida o ninguna', () => {
     expect(isMediaRoom('kitchen')).toBe(true)
@@ -156,6 +182,15 @@ describe('opciones del Constructor', () => {
     expect(normalizeGalleryOptions({ height: 'gigante', gap: 7, radius: -3, accent: 'rojo', categories: 'x' })).toEqual({ ...GALLERY_DEFAULTS, radius: 0 })
     expect(compactGalleryOptions(GALLERY_DEFAULTS)).toEqual({})
     expect(compactGalleryOptions(normalizeGalleryOptions({ gap: 8 }))).toEqual({ gap: 8 })
+  })
+
+  it('la barra de navegación propia vale off/top/sticky (por defecto off); cualquier otra cosa es off', () => {
+    expect(GALLERY_DEFAULTS.navBar).toBe('off')
+    expect(normalizeGalleryOptions({ navBar: 'sticky' }).navBar).toBe('sticky')
+    expect(normalizeGalleryOptions({ navBar: 'top' }).navBar).toBe('top')
+    expect(normalizeGalleryOptions({ navBar: 'raro' }).navBar).toBe('off')
+    expect(compactGalleryOptions(normalizeGalleryOptions({ navBar: 'sticky' }))).toEqual({ navBar: 'sticky' })
+    expect(compactGalleryOptions(normalizeGalleryOptions({ navBar: 'off' }))).toEqual({})
   })
 
   it('el servidor guarda `gallery` en la zona de la ficha y descarta lo que no vale; la clasificación no es del Constructor', () => {
