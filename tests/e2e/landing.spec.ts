@@ -48,14 +48,16 @@ const demoBody = (n: number, extra: Record<string, unknown> = {}) => ({
 test.describe('Landing comercial de INMO', () => {
   test.use({ storageState: ANON_STATE })
 
-  test('1 · cabecera: marca, cuatro secciones del menú, acceso y «Solicitar demo»', async ({ page }) => {
+  test('1 · cabecera: marca, secciones del menú, acceso, demo y «Crear mi inmobiliaria»', async ({ page }) => {
     await open(page)
     const header = page.getByTestId('landing-header')
     await expect(header).toBeVisible()
     await expect(header.getByRole('link', { name: 'INMO, inicio' })).toBeVisible()
-    for (const item of LANDING_NAV) await expect(header.locator(`nav a[href="${item.href}"]`)).toHaveText(item.label)
+    for (const item of LANDING_NAV) await expect(header.locator(`nav.lp-nav a[href="${item.href}"]`)).toHaveText(item.label)
     await expect(page.getByTestId('landing-login')).toHaveAttribute('href', '/admin/login')
     await expect(page.getByTestId('landing-demo')).toHaveAttribute('href', '#solicitar-demo')
+    await expect(page.getByTestId('landing-register-company')).toHaveAttribute('href', '/registro-empresa')
+    await expect(page.getByTestId('landing-register-company')).toHaveText('Crear mi inmobiliaria')
   })
 
   test('2 · hero: sin antetítulo, titular en tres líneas con acento, subtítulo y las dos acciones', async ({ page }) => {

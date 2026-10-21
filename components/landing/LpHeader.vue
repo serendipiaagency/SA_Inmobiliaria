@@ -9,7 +9,8 @@
 
       <div class="lp-actions">
         <NuxtLink :to="LANDING_CTA.login.to" class="lp-login" data-testid="landing-login">{{ LANDING_CTA.login.label }} <span aria-hidden="true">↗</span></NuxtLink>
-        <a :href="LANDING_CTA.demo.to" class="lp-btn lp-btn-primary lp-btn-sm lp-demo-btn" data-testid="landing-demo" data-landing-event="cta_demo_header">{{ LANDING_CTA.demo.label }} <span aria-hidden="true">↗</span></a>
+        <a :href="LANDING_CTA.demo.to" class="lp-btn lp-btn-ghost lp-btn-sm lp-demo-btn" data-testid="landing-demo" data-landing-event="cta_demo_header">{{ LANDING_CTA.demo.label }} <span aria-hidden="true">↗</span></a>
+        <NuxtLink :to="LANDING_CTA.register.to" class="lp-btn lp-btn-blue lp-btn-sm lp-register-btn" data-testid="landing-register-company" data-landing-event="cta_register_header">{{ LANDING_CTA.register.label }}</NuxtLink>
         <button type="button" class="lp-menu-btn" :aria-expanded="open" aria-controls="lp-mobile-nav" :aria-label="open ? 'Cerrar menú' : 'Abrir menú'" data-testid="landing-menu" @click="open = !open">
           <LpIcon :name="open ? 'close' : 'menu'" />
         </button>
@@ -34,8 +35,9 @@ import { LANDING_CTA, LANDING_NAV } from '~/utils/landing'
 /**
  * Cabecera de la landing: fija, translúcida sobre el hero y sólida (con filete
  * y leve sombra) en cuanto se baja. Marca «inmo®» a la izquierda, las secciones
- * en el centro y, a la derecha, «Acceder» y «Solicitar demo». El registro real
- * se ofrece en el menú móvil, en el hero y en el cierre.
+ * en el centro y, a la derecha, los mismos enlaces y botones de siempre con el
+ * estilo nuevo: «Iniciar sesión», «Solicitar demo» y «Crear mi inmobiliaria»
+ * (en móvil, sólo «Crear mi inmobiliaria» y el menú; el resto, dentro de él).
  */
 const solid = ref(false)
 const open = ref(false)
@@ -98,6 +100,10 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
 .lp-login:hover {
   color: var(--lp-blue);
 }
+/* En móvil sólo «Crear mi inmobiliaria» + menú; el resto, dentro del menú. */
+.lp-demo-btn {
+  display: none;
+}
 .lp-menu-btn {
   display: inline-flex;
   align-items: center;
@@ -142,7 +148,8 @@ onBeforeUnmount(() => window.removeEventListener('scroll', onScroll))
   transform: translateY(-6px);
 }
 @media (min-width: 768px) {
-  .lp-login {
+  .lp-login,
+  .lp-demo-btn {
     display: inline-flex;
   }
 }
