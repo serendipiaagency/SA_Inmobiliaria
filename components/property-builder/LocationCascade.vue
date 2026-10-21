@@ -5,8 +5,14 @@
     <template v-if="spain">
       <PropertyBuilderField :spec="regionSpec" :model-value="form.region" :upload-folder="uploadFolder" @update:model-value="onRegion" />
       <PropertyBuilderField :spec="provinceSpec" :model-value="form.province" :upload-folder="uploadFolder" @update:model-value="onProvince" />
-      <PropertyBuilderField :spec="municipalitySpec" :model-value="form.municipality" :upload-folder="uploadFolder" @update:model-value="onMunicipality" />
-      <PropertyBuilderField :spec="citySpec" :model-value="form.city" :upload-folder="uploadFolder" @update:model-value="(v) => (form.city = v)" />
+      <!-- La localidad es el campo principal: depende directamente de la provincia. -->
+      <PropertyBuilderField :spec="citySpec" :model-value="form.city" :upload-folder="uploadFolder" @update:model-value="onCity" />
+      <!-- El municipio pasa a segundo plano: se completa solo con la localidad (lo usan la ficha y el buscador) y sólo se despliega para ajustarlo. -->
+      <details class="sm:col-span-2 rounded-lg border border-line px-3 py-2" :open="!!form.municipality" data-testid="location-municipality">
+        <summary class="cursor-pointer text-[13px] font-medium text-stone-500">Municipio <span class="font-normal text-stone-400">(opcional — se rellena solo según la localidad)</span></summary>
+        <p class="mb-2 mt-1 text-xs text-stone-400">Normalmente no hace falta tocarlo. Ajústalo sólo si la localidad pertenece a un municipio distinto del que se ha puesto automáticamente.</p>
+        <PropertyBuilderField :spec="municipalitySpec" :model-value="form.municipality" :upload-folder="uploadFolder" @update:model-value="onMunicipality" />
+      </details>
     </template>
     <template v-else>
       <PropertyBuilderField v-for="f in freeSpecs" :key="f.key" :spec="f" :model-value="form[f.key]" :upload-folder="uploadFolder" @update:model-value="(v) => (form[f.key] = v)" />
@@ -60,8 +66,9 @@ const freeSpecs: FieldSpec[] = [
 const regionSpec = computed(() => mk('region', 'Comunidad / región', withCurrent(geo.value?.regions() ?? [], props.form.region)))
 const provinceSpec = computed(() => mk('province', 'Provincia', withCurrent(props.form.region ? geo.value?.provinces(props.form.region) ?? [] : allProvinces(), props.form.province)))
 const municipalitySpec = computed(() => mk('municipality', 'Municipio', withCurrent(props.form.province ? geo.value?.municipalities(props.form.province) ?? [] : [], props.form.municipality)))
+// La localidad ya no depende del municipio: lista todas las de la provincia.
 const citySpec = computed(() =>
-  mk('city', 'Localidad', withCurrent(props.form.municipality ? geo.value?.localities(props.form.municipality, props.form.province) ?? [] : [], props.form.city), { recommended: true }),
+  mk('city', 'Localidad', withCurrent(props.form.province ? geo.value?.localitiesOfProvince(props.form.province) ?? [] : [], props.form.city), { recommended: true }),
 )
 
 function allProvinces(): string[] {
@@ -92,9 +99,19 @@ function onProvince(v: unknown) {
   props.form.municipality = null
   props.form.city = null
 }
+// Al elegir la localidad se completa el municipio automáticamente (lo leen la
+// ficha pública, el buscador y las zonas), sin pedírselo al usuario.
+function onCity(v: unknown) {
+  ensureSpain()
+  props.form.city = v || null
+  if (v && props.form.province) {
+    const mun = geo.value?.municipalityOfLocality(String(props.form.province), String(v))
+    if (mun) props.form.municipality = mun
+  }
+}
+// El municipio es ahora un ajuste manual secundario; no toca la localidad.
 function onMunicipality(v: unknown) {
   ensureSpain()
   props.form.municipality = v || null
-  props.form.city = v || null
 }
 </script>

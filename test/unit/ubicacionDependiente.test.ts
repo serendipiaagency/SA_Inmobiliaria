@@ -41,6 +41,26 @@ describe('ubicación dependiente: catálogo', () => {
     expect(geo.parentsOf('Asturias').region).toBe('Principado de Asturias')
     expect(geo.parentsOf('Nada').region).toBeNull()
   })
+  it('la provincia lista TODAS sus localidades (para elegir la localidad sin pasar por el municipio) — Cola 23', () => {
+    const oviedo = geo.municipalities('Asturias').find((m) => m.startsWith('Oviedo'))!
+    const provLocs = geo.localitiesOfProvince('Asturias')
+    expect(provLocs).toContain(oviedo)
+    // Province-wide: hay más localidades que municipios (incluye las de dentro de cada municipio).
+    expect(provLocs.length).toBeGreaterThan(geo.municipalities('Asturias').length)
+    expect(new Set(provLocs).size).toBe(provLocs.length) // sin duplicados
+    expect(geo.localitiesOfProvince('No existe')).toEqual([])
+  })
+  it('el municipio se deriva de la localidad (se conserva el dato aunque no se pida en la UI) — Cola 23', () => {
+    const oviedo = geo.municipalities('Asturias').find((m) => m.startsWith('Oviedo'))!
+    // Una localidad que coincide con un municipio es su propio municipio.
+    expect(geo.municipalityOfLocality('Asturias', oviedo)).toBe(oviedo)
+    // Una localidad de dentro de un municipio devuelve ese municipio (del catálogo de la provincia).
+    const subloc = geo.localities(oviedo, 'Asturias').find((l) => l !== oviedo)
+    if (subloc) expect(geo.municipalities('Asturias')).toContain(geo.municipalityOfLocality('Asturias', subloc)!)
+    // Desconocidos → null (no se inventa).
+    expect(geo.municipalityOfLocality('Asturias', 'Localidad inventada')).toBeNull()
+    expect(geo.municipalityOfLocality('No existe', oviedo)).toBeNull()
+  })
   it('un valor guardado que no está en el catálogo se conserva como opción (nada se pierde al abrir y guardar)', () => {
     expect(withCurrent(['A', 'B'], 'C')).toEqual(['C', 'A', 'B'])
     expect(withCurrent(['A', 'B'], 'A')).toEqual(['A', 'B'])
@@ -63,5 +83,16 @@ describe('ubicación dependiente: editor', () => {
   })
   it('usa el catálogo estático del buscador, no una lista propia', () => {
     expect(cascade).toContain("'/geo/es.json'")
+  })
+  it('la localidad es el campo principal (depende de la provincia) y el municipio queda plegado/opcional y autoderivado — Cola 23', () => {
+    // La localidad lista las de la provincia (ya no depende del municipio).
+    expect(cascade).toContain('localitiesOfProvince')
+    // El municipio va en un desplegable plegado/opcional.
+    expect(cascade).toContain('location-municipality')
+    expect(cascade).toContain('<details') // elemento plegable
+    expect(cascade.toLowerCase()).toContain('opcional')
+    // Al elegir la localidad se rellena el municipio solo.
+    expect(cascade).toContain('municipalityOfLocality')
+    expect(cascade).toMatch(/function onCity/)
   })
 })
