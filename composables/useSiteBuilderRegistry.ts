@@ -168,15 +168,15 @@ export const BLOCK_PRESETS: BlockPreset[] = [
   {
     presetId: 'trust-points',
     type: 'trust-points',
-    label: 'Nuestra experiencia, tu tranquilidad',
-    description: 'Tres o cuatro argumentos propios de tu agencia, con fotografía opcional. Sin frases genéricas: lo que de verdad te distingue.',
+    label: 'Por qué elegirnos',
+    description: 'Tres o cuatro ventajas propias de tu agencia, en una rejilla 2×2 con icono y numeración y una fotografía opcional de recorte orgánico. Sin frases genéricas: lo que de verdad te distingue.',
     category: 'Empresa',
     createContent: () => ({
       eyebrow: 'Por qué elegirnos', title: 'Experiencia local. Tu tranquilidad.', text: '', image: '', imageAlt: '', count: 4,
-      point1Title: 'Conocemos la zona', point1Text: 'Asesoramiento basado en el conocimiento real del territorio y de sus particularidades.',
-      point2Title: 'Atención personal', point2Text: 'Un profesional que te acompaña en cada paso, con un trato cercano y transparente.',
-      point3Title: 'Todo en un solo lugar', point3Text: 'Compra, venta, alquiler y asesoramiento financiero, de la mano de un mismo equipo.',
-      point4Title: 'Tu confianza es lo primero', point4Text: 'Información clara y honesta para que tomes decisiones con seguridad.',
+      point1Icon: 'street', point1Title: 'Conocemos la zona', point1Text: 'Asesoramiento basado en el conocimiento real del territorio y de sus particularidades.',
+      point2Icon: 'concierge', point2Title: 'Atención personal', point2Text: 'Un profesional que te acompaña en cada paso, con un trato cercano y transparente.',
+      point3Icon: 'community', point3Title: 'Todo en un solo lugar', point3Text: 'Compra, venta, alquiler y asesoramiento financiero, de la mano de un mismo equipo.',
+      point4Icon: 'status', point4Title: 'Tu confianza es lo primero', point4Text: 'Información clara y honesta para que tomes decisiones con seguridad.',
     }),
   },
   {
@@ -344,7 +344,7 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
   'energy-efficiency': 'Eficiencia energética',
   'blog-list': 'Últimos artículos',
   'about-agency': 'Conoce nuestra inmobiliaria',
-  'trust-points': 'Experiencia y confianza',
+  'trust-points': 'Por qué elegirnos',
   services: 'Servicios',
   offices: 'Oficinas',
   team: 'Comerciales',
@@ -428,7 +428,7 @@ export function blockSubtitle(block: { type: string; content?: Record<string, an
       return stats ? `${stats} cifra${stats === 1 ? '' : 's'} real${stats === 1 ? '' : 'es'} · foto` : 'Texto y foto, sin cifras'
     }
     case 'trust-points':
-      return `${Number(c.count) === 3 ? 3 : 4} argumentos${c.image ? ' · foto' : ''}`
+      return `${Number(c.count) === 3 ? 3 : 4} ventajas${c.image ? ' · foto' : ''}`
     case 'services': {
       const n = [1, 2, 3, 4, 5, 6].filter((i) => String(c[`service${i}Title`] || '').trim()).length
       return `${n} servicio${n === 1 ? '' : 's'}${c.image ? ' · foto' : ''}`

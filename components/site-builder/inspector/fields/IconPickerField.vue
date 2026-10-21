@@ -43,7 +43,7 @@ defineProps<{ label: string; modelValue: string }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 // Selección cuidada, en el orden en que suele presentarse un servicio.
-const CURATED = ['propertyType', 'area', 'community', 'concierge', 'renovation', 'energyRating', 'building', 'garage', 'pool', 'garden', 'orientation', 'plot', 'facade', 'accessible', 'heating', 'status']
+const CURATED = ['propertyType', 'area', 'street', 'community', 'concierge', 'renovation', 'energyRating', 'building', 'garage', 'pool', 'garden', 'orientation', 'plot', 'facade', 'accessible', 'heating', 'status']
 // Sólo las claves que existen de verdad en el catálogo, por si alguna se renombra.
 const ICONS = CURATED.filter((k) => FEATURE_ICON_KEYS.includes(k))
 
