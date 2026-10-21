@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { schema } from '../../server/utils/db'
 import {
   POSTER_FORMAT_KEYS,
+  defaultPosterStructure,
   createPosterProject,
   createPosterTemplate,
   deletePosterProject,
@@ -44,6 +45,20 @@ describe('formatos de cartel', () => {
     expect(isPosterFormat('pdf_a4_landscape')).toBe(true)
     expect(isPosterFormat('social_story')).toBe(false) // no es de cartel
     expect(isPosterFormat('nope')).toBe(false)
+  })
+
+  it('la estructura de partida tiene bloques con binding a Property Core y es válida', () => {
+    const s = defaultPosterStructure('print_a3_portrait')
+    expect(s.pages).toHaveLength(1)
+    const bindings = s.pages[0]!.elements.map((e) => e.binding)
+    expect(bindings).toContain('{{asset.title}}')
+    expect(bindings).toContain('{{asset.price}}')
+    expect(bindings).toContain('{{asset.mainImage}}')
+    expect(bindings).toContain('{{asset.qrCode}}')
+    // Normaliza (valida) sin lanzar.
+    expect(() => normalizeStructureJson(s)).not.toThrow()
+    // Un formato horizontal también produce estructura válida.
+    expect(defaultPosterStructure('print_a3_landscape').pages[0]!.elements.length).toBeGreaterThan(0)
   })
 })
 

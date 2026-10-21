@@ -62,6 +62,9 @@ const ADDED: Array<[to: string, label: string, area: AdminArea | null, superAdmi
   ['/admin/comunicaciones/configuracion', 'Chat de la web', 'crm', false],
   // Cola 17: el módulo de newsletter (campañas y plantillas) en «Comunicación y mensajes»; permiso Portal Web.
   ['/admin/newsletter', 'Newsletter', 'web', false],
+  // Cola 20: módulo «Carteles de escaparate» en «Web y contenido»; permiso Portal Web.
+  ['/admin/carteles/plantillas', 'Plantillas de cartel', 'web', false],
+  ['/admin/carteles/piezas', 'Carteles', 'web', false],
 ]
 
 /**

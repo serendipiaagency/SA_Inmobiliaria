@@ -56,6 +56,40 @@ function requireFormat(key: unknown): PosterFormatKey {
   return key
 }
 
+/**
+ * Un cartel de partida razonable para un formato: foto principal arriba y, en
+ * la banda inferior, el título, el precio (con el color de marca), la
+ * ubicación, la referencia, el logo y el QR. Las coordenadas van en puntos
+ * desde arriba-izquierda, como el renderizador. Así una plantilla recién
+ * creada ya produce un PDF con sentido antes de tocar el editor; las
+ * plantillas de sistema (siguiente incremento) traen variantes más pulidas.
+ */
+export function defaultPosterStructure(formatKey: PosterFormatKey): TemplateStructure {
+  const fmt = FORMAT_BY_KEY[formatKey]!
+  const W = fmt.widthPt
+  const H = fmt.heightPt
+  const m = Math.round(W * 0.06) // margen
+  const photoH = Math.round(H * 0.55)
+  const band = H - photoH // banda inferior para los datos
+  const text = (id: string, binding: string, y: number, h: number, style: Record<string, unknown>) => ({ id, type: 'text' as const, x: m, y, w: W - 2 * m, h, binding, style })
+  return {
+    pages: [
+      {
+        id: 'p1',
+        elements: [
+          { id: 'photo', type: 'image', x: 0, y: 0, w: W, h: photoH, binding: '{{asset.mainImage}}', zIndex: 0 },
+          { id: 'logo', type: 'image', x: W - m - 90, y: Math.round(photoH + band * 0.12), w: 90, h: 36, binding: '{{tenant.logo}}', zIndex: 2 },
+          text('title', '{{asset.title}}', Math.round(photoH + band * 0.1), 40, { fontSize: 26, bold: true, color: '#16150f' }),
+          text('price', '{{asset.price}}', Math.round(photoH + band * 0.32), 40, { fontSize: 32, bold: true, color: '#B08D57' }),
+          text('location', '{{asset.location}}', Math.round(photoH + band * 0.52), 28, { fontSize: 15, color: '#57524a' }),
+          text('reference', '{{asset.reference}}', Math.round(photoH + band * 0.68), 22, { fontSize: 11, color: '#8a867e' }),
+          { id: 'qr', type: 'qr', x: W - m - 96, y: H - m - 96, w: 96, h: 96, binding: '{{asset.qrCode}}', zIndex: 2 },
+        ],
+      },
+    ],
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Plantillas de cartel
 // ---------------------------------------------------------------------------
@@ -120,6 +154,7 @@ export async function createPosterTemplate(db: any, orgIdInput: number | null, i
   const orgId = requireOrgId(orgIdInput)
   const name = clampText(input.name, 120).trim()
   if (!name) throw createError({ statusCode: 422, statusMessage: 'Ponle un nombre a la plantilla' })
+  const formatKey = requireFormat(input.formatKey)
   const ts = now()
   const [row] = await db
     .insert(schema.posterTemplates)
@@ -128,10 +163,11 @@ export async function createPosterTemplate(db: any, orgIdInput: number | null, i
       name,
       description: input.description != null ? clampText(input.description, 300) : null,
       category: clampText(input.category, 40).trim() || 'escaparate',
-      formatKey: requireFormat(input.formatKey),
+      formatKey,
       isSystem: 0,
       status: 'draft',
-      structureJson: normalizeStructureJson(input.structure),
+      // Sin estructura explícita, una plantilla de cartel con sentido de partida.
+      structureJson: normalizeStructureJson(input.structure ?? defaultPosterStructure(formatKey)),
       createdBy: userId ?? null,
       createdAt: ts,
       updatedAt: ts,

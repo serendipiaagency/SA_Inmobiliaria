@@ -191,6 +191,9 @@ export const ADMIN_NAV: NavGroup[] = [
       { label: 'Piezas generadas', to: '/admin/asset-export/projects', icon: 'doc' },
       { label: 'Catálogos combinados', to: '/admin/asset-export/catalogs', icon: 'doc' },
       { label: 'Exportación masiva', to: '/admin/asset-export/batches', icon: 'bolt' },
+      // Carteles de escaparate (Cola 20): módulo independiente, mismo permiso Portal Web.
+      { label: 'Plantillas de cartel', to: '/admin/carteles/plantillas', icon: 'layers' },
+      { label: 'Carteles', to: '/admin/carteles/piezas', icon: 'doc' },
       // Blog & CMS, ahora dentro de «Web y contenido». Permiso Blog & CMS (cms).
       { label: 'Dashboard', to: '/admin/cms', icon: 'sparkles', area: 'cms' },
       { label: 'Artículos', to: '/admin/cms/articles', icon: 'doc', area: 'cms' },
