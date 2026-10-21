@@ -1,13 +1,16 @@
 import { test, expect, request as pwRequest, type Page } from '@playwright/test'
 import { ANON_STATE, STATE_A, STATE_B } from './global-setup'
-import { LANDING_FAQ, LANDING_FEATURES, LANDING_FORBIDDEN_CLAIMS, LANDING_MODULES, LANDING_NAV, LANDING_REQUEST, LANDING_STEPS } from '../../utils/landing'
+import { LANDING_CRM, LANDING_FAQ, LANDING_FEATURES, LANDING_FORBIDDEN_CLAIMS, LANDING_MODULES, LANDING_NAV, LANDING_REQUEST, LANDING_STEPS } from '../../utils/landing'
 
 /**
  * Landing comercial de INMO (pages/index.vue en el host principal,
- * components/landing/*, utils/landing.ts, docs/landing.md): la página vende
- * sólo lo que la plataforma hace, lleva al registro y al acceso reales, y la
- * solicitud de demo se guarda en la plataforma, confirma por correo y
- * aparece en la bandeja del super admin.
+ * components/landing/*, utils/landing.ts, docs/landing.md): rediseño
+ * «Experiencia premium». La página vende sólo lo que la plataforma hace, da
+ * protagonismo al Constructor Web y al CRM con sus vistas interactivas, usa
+ * fotografía de propiedades de lujo y de equipo, presenta las funcionalidades
+ * en desplegables, lleva al registro y al acceso reales, y la solicitud de
+ * demo se guarda en la plataforma, confirma por correo y aparece en la bandeja
+ * del super admin.
  */
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8788'
 const MOCK_URL = process.env.E2E_PROVIDER_MOCK_URL || 'http://127.0.0.1:8799'
@@ -45,7 +48,7 @@ const demoBody = (n: number, extra: Record<string, unknown> = {}) => ({
 test.describe('Landing comercial de INMO', () => {
   test.use({ storageState: ANON_STATE })
 
-  test('1 · cabecera: marca, cinco secciones del menú, acceso, demo y «Crear mi inmobiliaria»', async ({ page }) => {
+  test('1 · cabecera: marca, cuatro secciones del menú, acceso y «Solicitar demo»', async ({ page }) => {
     await open(page)
     const header = page.getByTestId('landing-header')
     await expect(header).toBeVisible()
@@ -53,40 +56,41 @@ test.describe('Landing comercial de INMO', () => {
     for (const item of LANDING_NAV) await expect(header.locator(`nav a[href="${item.href}"]`)).toHaveText(item.label)
     await expect(page.getByTestId('landing-login')).toHaveAttribute('href', '/admin/login')
     await expect(page.getByTestId('landing-demo')).toHaveAttribute('href', '#solicitar-demo')
-    await expect(page.getByTestId('landing-register-company')).toHaveAttribute('href', '/registro-empresa')
-    await expect(page.getByTestId('landing-register-company')).toHaveText('Crear mi inmobiliaria')
   })
 
-  test('2 · hero: antetítulo, «Tu inmobiliaria, toda conectada.», subtítulo y las dos acciones', async ({ page }) => {
+  test('2 · hero: sin antetítulo, titular en tres líneas con acento, subtítulo y las dos acciones', async ({ page }) => {
     await open(page)
     const hero = page.getByTestId('landing-hero')
-    await expect(hero.locator('.lp-eyebrow')).toHaveText(/la nueva forma de gestionar tu inmobiliaria/i)
-    await expect(hero.locator('.lp-eyebrow')).toHaveCSS('text-transform', 'uppercase')
-    await expect(hero.locator('h1')).toHaveText('Tu inmobiliaria, toda conectada.')
-    await expect(hero.locator('.lp-hero-lede')).toContainText('Gestiona propiedades, clientes, visitas, operaciones y tu propia web')
+    await expect(hero.locator('.lp-eyebrow')).toHaveCount(0)
+    await expect(hero.locator('h1')).toContainText('Tu inmobiliaria')
+    await expect(hero.locator('h1')).toContainText('Otro nivel')
+    await expect(hero.locator('h1 em')).toHaveText('Otro nivel.')
+    await expect(hero.locator('.lp-hero-lede')).toContainText('Una web que atrae y un CRM que conecta')
+    await expect(page.getByTestId('landing-hero-demo')).toHaveAttribute('href', '#solicitar-demo')
     await expect(page.getByTestId('landing-hero-register')).toHaveAttribute('href', '/registro-empresa')
-    await expect(page.getByTestId('landing-hero-demo')).toHaveAttribute('href', '#demo')
-    await expect(page.getByTestId('landing-hero-demo')).toHaveText('Ver demo')
   })
 
-  test('3 · hero: la captura real del panel carga (no hay hueco de «captura pendiente») y es la única imagen prioritaria', async ({ page }) => {
+  test('3 · hero: la primera foto de lujo carga, es la única prioritaria y la galería tiene tres', async ({ page }) => {
     await open(page)
     const hero = page.getByTestId('landing-hero')
-    const img = hero.locator('img.lp-shot')
-    await expect(img).toHaveAttribute('loading', 'eager')
-    await expect(img).toHaveAttribute('fetchpriority', 'high')
-    await expect(img).toHaveAttribute('src', '/landing/panel.webp')
-    await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBeGreaterThan(0)
-    await expect(hero.getByTestId('landing-shot-missing')).toHaveCount(0)
+    const imgs = hero.locator('.lp-photo-stack img')
+    await expect(imgs).toHaveCount(3)
+    const first = imgs.first()
+    await expect(first).toHaveAttribute('loading', 'eager')
+    await expect(first).toHaveAttribute('fetchpriority', 'high')
+    await expect(first).toHaveAttribute('src', '/landing/villa.webp')
+    await expect.poll(() => first.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBeGreaterThan(0)
     expect(await page.locator('.sa-landing img[fetchpriority="high"]').count()).toBe(1)
   })
 
-  test('4 · hero: cuatro tarjetas flotantes demostrativas, marcadas como «Ejemplo»', async ({ page }) => {
+  test('4 · la galería del hero se puede pausar y cambiar con los puntos', async ({ page }) => {
     await open(page)
-    const floats = page.getByTestId('landing-floats').locator('li')
-    await expect(floats).toHaveCount(4)
-    for (let i = 0; i < 4; i++) await expect(floats.nth(i).locator('.lp-float-tag')).toHaveText('Ejemplo')
-    await expect(floats.first()).toContainText('Nueva consulta recibida')
+    const hero = page.getByTestId('landing-hero')
+    const dots = hero.locator('.lp-photo-dot')
+    await expect(dots).toHaveCount(3)
+    await dots.nth(1).click()
+    await expect(dots.nth(1)).toHaveAttribute('aria-pressed', 'true')
+    await expect(hero.locator('.lp-photo-stack img').nth(1)).toHaveClass(/is-active/)
   })
 
   test('5 · la cabecera se vuelve sólida al bajar', async ({ page }) => {
@@ -97,19 +101,19 @@ test.describe('Landing comercial de INMO', () => {
     await expect(header).toHaveClass(/is-solid/)
   })
 
-  test('6 · seis módulos, cada uno hacia una sección que existe', async ({ page }) => {
+  test('6 · cinta de módulos: cuatro enlaces, cada uno hacia una sección que existe', async ({ page }) => {
     await open(page)
-    const cards = page.getByTestId('landing-modules').locator('li a.lp-module')
-    await expect(cards).toHaveCount(6)
+    const links = page.getByTestId('landing-modules').locator('.lp-strip-link')
+    await expect(links).toHaveCount(4)
     for (const m of LANDING_MODULES) {
-      const card = page.getByTestId(`landing-module-${m.key}`)
-      await expect(card).toContainText(m.title)
-      await expect(card).toHaveAttribute('href', m.href)
+      const link = page.getByTestId(`landing-module-${m.key}`)
+      await expect(link).toContainText(m.label)
+      await expect(link).toHaveAttribute('href', m.href)
       await expect(page.locator(m.href)).toHaveCount(1)
     }
   })
 
-  test('7 · Constructor Web: pestañas Editor | Web publicada cambian la captura', async ({ page }) => {
+  test('7 · Constructor Web: pestañas Editor visual | Web publicada cambian la captura', async ({ page }) => {
     await open(page)
     await page.getByTestId('landing-builder').scrollIntoViewIfNeeded()
     await expect(page.getByTestId('landing-builder-tab-editor')).toHaveAttribute('aria-selected', 'true')
@@ -120,7 +124,7 @@ test.describe('Landing comercial de INMO', () => {
     await expect(page.getByTestId('landing-builder-shot').locator('img')).toHaveAttribute('src', '/landing/web-portada.webp')
   })
 
-  test('8 · las pestañas responden al teclado (flechas)', async ({ page }) => {
+  test('8 · las pestañas del Constructor responden al teclado (flechas)', async ({ page }) => {
     await open(page)
     await page.getByTestId('landing-builder-tab-editor').focus()
     await page.keyboard.press('ArrowRight')
@@ -129,50 +133,46 @@ test.describe('Landing comercial de INMO', () => {
     await expect(page.getByTestId('landing-builder-shot')).toHaveAttribute('data-shot', 'constructor')
   })
 
-  test('9 · CRM: captura real de leads y microdemo de cinco pasos; al pulsar uno, queda activo', async ({ page }) => {
+  test('9 · CRM: captura real de leads y microdemo de tres pasos; al pulsar uno, queda activo', async ({ page }) => {
     await open(page)
     const crm = page.getByTestId('landing-crm')
-    await expect(crm.locator('img.lp-shot')).toHaveAttribute('src', '/landing/crm.webp')
-    const steps = page.getByTestId('landing-crm-flow').locator('.lp-flow-step')
-    await expect(steps).toHaveCount(5)
-    await expect(steps.nth(0)).toContainText('Consulta recibida')
-    await expect(steps.nth(4)).toContainText('Seguimiento')
-    await page.getByTestId('landing-crm-step-3').click()
-    await expect(page.getByTestId('landing-crm-step-3')).toHaveAttribute('data-active', 'true')
-    await expect(page.getByTestId('landing-crm-flow').locator('.lp-flow-note')).toContainText('regla de reparto')
+    await expect(crm.locator('.lp-crm-screen img')).toHaveAttribute('src', '/landing/crm.webp')
+    const steps = page.getByTestId('landing-crm-flow').locator('.lp-crm-step')
+    await expect(steps).toHaveCount(LANDING_CRM.steps.length)
+    await expect(steps.nth(0)).toContainText('Recibe la consulta')
+    await page.getByTestId('landing-crm-step-2').click()
+    await expect(page.getByTestId('landing-crm-step-2')).toHaveAttribute('data-active', 'true')
+    await expect(crm.locator('.lp-crm-desc')).toContainText('regla de reparto')
   })
 
-  test('10 · la microdemo avanza sola', async ({ page }) => {
+  test('10 · la microdemo del CRM avanza sola', async ({ page }) => {
     await open(page)
     await page.getByTestId('landing-crm-flow').scrollIntoViewIfNeeded()
     await expect(page.getByTestId('landing-crm-step-1')).toHaveAttribute('data-active', 'true')
     await expect(page.getByTestId('landing-crm-step-2')).toHaveAttribute('data-active', 'true', { timeout: 6000 })
   })
 
-  test('11 · Propiedades: seis puntos y pestañas Panel de gestión | Ficha pública', async ({ page }) => {
+  test('11 · Propiedades: galería de tres fotos de lujo, seis puntos y aviso de fotografía de ambiente', async ({ page }) => {
     await open(page)
     const section = page.getByTestId('landing-properties')
+    await expect(section.locator('.lp-gallery figure')).toHaveCount(3)
+    await expect(section.locator('.lp-gallery img').first()).toHaveAttribute('src', '/landing/villa.webp')
     await expect(section.locator('.lp-chips li')).toHaveCount(6)
     await expect(section.locator('.lp-chips')).toContainText('Obra nueva y segunda mano')
-    await expect(page.getByTestId('landing-properties-shot')).toHaveAttribute('data-shot', 'propiedad-panel')
-    await page.getByTestId('landing-properties-tab-public').click()
-    await expect(page.getByTestId('landing-properties-shot')).toHaveAttribute('data-shot', 'ficha-publica')
+    await expect(section.locator('.lp-footnote')).toContainText('Fotografía de ambiente')
   })
 
-  test('12 · Inteligencia: seis capacidades con estado real; los portales son «Próximamente»', async ({ page }) => {
+  test('12 · Equipo: sección con fotografía profesional y enlace al CRM', async ({ page }) => {
     await open(page)
-    const items = page.getByTestId('landing-intelligence').locator('.lp-intel')
-    await expect(items).toHaveCount(6)
-    await expect(page.getByTestId('landing-intel-channels')).toHaveAttribute('data-status', 'soon')
-    await expect(page.getByTestId('landing-intel-channels')).toContainText('Próximamente')
-    await expect(page.getByTestId('landing-intel-assistant')).toContainText('Con IA activada')
-    await expect(page.getByTestId('landing-intel-matching')).toContainText('Disponible')
+    const team = page.getByTestId('landing-team')
+    await expect(team.locator('img').first()).toHaveAttribute('src', '/landing/equipo.webp')
+    await expect(team.getByRole('link')).toHaveAttribute('href', '#crm')
   })
 
   test('13 · Cómo funciona: seis pasos; elegir uno cambia la pantalla', async ({ page }) => {
     await open(page)
     const how = page.getByTestId('landing-how')
-    await expect(how.locator('.lp-tl-step')).toHaveCount(6)
+    await expect(how.locator('.lp-journey-tab')).toHaveCount(6)
     for (const step of LANDING_STEPS) await expect(page.getByTestId(`landing-step-${step.key}`)).toContainText(step.title)
     await expect(page.getByTestId('landing-how-shot')).toHaveAttribute('data-shot', 'propiedad-panel')
     await page.getByTestId('landing-step-contact').click()
@@ -180,13 +180,24 @@ test.describe('Landing comercial de INMO', () => {
     await expect(page.getByTestId('landing-how-shot')).toHaveAttribute('data-shot', 'crm')
   })
 
-  test('14 · Demo: la web real de la demo y «Ver demostración» lleva a la solicitud, no a un acceso', async ({ page }) => {
+  test('14 · Funcionalidades: ocho áreas en desplegables, con estados honestos y «Próximamente» en los portales', async ({ page }) => {
     await open(page)
-    const demo = page.getByTestId('landing-demo-section')
-    await expect(demo.locator('h2')).toHaveText('No te lo imagines. Descubre cómo funciona.')
-    await expect(demo.locator('img.lp-shot').first()).toHaveAttribute('src', '/landing/web-portada.webp')
-    await expect(page.getByTestId('landing-demo-cta')).toHaveAttribute('href', '#solicitar-demo')
-    await expect(page.locator('#planes')).toContainText('No hay acceso público a la cuenta de demostración')
+    const section = page.getByTestId('landing-features')
+    await expect(section.locator('details.lp-feature-group')).toHaveCount(LANDING_FEATURES.length)
+    expect(LANDING_FEATURES.length).toBe(8)
+    const items = section.locator('.lp-feature-list li')
+    expect(await items.count()).toBe(LANDING_FEATURES.reduce((s, g) => s + g.items.length, 0))
+    expect(await items.count()).toBeGreaterThanOrEqual(35)
+    const portals = page.getByTestId('landing-feature-group-web').locator('li[data-state="soon"]')
+    await expect(portals).toHaveCount(1)
+    await expect(portals).toContainText('Próximamente')
+    await expect(page.getByTestId('landing-feature-group-intelligence').locator('li[data-state="with-ai"]').first()).toContainText('Con IA activada')
+    await expect(section).toContainText(`en ${LANDING_FEATURES.length} áreas`)
+    // Un desplegable cerrado se abre al pulsarlo.
+    const data = page.getByTestId('landing-feature-group-data')
+    await expect(data).not.toHaveAttribute('open', '')
+    await data.locator('summary').click()
+    await expect(data).toHaveAttribute('open', '')
   })
 
   test('15 · formulario de demo: valida antes de enviar y enfoca el primer campo con error', async ({ page }) => {
@@ -351,17 +362,6 @@ test.describe('Landing comercial de INMO', () => {
     await owner.dispose()
   })
 
-  test('22 · Planes y acceso: seis puntos honestos, sin precios, con registro y «Consultar condiciones»', async ({ page }) => {
-    await open(page)
-    const access = page.getByTestId('landing-access')
-    await expect(access.locator('.lp-access-item')).toHaveCount(6)
-    const text = (await access.innerText()).toLowerCase()
-    expect(text).not.toMatch(/\d+\s?€|€\s?\d+|\/mes|gratis|sin tarjeta/)
-    expect(text).toContain('consúltanos')
-    await expect(page.getByTestId('landing-access-register')).toHaveAttribute('href', '/registro-empresa')
-    await expect(page.getByTestId('landing-access-demo')).toHaveText('Consultar condiciones')
-  })
-
   test('23 · FAQ: diez preguntas; la primera abierta, las demás se abren al pulsar', async ({ page }) => {
     await open(page)
     const items = page.getByTestId('landing-faq').locator('details')
@@ -374,20 +374,19 @@ test.describe('Landing comercial de INMO', () => {
     await expect(items.nth(1).locator('p')).toBeVisible()
   })
 
-  test('24 · CTA final oscuro con registro y demo', async ({ page }) => {
+  test('24 · cierre: «Tu próxima etapa empieza aquí» con el formulario y el registro', async ({ page }) => {
     await open(page)
-    const final = page.getByTestId('landing-final')
-    await expect(final.locator('h2')).toHaveText('Tu próxima etapa empieza aquí.')
-    await expect(final).toHaveCSS('background-color', 'rgb(23, 44, 34)')
-    await expect(page.getByTestId('landing-final-register')).toHaveAttribute('href', '/registro-empresa')
-    await expect(page.getByTestId('landing-final-demo')).toHaveAttribute('href', '#solicitar-demo')
+    const contact = page.getByTestId('landing-demo-section')
+    await expect(contact.locator('h2')).toContainText('Tu próxima etapa')
+    await expect(contact.getByTestId('landing-demo-form')).toBeVisible()
+    await expect(contact.getByRole('link', { name: /crea tu inmobiliaria/i })).toHaveAttribute('href', '/registro-empresa')
   })
 
   test('25 · pie de INMO: cuatro columnas, acceso, contacto, legales y el año', async ({ page }) => {
     await open(page)
     const footer = page.getByTestId('landing-footer')
     await expect(footer.locator('nav')).toHaveCount(4)
-    await expect(footer.getByRole('link', { name: 'Iniciar sesión' })).toHaveAttribute('href', '/admin/login')
+    await expect(footer.getByRole('link', { name: 'Acceder' })).toHaveAttribute('href', '/admin/login')
     await expect(footer.getByRole('link', { name: 'Crear mi inmobiliaria' })).toHaveAttribute('href', '/registro-empresa')
     await expect(footer.getByRole('link', { name: 'info@serendipiaagency.com' })).toHaveAttribute('href', 'mailto:info@serendipiaagency.com')
     for (const legal of ['/privacidad', '/terminos', '/cookies']) await expect(footer.locator(`a[href="${legal}"]`)).toHaveCount(1)
@@ -403,7 +402,7 @@ test.describe('Landing comercial de INMO', () => {
     await expect(page.getByTestId('register-form').locator('[aria-invalid="true"]').first()).toBeVisible()
   })
 
-  test('27 · «Iniciar sesión» abre el acceso del panel', async ({ page }) => {
+  test('27 · «Acceder» abre el acceso del panel', async ({ page }) => {
     await open(page)
     await page.getByTestId('landing-login').click()
     await expect(page).toHaveURL(/\/admin\/login/)
@@ -419,12 +418,12 @@ test.describe('Landing comercial de INMO', () => {
 
   test('29 · SEO: título, descripción, canónica, Open Graph, idioma y datos estructurados', async ({ page }) => {
     await open(page)
-    await expect(page).toHaveTitle('INMO — Tu inmobiliaria, toda conectada')
+    await expect(page).toHaveTitle('INMO — Tu inmobiliaria, a otro nivel')
     await expect(page.locator('html')).toHaveAttribute('lang', 'es')
-    await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /Gestiona propiedades, clientes, visitas, operaciones/)
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /Una web que atrae y un CRM que conecta/)
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${BASE_URL}/`)
     await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', `${BASE_URL}/landing/panel.webp`)
-    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'INMO — Tu inmobiliaria, toda conectada')
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'INMO — Tu inmobiliaria, a otro nivel')
     await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary_large_image')
     const ld = JSON.parse((await page.locator('script[type="application/ld+json"]').first().textContent()) || '[]')
     expect(ld.map((x: any) => x['@type'])).toEqual(['SoftwareApplication', 'FAQPage'])
@@ -435,7 +434,7 @@ test.describe('Landing comercial de INMO', () => {
   test('30 · accesibilidad básica: un único h1, secciones con título y pestañas con roles', async ({ page }) => {
     await open(page)
     expect(await page.locator('.sa-landing h1').count()).toBe(1)
-    for (const id of ['producto', 'constructor-web', 'crm', 'propiedades', 'inteligencia', 'funcionalidades', 'como-funciona', 'demo', 'planes', 'faq']) {
+    for (const id of ['producto', 'constructor-web', 'crm', 'propiedades', 'funcionalidades', 'como-funciona', 'faq', 'contacto']) {
       await expect(page.locator(`#${id} h2`).first()).toBeVisible()
     }
     expect(await page.locator('[role="tablist"]').count()).toBe(2)
@@ -463,23 +462,19 @@ test.describe('Landing comercial de INMO', () => {
     await ctx.close()
   })
 
-  test('32 · tablet (820 px): sin desbordes y los módulos en dos columnas', async ({ browser }) => {
+  test('32 · tablet (820 px): sin desbordes y las secciones clave visibles', async ({ browser }) => {
     const ctx = await browser.newContext({ baseURL: BASE_URL, storageState: ANON_STATE, viewport: { width: 820, height: 1180 } })
     const page = await ctx.newPage()
     await open(page)
     await noOverflow(page)
-    const cards = page.getByTestId('landing-modules').locator('li')
-    const a = await cards.nth(0).boundingBox()
-    const b = await cards.nth(1).boundingBox()
-    const c = await cards.nth(2).boundingBox()
-    expect(Math.abs(a!.y - b!.y)).toBeLessThan(2)
-    expect(c!.y).toBeGreaterThan(a!.y + 50)
+    await expect(page.getByTestId('landing-builder')).toBeVisible()
+    await expect(page.getByTestId('landing-crm')).toBeVisible()
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     await noOverflow(page)
     await ctx.close()
   })
 
-  test('33 · imágenes: todas con alt y dimensiones; las capturas (menos la del hero) se cargan en diferido y existen', async ({ page }) => {
+  test('33 · imágenes: todas con alt y dimensiones; sólo la primera del hero es prioritaria y las demás en diferido', async ({ page }) => {
     await open(page)
     const imgs = page.locator('.sa-landing img')
     const count = await imgs.count()
@@ -496,7 +491,6 @@ test.describe('Landing comercial de INMO', () => {
       expect(res.headers()['content-type']).toContain('image/webp')
     }
     expect(await page.locator('.sa-landing img[loading="lazy"]').count()).toBe(count - 1)
-    await expect(page.getByTestId('landing-shot-missing')).toHaveCount(0)
   })
 
   test('34 · la landing antigua redirige (301) a la raíz y la nueva no promete lo que no hay', async ({ page, request }) => {
@@ -507,45 +501,6 @@ test.describe('Landing comercial de INMO', () => {
     const text = (await page.locator('.sa-landing').innerText()).toLowerCase()
     for (const claim of LANDING_FORBIDDEN_CLAIMS) expect(text, `no puede decir «${claim}»`).not.toContain(claim.toLowerCase())
     expect(text).not.toMatch(/\+\s?\d{2,}\s?(inmobiliarias|clientes)|confían en nosotros/)
-  })
-
-  test('36 · Funcionalidades: inventario completo por áreas, con estados honestos y «Próximamente» en los portales', async ({ page }) => {
-    await open(page)
-    const section = page.getByTestId('landing-features')
-    await expect(section.locator('.lp-feature-group')).toHaveCount(LANDING_FEATURES.length)
-    expect(LANDING_FEATURES.length).toBeGreaterThanOrEqual(7)
-    const items = section.locator('.lp-feature-list li')
-    expect(await items.count()).toBe(LANDING_FEATURES.reduce((s, g) => s + g.items.length, 0))
-    expect(await items.count()).toBeGreaterThanOrEqual(35)
-    const portals = page.getByTestId('landing-feature-group-web').locator('li[data-state="soon"]')
-    await expect(portals).toHaveCount(1)
-    await expect(portals).toContainText('Próximamente')
-    await expect(page.getByTestId('landing-feature-group-intelligence').locator('li[data-state="with-ai"]').first()).toContainText('Con IA activada')
-    await expect(section).toContainText(`en ${LANDING_FEATURES.length} áreas`)
-    await expect(page.getByTestId('landing-header').locator('nav a[href="#funcionalidades"]')).toHaveText('Funcionalidades')
-  })
-
-  test('37 · bloque de solicitud: tres pasos legibles, firma con correo y formulario con cabecera honesta', async ({ page }) => {
-    await open(page, '/#solicitar-demo')
-    const req = page.getByTestId('landing-request')
-    await expect(req.locator('.lp-eyebrow')).toHaveText(LANDING_REQUEST.eyebrow)
-    await expect(req.locator('h3').first()).toHaveText(LANDING_REQUEST.title)
-    const steps = page.getByTestId('landing-request-steps').locator('li')
-    await expect(steps).toHaveCount(3)
-    // Cada texto de paso cabe en una o dos líneas: nada de una palabra por línea.
-    for (let i = 0; i < 3; i++) {
-      const p = steps.nth(i).locator('p')
-      const box = await p.boundingBox()
-      expect(box!.width).toBeGreaterThan(200)
-      expect(box!.height).toBeLessThan(60)
-    }
-    await expect(page.getByTestId('landing-request-signature')).toContainText(LANDING_REQUEST.signature.email)
-    await expect(page.getByTestId('landing-request-badge')).toHaveText(LANDING_REQUEST.form.badge)
-    await expect(page.getByTestId('landing-demo-form')).toContainText(LANDING_REQUEST.form.title)
-    await expect(page.getByTestId('landing-demo-submit')).toContainText(LANDING_REQUEST.form.submit)
-    const foot = await page.getByTestId('landing-request-footnote').innerText()
-    expect(foot.toLowerCase()).not.toContain('tarjeta')
-    expect(foot).toBe(LANDING_REQUEST.form.footnote)
   })
 
   test('35 · analítica: sólo si ya hay GA4; cada botón marcado envía su evento', async ({ page }) => {
@@ -562,5 +517,28 @@ test.describe('Landing comercial de INMO', () => {
     await page.evaluate(() => delete (window as any).gtag)
     await page.getByTestId('landing-demo-submit').click()
     expect(await page.evaluate(() => document.querySelector('script[src*="googletagmanager"]'))).toBeNull()
+  })
+
+  test('37 · bloque de solicitud: tres pasos legibles, firma con correo y formulario con cabecera honesta', async ({ page }) => {
+    await open(page, '/#solicitar-demo')
+    const req = page.getByTestId('landing-request')
+    await expect(req.locator('.lp-eyebrow')).toHaveCount(0)
+    await expect(req.locator('h2').first()).toContainText('Tu próxima etapa')
+    const steps = page.getByTestId('landing-request-steps').locator('li')
+    await expect(steps).toHaveCount(3)
+    // Cada texto de paso cabe en una o dos líneas: nada de una palabra por línea.
+    for (let i = 0; i < 3; i++) {
+      const p = steps.nth(i).locator('p')
+      const box = await p.boundingBox()
+      expect(box!.width).toBeGreaterThan(160)
+      expect(box!.height).toBeLessThan(70)
+    }
+    await expect(page.getByTestId('landing-request-signature')).toContainText(LANDING_REQUEST.signature.email)
+    await expect(page.getByTestId('landing-request-badge')).toHaveText(LANDING_REQUEST.form.badge)
+    await expect(page.getByTestId('landing-demo-form')).toContainText(LANDING_REQUEST.form.title)
+    await expect(page.getByTestId('landing-demo-submit')).toContainText(LANDING_REQUEST.form.submit)
+    const foot = await page.getByTestId('landing-request-footnote').innerText()
+    expect(foot.toLowerCase()).not.toContain('tarjeta')
+    expect(foot).toBe(LANDING_REQUEST.form.footnote)
   })
 })

@@ -1,31 +1,9 @@
 <template>
-  <section id="demo" class="lp-section lp-demo" data-testid="landing-demo-section">
-    <div class="lp-shell">
-      <div class="lp-demo-head">
-        <p class="lp-eyebrow">Demo</p>
-        <h2 class="lp-h2">{{ LANDING_DEMO.title }}</h2>
-        <p class="lp-lede">{{ LANDING_DEMO.subtitle }}</p>
-        <a :href="LANDING_DEMO.primary.to" class="lp-btn lp-btn-primary lp-demo-cta" data-testid="landing-demo-cta">{{ LANDING_DEMO.primary.label }}<LpIcon name="arrow" class="lp-btn-icon" /></a>
-      </div>
-      <div class="lp-demo-stage">
-        <div class="lp-demo-desktop">
-          <LpShot shot-key="web-portada" address="tu-inmobiliaria.com" caption="La web pública de la inmobiliaria de demostración, creada con el Constructor Web." />
-        </div>
-        <div class="lp-demo-phone" aria-hidden="true">
-          <div class="lp-phone">
-            <img :src="LANDING_SHOTS.movil.src" :alt="LANDING_SHOTS.movil.alt" :width="LANDING_SHOTS.movil.width" :height="LANDING_SHOTS.movil.height" loading="lazy" decoding="async" @error="phoneMissing = true">
-            <div v-if="phoneMissing" class="lp-phone-missing">Captura pendiente</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Solicitud de demo: una conversación real, no un acceso automático. -->
-    <div id="solicitar-demo" class="lp-shell lp-request" data-testid="landing-request">
-      <div class="lp-request-copy">
-        <p class="lp-eyebrow">{{ LANDING_REQUEST.eyebrow }}</p>
-        <h3 class="lp-request-title">{{ LANDING_REQUEST.title }}</h3>
-        <p class="lp-request-lede">{{ LANDING_REQUEST.text }}</p>
+  <section id="contacto" class="lp-section lp-contact" data-testid="landing-demo-section">
+    <div class="lp-shell lp-contact-inner" data-testid="landing-request">
+      <div class="lp-contact-copy lp-reveal">
+        <h2 class="lp-h2">Tu próxima etapa<br><span>empieza aquí.</span></h2>
+        <p class="lp-lede">{{ LANDING_REQUEST.text }}</p>
         <ol class="lp-request-steps" data-testid="landing-request-steps">
           <li v-for="(step, i) in LANDING_REQUEST.steps" :key="step.title">
             <span class="lp-request-num" aria-hidden="true">0{{ i + 1 }}</span>
@@ -36,80 +14,82 @@
           <span class="lp-request-avatar" aria-hidden="true">SA</span>
           <div>
             <strong>{{ LANDING_REQUEST.signature.name }}</strong>
-            <a :href="`mailto:${LANDING_REQUEST.signature.email}`">{{ LANDING_REQUEST.signature.email }}</a>
+            <a :href="`mailto:${LANDING_REQUEST.signature.email}`">{{ LANDING_REQUEST.signature.email }} <span aria-hidden="true">↗</span></a>
           </div>
         </div>
       </div>
 
-      <form v-if="state !== 'done'" class="lp-form" novalidate data-testid="landing-demo-form" @submit.prevent="submit">
-        <div class="lp-form-head">
-          <p class="lp-form-eyebrow">{{ LANDING_REQUEST.form.eyebrow }}</p>
-          <span class="lp-form-badge" data-testid="landing-request-badge"><i aria-hidden="true" />{{ LANDING_REQUEST.form.badge }}</span>
-        </div>
-        <p class="lp-form-title">{{ LANDING_REQUEST.form.title }}</p>
-        <p v-if="formError" class="lp-form-error" role="alert" data-testid="landing-demo-error">{{ formError }}</p>
-        <div class="lp-form-grid">
-          <div class="lp-field">
-            <label for="lp-demo-name">Nombre y apellidos</label>
-            <input id="lp-demo-name" v-model="form.name" type="text" maxlength="120" autocomplete="name" required :aria-invalid="errors.name ? 'true' : undefined" data-testid="landing-demo-name">
-            <small v-if="errors.name">{{ errors.name }}</small>
+      <div id="solicitar-demo" class="lp-contact-card">
+        <form v-if="state !== 'done'" class="lp-form" novalidate data-testid="landing-demo-form" @submit.prevent="submit">
+          <div class="lp-form-head">
+            <p class="lp-form-title">{{ LANDING_REQUEST.form.title }}</p>
+            <span class="lp-form-badge" data-testid="landing-request-badge"><i aria-hidden="true" />{{ LANDING_REQUEST.form.badge }}</span>
           </div>
-          <div class="lp-field">
-            <label for="lp-demo-email">Email profesional</label>
-            <input id="lp-demo-email" v-model="form.email" type="email" maxlength="200" autocomplete="email" inputmode="email" required :aria-invalid="errors.email ? 'true' : undefined" data-testid="landing-demo-email">
-            <small v-if="errors.email">{{ errors.email }}</small>
+          <p v-if="formError" class="lp-form-error" role="alert" data-testid="landing-demo-error">{{ formError }}</p>
+          <div class="lp-form-grid">
+            <div class="lp-field">
+              <label for="lp-demo-name">Nombre y apellidos</label>
+              <input id="lp-demo-name" v-model="form.name" type="text" maxlength="120" autocomplete="name" required :aria-invalid="errors.name ? 'true' : undefined" data-testid="landing-demo-name">
+              <small v-if="errors.name">{{ errors.name }}</small>
+            </div>
+            <div class="lp-field">
+              <label for="lp-demo-email">Email profesional</label>
+              <input id="lp-demo-email" v-model="form.email" type="email" maxlength="200" autocomplete="email" inputmode="email" required :aria-invalid="errors.email ? 'true' : undefined" data-testid="landing-demo-email">
+              <small v-if="errors.email">{{ errors.email }}</small>
+            </div>
+            <div class="lp-field">
+              <label for="lp-demo-company">Inmobiliaria o empresa</label>
+              <input id="lp-demo-company" v-model="form.company" type="text" maxlength="120" autocomplete="organization" required :aria-invalid="errors.company ? 'true' : undefined" data-testid="landing-demo-company">
+              <small v-if="errors.company">{{ errors.company }}</small>
+            </div>
+            <div class="lp-field">
+              <label for="lp-demo-phone">Teléfono <span>(opcional)</span></label>
+              <input id="lp-demo-phone" v-model="form.phone" type="tel" maxlength="40" autocomplete="tel" inputmode="tel" :aria-invalid="errors.phone ? 'true' : undefined" data-testid="landing-demo-phone">
+              <small v-if="errors.phone">{{ errors.phone }}</small>
+            </div>
+            <div class="lp-field">
+              <label for="lp-demo-team">Tamaño del equipo</label>
+              <select id="lp-demo-team" v-model="form.teamSize" data-testid="landing-demo-team">
+                <option value="">Sin indicar</option>
+                <option v-for="o in LANDING_DEMO_FORM.teamSizes" :key="o.value" :value="o.value">{{ o.label }}</option>
+              </select>
+            </div>
+            <div class="lp-field">
+              <label for="lp-demo-interest">Qué te interesa más</label>
+              <select id="lp-demo-interest" v-model="form.interest" data-testid="landing-demo-interest">
+                <option value="">Sin indicar</option>
+                <option v-for="o in LANDING_DEMO_FORM.interests" :key="o.value" :value="o.value">{{ o.label }}</option>
+              </select>
+            </div>
+            <div class="lp-field lp-field-full">
+              <label for="lp-demo-message">Cuéntanos un poco más <span>(opcional)</span></label>
+              <textarea id="lp-demo-message" v-model="form.message" rows="3" maxlength="2000" placeholder="Cómo trabajáis ahora, qué equipo tenéis y qué os gustaría cambiar…" data-testid="landing-demo-message" />
+            </div>
           </div>
-          <div class="lp-field">
-            <label for="lp-demo-company">Inmobiliaria o empresa</label>
-            <input id="lp-demo-company" v-model="form.company" type="text" maxlength="120" autocomplete="organization" required :aria-invalid="errors.company ? 'true' : undefined" data-testid="landing-demo-company">
-            <small v-if="errors.company">{{ errors.company }}</small>
+          <!-- Campo trampa: invisible para una persona; un bot lo rellena. -->
+          <div class="lp-hp" aria-hidden="true">
+            <label for="lp-demo-website">Web</label>
+            <input id="lp-demo-website" v-model="form.website" type="text" tabindex="-1" autocomplete="off">
           </div>
-          <div class="lp-field">
-            <label for="lp-demo-phone">Teléfono <span>(opcional)</span></label>
-            <input id="lp-demo-phone" v-model="form.phone" type="tel" maxlength="40" autocomplete="tel" inputmode="tel" :aria-invalid="errors.phone ? 'true' : undefined" data-testid="landing-demo-phone">
-            <small v-if="errors.phone">{{ errors.phone }}</small>
-          </div>
-          <div class="lp-field">
-            <label for="lp-demo-team">Tamaño del equipo</label>
-            <select id="lp-demo-team" v-model="form.teamSize" data-testid="landing-demo-team">
-              <option value="">Sin indicar</option>
-              <option v-for="o in LANDING_DEMO_FORM.teamSizes" :key="o.value" :value="o.value">{{ o.label }}</option>
-            </select>
-          </div>
-          <div class="lp-field">
-            <label for="lp-demo-interest">Qué te interesa más</label>
-            <select id="lp-demo-interest" v-model="form.interest" data-testid="landing-demo-interest">
-              <option value="">Sin indicar</option>
-              <option v-for="o in LANDING_DEMO_FORM.interests" :key="o.value" :value="o.value">{{ o.label }}</option>
-            </select>
-          </div>
-          <div class="lp-field lp-field-full">
-            <label for="lp-demo-message">Cuéntanos un poco más <span>(opcional)</span></label>
-            <textarea id="lp-demo-message" v-model="form.message" rows="3" maxlength="2000" placeholder="Cómo trabajáis ahora, qué equipo tenéis y qué os gustaría cambiar…" data-testid="landing-demo-message" />
-          </div>
-        </div>
-        <!-- Campo trampa: invisible para una persona; un bot lo rellena. -->
-        <div class="lp-hp" aria-hidden="true">
-          <label for="lp-demo-website">Web</label>
-          <input id="lp-demo-website" v-model="form.website" type="text" tabindex="-1" autocomplete="off">
-        </div>
-        <label class="lp-consent" :class="{ 'is-invalid': errors.consent }">
-          <input v-model="form.consent" type="checkbox" :aria-invalid="errors.consent ? 'true' : undefined" data-testid="landing-demo-consent">
-          <span>Acepto que Serendipia Agency utilice mis datos para responder a esta solicitud de demo, según la <NuxtLink to="/privacidad">política de privacidad</NuxtLink>.</span>
-        </label>
-        <small v-if="errors.consent" class="lp-consent-error">{{ errors.consent }}</small>
-        <button type="submit" class="lp-btn lp-btn-accent lp-form-submit" :disabled="state === 'sending'" :aria-busy="state === 'sending' ? 'true' : undefined" data-testid="landing-demo-submit" data-landing-event="demo_request_submit">
-          {{ state === 'sending' ? 'Enviando…' : LANDING_REQUEST.form.submit }}<LpIcon name="arrow" class="lp-btn-icon" />
-        </button>
-        <p class="lp-form-foot" data-testid="landing-request-footnote">{{ LANDING_REQUEST.form.footnote }}</p>
-      </form>
+          <label class="lp-consent" :class="{ 'is-invalid': errors.consent }">
+            <input v-model="form.consent" type="checkbox" :aria-invalid="errors.consent ? 'true' : undefined" data-testid="landing-demo-consent">
+            <span>Acepto que Serendipia Agency utilice mis datos para responder a esta solicitud de demo, según la <NuxtLink to="/privacidad">política de privacidad</NuxtLink>.</span>
+          </label>
+          <small v-if="errors.consent" class="lp-consent-error">{{ errors.consent }}</small>
+          <button type="submit" class="lp-btn lp-btn-blue lp-form-submit" :disabled="state === 'sending'" :aria-busy="state === 'sending' ? 'true' : undefined" data-testid="landing-demo-submit" data-landing-event="demo_request_submit">
+            {{ state === 'sending' ? 'Enviando…' : LANDING_REQUEST.form.submit }} <span aria-hidden="true">↗</span>
+          </button>
+          <NuxtLink :to="LANDING_CTA.register.to" class="lp-contact-secondary" data-landing-event="cta_register_contact">O crea tu inmobiliaria →</NuxtLink>
+          <p class="lp-form-foot" data-testid="landing-request-footnote">{{ LANDING_REQUEST.form.footnote }}</p>
+        </form>
 
-      <div v-else class="lp-form lp-form-done" role="status" aria-live="polite" data-testid="landing-demo-success">
-        <span class="lp-done-icon"><LpIcon name="check" /></span>
-        <h4>Solicitud recibida</h4>
-        <p>Gracias, {{ doneName }}. Te escribiremos a <strong>{{ doneEmail }}</strong> para concretar la demostración.</p>
-        <p v-if="doneEmailStatus === 'sent' || doneEmailStatus === 'queued'" class="lp-done-note" data-testid="landing-demo-email-status" :data-status="doneEmailStatus">Te hemos enviado un correo de confirmación.</p>
-        <p v-else class="lp-done-note" data-testid="landing-demo-email-status" :data-status="doneEmailStatus">La solicitud está registrada; el correo de confirmación no se ha podido enviar ahora mismo, pero te responderemos igualmente.</p>
+        <div v-else class="lp-form lp-form-done" role="status" aria-live="polite" data-testid="landing-demo-success">
+          <span class="lp-done-icon"><LpIcon name="check" /></span>
+          <h3>Solicitud recibida</h3>
+          <p>Gracias, {{ doneName }}. Te escribiremos a <strong>{{ doneEmail }}</strong> para concretar la demostración.</p>
+          <p v-if="doneEmailStatus === 'sent' || doneEmailStatus === 'queued'" class="lp-done-note" data-testid="landing-demo-email-status" :data-status="doneEmailStatus">Te hemos enviado un correo de confirmación.</p>
+          <p v-else class="lp-done-note" data-testid="landing-demo-email-status" :data-status="doneEmailStatus">La solicitud está registrada; el correo de confirmación no se ha podido enviar ahora mismo, pero te responderemos igualmente.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -117,15 +97,14 @@
 
 <script setup lang="ts">
 import LpIcon from './LpIcon.vue'
-import LpShot from './LpShot.vue'
-import { LANDING_DEMO, LANDING_DEMO_FORM, LANDING_REQUEST, LANDING_SHOTS } from '~/utils/landing'
+import { LANDING_CTA, LANDING_DEMO_FORM, LANDING_REQUEST } from '~/utils/landing'
 
 /**
- * Demo: la web real de la inmobiliaria de demostración (escritorio y móvil)
- * y el formulario de solicitud. No hay acceso público a la cuenta demo: la
- * solicitud se guarda en la plataforma (platform_demo_requests), avisa a
- * quien la administra y confirma por correo a quien la pidió. Ningún dato
- * va al CRM de ninguna inmobiliaria.
+ * Cierre y solicitud de demo. No hay acceso público a la cuenta demo: la
+ * solicitud se guarda en la plataforma (platform_demo_requests), avisa a quien
+ * la administra y confirma por correo a quien la pidió. Ningún dato va al CRM
+ * de ninguna inmobiliaria. El flujo real (endpoint, validación, deduplicación
+ * y antispam) se conserva intacto.
  */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PHONE_RE = /^\+?[0-9 ()./-]{6,40}$/
@@ -137,7 +116,6 @@ const formError = ref('')
 const doneName = ref('')
 const doneEmail = ref('')
 const doneEmailStatus = ref<string>('none')
-const phoneMissing = ref(false)
 const visitorLanguage = useVisitorLanguage()
 // Un envío = una clave: un doble clic o un reintento no crea dos solicitudes.
 let submissionId = ''
@@ -194,100 +172,52 @@ async function submit() {
 </script>
 
 <style scoped>
-.lp-demo {
-  background: var(--lp-white);
-}
-.lp-demo-head {
-  max-width: 720px;
-}
-.lp-demo-cta {
-  margin-top: 28px;
-}
-.lp-demo-stage {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 220px;
-  gap: 32px;
-  align-items: end;
-  margin-top: 48px;
-}
-.lp-phone {
-  position: relative;
-  width: 220px;
-  border-radius: 34px;
-  padding: 10px;
-  background: #121b16;
-  box-shadow: var(--lp-shadow);
-}
-.lp-phone img {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: 26px;
+.lp-contact {
   background: var(--lp-paper-2);
-}
-.lp-phone-missing {
-  position: absolute;
-  inset: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 26px;
-  font-size: 12px;
-  color: var(--lp-muted);
-  background: repeating-linear-gradient(135deg, #f3efe7 0 12px, #efeadf 12px 24px);
-}
-/* Solicitud */
-.lp-request {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: 48px;
-  margin-top: 80px;
-  padding-top: 64px;
   border-top: 1px solid var(--lp-line);
-  scroll-margin-top: 96px;
 }
-.lp-request-title {
+.lp-contact-inner {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: clamp(32px, 5vw, 60px);
+  align-items: start;
+  padding: clamp(28px, 4vw, 56px);
+  border-radius: 16px;
+  background: radial-gradient(at 0 100%, #e2f0ff, transparent 70%), #f6f8fb;
+  border: 1px solid #e4ecf6;
+}
+.lp-contact-copy .lp-lede {
   margin: 20px 0 0;
-  font-size: clamp(30px, 3.6vw, 44px);
-  line-height: 1.06;
-  letter-spacing: -0.03em;
-  max-width: 14ch;
-}
-.lp-request-lede {
-  margin: 18px 0 0;
-  font-size: 17px;
-  line-height: 1.6;
-  max-width: 44ch;
+  max-width: 42ch;
+  font-size: 15px;
 }
 .lp-request-steps {
   display: grid;
-  gap: 18px;
-  margin: 34px 0 0;
+  gap: 16px;
+  margin: 30px 0 0;
   padding: 0;
   list-style: none;
 }
 .lp-request-steps li {
   display: grid;
-  grid-template-columns: 2.6rem minmax(0, 1fr);
+  grid-template-columns: 2.4rem 1fr;
   gap: 14px;
   align-items: start;
 }
 .lp-request-num {
-  padding-top: 3px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding-top: 2px;
   font-size: 12px;
   font-weight: 700;
-  color: var(--lp-muted);
+  color: var(--lp-blue);
 }
 .lp-request-steps strong {
   display: block;
-  font-size: 16px;
+  font-size: 15px;
   color: var(--lp-ink);
 }
 .lp-request-steps p {
   margin: 4px 0 0;
-  font-size: 14.5px;
+  font-size: 14px;
   line-height: 1.5;
   color: var(--lp-text);
 }
@@ -295,7 +225,7 @@ async function submit() {
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-top: 36px;
+  margin-top: 34px;
   padding-top: 24px;
   border-top: 1px solid var(--lp-line);
 }
@@ -319,7 +249,15 @@ async function submit() {
 .lp-request-signature a {
   font-size: 14px;
   font-weight: 600;
-  color: var(--lp-accent);
+  color: var(--lp-blue);
+}
+/* Tarjeta del formulario */
+.lp-contact-card {
+  padding: clamp(22px, 2.6vw, 34px);
+  border: 1px solid #e0e6ef;
+  border-radius: 12px;
+  background: #fff;
+  scroll-margin-top: 110px;
 }
 .lp-form-head {
   display: flex;
@@ -328,13 +266,12 @@ async function submit() {
   justify-content: space-between;
   gap: 8px 16px;
 }
-.lp-form-eyebrow {
+.lp-form-title {
   margin: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--lp-muted);
+  font-size: clamp(20px, 2.2vw, 25px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--lp-ink);
 }
 .lp-form-badge {
   display: inline-flex;
@@ -342,42 +279,22 @@ async function submit() {
   gap: 8px;
   padding: 6px 12px;
   border-radius: 999px;
-  background: var(--lp-sage);
+  background: var(--lp-sky);
   font-size: 12px;
   font-weight: 600;
-  color: var(--lp-ink);
+  color: #0a5bc4;
 }
 .lp-form-badge i {
   width: 7px;
   height: 7px;
   border-radius: 999px;
-  background: #2f7a4f;
-}
-.lp-form-title {
-  margin: 16px 0 22px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid var(--lp-line);
-  font-size: clamp(22px, 2.4vw, 28px);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--lp-ink);
-}
-.lp-form-foot {
-  margin: 12px 0 0;
-  text-align: center;
-  font-size: 12.5px;
-  color: var(--lp-muted);
-}
-.lp-form {
-  padding: 32px;
-  border-radius: var(--lp-radius);
-  background: var(--lp-paper);
-  border: 1px solid var(--lp-line);
+  background: var(--lp-blue);
 }
 .lp-form-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
+  margin-top: 22px;
 }
 .lp-field {
   display: flex;
@@ -402,9 +319,9 @@ async function submit() {
   width: 100%;
   min-height: 46px;
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid var(--lp-line);
-  background: var(--lp-white);
+  background: #fff;
   font-size: 15px;
   color: var(--lp-ink);
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -417,17 +334,17 @@ async function submit() {
 .lp-field select:focus,
 .lp-field textarea:focus {
   outline: none;
-  border-color: var(--lp-ink);
-  box-shadow: 0 0 0 3px rgba(23, 44, 34, 0.12);
+  border-color: var(--lp-blue);
+  box-shadow: 0 0 0 3px rgba(8, 124, 250, 0.16);
 }
 .lp-field [aria-invalid='true'] {
-  border-color: #b4412f;
+  border-color: #c23b26;
 }
 .lp-field small,
 .lp-consent-error {
   font-size: 12px;
   font-weight: 500;
-  color: #b4412f;
+  color: #c23b26;
 }
 .lp-hp {
   position: absolute;
@@ -443,6 +360,7 @@ async function submit() {
   margin-top: 18px;
   font-size: 13px;
   line-height: 1.5;
+  color: var(--lp-text);
   cursor: pointer;
 }
 .lp-consent input {
@@ -450,16 +368,17 @@ async function submit() {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  accent-color: var(--lp-ink);
+  accent-color: var(--lp-blue);
 }
 .lp-consent a {
+  color: var(--lp-blue);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 .lp-form-error {
-  margin: 0 0 16px;
+  margin: 16px 0 0;
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #fdecea;
   border: 1px solid #f3c4bc;
   font-size: 14px;
@@ -470,10 +389,28 @@ async function submit() {
   width: 100%;
   margin-top: 20px;
 }
+.lp-contact-secondary {
+  display: block;
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lp-ink);
+}
+.lp-contact-secondary:hover {
+  color: var(--lp-blue);
+}
+.lp-form-foot {
+  margin: 14px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--lp-muted);
+}
 .lp-form-done {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  min-height: 260px;
   justify-content: center;
 }
 .lp-done-icon {
@@ -483,14 +420,14 @@ async function submit() {
   width: 48px;
   height: 48px;
   border-radius: 999px;
-  background: var(--lp-sage);
-  color: var(--lp-ink);
+  background: var(--lp-sky);
+  color: var(--lp-blue);
 }
 .lp-done-icon svg {
   width: 24px;
   height: 24px;
 }
-.lp-form-done h4 {
+.lp-form-done h3 {
   margin: 18px 0 0;
   font-size: 22px;
 }
@@ -498,32 +435,19 @@ async function submit() {
   margin: 10px 0 0;
   font-size: 15px;
   line-height: 1.55;
+  color: var(--lp-text);
 }
 .lp-done-note {
   font-size: 13px !important;
-  color: var(--lp-muted);
+  color: var(--lp-muted) !important;
 }
-@media (max-width: 1023px) {
-  .lp-request {
-    grid-template-columns: minmax(0, 1fr);
+@media (max-width: 860px) {
+  .lp-contact-inner {
+    grid-template-columns: 1fr;
     gap: 28px;
-    margin-top: 56px;
-    padding-top: 48px;
-  }
-}
-@media (max-width: 767px) {
-  .lp-demo-stage {
-    grid-template-columns: minmax(0, 1fr);
-    margin-top: 32px;
-  }
-  .lp-demo-phone {
-    display: none;
-  }
-  .lp-form {
-    padding: 20px;
   }
   .lp-form-grid {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -2,40 +2,41 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
-  LANDING_ACCESS,
   LANDING_BUILDER,
   LANDING_CRM,
   LANDING_CTA,
-  LANDING_DEMO,
   LANDING_DEMO_FORM,
   LANDING_FAQ,
   LANDING_FEATURES,
-  LANDING_REQUEST,
-  LANDING_FINAL,
-  LANDING_FOOTER,
-  LANDING_FORBIDDEN_CLAIMS,
   LANDING_HERO,
-  LANDING_INTELLIGENCE,
+  LANDING_INTRO,
   LANDING_MODULES,
   LANDING_NAV,
+  LANDING_PHOTOS,
   LANDING_PROPERTIES,
+  LANDING_REQUEST,
   LANDING_SHOTS,
   LANDING_STEPS,
+  LANDING_STRIP_INTRO,
+  LANDING_TEAM,
+  LANDING_FOOTER,
+  LANDING_FORBIDDEN_CLAIMS,
 } from '../../utils/landing'
 
 /**
  * La landing comercial de INMO (utils/landing.ts, components/landing/*): lo
  * que dice tiene que ser verdad. Aquí se vigila que no vuelvan las promesas
  * retiradas (Mapbox, Idealista, «6 canales», «gratis»…), que cada enlace del
- * menú apunte a una sección que existe, que cada captura referenciada sea un
- * archivo real de /public/landing y que las acciones lleven al flujo real.
+ * menú apunte a una sección que existe, que cada captura y cada foto
+ * referenciada sea un archivo real de /public/landing y que las acciones
+ * lleven al flujo real (registro, acceso y solicitud de demo).
  */
 const ROOT = join(import.meta.dirname, '../..')
 const COMPONENTS = join(ROOT, 'components/landing')
 
 /** Todo el texto de la landing: contenido + plantillas de las secciones. */
 function allLandingText(): string {
-  const content = JSON.stringify([LANDING_NAV, LANDING_CTA, LANDING_HERO, LANDING_MODULES, LANDING_BUILDER, LANDING_CRM, LANDING_PROPERTIES, LANDING_INTELLIGENCE, LANDING_FEATURES, LANDING_REQUEST, LANDING_STEPS, LANDING_DEMO, LANDING_DEMO_FORM, LANDING_ACCESS, LANDING_FAQ, LANDING_FINAL, LANDING_FOOTER])
+  const content = JSON.stringify([LANDING_NAV, LANDING_CTA, LANDING_HERO, LANDING_STRIP_INTRO, LANDING_MODULES, LANDING_INTRO, LANDING_BUILDER, LANDING_CRM, LANDING_PROPERTIES, LANDING_TEAM, LANDING_FEATURES, LANDING_REQUEST, LANDING_STEPS, LANDING_DEMO_FORM, LANDING_FAQ, LANDING_FOOTER, LANDING_PHOTOS])
   const templates = readdirSync(COMPONENTS)
     .filter((f) => f.endsWith('.vue'))
     .map((f) => readFileSync(join(COMPONENTS, f), 'utf8'))
@@ -55,17 +56,27 @@ describe('landing de INMO — sin promesas falsas', () => {
     expect(text).not.toMatch(/sin tarjeta|prueba gratuita|gratis/)
   })
 
-  it('«Inteligencia inmobiliaria» sólo marca como disponible lo que existe y lo demás lleva su estado', () => {
-    const statuses = new Set(LANDING_INTELLIGENCE.map((i) => i.status))
-    expect([...statuses].every((s) => ['available', 'with-ai', 'soon'].includes(s))).toBe(true)
-    expect(LANDING_INTELLIGENCE.find((i) => i.key === 'channels')?.status).toBe('soon')
-    expect(LANDING_INTELLIGENCE.find((i) => i.key === 'assistant')?.status).toBe('with-ai')
+  it('sin antetítulos (eyebrows): el rediseño los elimina', () => {
+    const templates = readdirSync(COMPONENTS)
+      .filter((f) => f.endsWith('.vue'))
+      .map((f) => readFileSync(join(COMPONENTS, f), 'utf8'))
+      .join('\n')
+    expect(templates).not.toContain('lp-eyebrow')
   })
 
-  it('«Planes y acceso» no publica precios: remite a consultar condiciones', () => {
-    const text = JSON.stringify(LANDING_ACCESS).toLowerCase()
-    expect(text).not.toMatch(/\d+\s?€|€\s?\d+|eur\b|\/mes/)
-    expect(text).toContain('consúltanos')
+  it('«Funcionalidades» sólo marca como disponible lo que existe y lo demás lleva su estado', () => {
+    const intelligence = LANDING_FEATURES.find((g) => g.key === 'intelligence')!
+    expect(intelligence.items.filter((i) => /asistente INMO|AI Studio/i.test(i.text)).every((i) => i.state === 'with-ai')).toBe(true)
+    const portals = LANDING_FEATURES.flatMap((g) => g.items).find((i) => /portales/i.test(i.text))
+    expect(portals?.state).toBe('soon')
+  })
+
+  it('no publica precios: remite a consultar condiciones en la FAQ', () => {
+    const faqText = JSON.stringify(LANDING_FAQ).toLowerCase()
+    expect(faqText).not.toMatch(/\d+\s?€|€\s?\d+|eur\b|\/mes/)
+    const planes = LANDING_FAQ.find((f) => /planes y precios/i.test(f.q))
+    expect(planes, 'una pregunta sobre planes y precios').toBeTruthy()
+    expect(planes!.a.toLowerCase()).toContain('consúltanos')
   })
 })
 
@@ -81,26 +92,31 @@ describe('landing de INMO — estructura', () => {
       ...LANDING_MODULES.map((m) => m.href),
       ...(LANDING_FOOTER.columns as readonly { links: readonly { href: string }[] }[]).flatMap((c) => c.links.map((l) => l.href)),
       LANDING_CTA.demo.to,
-      LANDING_HERO.secondary.to,
+      LANDING_HERO.primary.to,
+      LANDING_HERO.explore.to,
+      LANDING_INTRO.cta.to,
       LANDING_BUILDER.cta.to,
-      LANDING_DEMO.primary.to,
+      LANDING_CRM.cta.to,
+      LANDING_TEAM.cta.to,
     ].filter((h) => h.startsWith('#'))
     expect(anchors.length).toBeGreaterThan(8)
     for (const href of anchors) expect(ids, `falta la sección ${href}`).toContain(href.slice(1))
   })
 
-  it('las acciones principales llevan al flujo real: registro y acceso del panel', () => {
+  it('las acciones principales llevan al flujo real: registro, acceso del panel y solicitud de demo', () => {
     expect(LANDING_CTA.register).toEqual({ label: 'Crear mi inmobiliaria', to: '/registro-empresa' })
     expect(LANDING_CTA.login.to).toBe('/admin/login')
+    expect(LANDING_CTA.demo.to).toBe('#solicitar-demo')
+    expect(LANDING_HERO.secondary.to).toBe('/registro-empresa')
     expect((LANDING_FOOTER.columns as readonly { links: readonly { href: string }[] }[]).flatMap((c) => c.links).some((l) => l.href === '/registro-empresa')).toBe(true)
   })
 
-  it('tiene seis módulos, seis pasos, diez preguntas y el hero pedido', () => {
-    expect(LANDING_MODULES).toHaveLength(6)
+  it('tiene cuatro enlaces de módulos, seis pasos, diez preguntas y el hero del rediseño', () => {
+    expect(LANDING_MODULES).toHaveLength(4)
     expect(LANDING_STEPS).toHaveLength(6)
     expect(LANDING_FAQ).toHaveLength(10)
-    expect(LANDING_HERO.title.join(' ')).toBe('Tu inmobiliaria, toda conectada.')
-    expect(LANDING_HERO.eyebrow.toUpperCase()).toBe('LA NUEVA FORMA DE GESTIONAR TU INMOBILIARIA')
+    expect(LANDING_HERO.title.join(' ')).toBe('Tu inmobiliaria. Todo conectado. Otro nivel.')
+    expect(LANDING_HERO.stack).toHaveLength(3)
     expect(LANDING_FAQ.every((f) => f.q.endsWith('?') && f.a.length > 40)).toBe(true)
   })
 
@@ -108,17 +124,32 @@ describe('landing de INMO — estructura', () => {
     const existing = new Set(readdirSync(join(ROOT, 'public/landing')))
     for (const [key, shot] of Object.entries(LANDING_SHOTS)) {
       expect(shot.src.startsWith('/landing/')).toBe(true)
-      expect(existing, `falta la captura ${key} (${shot.src}); genera las capturas con scripts/capturas-landing.mjs`).toContain(shot.src.replace('/landing/', ''))
+      expect(existing, `falta la captura ${key} (${shot.src})`).toContain(shot.src.replace('/landing/', ''))
       expect(shot.alt.length).toBeGreaterThan(20)
       expect(shot.width).toBeGreaterThan(0)
       expect(shot.height).toBeGreaterThan(0)
     }
     for (const step of LANDING_STEPS) expect(LANDING_SHOTS[step.shot]).toBeTruthy()
-    for (const tab of [...LANDING_BUILDER.tabs, ...LANDING_PROPERTIES.tabs]) expect(LANDING_SHOTS[tab.shot as keyof typeof LANDING_SHOTS]).toBeTruthy()
+    for (const tab of LANDING_BUILDER.tabs) expect(LANDING_SHOTS[tab.shot as keyof typeof LANDING_SHOTS]).toBeTruthy()
   })
 
-  it('«Funcionalidades» es un inventario completo con estados honestos', () => {
-    expect(LANDING_FEATURES.length).toBeGreaterThanOrEqual(7)
+  it('cada fotografía de ambiente existe en /public/landing, es webp y lleva texto alternativo', () => {
+    const existing = new Set(readdirSync(join(ROOT, 'public/landing')))
+    for (const [key, photo] of Object.entries(LANDING_PHOTOS)) {
+      expect(photo.src).toMatch(/^\/landing\/[a-z-]+\.webp$/)
+      expect(existing, `falta la foto ${key} (${photo.src})`).toContain(photo.src.replace('/landing/', ''))
+      expect(photo.alt.length).toBeGreaterThan(20)
+      expect(photo.width).toBeGreaterThan(0)
+      expect(photo.height).toBeGreaterThan(0)
+    }
+    // El hero y la galería de propiedades usan sólo fotos definidas.
+    for (const s of LANDING_HERO.stack) expect(LANDING_PHOTOS[s.photo]).toBeTruthy()
+    for (const g of LANDING_PROPERTIES.gallery) expect(LANDING_PHOTOS[g.photo]).toBeTruthy()
+    for (const p of LANDING_TEAM.photos) expect(LANDING_PHOTOS[p]).toBeTruthy()
+  })
+
+  it('«Funcionalidades» es un inventario completo con estados honestos y ocho áreas', () => {
+    expect(LANDING_FEATURES.length).toBe(8)
     const items = LANDING_FEATURES.flatMap((g) => g.items)
     expect(items.length).toBeGreaterThanOrEqual(35)
     expect(new Set(items.map((i) => i.text)).size).toBe(items.length)
