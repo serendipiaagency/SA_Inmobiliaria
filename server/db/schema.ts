@@ -2878,6 +2878,71 @@ export const assetExportCatalogItems = sqliteTable(
 )
 
 // ---------------------------------------------------------------------------
+// Carteles de escaparate (migration 0101, Cola 20): módulo independiente para
+// componer carteles/folletos de una propiedad y exportarlos a PDF. Comparte el
+// editor de bloques y el renderizador pdf-lib como piezas de bajo nivel, pero
+// tiene su propia persistencia. organization_id NULL en una plantilla = de
+// sistema (sólo lectura). asset_kind + asset_id apuntan a developer_properties
+// o agent_properties (sin FK única).
+// ---------------------------------------------------------------------------
+
+export const posterTemplates = sqliteTable(
+  'poster_templates',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id'),
+    name: text('name').notNull(),
+    description: text('description'),
+    category: text('category').notNull().default('escaparate'),
+    formatKey: text('format_key').notNull(),
+    isSystem: integer('is_system').notNull().default(0),
+    status: text('status').notNull().default('draft'),
+    structureJson: text('structure_json').notNull().default('{"pages":[]}'),
+    duplicatedFromId: integer('duplicated_from_id'),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('poster_templates_org').on(t.organizationId, t.updatedAt), index('poster_templates_format').on(t.formatKey)],
+)
+
+export const posterProjects = sqliteTable(
+  'poster_projects',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    templateId: integer('template_id'),
+    assetKind: text('asset_kind').notNull(),
+    assetId: integer('asset_id').notNull(),
+    name: text('name').notNull(),
+    formatKey: text('format_key').notNull(),
+    status: text('status').notNull().default('draft'),
+    structureJson: text('structure_json').notNull().default('{"pages":[]}'),
+    createdBy: integer('created_by'),
+    createdAt: text('created_at').notNull().default(''),
+    updatedAt: text('updated_at').notNull().default(''),
+  },
+  (t) => [index('poster_projects_org').on(t.organizationId, t.updatedAt), index('poster_projects_asset').on(t.assetKind, t.assetId)],
+)
+
+export const posterRenders = sqliteTable(
+  'poster_renders',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    organizationId: integer('organization_id').notNull(),
+    projectId: integer('project_id').notNull(),
+    formatKey: text('format_key').notNull(),
+    status: text('status').notNull().default('rendering'),
+    r2Key: text('r2_key'),
+    fileSizeBytes: integer('file_size_bytes'),
+    errorMessage: text('error_message'),
+    validationJson: text('validation_json'),
+    createdAt: text('created_at').notNull().default(''),
+  },
+  (t) => [index('poster_renders_project').on(t.projectId, t.createdAt), index('poster_renders_org').on(t.organizationId, t.status)],
+)
+
+// ---------------------------------------------------------------------------
 // 10 novedades (migration 0037): contratos, referidos, alertas de búsqueda,
 // operaciones cerradas (ingresos + comisiones), tasador (AVM), depósito
 // Stripe, webhooks salientes, RGPD.
