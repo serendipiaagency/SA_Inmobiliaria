@@ -114,7 +114,7 @@ describe('FASE 7 — vídeos de YouTube y Vimeo incrustados', () => {
   it('la CSP deja incrustar sólo esos dos reproductores', async () => {
     const fs = await import('node:fs')
     const src = fs.readFileSync(new URL('../../server/middleware/security-headers.ts', import.meta.url), 'utf8')
-    const frameSrc = src.split('\n').find((l) => l.includes('"frame-src'))!
+    const frameSrc = src.split('\n').find((l) => l.includes('frame-src '))!
     expect(frameSrc).toContain('https://www.youtube-nocookie.com')
     expect(frameSrc).toContain('https://player.vimeo.com')
     expect(frameSrc).not.toMatch(/https:\/\/www\.youtube\.com|\*/)

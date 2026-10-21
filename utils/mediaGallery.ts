@@ -14,7 +14,7 @@
  */
 import type { PublicFloorPlan } from './floorPlans'
 import { isMediaRoom, MEDIA_ROOM_ICON, MEDIA_ROOMS, type MediaRoom } from './mediaRooms'
-import { videoEmbed, tourEmbed } from './videoEmbed'
+import { videoEmbed, tourEmbed, type TourProvider } from './videoEmbed'
 
 export type GalleryCategoryKey = 'photos' | 'videos' | 'plans' | 'pano360' | 'tour' | 'renders' | 'drone' | 'night' | 'compare' | 'staging' | 'social'
 
@@ -52,8 +52,8 @@ export interface GalleryItem {
   room: MediaRoom | null
   width: number | null
   height: number | null
-  /** Reproductor de un tercero (YouTube, Vimeo, Matterport), sólo con consentimiento. */
-  embed: { provider: 'youtube' | 'vimeo' | 'matterport'; src: string } | null
+  /** Reproductor de un tercero (YouTube, Vimeo o un tour: Matterport, Kuula, Floorfy), sólo con consentimiento. */
+  embed: { provider: 'youtube' | 'vimeo' | TourProvider; src: string } | null
   /** Enlace externo que se abre aparte (proveedor no incrustable). */
   href: string | null
   plan?: PublicFloorPlan

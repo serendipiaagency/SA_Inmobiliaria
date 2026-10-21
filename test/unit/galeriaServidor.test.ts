@@ -139,11 +139,14 @@ describe('galería · migración 0097 y compatibilidad', () => {
     expect(seed).toMatchObject({ room: null, description: null, thumbKey: null })
   })
 
-  it('la CSP deja incrustar Matterport (sólo tras el consentimiento) y mantiene el resto', async () => {
+  it('la CSP deja incrustar los tours (Matterport, Kuula, Floorfy, sólo tras el consentimiento) y mantiene el resto', async () => {
     const { readFileSync } = await import('node:fs')
+    const { TOUR_FRAME_ORIGINS } = await import('../../utils/videoEmbed')
     const src = readFileSync(new URL('../../server/middleware/security-headers.ts', import.meta.url), 'utf8')
-    const frameSrc = src.split('\n').find((l) => l.includes('"frame-src'))!
-    expect(frameSrc).toContain('https://my.matterport.com')
+    const frameSrc = src.split('\n').find((l) => l.includes('frame-src '))!
+    // El frame-src toma los orígenes de los tours de TOUR_FRAME_ORIGINS (única fuente, utils/videoEmbed.ts).
+    expect(frameSrc).toContain('TOUR_FRAME_ORIGINS.join')
+    expect(TOUR_FRAME_ORIGINS).toEqual(expect.arrayContaining(['https://my.matterport.com', 'https://kuula.co', 'https://floorfy.com']))
     for (const origin of ['https://www.youtube-nocookie.com', 'https://player.vimeo.com', 'https://www.instagram.com', 'https://www.tiktok.com']) expect(frameSrc).toContain(origin)
   })
 })

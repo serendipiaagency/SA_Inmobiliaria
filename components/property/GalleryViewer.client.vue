@@ -189,7 +189,7 @@ const { t } = useI18n()
 
 const icon = (key: string, size: number) => galleryIconSvg(key, size, props.options.iconStyle)
 const roomLabel = (room: MediaRoom) => galleryRoomLabel(room, t)
-const providerName = (p: 'youtube' | 'vimeo' | 'matterport') => ({ youtube: 'YouTube', vimeo: 'Vimeo', matterport: 'Matterport' })[p]
+const providerName = (p: 'youtube' | 'vimeo' | 'matterport' | 'kuula' | 'floorfy') => ({ youtube: 'YouTube', vimeo: 'Vimeo', matterport: 'Matterport', kuula: 'Kuula', floorfy: 'Floorfy' })[p]
 
 const category = ref<GalleryCategoryKey>(props.model.categories.some((c) => c.key === props.start.category) ? props.start.category : props.model.categories[0]?.key || 'photos')
 const room = ref<MediaRoom | null>((props.start.room as MediaRoom) || null)

@@ -2,6 +2,7 @@ import type { H3Event } from 'h3'
 import { getCspNonce } from '../utils/cspNonce'
 import { permissionsPolicyFor } from '../utils/permissionsPolicy'
 import { TILE_ORIGINS } from '../../utils/maps/tiles'
+import { TOUR_FRAME_ORIGINS } from '../../utils/videoEmbed'
 import { useDb, resolvePublicOrgId } from '../utils/db'
 import { cachedCookieProviders, cspOriginsForProviders } from '../utils/siteSettings'
 
@@ -60,8 +61,8 @@ export default defineEventHandler(async (event) => {
       "style-src-attr 'unsafe-inline'",
       "font-src 'self' https://fonts.gstatic.com",
       `script-src 'self' 'nonce-${nonce}' 'unsafe-inline' https://www.instagram.com https://www.tiktok.com${extra.script}`,
-      // YouTube y Vimeo sólo con su reproductor sin cookies; Matterport para el tour virtual incrustado (utils/videoEmbed.ts). Todos tras el consentimiento de «Contenido de terceros».
-      "frame-src 'self' https://www.instagram.com https://www.tiktok.com https://www.youtube-nocookie.com https://player.vimeo.com https://my.matterport.com",
+      // YouTube y Vimeo sólo con su reproductor sin cookies; los tours virtuales incrustables (Matterport, Kuula, Floorfy) vienen de TOUR_FRAME_ORIGINS (utils/videoEmbed.ts, única fuente). Todos tras el consentimiento de «Contenido de terceros».
+      `frame-src 'self' https://www.instagram.com https://www.tiktok.com https://www.youtube-nocookie.com https://player.vimeo.com ${TOUR_FRAME_ORIGINS.join(' ')}`,
       `connect-src 'self'${extra.connect}`,
       "object-src 'none'",
       "base-uri 'self'",
