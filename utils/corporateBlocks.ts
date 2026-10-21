@@ -76,3 +76,19 @@ export function resolveTrustPoints(content: Record<string, any>): Array<{ index:
   }
   return out
 }
+
+/**
+ * Los servicios de la sección «Servicios» (Cola 25) que tienen título: hasta
+ * seis, cada uno con su icono (una clave de utils/featureIcons.ts), su título
+ * y su explicación. Un servicio sin título no se pinta —así la agencia
+ * enseña sólo los que ofrece, no una rejilla con huecos vacíos.
+ */
+export function resolveServices(content: Record<string, any>): Array<{ index: number; icon: string; title: string; text: string }> {
+  const out: Array<{ index: number; icon: string; title: string; text: string }> = []
+  for (let i = 1; i <= 6; i++) {
+    const title = String(content[`service${i}Title`] || '').trim()
+    if (!title) continue
+    out.push({ index: i, icon: String(content[`service${i}Icon`] || '').trim(), title, text: String(content[`service${i}Text`] || '').trim() })
+  }
+  return out
+}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { LIVE_STAT_KEYS, MAX_STATS, resolveStats, resolveTrustPoints } from '../../utils/corporateBlocks'
+import { LIVE_STAT_KEYS, MAX_STATS, resolveServices, resolveStats, resolveTrustPoints } from '../../utils/corporateBlocks'
+import { FEATURE_ICON_KEYS } from '../../utils/featureIcons'
 import { officeJsonLd, postalAddress, realEstateAgentJsonLd, teamMemberJsonLd } from '../../utils/corporateSchema'
 import { BLOCK_PRESETS } from '../../composables/useSiteBuilderRegistry'
 
@@ -55,11 +56,30 @@ describe('argumentos de «Nuestra experiencia, tu tranquilidad»', () => {
   })
 })
 
+describe('servicios de «Servicios» (Cola 25)', () => {
+  it('devuelve hasta seis servicios con título, en orden, con su icono y explicación, y omite los vacíos', () => {
+    const content = { service1Icon: 'propertyType', service1Title: 'Compra', service1Text: 'x', service2Title: '', service3Icon: '', service3Title: 'Alquiler', service6Title: 'Trámites', service6Text: 'y' }
+    expect(resolveServices(content).map((s) => [s.index, s.icon, s.title, s.text])).toEqual([
+      [1, 'propertyType', 'Compra', 'x'],
+      [3, '', 'Alquiler', ''],
+      [6, '', 'Trámites', 'y'],
+    ])
+    expect(resolveServices({})).toEqual([])
+  })
+})
+
 describe('presets corporativos de la biblioteca', () => {
-  it('existen los tres y ninguno trae cifras propias ni copias de datos', () => {
-    const types = BLOCK_PRESETS.filter((p) => ['about-agency', 'trust-points', 'offices'].includes(p.type))
-    expect(types.map((p) => p.type).sort()).toEqual(['about-agency', 'offices', 'trust-points'])
+  it('existen los cuatro y ninguno trae cifras propias ni copias de datos', () => {
+    const types = BLOCK_PRESETS.filter((p) => ['about-agency', 'trust-points', 'services', 'offices'].includes(p.type))
+    expect(types.map((p) => p.type).sort()).toEqual(['about-agency', 'offices', 'services', 'trust-points'])
     for (const p of types) expect(p.category).toBe('Empresa')
+    // El preset de servicios sólo propone iconos que existen de verdad en el catálogo.
+    const services = BLOCK_PRESETS.find((p) => p.presetId === 'services')!.createContent()
+    for (let i = 1; i <= 6; i++) {
+      const icon = services[`service${i}Icon`]
+      if (icon) expect(FEATURE_ICON_KEYS, `el icono "${icon}" del servicio ${i} existe`).toContain(icon)
+    }
+    expect(BLOCK_PRESETS.find((p) => p.presetId === 'services')!.pages).toEqual(['servicios'])
     const about = BLOCK_PRESETS.find((p) => p.presetId === 'about-agency')!.createContent()
     expect(about.stats.every((k: string) => (LIVE_STAT_KEYS as readonly string[]).includes(k)), 'el preset sólo propone cifras en vivo').toBe(true)
     expect(Object.keys(about).some((k) => k.startsWith('customValue'))).toBe(false)

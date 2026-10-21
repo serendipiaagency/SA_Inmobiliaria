@@ -55,6 +55,7 @@
         <!-- Bloques corporativos (docs/home-corporativa.md): empresa, argumentos y oficinas, con los datos en vivo de la cuenta. -->
         <AboutAgencyBlock v-else-if="block.type === 'about-agency'" :content="block.content" :company="homeData?.company || null" />
         <TrustPointsBlock v-else-if="block.type === 'trust-points'" :content="block.content" />
+        <ServicesBlock v-else-if="block.type === 'services'" :content="block.content" />
         <OfficesBlock v-else-if="block.type === 'offices'" :content="block.content" :offices="homeData?.offices || []" :mode="mode" />
         <!-- Los dos únicos bloques con efecto real (crean un lead, reservan
              una cita) reciben `mode`: lo usan para no disparar nada desde el
@@ -114,6 +115,7 @@ import BlogListBlock from './blocks/BlogListBlock.vue'
 import TeamBlock from './blocks/TeamBlock.vue'
 import AboutAgencyBlock from './blocks/AboutAgencyBlock.vue'
 import TrustPointsBlock from './blocks/TrustPointsBlock.vue'
+import ServicesBlock from './blocks/ServicesBlock.vue'
 import OfficesBlock from './blocks/OfficesBlock.vue'
 import LeadFormBlock from './blocks/LeadFormBlock.vue'
 import SellerValuationBlock from './blocks/SellerValuationBlock.vue'

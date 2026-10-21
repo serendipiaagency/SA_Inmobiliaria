@@ -545,19 +545,38 @@ export function seedPageBlocks(key: string): SeedBlock[] {
     case 'servicios':
       // No hay página de servicios en la web: se empieza con una estructura
       // que la inmobiliaria rellena, y existe en /servicios cuando la publica.
+      // Arranca con el bloque «Servicios» (Cola 25): composición editorial a
+      // dos columnas con seis servicios reales de una inmobiliaria, listos
+      // para que la agencia los ajuste; y un cierre.
       return [
         {
-          id: 'text-servicios',
-          type: 'text',
+          id: 'services-servicios',
+          type: 'services',
           version: 1,
           content: {
             eyebrow: 'Servicios',
-            title: 'Lo que hacemos por ti',
-            subtitle: '',
-            body: 'Cuenta aquí qué servicios ofreces: compra, venta, alquiler, valoración, gestión…',
-            align: 'left',
-            maxWidth: 'md',
-            columns: 1,
+            title: 'Todo lo que hacemos por ti.',
+            text: 'Te acompañamos en cada paso, desde la primera visita hasta la firma, con un equipo que conoce de verdad tu zona.',
+            image: '',
+            imageAlt: '',
+            service1Icon: 'propertyType',
+            service1Title: 'Compra de vivienda',
+            service1Text: 'Encontramos la casa que buscas y te guiamos en la negociación y la firma.',
+            service2Icon: 'area',
+            service2Title: 'Venta y valoración',
+            service2Text: 'Ponemos precio a tu propiedad con datos reales del mercado y la presentamos para vender mejor.',
+            service3Icon: 'building',
+            service3Title: 'Alquiler',
+            service3Text: 'Gestionamos el alquiler de principio a fin, con inquilinos solventes y contratos claros.',
+            service4Icon: 'concierge',
+            service4Title: 'Asesoramiento personal',
+            service4Text: 'Un profesional de referencia que resuelve tus dudas y defiende tus intereses.',
+            service5Icon: 'renovation',
+            service5Title: 'Reformas y proyectos',
+            service5Text: 'Te ayudamos a sacar el máximo partido a tu inmueble antes de venderlo o habitarlo.',
+            service6Icon: 'energyRating',
+            service6Title: 'Trámites y certificados',
+            service6Text: 'Nos ocupamos de la documentación, el certificado energético y la gestión con notaría.',
           },
         },
         {

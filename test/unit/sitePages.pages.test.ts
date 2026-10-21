@@ -111,6 +111,16 @@ describe('siembra: el primer borrador es lo que la web ya enseña', () => {
     expect(cta.content.ctaSecondaryTo).toBe('/contacto')
   })
 
+  it('Servicios: el bloque «Servicios» con seis servicios reales, y un cierre (Cola 25)', async () => {
+    const blocks = JSON.parse((await getOrCreateSitePage(db, A.orgId, 'servicios')).draftJson).blocks
+    expect(blocks.map((b: any) => b.type)).toEqual(['services', 'cta'])
+    const services = blocks[0]
+    expect(services.content.title).toBeTruthy()
+    // Seis servicios con título, listos para que la agencia los ajuste.
+    for (let i = 1; i <= 6; i++) expect(String(services.content[`service${i}Title`] || '').trim(), `servicio ${i}`).toBeTruthy()
+    expect(blocks[1].content.ctaPrimaryTo).toBe('/contacto')
+  })
+
   it('Contacto: el formulario, que crea un lead real', async () => {
     const blocks = JSON.parse((await getOrCreateSitePage(db, A.orgId, 'contacto')).draftJson).blocks
     expect(blocks).toHaveLength(1)
