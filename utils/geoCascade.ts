@@ -27,6 +27,10 @@ export interface GeoCascade {
   municipalities(province: string): string[]
   /** Localidades del municipio; el propio municipio va primero (una localidad puede coincidir con él). */
   localities(municipality: string, province?: string): string[]
+  /** Todas las localidades de la provincia (incluye los nombres de municipio), para elegir la localidad sin pasar por el municipio. */
+  localitiesOfProvince(province: string): string[]
+  /** El municipio al que pertenece una localidad dentro de una provincia, si se conoce (para conservar el dato de municipio aunque no se pida en la UI). */
+  municipalityOfLocality(province: string, locality: string): string | null
   /** La comunidad y la provincia a las que pertenece un municipio dentro de una provincia, si se conoce. */
   parentsOf(province: string): { region: string | null }
 }
@@ -62,6 +66,23 @@ export function buildGeoCascade(raw: GeoRaw): GeoCascade {
       const muns = (p ? munByProvinceLetter.get(p.letter) ?? [] : [...munByProvinceLetter.values()].flat()).filter((m) => m.name === municipality)
       const locs = muns.flatMap((m) => locByIne.get(m.ine) ?? [])
       return [municipality, ...sorted(locs.filter((n) => n !== municipality))].filter(Boolean)
+    },
+    localitiesOfProvince: (province) => {
+      const p = provinceByName.get(province)
+      if (!p) return []
+      const muns = munByProvinceLetter.get(p.letter) ?? []
+      return sorted(muns.flatMap((m) => [m.name, ...(locByIne.get(m.ine) ?? [])]))
+    },
+    municipalityOfLocality: (province, locality) => {
+      const p = provinceByName.get(province)
+      if (!p) return null
+      const muns = munByProvinceLetter.get(p.letter) ?? []
+      // Si la localidad coincide con un municipio, es su propio municipio.
+      const self = muns.find((m) => m.name === locality)
+      if (self) return self.name
+      // Si no, el municipio cuya lista de localidades la contiene.
+      const parent = muns.find((m) => (locByIne.get(m.ine) ?? []).includes(locality))
+      return parent?.name ?? null
     },
     parentsOf: (province) => ({ region: provinceByName.has(province) ? regionByCode.get(provinceByName.get(province)!.regionCode) ?? null : null }),
   }
