@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { now } from '../db'
+import { isKnownFont } from '../../../utils/siteBuilder/fonts'
 
 /**
  * Guarda el Brand Kit de una empresa (uno por empresa) y deja su versión en
@@ -42,6 +43,13 @@ export async function saveBrandKit(db: any, orgId: number, userId: number, body:
   const patch: Record<string, unknown> = {}
   for (const field of EDITABLE_FIELDS) {
     if (field in body) patch[field] = body[field] == null ? null : String(body[field]).slice(0, 2000)
+  }
+  // Las tipografías sólo pueden ser familias del catálogo cerrado del
+  // Constructor (SITE_FONTS): acaban en una regla CSS servida en la web y en
+  // la cabecera de los emails. Cualquier valor libre (o vacío) se guarda como
+  // null = «sin preferencia» (Cola 22).
+  for (const fk of ['fontHeading', 'fontBody', 'fontAlt'] as const) {
+    if (fk in patch && !isKnownFont(patch[fk])) patch[fk] = null
   }
   if (Array.isArray(body.colorAccents)) {
     patch.colorAccentsJson = JSON.stringify(body.colorAccents.slice(0, 12).map((c) => String(c).slice(0, 20)))
