@@ -27,6 +27,10 @@ function resolveColor(style: Record<string, unknown> | undefined, bindings: Asse
   const color = style?.color as string | undefined
   if (color === 'primary') return hexToRgb(bindings.values['tenant.primaryColor'], rgb(0.08, 0.08, 0.06))
   if (color === 'secondary') return hexToRgb(bindings.values['tenant.secondaryColor'], rgb(0.4, 0.35, 0.2))
+  // Brand Kit (Cola 22): fondo, texto y acento, vinculados dinámicamente a la marca de la agencia.
+  if (color === 'background') return hexToRgb(bindings.values['tenant.backgroundColor'], rgb(1, 1, 1))
+  if (color === 'text') return hexToRgb(bindings.values['tenant.textColor'], rgb(0.08, 0.08, 0.06))
+  if (color === 'accent') return hexToRgb(bindings.values['tenant.accentColor'], rgb(0.4, 0.35, 0.2))
   if (color === 'muted') return rgb(0.45, 0.44, 0.42)
   if (typeof color === 'string') return hexToRgb(color, rgb(0.08, 0.08, 0.06))
   return rgb(0.08, 0.08, 0.06)
