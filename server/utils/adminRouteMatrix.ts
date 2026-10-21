@@ -176,6 +176,7 @@ const RULES: Rule[] = [
   { pattern: /^scheduler\/notifications(?:\/|$)/, resolve: fixed('web', 'read') },
   { pattern: /^scheduler(?:\/|$)/, resolve: area('web') }, // Publicación multicanal
   { pattern: /^asset-export(?:\/|$)/, resolve: area('web') }, // Brand Kit, plantillas, piezas, catálogos
+  { pattern: /^carteles(?:\/|$)/, resolve: area('web') }, // Carteles de escaparate (Cola 20): plantillas, piezas y render PDF
 
   // Automatizaciones (bloque N8b): sus disparadores y acciones son de CRM, y
   // la página pasó al grupo CRM. Antes estaba en Finanzas, cuando la pantalla
