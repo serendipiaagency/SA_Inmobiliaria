@@ -83,16 +83,31 @@ describe('modelo de la galería', () => {
     expect(v[3]!.embed).toBeNull()
   })
 
-  it('tour: sólo Matterport se incrusta; Kuula y compañía se ofrecen como enlace, nunca como funcional', () => {
-    expect(tourEmbed('https://my.matterport.com/show/?m=AbCdEfGh123')!.src).toBe('https://my.matterport.com/show/?m=AbCdEfGh123&play=1')
-    expect(tourEmbed('http://my.matterport.com/show/?m=AbCdEfGh123')).toBeNull()
-    expect(tourEmbed('https://my.matterport.com.evil.com/show/?m=AbCdEfGh123')).toBeNull()
-    expect(tourEmbed('https://my.matterport.com/show/?m=<script>')).toBeNull()
-    expect(tourEmbed('https://kuula.co/share/abc')).toBeNull()
-    const m = buildGalleryModel({ project: { name: 'X' }, details: { virtualTourUrl: 'https://kuula.co/share/abc' } }, t)
+  it('tour: Matterport, Kuula y Floorfy se incrustan (id/ruta validados); otro proveedor se ofrece como enlace', () => {
+    // Matterport.
+    expect(tourEmbed('https://my.matterport.com/show/?m=AbCdEfGh123')).toMatchObject({ provider: 'matterport', src: 'https://my.matterport.com/show/?m=AbCdEfGh123&play=1' })
+    expect(tourEmbed('http://my.matterport.com/show/?m=AbCdEfGh123')).toBeNull() // sólo https
+    expect(tourEmbed('https://my.matterport.com.evil.com/show/?m=AbCdEfGh123')).toBeNull() // host exacto
+    expect(tourEmbed('https://my.matterport.com/show/?m=<script>')).toBeNull() // id validado
+    // Kuula: share, colección y post; www se normaliza; una ruta rara no se incrusta.
+    expect(tourEmbed('https://kuula.co/share/abc123')).toMatchObject({ provider: 'kuula', src: 'https://kuula.co/share/abc123' })
+    expect(tourEmbed('https://www.kuula.co/share/collection/7l8vL')).toMatchObject({ provider: 'kuula', src: 'https://kuula.co/share/collection/7l8vL' })
+    expect(tourEmbed('https://kuula.co/post/abc')).toMatchObject({ provider: 'kuula' })
+    expect(tourEmbed('https://kuula.co/explore/trending')).not.toMatchObject({ provider: 'kuula' }) // sólo share/post
+    // Floorfy: tour con prefijo de idioma opcional.
+    expect(tourEmbed('https://floorfy.com/tour/123456')).toMatchObject({ provider: 'floorfy', src: 'https://floorfy.com/tour/123456' })
+    expect(tourEmbed('https://www.floorfy.com/es/tour/abc-99')).toMatchObject({ provider: 'floorfy', src: 'https://floorfy.com/tour/abc-99' })
+    expect(tourEmbed('https://floorfy.com/pricing')).toBeNull()
+    // Un proveedor desconocido: enlace, nunca iframe.
+    expect(tourEmbed('https://example-tour.com/v/xyz')).toBeNull()
+    const m = buildGalleryModel({ project: { name: 'X' }, details: { virtualTourUrl: 'https://example-tour.com/v/xyz' } }, t)
     const tour = m.categories.find((c) => c.key === 'tour')!.items[0]!
     expect(tour.kind).toBe('link')
-    expect(tour.href).toBe('https://kuula.co/share/abc')
+    expect(tour.href).toBe('https://example-tour.com/v/xyz')
+    // Un tour incrustable sí llega como embed.
+    const mk = buildGalleryModel({ project: { name: 'X' }, details: { virtualTourUrl: 'https://kuula.co/share/abc123' } }, t)
+    expect(mk.categories.find((c) => c.key === 'tour')!.items[0]!).toMatchObject({ kind: 'embed', embed: { provider: 'kuula' } })
+    // videoEmbed no confunde un tour con un vídeo.
     expect(videoEmbed('https://my.matterport.com/show/?m=AbCdEfGh123')).toBeNull()
   })
 

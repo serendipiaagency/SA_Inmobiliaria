@@ -8,7 +8,7 @@ import { buildPng } from '../../test/unit/helpers/mediaFixtures'
  * sólo lo que hay (fotos, vídeos, planos, 360°, tour, renders) y estancias,
  * visor inmersivo (cabecera, categorías sin recargar, filtros por estancia,
  * vídeo con consentimiento, planos con zoom y descarga, 360°, tour de
- * Matterport incrustado y de otros proveedores como enlace), posición de
+ * Matterport/Kuula incrustados y proveedores no reconocidos como enlace), posición de
  * lectura, teclado, Atrás, móvil y tableta, compatibilidad con lo existente
  * y aislamiento entre agencias. Todo contra la API y la web reales.
  */
@@ -72,6 +72,7 @@ test.describe('Galería multimedia de la ficha', () => {
     await media(p.rich.id, { mediaType: 'pano360', r2Key: await upload('pano.png', 'property-media'), title: 'Salón 360' })
     await media(p.rich.id, { mediaType: 'virtual_tour', url: 'https://my.matterport.com/show/?m=AbCdEfGh123', title: 'Tour Matterport', sortOrder: 1 })
     await media(p.rich.id, { mediaType: 'virtual_tour', url: 'https://kuula.co/share/abc123', title: 'Tour Kuula', sortOrder: 2 })
+    await media(p.rich.id, { mediaType: 'virtual_tour', url: 'https://example-tour.com/v/xyz', title: 'Tour externo', sortOrder: 3 })
     await media(p.rich.id, { mediaType: 'render', r2Key: await upload('render.png', 'property-media'), title: 'Render fachada' })
     for (const [i, t] of ['Planta baja', 'Planta alta'].entries()) {
       const r = await a.post('/api/admin/floor-plans', { data: { developerPropertyId: p.rich.id, title: t, image: await upload(`plano-${i}.png`, 'floor-plans'), sortOrder: i } })
@@ -153,7 +154,7 @@ test.describe('Galería multimedia de la ficha', () => {
     for (const none of ['drone', 'night', 'compare', 'staging', 'social']) await expect(cats.locator(`[data-gallery-category="${none}"]:not([data-gallery-room])`)).toHaveCount(0)
     await expect(cats.locator('[data-gallery-category="photos"]:not([data-gallery-room]) .gm-cat-n')).toHaveText('9')
     await expect(cats.locator('[data-gallery-category="plans"] .gm-cat-n')).toHaveText('2')
-    await expect(cats.locator('[data-gallery-category="tour"] .gm-cat-n')).toHaveText('2')
+    await expect(cats.locator('[data-gallery-category="tour"] .gm-cat-n')).toHaveText('3')
     // Estancias: sólo las que tienen fotos (salón, cocina, dormitorios), con su número; el baño (todas ocultas/privadas) no existe.
     const rooms = await cats.locator('[data-gallery-room]').evaluateAll((els) => els.map((e) => [e.getAttribute('data-gallery-room'), e.querySelector('.gm-cat-n')?.textContent]))
     expect(rooms).toEqual([['living', '2'], ['kitchen', '1'], ['bedroom', '2']])
@@ -305,9 +306,9 @@ test.describe('Galería multimedia de la ficha', () => {
     await expect(viewer.getByTestId('gallery-viewer-counter')).toHaveText('2 / 2')
   })
 
-  test('33–37 · 360° y tour: la 360 en su visor; Matterport incrustado tras el consentimiento; otro proveedor como enlace, nunca presentado como funcional', async ({ browser }) => {
+  test('33–37 · 360° y tour: la 360 en su visor; Matterport y Kuula incrustados tras el consentimiento; un proveedor no reconocido como enlace, nunca presentado como funcional', async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: EMPTY_STATE, viewport: { width: 1440, height: 900 } })
-    await ctx.route(/matterport\.com/, (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<html></html>' }))
+    await ctx.route(/matterport\.com|kuula\.co/, (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<html></html>' }))
     const page = await ctx.newPage()
     await page.goto(`/propiedades/${p.rich!.slug}`)
     await page.getByTestId('cookie-reject').click()
@@ -315,22 +316,29 @@ test.describe('Galería multimedia de la ficha', () => {
     await cats.locator('[data-gallery-category="pano360"]').click()
     const viewer = page.getByTestId('gallery-viewer')
     await expect(viewer.getByTestId('gallery-viewer-pano')).toBeVisible()
-    // Tour virtual: dos elementos (Matterport y Kuula).
+    // Tour virtual: tres elementos (Matterport, Kuula y uno externo no incrustable).
     await viewer.locator('[data-gallery-category="tour"][role="tab"]').click()
-    await expect(viewer.locator('[data-testid="gallery-viewer-grid"] .gv-card')).toHaveCount(2)
+    await expect(viewer.locator('[data-testid="gallery-viewer-grid"] .gv-card')).toHaveCount(3)
     await viewer.locator('[data-testid="gallery-viewer-grid"] .gv-card').first().click()
+    // Matterport: incrustado tras el consentimiento.
     const gate = viewer.getByTestId('consent-gate')
     await expect(gate).toContainText('Matterport')
     await expect(page.locator('iframe[src*="matterport"]')).toHaveCount(0)
     await gate.getByTestId('consent-gate-allow').click()
     await expect(page.locator('iframe[src*="my.matterport.com/show/?m=AbCdEfGh123"]')).toHaveCount(1)
-    // El de otro proveedor: enlace que se abre aparte, sin iframe.
+    // Kuula: también incrustado (otro consentimiento, otro iframe).
+    await viewer.getByTestId('gallery-viewer-next').click()
+    const kuulaGate = viewer.getByTestId('consent-gate')
+    await expect(kuulaGate).toContainText('Kuula')
+    await kuulaGate.getByTestId('consent-gate-allow').click()
+    await expect(page.locator('iframe[src*="kuula.co/share/abc123"]')).toHaveCount(1)
+    // El proveedor no reconocido: enlace que se abre aparte, sin iframe.
     await viewer.getByTestId('gallery-viewer-next').click()
     const link = viewer.getByTestId('gallery-viewer-link')
     await expect(link).toBeVisible()
     await expect(link.locator('a')).toHaveAttribute('target', '_blank')
-    await expect(link.locator('a')).toHaveAttribute('href', 'https://kuula.co/share/abc123')
-    await expect(page.locator('iframe[src*="kuula"]')).toHaveCount(0)
+    await expect(link.locator('a')).toHaveAttribute('href', 'https://example-tour.com/v/xyz')
+    await expect(page.locator('iframe[src*="example-tour"]')).toHaveCount(0)
     await ctx.close()
   })
 
