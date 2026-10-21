@@ -1,9 +1,19 @@
+import { googleFontsHref } from '../../../utils/siteBuilder/fonts'
+
 export type EmailLocale = 'es' | 'en'
 
 export interface EmailOrgBranding {
   companyName: string
   logo?: string | null
   brandColor?: string | null
+  /** Tipografías de marca (Brand Kit, Cola 22): titulares y cuerpo. Sólo familias del catálogo. */
+  fonts?: { heading?: string | null; body?: string | null }
+}
+
+// Reserva web-safe de los emails (clientes sin la fuente de marca o sin web fonts).
+const EMAIL_FALLBACK = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
+function emailFontStack(family: string | null | undefined): string {
+  return family ? `'${family}',${EMAIL_FALLBACK}` : EMAIL_FALLBACK
 }
 
 const FOOTER_TEXT: Record<EmailLocale, { transactional: string; commercial: (unsubscribeUrl: string) => string }> = {
@@ -38,6 +48,13 @@ export function renderEmailLayout(opts: {
     opts.kind === 'commercial' && opts.unsubscribeUrl
       ? FOOTER_TEXT[opts.locale].commercial(opts.unsubscribeUrl)
       : FOOTER_TEXT[opts.locale].transactional
+  // Tipografías de marca (Brand Kit): cuerpo y titulares, con reserva web-safe.
+  // La Google Font va en el <head> (los clientes que no soportan web fonts la
+  // ignoran y queda el fallback); los titulares se fijan por <style> (lo
+  // honran Gmail/Apple Mail; Outlook cae al cuerpo). Degradación limpia.
+  const bodyStack = emailFontStack(opts.branding.fonts?.body)
+  const headingStack = emailFontStack(opts.branding.fonts?.heading)
+  const fontsHref = googleFontsHref([opts.branding.fonts?.heading, opts.branding.fonts?.body].filter((f): f is string => !!f))
 
   return `<!doctype html>
 <html lang="${opts.locale}">
@@ -45,8 +62,10 @@ export function renderEmailLayout(opts: {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(opts.title)}</title>
+${fontsHref ? `<link rel="stylesheet" href="${escapeAttr(fontsHref)}">` : ''}
+<style>h1,h2,h3{font-family:${headingStack}}</style>
 </head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:${bodyStack};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0;">
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
