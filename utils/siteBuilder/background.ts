@@ -28,7 +28,6 @@ export const BG_TOKEN_CLASS: Record<string, string> = { paper: 'bg-paper', white
 /** El HEX de cada token de tema, para cuando hay imagen y el color va en línea como respaldo. */
 const BG_TOKEN_HEX: Record<string, string> = { paper: '#fdfcfa', white: '#ffffff', surface: '#f5f2ee', ink: '#16150f' }
 
-const BG_SIZES = ['cover', 'contain'] as const
 const BG_POSITIONS = ['center', 'top', 'bottom', 'left', 'right'] as const
 const SPACING = ['sm', 'lg'] as const
 
