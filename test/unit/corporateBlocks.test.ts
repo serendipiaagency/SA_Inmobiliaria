@@ -47,10 +47,14 @@ describe('cifras de «Conoce nuestra inmobiliaria»', () => {
   })
 })
 
-describe('argumentos de «Nuestra experiencia, tu tranquilidad»', () => {
-  it('devuelve tres o cuatro argumentos con título, en orden, y omite los vacíos', () => {
-    const content = { count: 4, point1Title: 'Conocemos la zona', point1Text: 'x', point2Title: '', point3Title: 'Atención personal', point4Title: 'Confianza', point4Text: 'y' }
-    expect(resolveTrustPoints(content).map((p) => [p.index, p.title, p.text])).toEqual([[1, 'Conocemos la zona', 'x'], [3, 'Atención personal', ''], [4, 'Confianza', 'y']])
+describe('ventajas de «Por qué elegirnos»', () => {
+  it('devuelve tres o cuatro ventajas con título, en orden, con su icono opcional, y omite las vacías', () => {
+    const content = { count: 4, point1Icon: 'street', point1Title: 'Conocemos la zona', point1Text: 'x', point2Title: '', point3Title: 'Atención personal', point4Title: 'Confianza', point4Text: 'y' }
+    expect(resolveTrustPoints(content).map((p) => [p.index, p.icon, p.title, p.text])).toEqual([
+      [1, 'street', 'Conocemos la zona', 'x'],
+      [3, '', 'Atención personal', ''],
+      [4, '', 'Confianza', 'y'],
+    ])
     expect(resolveTrustPoints({ count: 3, point1Title: 'a', point2Title: 'b', point3Title: 'c', point4Title: 'd' })).toHaveLength(3)
     expect(resolveTrustPoints({ count: 9, point1Title: 'a', point4Title: 'd' })).toHaveLength(2)
   })
@@ -80,6 +84,12 @@ describe('presets corporativos de la biblioteca', () => {
       if (icon) expect(FEATURE_ICON_KEYS, `el icono "${icon}" del servicio ${i} existe`).toContain(icon)
     }
     expect(BLOCK_PRESETS.find((p) => p.presetId === 'services')!.pages).toEqual(['servicios'])
+    // «Por qué elegirnos» (trust-points, Cola 26): sus iconos también existen de verdad.
+    const trust = BLOCK_PRESETS.find((p) => p.presetId === 'trust-points')!.createContent()
+    for (let i = 1; i <= 4; i++) {
+      const icon = trust[`point${i}Icon`]
+      if (icon) expect(FEATURE_ICON_KEYS, `el icono "${icon}" de la ventaja ${i} existe`).toContain(icon)
+    }
     const about = BLOCK_PRESETS.find((p) => p.presetId === 'about-agency')!.createContent()
     expect(about.stats.every((k: string) => (LIVE_STAT_KEYS as readonly string[]).includes(k)), 'el preset sólo propone cifras en vivo').toBe(true)
     expect(Object.keys(about).some((k) => k.startsWith('customValue'))).toBe(false)

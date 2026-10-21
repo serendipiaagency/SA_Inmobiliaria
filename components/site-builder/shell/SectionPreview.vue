@@ -80,10 +80,34 @@
         <div v-for="i in 3" :key="i" class="space-y-0.5 border-t border-stone-200 pt-1"><div class="h-2 w-1/2 rounded-full bg-stone-400" /><div class="h-1 w-full rounded-full bg-stone-200" /></div>
       </div>
     </div>
-    <div v-else-if="type === 'trust-points'" class="w-[86%]">
-      <div class="h-2 w-1/2 rounded-full bg-stone-300" />
-      <div class="mt-2 grid grid-cols-4 gap-1.5">
-        <div v-for="i in 4" :key="i" class="space-y-1 border-t border-stone-300 pt-1"><div class="h-1 w-1/4 rounded-full bg-stone-300" /><div class="h-1.5 w-3/4 rounded-full bg-stone-400" /><div class="h-1 w-full rounded-full bg-stone-200" /></div>
+    <div v-else-if="type === 'trust-points'" class="flex w-[86%] gap-2">
+      <!-- Izquierda: titular y foto con recorte orgánico (Cola 26). -->
+      <div class="flex-[0.9] space-y-1">
+        <div class="h-1 w-1/3 rounded-full bg-accent-200" />
+        <div class="h-2.5 w-5/6 rounded-full bg-ink" />
+        <div class="mt-1 h-10 w-4/5 bg-stone-300" style="border-radius: 48% 52% 60% 40% / 55% 45% 55% 45%" />
+      </div>
+      <!-- Derecha: ventajas en rejilla 2×2 con icono + número. -->
+      <div class="flex-[1.1] grid grid-cols-2 gap-1.5">
+        <div v-for="i in 4" :key="i" class="space-y-1 border-t border-stone-300 pt-1">
+          <div class="flex items-center gap-1"><div class="h-2 w-2 rounded-sm bg-accent-300" /><div class="h-1 w-1/4 rounded-full bg-stone-300" /></div>
+          <div class="h-1.5 w-3/4 rounded-full bg-stone-400" /><div class="h-1 w-full rounded-full bg-stone-200" />
+        </div>
+      </div>
+    </div>
+    <div v-else-if="type === 'services'" class="flex w-[86%] gap-2">
+      <!-- Izquierda: etiqueta, titular y foto con recorte orgánico (Cola 25). -->
+      <div class="flex-[0.9] space-y-1">
+        <div class="h-1 w-1/3 rounded-full bg-accent-200" />
+        <div class="h-2.5 w-5/6 rounded-full bg-ink" />
+        <div class="mt-1 h-10 w-4/5 bg-stone-300" style="border-radius: 48% 52% 60% 40% / 55% 45% 55% 45%" />
+      </div>
+      <!-- Derecha: seis servicios con icono en dos columnas. -->
+      <div class="flex-[1.1] grid grid-cols-2 gap-1.5">
+        <div v-for="i in 6" :key="i" class="space-y-0.5 border-t border-stone-300 pt-1">
+          <div class="h-2 w-2 rounded-sm bg-accent-300" />
+          <div class="h-1.5 w-3/4 rounded-full bg-stone-400" /><div class="h-1 w-full rounded-full bg-stone-200" />
+        </div>
       </div>
     </div>
     <div v-else-if="type === 'offices'" class="flex w-[86%] gap-1.5">

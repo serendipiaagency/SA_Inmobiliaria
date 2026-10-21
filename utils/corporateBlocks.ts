@@ -65,14 +65,19 @@ export function resolveStats(content: Record<string, any>, stats: Partial<Record
   return out
 }
 
-/** Los argumentos de «Nuestra experiencia, tu tranquilidad» que tienen título. */
-export function resolveTrustPoints(content: Record<string, any>): Array<{ index: number; title: string; text: string }> {
+/**
+ * Los argumentos de «Por qué elegirnos» que tienen título, en orden. Cada uno
+ * puede llevar un icono (una clave de utils/featureIcons.ts, opcional: las
+ * fichas antiguas no lo tenían y siguen válidas, con su numeración). Hasta
+ * cuatro, para la rejilla 2×2 del rediseño (Cola 26).
+ */
+export function resolveTrustPoints(content: Record<string, any>): Array<{ index: number; icon: string; title: string; text: string }> {
   const count = Math.min(4, Math.max(3, Number(content.count) || 4))
-  const out: Array<{ index: number; title: string; text: string }> = []
+  const out: Array<{ index: number; icon: string; title: string; text: string }> = []
   for (let i = 1; i <= count; i++) {
     const title = String(content[`point${i}Title`] || '').trim()
     if (!title) continue
-    out.push({ index: i, title, text: String(content[`point${i}Text`] || '').trim() })
+    out.push({ index: i, icon: String(content[`point${i}Icon`] || '').trim(), title, text: String(content[`point${i}Text`] || '').trim() })
   }
   return out
 }
