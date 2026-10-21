@@ -20,6 +20,7 @@ export interface LandingNavItem {
 
 /** Enlaces del menú: a secciones de esta misma página. Sin «Precios»: no hay planes publicados. */
 export const LANDING_NAV: LandingNavItem[] = [
+  { label: 'Producto', href: '#producto' },
   { label: 'Constructor Web', href: '#constructor-web' },
   { label: 'CRM', href: '#crm' },
   { label: 'Funcionalidades', href: '#funcionalidades' },
@@ -30,7 +31,7 @@ export const LANDING_NAV: LandingNavItem[] = [
 export const LANDING_CTA = {
   register: { label: 'Crear mi inmobiliaria', to: '/registro-empresa' },
   demo: { label: 'Solicitar demo', to: '#solicitar-demo' },
-  login: { label: 'Acceder', to: '/admin/login' },
+  login: { label: 'Iniciar sesión', to: '/admin/login' },
 } as const
 
 /**
@@ -349,7 +350,7 @@ export const LANDING_FOOTER = {
   description: 'Tu web, tus propiedades y tus clientes. Una forma más conectada de trabajar.',
   columns: [
     { title: 'Producto', links: [{ label: 'Funcionalidades', href: '#funcionalidades' }, { label: 'Constructor Web', href: '#constructor-web' }, { label: 'CRM', href: '#crm' }, { label: 'Cómo funciona', href: '#como-funciona' }] },
-    { title: 'Acceso', links: [{ label: 'Acceder', href: '/admin/login' }, { label: 'Crear mi inmobiliaria', href: '/registro-empresa' }, { label: 'Solicitar demo', href: '#solicitar-demo' }] },
+    { title: 'Acceso', links: [{ label: 'Iniciar sesión', href: '/admin/login' }, { label: 'Crear mi inmobiliaria', href: '/registro-empresa' }, { label: 'Solicitar demo', href: '#solicitar-demo' }] },
     { title: 'Contacto', links: [{ label: 'info@serendipiaagency.com', href: 'mailto:info@serendipiaagency.com' }] },
     { title: 'Legal', links: [{ label: 'Privacidad', href: '/privacidad' }, { label: 'Términos', href: '/terminos' }, { label: 'Cookies', href: '/cookies' }] },
   ],
