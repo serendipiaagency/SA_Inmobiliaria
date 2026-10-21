@@ -5,6 +5,7 @@ import type { AssetBindings } from './bindings'
 import { fetchImageBytes } from './bindings'
 import { renderQrMatrix } from '../qr'
 import { FORMAT_BY_KEY } from './formats'
+import { embedBrandFont } from './brandFonts'
 
 export const BINDING_RE = /^\{\{([a-zA-Z0-9_.]+)\}\}$/
 
@@ -95,9 +96,16 @@ export async function renderPdf(event: H3Event, structure: TemplateStructure, fo
   if (!format) throw createError({ statusCode: 400, statusMessage: `Unknown formatKey: ${formatKey}` })
 
   const pdfDoc = await PDFDocument.create()
+  // Fuentes de marca del Brand Kit (Cola 22·5b): el cuerpo usa la familia de
+  // «cuerpo» y los titulares/negritas la de «titulares». Si no hay familia de
+  // marca o no se puede cargar/incrustar, se usa Helvetica como siempre.
+  const [brandBody, brandHeading] = await Promise.all([
+    embedBrandFont(pdfDoc, bindings.values['tenant.fontBody'], 400),
+    embedBrandFont(pdfDoc, bindings.values['tenant.fontHeading'], 700),
+  ])
   const fonts = {
-    regular: await pdfDoc.embedFont(StandardFonts.Helvetica),
-    bold: await pdfDoc.embedFont(StandardFonts.HelveticaBold),
+    regular: brandBody || (await pdfDoc.embedFont(StandardFonts.Helvetica)),
+    bold: brandHeading || (await pdfDoc.embedFont(StandardFonts.HelveticaBold)),
   }
 
   const imageCache = new Map<string, { bytes: Uint8Array; format: 'png' | 'jpg' } | null>()

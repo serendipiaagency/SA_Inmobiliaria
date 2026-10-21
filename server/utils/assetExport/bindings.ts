@@ -37,6 +37,9 @@ export interface TenantBindings {
   backgroundColor: string
   textColor: string
   accentColor: string
+  /** Familias del Brand Kit (catálogo del Constructor) para incrustar en el PDF; '' = ninguna. */
+  fontHeading: string
+  fontBody: string
   logo: string | null
   orgName: string
 }
@@ -71,6 +74,8 @@ export async function resolveTenantBindings(event: H3Event, orgId: number): Prom
     backgroundColor: brandKit?.colorBackground || '#ffffff',
     textColor: brandKit?.colorText || '#16150f',
     accentColor: firstAccent || secondaryColor,
+    fontHeading: brandKit?.fontHeading || '',
+    fontBody: brandKit?.fontBody || '',
     logo: brandKit?.logo || org?.logo || null,
     orgName: org?.name || '',
   }
@@ -132,6 +137,8 @@ export async function resolveAssetBindings(
     'tenant.backgroundColor': tenant.backgroundColor,
     'tenant.textColor': tenant.textColor,
     'tenant.accentColor': tenant.accentColor,
+    'tenant.fontHeading': tenant.fontHeading,
+    'tenant.fontBody': tenant.fontBody,
   }
 
   const images: Record<string, string | null> = {
@@ -232,6 +239,8 @@ export async function resolveAgentAssetBindings(event: H3Event, params: { orgId:
     'tenant.backgroundColor': tenant.backgroundColor,
     'tenant.textColor': tenant.textColor,
     'tenant.accentColor': tenant.accentColor,
+    'tenant.fontHeading': tenant.fontHeading,
+    'tenant.fontBody': tenant.fontBody,
   }
 
   const images: Record<string, string | null> = {
