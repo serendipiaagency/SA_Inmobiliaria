@@ -38,6 +38,7 @@
               <td class="py-2.5 text-right">
                 <button type="button" class="text-xs font-medium text-ink hover:underline" @click="duplicate(t)">Duplicar</button>
                 <template v-if="!t.isSystem">
+                  <button type="button" class="ml-3 text-xs font-medium text-ink hover:underline" :data-testid="`poster-template-edit-${t.id}`" @click="openEditor(t)">Editar diseño</button>
                   <button type="button" class="ml-3 text-xs font-medium text-ink hover:underline" @click="togglePublish(t)">{{ t.status === 'published' ? 'Pasar a borrador' : 'Publicar' }}</button>
                   <button type="button" class="ml-3 text-xs font-medium text-rose-600 hover:underline" @click="remove(t)">Eliminar</button>
                 </template>
@@ -65,6 +66,15 @@
       <template #footer>
         <button type="button" class="dash-btn-secondary" @click="creating = false">Cancelar</button>
         <button type="button" class="dash-btn-primary" :disabled="saving" data-testid="poster-template-create" @click="create">{{ saving ? 'Creando…' : 'Crear plantilla' }}</button>
+      </template>
+    </AdminCommsModal>
+
+    <!-- Editor visual del diseño -->
+    <AdminCommsModal v-if="editing" :title="`Diseño · ${editing.name}`" wide test-id="poster-template-editor" @close="editing = null">
+      <AdminAssetExportCanvasEditor v-if="editStructure" :structure="editStructure" :format-key="editing.formatKey" />
+      <template #footer>
+        <button type="button" class="dash-btn-secondary" @click="editing = null">Cerrar</button>
+        <button type="button" class="dash-btn-primary" :disabled="savingDesign" data-testid="poster-template-save-design" @click="saveDesign">{{ savingDesign ? 'Guardando…' : 'Guardar diseño' }}</button>
       </template>
     </AdminCommsModal>
   </div>
@@ -132,6 +142,34 @@ async function togglePublish(t: PosterTemplate) {
     toast.error('No se pudo cambiar el estado')
   }
 }
+// --- Editor del diseño ---------------------------------------------------
+const editing = ref<{ id: number; name: string; formatKey: string } | null>(null)
+const editStructure = ref<any>(null)
+const savingDesign = ref(false)
+async function openEditor(t: PosterTemplate) {
+  try {
+    const full = await $fetch<any>(`/api/admin/carteles/templates/${t.id}`)
+    editStructure.value = full.structure
+    editing.value = { id: t.id, name: t.name, formatKey: t.formatKey }
+  } catch {
+    toast.error('No se pudo abrir el diseño')
+  }
+}
+async function saveDesign() {
+  if (!editing.value) return
+  savingDesign.value = true
+  try {
+    await $fetch(`/api/admin/carteles/templates/${editing.value.id}`, { method: 'PATCH', body: { structure: editStructure.value } })
+    toast.success('Diseño guardado')
+    editing.value = null
+    await refresh()
+  } catch (err: any) {
+    toast.error(err?.data?.statusMessage || err?.statusMessage || 'No se pudo guardar el diseño')
+  } finally {
+    savingDesign.value = false
+  }
+}
+
 async function remove(t: PosterTemplate) {
   if (!(await confirm(`Se borrará la plantilla «${t.name}».`, { title: '¿Eliminar plantilla?', confirmLabel: 'Eliminar', danger: true }))) return
   try {
