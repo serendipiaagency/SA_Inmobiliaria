@@ -1106,6 +1106,19 @@ export function useHelpContent() {
       summary: 'Ajustes generales del blog (SEO por defecto, moderación de comentarios).',
       steps: [],
     },
+    {
+      key: 'carteles',
+      group: 'Web y contenido',
+      title: 'Carteles de escaparate',
+      route: '/admin/carteles/piezas',
+      summary: 'Compón carteles de escaparate y folletos de una propiedad y expórtalos a PDF. Dos pantallas: «Plantillas de cartel» (los diseños) y «Carteles» (una plantilla aplicada a una propiedad).',
+      steps: [
+        'En «Plantillas de cartel» tienes plantillas de muestra (marcadas «Muestra», sólo lectura) y las tuyas. «Nueva plantilla» crea una propia eligiendo el formato (cartel A3 vertical u horizontal, A4…); se crea con un diseño de partida (foto principal, título, precio con tu color de marca, ubicación, referencia y QR). «Duplicar» copia una muestra o una tuya a una plantilla propia editable; «Publicar» la deja disponible para usarla en un cartel; «Eliminar» borra las tuyas.',
+        'En «Carteles», «Nuevo cartel» aplica una plantilla publicada a una propiedad: elige la plantilla y busca la propiedad (obra nueva o 2ª mano) con el buscador. Se crea el cartel con los datos reales de esa propiedad (precio, ubicación, foto, referencia, QR a su ficha pública cuando la hay) y tu Brand Kit.',
+        '«Exportar PDF» genera el cartel en el servidor, lo guarda y te lo descarga, listo para imprimir o para el escaparate. Por ahora la exportación es a PDF (la imagen llegará cuando se active el render de imagen).',
+        'Cada inmobiliaria sólo ve y gestiona sus plantillas y carteles; las plantillas de muestra son comunes y de sólo lectura.',
+      ],
+    },
     // --- Contenido -----------------------------------------------------------
     {
       key: 'blogs-legacy',
