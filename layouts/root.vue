@@ -25,6 +25,7 @@
 // server/api/public/tenant.get.ts) lives here as runtime v-if instead.
 const { tenant, load: loadTenant } = useTenant()
 await loadTenant()
+useBrandThemeHead()
 const { load: loadCompare } = useCompare()
 useDemoOrgFlag()
 onMounted(() => {

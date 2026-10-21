@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import * as schema from '../../db/schema'
 import { isKnownFont } from '../../../utils/siteBuilder/fonts'
+import type { BrandIdentity } from '../../../utils/brandTheme'
 
 /**
  * Identidad de marca unificada de una agencia (Cola 22). El Brand Kit
@@ -17,20 +18,7 @@ import { isKnownFont } from '../../../utils/siteBuilder/fonts'
  * Puro respecto a Vue; recibe `db` para poder usarse en endpoints, en el
  * render de emails/carteles y en las pruebas.
  */
-export interface BrandIdentity {
-  colors: {
-    primary: string | null
-    secondary: string | null
-    background: string | null
-    text: string | null
-    accents: string[]
-  }
-  fonts: {
-    heading: string | null
-    body: string | null
-    alt: string | null
-  }
-}
+export type { BrandIdentity }
 
 const HEX = /^#[0-9a-fA-F]{3,8}$/
 const cleanHex = (v: unknown): string | null => {
