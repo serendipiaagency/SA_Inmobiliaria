@@ -11,6 +11,7 @@ import CtaInspector from '~/components/site-builder/inspectors/CtaInspector.vue'
 import TeamInspector from '~/components/site-builder/inspectors/TeamInspector.vue'
 import AboutAgencyInspector from '~/components/site-builder/inspectors/AboutAgencyInspector.vue'
 import TrustPointsInspector from '~/components/site-builder/inspectors/TrustPointsInspector.vue'
+import ServicesInspector from '~/components/site-builder/inspectors/ServicesInspector.vue'
 import OfficesInspector from '~/components/site-builder/inspectors/OfficesInspector.vue'
 import LeadFormInspector from '~/components/site-builder/inspectors/LeadFormInspector.vue'
 import SellerValuationInspector from '~/components/site-builder/inspectors/SellerValuationInspector.vue'
@@ -179,6 +180,25 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     }),
   },
   {
+    presetId: 'services',
+    type: 'services',
+    label: 'Servicios',
+    description: 'Lo que hace tu agencia por quien la visita: hasta seis servicios con icono, en una composición editorial a dos columnas con fotografía de recorte orgánico.',
+    category: 'Empresa',
+    pages: ['servicios'],
+    createContent: () => ({
+      eyebrow: 'Servicios', title: 'Todo lo que hacemos por ti.',
+      text: 'Te acompañamos en cada paso, desde la primera visita hasta la firma, con un equipo que conoce de verdad tu zona.',
+      image: '', imageAlt: '',
+      service1Icon: 'propertyType', service1Title: 'Compra de vivienda', service1Text: 'Encontramos la casa que buscas y te guiamos en la negociación y la firma.',
+      service2Icon: 'area', service2Title: 'Venta y valoración', service2Text: 'Ponemos precio a tu propiedad con datos reales del mercado y la presentamos para vender mejor.',
+      service3Icon: 'building', service3Title: 'Alquiler', service3Text: 'Gestionamos el alquiler de principio a fin, con inquilinos solventes y contratos claros.',
+      service4Icon: 'concierge', service4Title: 'Asesoramiento personal', service4Text: 'Un profesional de referencia que resuelve tus dudas y defiende tus intereses.',
+      service5Icon: 'renovation', service5Title: 'Reformas y proyectos', service5Text: 'Te ayudamos a sacar el máximo partido a tu inmueble antes de venderlo o habitarlo.',
+      service6Icon: 'energyRating', service6Title: 'Trámites y certificados', service6Text: 'Nos ocupamos de la documentación, el certificado energético y la gestión con notaría.',
+    }),
+  },
+  {
     presetId: 'offices',
     type: 'offices',
     label: 'Nuestras oficinas',
@@ -325,6 +345,7 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
   'blog-list': 'Últimos artículos',
   'about-agency': 'Conoce nuestra inmobiliaria',
   'trust-points': 'Experiencia y confianza',
+  services: 'Servicios',
   offices: 'Oficinas',
   team: 'Comerciales',
   'lead-form': 'Formulario de captación',
@@ -408,6 +429,10 @@ export function blockSubtitle(block: { type: string; content?: Record<string, an
     }
     case 'trust-points':
       return `${Number(c.count) === 3 ? 3 : 4} argumentos${c.image ? ' · foto' : ''}`
+    case 'services': {
+      const n = [1, 2, 3, 4, 5, 6].filter((i) => String(c[`service${i}Title`] || '').trim()).length
+      return `${n} servicio${n === 1 ? '' : 's'}${c.image ? ' · foto' : ''}`
+    }
     case 'offices': {
       const count = c.source === 'manual' ? (c.manualIds?.length ?? 0) : (c.limit ?? 0)
       const layout = c.layout === 'editorial' ? 'Editorial' : c.layout === 'grid' ? 'Cuadrícula' : 'Automático'
@@ -450,6 +475,7 @@ export const BLOCK_INSPECTORS: Record<string, BlockInspectorEntry> = {
   'blog-list': { component: BlogListInspector },
   'about-agency': { component: AboutAgencyInspector, needsPreviewData: true },
   'trust-points': { component: TrustPointsInspector },
+  services: { component: ServicesInspector },
   offices: { component: OfficesInspector, needsPreviewData: true },
   team: { component: TeamInspector, needsPreviewData: true },
   'lead-form': { component: LeadFormInspector },
