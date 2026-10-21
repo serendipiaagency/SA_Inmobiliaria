@@ -151,6 +151,7 @@ const FORMATS: Record<string, { label: string; widthPt: number; heightPt: number
   pdf_a5_portrait: { label: 'PDF A5 vertical', widthPt: 420, heightPt: 595 },
   pdf_dossier: { label: 'Dossier multipágina', widthPt: 595, heightPt: 842 },
   print_a3_portrait: { label: 'Cartel A3 vertical', widthPt: 842, heightPt: 1191 },
+  print_a3_landscape: { label: 'Cartel A3 horizontal', widthPt: 1191, heightPt: 842 },
   social_feed_square: { label: 'Feed cuadrado', widthPt: 1080, heightPt: 1080 },
   social_feed_portrait: { label: 'Feed vertical', widthPt: 1080, heightPt: 1350 },
   social_story: { label: 'Story', widthPt: 1080, heightPt: 1920 },

@@ -31,7 +31,8 @@
               <td class="py-2.5 pr-3 text-stone-500">{{ p.formatKey }}</td>
               <td class="py-2.5 pr-3 text-stone-500">{{ p.status === 'ready' ? 'Exportado' : 'Borrador' }}</td>
               <td class="py-2.5 text-right">
-                <button type="button" class="text-xs font-medium text-ink hover:underline disabled:opacity-40" :disabled="rendering === p.id" :data-testid="`poster-export-${p.id}`" @click="exportPdf(p)">{{ rendering === p.id ? 'Generando…' : 'Exportar PDF' }}</button>
+                <button type="button" class="text-xs font-medium text-ink hover:underline" :data-testid="`poster-edit-${p.id}`" @click="openEditor(p)">Editar diseño</button>
+                <button type="button" class="ml-3 text-xs font-medium text-ink hover:underline disabled:opacity-40" :disabled="rendering === p.id" :data-testid="`poster-export-${p.id}`" @click="exportPdf(p)">{{ rendering === p.id ? 'Generando…' : 'Exportar PDF' }}</button>
                 <button type="button" class="ml-3 text-xs font-medium text-rose-600 hover:underline" @click="remove(p)">Eliminar</button>
               </td>
             </tr>
@@ -69,6 +70,15 @@
     </AdminCommsModal>
 
     <AdminCommsPropertyPickerModal v-if="picking" title="Elegir propiedad del cartel" @close="picking = false" @pick="onPick" />
+
+    <!-- Editor visual del diseño del cartel -->
+    <AdminCommsModal v-if="editing" :title="`Diseño · ${editing.name}`" wide test-id="poster-editor" @close="editing = null">
+      <AdminAssetExportCanvasEditor v-if="editStructure" :structure="editStructure" :format-key="editing.formatKey" />
+      <template #footer>
+        <button type="button" class="dash-btn-secondary" @click="editing = null">Cerrar</button>
+        <button type="button" class="dash-btn-primary" :disabled="savingDesign" data-testid="poster-save-design" @click="saveDesign">{{ savingDesign ? 'Guardando…' : 'Guardar diseño' }}</button>
+      </template>
+    </AdminCommsModal>
   </div>
 </template>
 
@@ -144,6 +154,34 @@ async function exportPdf(p: PosterProject) {
     toast.error(err?.data?.statusMessage || err?.statusMessage || 'No se pudo generar el PDF')
   } finally {
     rendering.value = null
+  }
+}
+
+// --- Editor del diseño ---------------------------------------------------
+const editing = ref<{ id: number; name: string; formatKey: string } | null>(null)
+const editStructure = ref<any>(null)
+const savingDesign = ref(false)
+async function openEditor(p: PosterProject) {
+  try {
+    const full = await $fetch<any>(`/api/admin/carteles/projects/${p.id}`)
+    editStructure.value = full.structure
+    editing.value = { id: p.id, name: p.name, formatKey: p.formatKey }
+  } catch {
+    toast.error('No se pudo abrir el diseño')
+  }
+}
+async function saveDesign() {
+  if (!editing.value) return
+  savingDesign.value = true
+  try {
+    await $fetch(`/api/admin/carteles/projects/${editing.value.id}`, { method: 'PATCH', body: { structure: editStructure.value } })
+    toast.success('Diseño guardado')
+    editing.value = null
+    await refresh()
+  } catch (err: any) {
+    toast.error(err?.data?.statusMessage || err?.statusMessage || 'No se pudo guardar el diseño')
+  } finally {
+    savingDesign.value = false
   }
 }
 
