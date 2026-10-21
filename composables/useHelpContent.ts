@@ -838,8 +838,12 @@ export function useHelpContent() {
       group: 'Web y contenido',
       title: 'Brand Kit',
       route: '/admin/asset-export/brand-kit',
-      summary: 'Logo, colores y datos de contacto de tu marca, usados en todas las piezas generadas automáticamente (PDFs, catálogos, contratos).',
-      steps: ['Configura esto primero — todo el resto del Asset Export Studio y los contratos lo usan como base visual.'],
+      summary: 'La identidad de tu marca —logo, 4 colores (principal, secundario, fondo, texto) y 3 tipografías (titulares, cuerpo, alternativa)— es ahora la fuente única que se aplica a tu web pública, a los emails y a las piezas generadas (carteles, PDFs, catálogos, contratos).',
+      steps: [
+        'Configura esto primero: es la base visual de todo. Las 3 tipografías se eligen de una lista (las mismas fuentes que el Constructor Web); «Por defecto» deja la fuente estándar.',
+        'En tu web pública, los colores quedan disponibles como color de marca (lo usa el pie y los acentos) y las tipografías se aplican por defecto a toda la web. Si en el Constructor fijas una tipografía para una página concreta, esa manda sobre la del Brand Kit: el Brand Kit sólo pone el valor de partida, así que no pisa lo que ya hayas personalizado.',
+        'Los emails transaccionales y los carteles de escaparate usan también este color y estas tipografías, para que todo lo que ve tu cliente sea coherente.',
+      ],
     },
     {
       key: 'asset-export-templates',

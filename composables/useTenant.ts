@@ -1,6 +1,7 @@
 import type { InjectionKey, Ref } from 'vue'
 import { DEFAULT_AGENCY_CURRENCY } from '~/utils/currency'
 import type { CookieProviders } from '~/utils/cookieConsent'
+import type { BrandIdentity } from '~/utils/brandTheme'
 
 export interface TenantBranding {
   id: number
@@ -26,6 +27,8 @@ export interface TenantBranding {
   isDemo?: boolean
   /** Proveedores sujetos al aviso de cookies que configuró la agencia (utils/cookieConsent.ts). */
   cookies?: CookieProviders
+  /** Identidad de marca unificada (Brand Kit, Cola 22): 4 colores + 3 tipografías. */
+  brand?: BrandIdentity
 }
 
 /** Domain-resolved branding for the public site (see server/middleware/00.tenant.ts). */

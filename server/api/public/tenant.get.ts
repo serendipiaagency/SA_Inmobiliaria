@@ -5,6 +5,7 @@ import { organizationCurrency } from '../../utils/currency'
 import { isDemoOrg } from '../../utils/demo/tenant'
 import { getCookieProviders } from '../../utils/siteSettings'
 import { NO_COOKIE_PROVIDERS } from '../../../utils/cookieConsent'
+import { resolveBrandIdentity } from '../../utils/brandKit/identity'
 
 /**
  * Public branding for the resolved tenant — consumed by useTenant() to
@@ -46,6 +47,9 @@ export default defineEventHandler(async (event) => {
   // del visitante convierte desde ella (utils/currency.ts). Es un ajuste
   // público por naturaleza — cada precio publicado ya la lleva.
   const currency = await organizationCurrency(db, orgId)
+  // Brand Kit unificado (Cola 22): identidad de marca (4 colores + 3 tipografías)
+  // que la web pública aplica como valor por defecto. Fuente única.
+  const brand = await resolveBrandIdentity(db, orgId).catch(() => null)
   return {
     // Vista previa de una empresa sin dominio (server/utils/sitePreview.ts). La web se ve tal cual, sin
     // franjas; sólo el aviso de cookies cambia: guarda la elección en una clave aparte y no carga analítica.
@@ -69,5 +73,10 @@ export default defineEventHandler(async (event) => {
       legalPhone: null,
     }),
     isCustomDomain,
+    brand,
+    // El color de marca que usa la web (footer, acentos) sale ahora del Brand
+    // Kit (fuente única); si por lo que sea no lo tiene, se mantiene el de la
+    // organización. Con el backfill 0103 ambos coinciden.
+    brandColor: brand?.colors.primary ?? rows[0]?.brandColor ?? null,
   }
 })
