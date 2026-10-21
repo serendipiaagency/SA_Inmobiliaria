@@ -2,6 +2,7 @@ import { and, desc, eq, sql } from 'drizzle-orm'
 import { createError } from 'h3'
 import { schema, now } from './db'
 import { sanitizeNodeStyles, type NodeStyle } from '../../utils/siteBuilder/nodes'
+import { sanitizeBlockStyle } from '../../utils/siteBuilder/background'
 import { sanitizeGlobalStyles, type SiteGlobalStyles } from '../../utils/siteBuilder/globalStyles'
 import { PAGE_CORE_TYPE, SITE_PAGES, SITE_PAGE_KEYS, sanitizeCoreOptions, seedPageBlocks, sitePageDef } from '../../utils/siteBuilder/pages'
 import { compactEnergyOptions, normalizeEnergyOptions } from '../../utils/energyCertificate'
@@ -370,7 +371,11 @@ export function validatePageDocument(input: unknown, pageKey?: string): SitePage
       type,
       version: Number.isInteger(b.version) ? b.version : 1,
       content: b.content && typeof b.content === 'object' ? b.content : {},
-      style: b.style && typeof b.style === 'object' ? b.style : undefined,
+      // El fondo de sección (Cola 27): color de tema, color corporativo o
+      // imagen con superposición — saneado a lo que el render entiende, igual
+      // que nodeStyles (una clave desconocida o una referencia de imagen
+      // insegura se descarta aquí).
+      style: sanitizeBlockStyle(b.style),
       visibility: b.visibility && typeof b.visibility === 'object' ? b.visibility : undefined,
     }
     // Sanitised, never passed through: an unknown property or an

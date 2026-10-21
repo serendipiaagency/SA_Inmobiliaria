@@ -387,7 +387,7 @@
           </template>
 
           <InspectorSection v-if="!isCore(selectedBlock)" :title="selectedNode ? 'Avanzado de la sección' : 'Avanzado'" tab="advanced">
-            <CommonBlockSettings :block="selectedBlock" />
+            <CommonBlockSettings :block="selectedBlock" :brand-colors="brandColors" :brand-color="orgInfo?.brandColor" />
           </InspectorSection>
         </div>
       </aside>

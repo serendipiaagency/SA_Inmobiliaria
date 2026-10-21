@@ -11,13 +11,15 @@
         :title="opt.label"
         @click="$emit('update:modelValue', opt.value)"
       >
-        <span class="h-6 w-6 rounded-full ring-1 ring-inset ring-black/10" :class="opt.swatchClass" />
+        <span class="h-6 w-6 rounded-full ring-1 ring-inset ring-black/10" :class="opt.swatchClass" :style="opt.swatchStyle" />
       </button>
     </div>
   </label>
 </template>
 
 <script setup lang="ts">
-defineProps<{ label: string; modelValue: string; options: { value: string; label: string; swatchClass: string }[] }>()
+// `swatchStyle` permite un color en línea (p. ej. el color de marca del Brand
+// Kit, que no es una clase fija): el «Color corporativo» del fondo (Cola 27).
+defineProps<{ label: string; modelValue: string; options: { value: string; label: string; swatchClass?: string; swatchStyle?: Record<string, string> }[] }>()
 defineEmits<{ 'update:modelValue': [value: string] }>()
 </script>
