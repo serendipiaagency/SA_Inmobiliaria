@@ -1,92 +1,123 @@
 <template>
   <section id="propiedades" class="lp-section lp-props" data-testid="landing-properties">
-    <div class="lp-shell lp-split">
-      <div class="lp-split-copy">
-        <p class="lp-eyebrow">Propiedades</p>
-        <h2 class="lp-h2">{{ LANDING_PROPERTIES.title }}</h2>
-        <p class="lp-lede">{{ LANDING_PROPERTIES.subtitle }}</p>
-        <ul class="lp-chips" role="list" aria-label="Qué incluye la gestión de propiedades">
-          <li v-for="b in LANDING_PROPERTIES.benefits" :key="b"><LpIcon name="check" />{{ b }}</li>
-        </ul>
-      </div>
-      <div class="lp-split-stage">
-        <div class="lp-tabs" role="tablist" aria-label="Qué ver de las propiedades">
-          <button
-            v-for="tab in LANDING_PROPERTIES.tabs"
-            :id="`lp-props-tab-${tab.key}`"
-            :key="tab.key"
-            type="button"
-            role="tab"
-            class="lp-tab"
-            :aria-selected="active === tab.key"
-            :aria-controls="`lp-props-panel-${tab.key}`"
-            :tabindex="active === tab.key ? 0 : -1"
-            :data-testid="`landing-properties-tab-${tab.key}`"
-            @click="active = tab.key"
-            @keydown.left.right.prevent="toggle"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
-        <div :id="`lp-props-panel-${current.key}`" role="tabpanel" :aria-labelledby="`lp-props-tab-${current.key}`" data-testid="landing-properties-shot" :data-shot="current.shot">
-          <Transition name="lp-fade" mode="out-in">
-            <LpShot :key="current.shot" :shot-key="current.shot" :address="current.key === 'panel' ? 'app.inmo/admin/properties' : 'tu-inmobiliaria.com/propiedades'" />
-          </Transition>
+    <div class="lp-shell">
+      <div class="lp-section-top lp-reveal">
+        <h2 class="lp-h2">{{ LANDING_PROPERTIES.title[0] }}<br><span>{{ LANDING_PROPERTIES.title[1] }}</span></h2>
+        <div>
+          <p>{{ LANDING_PROPERTIES.subtitle }}</p>
         </div>
       </div>
+
+      <div class="lp-gallery lp-reveal">
+        <figure v-for="g in LANDING_PROPERTIES.gallery" :key="g.photo">
+          <img :src="LANDING_PHOTOS[g.photo].src" :alt="LANDING_PHOTOS[g.photo].alt" :width="LANDING_PHOTOS[g.photo].width" :height="LANDING_PHOTOS[g.photo].height" loading="lazy" decoding="async">
+          <figcaption>{{ g.caption }}</figcaption>
+        </figure>
+      </div>
+
+      <ul class="lp-chips" aria-label="Qué incluye la gestión de propiedades">
+        <li v-for="b in LANDING_PROPERTIES.benefits" :key="b"><LpIcon name="check" />{{ b }}</li>
+      </ul>
+
+      <p class="lp-footnote">{{ LANDING_PROPERTIES.footnote }}</p>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import LpIcon from './LpIcon.vue'
-import LpShot from './LpShot.vue'
-import { LANDING_PROPERTIES } from '~/utils/landing'
+import { LANDING_PHOTOS, LANDING_PROPERTIES } from '~/utils/landing'
 
-/** Propiedades: el editor del panel y la ficha pública, las dos de la misma propiedad de la cuenta demo. */
-type TabKey = (typeof LANDING_PROPERTIES.tabs)[number]['key']
-const active = ref<TabKey>('panel')
-const current = computed(() => LANDING_PROPERTIES.tabs.find((t) => t.key === active.value) || LANDING_PROPERTIES.tabs[0])
-function toggle() {
-  active.value = active.value === 'panel' ? 'public' : 'panel'
-}
+/** Propiedades: fotografía de ambiente (propiedades de lujo) y los puntos reales de la gestión del catálogo. */
 </script>
 
 <style scoped>
 .lp-props {
-  background: var(--lp-white);
-  border-top: 1px solid var(--lp-line);
-  border-bottom: 1px solid var(--lp-line);
+  background: var(--lp-paper);
+}
+.lp-gallery {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 20px;
+}
+.lp-gallery figure {
+  position: relative;
+  margin: 0;
+  height: clamp(260px, 30vw, 350px);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.lp-gallery figure:nth-child(2) {
+  margin-top: 45px;
+}
+.lp-gallery figure:nth-child(3) {
+  margin-top: 90px;
+}
+.lp-gallery img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 1.1s var(--lp-ease);
+}
+.lp-gallery figure:hover img {
+  transform: scale(1.06);
+}
+.lp-gallery figcaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 60px 22px 22px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  color: #fff;
+  font-size: 12px;
 }
 .lp-chips {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
-  margin: 28px 0 0;
+  margin: 36px 0 0;
   padding: 0;
   list-style: none;
 }
 .lp-chips li {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: var(--lp-paper);
+  gap: 9px;
+  padding: 10px 15px;
+  border-radius: 999px;
+  background: var(--lp-paper-2);
   border: 1px solid var(--lp-line);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--lp-ink);
 }
 .lp-chips svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
-  color: var(--lp-accent);
+  color: var(--lp-blue);
 }
-@media (max-width: 479px) {
-  .lp-chips {
-    grid-template-columns: minmax(0, 1fr);
+.lp-footnote {
+  margin: 24px 0 0;
+  font-size: 10px;
+  color: #999;
+}
+@media (max-width: 860px) {
+  .lp-gallery {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .lp-gallery figure {
+    height: 230px;
+  }
+  .lp-gallery figure:first-child {
+    grid-column: 1 / -1;
+    height: 290px;
+  }
+  .lp-gallery figure:nth-child(2),
+  .lp-gallery figure:nth-child(3) {
+    margin-top: 0;
   }
 }
 </style>

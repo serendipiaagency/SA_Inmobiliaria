@@ -1,30 +1,42 @@
 <template>
-  <section id="como-funciona" class="lp-section lp-how" data-testid="landing-how">
+  <section id="como-funciona" class="lp-section lp-journey" data-testid="landing-how">
     <div class="lp-shell">
-      <div class="lp-how-head">
-        <p class="lp-eyebrow">Cómo funciona</p>
-        <h2 class="lp-h2">De la propiedad a la operación, en seis pasos.</h2>
-        <p class="lp-lede">El recorrido real de una venta dentro de INMO. Cada paso enseña la pantalla en la que ocurre.</p>
+      <div class="lp-section-top lp-reveal">
+        <h2 class="lp-h2">Del primer clic<br><span>a la siguiente operación.</span></h2>
+        <div>
+          <p>Un recorrido conectado para trabajar con continuidad, desde que incorporas una propiedad hasta que avanzas con un comprador.</p>
+        </div>
       </div>
-      <div class="lp-how-body">
-        <ol class="lp-timeline" aria-label="Pasos">
-          <li v-for="(step, i) in LANDING_STEPS" :key="step.key">
-            <button type="button" class="lp-tl-step" :class="{ 'is-active': i === active }" :aria-current="i === active ? 'step' : undefined" :aria-expanded="i === active" :data-testid="`landing-step-${step.key}`" :data-active="i === active ? 'true' : 'false'" @click="active = i">
-              <span class="lp-tl-num">{{ i + 1 }}</span>
-              <span class="lp-tl-text">
-                <strong>{{ step.title }}</strong>
-                <span>{{ step.text }}</span>
-              </span>
-            </button>
-            <div v-if="i === active" class="lp-tl-shot-mobile">
-              <LpShot :shot-key="step.shot" :address="ADDRESS[step.shot]" />
-            </div>
-          </li>
-        </ol>
-        <div class="lp-how-stage" data-testid="landing-how-shot" :data-shot="current.shot">
-          <Transition name="lp-fade" mode="out-in">
-            <LpShot :key="current.shot" :shot-key="current.shot" :address="ADDRESS[current.shot]" />
+
+      <div class="lp-journey-grid lp-reveal">
+        <div class="lp-journey-tabs" role="tablist" aria-label="Pasos del recorrido">
+          <button
+            v-for="(step, i) in LANDING_STEPS"
+            :id="`lp-journey-tab-${step.key}`"
+            :key="step.key"
+            type="button"
+            role="tab"
+            class="lp-journey-tab"
+            :class="{ 'is-active': i === active }"
+            :aria-selected="i === active"
+            :aria-controls="'lp-journey-display'"
+            :tabindex="i === active ? 0 : -1"
+            :data-testid="`landing-step-${step.key}`"
+            :data-active="i === active ? 'true' : 'false'"
+            @click="active = i"
+            @keydown.left.prevent="move(-1)"
+            @keydown.right.prevent="move(1)"
+          >
+            <span class="lp-journey-num">0{{ i + 1 }}</span>
+            <span>{{ step.title }}</span>
+          </button>
+        </div>
+
+        <div id="lp-journey-display" class="lp-journey-display" role="tabpanel" :aria-labelledby="`lp-journey-tab-${current.key}`" data-testid="landing-how-shot" :data-shot="current.shot">
+          <Transition name="lp-swap" mode="out-in">
+            <img :key="current.shot" :src="shot.src" :alt="shot.alt" :width="shot.width" :height="shot.height" loading="lazy" decoding="async">
           </Transition>
+          <p>{{ current.text }}</p>
         </div>
       </div>
     </div>
@@ -32,133 +44,93 @@
 </template>
 
 <script setup lang="ts">
-import LpShot from './LpShot.vue'
-import { LANDING_STEPS } from '~/utils/landing'
+import { LANDING_STEPS, LANDING_SHOTS } from '~/utils/landing'
 
-/**
- * Línea de tiempo de seis pasos; el elegido enseña su pantalla real a la
- * derecha (en escritorio, fija mientras se baja) o debajo (en móvil).
- */
-const ADDRESS: Record<string, string> = {
-  'propiedad-panel': 'app.inmo/admin/properties/…',
-  'ficha-publica': 'tu-inmobiliaria.com/propiedades/…',
-  'web-contacto': 'tu-inmobiliaria.com/contacto',
-  crm: 'app.inmo/admin/leads',
-  agenda: 'app.inmo/admin/calendar',
-  operaciones: 'app.inmo/admin/operaciones',
-}
+/** Recorrido de seis pasos; el elegido enseña su pantalla real, con transición suave. */
 const active = ref(0)
 const current = computed(() => LANDING_STEPS[active.value] || LANDING_STEPS[0])
+const shot = computed(() => LANDING_SHOTS[current.value.shot])
+function move(delta: number) {
+  active.value = (active.value + delta + LANDING_STEPS.length) % LANDING_STEPS.length
+}
 </script>
 
 <style scoped>
-.lp-how {
+.lp-journey {
   background: var(--lp-paper-2);
+  border-top: 1px solid var(--lp-line);
 }
-.lp-how-head {
-  max-width: 720px;
-}
-.lp-how-body {
+.lp-journey-grid {
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: 48px;
-  margin-top: 48px;
-  align-items: start;
-}
-.lp-timeline {
-  position: relative;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.lp-timeline::before {
-  content: '';
-  position: absolute;
-  left: 19px;
-  top: 20px;
-  bottom: 20px;
-  width: 2px;
-  background: var(--lp-line);
-}
-.lp-tl-step {
-  position: relative;
-  display: flex;
-  width: 100%;
-  gap: 16px;
-  align-items: flex-start;
-  padding: 14px 16px 14px 0;
-  text-align: left;
-  border-radius: 16px;
-  transition: background-color 0.2s;
-}
-.lp-tl-step:hover {
-  background: rgba(255, 255, 255, 0.6);
-}
-.lp-tl-num {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  flex-shrink: 0;
+  grid-template-columns: 1fr 1.5fr;
+  gap: clamp(32px, 5vw, 70px);
   align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  background: var(--lp-white);
-  border: 2px solid var(--lp-line);
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--lp-ink);
-  transition: background-color 0.25s, border-color 0.25s, color 0.25s;
 }
-.lp-tl-text {
+.lp-journey-tabs {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding-top: 8px;
 }
-.lp-tl-text strong {
-  font-size: 17px;
-  color: var(--lp-ink);
+.lp-journey-tab {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  padding: 20px 8px;
+  border: 0;
+  border-bottom: 1px solid #dfe4eb;
+  background: none;
+  text-align: left;
+  color: #79818d;
+  font-size: 15px;
+  transition: color 0.3s, border-color 0.3s;
 }
-.lp-tl-text span {
-  font-size: 14px;
-  line-height: 1.5;
+.lp-journey-num {
+  font-size: 11px;
 }
-.lp-tl-step.is-active {
-  background: var(--lp-white);
-  box-shadow: var(--lp-shadow);
+.lp-journey-tab > span:last-child {
+  flex: 1;
 }
-.lp-tl-step.is-active .lp-tl-num {
-  background: var(--lp-ink);
-  border-color: var(--lp-ink);
-  color: #fff;
+.lp-journey-tab::after {
+  content: '↗';
 }
-.lp-tl-shot-mobile {
-  display: none;
-  margin: 8px 0 16px 0;
+.lp-journey-tab.is-active {
+  color: var(--lp-blue);
+  border-color: var(--lp-blue);
 }
-.lp-how-stage {
-  position: sticky;
-  top: 96px;
+.lp-journey-display {
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e1e5ec;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px -30px rgba(0, 0, 0, 0.25);
 }
-@media (max-width: 1023px) {
-  .lp-how-body {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 24px;
-    margin-top: 32px;
-  }
-  .lp-how-stage {
-    display: none;
-  }
-  .lp-tl-shot-mobile {
-    display: block;
-  }
-  .lp-timeline::before {
-    display: none;
-  }
-  .lp-tl-step {
-    padding: 12px;
+.lp-journey-display img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1.6;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 6px;
+}
+.lp-journey-display p {
+  margin: 12px 0 4px;
+  padding: 0 6px;
+  font-size: 12.5px;
+  min-height: 42px;
+}
+.lp-swap-enter-active,
+.lp-swap-leave-active {
+  transition: opacity 0.3s var(--lp-ease);
+}
+.lp-swap-enter-from,
+.lp-swap-leave-to {
+  opacity: 0;
+}
+@media (max-width: 860px) {
+  .lp-journey-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
   }
 }
 </style>

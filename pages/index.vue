@@ -1,6 +1,7 @@
 <template>
   <SiteBlockRenderer v-if="isPortal" :blocks="page?.blocks || []" :styles="page?.styles || null" :home-data="data" mode="production" />
   <div v-else class="sa-landing" data-testid="landing">
+    <div class="lp-progress" :style="{ width: progress + '%' }" aria-hidden="true" />
     <LpHeader />
     <main>
       <LpHero />
@@ -8,13 +9,11 @@
       <LpBuilder />
       <LpCrm />
       <LpProperties />
-      <LpIntelligence />
+      <LpTeam />
       <LpFeatures />
       <LpHowItWorks />
-      <LpDemo />
-      <LpAccess />
       <LpFaq />
-      <LpFinal />
+      <LpDemo />
     </main>
     <LpFooter />
   </div>
@@ -29,13 +28,11 @@ import LpModules from '~/components/landing/LpModules.vue'
 import LpBuilder from '~/components/landing/LpBuilder.vue'
 import LpCrm from '~/components/landing/LpCrm.vue'
 import LpProperties from '~/components/landing/LpProperties.vue'
-import LpIntelligence from '~/components/landing/LpIntelligence.vue'
+import LpTeam from '~/components/landing/LpTeam.vue'
 import LpFeatures from '~/components/landing/LpFeatures.vue'
 import LpHowItWorks from '~/components/landing/LpHowItWorks.vue'
-import LpDemo from '~/components/landing/LpDemo.vue'
-import LpAccess from '~/components/landing/LpAccess.vue'
 import LpFaq from '~/components/landing/LpFaq.vue'
-import LpFinal from '~/components/landing/LpFinal.vue'
+import LpDemo from '~/components/landing/LpDemo.vue'
 import LpFooter from '~/components/landing/LpFooter.vue'
 import { LANDING_FAQ, LANDING_HERO, LANDING_SHOTS } from '~/utils/landing'
 
@@ -47,23 +44,56 @@ import { LANDING_FAQ, LANDING_HERO, LANDING_SHOTS } from '~/utils/landing'
 // the surrounding chrome (site header/footer vs. none).
 definePageMeta({ layout: 'root', transparentHero: true })
 
-// Eventos de analítica de la landing: sólo si ya hay un GA4 cargado con
-// consentimiento (plugins/consent-scripts.client.ts); nunca se carga nada
-// desde aquí. Cada botón con `data-landing-event` envía su nombre al hacer clic.
+const { tenant, load: loadTenant } = useTenant()
+await loadTenant()
+const isPortal = computed(() => tenant.value?.isCustomDomain === true)
+
+// Barra de progreso de lectura y animaciones de aparición (.lp-reveal). Nunca
+// se carga nada externo; respeta «reducir movimiento».
+const progress = ref(0)
 onMounted(() => {
+  if (isPortal.value) return
   const root = document.querySelector('.sa-landing')
   if (!root) return
+
+  // Analítica de la landing: sólo si ya hay un GA4 cargado con consentimiento
+  // (plugins/consent-scripts.client.ts). Cada botón con `data-landing-event`
+  // envía su nombre al hacer clic.
   root.addEventListener('click', (ev) => {
     const el = (ev.target as HTMLElement | null)?.closest<HTMLElement>('[data-landing-event]')
     const name = el?.dataset.landingEvent
     const gtag = (window as any).gtag
     if (name && typeof gtag === 'function') gtag('event', name, { event_category: 'landing' })
   })
-})
 
-const { tenant, load: loadTenant } = useTenant()
-await loadTenant()
-const isPortal = computed(() => tenant.value?.isCustomDomain === true)
+  // Sólo con JS ocultamos para animar: sin él, el contenido se ve igual.
+  root.classList.add('lp-js')
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const reveals = Array.from(root.querySelectorAll<HTMLElement>('.lp-reveal'))
+  if (reduced) {
+    reveals.forEach((el) => el.classList.add('is-visible'))
+  } else if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => {
+        if (e.isIntersecting) {
+          e.target.classList.add('is-visible')
+          io.unobserve(e.target)
+        }
+      }),
+      { threshold: 0.08 },
+    )
+    reveals.forEach((el) => io.observe(el))
+  } else {
+    reveals.forEach((el) => el.classList.add('is-visible'))
+  }
+
+  const onScroll = () => {
+    const max = document.documentElement.scrollHeight - window.innerHeight
+    progress.value = max > 0 ? Math.min(100, (window.scrollY / max) * 100) : 0
+  }
+  window.addEventListener('scroll', onScroll, { passive: true })
+  onScroll()
+})
 
 let data = ref<any>(null)
 let page = ref<any>(null)
@@ -100,7 +130,7 @@ if (isPortal.value) {
   // y datos estructurados del producto y de las preguntas frecuentes.
   const url = useRequestURL()
   const origin = `${url.protocol}//${url.host}`
-  const title = 'INMO — Tu inmobiliaria, toda conectada'
+  const title = 'INMO — Tu inmobiliaria, a otro nivel'
   const description = `${LANDING_HERO.subtitle} Crea tu web, organiza tus contactos, coordina visitas y sigue cada operación con tu equipo.`
   const image = `${origin}${LANDING_SHOTS.panel.src}`
   useHead({
@@ -155,302 +185,256 @@ if (isPortal.value) {
 
 <style>
 /*
- * Sistema visual de la landing comercial de INMO (sin ámbito: lo comparten
- * las secciones de components/landing/*). Tokens de la marca de la plataforma
- * (los de la plantilla de email «Portal INMO»): verde petróleo, blanco cálido
- * y un coral como acento, usado con mesura. Tipografía Inter, la global, sin
- * cargar más fuentes.
+ * Sistema visual de la landing comercial de INMO (sin ámbito: lo comparten las
+ * secciones de components/landing/*). Rediseño «Experiencia premium»: azul de
+ * marca sobre blanco, tipografía Inter (la global, sin cargar más fuentes),
+ * composición y animaciones del sitio de referencia. Responsive de móvil a
+ * escritorio y respeto de «reducir movimiento».
  */
 .sa-landing {
-  --lp-ink: #172c22;
-  --lp-ink-soft: #3f5146;
-  --lp-text: #4f5b53;
-  --lp-muted: #7a857a;
-  --lp-paper: #fbf9f5;
-  --lp-paper-2: #f3efe7;
-  --lp-white: #ffffff;
-  --lp-line: #e6e1d7;
-  --lp-accent: #cc553f;
-  --lp-accent-soft: #fbe9e2;
-  --lp-sage: #e1e8dc;
-  --lp-radius: 20px;
-  --lp-shadow: 0 24px 60px -32px rgba(23, 44, 34, 0.35);
+  --lp-blue: #087cfa;
+  --lp-blue-ink: #0a6fe0;
+  --lp-sky: #e9f3ff;
+  --lp-ink: #111315;
+  --lp-ink-soft: #2b2f34;
+  --lp-text: #4a4f57;
+  --lp-muted: #70747b;
+  --lp-line: #e3e7ec;
+  --lp-paper: #ffffff;
+  --lp-paper-2: #f5f7fa;
+  --lp-dark: #101319;
+  --lp-dark-2: #202630;
+  --lp-radius: 14px;
+  --lp-shadow: 0 30px 80px -40px rgba(32, 59, 92, 0.4);
   --lp-ease: cubic-bezier(0.22, 1, 0.36, 1);
   background: var(--lp-paper);
-  color: var(--lp-text);
+  color: var(--lp-ink);
   font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
 }
 .sa-landing :where(h1, h2, h3, h4) {
   color: var(--lp-ink);
-  letter-spacing: -0.02em;
-  font-weight: 700;
+  margin: 0;
 }
 .sa-landing :where(a) {
   color: inherit;
+  text-decoration: none;
 }
-.sa-landing :where(a, button):focus-visible {
-  outline: 2px solid var(--lp-accent);
-  outline-offset: 3px;
-  border-radius: 8px;
+.sa-landing :where(a, button, summary):focus-visible {
+  outline: 3px solid var(--lp-blue);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+.sa-landing :where(section[id]) {
+  scroll-margin-top: 96px;
+}
+.sa-landing img {
+  display: block;
+  max-width: 100%;
+}
+.sa-landing p {
+  color: var(--lp-muted);
+  line-height: 1.7;
 }
 .lp-shell {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 clamp(20px, 4vw, 56px);
 }
 .lp-section {
-  padding: 96px 0;
+  padding: clamp(64px, 8vw, 110px) 0;
 }
-.lp-section-tight {
-  padding: 72px 0;
+/* Barra de progreso de lectura */
+.lp-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0;
+  background: var(--lp-blue);
+  z-index: 60;
+  transition: width 0.1s linear;
 }
-.lp-dark {
-  background: var(--lp-ink);
-  color: #d7e0d8;
+/* Tipografía de titulares */
+.lp-h1 {
+  font-size: clamp(44px, 5.4vw, 78px);
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  font-weight: 600;
 }
-.lp-dark :where(h1, h2, h3) {
-  color: #fff;
-}
-.lp-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border-radius: 999px;
-  background: var(--lp-sage);
-  color: var(--lp-ink);
-  padding: 6px 14px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-.lp-dark .lp-eyebrow {
-  background: rgba(255, 255, 255, 0.1);
-  color: #e6efe5;
+.lp-h1 em {
+  font-style: normal;
+  color: var(--lp-blue);
 }
 .lp-h2 {
-  font-size: clamp(30px, 4vw, 46px);
-  line-height: 1.08;
-  margin: 18px 0 0;
-  max-width: 18ch;
+  font-size: clamp(31px, 3.7vw, 50px);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+}
+.lp-h2 span {
+  color: var(--lp-blue);
 }
 .lp-lede {
-  font-size: 18px;
-  line-height: 1.6;
-  margin: 18px 0 0;
-  max-width: 58ch;
+  font-size: clamp(15px, 1.2vw, 17px);
+  line-height: 1.75;
+  color: var(--lp-muted);
+  margin: 0;
 }
-.lp-dark .lp-lede {
-  color: #c2cec4;
-}
+/* Botones */
 .lp-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  min-height: 50px;
-  padding: 0 24px;
-  border-radius: 999px;
-  font-size: 15px;
+  gap: 14px;
+  padding: 17px 24px;
+  border-radius: 9px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1;
   border: 1px solid transparent;
-  transition: transform 0.2s var(--lp-ease), background-color 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
   cursor: pointer;
   text-decoration: none;
+  transition: transform 0.3s var(--lp-ease), background-color 0.3s, color 0.25s, border-color 0.25s, box-shadow 0.25s;
 }
 .lp-btn:hover {
-  transform: translateY(-1px);
+  transform: translateY(-3px);
 }
 .lp-btn:active {
-  transform: translateY(0) scale(0.98);
+  transform: translateY(-1px);
 }
 .lp-btn-primary {
   background: var(--lp-ink);
   color: #fff;
-  box-shadow: 0 14px 30px -16px rgba(23, 44, 34, 0.6);
 }
 .lp-btn-primary:hover {
-  background: #0f1f17;
+  background: var(--lp-blue);
 }
-.lp-btn-accent {
-  background: var(--lp-accent);
+.lp-btn-blue {
+  background: var(--lp-blue);
   color: #fff;
-  box-shadow: 0 14px 30px -16px rgba(204, 85, 63, 0.6);
+  box-shadow: 0 16px 34px -18px rgba(8, 124, 250, 0.7);
 }
-.lp-btn-accent:hover {
-  background: #b8472f;
+.lp-btn-blue:hover {
+  background: var(--lp-blue-ink);
 }
 .lp-btn-ghost {
-  background: var(--lp-white);
+  background: var(--lp-paper);
   color: var(--lp-ink);
   border-color: var(--lp-line);
 }
 .lp-btn-ghost:hover {
   border-color: var(--lp-ink);
 }
-.lp-dark .lp-btn-ghost {
-  background: transparent;
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.35);
+.lp-btn-white {
+  background: #fff;
+  color: #151515;
 }
-.lp-dark .lp-btn-ghost:hover {
-  border-color: #fff;
+.lp-btn-white:hover {
+  background: var(--lp-blue);
+  color: #fff;
 }
 .lp-btn-sm {
-  min-height: 42px;
-  padding: 0 18px;
-  font-size: 14px;
+  padding: 12px 17px;
+  gap: 10px;
+  font-size: 13px;
+}
+.lp-btn-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+/* Enlace de texto con flecha */
+.lp-text-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lp-ink);
+  transition: color 0.2s;
+}
+.lp-text-link svg {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s var(--lp-ease);
+}
+.lp-text-link:hover {
+  color: var(--lp-blue);
+}
+.lp-text-link:hover svg {
+  transform: translateX(3px);
 }
 /* Marca INMO (cabecera y pie) */
 .lp-brand {
   display: inline-flex;
-  align-items: center;
-  gap: 10px;
+  align-items: baseline;
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.06em;
+  color: var(--lp-ink);
   text-decoration: none;
 }
-.lp-brand-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: var(--lp-ink);
+.lp-brand sup {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin-left: 3px;
+  top: -0.9em;
+}
+.lp-dark .lp-brand {
   color: #fff;
-  font-weight: 800;
-  font-size: 17px;
 }
-.lp-brand-word {
-  font-weight: 800;
-  font-size: 19px;
-  letter-spacing: -0.03em;
-  color: var(--lp-ink);
+/* Encabezado de sección a dos columnas (copy + párrafo/enlace) */
+.lp-section-top {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: clamp(32px, 6vw, 90px);
+  align-items: end;
+  margin-bottom: clamp(36px, 5vw, 52px);
 }
-/* Marco de navegador para las capturas reales */
-.lp-browser {
-  border-radius: 18px;
-  background: var(--lp-white);
-  border: 1px solid var(--lp-line);
-  box-shadow: var(--lp-shadow);
-  overflow: hidden;
+.lp-section-top .lp-h2 {
+  max-width: 16ch;
 }
-.lp-browser-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--lp-line);
-  background: #f7f4ee;
+.lp-section-top p {
+  margin: 0 0 20px;
+  max-width: 46ch;
+  font-size: 15px;
 }
-.lp-browser-bar i {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: #ded8cc;
+/* Punto verde «en vivo» */
+.lp-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #48b985;
+  box-shadow: 0 0 0 4px rgba(72, 185, 133, 0.12);
+  flex-shrink: 0;
 }
-.lp-browser-bar span {
-  margin-left: 8px;
-  flex: 1;
-  height: 22px;
-  border-radius: 999px;
-  background: #fff;
-  border: 1px solid var(--lp-line);
-  font-size: 11px;
-  color: var(--lp-muted);
-  display: flex;
-  align-items: center;
-  padding: 0 10px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-.lp-shot {
-  display: block;
-  width: 100%;
-  height: auto;
-  background: var(--lp-paper-2);
-}
-.lp-shot-missing {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  aspect-ratio: 16 / 10;
-  padding: 24px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--lp-muted);
-  background: repeating-linear-gradient(135deg, #f3efe7 0 12px, #efeadf 12px 24px);
-}
-/* Tarjetas */
-.lp-card {
-  background: var(--lp-white);
-  border: 1px solid var(--lp-line);
-  border-radius: var(--lp-radius);
-  padding: 28px;
-  transition: transform 0.25s var(--lp-ease), box-shadow 0.25s, border-color 0.25s;
-}
-.lp-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--lp-shadow);
-  border-color: #d6d0c3;
-}
-.lp-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: var(--lp-sage);
-  color: var(--lp-ink);
-}
-.lp-icon svg {
-  width: 22px;
-  height: 22px;
-}
-/* Pestañas */
-.lp-tabs {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 999px;
-  background: var(--lp-paper-2);
-  border: 1px solid var(--lp-line);
-}
-.lp-tab {
-  min-height: 40px;
-  padding: 0 18px;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--lp-text);
-  transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
-}
-.lp-tab[aria-selected='true'] {
-  background: var(--lp-white);
-  color: var(--lp-ink);
-  box-shadow: 0 2px 10px -4px rgba(0, 0, 0, 0.25);
-}
-.lp-fade-enter-active,
-.lp-fade-leave-active {
-  transition: opacity 0.3s var(--lp-ease), transform 0.3s var(--lp-ease);
-}
-.lp-fade-enter-from,
-.lp-fade-leave-to {
+/* Animaciones de aparición (sólo si hay JS: sin él, visible) */
+.sa-landing.lp-js .lp-reveal {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(26px);
+  transition: opacity 0.8s var(--lp-ease), transform 0.8s var(--lp-ease);
 }
-@media (max-width: 767px) {
-  .lp-section {
-    padding: 64px 0;
+.sa-landing.lp-js .lp-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+@keyframes lp-float {
+  50% {
+    transform: translateY(-9px);
   }
-  .lp-section-tight {
-    padding: 48px 0;
+}
+@media (max-width: 860px) {
+  .lp-section-top {
+    grid-template-columns: 1fr;
+    gap: 22px;
+    align-items: start;
   }
-  .lp-card {
-    padding: 22px;
+  .lp-section-top .lp-h2 {
+    max-width: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -459,7 +443,12 @@ if (isPortal.value) {
   .sa-landing *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
+  }
+  .sa-landing.lp-js .lp-reveal {
+    opacity: 1;
+    transform: none;
   }
 }
 </style>

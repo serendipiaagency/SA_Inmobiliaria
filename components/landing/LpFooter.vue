@@ -1,12 +1,9 @@
 <template>
   <footer class="lp-footer" data-testid="landing-footer">
     <div class="lp-shell">
-      <div class="lp-footer-grid">
+      <div class="lp-footer-top">
         <div class="lp-footer-brand">
-          <NuxtLink to="/" class="lp-brand" aria-label="INMO, inicio">
-            <span class="lp-brand-mark" aria-hidden="true">I</span>
-            <span class="lp-brand-word">INMO</span>
-          </NuxtLink>
+          <NuxtLink to="/" class="lp-brand" aria-label="INMO, inicio">inmo<sup>®</sup></NuxtLink>
           <p>{{ LANDING_FOOTER.description }}</p>
         </div>
         <nav v-for="col in LANDING_FOOTER.columns" :key="col.title" class="lp-footer-col" :aria-label="col.title">
@@ -20,8 +17,8 @@
         </nav>
       </div>
       <div class="lp-footer-bottom">
-        <p>© {{ year }} INMO · Serendipia Agency. Todos los derechos reservados.</p>
-        <p>Plataforma para inmobiliarias. Cada empresa, su espacio.</p>
+        <span>© {{ year }} INMO · Serendipia Agency</span>
+        <a href="#" class="lp-footer-top-link">Volver arriba ↑</a>
       </div>
     </div>
   </footer>
@@ -36,24 +33,27 @@ const year = new Date().getFullYear()
 
 <style scoped>
 .lp-footer {
-  padding: 64px 0 32px;
+  padding: clamp(48px, 6vw, 72px) 0 32px;
   background: var(--lp-paper);
   border-top: 1px solid var(--lp-line);
 }
-.lp-footer-grid {
+.lp-footer-top {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) repeat(4, minmax(0, 1fr));
+  grid-template-columns: 2fr repeat(4, 1fr);
   gap: 32px;
+}
+.lp-footer-brand .lp-brand {
+  font-size: 32px;
 }
 .lp-footer-brand p {
   margin: 16px 0 0;
   max-width: 34ch;
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.7;
 }
 .lp-footer-col h3 {
   margin: 0;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -64,44 +64,41 @@ const year = new Date().getFullYear()
   padding: 0;
   list-style: none;
   display: grid;
-  gap: 8px;
+  gap: 9px;
 }
 .lp-footer-col a {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--lp-ink-soft);
-  text-decoration: none;
   overflow-wrap: anywhere;
 }
 .lp-footer-col a:hover {
-  color: var(--lp-ink);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  color: var(--lp-blue);
 }
 .lp-footer-bottom {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 8px 24px;
-  margin-top: 48px;
-  padding-top: 20px;
+  gap: 12px 24px;
+  margin-top: 44px;
+  padding-top: 24px;
   border-top: 1px solid var(--lp-line);
-  font-size: 12px;
+  font-size: 11px;
   color: var(--lp-muted);
 }
-.lp-footer-bottom p {
-  margin: 0;
+.lp-footer-top-link:hover {
+  color: var(--lp-blue);
 }
-@media (max-width: 1023px) {
-  .lp-footer-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (max-width: 860px) {
+  .lp-footer-top {
+    grid-template-columns: 1fr 1fr;
   }
   .lp-footer-brand {
     grid-column: 1 / -1;
   }
 }
 @media (max-width: 479px) {
-  .lp-footer-grid {
-    grid-template-columns: minmax(0, 1fr);
+  .lp-footer-top {
+    grid-template-columns: 1fr;
   }
 }
 </style>

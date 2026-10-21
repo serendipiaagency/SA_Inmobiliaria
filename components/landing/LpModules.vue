@@ -1,88 +1,68 @@
 <template>
-  <section id="producto" class="lp-section" data-testid="landing-modules">
-    <div class="lp-shell">
-      <div class="lp-modules-head">
-        <p class="lp-eyebrow">Producto</p>
-        <h2 class="lp-h2">Todo lo que necesitas para gestionar tu inmobiliaria.</h2>
-        <p class="lp-lede">Seis módulos que trabajan juntos: lo que das de alta en uno aparece donde toca en los demás, sin volver a escribirlo.</p>
+  <section id="producto" class="lp-modules-section" data-testid="landing-modules">
+    <div class="lp-shell lp-strip">
+      <span class="lp-strip-label">{{ LANDING_STRIP_INTRO }}</span>
+      <a v-for="m in LANDING_MODULES" :key="m.key" :href="m.href" class="lp-strip-link" :data-testid="`landing-module-${m.key}`">{{ m.label }} <span aria-hidden="true">↗</span></a>
+    </div>
+
+    <div class="lp-shell lp-intro lp-reveal">
+      <h2 class="lp-h2">{{ LANDING_INTRO.title[0] }}<br><span>{{ LANDING_INTRO.title[1] }}</span></h2>
+      <div>
+        <p>{{ LANDING_INTRO.text }}</p>
+        <a :href="LANDING_INTRO.cta.to" class="lp-text-link">{{ LANDING_INTRO.cta.label }} <LpIcon name="arrow" /></a>
       </div>
-      <ul class="lp-modules-grid" role="list">
-        <li v-for="m in LANDING_MODULES" :key="m.key">
-          <a :href="m.href" class="lp-card lp-module" :data-testid="`landing-module-${m.key}`">
-            <span class="lp-icon"><LpIcon :name="m.key" /></span>
-            <h3>{{ m.title }}</h3>
-            <p>{{ m.text }}</p>
-            <span class="lp-module-more">Ver cómo funciona <LpIcon name="arrow" /></span>
-          </a>
-        </li>
-      </ul>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
 import LpIcon from './LpIcon.vue'
-import { LANDING_MODULES } from '~/utils/landing'
+import { LANDING_INTRO, LANDING_MODULES, LANDING_STRIP_INTRO } from '~/utils/landing'
 
-/** Resumen visual: seis tarjetas, una por módulo real, cada una hacia su sección. */
+/** Cinta de módulos (una plataforma, cada enlace a su sección) y la idea central: menos herramientas, más inmobiliaria. */
 </script>
 
 <style scoped>
-.lp-modules-head {
-  max-width: 720px;
-}
-.lp-modules-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
-  margin: 48px 0 0;
-  padding: 0;
-  list-style: none;
-}
-.lp-module {
+.lp-strip {
   display: flex;
-  flex-direction: column;
-  height: 100%;
-  text-decoration: none;
-}
-.lp-module h3 {
-  margin: 20px 0 0;
-  font-size: 19px;
-  line-height: 1.25;
-}
-.lp-module p {
-  margin: 10px 0 0;
-  font-size: 15px;
-  line-height: 1.55;
-}
-.lp-module-more {
-  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
   align-items: center;
-  gap: 6px;
-  margin-top: auto;
-  padding-top: 22px;
-  font-size: 14px;
-  font-weight: 600;
+  gap: 16px 24px;
+  padding: 27px clamp(20px, 4vw, 56px);
+  border-top: 1px solid var(--lp-line);
+  border-bottom: 1px solid var(--lp-line);
+  font-size: 12px;
+}
+.lp-strip-label {
+  color: #868a90;
+  font-size: 11px;
+}
+.lp-strip-link {
+  font-weight: 500;
   color: var(--lp-ink);
+  transition: color 0.2s;
 }
-.lp-module-more svg {
-  width: 16px;
-  height: 16px;
-  transition: transform 0.2s var(--lp-ease);
+.lp-strip-link:hover {
+  color: var(--lp-blue);
 }
-.lp-module:hover .lp-module-more svg {
-  transform: translateX(3px);
+.lp-intro {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: clamp(32px, 6vw, 80px);
+  align-items: center;
+  padding-top: clamp(72px, 9vw, 115px);
+  padding-bottom: clamp(72px, 9vw, 115px);
 }
-@media (max-width: 1023px) {
-  .lp-modules-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.lp-intro p {
+  max-width: 460px;
+  margin: 0 0 24px;
+  font-size: 16px;
 }
-@media (max-width: 639px) {
-  .lp-modules-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
-    margin-top: 32px;
+@media (max-width: 860px) {
+  .lp-intro {
+    grid-template-columns: 1fr;
+    gap: 24px;
   }
 }
 </style>

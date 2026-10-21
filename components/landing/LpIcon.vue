@@ -1,5 +1,5 @@
 <template>
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <template v-if="name === 'builder'"><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M3 9h18M8 9v11" /></template>
     <template v-else-if="name === 'properties'"><path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v10h13V10" /><path d="M10 20v-6h4v6" /></template>
     <template v-else-if="name === 'crm'"><circle cx="9" cy="8" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0" /><path d="M16 4.5a3.2 3.2 0 0 1 0 6.4M17.5 13.8A5.5 5.5 0 0 1 21 19" /></template>

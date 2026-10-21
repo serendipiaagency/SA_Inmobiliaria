@@ -3,8 +3,14 @@
  * contenido en un solo sitio, para que las secciones (components/landing/*)
  * lo pinten y las pruebas lo vigilen. Todo lo que afirma sale de lo que la
  * plataforma hace de verdad hoy (docs/landing.md): nada de clientes, cifras,
- * premios ni capacidades inventadas; lo que no está terminado lleva su
- * estado.
+ * premios ni capacidades inventadas; lo que no está terminado lleva su estado.
+ *
+ * Rediseño «Experiencia premium» (2026-10): composición, color (azul sobre
+ * blanco), tipografía (Inter) y fotografía del sitio de referencia, sin
+ * antetítulos, con el Constructor Web y el CRM como protagonistas, las
+ * funcionalidades en desplegables y fotografía de propiedades de lujo y de
+ * equipo. El flujo real (demo, registro y acceso) y los estados honestos se
+ * conservan intactos.
  */
 
 export interface LandingNavItem {
@@ -14,83 +20,116 @@ export interface LandingNavItem {
 
 /** Enlaces del menú: a secciones de esta misma página. Sin «Precios»: no hay planes publicados. */
 export const LANDING_NAV: LandingNavItem[] = [
-  { label: 'Producto', href: '#producto' },
   { label: 'Constructor Web', href: '#constructor-web' },
   { label: 'CRM', href: '#crm' },
   { label: 'Funcionalidades', href: '#funcionalidades' },
   { label: 'Cómo funciona', href: '#como-funciona' },
 ]
 
-/** Las dos acciones, con el mismo nombre en toda la página. */
+/** Las acciones reales, con el mismo nombre en toda la página. */
 export const LANDING_CTA = {
   register: { label: 'Crear mi inmobiliaria', to: '/registro-empresa' },
   demo: { label: 'Solicitar demo', to: '#solicitar-demo' },
-  login: { label: 'Iniciar sesión', to: '/admin/login' },
+  login: { label: 'Acceder', to: '/admin/login' },
 } as const
+
+/**
+ * Fotografía de ambiente (propiedades de lujo y equipo). No representa
+ * inmuebles del catálogo de INMO; sirve para dar protagonismo visual.
+ * Archivos propios en /public/landing (la CSP sólo admite imágenes propias).
+ */
+export type LandingPhotoKey = 'villa' | 'interior' | 'vivienda' | 'equipo' | 'equipo-oficina'
+
+export interface LandingPhoto {
+  src: string
+  alt: string
+  width: number
+  height: number
+}
+
+export const LANDING_PHOTOS: Record<LandingPhotoKey, LandingPhoto> = {
+  villa: { src: '/landing/villa.webp', alt: 'Villa contemporánea de lujo con piscina al atardecer', width: 1600, height: 1068 },
+  interior: { src: '/landing/interior.webp', alt: 'Salón luminoso con diseño interior elegante', width: 1400, height: 1050 },
+  vivienda: { src: '/landing/vivienda.webp', alt: 'Vivienda de diseño con amplios espacios y mucha luz', width: 1400, height: 933 },
+  equipo: { src: '/landing/equipo.webp', alt: 'Profesionales inmobiliarios revisando la ficha de una vivienda', width: 1400, height: 933 },
+  'equipo-oficina': { src: '/landing/equipo-oficina.webp', alt: 'Profesionales estrechándose la mano en una reunión de trabajo', width: 1600, height: 1067 },
+}
 
 export const LANDING_HERO = {
-  eyebrow: 'La nueva forma de gestionar tu inmobiliaria',
-  title: ['Tu inmobiliaria,', 'toda conectada.'],
-  subtitle: 'Gestiona propiedades, clientes, visitas, operaciones y tu propia web desde una única plataforma.',
-  secondary: { label: 'Ver demo', to: '#demo' },
-  /** Tarjetas flotantes alrededor del panel: demostrativas, nunca actividad real. */
-  floats: [
-    { key: 'lead', eyebrow: 'Nueva consulta recibida', text: 'Desde el formulario de tu web' },
-    { key: 'published', eyebrow: 'Propiedad publicada', text: 'Visible en tu web al instante' },
-    { key: 'visit', eyebrow: 'Visita programada', text: 'En la agenda del comercial' },
-    { key: 'assigned', eyebrow: 'Cliente asignado', text: 'Con su responsable y su siguiente paso' },
+  /** Tres líneas; la última, en acento. Sin antetítulo. */
+  title: ['Tu inmobiliaria.', 'Todo conectado.', 'Otro nivel.'],
+  subtitle: 'Una web que atrae y un CRM que conecta. Tus propiedades, tu equipo y cada oportunidad, en el mismo lugar.',
+  note: 'Tu web. Tu marca. Tu espacio.',
+  /** Acción principal: la demo real. Secundaria: el registro real. Más un ancla para explorar. */
+  primary: { label: 'Solicitar demo', to: '#solicitar-demo' },
+  secondary: { label: 'Crear mi inmobiliaria', to: '/registro-empresa' },
+  explore: { label: 'Explora la plataforma', to: '#constructor-web' },
+  /** Galería del hero: propiedades de lujo que se alternan con transición suave. */
+  stack: [
+    { photo: 'villa' as LandingPhotoKey, label: 'Espacios que inspiran.' },
+    { photo: 'interior' as LandingPhotoKey, label: 'Detalles que marcan la diferencia.' },
+    { photo: 'vivienda' as LandingPhotoKey, label: 'Propiedades con otra perspectiva.' },
   ],
+  floatCard: { title: 'De una propiedad a una oportunidad.', text: 'Web y gestión, siempre conectadas.' },
 } as const
 
-export interface LandingModule {
+export interface LandingStripLink {
   key: string
-  title: string
-  text: string
+  label: string
   href: string
 }
 
-/** «Todo lo que necesitas…»: seis tarjetas, cada una hacia su sección. */
-export const LANDING_MODULES: LandingModule[] = [
-  { key: 'builder', title: 'Constructor Web', text: 'Crea y personaliza la web de tu inmobiliaria.', href: '#constructor-web' },
-  { key: 'properties', title: 'Gestión de propiedades', text: 'Organiza y publica tus inmuebles desde un único panel.', href: '#propiedades' },
-  { key: 'crm', title: 'CRM inmobiliario', text: 'Centraliza contactos, clientes y oportunidades.', href: '#crm' },
-  { key: 'agenda', title: 'Agenda y visitas', text: 'Coordina citas y actividades comerciales.', href: '#como-funciona' },
-  { key: 'deals', title: 'Operaciones', text: 'Gestiona el seguimiento de ofertas y operaciones.', href: '#como-funciona' },
-  { key: 'intelligence', title: 'Inteligencia inmobiliaria', text: 'Aprovecha las herramientas inteligentes disponibles para trabajar con más información.', href: '#inteligencia' },
+/** Cinta de módulos bajo el hero: una plataforma, cada enlace a su sección. */
+export const LANDING_STRIP_INTRO = 'Una plataforma. Toda tu inmobiliaria.'
+export const LANDING_MODULES: LandingStripLink[] = [
+  { key: 'web', label: 'Web propia', href: '#constructor-web' },
+  { key: 'crm', label: 'CRM inmobiliario', href: '#crm' },
+  { key: 'properties', label: 'Propiedades', href: '#propiedades' },
+  { key: 'journey', label: 'Visitas y operaciones', href: '#como-funciona' },
 ]
 
+/** Introducción: menos herramientas, más inmobiliaria. */
+export const LANDING_INTRO = {
+  title: ['Menos herramientas.', 'Más inmobiliaria.'],
+  text: 'La información fluye desde tu catálogo hasta tu web y tu equipo comercial. Sin volver a introducir los mismos datos en cada paso.',
+  cta: { label: 'Todo lo que puedes hacer', to: '#funcionalidades' },
+} as const
+
 export const LANDING_BUILDER = {
-  title: 'Tu web inmobiliaria. Diseñada por ti.',
-  subtitle: 'Crea una web profesional, personaliza su diseño y mantén tus propiedades actualizadas desde INMO.',
-  benefits: [
-    { title: 'Diseño visual', text: 'Edita textos, imágenes, secciones y estilos.' },
-    { title: 'Tu identidad', text: 'Adapta la web a los colores y personalidad de tu inmobiliaria.' },
-    { title: 'Propiedades conectadas', text: 'La información publicada procede de la gestión de propiedades.' },
-    { title: 'Adaptada a todos los dispositivos', text: 'Una experiencia cuidada en escritorio, tablet y móvil.' },
-  ],
+  title: ['Una web a la altura', 'de tus propiedades.'],
+  subtitle: 'Con el Constructor Web, tu identidad se convierte en una experiencia. Personaliza el diseño y conecta tu escaparate con tu catálogo.',
+  stageTitle: 'Tu marca. Tu diseño. Tu web.',
   tabs: [
-    { key: 'editor', label: 'Editor', shot: 'constructor' },
+    { key: 'editor', label: 'Editor visual', shot: 'constructor' },
     { key: 'web', label: 'Web publicada', shot: 'web-portada' },
   ],
-  cta: { label: 'Descubre el Constructor Web', to: '#demo' },
+  /** Tres pasos numerados (el porqué, no promesas). */
+  steps: [
+    { title: 'Hazla tuya.', text: 'Textos, imágenes, colores y estilos. Tu identidad en cada detalle.' },
+    { title: 'Actualiza una vez.', text: 'La información de tus propiedades alimenta tu web, sin duplicar el trabajo.' },
+    { title: 'Cuida cada pantalla.', text: 'Una experiencia adaptada a escritorio, tablet y móvil.' },
+  ],
+  cta: { label: 'Descubre el Constructor Web', to: '#solicitar-demo' },
 } as const
 
 export const LANDING_CRM = {
-  title: 'Cada oportunidad, bajo control.',
-  subtitle: 'Organiza tus contactos, recibe consultas, coordina a tu equipo y sigue cada oportunidad desde un único espacio.',
-  benefits: [
-    { title: 'Todos tus contactos conectados', text: 'Centraliza la información comercial.' },
-    { title: 'Seguimiento de oportunidades', text: 'Consulta el estado de cada lead.' },
-    { title: 'Equipo coordinado', text: 'Asigna responsables y organiza actividades.' },
-    { title: 'Más continuidad comercial', text: 'Mantén un historial de interacciones y próximos pasos.' },
+  title: ['Cada contacto cuenta.', 'Que ninguno se pierda.'],
+  subtitle: 'Tu CRM inmobiliario reúne consultas, contactos y próximos pasos. Cada comercial sabe dónde está cada oportunidad y cómo hacerla avanzar.',
+  contextTitle: ['De la primera consulta', 'a la próxima visita.'],
+  /** Microdemo de tres pasos reales; al elegir uno cambia el texto y el aviso. */
+  steps: [
+    { label: 'Recibe la consulta', desc: 'Cada formulario crea un lead real, con su contacto y su historial.', noticeTitle: 'Consulta recibida', noticeText: 'El inicio de una nueva oportunidad.' },
+    { label: 'Asigna un comercial', desc: 'Lo asignas tú, o lo hace una regla de reparto por zona, idioma u horario.', noticeTitle: 'Comercial asignado', noticeText: 'Cada contacto, con su responsable.' },
+    { label: 'Prepara la visita', desc: 'Programa la cita y conserva el resultado junto a la próxima acción.', noticeTitle: 'Próximo paso: visita', noticeText: 'La conversación sigue avanzando.' },
   ],
-  /** La secuencia real: el formulario crea el lead; asignar, agendar y seguir lo hace el equipo (con reglas de reparto si las configura). */
-  flow: ['Consulta recibida', 'Lead creado', 'Comercial asignado', 'Visita agendada', 'Seguimiento'],
+  footer: ['Contactos e historial', 'Responsables y equipo', 'Seguimiento comercial', 'Próxima acción'],
+  cta: { label: 'Conoce el CRM inmobiliario', to: '#solicitar-demo' },
 } as const
 
 export const LANDING_PROPERTIES = {
-  title: 'Tus propiedades, organizadas y listas para publicar.',
-  subtitle: 'Gestiona la información de cada inmueble y conecta su publicación con tu web inmobiliaria.',
+  title: ['Grandes propiedades.', 'Una gestión impecable.'],
+  subtitle: 'Obra nueva y segunda mano, en un mismo editor. Información, multimedia, documentación y estado comercial, siempre a mano.',
+  /** Seis puntos reales de la gestión de propiedades. */
   benefits: [
     'Información centralizada',
     'Obra nueva y segunda mano',
@@ -99,95 +138,20 @@ export const LANDING_PROPERTIES = {
     'Filtros y búsqueda',
     'Estado comercial y disponibilidad',
   ],
-  tabs: [
-    { key: 'panel', label: 'Panel de gestión', shot: 'propiedad-panel' },
-    { key: 'public', label: 'Ficha pública', shot: 'ficha-publica' },
+  /** Galería de propiedades de lujo (fotografía de ambiente). */
+  gallery: [
+    { photo: 'villa' as LandingPhotoKey, caption: 'Un escaparate que despierta interés.' },
+    { photo: 'interior' as LandingPhotoKey, caption: 'Cada detalle, bien presentado.' },
+    { photo: 'vivienda' as LandingPhotoKey, caption: 'Toda la información, en su lugar.' },
   ],
+  footnote: 'Fotografía de ambiente. Las imágenes no representan inmuebles del catálogo de INMO.',
 } as const
 
-export type LandingFeatureStatus = 'available' | 'with-ai' | 'soon'
-
-export interface LandingIntelligenceItem {
-  key: string
-  title: string
-  text: string
-  status: LandingFeatureStatus
-}
-
-/** Sólo lo que existe: estado verificado en docs/landing.md. */
-export const LANDING_INTELLIGENCE: LandingIntelligenceItem[] = [
-  { key: 'matching', title: 'Compatibilidades', text: 'Cruza lo que busca cada comprador con tus propiedades y te enseña las coincidencias.', status: 'available' },
-  { key: 'score', title: 'Prioridad de cada lead', text: 'Una puntuación explicable, por reglas que tú defines, para atender antes a quien más lo necesita.', status: 'available' },
-  { key: 'dashboard', title: 'Análisis comercial', text: 'Embudo, rendimiento por comercial y oficina, y métricas de tu actividad real.', status: 'available' },
-  { key: 'assistant', title: 'Asistente INMO', text: 'Pregunta por tus propiedades, clientes y citas en lenguaje natural y deja que prepare tareas que tú confirmas.', status: 'with-ai' },
-  { key: 'automations', title: 'Automatizaciones', text: 'Reglas que crean tareas, avisan al equipo o mueven un lead cuando pasa algo.', status: 'available' },
-  { key: 'channels', title: 'Publicación en portales', text: 'La programación de publicaciones está lista; la conexión con los portales llegará canal a canal.', status: 'soon' },
-]
-
-export const LANDING_STATUS_LABEL: Record<LandingFeatureStatus, string> = {
-  available: 'Disponible',
-  'with-ai': 'Con IA activada',
-  soon: 'Próximamente',
-}
-
-export interface LandingStep {
-  key: string
-  title: string
-  text: string
-  shot: LandingShotKey
-}
-
-export const LANDING_STEPS: LandingStep[] = [
-  { key: 'add', title: 'Añade una propiedad', text: 'El equipo registra el inmueble.', shot: 'propiedad-panel' },
-  { key: 'publish', title: 'Publícala en tu web', text: 'La información se utiliza para mostrar la propiedad en la web pública.', shot: 'ficha-publica' },
-  { key: 'inquiry', title: 'Recibe una consulta', text: 'Un interesado envía un formulario.', shot: 'web-contacto' },
-  { key: 'contact', title: 'Gestiona el contacto', text: 'La consulta llega al entorno comercial.', shot: 'crm' },
-  { key: 'visit', title: 'Organiza una visita', text: 'El equipo programa y realiza el seguimiento.', shot: 'agenda' },
-  { key: 'deal', title: 'Avanza con la operación', text: 'Se gestiona la oportunidad hasta su resolución.', shot: 'operaciones' },
-]
-
-export const LANDING_DEMO = {
-  title: 'No te lo imagines. Descubre cómo funciona.',
-  subtitle: 'Explora INMO y descubre cómo encaja en el día a día de tu inmobiliaria.',
-  /** No hay acceso público a la cuenta demo: «Ver demostración» lleva a la solicitud. */
-  primary: { label: 'Ver demostración', to: '#solicitar-demo' },
-} as const
-
-/** Opciones del formulario «Solicitar demo»: las mismas en la landing y en el servidor (server/api/public/demo-request.post.ts). */
-export const LANDING_DEMO_FORM = {
-  teamSizes: [
-    { value: 'solo', label: 'Trabajo solo/a' },
-    { value: '2-5', label: '2 a 5 personas' },
-    { value: '6-15', label: '6 a 15 personas' },
-    { value: '16+', label: 'Más de 15 personas' },
-  ],
-  interests: [
-    { value: 'web', label: 'Tener una web profesional' },
-    { value: 'crm', label: 'Organizar contactos y consultas' },
-    { value: 'properties', label: 'Gestionar y publicar propiedades' },
-    { value: 'team', label: 'Coordinar al equipo y las visitas' },
-    { value: 'all', label: 'Verlo todo' },
-  ],
-} as const
-
-/** Bloque «Solicitar demo»: lo que pasa después de escribir, sin promesas que no se cumplan. */
-export const LANDING_REQUEST = {
-  eyebrow: 'Empieza por una conversación',
-  title: 'Tu siguiente ventaja competitiva puede empezar aquí.',
-  text: 'Cuéntanos cómo trabajáis hoy y te enseñamos qué puede hacer la plataforma con un caso parecido al vuestro.',
-  steps: [
-    { title: 'Entendemos tu operación actual', text: 'Catálogo, leads, equipo, canales y objetivos.' },
-    { title: 'Preparamos una demo con contexto', text: 'No enseñamos pantallas sueltas: enseñamos un flujo.' },
-    { title: 'Definimos la ruta de implantación', text: 'Sin perder datos ni interrumpir el negocio.' },
-  ],
-  form: {
-    eyebrow: 'Demo personalizada',
-    badge: 'Respuesta por correo en días laborables',
-    title: 'Hablemos de tu inmobiliaria.',
-    submit: 'Solicitar mi demo',
-    footnote: 'Sin compromiso. Una primera conversación con contexto.',
-  },
-  signature: { name: 'Serendipia Agency', email: 'info@serendipiaagency.com' },
+export const LANDING_TEAM = {
+  title: ['La tecnología conecta.', 'Tu equipo hace', 'que suceda.'],
+  text: 'Más contexto en cada conversación. Más coordinación en cada visita. Un espacio compartido para acompañar a tus clientes de principio a fin.',
+  photos: ['equipo' as LandingPhotoKey, 'equipo-oficina' as LandingPhotoKey],
+  cta: { label: 'Pon a tu equipo en sintonía', to: '#crm' },
 } as const
 
 export type LandingFeatureState = 'available' | 'with-ai' | 'with-provider' | 'soon'
@@ -213,10 +177,10 @@ export const LANDING_FEATURE_STATE_LABEL: Record<LandingFeatureState, string> = 
 }
 
 /**
- * Todo lo que incluye INMO hoy, módulo a módulo. Cada punto corresponde a una
- * pantalla real del panel (utils/adminNav.ts) y a su entrada en la ayuda
- * in-app (composables/useHelpContent.ts); lo que depende de un proveedor o de
- * la IA lo dice, y lo que no está terminado lleva «Próximamente».
+ * Todo lo que incluye INMO hoy, módulo a módulo (ocho áreas, en desplegables).
+ * Cada punto corresponde a una pantalla real del panel (utils/adminNav.ts) y a
+ * su entrada en la ayuda in-app (composables/useHelpContent.ts); lo que depende
+ * de un proveedor o de la IA lo dice, y lo que no está terminado lleva su estado.
  */
 export const LANDING_FEATURES: LandingFeatureGroup[] = [
   {
@@ -312,16 +276,55 @@ export const LANDING_FEATURES: LandingFeatureGroup[] = [
   },
 ]
 
-export const LANDING_ACCESS = {
-  title: 'Una plataforma preparada para crecer contigo.',
-  items: [
-    { title: 'Registro inmediato', text: 'Crea tu inmobiliaria en un minuto: tu cuenta nace activa, con tu espacio y tu usuario administrador.' },
-    { title: 'Demostración guiada', text: 'Pide una demo y te la enseñamos con un caso parecido al tuyo. No hay acceso público a la cuenta de demostración.' },
-    { title: 'De una persona a varias oficinas', text: 'Empieza solo o con tu equipo; añade comerciales, oficinas y equipos cuando los necesites.' },
-    { title: 'Tu dominio', text: 'Tu web puede vivir en tu propio dominio; lo configuramos contigo al activarlo.' },
-    { title: 'Soporte', text: 'Ayuda dentro del panel para cada módulo y atención por correo.' },
-    { title: 'Condiciones', text: 'Los planes y precios aún no están publicados: consúltanos y te los contamos sin compromiso.' },
+export interface LandingStep {
+  key: string
+  title: string
+  text: string
+  shot: LandingShotKey
+}
+
+export const LANDING_STEPS: LandingStep[] = [
+  { key: 'add', title: 'Añade una propiedad', text: 'Registra los datos, las imágenes y la documentación del inmueble.', shot: 'propiedad-panel' },
+  { key: 'publish', title: 'Publícala en tu web', text: 'El catálogo alimenta la web pública de tu inmobiliaria.', shot: 'web-portada' },
+  { key: 'inquiry', title: 'Recibe una consulta', text: 'El formulario crea un lead y abre la conversación.', shot: 'web-contacto' },
+  { key: 'contact', title: 'Gestiona el contacto', text: 'La consulta llega al CRM; asigna un responsable y conserva el contexto.', shot: 'crm' },
+  { key: 'visit', title: 'Organiza una visita', text: 'Coordina la cita con tu equipo y prepara el seguimiento.', shot: 'agenda' },
+  { key: 'deal', title: 'Avanza con la operación', text: 'Continúa el proceso comercial y registra los próximos pasos.', shot: 'operaciones' },
+]
+
+/** Opciones del formulario «Solicitar demo»: las mismas en la landing y en el servidor (server/utils/demoRequests.ts). */
+export const LANDING_DEMO_FORM = {
+  teamSizes: [
+    { value: 'solo', label: 'Trabajo solo/a' },
+    { value: '2-5', label: '2 a 5 personas' },
+    { value: '6-15', label: '6 a 15 personas' },
+    { value: '16+', label: 'Más de 15 personas' },
   ],
+  interests: [
+    { value: 'web', label: 'Tener una web profesional' },
+    { value: 'crm', label: 'Organizar contactos y consultas' },
+    { value: 'properties', label: 'Gestionar y publicar propiedades' },
+    { value: 'team', label: 'Coordinar al equipo y las visitas' },
+    { value: 'all', label: 'Verlo todo' },
+  ],
+} as const
+
+/** Cierre y solicitud de demo: lo que pasa después de escribir, sin promesas que no se cumplan. */
+export const LANDING_REQUEST = {
+  title: 'Tu próxima etapa empieza aquí.',
+  text: 'Cuéntanos cómo trabaja tu inmobiliaria y te enseñamos INMO con un caso parecido al tuyo.',
+  steps: [
+    { title: 'Entendemos tu operación actual', text: 'Catálogo, leads, equipo, canales y objetivos.' },
+    { title: 'Preparamos una demo con contexto', text: 'No enseñamos pantallas sueltas: enseñamos un flujo.' },
+    { title: 'Definimos la ruta de implantación', text: 'Sin perder datos ni interrumpir el negocio.' },
+  ],
+  form: {
+    badge: 'Respuesta por correo en días laborables',
+    title: 'Hablemos de tu inmobiliaria.',
+    submit: 'Solicitar mi demo',
+    footnote: 'Sin compromiso. Una primera conversación con contexto.',
+  },
+  signature: { name: 'Serendipia Agency', email: 'info@serendipiaagency.com' },
 } as const
 
 export interface LandingFaq {
@@ -337,21 +340,16 @@ export const LANDING_FAQ: LandingFaq[] = [
   { q: '¿Qué ocurre con las consultas recibidas desde mi web?', a: 'Cada formulario crea un lead real en tu CRM, abre un hilo en Comunicaciones y, si lo configuras, avisa por correo a tu equipo. Desde ahí lo asignas, agendas la visita y sigues cada paso con su historial.' },
   { q: '¿Puedo utilizar mi propio dominio?', a: 'Sí. Tu web puede servirse en tu dominio; la activación la hacemos contigo (no es autoservicio todavía) y, mientras tanto, la ves en vista previa.' },
   { q: '¿Puedo importar mis propiedades y contactos?', a: 'Todavía no hay un importador automático de archivos: hoy los datos se dan de alta desde el panel y se pueden exportar en CSV. Si tienes un catálogo grande, cuéntanoslo en la demo.' },
-  { q: '¿Cómo funciona el registro de empresa?', a: 'Rellenas el nombre de tu empresa, tu correo y una contraseña, y aceptas las condiciones. La cuenta se crea al momento y activa; entras con tu correo en el acceso del panel y empiezas con un espacio vacío, listo para tus datos.' },
+  { q: '¿Cuáles son los planes y precios?', a: 'Los planes y precios todavía no están publicados. Consúltanos las condiciones en una demo personalizada, sin compromiso. El soporte se ofrece desde la ayuda del panel y por correo.' },
   { q: '¿Existe una demostración?', a: 'Sí: pide una demo desde esta página y te la enseñamos con tu caso. No hay acceso público a la cuenta de demostración, para que nadie pueda tocar lo que no es suyo.' },
-  { q: '¿Qué soporte ofrece INMO?', a: 'Ayuda dentro del panel, módulo a módulo, y atención por correo electrónico. No hay chat ni sistema de tickets por ahora.' },
+  { q: '¿Cómo funciona el registro de empresa?', a: 'Rellenas el nombre de tu empresa, tu correo y una contraseña, y aceptas las condiciones. La cuenta se crea al momento y activa; entras con tu correo en el acceso del panel y empiezas con un espacio vacío, listo para tus datos.' },
 ]
 
-export const LANDING_FINAL = {
-  title: 'Tu próxima etapa empieza aquí.',
-  subtitle: 'Reúne la gestión de tu inmobiliaria en una plataforma pensada para trabajar de forma más conectada.',
-} as const
-
 export const LANDING_FOOTER = {
-  description: 'INMO es la plataforma para gestionar tu inmobiliaria: web, propiedades, clientes, visitas y operaciones, conectados.',
+  description: 'Tu web, tus propiedades y tus clientes. Una forma más conectada de trabajar.',
   columns: [
     { title: 'Producto', links: [{ label: 'Funcionalidades', href: '#funcionalidades' }, { label: 'Constructor Web', href: '#constructor-web' }, { label: 'CRM', href: '#crm' }, { label: 'Cómo funciona', href: '#como-funciona' }] },
-    { title: 'Acceso', links: [{ label: 'Iniciar sesión', href: '/admin/login' }, { label: 'Crear mi inmobiliaria', href: '/registro-empresa' }, { label: 'Solicitar demo', href: '#solicitar-demo' }] },
+    { title: 'Acceso', links: [{ label: 'Acceder', href: '/admin/login' }, { label: 'Crear mi inmobiliaria', href: '/registro-empresa' }, { label: 'Solicitar demo', href: '#solicitar-demo' }] },
     { title: 'Contacto', links: [{ label: 'info@serendipiaagency.com', href: 'mailto:info@serendipiaagency.com' }] },
     { title: 'Legal', links: [{ label: 'Privacidad', href: '/privacidad' }, { label: 'Términos', href: '/terminos' }, { label: 'Cookies', href: '/cookies' }] },
   ],
