@@ -7,6 +7,7 @@ import { resolveEffectiveOrgSender } from './orgSender'
 import { isPortalInmoTemplate, recipientNames, renderTemplateEmail } from './render'
 import { platformEmailConfig } from './platformConfig'
 import { DEMO_BLOCKED_MESSAGE, isDemoOrg } from '../demo/tenant'
+import { resolveBrandIdentity } from '../brandKit/identity'
 
 /** Retry backoff schedule in minutes — 5 attempts total, then permanently 'failed' ("reintentos limitados"). */
 export const MAX_EMAIL_ATTEMPTS = 5
@@ -24,7 +25,7 @@ interface OrgEmailIdentity {
   fromHeader: string
   replyTo: string | null
   locale: EmailLocale
-  branding: { companyName: string; logo: string | null; brandColor: string | null }
+  branding: { companyName: string; logo: string | null; brandColor: string | null; fonts: { heading: string | null; body: string | null } }
   internalRecipients: string[]
 }
 
@@ -42,6 +43,8 @@ async function resolveOrgEmailIdentity(db: any, env: Record<string, any>, organi
   const [org] = await db.select().from(schema.organizations).where(eq(schema.organizations.id, organizationId)).limit(1)
   const companyName = org?.companyName || org?.name || platformEmailConfig(env).fromName
   const sender = await resolveEffectiveOrgSender(db, env, org)
+  // Identidad de marca unificada (Brand Kit, Cola 22): color y tipografías.
+  const brand = await resolveBrandIdentity(db, organizationId).catch(() => null)
   let internalRecipients: string[]
   try {
     internalRecipients = JSON.parse(org?.emailInternalRecipientsJson || '[]')
@@ -52,7 +55,12 @@ async function resolveOrgEmailIdentity(db: any, env: Record<string, any>, organi
     fromHeader: sender.fromHeader,
     replyTo: sender.replyTo,
     locale: (org?.emailLocale as EmailLocale) || 'es',
-    branding: { companyName, logo: org?.logo || null, brandColor: org?.brandColor || null },
+    branding: {
+      companyName,
+      logo: org?.logo || null,
+      brandColor: brand?.colors.primary || org?.brandColor || null,
+      fonts: { heading: brand?.fonts.heading ?? null, body: brand?.fonts.body ?? null },
+    },
     internalRecipients: internalRecipients.filter((r) => typeof r === 'string' && r.includes('@')),
   }
 }
