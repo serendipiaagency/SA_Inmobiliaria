@@ -31,7 +31,7 @@
           <SbText v-if="cardFields.description && m.description" tag="p" field="card.description" kind="caption" label="Presentación" :dynamic="dynamicLabel('team', 'Presentación')" :source-href="SOURCES.team.href" class="mt-2 line-clamp-3 text-[13px] leading-relaxed text-stone-500" :text="m.description" />
           <SbText v-if="cardFields.specialties && specialtiesOf(m)" tag="p" field="card.specialties" kind="caption" label="Especialidades" :dynamic="dynamicLabel('team', 'Especialidades')" :source-href="SOURCES.team.href" class="mt-1.5 text-[13px] text-stone-500" :text="specialtiesOf(m)" />
           <SbText v-if="cardFields.contact && contactOf(m)" tag="p" field="card.contact" kind="caption" label="Contacto" :dynamic="dynamicLabel('team', 'Teléfono y email')" :source-href="SOURCES.team.href" class="mt-2 text-[12px] text-stone-450" :text="contactOf(m)" />
-          <span class="link-underline mt-3 inline-block text-[12px] font-semibold text-ink">{{ t('team.block.profile', 'Ver perfil') }} →</span>
+          <span class="link-underline mt-3 inline-block text-[12px] font-semibold text-ink">{{ content.profileLabel || t('team.block.profile', 'Ver perfil') }} →</span>
         </SbBox>
       </div>
       <p v-if="!items.length" class="text-sm text-stone-400 lg:col-span-8">

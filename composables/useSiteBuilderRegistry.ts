@@ -155,7 +155,7 @@ export const BLOCK_PRESETS: BlockPreset[] = [
   {
     presetId: 'about-agency',
     type: 'about-agency',
-    label: 'Conoce nuestra inmobiliaria',
+    label: 'Sobre nosotros',
     description: 'La agencia detrás del catálogo: fotografía corporativa, texto, botón a «Nosotros» y cifras reales de tu cuenta (nunca inventadas).',
     category: 'Empresa',
     createContent: () => ({
@@ -213,7 +213,7 @@ export const BLOCK_PRESETS: BlockPreset[] = [
   {
     presetId: 'team-cards',
     type: 'team',
-    label: 'Comerciales — tarjetas',
+    label: 'Nuestro Equipo — tarjetas',
     description: 'Retratos del equipo con nombre y puesto, enlazando a su ficha pública.',
     category: 'Equipo',
     createContent: () => ({
@@ -224,7 +224,7 @@ export const BLOCK_PRESETS: BlockPreset[] = [
   {
     presetId: 'team-compact',
     type: 'team',
-    label: 'Comerciales — compacto',
+    label: 'Nuestro Equipo — compacto',
     description: 'Fila de retratos redondos con puesto y teléfono, como prueba de confianza.',
     category: 'Equipo',
     createContent: () => ({
@@ -343,11 +343,11 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
   'mortgage-calculator': 'Calculadora de hipoteca',
   'energy-efficiency': 'Eficiencia energética',
   'blog-list': 'Últimos artículos',
-  'about-agency': 'Conoce nuestra inmobiliaria',
+  'about-agency': 'Sobre nosotros',
   'trust-points': 'Por qué elegirnos',
   services: 'Servicios',
   offices: 'Oficinas',
-  team: 'Comerciales',
+  team: 'Nuestro Equipo',
   'lead-form': 'Formulario de captación',
   'seller-valuation': 'Valoración de propiedad',
   'book-visit': 'Reserva de visita',
