@@ -40,7 +40,8 @@
   },
   "overrides": {
     "@puppeteer/browsers": "^3.2.2",
-    "basic-ftp": "^6.2.1"
+    "basic-ftp": "^6.2.1",
+    "ip-address": "^10.7.4"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260702.1",
