@@ -5,7 +5,7 @@
         <h2 class="lp-h2">{{ LANDING_BUILDER.title[0] }}<br><span>{{ LANDING_BUILDER.title[1] }}</span></h2>
         <div>
           <p>{{ LANDING_BUILDER.subtitle }}</p>
-          <a :href="LANDING_BUILDER.cta.to" class="lp-text-link">{{ LANDING_BUILDER.cta.label }} <LpIcon name="arrow" /></a>
+          <a :href="LANDING_BUILDER.cta.to" class="lp-btn lp-btn-ghost lp-btn-sm">{{ LANDING_BUILDER.cta.label }}</a>
         </div>
       </div>
 
@@ -35,17 +35,12 @@
 
         <div :id="`lp-builder-panel-${current.key}`" role="tabpanel" :aria-labelledby="`lp-builder-tab-${current.key}`" class="lp-screen" data-testid="landing-builder-shot" :data-shot="current.shot">
           <Transition name="lp-swap" mode="out-in">
-            <img
-              :key="current.shot"
-              :src="shot.src"
-              :alt="shot.alt"
-              :width="shot.width"
-              :height="shot.height"
-              loading="lazy"
-              decoding="async"
-            >
+            <LpWebScroll v-if="active === 'web'" key="web" />
+            <div v-else key="editor" class="lp-editor-wrap">
+              <img :src="shot.src" :alt="shot.alt" :width="shot.width" :height="shot.height" loading="lazy" decoding="async">
+              <div class="lp-selection-frame" aria-hidden="true"><span>Diseñado por ti</span></div>
+            </div>
           </Transition>
-          <div v-if="active === 'editor'" class="lp-selection-frame" aria-hidden="true"><span>Diseñado por ti</span></div>
         </div>
 
         <div class="lp-floating-tag"><span class="lp-dot" aria-hidden="true" /> Tu catálogo, conectado</div>
@@ -63,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import LpIcon from './LpIcon.vue'
+import LpWebScroll from './LpWebScroll.vue'
 import { LANDING_BUILDER, LANDING_SHOTS } from '~/utils/landing'
 
 /**
@@ -72,7 +67,7 @@ import { LANDING_BUILDER, LANDING_SHOTS } from '~/utils/landing'
  * transición suave al elegir la pestaña.
  */
 type TabKey = (typeof LANDING_BUILDER.tabs)[number]['key']
-const active = ref<TabKey>('editor')
+const active = ref<TabKey>('web')
 const current = computed(() => LANDING_BUILDER.tabs.find((t) => t.key === active.value) || LANDING_BUILDER.tabs[0])
 const shot = computed(() => LANDING_SHOTS[current.value.shot as keyof typeof LANDING_SHOTS])
 function toggle() {
@@ -126,16 +121,21 @@ function toggle() {
   color: #fff;
 }
 .lp-screen {
+  --fh: 520px;
   position: relative;
+  height: var(--fh);
   overflow: hidden;
   border: 1px solid var(--lp-line);
   border-radius: 8px;
 }
+.lp-editor-wrap {
+  position: relative;
+  height: 100%;
+}
 .lp-screen img {
   display: block;
   width: 100%;
-  height: auto;
-  aspect-ratio: 1.8;
+  height: 100%;
   object-fit: cover;
   object-position: top;
 }
@@ -226,8 +226,10 @@ function toggle() {
   .lp-seg-btn {
     flex: 1;
   }
+  .lp-screen {
+    --fh: 400px;
+  }
   .lp-screen img {
-    aspect-ratio: 1.3;
     object-position: left top;
   }
   .lp-floating-tag {
@@ -246,6 +248,11 @@ function toggle() {
   }
   .lp-steps3 p {
     max-width: none;
+  }
+}
+@media (max-width: 519px) {
+  .lp-screen {
+    --fh: 320px;
   }
 }
 </style>

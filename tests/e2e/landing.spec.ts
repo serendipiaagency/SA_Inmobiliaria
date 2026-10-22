@@ -103,48 +103,59 @@ test.describe('Landing comercial de INMO', () => {
     await expect(header).toHaveClass(/is-solid/)
   })
 
-  test('6 · cinta de módulos: cuatro enlaces, cada uno hacia una sección que existe', async ({ page }) => {
+  test('6 · «Una plataforma»: cuatro tarjetas de módulo, cada una hacia una sección que existe', async ({ page }) => {
     await open(page)
-    const links = page.getByTestId('landing-modules').locator('.lp-strip-link')
-    await expect(links).toHaveCount(4)
+    const cards = page.getByTestId('landing-modules').locator('.lp-module-card')
+    await expect(cards).toHaveCount(4)
     for (const m of LANDING_MODULES) {
-      const link = page.getByTestId(`landing-module-${m.key}`)
-      await expect(link).toContainText(m.label)
-      await expect(link).toHaveAttribute('href', m.href)
+      const card = page.getByTestId(`landing-module-${m.key}`)
+      await expect(card).toContainText(m.label)
+      await expect(card).toHaveAttribute('href', m.href)
       await expect(page.locator(m.href)).toHaveCount(1)
     }
+    // Los tres nombres de marketing actualizados.
+    await expect(page.getByTestId('landing-module-web')).toContainText('Construye tu web')
+    await expect(page.getByTestId('landing-module-properties')).toContainText('Gestor de propiedades')
+    await expect(page.getByTestId('landing-module-journey')).toContainText('Gestiona tu negocio')
   })
 
-  test('7 · Constructor Web: pestañas Editor visual | Web publicada cambian la captura', async ({ page }) => {
+  test('7 · Constructor Web: «Web publicada» (demo animada) por defecto y «Editor visual» muestra la captura', async ({ page }) => {
     await open(page)
     await page.getByTestId('landing-builder').scrollIntoViewIfNeeded()
-    await expect(page.getByTestId('landing-builder-tab-editor')).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByTestId('landing-builder-shot')).toHaveAttribute('data-shot', 'constructor')
-    await page.getByTestId('landing-builder-tab-web').click()
     await expect(page.getByTestId('landing-builder-tab-web')).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByTestId('landing-builder-shot')).toHaveAttribute('data-shot', 'web-portada')
-    await expect(page.getByTestId('landing-builder-shot').locator('img')).toHaveAttribute('src', '/landing/web-portada.webp')
+    // La demo animada (web sintética que se desplaza) está presente.
+    await expect(page.getByTestId('landing-builder-shot').locator('.lp-web')).toBeVisible()
+    await page.getByTestId('landing-builder-tab-editor').click()
+    await expect(page.getByTestId('landing-builder-tab-editor')).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByTestId('landing-builder-shot')).toHaveAttribute('data-shot', 'constructor')
+    await expect(page.getByTestId('landing-builder-shot').locator('img')).toHaveAttribute('src', '/landing/constructor.webp')
   })
 
   test('8 · las pestañas del Constructor responden al teclado (flechas)', async ({ page }) => {
     await open(page)
-    await page.getByTestId('landing-builder-tab-editor').focus()
+    await page.getByTestId('landing-builder-tab-web').focus()
     await page.keyboard.press('ArrowRight')
-    await expect(page.getByTestId('landing-builder-shot')).toHaveAttribute('data-shot', 'web-portada')
-    await page.keyboard.press('ArrowLeft')
     await expect(page.getByTestId('landing-builder-shot')).toHaveAttribute('data-shot', 'constructor')
+    await page.keyboard.press('ArrowLeft')
+    await expect(page.getByTestId('landing-builder-shot')).toHaveAttribute('data-shot', 'web-portada')
   })
 
-  test('9 · CRM: captura real de leads y microdemo de tres pasos; al pulsar uno, queda activo', async ({ page }) => {
+  test('9 · CRM: microdemo de tres pasos; al pulsar uno, queda activo y cambia la captura', async ({ page }) => {
     await open(page)
     const crm = page.getByTestId('landing-crm')
-    await expect(crm.locator('.lp-crm-screen img')).toHaveAttribute('src', '/landing/crm.webp')
-    const steps = page.getByTestId('landing-crm-flow').locator('.lp-crm-step')
+    const flow = page.getByTestId('landing-crm-flow')
+    await flow.scrollIntoViewIfNeeded()
+    await flow.hover() // pausa la rotación para comprobar a mano
+    const steps = flow.locator('.lp-crm-step')
     await expect(steps).toHaveCount(LANDING_CRM.steps.length)
     await expect(steps.nth(0)).toContainText('Recibe la consulta')
     await page.getByTestId('landing-crm-step-2').click()
     await expect(page.getByTestId('landing-crm-step-2')).toHaveAttribute('data-active', 'true')
     await expect(crm.locator('.lp-crm-desc')).toContainText('regla de reparto')
+    await expect(crm.locator('.lp-crm-screen img')).toHaveAttribute('src', '/landing/crm.webp')
+    await page.getByTestId('landing-crm-step-3').click()
+    await expect(crm.locator('.lp-crm-screen img')).toHaveAttribute('src', '/landing/agenda.webp')
   })
 
   test('10 · la microdemo del CRM avanza sola', async ({ page }) => {
@@ -154,17 +165,31 @@ test.describe('Landing comercial de INMO', () => {
     await expect(page.getByTestId('landing-crm-step-2')).toHaveAttribute('data-active', 'true', { timeout: 6000 })
   })
 
-  test('11 · Propiedades: galería de tres fotos de lujo, seis puntos y aviso de fotografía de ambiente', async ({ page }) => {
+  test('11 · Propiedades: seis etiquetas interactivas que cambian la captura', async ({ page }) => {
     await open(page)
     const section = page.getByTestId('landing-properties')
-    await expect(section.locator('.lp-gallery figure')).toHaveCount(3)
-    await expect(section.locator('.lp-gallery img').first()).toHaveAttribute('src', '/landing/villa.webp')
-    await expect(section.locator('.lp-chips li')).toHaveCount(6)
-    await expect(section.locator('.lp-chips')).toContainText('Obra nueva y segunda mano')
-    await expect(section.locator('.lp-footnote')).toContainText('Fotografía de ambiente')
+    const chips = section.locator('.lp-props-chip')
+    await expect(chips).toHaveCount(6)
+    await section.locator('.lp-props-stage').hover() // pausa la rotación automática
+    await page.getByTestId('landing-properties-tab-status').click()
+    await expect(page.getByTestId('landing-properties-tab-status')).toHaveAttribute('data-active', 'true')
+    await expect(page.getByTestId('landing-properties-shot')).toHaveAttribute('data-shot', 'operaciones')
+    await expect(page.getByTestId('landing-properties-shot').locator('img')).toHaveAttribute('src', '/landing/operaciones.webp')
+    await page.getByTestId('landing-properties-tab-info').click()
+    await expect(page.getByTestId('landing-properties-shot')).toHaveAttribute('data-shot', 'propiedad-panel')
+    await expect(page.getByTestId('landing-properties-shot').locator('img')).toHaveAttribute('src', '/landing/propiedad-panel.webp')
   })
 
-  test('12 · Equipo: sección con fotografía profesional y enlace al CRM', async ({ page }) => {
+  test('11b · Propiedades: las etiquetas rotan solas en bucle', async ({ page }) => {
+    await open(page)
+    const shot = page.getByTestId('landing-properties-shot')
+    await shot.scrollIntoViewIfNeeded()
+    const first = await shot.getAttribute('data-shot')
+    // En ~6 s debe haber avanzado sola a otra etiqueta.
+    await expect.poll(async () => shot.getAttribute('data-shot'), { timeout: 8000 }).not.toBe(first)
+  })
+
+  test('12 · Equipo: fotografía profesional (reunión/negociación) y enlace al CRM', async ({ page }) => {
     await open(page)
     const team = page.getByTestId('landing-team')
     await expect(team.locator('img').first()).toHaveAttribute('src', '/landing/equipo.webp')
@@ -182,10 +207,10 @@ test.describe('Landing comercial de INMO', () => {
     await expect(page.getByTestId('landing-how-shot')).toHaveAttribute('data-shot', 'crm')
   })
 
-  test('14 · Funcionalidades: ocho áreas en desplegables, con estados honestos y «Próximamente» en los portales', async ({ page }) => {
+  test('14 · Funcionalidades: ocho áreas, acordeón EXCLUSIVO con captura, estados honestos y nuevo pie', async ({ page }) => {
     await open(page)
     const section = page.getByTestId('landing-features')
-    await expect(section.locator('details.lp-feature-group')).toHaveCount(LANDING_FEATURES.length)
+    await expect(section.locator('.lp-feature-group')).toHaveCount(LANDING_FEATURES.length)
     expect(LANDING_FEATURES.length).toBe(8)
     const items = section.locator('.lp-feature-list li')
     expect(await items.count()).toBe(LANDING_FEATURES.reduce((s, g) => s + g.items.length, 0))
@@ -194,12 +219,21 @@ test.describe('Landing comercial de INMO', () => {
     await expect(portals).toHaveCount(1)
     await expect(portals).toContainText('Próximamente')
     await expect(page.getByTestId('landing-feature-group-intelligence').locator('li[data-state="with-ai"]').first()).toContainText('Con IA activada')
-    await expect(section).toContainText(`en ${LANDING_FEATURES.length} áreas`)
-    // Un desplegable cerrado se abre al pulsarlo.
-    const data = page.getByTestId('landing-feature-group-data')
-    await expect(data).not.toHaveAttribute('open', '')
-    await data.locator('summary').click()
-    await expect(data).toHaveAttribute('open', '')
+    // Acordeón EXCLUSIVO: el primero abierto; abrir otro cierra el anterior.
+    const web = page.getByTestId('landing-feature-group-web')
+    const crm = page.getByTestId('landing-feature-group-crm')
+    await expect(web).toHaveAttribute('data-open', 'true')
+    await crm.locator('.lp-feature-summary').click()
+    await expect(crm).toHaveAttribute('data-open', 'true')
+    await expect(web).toHaveAttribute('data-open', 'false')
+    // Cada área abierta muestra su captura real.
+    await expect(crm.locator('.lp-feature-shot img')).toHaveAttribute('src', '/landing/crm.webp')
+    // Volver a pulsarla la cierra (todas contraídas).
+    await crm.locator('.lp-feature-summary').click()
+    await expect(crm).toHaveAttribute('data-open', 'false')
+    // Nuevo texto inferior, conservando el enlace a la demo.
+    await expect(section.locator('.lp-features-foot')).toContainText('Nos adaptamos a tu negocio')
+    await expect(section.locator('.lp-features-foot a')).toHaveText('Cuéntanoslo en la demo')
   })
 
   test('15 · formulario de demo: valida antes de enviar y enfoca el primer campo con error', async ({ page }) => {
@@ -439,7 +473,7 @@ test.describe('Landing comercial de INMO', () => {
     for (const id of ['producto', 'constructor-web', 'crm', 'propiedades', 'funcionalidades', 'como-funciona', 'faq', 'contacto']) {
       await expect(page.locator(`#${id} h2`).first()).toBeVisible()
     }
-    expect(await page.locator('[role="tablist"]').count()).toBe(2)
+    expect(await page.locator('[role="tablist"]').count()).toBe(3)
     await expect(page.getByTestId('landing-menu')).toHaveAttribute('aria-label', /menú/i)
   })
 

@@ -52,15 +52,14 @@ export const LANDING_PHOTOS: Record<LandingPhotoKey, LandingPhoto> = {
   villa: { src: '/landing/villa.webp', alt: 'Villa contemporánea de lujo con piscina al atardecer', width: 1600, height: 1068 },
   interior: { src: '/landing/interior.webp', alt: 'Salón luminoso con diseño interior elegante', width: 1400, height: 1050 },
   vivienda: { src: '/landing/vivienda.webp', alt: 'Vivienda de diseño con amplios espacios y mucha luz', width: 1400, height: 933 },
-  equipo: { src: '/landing/equipo.webp', alt: 'Profesionales inmobiliarios revisando la ficha de una vivienda', width: 1400, height: 933 },
-  'equipo-oficina': { src: '/landing/equipo-oficina.webp', alt: 'Profesionales estrechándose la mano en una reunión de trabajo', width: 1600, height: 1067 },
+  equipo: { src: '/landing/equipo.webp', alt: 'Profesionales inmobiliarios en una reunión de negociación en la oficina', width: 1400, height: 934 },
+  'equipo-oficina': { src: '/landing/equipo-oficina.webp', alt: 'Equipo inmobiliario trabajando en una reunión en una oficina luminosa', width: 1400, height: 933 },
 }
 
 export const LANDING_HERO = {
   /** Tres líneas; la última, en acento. Sin antetítulo. */
   title: ['Tu inmobiliaria.', 'Todo conectado.', 'Otro nivel.'],
   subtitle: 'Una web que atrae y un CRM que conecta. Tus propiedades, tu equipo y cada oportunidad, en el mismo lugar.',
-  note: 'Tu web. Tu marca. Tu espacio.',
   /** Acción principal: la demo real. Secundaria: el registro real. Más un ancla para explorar. */
   primary: { label: 'Solicitar demo', to: '#solicitar-demo' },
   secondary: { label: 'Crear mi inmobiliaria', to: '/registro-empresa' },
@@ -78,15 +77,18 @@ export interface LandingStripLink {
   key: string
   label: string
   href: string
+  icon: string
+  desc: string
 }
 
-/** Cinta de módulos bajo el hero: una plataforma, cada enlace a su sección. */
+/** Bloque protagonista «Una plataforma. Toda tu inmobiliaria»: cuatro módulos, cada uno a su sección. */
 export const LANDING_STRIP_INTRO = 'Una plataforma. Toda tu inmobiliaria.'
+export const LANDING_STRIP_SUBTITLE = 'Todo lo que necesitas para gestionar tu inmobiliaria, conectado en un mismo lugar. De tu web a cada operación, sin saltar de herramienta.'
 export const LANDING_MODULES: LandingStripLink[] = [
-  { key: 'web', label: 'Web propia', href: '#constructor-web' },
-  { key: 'crm', label: 'CRM inmobiliario', href: '#crm' },
-  { key: 'properties', label: 'Propiedades', href: '#propiedades' },
-  { key: 'journey', label: 'Visitas y operaciones', href: '#como-funciona' },
+  { key: 'web', label: 'Construye tu web', href: '#constructor-web', icon: 'globe', desc: 'Crea y publica la web de tu inmobiliaria con el Constructor.' },
+  { key: 'crm', label: 'CRM inmobiliario', href: '#crm', icon: 'crm', desc: 'Centraliza contactos, leads y oportunidades comerciales.' },
+  { key: 'properties', label: 'Gestor de propiedades', href: '#propiedades', icon: 'properties', desc: 'Organiza, publica y mantén al día todo tu catálogo.' },
+  { key: 'journey', label: 'Gestiona tu negocio', href: '#como-funciona', icon: 'agenda', desc: 'Visitas, operaciones y seguimiento comercial del equipo.' },
 ]
 
 /** Introducción: menos herramientas, más inmobiliaria. */
@@ -100,9 +102,10 @@ export const LANDING_BUILDER = {
   title: ['Una web a la altura', 'de tus propiedades.'],
   subtitle: 'Con el Constructor Web, tu identidad se convierte en una experiencia. Personaliza el diseño y conecta tu escaparate con tu catálogo.',
   stageTitle: 'Tu marca. Tu diseño. Tu web.',
+  /** «Web publicada» (primera y por defecto) muestra una demostración animada que navega por las secciones; «Editor visual», la captura real del editor. */
   tabs: [
-    { key: 'editor', label: 'Editor visual', shot: 'constructor' },
     { key: 'web', label: 'Web publicada', shot: 'web-portada' },
+    { key: 'editor', label: 'Editor visual', shot: 'constructor' },
   ],
   /** Tres pasos numerados (el porqué, no promesas). */
   steps: [
@@ -117,11 +120,11 @@ export const LANDING_CRM = {
   title: ['Cada contacto cuenta.', 'Que ninguno se pierda.'],
   subtitle: 'Tu CRM inmobiliario reúne consultas, contactos y próximos pasos. Cada comercial sabe dónde está cada oportunidad y cómo hacerla avanzar.',
   contextTitle: ['De la primera consulta', 'a la próxima visita.'],
-  /** Microdemo de tres pasos reales; al elegir uno cambia el texto y el aviso. */
+  /** Microdemo de tres pasos reales; al elegir uno cambia el texto, el aviso y la captura. */
   steps: [
-    { label: 'Recibe la consulta', desc: 'Cada formulario crea un lead real, con su contacto y su historial.', noticeTitle: 'Consulta recibida', noticeText: 'El inicio de una nueva oportunidad.' },
-    { label: 'Asigna un comercial', desc: 'Lo asignas tú, o lo hace una regla de reparto por zona, idioma u horario.', noticeTitle: 'Comercial asignado', noticeText: 'Cada contacto, con su responsable.' },
-    { label: 'Prepara la visita', desc: 'Programa la cita y conserva el resultado junto a la próxima acción.', noticeTitle: 'Próximo paso: visita', noticeText: 'La conversación sigue avanzando.' },
+    { label: 'Recibe la consulta', desc: 'Cada formulario de tu web crea un lead real, con su contacto y su historial.', noticeTitle: 'Consulta recibida', noticeText: 'El inicio de una nueva oportunidad.', shot: 'web-contacto' as LandingShotKey },
+    { label: 'Asigna un comercial', desc: 'Lo asignas tú, o lo hace una regla de reparto por zona, idioma u horario.', noticeTitle: 'Comercial asignado', noticeText: 'Cada contacto, con su responsable.', shot: 'crm' as LandingShotKey },
+    { label: 'Prepara la visita', desc: 'Programa la cita y conserva el resultado junto a la próxima acción.', noticeTitle: 'Próximo paso: visita', noticeText: 'La conversación sigue avanzando.', shot: 'agenda' as LandingShotKey },
   ],
   footer: ['Contactos e historial', 'Responsables y equipo', 'Seguimiento comercial', 'Próxima acción'],
   cta: { label: 'Conoce el CRM inmobiliario', to: '#solicitar-demo' },
@@ -129,23 +132,20 @@ export const LANDING_CRM = {
 
 export const LANDING_PROPERTIES = {
   title: ['Grandes propiedades.', 'Una gestión impecable.'],
-  subtitle: 'Obra nueva y segunda mano, en un mismo editor. Información, multimedia, documentación y estado comercial, siempre a mano.',
-  /** Seis puntos reales de la gestión de propiedades. */
-  benefits: [
-    'Información centralizada',
-    'Obra nueva y segunda mano',
-    'Multimedia y documentación',
-    'Publicación conectada con la web',
-    'Filtros y búsqueda',
-    'Estado comercial y disponibilidad',
+  subtitle: 'Obra nueva y segunda mano, en un mismo editor. Elige un aspecto de la gestión y mira la pantalla real donde ocurre.',
+  /**
+   * Seis aspectos reales de la gestión de propiedades; cada uno enseña su
+   * pantalla (captura de la cuenta de demostración). Rotan solos y se pueden
+   * elegir a mano.
+   */
+  tabs: [
+    { key: 'info', label: 'Información centralizada', shot: 'propiedad-panel' as LandingShotKey },
+    { key: 'types', label: 'Obra nueva y segunda mano', shot: 'panel' as LandingShotKey },
+    { key: 'media', label: 'Multimedia y documentación', shot: 'ficha-publica' as LandingShotKey },
+    { key: 'publish', label: 'Publicación conectada con la web', shot: 'web-portada' as LandingShotKey },
+    { key: 'search', label: 'Filtros y búsqueda', shot: 'web-contacto' as LandingShotKey },
+    { key: 'status', label: 'Estado comercial y disponibilidad', shot: 'operaciones' as LandingShotKey },
   ],
-  /** Galería de propiedades de lujo (fotografía de ambiente). */
-  gallery: [
-    { photo: 'villa' as LandingPhotoKey, caption: 'Un escaparate que despierta interés.' },
-    { photo: 'interior' as LandingPhotoKey, caption: 'Cada detalle, bien presentado.' },
-    { photo: 'vivienda' as LandingPhotoKey, caption: 'Toda la información, en su lugar.' },
-  ],
-  footnote: 'Fotografía de ambiente. Las imágenes no representan inmuebles del catálogo de INMO.',
 } as const
 
 export const LANDING_TEAM = {
@@ -167,6 +167,8 @@ export interface LandingFeatureGroup {
   title: string
   intro: string
   icon: string
+  /** Captura real que se muestra al abrir el desplegable. */
+  shot: LandingShotKey
   items: LandingFeature[]
 }
 
@@ -185,7 +187,7 @@ export const LANDING_FEATURE_STATE_LABEL: Record<LandingFeatureState, string> = 
  */
 export const LANDING_FEATURES: LandingFeatureGroup[] = [
   {
-    key: 'web', title: 'Web y marketing', icon: 'builder',
+    key: 'web', title: 'Web y marketing', icon: 'builder', shot: 'constructor',
     intro: 'La web de tu inmobiliaria, hecha y publicada desde el panel, con todo lo que la alimenta.',
     items: [
       { text: 'Constructor Web visual: páginas, bloques, cabecera y pie, estilos globales y Brand Kit' },
@@ -199,7 +201,7 @@ export const LANDING_FEATURES: LandingFeatureGroup[] = [
     ],
   },
   {
-    key: 'properties', title: 'Propiedades', icon: 'properties',
+    key: 'properties', title: 'Propiedades', icon: 'properties', shot: 'propiedad-panel',
     intro: 'Una ficha completa para obra nueva y segunda mano, conectada con la web y con el CRM.',
     items: [
       { text: 'Obra nueva y segunda mano con el mismo editor: datos, superficies, estancias, características por contexto' },
@@ -211,7 +213,7 @@ export const LANDING_FEATURES: LandingFeatureGroup[] = [
     ],
   },
   {
-    key: 'crm', title: 'CRM y clientes', icon: 'crm',
+    key: 'crm', title: 'CRM y clientes', icon: 'crm', shot: 'crm',
     intro: 'Cada consulta es un lead real, con su contacto, su historial y su siguiente paso.',
     items: [
       { text: 'Leads con pipeline por etapas, origen, idioma y prioridad' },
@@ -223,7 +225,7 @@ export const LANDING_FEATURES: LandingFeatureGroup[] = [
     ],
   },
   {
-    key: 'agenda', title: 'Agenda y operaciones', icon: 'agenda',
+    key: 'agenda', title: 'Agenda y operaciones', icon: 'agenda', shot: 'agenda',
     intro: 'Del primer contacto a la firma: visitas, tareas, ofertas y operaciones en un mismo hilo.',
     items: [
       { text: 'Visitas y citas con tipos, recordatorios, tours de varias viviendas y resultado de cada visita' },
@@ -235,7 +237,7 @@ export const LANDING_FEATURES: LandingFeatureGroup[] = [
     ],
   },
   {
-    key: 'comms', title: 'Comunicaciones', icon: 'mail',
+    key: 'comms', title: 'Comunicaciones', icon: 'mail', shot: 'web-contacto',
     intro: 'Lo que dice y recibe tu equipo, en una bandeja y con el remitente de tu empresa.',
     items: [
       { text: 'Bandeja unificada: formularios web, chat de la web, correo y llamadas, cada hilo con su lead' },
@@ -245,7 +247,7 @@ export const LANDING_FEATURES: LandingFeatureGroup[] = [
     ],
   },
   {
-    key: 'team', title: 'Equipo y control', icon: 'users',
+    key: 'team', title: 'Equipo y control', icon: 'users', shot: 'panel',
     intro: 'De una persona a varias oficinas, con permisos claros y rastro de todo.',
     items: [
       { text: 'Comerciales, oficinas y equipos; comerciales visibles en la web' },
@@ -255,7 +257,7 @@ export const LANDING_FEATURES: LandingFeatureGroup[] = [
     ],
   },
   {
-    key: 'intelligence', title: 'Inteligencia y automatización', icon: 'intelligence',
+    key: 'intelligence', title: 'Inteligencia y automatización', icon: 'intelligence', shot: 'operaciones',
     intro: 'Herramientas que trabajan sobre tus datos reales; las que necesitan IA lo dicen.',
     items: [
       { text: 'Automatizaciones: reglas que crean tareas, avisan al equipo o mueven un lead' },
@@ -266,7 +268,7 @@ export const LANDING_FEATURES: LandingFeatureGroup[] = [
     ],
   },
   {
-    key: 'data', title: 'Datos y seguridad', icon: 'lock',
+    key: 'data', title: 'Datos y seguridad', icon: 'lock', shot: 'web-portada',
     intro: 'Cada empresa en su espacio; tus datos son tuyos.',
     items: [
       { text: 'Aislamiento por empresa en todo el sistema y dominio propio por agencia' },

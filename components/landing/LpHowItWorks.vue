@@ -90,9 +90,6 @@ function move(delta: number) {
 .lp-journey-tab > span:last-child {
   flex: 1;
 }
-.lp-journey-tab::after {
-  content: '↗';
-}
 .lp-journey-tab.is-active {
   color: var(--lp-blue);
   border-color: var(--lp-blue);

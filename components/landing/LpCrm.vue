@@ -5,13 +5,13 @@
         <h2 class="lp-h2">{{ LANDING_CRM.title[0] }}<br><span>{{ LANDING_CRM.title[1] }}</span></h2>
         <div>
           <p>{{ LANDING_CRM.subtitle }}</p>
-          <a :href="LANDING_CRM.cta.to" class="lp-text-link">{{ LANDING_CRM.cta.label }} <LpIcon name="arrow" /></a>
+          <a :href="LANDING_CRM.cta.to" class="lp-btn lp-btn-white lp-btn-sm">{{ LANDING_CRM.cta.label }}</a>
         </div>
       </div>
 
-      <div class="lp-crm-stage lp-reveal" data-testid="landing-crm-flow" @mouseenter="paused = true" @mouseleave="paused = false">
+      <div class="lp-crm-stage lp-reveal" data-testid="landing-crm-flow" @mouseenter="paused = true" @mouseleave="paused = false" @focusin="paused = true" @focusout="paused = false">
         <div class="lp-crm-context">
-          <span class="lp-orb" aria-hidden="true">↗</span>
+          <span class="lp-orb" aria-hidden="true"><LpIcon name="crm" /></span>
           <h3>{{ LANDING_CRM.contextTitle[0] }}<br>{{ LANDING_CRM.contextTitle[1] }}</h3>
           <div class="lp-crm-steps">
             <button
@@ -27,15 +27,16 @@
             >
               <span class="lp-crm-step-num">0{{ i + 1 }}</span>
               <span class="lp-crm-step-label">{{ step.label }}</span>
-              <i aria-hidden="true">↗</i>
             </button>
           </div>
           <p class="lp-crm-desc lp-flow-note">{{ LANDING_CRM.steps[active].desc }}</p>
         </div>
 
         <div class="lp-crm-screen">
-          <div class="lp-windowbar"><i /><i /><i /><span>INMO / CRM inmobiliario</span></div>
-          <img :src="shot.src" :alt="shot.alt" :width="shot.width" :height="shot.height" loading="lazy" decoding="async">
+          <div class="lp-windowbar"><i /><i /><i /><span>{{ windowLabel }}</span></div>
+          <Transition name="lp-swap" mode="out-in">
+            <img :key="shot.src" :src="shot.src" :alt="shot.alt" :width="shot.width" :height="shot.height" loading="lazy" decoding="async">
+          </Transition>
           <div class="lp-crm-notification">
             <span class="lp-dot" aria-hidden="true" />
             <div>
@@ -63,9 +64,15 @@ import { LANDING_CRM, LANDING_SHOTS } from '~/utils/landing'
  * recorrido real de una consulta. Avanza sola cada pocos segundos, se para al
  * pasar el ratón y respeta «reducir movimiento».
  */
-const shot = LANDING_SHOTS.crm
+const WINDOW_LABELS: Record<string, string> = {
+  'web-contacto': 'tu-inmobiliaria.com / contacto',
+  crm: 'INMO / CRM · Leads',
+  agenda: 'INMO / Agenda',
+}
 const active = ref(0)
 const paused = ref(false)
+const shot = computed(() => LANDING_SHOTS[LANDING_CRM.steps[active.value].shot])
+const windowLabel = computed(() => WINDOW_LABELS[LANDING_CRM.steps[active.value].shot] || 'INMO / CRM inmobiliario')
 let timer: ReturnType<typeof setInterval> | null = null
 
 function select(i: number) {
@@ -121,7 +128,10 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(8, 124, 250, 0.4);
   border-radius: 12px;
   color: #7bb5ff;
-  font-size: 26px;
+}
+.lp-orb :deep(svg) {
+  width: 24px;
+  height: 24px;
 }
 .lp-crm-context h3 {
   margin: 20px 0 30px;

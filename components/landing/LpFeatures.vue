@@ -12,39 +12,69 @@
       </div>
 
       <div class="lp-accordion lp-reveal">
-        <details
+        <div
           v-for="(g, gi) in LANDING_FEATURES"
           :key="g.key"
           class="lp-feature-group"
           :data-testid="`landing-feature-group-${g.key}`"
-          :open="gi === 0 || undefined"
+          :data-open="openKey === g.key ? 'true' : 'false'"
         >
-          <summary>
-            <span class="lp-feature-num">0{{ gi + 1 }}</span>
-            <span class="lp-feature-title">{{ g.title }}</span>
-          </summary>
-          <div class="lp-feature-inner">
-            <p class="lp-feature-intro">{{ g.intro }}</p>
-            <ul class="lp-feature-list" role="list">
-              <li v-for="(f, i) in g.items" :key="i" :data-state="f.state || 'available'">
-                <i class="lp-feature-dot" :class="`is-${f.state || 'available'}`" aria-hidden="true" />
-                <span>{{ f.text }}<em v-if="f.state && f.state !== 'available'" class="lp-feature-state" :class="`is-${f.state}`">{{ LANDING_FEATURE_STATE_LABEL[f.state] }}</em></span>
-              </li>
-            </ul>
-          </div>
-        </details>
+          <h3 class="lp-feature-h">
+            <button
+              :id="`lp-feat-summary-${g.key}`"
+              type="button"
+              class="lp-feature-summary"
+              :aria-expanded="openKey === g.key"
+              :aria-controls="`lp-feat-panel-${g.key}`"
+              @click="toggle(g.key)"
+            >
+              <span class="lp-feature-num">0{{ gi + 1 }}</span>
+              <span class="lp-feature-title">{{ g.title }}</span>
+              <span class="lp-feature-sign" aria-hidden="true" />
+            </button>
+          </h3>
+          <Transition name="lp-acc">
+            <div v-show="openKey === g.key" :id="`lp-feat-panel-${g.key}`" class="lp-feature-inner" role="region" :aria-labelledby="`lp-feat-summary-${g.key}`">
+              <div class="lp-feature-media">
+                <div class="lp-feature-shot">
+                  <div class="lp-feature-bar"><i /><i /><i /></div>
+                  <img v-if="openKey === g.key" :src="shotFor(g.shot).src" :alt="shotFor(g.shot).alt" :width="shotFor(g.shot).width" :height="shotFor(g.shot).height" loading="lazy" decoding="async">
+                </div>
+              </div>
+              <div class="lp-feature-body">
+                <p class="lp-feature-intro">{{ g.intro }}</p>
+                <ul class="lp-feature-list" role="list">
+                  <li v-for="(f, i) in g.items" :key="i" :data-state="f.state || 'available'">
+                    <i class="lp-feature-dot" :class="`is-${f.state || 'available'}`" aria-hidden="true" />
+                    <span>{{ f.text }}<em v-if="f.state && f.state !== 'available'" class="lp-feature-state" :class="`is-${f.state}`">{{ LANDING_FEATURE_STATE_LABEL[f.state] }}</em></span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </Transition>
+        </div>
       </div>
 
-      <p class="lp-features-foot">{{ total }} capacidades en {{ LANDING_FEATURES.length }} áreas. ¿Te falta algo concreto? <a href="#solicitar-demo">Cuéntanoslo en la demo</a>.</p>
+      <p class="lp-features-foot">Nos adaptamos a tu negocio. Añadiendo nuevas funcionalidades según tus necesidades. <a href="#solicitar-demo">Cuéntanoslo en la demo</a>.</p>
     </div>
   </section>
 </template>
 
 <script setup lang="ts">
-import { LANDING_FEATURES, LANDING_FEATURE_STATE_LABEL } from '~/utils/landing'
+import { LANDING_FEATURES, LANDING_FEATURE_STATE_LABEL, LANDING_SHOTS, type LandingShotKey } from '~/utils/landing'
 
-/** Inventario completo y honesto de la plataforma, en desplegables (utils/landing.ts → LANDING_FEATURES). */
-const total = LANDING_FEATURES.reduce((s, g) => s + g.items.length, 0)
+/**
+ * Inventario completo y honesto de la plataforma, en un acordeón EXCLUSIVO
+ * (sólo un área abierta a la vez). Cada área enseña su captura real, que se
+ * carga únicamente al abrirla (v-if), para no cargar todas al inicio.
+ */
+const openKey = ref<string | null>(LANDING_FEATURES[0]?.key ?? null)
+function toggle(key: string) {
+  openKey.value = openKey.value === key ? null : key
+}
+function shotFor(key: LandingShotKey) {
+  return LANDING_SHOTS[key]
+}
 </script>
 
 <style scoped>
@@ -87,25 +117,31 @@ const total = LANDING_FEATURES.reduce((s, g) => s + g.items.length, 0)
   background: #a8a195;
 }
 .lp-accordion {
+  margin-top: clamp(32px, 4vw, 48px);
   border-top: 1px solid var(--lp-line);
 }
 .lp-feature-group {
   border-bottom: 1px solid var(--lp-line);
 }
-.lp-feature-group summary {
+.lp-feature-h {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+.lp-feature-summary {
   display: flex;
   align-items: center;
   gap: 24px;
+  width: 100%;
   padding: 25px 0;
+  border: 0;
+  background: none;
   cursor: pointer;
-  list-style: none;
+  text-align: left;
   font-size: clamp(17px, 2vw, 21px);
   font-weight: 500;
   color: var(--lp-ink);
   transition: color 0.2s;
-}
-.lp-feature-group summary::-webkit-details-marker {
-  display: none;
 }
 .lp-feature-num {
   font-size: 11px;
@@ -116,23 +152,71 @@ const total = LANDING_FEATURES.reduce((s, g) => s + g.items.length, 0)
 .lp-feature-title {
   flex: 1;
 }
-.lp-feature-group summary::after {
-  content: '+';
-  font-size: 25px;
-  font-weight: 400;
-  color: #747b84;
-  transition: color 0.2s;
+.lp-feature-sign {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
-.lp-feature-group[open] summary {
+.lp-feature-sign::before,
+.lp-feature-sign::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 2px;
+  background: #747b84;
+  transform: translate(-50%, -50%);
+  transition: transform 0.3s var(--lp-ease), background-color 0.3s;
+}
+.lp-feature-sign::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+.lp-feature-group[data-open='true'] .lp-feature-summary {
   color: var(--lp-blue);
 }
-.lp-feature-group[open] summary::after {
-  content: '−';
-  color: var(--lp-blue);
+.lp-feature-group[data-open='true'] .lp-feature-sign::before,
+.lp-feature-group[data-open='true'] .lp-feature-sign::after {
+  background: var(--lp-blue);
+}
+.lp-feature-group[data-open='true'] .lp-feature-sign::after {
+  transform: translate(-50%, -50%) rotate(0deg);
 }
 .lp-feature-inner {
-  padding: 0 0 28px 48px;
-  animation: lp-detail-open 0.4s var(--lp-ease);
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 6fr);
+  gap: clamp(20px, 3vw, 40px);
+  padding: 0 0 30px 48px;
+  align-items: start;
+}
+.lp-feature-shot {
+  border: 1px solid var(--lp-line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 24px 50px -36px rgba(32, 59, 92, 0.4);
+}
+.lp-feature-bar {
+  display: flex;
+  gap: 5px;
+  padding: 10px 12px;
+  background: #f4f6f9;
+  border-bottom: 1px solid var(--lp-line);
+}
+.lp-feature-bar i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d7dce3;
+}
+.lp-feature-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1.6;
+  object-fit: cover;
+  object-position: top;
 }
 .lp-feature-intro {
   margin: 0 0 16px;
@@ -141,8 +225,7 @@ const total = LANDING_FEATURES.reduce((s, g) => s + g.items.length, 0)
 }
 .lp-feature-list {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px 45px;
+  gap: 11px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -151,13 +234,13 @@ const total = LANDING_FEATURES.reduce((s, g) => s + g.items.length, 0)
   display: flex;
   gap: 2px;
   align-items: flex-start;
-  font-size: 13px;
-  line-height: 1.7;
+  font-size: 13.5px;
+  line-height: 1.6;
   color: #535c66;
 }
 .lp-feature-list .lp-feature-dot {
   flex-shrink: 0;
-  margin-top: 8px;
+  margin-top: 7px;
 }
 .lp-feature-state {
   display: inline-block;
@@ -193,26 +276,24 @@ const total = LANDING_FEATURES.reduce((s, g) => s + g.items.length, 0)
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-@keyframes lp-detail-open {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+/* Transición de apertura del panel */
+.lp-acc-enter-active,
+.lp-acc-leave-active {
+  transition: opacity 0.3s var(--lp-ease), transform 0.3s var(--lp-ease);
+  overflow: hidden;
 }
-@media (max-width: 720px) {
-  .lp-feature-group summary {
+.lp-acc-enter-from,
+.lp-acc-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+@media (max-width: 760px) {
+  .lp-feature-summary {
     gap: 14px;
   }
   .lp-feature-inner {
-    padding: 0 0 20px 38px;
-  }
-  .lp-feature-list {
     grid-template-columns: 1fr;
-    gap: 12px;
+    padding: 0 0 22px 0;
   }
 }
 </style>

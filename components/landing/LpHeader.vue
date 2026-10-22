@@ -8,8 +8,8 @@
       </nav>
 
       <div class="lp-actions">
-        <NuxtLink :to="LANDING_CTA.login.to" class="lp-login" data-testid="landing-login">{{ LANDING_CTA.login.label }} <span aria-hidden="true">↗</span></NuxtLink>
-        <a :href="LANDING_CTA.demo.to" class="lp-btn lp-btn-ghost lp-btn-sm lp-demo-btn" data-testid="landing-demo" data-landing-event="cta_demo_header">{{ LANDING_CTA.demo.label }} <span aria-hidden="true">↗</span></a>
+        <NuxtLink :to="LANDING_CTA.login.to" class="lp-login" data-testid="landing-login">{{ LANDING_CTA.login.label }}</NuxtLink>
+        <a :href="LANDING_CTA.demo.to" class="lp-btn lp-btn-ghost lp-btn-sm lp-demo-btn" data-testid="landing-demo" data-landing-event="cta_demo_header">{{ LANDING_CTA.demo.label }}</a>
         <NuxtLink :to="LANDING_CTA.register.to" class="lp-btn lp-btn-blue lp-btn-sm lp-register-btn" data-testid="landing-register-company" data-landing-event="cta_register_header">{{ LANDING_CTA.register.label }}</NuxtLink>
         <button type="button" class="lp-menu-btn" :aria-expanded="open" aria-controls="lp-mobile-nav" :aria-label="open ? 'Cerrar menú' : 'Abrir menú'" data-testid="landing-menu" @click="open = !open">
           <LpIcon :name="open ? 'close' : 'menu'" />
