@@ -88,6 +88,10 @@ export interface FieldDef {
   options?: string[]
   /** Etiqueta legible por valor de un `select` (el valor guardado no cambia). */
   optionLabels?: Record<string, string>
+  /** Texto de ayuda bajo el campo en el formulario genérico. */
+  hint?: string
+  /** Valor por defecto de un registro nuevo en el formulario genérico (p. ej. el rol «admin» de un usuario). */
+  default?: string
   /**
    * Campo que guarda el id de otro recurso del panel: el formulario genérico
    * lo pinta como un desplegable con los registros de `resource` (por su
@@ -1669,7 +1673,18 @@ export const adminResources: Record<string, ResourceDef> = {
       name: { type: 'text', label: 'Nombre', required: true },
       email: { type: 'text', label: 'Email', required: true },
       password: { type: 'text', label: 'Contraseña' },
-      role: { type: 'select', label: 'Rol', options: ['admin', 'user'] },
+      // El rol decide QUÉ TIPO de cuenta es, no a qué áreas entra (eso es
+      // «Permisos», abajo, y sólo para admins). «admin» = personal del panel;
+      // «user» = cuenta de cliente del portal «Mi cuenta» (no entra al panel).
+      // Casi siempre quieres «admin»: por eso es el valor por defecto.
+      role: {
+        type: 'select',
+        label: 'Rol',
+        options: ['admin', 'user'],
+        optionLabels: { admin: 'Administrador (accede al panel)', user: 'Usuario (cliente · solo «Mi cuenta»)' },
+        hint: 'Administrador = tu equipo, entra al panel de gestión (sus áreas se limitan en «Permisos», arriba). Usuario = una cuenta de cliente para el área «Mi cuenta» (ver sus visitas y contratos); NO entra al panel.',
+        default: 'admin',
+      },
       // Nullable JSON array of "<area>:<action>" strings (server/utils/permissions.ts).
       // Not rendered by the generic field form below — pages/admin/[resource]/[id].vue
       // swaps it for the visual per-area editor (components/admin/UserPermissionsEditor.vue),

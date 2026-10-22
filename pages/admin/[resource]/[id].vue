@@ -95,6 +95,13 @@
 
         <input v-else-if="fd.type === 'number'" v-model="form[field]" type="number" step="any" class="input" >
         <input v-else v-model="form[field]" class="input" >
+
+        <!-- Texto de ayuda del campo (FieldDef.hint). -->
+        <p v-if="fd.hint" class="mt-1 text-xs text-stone-500">{{ fd.hint }}</p>
+        <!-- Aviso al elegir el rol «user» en Usuarios: no entra al panel. -->
+        <p v-if="resource === 'users' && field === 'role' && form[field] === 'user'" class="mt-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          Una cuenta «Usuario» <strong>no entra al panel de gestión</strong>: es solo para el área de cliente «Mi cuenta» (ver sus visitas y contratos). Para alguien de tu equipo, elige «Administrador».
+        </p>
         </template>
       </div>
 
@@ -185,6 +192,12 @@ if (meta.value && !isNew.value && !isPropertyBuilderResource.value && !isOrganiz
       slot.title = tr.title
       slot.description = tr.description || ''
     }
+  }
+} else if (meta.value && isNew.value) {
+  // Valores por defecto de un registro nuevo (FieldDef.default), p. ej. el rol
+  // «admin» de un usuario: lo normal es crear personal del panel.
+  for (const [field, fd] of Object.entries<any>(meta.value.fields)) {
+    if (fd.default != null) form[field] = fd.default
   }
 }
 
