@@ -37,9 +37,12 @@
             Generar contenido
           </NuxtLink>
           <!-- En la papelera no se exporta, no hay ficha pública que previsualizar
-               y no se envía: el servidor lo rechazaría igualmente (422/404). -->
-          <AdminAssetExportButton v-if="resource === 'developer-properties' && !isNew && canEdit && !trashedAt" :asset-id="recordId!" :property-type="form.propertyType" variant="quiet" />
-          <a v-if="resource === 'developer-properties' && !isNew && !trashedAt" :href="`/propiedades/${form.slug || recordId}`" target="_blank" rel="noopener" class="pe-btn-quiet">Vista previa</a>
+               y no se envía: el servidor lo rechazaría igualmente (422/404).
+               Dossier y Vista previa valen para los dos catálogos (obra nueva y
+               2ª mano): el exportador y la ficha pública ya soportan ambos. -->
+          <AdminAssetExportButton v-if="!isNew && canEdit && !trashedAt" :asset-id="recordId!" :property-type="form.propertyType" :asset-kind="resource === 'developer-properties' ? 'developer_property' : 'agent_property'" variant="quiet" />
+          <!-- 2ª mano se previsualiza por su slug público; sin slug aún, no se muestra (no hay URL válida). -->
+          <a v-if="!isNew && !trashedAt && (resource === 'developer-properties' || form.slug)" :href="`/propiedades/${form.slug || recordId}`" target="_blank" rel="noopener" class="pe-btn-quiet">Vista previa</a>
           <button v-if="!isNew && !trashedAt" type="button" class="pe-btn-quiet" data-testid="property-share-whatsapp" @click="shareOpen = true">Compartir por WhatsApp</button>
         </template>
       </PropertyEditorHeader>
