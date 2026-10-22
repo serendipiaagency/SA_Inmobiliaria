@@ -131,11 +131,15 @@ if (isPortal.value) {
   const url = useRequestURL()
   const origin = `${url.protocol}//${url.host}`
   const title = 'INMO — Tu inmobiliaria, a otro nivel'
+  // El título de pestaña lleva la marca del SaaS (Portal INMO); el SEO social
+  // (og/twitter/JSON-LD) y la landing visible se quedan como están (Cola 28:
+  // solo el chrome del SaaS, sin rediseñar la landing).
+  const tabTitle = 'Portal INMO — Tu inmobiliaria, a otro nivel'
   const description = `${LANDING_HERO.subtitle} Crea tu web, organiza tus contactos, coordina visitas y sigue cada operación con tu equipo.`
   const image = `${origin}${LANDING_SHOTS.panel.src}`
   useHead({
     htmlAttrs: { lang: 'es', dir: 'ltr' },
-    title,
+    title: tabTitle,
     meta: [
       { name: 'description', content: description },
       { name: 'robots', content: 'index, follow' },
@@ -154,7 +158,11 @@ if (isPortal.value) {
       { name: 'twitter:description', content: description },
       { name: 'twitter:image', content: image },
     ],
-    link: [{ rel: 'canonical', href: `${origin}/` }],
+    link: [
+      { rel: 'canonical', href: `${origin}/` },
+      // Favicon propio del SaaS (no el /favicon.svg global que comparten las webs de agencia).
+      { rel: 'icon', type: 'image/svg+xml', href: '/portal-inmo.svg', key: 'portal-inmo-favicon' },
+    ],
     script: [
       {
         type: 'application/ld+json',

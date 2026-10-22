@@ -1,5 +1,7 @@
 <template>
-  <div class="mx-auto flex max-w-md flex-col justify-center px-4 py-20">
+  <div class="flex min-h-screen flex-col items-center justify-center bg-paper px-4">
+    <PortalInmoLogo size="md" class="mb-8 justify-center" />
+    <div class="w-full max-w-md">
     <h1 class="text-center heading-serif text-4xl">Restablecer contraseña</h1>
     <form v-if="!done" class="card mt-10 space-y-5 p-8" @submit.prevent="submit">
       <div>
@@ -13,12 +15,14 @@
       <p class="text-stone-600">Tu contraseña se ha actualizado.</p>
       <NuxtLink to="/login" class="btn-primary inline-flex">Acceder</NuxtLink>
     </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+definePageMeta({ layout: false })
 const route = useRoute()
-useHead({ title: 'Restablecer contraseña' })
+usePortalInmoChrome('Restablecer contraseña — Portal INMO')
 const password = ref('')
 const loading = ref(false)
 const done = ref(false)

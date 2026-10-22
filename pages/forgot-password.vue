@@ -1,5 +1,7 @@
 <template>
-  <div class="mx-auto flex max-w-md flex-col justify-center px-4 py-20">
+  <div class="flex min-h-screen flex-col items-center justify-center bg-paper px-4">
+    <PortalInmoLogo size="md" class="mb-8 justify-center" />
+    <div class="w-full max-w-md">
     <h1 class="text-center heading-serif text-4xl">Recuperar contraseña</h1>
     <form v-if="!sent" class="card mt-10 space-y-5 p-8" @submit.prevent="submit">
       <p class="text-sm text-stone-500">Indica tu email y, si tienes una cuenta, te enviaremos un enlace para restablecer tu contraseña.</p>
@@ -15,11 +17,13 @@
     <p class="mt-6 text-center text-sm">
       <NuxtLink to="/login" class="text-stone-500 hover:underline">Volver a acceder</NuxtLink>
     </p>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-useHead({ title: 'Recuperar contraseña' })
+definePageMeta({ layout: false })
+usePortalInmoChrome('Recuperar contraseña — Portal INMO')
 const email = ref('')
 const loading = ref(false)
 const sent = ref(false)
