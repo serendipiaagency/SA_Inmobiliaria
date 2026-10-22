@@ -33,6 +33,8 @@
  * tipos de plantilla porque ambas comparten el mismo esquema de estructura y el
  * mismo editor de lienzo (`AssetExportCanvasEditor`).
  */
+import { tokenLabel } from '~/utils/assetExport/tokenCatalog'
+
 interface TemplateElement {
   id: string
   type: 'text' | 'image' | 'qr' | 'shape'
@@ -110,21 +112,11 @@ function blockClass(type: string) {
   return 'bg-stone-50'
 }
 
-const TOKEN_LABELS: Record<string, string> = {
-  'asset.title': 'Título',
-  'asset.price': 'Precio',
-  'asset.location': 'Ubicación',
-  'asset.description': 'Descripción',
-  'asset.reference': 'Ref.',
-  'asset.propertyType': 'Tipo',
-  'tenant.phone': 'Teléfono',
-  'tenant.website': 'Web',
-  'tenant.legalText': 'Legal',
-}
 function label(el: TemplateElement) {
   const b = (el.binding || '').trim()
   if (!b) return 'Texto'
-  const token = b.replace(/^\{\{\s*|\s*\}\}$/g, '')
-  return TOKEN_LABELS[token] || token.replace(/^asset\.|^tenant\./, '') || b
+  // Etiqueta legible compartida (utils/assetExport/tokenCatalog); si es texto
+  // fijo, el propio texto.
+  return tokenLabel(b)
 }
 </script>
