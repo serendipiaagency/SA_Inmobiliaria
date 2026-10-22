@@ -187,12 +187,15 @@ export const ADMIN_NAV: NavGroup[] = [
       // Su permiso es el de Finanzas & Growth, no el de la categoría.
       { label: 'Widgets', to: '/admin/widgets', icon: 'widget', area: 'finance' },
       { label: 'Brand Kit', to: '/admin/asset-export/brand-kit', icon: 'sparkles' },
-      { label: 'Plantillas de Export', to: '/admin/asset-export/templates', icon: 'layers' },
+      // «Plantillas» unifica en una sola entrada las de Asset Export y las de
+      // cartel; dentro, dos pestañas las separan. Las dos antiguas rutas
+      // (/admin/asset-export/templates y /admin/carteles/plantillas) dejan de
+      // existir como páginas; la API de cada módulo sigue igual.
+      { label: 'Plantillas', to: '/admin/plantillas', icon: 'layers' },
       { label: 'Piezas generadas', to: '/admin/asset-export/projects', icon: 'doc' },
       { label: 'Catálogos combinados', to: '/admin/asset-export/catalogs', icon: 'doc' },
       { label: 'Exportación masiva', to: '/admin/asset-export/batches', icon: 'bolt' },
       // Carteles de escaparate (Cola 20): módulo independiente, mismo permiso Portal Web.
-      { label: 'Plantillas de cartel', to: '/admin/carteles/plantillas', icon: 'layers' },
       { label: 'Carteles', to: '/admin/carteles/piezas', icon: 'doc' },
       // Blog & CMS, ahora dentro de «Web y contenido». Permiso Blog & CMS (cms).
       { label: 'Dashboard', to: '/admin/cms', icon: 'sparkles', area: 'cms' },

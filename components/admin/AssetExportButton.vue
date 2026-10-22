@@ -9,7 +9,7 @@
 
         <div v-if="!templates.length" class="rounded-lg border border-dashed border-line px-4 py-6 text-center text-xs text-stone-500">
           No hay plantillas disponibles todavía.
-          <NuxtLink to="/admin/asset-export/templates" class="font-medium text-ink hover:underline">Crear una</NuxtLink>
+          <NuxtLink to="/admin/plantillas" class="font-medium text-ink hover:underline">Crear una</NuxtLink>
         </div>
 
         <template v-else>

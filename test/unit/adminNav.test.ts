@@ -33,7 +33,7 @@ const BEFORE: Array<[to: string, label: string, area: AdminArea | null, superAdm
   ['/admin/citas-analytics', 'Analítica de citas', 'crm', false], ['/admin/reservas', 'Reservas', 'crm', false], ['/admin/referidos', 'Referidos', 'crm', false],
   ['/admin/developer-properties', 'Propiedades (web)', 'web', false], ['/admin/site-builder', 'Constructor Web', 'web', false], ['/admin/properties', 'Propiedades 2ª mano', 'web', false],
   ['/admin/comerciales', 'Comerciales', 'web', false], ['/admin/communities', 'Comunidades', 'web', false], ['/admin/scheduler', 'Publicación multicanal', 'web', false],
-  ['/admin/asset-export/brand-kit', 'Brand Kit', 'web', false], ['/admin/asset-export/templates', 'Plantillas de Export', 'web', false],
+  ['/admin/asset-export/brand-kit', 'Brand Kit', 'web', false],
   ['/admin/asset-export/projects', 'Piezas generadas', 'web', false], ['/admin/asset-export/batches', 'Exportación masiva', 'web', false],
   ['/admin/asset-export/catalogs', 'Catálogos combinados', 'web', false],
   ['/admin/facturacion', 'Facturación', 'finance', false], ['/admin/operaciones', 'Cierres y comisiones', 'finance', false], ['/admin/ingresos', 'Ingresos', 'finance', false],
@@ -63,8 +63,10 @@ const ADDED: Array<[to: string, label: string, area: AdminArea | null, superAdmi
   // Cola 17: el módulo de newsletter (campañas y plantillas) en «Comunicación y mensajes»; permiso Portal Web.
   ['/admin/newsletter', 'Newsletter', 'web', false],
   // Cola 20: módulo «Carteles de escaparate» en «Web y contenido»; permiso Portal Web.
-  ['/admin/carteles/plantillas', 'Plantillas de cartel', 'web', false],
   ['/admin/carteles/piezas', 'Carteles', 'web', false],
+  // «Plantillas» unifica «Plantillas de Export» + «Plantillas de cartel» en una
+  // sola entrada (con pestañas internas); permiso Portal Web.
+  ['/admin/plantillas', 'Plantillas', 'web', false],
 ]
 
 /**
@@ -86,8 +88,8 @@ function groupOf(to: string): NavGroup {
 }
 
 describe('menú lateral — inventario: reubicar, nunca quitar', () => {
-  it('las 65 entradas vigentes existen, con la misma ruta, etiqueta, permiso y restricción de super admin', () => {
-    expect(BEFORE).toHaveLength(65)
+  it('las 64 entradas vigentes existen, con la misma ruta, etiqueta, permiso y restricción de super admin', () => {
+    expect(BEFORE).toHaveLength(64)
     expect(entries).toHaveLength(BEFORE.length + ADDED.length)
     for (const [to, label, area, superAdminOnly] of [...BEFORE, ...ADDED]) {
       const found = entries.find((e) => e.item.to === to && e.item.label === label)

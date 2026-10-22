@@ -847,12 +847,16 @@ export function useHelpContent() {
       ],
     },
     {
-      key: 'asset-export-templates',
+      key: 'plantillas',
       group: 'Web y contenido',
-      title: 'Plantillas de Export',
-      route: '/admin/asset-export/templates',
-      summary: 'Diseña plantillas visuales (ficha de propiedad, dossier, cartel) con un editor de arrastrar y soltar.',
-      steps: ['El editor tiene deshacer/rehacer real (Ctrl/Cmd+Z) y funciona igual en plantillas que en piezas ya generadas.'],
+      title: 'Plantillas',
+      route: '/admin/plantillas',
+      summary: 'Todos tus diseños en una sola sección, con una miniatura del diseño al lado de cada plantilla. Dos pestañas los separan: «De exportación» (fichas, dossiers y piezas de redes del Asset Export Studio) y «De cartel» (carteles de escaparate y folletos). Antes eran dos entradas de menú distintas.',
+      steps: [
+        'La pestaña «De exportación» lista las plantillas del Asset Export Studio: duplica una de sistema o crea la tuya eligiendo formato (PDF A4/A5, dossier, A3 o formatos de redes), y edítala con el lienzo de arrastrar y soltar (deshacer/rehacer con Ctrl/Cmd+Z). Las piezas se generan luego en «Piezas generadas».',
+        'La pestaña «De cartel» lista las plantillas de cartel de escaparate y folleto: igual catálogo de muestras y propias; el cartel final se compone en «Carteles».',
+        'La miniatura de cada plantilla es un esquema de su maqueta (dónde van foto, título, precio y QR), no un render final: el render real se genera al aplicar la plantilla a una propiedad concreta.',
+      ],
     },
     {
       key: 'asset-export-projects',
@@ -1116,9 +1120,9 @@ export function useHelpContent() {
       group: 'Web y contenido',
       title: 'Carteles de escaparate',
       route: '/admin/carteles/piezas',
-      summary: 'Compón carteles de escaparate y folletos de una propiedad y expórtalos a PDF. Dos pantallas: «Plantillas de cartel» (los diseños) y «Carteles» (una plantilla aplicada a una propiedad).',
+      summary: 'Compón carteles de escaparate y folletos de una propiedad y expórtalos a PDF. Los diseños de cartel viven en «Plantillas» → pestaña «De cartel»; aquí, en «Carteles», aplicas una plantilla a una propiedad.',
       steps: [
-        'En «Plantillas de cartel» tienes un catálogo de plantillas de muestra ya diseñadas (marcadas «Muestra», sólo lectura): carteles A3 verticales y horizontales para el escaparate y folletos/fichas A4 para entregar o enviar, con estilos distintos (clásico, minimalista, precio protagonista…). «Nueva plantilla» crea una propia desde cero eligiendo el formato; se crea con un diseño de partida (foto principal, título, precio con tu color de marca, ubicación, referencia y QR). «Duplicar» copia una muestra o una tuya a una plantilla propia editable; «Editar diseño» (en las tuyas) abre el editor visual para mover y ajustar los bloques; «Publicar» la deja disponible para usarla en un cartel; «Eliminar» borra las tuyas.',
+        'Los diseños de cartel están en «Plantillas» (pestaña «De cartel»): un catálogo de plantillas de muestra ya diseñadas (marcadas «Muestra», sólo lectura) —carteles A3 verticales y horizontales para el escaparate y folletos/fichas A4— y las tuyas. «Nueva plantilla» crea una propia eligiendo el formato, con un diseño de partida (foto, título, precio con tu color de marca, ubicación, referencia y QR); «Duplicar», «Editar diseño» y «Publicar» funcionan como siempre. Cada plantilla muestra una miniatura de su diseño.',
         'En «Carteles», «Nuevo cartel» aplica una plantilla publicada a una propiedad: elige la plantilla y busca la propiedad (obra nueva o 2ª mano) con el buscador. Se crea el cartel con los datos reales de esa propiedad (precio, ubicación, foto, referencia, QR a su ficha pública cuando la hay) y tu Brand Kit.',
         '«Exportar PDF» genera el cartel en el servidor, lo guarda y te lo descarga, listo para imprimir o para el escaparate. Por ahora la exportación es a PDF (la imagen llegará cuando se active el render de imagen).',
         'Cada inmobiliaria sólo ve y gestiona sus plantillas y carteles; las plantillas de muestra son comunes y de sólo lectura.',

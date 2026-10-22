@@ -1,11 +1,8 @@
 <template>
-  <div class="max-w-5xl">
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Plantillas de Asset Export Studio</h1>
-        <p class="mt-1 text-sm text-stone-500">Plantillas del sistema (no editables) y tus propias plantillas.</p>
-      </div>
-      <button type="button" class="dash-btn-primary" @click="showCreate = true">Nueva plantilla</button>
+  <div>
+    <div class="mb-4 flex items-center justify-between gap-4">
+      <p class="text-sm text-stone-500">Plantillas del sistema (no editables) y tus propias plantillas para dossiers, fichas y piezas de redes.</p>
+      <button type="button" class="dash-btn-primary shrink-0" @click="showCreate = true">Nueva plantilla</button>
     </div>
 
     <div v-if="showCreate" class="mb-6">
@@ -56,22 +53,25 @@
 
     <div v-else class="grid gap-3 sm:grid-cols-2">
       <AdminPanel v-for="t in templates" :key="t.id" :title="t.name" :sub="formatLabel(t.formatKey)">
-        <div class="space-y-2 text-sm">
-          <p class="text-stone-500">{{ t.description || 'Sin descripción' }}</p>
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600">{{ t.category }}</span>
-            <span v-if="t.assetTypeScope" class="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-700">{{ t.assetTypeScope }}</span>
-            <span v-if="t.isSystem" class="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">Sistema</span>
-            <span class="rounded-full px-2 py-0.5 text-[11px] font-medium" :class="statusClass(t.status)">{{ statusLabel(t.status) }}</span>
-          </div>
-          <div class="flex flex-wrap gap-3 pt-2">
-            <button type="button" class="text-xs font-medium text-ink hover:underline" @click="duplicate(t.id)">Duplicar</button>
-            <template v-if="!t.isSystem">
-              <button type="button" class="text-xs font-medium text-ink hover:underline" @click="editStructure(t)">Editar estructura (JSON)</button>
-              <button v-if="t.status !== 'published'" type="button" class="text-xs font-medium text-ink hover:underline" @click="setStatus(t, 'published')">Publicar</button>
-              <button v-if="t.status !== 'archived'" type="button" class="text-xs font-medium text-stone-500 hover:underline" @click="setStatus(t, 'archived')">Archivar</button>
-              <button type="button" class="text-xs font-medium text-red-600 hover:underline" @click="remove(t.id)">Eliminar</button>
-            </template>
+        <div class="flex gap-4 text-sm">
+          <AdminTemplateDesignPreview :structure="t.structureJson" :format-key="t.formatKey" :width="110" />
+          <div class="min-w-0 flex-1 space-y-2">
+            <p class="text-stone-500">{{ t.description || 'Sin descripción' }}</p>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600">{{ t.category }}</span>
+              <span v-if="t.assetTypeScope" class="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-medium text-sky-700">{{ t.assetTypeScope }}</span>
+              <span v-if="t.isSystem" class="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">Sistema</span>
+              <span class="rounded-full px-2 py-0.5 text-[11px] font-medium" :class="statusClass(t.status)">{{ statusLabel(t.status) }}</span>
+            </div>
+            <div class="flex flex-wrap gap-3 pt-2">
+              <button type="button" class="text-xs font-medium text-ink hover:underline" @click="duplicate(t.id)">Duplicar</button>
+              <template v-if="!t.isSystem">
+                <button type="button" class="text-xs font-medium text-ink hover:underline" @click="editStructure(t)">Editar estructura (JSON)</button>
+                <button v-if="t.status !== 'published'" type="button" class="text-xs font-medium text-ink hover:underline" @click="setStatus(t, 'published')">Publicar</button>
+                <button v-if="t.status !== 'archived'" type="button" class="text-xs font-medium text-stone-500 hover:underline" @click="setStatus(t, 'archived')">Archivar</button>
+                <button type="button" class="text-xs font-medium text-red-600 hover:underline" @click="remove(t.id)">Eliminar</button>
+              </template>
+            </div>
           </div>
         </div>
       </AdminPanel>
@@ -103,9 +103,6 @@
 </template>
 
 <script setup lang="ts">
-definePageMeta({ layout: 'admin', middleware: 'admin' })
-useHead({ title: 'Plantillas — Asset Export Studio' })
-
 interface Template {
   id: number
   organizationId: number | null

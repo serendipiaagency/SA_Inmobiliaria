@@ -1,13 +1,10 @@
 <template>
-  <div class="max-w-5xl" data-testid="poster-templates">
-    <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-semibold tracking-tight">Plantillas de cartel</h1>
-        <p class="mt-1 max-w-2xl text-sm text-stone-500">
-          Diseños de cartel de escaparate y folleto para tus propiedades. Las plantillas de muestra se pueden duplicar para adaptarlas; luego, en «Carteles», eliges una propiedad y exportas el PDF.
-        </p>
-      </div>
-      <button type="button" class="dash-btn-primary" data-testid="poster-template-new" @click="openCreate">Nueva plantilla</button>
+  <div data-testid="poster-templates">
+    <div class="mb-4 flex flex-wrap items-start justify-between gap-4">
+      <p class="max-w-2xl text-sm text-stone-500">
+        Diseños de cartel de escaparate y folleto para tus propiedades. Las plantillas de muestra se pueden duplicar para adaptarlas; luego, en «Carteles», eliges una propiedad y exportas el PDF.
+      </p>
+      <button type="button" class="dash-btn-primary shrink-0" data-testid="poster-template-new" @click="openCreate">Nueva plantilla</button>
     </div>
 
     <AdminPanel>
@@ -19,6 +16,7 @@
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-line text-left text-[11px] uppercase tracking-wide text-stone-500">
+              <th class="py-2 pr-3 font-semibold">Diseño</th>
               <th class="py-2 pr-3 font-semibold">Nombre</th>
               <th class="py-2 pr-3 font-semibold">Formato</th>
               <th class="py-2 pr-3 font-semibold">Origen</th>
@@ -27,7 +25,10 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="t in templates" :key="t.id" class="border-b border-line last:border-0" :data-testid="`poster-template-${t.id}`">
+            <tr v-for="t in templates" :key="t.id" class="border-b border-line last:border-0 align-top" :data-testid="`poster-template-${t.id}`">
+              <td class="py-2.5 pr-3">
+                <AdminTemplateDesignPreview :structure="t.structure" :format-key="t.formatKey" :width="80" />
+              </td>
               <td class="py-2.5 pr-3 font-medium">{{ t.name }}</td>
               <td class="py-2.5 pr-3 text-stone-500">{{ formatLabel(t.formatKey) }}</td>
               <td class="py-2.5 pr-3">
@@ -88,10 +89,7 @@
  * diseño visual de la plantilla se edita en un paso posterior; aquí se
  * gestiona el catálogo. Permiso: Portal Web.
  */
-definePageMeta({ layout: 'admin', middleware: 'admin' })
-useHead({ title: 'Plantillas de cartel' })
-
-interface PosterTemplate { id: number; name: string; formatKey: string; isSystem: boolean; status: string }
+interface PosterTemplate { id: number; name: string; formatKey: string; isSystem: boolean; status: string; structure?: any }
 interface FormatOpt { key: string; label: string; orientation: string }
 
 const toast = useToast()
