@@ -7,11 +7,11 @@
       <LpHero />
       <LpModules />
       <LpBuilder />
+      <LpHowItWorks />
       <LpCrm />
       <LpProperties />
       <LpTeam />
       <LpFeatures />
-      <LpHowItWorks />
       <LpFaq />
       <LpDemo />
     </main>

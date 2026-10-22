@@ -14,7 +14,7 @@
           <span class="lp-request-avatar" aria-hidden="true">SA</span>
           <div>
             <strong>{{ LANDING_REQUEST.signature.name }}</strong>
-            <a :href="`mailto:${LANDING_REQUEST.signature.email}`">{{ LANDING_REQUEST.signature.email }} <span aria-hidden="true">↗</span></a>
+            <a :href="`mailto:${LANDING_REQUEST.signature.email}`">{{ LANDING_REQUEST.signature.email }}</a>
           </div>
         </div>
       </div>
@@ -77,9 +77,9 @@
           </label>
           <small v-if="errors.consent" class="lp-consent-error">{{ errors.consent }}</small>
           <button type="submit" class="lp-btn lp-btn-blue lp-form-submit" :disabled="state === 'sending'" :aria-busy="state === 'sending' ? 'true' : undefined" data-testid="landing-demo-submit" data-landing-event="demo_request_submit">
-            {{ state === 'sending' ? 'Enviando…' : LANDING_REQUEST.form.submit }} <span aria-hidden="true">↗</span>
+            {{ state === 'sending' ? 'Enviando…' : LANDING_REQUEST.form.submit }}
           </button>
-          <NuxtLink :to="LANDING_CTA.register.to" class="lp-contact-secondary" data-landing-event="cta_register_contact">O crea tu inmobiliaria →</NuxtLink>
+          <NuxtLink :to="LANDING_CTA.register.to" class="lp-contact-secondary" data-landing-event="cta_register_contact">O crea tu inmobiliaria</NuxtLink>
           <p class="lp-form-foot" data-testid="landing-request-footnote">{{ LANDING_REQUEST.form.footnote }}</p>
         </form>
 

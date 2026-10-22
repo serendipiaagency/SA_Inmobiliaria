@@ -131,6 +131,10 @@ describe('landing de INMO — estructura', () => {
     }
     for (const step of LANDING_STEPS) expect(LANDING_SHOTS[step.shot]).toBeTruthy()
     for (const tab of LANDING_BUILDER.tabs) expect(LANDING_SHOTS[tab.shot as keyof typeof LANDING_SHOTS]).toBeTruthy()
+    // Las pantallas interactivas de CRM, Propiedades y Funcionalidades usan sólo capturas definidas.
+    for (const step of LANDING_CRM.steps) expect(LANDING_SHOTS[step.shot]).toBeTruthy()
+    for (const tab of LANDING_PROPERTIES.tabs) expect(LANDING_SHOTS[tab.shot]).toBeTruthy()
+    for (const g of LANDING_FEATURES) expect(LANDING_SHOTS[g.shot]).toBeTruthy()
   })
 
   it('cada fotografía de ambiente existe en /public/landing, es webp y lleva texto alternativo', () => {
@@ -142,9 +146,8 @@ describe('landing de INMO — estructura', () => {
       expect(photo.width).toBeGreaterThan(0)
       expect(photo.height).toBeGreaterThan(0)
     }
-    // El hero y la galería de propiedades usan sólo fotos definidas.
+    // El hero y el equipo usan sólo fotos definidas.
     for (const s of LANDING_HERO.stack) expect(LANDING_PHOTOS[s.photo]).toBeTruthy()
-    for (const g of LANDING_PROPERTIES.gallery) expect(LANDING_PHOTOS[g.photo]).toBeTruthy()
     for (const p of LANDING_TEAM.photos) expect(LANDING_PHOTOS[p]).toBeTruthy()
   })
 

@@ -12,7 +12,7 @@
         </template>
       </h2>
       <p>{{ LANDING_TEAM.text }}</p>
-      <a :href="LANDING_TEAM.cta.to" class="lp-btn lp-btn-white">{{ LANDING_TEAM.cta.label }} <span aria-hidden="true">↗</span></a>
+      <a :href="LANDING_TEAM.cta.to" class="lp-btn lp-btn-white">{{ LANDING_TEAM.cta.label }}</a>
       </div>
     </div>
   </section>
