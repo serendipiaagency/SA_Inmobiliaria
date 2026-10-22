@@ -5,11 +5,9 @@ import { describe, expect, it } from 'vitest'
 /**
  * Barra superior de acciones en Propiedades 2ª mano (encargo): el editor es el
  * mismo componente para obra nueva y 2ª mano (PropertyBuilder); se habilitan
- * para 2ª mano las acciones que funcionan de verdad en ese catálogo — Dossier y
- * creatividades y Vista previa (WhatsApp y Guardar ya estaban). IA Generar
- * contenido queda pendiente (necesita que su endpoint y su página admitan 2ª
- * mano), así que de momento sigue sólo en obra nueva para no ofrecer un botón
- * que no funciona.
+ * para 2ª mano las acciones de la barra: Dossier y creatividades, Vista previa,
+ * Compartir por WhatsApp, Guardar e IA Generar contenido (esta última con su
+ * endpoint y su página ya adaptados al catálogo 2ª mano).
  */
 const ROOT = join(import.meta.dirname, '../..')
 const builder = readFileSync(join(ROOT, 'components/property-builder/PropertyBuilder.vue'), 'utf8')
@@ -31,8 +29,9 @@ describe('barra de acciones de 2ª mano', () => {
     expect(line).toContain("v-if=\"!isNew && !trashedAt\"")
   })
 
-  it('IA Generar contenido sigue sólo en obra nueva (pendiente de soporte 2ª mano)', () => {
+  it('IA Generar contenido también vale para 2ª mano (pasa kind=agent)', () => {
     const line = builder.split('\n').find((l) => l.includes('/admin/ai?id=')) || ''
-    expect(line).toContain("resource === 'developer-properties'")
+    expect(line).toContain('v-if="!isNew && canEdit"')
+    expect(line).toContain("resource === 'properties' ? '&kind=agent' : ''")
   })
 })
