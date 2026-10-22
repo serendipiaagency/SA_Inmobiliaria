@@ -22,6 +22,10 @@ name: CI & Deploy
 # e2e runs only on PRs; staging deploys only with the `staging` label;
 # PR runs cancel superseded ones (never on main).
 on:
+  # Permite re-lanzar el pipeline a mano (Actions → Run workflow) sobre `main`
+  # cuando un merge no llegó a disparar su run de push y hay que ejecutar
+  # deploy-production (backup → migraciones → deploy → smoke) sin un commit nuevo.
+  workflow_dispatch:
   pull_request:
   push:
     branches: [main]
@@ -237,8 +241,11 @@ jobs:
   deploy-production:
     needs: validate
     # Un merge que sólo toca documentación no despliega (no cambia el Worker).
+    # `workflow_dispatch` permite re-desplegar `main` a mano cuando un merge no
+    # llegó a disparar su run de push (mismas protecciones: backup + migraciones).
     if: >-
-      github.ref == 'refs/heads/main' && github.event_name == 'push'
+      github.ref == 'refs/heads/main'
+      && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
       && needs.validate.outputs.code == 'true'
     runs-on: ubuntu-latest
     environment:
