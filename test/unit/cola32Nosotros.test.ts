@@ -28,3 +28,28 @@ describe('Cola 32: «Ver perfil» editable', () => {
     expect(insp).toContain('Texto del enlace de perfil')
   })
 })
+
+describe('Cola 32: equipo «Mixto» (en vivo + miembros a mano)', () => {
+  const ROOT = join(import.meta.dirname, '../..')
+  const block = readFileSync(join(ROOT, 'components/site-builder/blocks/TeamBlock.vue'), 'utf8')
+  const insp = readFileSync(join(ROOT, 'components/site-builder/inspectors/TeamInspector.vue'), 'utf8')
+
+  it('el bloque fusiona miembros extra desde content.members', () => {
+    expect(block).toContain('const extraMembers = computed')
+    expect(block).toContain('props.content.members')
+    expect(block).toContain('team-extra-member')
+  })
+
+  it('los extras se pintan con elementos planos (no nodos dinámicos card.*)', () => {
+    // No deben introducir nodos card.* sin dynamic ni títulos <h1-3> estáticos.
+    expect(/<Sb(?:Text|Image|Box)\b[^>]*field="card\.[^"]*"[^>]*>/.test(block) ? block.match(/<Sb(?:Text|Image|Box)\b[^>]*field="card\.[^"]*"[^>]*>/g)!.every((t) => /dynamic/.test(t)) : true).toBe(true)
+    expect(/<h[1-3][^>]*>\s*\{\{/.test(block)).toBe(false)
+  })
+
+  it('el inspector permite añadir/editar/quitar miembros extra', () => {
+    expect(insp).toContain('Miembros adicionales')
+    expect(insp).toContain('addMember')
+    expect(insp).toContain('removeMember')
+    expect(insp).toContain('content.members')
+  })
+})

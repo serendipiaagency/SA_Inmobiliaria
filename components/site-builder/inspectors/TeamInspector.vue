@@ -41,6 +41,21 @@
       </template>
     </InspectorSection>
 
+    <InspectorSection title="Miembros adicionales">
+      <p class="mb-2 text-[11px] text-stone-400">Personas que no están en Comerciales (dirección, un colaborador…). Se muestran después de los comerciales en vivo, con sus propios datos.</p>
+      <div v-for="(m, i) in members" :key="i" class="mb-3 space-y-2 rounded-lg border border-line p-2">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-semibold text-stone-500">Miembro {{ i + 1 }}</span>
+          <button type="button" class="text-[11px] font-semibold text-rose-600 hover:underline" @click="removeMember(i)">Quitar</button>
+        </div>
+        <TextField label="Nombre" :model-value="m.name || ''" @update:model-value="(v) => updateMember(i, 'name', v)" />
+        <TextField label="Puesto" :model-value="m.position || ''" @update:model-value="(v) => updateMember(i, 'position', v)" />
+        <ImageField label="Foto" :model-value="m.image || ''" @update:model-value="(v) => updateMember(i, 'image', v)" />
+        <TextField label="Presentación" multiline :model-value="m.description || ''" @update:model-value="(v) => updateMember(i, 'description', v)" />
+      </div>
+      <button type="button" class="w-full rounded-lg border border-dashed border-line py-2 text-[13px] font-medium text-ink hover:bg-stone-50" @click="addMember">+ Añadir miembro</button>
+    </InspectorSection>
+
     <InspectorSection title="Diseño" tab="design">
       <LayoutPickerField
         label="Diseño"
@@ -89,8 +104,22 @@ import SegmentedField from '../inspector/fields/SegmentedField.vue'
 import ToggleField from '../inspector/fields/ToggleField.vue'
 import StepperField from '../inspector/fields/StepperField.vue'
 import LayoutPickerField from '../inspector/fields/LayoutPickerField.vue'
+import ImageField from '../inspector/fields/ImageField.vue'
 
 const props = defineProps<{ content: Record<string, any>; team: any[] }>()
+
+// «Mixto» (Cola 32): miembros extra con datos propios, además de los
+// comerciales en vivo. Viven en content.members (no en el preset).
+const members = computed<any[]>(() => (Array.isArray(props.content.members) ? props.content.members : []))
+function addMember() {
+  props.content.members = [...members.value, { name: '', position: '', image: '', description: '' }]
+}
+function updateMember(i: number, key: string, v: string) {
+  props.content.members = members.value.map((m, j) => (j === i ? { ...m, [key]: v } : m))
+}
+function removeMember(i: number) {
+  props.content.members = members.value.filter((_, j) => j !== i)
+}
 
 const manualIds = computed<number[]>(() => (Array.isArray(props.content.manualIds) ? props.content.manualIds : []))
 function toggleManual(id: number, checked: boolean) {
