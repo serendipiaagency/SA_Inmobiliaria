@@ -78,7 +78,8 @@ test.describe('Carteles de escaparate', () => {
   })
 
   test('el panel: plantillas y carteles cargan y crean desde la interfaz', async ({ page }) => {
-    await page.goto('/admin/carteles/plantillas')
+    await page.goto('/admin/plantillas')
+    await page.getByTestId('plantillas-tab-cartel').click()
     await expect(page.getByTestId('poster-templates')).toBeVisible()
     await page.getByTestId('poster-template-new').click()
     await page.getByTestId('poster-template-name').fill(`UI Cartel ${RUN}`)

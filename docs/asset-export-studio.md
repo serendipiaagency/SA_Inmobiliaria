@@ -68,7 +68,7 @@ Key modules (`server/utils/assetExport/`):
 ## Adding a new template
 
 1. `POST /api/admin/asset-export/templates` with a `structure: { pages: [...] }` (see `types.ts` for the element schema — `text`, `image`, `qr`, `shape`).
-2. Edit visually from **Plantillas** (`/admin/asset-export/templates`) or via the raw-JSON toggle in the same modal.
+2. Edit visually from **Plantillas** (`/admin/plantillas`, tab «De exportación») or via the raw-JSON toggle in the same modal. Each template shows a schematic design preview rendered from its structure (`AdminTemplateDesignPreview`).
 3. Bind elements to real tokens only — see `bindings.ts` for the full list (`asset.title`, `asset.price`, `asset.masterPlanImage`, `tenant.phone`, …). A binding to a token the render doesn't have data for renders blank; it does not error.
 4. `PUT .../publish` when ready. Publishing after the first publish creates a new version automatically — the previous one stays intact and restorable.
 
