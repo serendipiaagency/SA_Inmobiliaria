@@ -33,8 +33,17 @@
           <SbText v-if="cardFields.contact && contactOf(m)" tag="p" field="card.contact" kind="caption" label="Contacto" :dynamic="dynamicLabel('team', 'Teléfono y email')" :source-href="SOURCES.team.href" class="mt-2 text-[12px] text-stone-450" :text="contactOf(m)" />
           <span class="link-underline mt-3 inline-block text-[12px] font-semibold text-ink">{{ content.profileLabel || t('team.block.profile', 'Ver perfil') }} →</span>
         </SbBox>
+        <!-- Miembros extra añadidos a mano (datos propios, no de Comerciales) -->
+        <div v-for="(e, i) in extraMembers" :key="`extra-${i}`" data-testid="team-extra-member">
+          <div class="aspect-[4/5] w-full overflow-hidden rounded-2xl bg-stone-100">
+            <img v-if="e.image" :src="mediaUrl(e.image)" :alt="e.name || ''" class="h-full w-full object-cover object-[50%_20%]" loading="lazy" >
+          </div>
+          <p class="mt-4 font-serif text-xl font-medium">{{ e.name }}</p>
+          <p v-if="e.position" class="mt-1 text-[11px] font-semibold uppercase tracking-widest2 text-stone-450">{{ e.position }}</p>
+          <p v-if="e.description" class="mt-2 line-clamp-3 text-[13px] leading-relaxed text-stone-500">{{ e.description }}</p>
+        </div>
       </div>
-      <p v-if="!items.length" class="text-sm text-stone-400 lg:col-span-8">
+      <p v-if="!hasAnyMember" class="text-sm text-stone-400 lg:col-span-8">
         Todavía no hay comerciales publicados. Marca «Mostrar este comercial en la web» en su ficha para que aparezcan aquí.
       </p>
     </div>
@@ -72,6 +81,14 @@
         <SbText v-if="cardFields.specialties && specialtiesOf(m)" tag="p" field="card.specialties" kind="caption" label="Especialidades" :dynamic="dynamicLabel('team', 'Especialidades')" :source-href="SOURCES.team.href" class="mt-1.5 text-[13px] text-stone-500" :text="specialtiesOf(m)" />
         <SbText v-if="cardFields.contact && contactOf(m)" tag="p" field="card.contact" kind="caption" label="Contacto" :dynamic="dynamicLabel('team', 'Teléfono y email')" :source-href="SOURCES.team.href" class="mt-2 text-[12px] text-stone-450" :text="contactOf(m)" />
       </SbBox>
+      <!-- Miembros extra añadidos a mano -->
+      <div v-for="(e, i) in extraMembers" :key="`extra-${i}`" data-testid="team-extra-member">
+        <div class="aspect-square w-3/4 max-w-[16rem] overflow-hidden rounded-2xl bg-stone-100">
+          <img v-if="e.image" :src="mediaUrl(e.image)" :alt="e.name || ''" class="h-full w-full object-cover object-[50%_20%]" loading="lazy" >
+        </div>
+        <p class="mt-4 font-serif text-xl font-medium">{{ e.name }}</p>
+        <p v-if="e.position" class="eyebrow mt-1.5">{{ e.position }}</p>
+      </div>
     </div>
 
     <!-- layout: compact — fila horizontal de retratos redondos, para cuando
@@ -96,9 +113,17 @@
           <SbText v-if="cardFields.contact && m.phone" tag="p" field="card.contact" kind="caption" label="Contacto" :dynamic="dynamicLabel('team', 'Teléfono')" :source-href="SOURCES.team.href" class="truncate text-[12px] text-stone-450" :text="m.phone" />
         </div>
       </SbBox>
+      <!-- Miembros extra añadidos a mano -->
+      <div v-for="(e, i) in extraMembers" :key="`extra-${i}`" class="flex items-center gap-4" data-testid="team-extra-member">
+        <img v-if="e.image" :src="mediaUrl(e.image)" :alt="e.name || ''" class="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-line" loading="lazy" >
+        <div class="min-w-0">
+          <p class="truncate font-serif text-lg font-medium">{{ e.name }}</p>
+          <p v-if="e.position" class="truncate text-[12px] font-semibold uppercase tracking-widest2 text-stone-450">{{ e.position }}</p>
+        </div>
+      </div>
     </div>
 
-    <p v-if="layout !== 'editorial' && !items.length" class="mt-8 text-sm text-stone-400">
+    <p v-if="layout !== 'editorial' && !hasAnyMember" class="mt-8 text-sm text-stone-400">
       Todavía no hay comerciales publicados. Marca «Mostrar este comercial en la web» en su ficha para que aparezcan aquí.
     </p>
   </section>
@@ -142,6 +167,13 @@ const items = computed(() => {
   }
   return all.slice(0, limit)
 })
+
+// «Mixto» (Cola 32): además de los comerciales en vivo, miembros extra añadidos
+// a mano en el inspector (nombre/puesto/foto/presentación propios). No son
+// datos de Property Core —son texto escrito en el bloque— así que se pintan con
+// elementos planos (no nodos dinámicos) y se muestran después de los en vivo.
+const extraMembers = computed<any[]>(() => (Array.isArray(props.content.members) ? props.content.members : []).filter((m: any) => m && (m.name || m.image)))
+const hasAnyMember = computed(() => items.value.length > 0 || extraMembers.value.length > 0)
 
 const cardFields = computed(() => ({
   position: props.content.cardFields?.position !== false,
