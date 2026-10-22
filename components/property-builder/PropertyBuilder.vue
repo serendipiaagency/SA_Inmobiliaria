@@ -32,7 +32,7 @@
           <!-- Generar contenido y el exportador escriben (crean un proyecto de
                export, guardan textos): fuera si la cuenta no puede escribir.
                «Vista previa» se queda: sólo abre la ficha pública. -->
-          <NuxtLink v-if="resource === 'developer-properties' && !isNew && canEdit" :to="`/admin/ai?id=${recordId}`" class="pe-btn-quiet">
+          <NuxtLink v-if="!isNew && canEdit" :to="`/admin/ai?id=${recordId}${resource === 'properties' ? '&kind=agent' : ''}`" class="pe-btn-quiet">
             <span class="rounded-full bg-ink px-1.5 py-0.5 text-[9px] font-bold text-white">IA</span>
             Generar contenido
           </NuxtLink>

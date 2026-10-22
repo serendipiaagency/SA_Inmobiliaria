@@ -16,8 +16,8 @@
       <div class="space-y-4">
         <label class="block">
           <span class="mb-1.5 block text-[11px] font-semibold uppercase tracking-widest text-stone-500">Propiedad</span>
-          <select v-model="selectedId" class="w-full rounded-lg border border-line px-3 py-2.5 text-sm">
-            <option v-for="p in rows" :key="p.id" :value="p.id">{{ p.name }}</option>
+          <select v-model="selectedKey" class="w-full rounded-lg border border-line px-3 py-2.5 text-sm">
+            <option v-for="p in rows" :key="`${p.catalog}:${p.id}`" :value="`${p.catalog}:${p.id}`">{{ p.name || p.title || `#${p.id}` }}{{ p.catalog === 'agent' ? ' · 2ª mano' : '' }}</option>
           </select>
         </label>
         <div class="grid grid-cols-2 gap-2">
@@ -61,16 +61,24 @@ useHead({ title: 'AI Studio — M&M Real Estate' })
 const route = useRoute()
 const { data } = await useFetch<any>('/api/public/properties', { query: { perPage: 48 } })
 const rows = computed(() => data.value?.rows || [])
-const selectedId = ref<number | null>(null)
+// La selección es `catalog:id` para distinguir obra nueva de 2ª mano (los ids
+// se solapan entre catálogos). El enlace desde el editor llega con ?id=&kind=.
+const selectedKey = ref<string>('')
 watch(
   rows,
   (r) => {
-    if (!r.length || selectedId.value) return
-    const fromQuery = Number(route.query.id)
-    selectedId.value = fromQuery && r.some((p: any) => p.id === fromQuery) ? fromQuery : r[0].id
+    if (!r.length || selectedKey.value) return
+    const qId = Number(route.query.id)
+    const qCatalog = route.query.kind === 'agent' ? 'agent' : 'developer'
+    const wanted = qId ? `${qCatalog}:${qId}` : ''
+    selectedKey.value = wanted && r.some((p: any) => `${p.catalog}:${p.id}` === wanted) ? wanted : `${r[0].catalog}:${r[0].id}`
   },
   { immediate: true },
 )
+const sel = computed(() => {
+  const [catalog, idStr] = selectedKey.value.split(':')
+  return { catalog: catalog === 'agent' ? 'agent' : 'developer', id: Number(idStr) || 0 }
+})
 
 const kinds = [
   { key: 'title', label: 'Título' },
@@ -92,7 +100,7 @@ const loading = ref(false)
 const copied = ref('')
 const engine = ref('')
 
-watch(selectedId, () => {
+watch(selectedKey, () => {
   // Clearing a reactive() object's keys in place (rather than reassigning
   // the binding, which isn't possible for a `const reactive(...)`) is the
   // standard Vue 3 idiom for resetting reactive state.
@@ -103,9 +111,9 @@ watch(selectedId, () => {
 })
 
 async function gen(kind: string) {
-  if (!selectedId.value) return
+  if (!sel.value.id) return
   active.value = kind
-  const res = await $fetch<any>('/api/admin/ai/generate', { method: 'POST', body: { id: selectedId.value, kind } })
+  const res = await $fetch<any>('/api/admin/ai/generate', { method: 'POST', body: { id: sel.value.id, kind, catalog: sel.value.catalog } })
   results[kind] = res.text
   engines[kind] = res.engine
   engine.value = res.engine
