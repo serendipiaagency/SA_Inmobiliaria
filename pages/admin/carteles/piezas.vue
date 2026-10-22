@@ -73,7 +73,7 @@
 
     <!-- Editor visual del diseño del cartel -->
     <AdminCommsModal v-if="editing" :title="`Diseño · ${editing.name}`" wide test-id="poster-editor" @close="editing = null">
-      <AdminAssetExportCanvasEditor v-if="editStructure" :structure="editStructure" :format-key="editing.formatKey" />
+      <AdminAssetExportCanvasEditor v-if="editStructure" :structure="editStructure" :format-key="editing.formatKey" :preview-property="editing.assetId ? { kind: editing.assetKind === 'agent_property' ? 'agent' : 'developer', id: editing.assetId, name: editing.name } : null" />
       <template #footer>
         <button type="button" class="dash-btn-secondary" @click="editing = null">Cerrar</button>
         <button type="button" class="dash-btn-primary" :disabled="savingDesign" data-testid="poster-save-design" @click="saveDesign">{{ savingDesign ? 'Guardando…' : 'Guardar diseño' }}</button>
@@ -158,14 +158,14 @@ async function exportPdf(p: PosterProject) {
 }
 
 // --- Editor del diseño ---------------------------------------------------
-const editing = ref<{ id: number; name: string; formatKey: string } | null>(null)
+const editing = ref<{ id: number; name: string; formatKey: string; assetKind?: string; assetId?: number } | null>(null)
 const editStructure = ref<any>(null)
 const savingDesign = ref(false)
 async function openEditor(p: PosterProject) {
   try {
     const full = await $fetch<any>(`/api/admin/carteles/projects/${p.id}`)
     editStructure.value = full.structure
-    editing.value = { id: p.id, name: p.name, formatKey: p.formatKey }
+    editing.value = { id: p.id, name: p.name, formatKey: p.formatKey, assetKind: p.assetKind, assetId: p.assetId }
   } catch {
     toast.error('No se pudo abrir el diseño')
   }
