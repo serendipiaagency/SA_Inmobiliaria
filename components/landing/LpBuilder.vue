@@ -35,7 +35,23 @@
 
         <div :id="`lp-builder-panel-${current.key}`" role="tabpanel" :aria-labelledby="`lp-builder-tab-${current.key}`" class="lp-screen" data-testid="landing-builder-shot" :data-shot="current.shot">
           <Transition name="lp-swap" mode="out-in">
-            <LpWebScroll v-if="active === 'web'" key="web" />
+            <div v-if="active === 'web'" key="web" class="lp-web-video">
+              <video
+                ref="webVideo"
+                class="lp-web-media"
+                muted
+                loop
+                playsinline
+                preload="metadata"
+                :autoplay="!reduced"
+                :poster="VIDEO.poster"
+                aria-label="Vídeo: la web pública de una inmobiliaria creada con el Constructor Web, desplazándose por sus secciones"
+              >
+                <source :src="VIDEO.webm" type="video/webm">
+                <source :src="VIDEO.mp4" type="video/mp4">
+              </video>
+              <div class="lp-web-hint" aria-hidden="true"><span class="lp-dot" /> Vista previa en vivo</div>
+            </div>
             <div v-else key="editor" class="lp-editor-wrap">
               <img :src="shot.src" :alt="shot.alt" :width="shot.width" :height="shot.height" loading="lazy" decoding="async">
               <div class="lp-selection-frame" aria-hidden="true"><span>Diseñado por ti</span></div>
@@ -58,21 +74,41 @@
 </template>
 
 <script setup lang="ts">
-import LpWebScroll from './LpWebScroll.vue'
 import { LANDING_BUILDER, LANDING_SHOTS } from '~/utils/landing'
 
 /**
- * Constructor Web: las dos caras reales del mismo sitio (el editor visual y la
- * web publicada), capturas de la cuenta de demostración, que se alternan con
- * transición suave al elegir la pestaña.
+ * Constructor Web: las dos caras reales del mismo sitio. «Web publicada»
+ * muestra un vídeo real de la web de la cuenta de demostración («Norte Astur»)
+ * desplazándose por sus secciones; «Editor visual», la captura del editor. Se
+ * alternan con transición suave al elegir la pestaña.
  */
 type TabKey = (typeof LANDING_BUILDER.tabs)[number]['key']
 const active = ref<TabKey>('web')
 const current = computed(() => LANDING_BUILDER.tabs.find((t) => t.key === active.value) || LANDING_BUILDER.tabs[0])
 const shot = computed(() => LANDING_SHOTS[current.value.shot as keyof typeof LANDING_SHOTS])
+/** Rutas de /public (binding dinámico: Vite no las resuelve en build, se sirven en runtime). */
+const VIDEO = { webm: '/landing/norte-astur-web.webm', mp4: '/landing/norte-astur-web.mp4', poster: '/landing/norte-astur-web.webp' }
+const reduced = ref(false)
+const webVideo = ref<HTMLVideoElement | null>(null)
 function toggle() {
   active.value = active.value === 'editor' ? 'web' : 'editor'
 }
+function onVisibility() {
+  const v = webVideo.value
+  if (!v) return
+  if (document.hidden) v.pause()
+  else if (!reduced.value && active.value === 'web') v.play().catch(() => {})
+}
+onMounted(() => {
+  reduced.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  // Con «reducir movimiento» no reproducimos: se queda en el póster.
+  if (reduced.value && webVideo.value) {
+    webVideo.value.pause()
+    try { webVideo.value.currentTime = 0 } catch { /* noop */ }
+  }
+  document.addEventListener('visibilitychange', onVisibility)
+})
+onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisibility))
 </script>
 
 <style scoped>
@@ -138,6 +174,35 @@ function toggle() {
   height: 100%;
   object-fit: cover;
   object-position: top;
+}
+.lp-web-video {
+  position: relative;
+  height: 100%;
+  background: #fff;
+}
+.lp-web-media {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+.lp-web-hint {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--lp-line);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--lp-ink);
+  box-shadow: 0 8px 20px -12px rgba(16, 19, 25, 0.4);
 }
 .lp-selection-frame {
   position: absolute;

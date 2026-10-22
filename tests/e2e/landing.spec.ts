@@ -124,8 +124,10 @@ test.describe('Landing comercial de INMO', () => {
     await page.getByTestId('landing-builder').scrollIntoViewIfNeeded()
     await expect(page.getByTestId('landing-builder-tab-web')).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByTestId('landing-builder-shot')).toHaveAttribute('data-shot', 'web-portada')
-    // La demo animada (web sintética que se desplaza) está presente.
-    await expect(page.getByTestId('landing-builder-shot').locator('.lp-web')).toBeVisible()
+    // La demo es un vídeo real de la web de la cuenta de demostración.
+    const video = page.getByTestId('landing-builder-shot').locator('video')
+    await expect(video).toBeVisible()
+    await expect(video.locator('source[type="video/mp4"]')).toHaveAttribute('src', '/landing/norte-astur-web.mp4')
     await page.getByTestId('landing-builder-tab-editor').click()
     await expect(page.getByTestId('landing-builder-tab-editor')).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByTestId('landing-builder-shot')).toHaveAttribute('data-shot', 'constructor')
