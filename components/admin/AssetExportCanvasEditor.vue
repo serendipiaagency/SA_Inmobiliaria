@@ -1,7 +1,25 @@
 <template>
-  <div class="flex flex-col gap-4 lg:flex-row">
-    <!-- Left: element palette -->
-    <div class="w-full shrink-0 space-y-2 lg:w-36">
+  <div :class="fullscreen ? 'fixed inset-0 z-[70] flex flex-col gap-3 overflow-auto bg-white p-3' : 'flex flex-col gap-3'">
+    <!-- Barra de herramientas: paneles, zoom y pantalla completa -->
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-2">
+      <div class="flex items-center gap-1.5">
+        <button type="button" class="tb-btn" :class="showPalette ? 'tb-on' : ''" title="Mostrar/ocultar Elementos" @click="showPalette = !showPalette">Elementos</button>
+        <button type="button" class="tb-btn" :class="showInspector ? 'tb-on' : ''" title="Mostrar/ocultar Propiedades" @click="showInspector = !showInspector">Propiedades</button>
+      </div>
+      <div class="flex items-center gap-1">
+        <button type="button" class="tb-btn" title="Alejar" @click="zoomBy(-0.25)">−</button>
+        <span class="w-12 text-center text-xs tabular-nums text-stone-500">{{ Math.round(scale * 100) }}%</span>
+        <button type="button" class="tb-btn" title="Acercar" @click="zoomBy(0.25)">+</button>
+        <button type="button" class="tb-btn" title="Ajustar a pantalla" @click="zoomFit">Ajustar</button>
+        <button type="button" class="tb-btn" title="Tamaño real" @click="zoom100">100%</button>
+        <button type="button" class="tb-btn" :title="fullscreen ? 'Salir de pantalla completa (Esc)' : 'Pantalla completa'" @click="fullscreen = !fullscreen">{{ fullscreen ? '🗗 Reducir' : '⛶ Ampliar' }}</button>
+      </div>
+    </div>
+
+    <!-- Fila principal: paleta · lienzo · propiedades -->
+    <div class="flex min-h-0 flex-1 flex-col gap-4 lg:flex-row">
+      <!-- Left: element palette -->
+      <div v-show="showPalette" class="w-full shrink-0 space-y-2 lg:w-36">
       <div class="flex gap-2">
         <button type="button" class="flex-1 rounded-lg border border-line px-2 py-1.5 text-xs font-medium disabled:opacity-30" :disabled="!canUndo" title="Deshacer (Ctrl+Z)" @click="undo">↺ Deshacer</button>
         <button type="button" class="flex-1 rounded-lg border border-line px-2 py-1.5 text-xs font-medium disabled:opacity-30" :disabled="!canRedo" title="Rehacer (Ctrl+Shift+Z)" @click="redo">↻ Rehacer</button>
@@ -72,10 +90,8 @@
       <p class="mt-2 text-center text-[11px] text-stone-400">{{ format.label }} — {{ format.widthPt }}×{{ format.heightPt }} pt</p>
     </div>
 
-    <AdminCommsPropertyPickerModal v-if="pickerOpen" title="Previsualizar con una propiedad" @close="pickerOpen = false" @pick="onPickPreview" />
-
-    <!-- Right: properties -->
-    <div class="w-full shrink-0 lg:w-64">
+      <!-- Right: properties -->
+      <div v-show="showInspector" class="w-full shrink-0 lg:w-64">
       <div v-if="!selectedElement" class="rounded-lg border border-dashed border-line px-4 py-8 text-center text-xs text-stone-400">
         Selecciona un bloque para editarlo
       </div>
@@ -141,6 +157,9 @@
         <button type="button" class="w-full rounded-lg border border-red-200 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50" @click="removeElement">Eliminar bloque</button>
       </div>
     </div>
+    </div>
+
+    <AdminCommsPropertyPickerModal v-if="pickerOpen" title="Previsualizar con una propiedad" @close="pickerOpen = false" @pick="onPickPreview" />
   </div>
 </template>
 
@@ -190,9 +209,27 @@ const structure = props.structure // mutated in place — parent holds the react
 
 const format = computed(() => FORMATS[props.formatKey] || FORMATS.pdf_a4_portrait)
 const DISPLAY_WIDTH = 460
-const scale = computed(() => DISPLAY_WIDTH / format.value.widthPt)
+
+// --- Espacio de trabajo: zoom, pantalla completa y paneles contraíbles ------
+const fullscreen = ref(false)
+const showPalette = ref(true)
+const showInspector = ref(true)
+// `zoom` = 1 → el documento se ajusta a DISPLAY_WIDTH; >1 agranda (con scroll).
+const zoom = ref(1)
+const baseScale = computed(() => DISPLAY_WIDTH / format.value.widthPt)
+const scale = computed(() => baseScale.value * zoom.value)
 const canvasWidth = computed(() => Math.round(format.value.widthPt * scale.value))
 const canvasHeight = computed(() => Math.round(format.value.heightPt * scale.value))
+function zoomBy(delta: number) {
+  zoom.value = Math.min(4, Math.max(0.2, Math.round((zoom.value + delta) * 100) / 100))
+}
+function zoomFit() {
+  zoom.value = 1
+}
+function zoom100() {
+  // Tamaño real (1 px por punto): scale = 1 → zoom = 1 / baseScale.
+  zoom.value = 1 / baseScale.value
+}
 
 const activePageIndex = ref(0)
 const activePage = computed(() => structure.pages[activePageIndex.value] || structure.pages[0])
@@ -488,6 +525,11 @@ function redo() {
 
 function onKeydown(e: KeyboardEvent) {
   const target = e.target as HTMLElement | null
+  // Esc sale de pantalla completa (aunque el foco esté en un campo).
+  if (e.key === 'Escape' && fullscreen.value) {
+    fullscreen.value = false
+    return
+  }
   // Let native undo run inside text inputs — only drive the canvas
   // undo/redo stack when focus is elsewhere (canvas, buttons, body).
   if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return
@@ -511,5 +553,11 @@ onBeforeUnmount(() => {
 }
 .prop-input {
   @apply w-full rounded-lg border border-line bg-white px-2 py-1.5 text-xs focus:border-ink;
+}
+.tb-btn {
+  @apply rounded-md border border-line px-2 py-1 text-xs font-medium text-stone-600 transition hover:bg-stone-50;
+}
+.tb-on {
+  @apply border-ink bg-stone-50 text-ink;
 }
 </style>

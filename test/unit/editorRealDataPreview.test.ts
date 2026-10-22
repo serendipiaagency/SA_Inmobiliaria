@@ -44,6 +44,15 @@ describe('el editor pinta datos reales', () => {
     // El texto se pinta con su estilo real (tamaño/peso/color), no sólo como etiqueta.
     expect(editor).toContain('textCss(el)')
   })
+
+  it('espacio de trabajo: pantalla completa, zoom y paneles contraíbles', () => {
+    expect(editor).toContain('fullscreen')
+    expect(editor).toContain('zoomFit')
+    expect(editor).toContain('zoom100')
+    expect(editor).toContain('zoomBy')
+    expect(editor).toContain('showPalette')
+    expect(editor).toContain('showInspector')
+  })
 })
 
 describe('las dos piezas pasan su propiedad vinculada al editor', () => {
