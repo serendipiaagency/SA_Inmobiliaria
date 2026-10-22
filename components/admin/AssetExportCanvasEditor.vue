@@ -105,15 +105,10 @@
           <label class="flex items-center gap-2 text-xs">
             <input v-model="boldModel" type="checkbox" > Negrita
           </label>
-          <label class="block text-xs">
+          <div class="block text-xs">
             <span class="mb-1 block text-stone-500">Color</span>
-            <select v-model="styleOf(selectedElement).color" class="prop-input">
-              <option value="">Texto (por defecto)</option>
-              <option value="primary">Color principal (marca)</option>
-              <option value="secondary">Color secundario (marca)</option>
-              <option value="muted">Gris atenuado</option>
-            </select>
-          </label>
+            <AdminAssetExportColorPicker :model-value="(styleOf(selectedElement).color as string) || ''" :brand-colors="brandColors" @update:model-value="setColor" />
+          </div>
         </template>
 
         <label class="flex items-center gap-2 text-xs">
@@ -193,6 +188,26 @@ function onBindingChange(val: string) {
 watch(selected, () => {
   bindingQuery.value = ''
 })
+// --- Selector de color (Brand Kit + HEX libre) ------------------------------
+// Los colores de marca se cargan una vez para mostrarlos como muestras reales;
+// sin Brand Kit el selector sigue funcionando con HEX y predefinidos.
+type BrandColors = { colorPrimary?: string | null; colorSecondary?: string | null; colorBackground?: string | null; colorText?: string | null }
+const brandColors = ref<BrandColors | null>(null)
+onMounted(async () => {
+  try {
+    brandColors.value = await $fetch<BrandColors | null>('/api/admin/asset-export/brand-kit')
+  } catch {
+    /* sin Brand Kit o sin permiso: el selector funciona igual con HEX/predefinidos */
+  }
+})
+function setColor(v: string) {
+  if (!selectedElement.value) return
+  const s = styleOf(selectedElement.value)
+  // Guardar el rol o el HEX; «» vuelve al color por defecto (se quita la clave).
+  if (v) s.color = v
+  else delete s.color
+}
+
 /** Etiqueta legible que se muestra DENTRO del bloque en el lienzo. */
 function canvasLabel(el: TemplateElement) {
   if (el.type === 'qr') return 'QR'
