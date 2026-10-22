@@ -55,7 +55,7 @@
           <h3 class="text-sm font-semibold">Editar — {{ editing.name }}</h3>
         </div>
 
-        <AdminAssetExportCanvasEditor v-if="editingStructure" :structure="editingStructure" :format-key="editing.formatKey" />
+        <AdminAssetExportCanvasEditor v-if="editingStructure" :structure="editingStructure" :format-key="editing.formatKey" :preview-property="editing.assetId ? { kind: 'developer', id: editing.assetId, name: editing.name } : null" />
 
         <p v-if="editError" class="mt-2 text-xs font-medium text-red-600">{{ editError }}</p>
         <div class="mt-3 flex gap-3">
@@ -81,6 +81,8 @@ interface Project {
   priceChanged: boolean
   formatKey: string
   structureJson: string
+  assetKind?: string
+  assetId?: number
 }
 interface TemplateStructure {
   pages: Array<{ id: string; elements: any[] }>

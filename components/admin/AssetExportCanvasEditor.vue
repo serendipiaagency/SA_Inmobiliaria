@@ -29,6 +29,21 @@
 
     <!-- Center: canvas -->
     <div class="flex-1 overflow-auto rounded-lg bg-stone-100 p-6">
+      <!-- Datos de previsualización: muestra el documento con una propiedad real. -->
+      <div class="mx-auto mb-3 flex max-w-[460px] flex-wrap items-center gap-2 text-[11px]">
+        <template v-if="preview">
+          <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Previsualización: {{ previewName }}
+          </span>
+          <button type="button" class="text-stone-500 hover:text-ink hover:underline" @click="pickerOpen = true">Cambiar</button>
+          <button type="button" class="text-stone-500 hover:text-ink hover:underline" @click="clearPreview">Quitar</button>
+        </template>
+        <template v-else>
+          <span class="text-stone-400">Mostrando campos de ejemplo.</span>
+          <button type="button" class="font-medium text-ink hover:underline" @click="pickerOpen = true">Previsualizar con una propiedad real</button>
+        </template>
+      </div>
+
       <div
         ref="canvasEl"
         class="relative mx-auto bg-white shadow-md"
@@ -38,21 +53,26 @@
         <div
           v-for="el in activePage.elements"
           :key="el.id"
-          class="absolute cursor-move border"
-          :class="selected === el.id ? 'border-2 border-ink' : 'border-dashed border-stone-300'"
+          class="absolute cursor-move"
+          :class="selected === el.id ? 'outline outline-2 outline-ink' : 'outline-dashed outline-1 outline-stone-300/70'"
           :style="elementStyle(el)"
           @mousedown.stop="startDrag($event, el)"
         >
-          <div class="pointer-events-none flex h-full w-full items-center justify-center overflow-hidden px-1 text-center text-[9px] text-stone-500">
-            <span v-if="el.type === 'text'">{{ canvasLabel(el) }}</span>
-            <span v-else-if="el.type === 'image'">🖼 {{ canvasLabel(el) }}</span>
-            <span v-else>▦ QR</span>
-          </div>
+          <!-- Texto: con su tipografía, tamaño, peso, color y mayúsculas reales -->
+          <div v-if="el.type === 'text'" class="pointer-events-none h-full w-full overflow-hidden" :style="textCss(el)">{{ textContent(el) }}</div>
+          <!-- Imagen: la foto real de la propiedad si hay previsualización; si no, marcador legible -->
+          <img v-else-if="el.type === 'image' && imgUrl(el)" :src="imgUrl(el)!" class="pointer-events-none h-full w-full object-cover" alt="" >
+          <div v-else-if="el.type === 'image'" class="pointer-events-none flex h-full w-full items-center justify-center overflow-hidden bg-stone-100 px-1 text-center text-[9px] text-stone-400">🖼 {{ canvasLabel(el) }}</div>
+          <!-- QR: marcador (el QR real se dibuja en el PDF) -->
+          <div v-else class="pointer-events-none flex h-full w-full items-center justify-center bg-stone-800 text-[9px] text-white">▦ QR</div>
+
           <div v-if="selected === el.id" class="absolute -bottom-1.5 -right-1.5 h-3 w-3 cursor-nwse-resize rounded-full border border-white bg-ink" @mousedown.stop="startResize($event, el)" />
         </div>
       </div>
       <p class="mt-2 text-center text-[11px] text-stone-400">{{ format.label }} — {{ format.widthPt }}×{{ format.heightPt }} pt</p>
     </div>
+
+    <AdminCommsPropertyPickerModal v-if="pickerOpen" title="Previsualizar con una propiedad" @close="pickerOpen = false" @pick="onPickPreview" />
 
     <!-- Right: properties -->
     <div class="w-full shrink-0 lg:w-64">
@@ -160,7 +180,12 @@ const FORMATS: Record<string, { label: string; widthPt: number; heightPt: number
   social_story: { label: 'Story', widthPt: 1080, heightPt: 1920 },
 }
 
-const props = defineProps<{ structure: TemplateStructure; formatKey: string }>()
+const props = defineProps<{
+  structure: TemplateStructure
+  formatKey: string
+  /** Propiedad vinculada (si la hay): el lienzo muestra sus datos reales. */
+  previewProperty?: { kind: 'developer' | 'agent'; id: number; name?: string } | null
+}>()
 const structure = props.structure // mutated in place — parent holds the reactive object and reads it back on save
 
 const format = computed(() => FORMATS[props.formatKey] || FORMATS.pdf_a4_portrait)
@@ -214,6 +239,80 @@ function canvasLabel(el: TemplateElement) {
   if (isBindingToken(el.binding)) return tokenLabel(el.binding)
   if (el.type === 'text') return el.binding || '(texto vacío)'
   return el.binding ? tokenLabel(el.binding) : 'Imagen'
+}
+
+// --- Previsualización con datos reales --------------------------------------
+// El lienzo puede mostrar el documento con los datos REALES de una propiedad
+// (los mismos que resuelve la exportación), en vez de nombres de campo. La
+// propiedad puede venir vinculada (prop) o elegirse aquí; sin ninguna, se ven
+// los nombres de campo como ejemplo (nunca datos inventados).
+const preview = ref<{ values: Record<string, string>; images: Record<string, string | null> } | null>(null)
+const previewName = ref('')
+const pickerOpen = ref(false)
+
+async function loadPreview(kind: 'developer' | 'agent', id: number, name?: string) {
+  const assetKind = kind === 'agent' ? 'agent_property' : 'developer_property'
+  try {
+    preview.value = await $fetch<{ values: Record<string, string>; images: Record<string, string | null> }>('/api/admin/asset-export/preview-bindings', { query: { assetKind, assetId: id } })
+    previewName.value = name || `#${id}`
+  } catch {
+    preview.value = null
+    previewName.value = ''
+  }
+}
+function onPickPreview(p: { kind: 'developer' | 'agent'; id: number; name?: string }) {
+  pickerOpen.value = false
+  loadPreview(p.kind, p.id, p.name)
+}
+function clearPreview() {
+  preview.value = null
+  previewName.value = ''
+}
+onMounted(() => {
+  if (props.previewProperty) loadPreview(props.previewProperty.kind, props.previewProperty.id, props.previewProperty.name)
+})
+
+function tokenOf(binding: string | undefined): string | null {
+  const m = binding?.match(/^\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}$/)
+  return m ? m[1] : null
+}
+/** Texto que se pinta en el bloque: valor real si hay previsualización, si no la etiqueta/el texto fijo. */
+function textContent(el: TemplateElement): string {
+  const token = tokenOf(el.binding)
+  if (token) {
+    const v = preview.value?.values[token]
+    if (v) return el.style?.uppercase ? v.toUpperCase() : v
+    return tokenLabel(el.binding) // sin dato: nombre del campo, no {{token}}
+  }
+  return el.binding || '' // texto fijo
+}
+/** URL de la foto real para un bloque de imagen (sólo con previsualización). */
+function imgUrl(el: TemplateElement): string | null {
+  const token = tokenOf(el.binding)
+  return token && preview.value ? preview.value.images[token] || null : null
+}
+// Color CSS que imita resolveColor del servidor: rol de marca → color real del
+// Brand Kit (si hay previsualización) o su defecto; HEX → tal cual.
+const ROLE_FALLBACK: Record<string, string> = { primary: '#141410', secondary: '#66593a', background: '#ffffff', text: '#141410', accent: '#66593a', muted: '#73706c' }
+const ROLE_TOKEN: Record<string, string> = { primary: 'tenant.primaryColor', secondary: 'tenant.secondaryColor', background: 'tenant.backgroundColor', text: 'tenant.textColor', accent: 'tenant.accentColor' }
+function resolveCssColor(color: unknown): string {
+  if (typeof color !== 'string' || !color) return '#141410'
+  if (ROLE_TOKEN[color]) return preview.value?.values[ROLE_TOKEN[color]] || ROLE_FALLBACK[color]
+  if (color === 'muted') return ROLE_FALLBACK.muted
+  return color // HEX
+}
+/** Estilo CSS del texto, a escala del lienzo, reflejando lo que hará el PDF. */
+function textCss(el: TemplateElement) {
+  const s = el.style || {}
+  return {
+    fontSize: `${(Number(s.fontSize) || 12) * scale.value}px`,
+    fontWeight: Number(s.weight) >= 600 ? 700 : 400,
+    color: resolveCssColor(s.color),
+    lineHeight: String(Number(s.lineHeight) || 1.3),
+    textTransform: s.uppercase ? 'uppercase' : 'none',
+    padding: '1px 2px',
+    wordBreak: 'break-word' as const,
+  }
 }
 
 function styleOf(el: TemplateElement) {
