@@ -18,7 +18,10 @@ export default defineEventHandler(async (event) => {
   if (!body?.templateId || !body.assetKind || !body.assetId) {
     throw createError({ statusCode: 422, statusMessage: 'templateId, assetKind and assetId are required' })
   }
-  if (body.assetKind !== 'developer_property') {
+  // Obra nueva y 2ª mano: el resolver de bindings y el renderer ya soportan
+  // ambas (la pieza se genera desde «Dossier y creatividades» en los dos
+  // catálogos). Cualquier otro origen no está soportado.
+  if (body.assetKind !== 'developer_property' && body.assetKind !== 'agent_property') {
     throw createError({ statusCode: 422, statusMessage: `Unsupported assetKind: ${body.assetKind}` })
   }
 
@@ -32,13 +35,29 @@ export default defineEventHandler(async (event) => {
   ).find((t) => t.id === body.templateId)
   if (!template) throw createError({ statusCode: 404, statusMessage: 'Template not found' })
 
-  const asset = (
-    await db
-      .select({ id: schema.developerProperties.id, name: schema.developerProperties.name, price: schema.developerProperties.price, organizationId: schema.developerProperties.organizationId, deletedAt: schema.developerProperties.deletedAt })
-      .from(schema.developerProperties)
-      .where(and(eq(schema.developerProperties.id, body.assetId), eq(schema.developerProperties.organizationId, orgId)))
-      .limit(1)
-  )[0]
+  // La propiedad se carga de su catálogo (sólo id/precio/estado para el
+  // snapshot y el control de papelera); la resolución real de los datos la hace
+  // el render vía resolveAssetBindings. Obra nueva tiene nombre propio; 2ª mano
+  // no (su título se deriva), así que para el nombre por defecto se usa su id.
+  let asset: { id: number; name: string | null; price: number | null; organizationId: number; deletedAt: string | null } | undefined
+  if (body.assetKind === 'agent_property') {
+    const row = (
+      await db
+        .select({ id: schema.agentProperties.id, price: schema.agentProperties.price, organizationId: schema.agentProperties.organizationId, deletedAt: schema.agentProperties.deletedAt })
+        .from(schema.agentProperties)
+        .where(and(eq(schema.agentProperties.id, body.assetId), eq(schema.agentProperties.organizationId, orgId)))
+        .limit(1)
+    )[0]
+    asset = row && { ...row, name: `Inmueble #${row.id}` }
+  } else {
+    asset = (
+      await db
+        .select({ id: schema.developerProperties.id, name: schema.developerProperties.name, price: schema.developerProperties.price, organizationId: schema.developerProperties.organizationId, deletedAt: schema.developerProperties.deletedAt })
+        .from(schema.developerProperties)
+        .where(and(eq(schema.developerProperties.id, body.assetId), eq(schema.developerProperties.organizationId, orgId)))
+        .limit(1)
+    )[0]
+  }
   if (!asset) throw createError({ statusCode: 404, statusMessage: 'Asset not found' })
   // Una pieza nueva de una propiedad de la papelera, no.
   if (asset.deletedAt) throw createError({ statusCode: 422, statusMessage: trashedPropertyMessage('exportarla') })
