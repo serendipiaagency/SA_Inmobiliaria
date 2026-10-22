@@ -232,9 +232,12 @@ describe('Constructor Web: el bloque', () => {
     expect(blockLabel('seller-valuation')).toBe('Valoración de propiedad')
     expect(blockSubtitle({ type: 'seller-valuation' })).toContain('captación')
   })
-  it('la página «Vender propiedad» parte con el formulario nuevo y sin el antiguo duplicado', () => {
+  it('la página «Vender propiedad» arranca directamente con el formulario de valoración, sin bloque introductorio (Cola 29)', () => {
     const blocks = seedPageBlocks('vender') as any[]
-    expect(blocks.map((b) => b.type)).toEqual(['text', 'seller-valuation'])
+    // El primer bloque es el formulario de valoración (con su propio titular),
+    // ya no un bloque de texto introductorio que dejaba un hueco encima.
+    expect(blocks.map((b) => b.type)).toEqual(['seller-valuation'])
+    expect(blocks[0].content.title).toBeTruthy()
     expect(blocks.filter((b) => b.type === 'lead-form')).toHaveLength(0)
   })
   it('el servidor guarda sus textos y opciones válidas y descarta el resto', () => {

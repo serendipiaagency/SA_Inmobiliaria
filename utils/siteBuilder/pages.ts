@@ -515,22 +515,11 @@ export function seedPageBlocks(key: string): SeedBlock[] {
     case 'vender':
       // «Vender Propiedad» del menú (utils/siteNav.ts). La web la enseña desde
       // el primer día con este contenido; la inmobiliaria lo cambia y lo
-      // publica cuando quiera. El formulario es el de valoración de propiedad (`seller-valuation`): crea el lead de captación.
+      // publica cuando quiera. Arranca directamente con el formulario de
+      // valoración de propiedad (`seller-valuation`) —que ya tiene su propio
+      // titular «Cuéntanos qué quieres vender» y cuestionario— sin un bloque
+      // introductorio aparte que dejaba un hueco vacío encima (Cola 29).
       return [
-        {
-          id: 'text-vender',
-          type: 'text',
-          version: 1,
-          content: {
-            eyebrow: 'Vender Propiedad',
-            title: '¿Quieres vender tu vivienda?',
-            subtitle: '',
-            body: 'Cuéntanos qué quieres vender y te ayudamos con todo el proceso: el precio, la presentación del inmueble, las visitas y la negociación con los compradores.\n\nDéjanos tus datos y te llamamos para conocer tu propiedad, sin compromiso.',
-            align: 'left',
-            maxWidth: 'md',
-            columns: 1,
-          },
-        },
         {
           id: 'seller-valuation-vender',
           type: 'seller-valuation',
