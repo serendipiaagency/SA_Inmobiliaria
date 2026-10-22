@@ -61,7 +61,11 @@ PRIMARY_DOMAIN = "inmobiliaria.serendipiaagency.com"
 # PLATFORM_EMAIL_REPLY_TO = "info@serendipiaagency.com"
 # PLATFORM_EMAIL_CONTACT = "info@serendipiaagency.com"
 # PLATFORM_ADMIN_NOTIFY_EMAILS = "info@serendipiaagency.com"
-# PLATFORM_BASE_URL = "https://sa-inmobiliaria.example"
+# Origen público para los enlaces de los emails de la plataforma (acceder,
+# definir contraseña, confirmación de demo…): el dominio oficial de Portal INMO.
+# Sin esto se usa el origen de la petición (y las tareas programadas van sin
+# botón). server/utils/email/links.ts.
+PLATFORM_BASE_URL = "https://inmobiliaria.serendipiaagency.com"
 #
 # Email ENTRANTE (FASE 29, docs/communications.md «Email entrante»): el dominio
 # o subdominio con Cloudflare Email Routing cuya regla respuestas@<dominio>
