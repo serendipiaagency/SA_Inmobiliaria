@@ -45,7 +45,10 @@ SESSION_TTL_DAYS = "7"
 # server/middleware/00.tenant.ts. Leave unset if there is no such domain;
 # every OTHER tenant's own domain is set per-organization in
 # /admin/organizations, not here.
-# PRIMARY_DOMAIN = "sa-inmobiliaria.example"
+# Dominio oficial de Portal INMO: su web comercial (la landing) se sirve aquí,
+# igual que en el *.workers.dev. Sin esto, el host cae en el 404 «This domain
+# is not configured for any site on this platform» de 00.tenant.ts.
+PRIMARY_DOMAIN = "inmobiliaria.serendipiaagency.com"
 #
 # Emails propios de Portal INMO (docs/email.md): alta y estado de empresas,
 # cuenta de usuario, avisos de la web y avisos internos al equipo. Sin definir,
