@@ -20,9 +20,9 @@
 
       <template v-else>
         <div class="mt-6">
-          <!-- La marca de la PLATAFORMA, no la de una inmobiliaria: <Logo> pinta la
-               de la organización por defecto (M&M), y aquí se registra una empresa en INMO. -->
-          <p class="text-2xl font-black tracking-tight text-ink" aria-label="INMO">INMO</p>
+          <!-- La marca de la PLATAFORMA (Portal INMO), no la de una inmobiliaria:
+               aquí se registra una empresa en el SaaS. -->
+          <PortalInmoLogo size="md" />
           <h1 class="mt-5 text-2xl font-bold text-ink sm:text-3xl">Registra tu empresa</h1>
           <p class="mt-1 text-sm text-stone-500">Crea el espacio de tu inmobiliaria en INMO. Serás su administrador.</p>
         </div>
@@ -104,7 +104,8 @@
  * entra por el login normal.
  */
 definePageMeta({ layout: false })
-useHead({ title: 'Registro de empresa — INMO', meta: [{ name: 'robots', content: 'noindex' }] })
+usePortalInmoChrome('Registro de empresa — Portal INMO')
+useHead({ meta: [{ name: 'robots', content: 'noindex' }] })
 
 const MIN = 8
 const EMAIL_RE = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/

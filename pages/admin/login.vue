@@ -2,7 +2,7 @@
   <div class="flex min-h-screen items-center justify-center bg-paper px-4">
     <div class="w-full max-w-md">
       <div class="mb-8 text-center">
-        <Logo size="md" class="mx-auto" />
+        <PortalInmoLogo size="md" class="justify-center" />
         <p class="mt-4 text-sm text-stone-500">{{ challenge ? 'Verificación en dos pasos' : 'Panel de administración' }}</p>
       </div>
 
@@ -43,7 +43,7 @@
 // signing out and rejecting anything else instead of silently redirecting
 // to the public site.
 definePageMeta({ layout: false })
-useHead({ title: 'Acceder — Panel de administración' })
+usePortalInmoChrome('Acceder — Portal INMO')
 
 const { login, logout, user } = useAuth()
 const router = useRouter()

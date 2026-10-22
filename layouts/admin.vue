@@ -158,6 +158,19 @@ const { initials } = useDash()
 const open = ref(false)
 const isSuperAdmin = computed(() => user.value?.role === 'super_admin')
 
+// Chrome del SaaS (Cola 28): el panel es «Portal INMO», no la marca de ninguna
+// inmobiliaria. El favicon propio se inyecta aquí (cubre todas las páginas del
+// panel) y el titleTemplate marca la pestaña con «Portal INMO», quitando el
+// sufijo heredado «— M&M Real Estate» de los títulos de cada página. Las webs
+// públicas de las agencias no usan este layout, así que conservan su favicon.
+useHead({
+  titleTemplate: (title?: string) => {
+    const base = (title || 'Panel').replace(/\s*[—–-]\s*M&M Real Estate\s*$/i, '').trim()
+    return base.includes('Portal INMO') ? base : `${base} — Portal INMO`
+  },
+  link: [{ rel: 'icon', type: 'image/svg+xml', href: '/portal-inmo.svg', key: 'portal-inmo-favicon' }],
+})
+
 const icons: Record<string, string> = {
   grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
   chart: 'M3 3v18h18M7 15l4-5 3 3 5-7',

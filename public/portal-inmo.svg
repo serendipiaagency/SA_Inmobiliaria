@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Portal INMO">
+  <rect width="32" height="32" rx="7" fill="#16150f"/>
+  <path d="M16 6.5 L26 14.5 V26 H6 V14.5 Z" fill="#fdfcfa"/>
+  <rect x="13.4" y="18.4" width="5.2" height="7.6" fill="#16150f"/>
+  <rect x="13.4" y="12.8" width="5.2" height="3.4" rx="0.5" fill="#c07a54"/>
+</svg>
