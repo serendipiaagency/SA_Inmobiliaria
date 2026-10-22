@@ -44,8 +44,8 @@
           @mousedown.stop="startDrag($event, el)"
         >
           <div class="pointer-events-none flex h-full w-full items-center justify-center overflow-hidden px-1 text-center text-[9px] text-stone-500">
-            <span v-if="el.type === 'text'">{{ el.binding || '(texto vacío)' }}</span>
-            <span v-else-if="el.type === 'image'">🖼 {{ el.binding }}</span>
+            <span v-if="el.type === 'text'">{{ canvasLabel(el) }}</span>
+            <span v-else-if="el.type === 'image'">🖼 {{ canvasLabel(el) }}</span>
             <span v-else>▦ QR</span>
           </div>
           <div v-if="selected === el.id" class="absolute -bottom-1.5 -right-1.5 h-3 w-3 cursor-nwse-resize rounded-full border border-white bg-ink" @mousedown.stop="startResize($event, el)" />
@@ -79,16 +79,22 @@
           </label>
         </div>
 
-        <label class="block text-xs">
+        <div class="block text-xs">
           <span class="mb-1 block text-stone-500">Vinculación de datos</span>
-          <select v-model="selectedElement.binding" class="prop-input">
+          <input v-model="bindingQuery" type="search" placeholder="Buscar campo… (ej. precio)" class="prop-input mb-1.5" >
+          <select :value="bindingTokenValue" class="prop-input" @change="onBindingChange(($event.target as HTMLSelectElement).value)">
             <option value="">— texto fijo —</option>
-            <option v-for="token in tokensFor(selectedElement.type)" :key="token" :value="`{{${token}}}`">{{ token }}</option>
+            <optgroup v-for="g in bindingGroups" :key="g.group" :label="g.group">
+              <option v-for="it in g.items" :key="it.token" :value="`{{${it.token}}}`">{{ it.label }}</option>
+            </optgroup>
           </select>
-        </label>
-        <label v-if="!selectedElement.binding || !selectedElement.binding.startsWith('{{')" class="block text-xs">
+          <p v-if="isBindingToken(selectedElement.binding)" class="mt-1 leading-snug text-[11px] text-stone-400">
+            Campo dinámico: <span class="font-medium text-stone-600">{{ tokenLabel(selectedElement.binding) }}</span>. Se rellena con los datos reales de la propiedad.
+          </p>
+        </div>
+        <label v-if="selectedElement.type === 'text' && !isBindingToken(selectedElement.binding)" class="block text-xs">
           <span class="mb-1 block text-stone-500">Texto fijo</span>
-          <input v-model="selectedElement.binding" class="prop-input" >
+          <input v-model="selectedElement.binding" class="prop-input" placeholder="Escribe un texto fijo" >
         </label>
 
         <template v-if="selectedElement.type === 'text'">
@@ -124,6 +130,8 @@
 </template>
 
 <script setup lang="ts">
+import { isBindingToken, tokenGroupsForKind, tokenLabel } from '~/utils/assetExport/tokenCatalog'
+
 interface TemplateElement {
   id: string
   type: 'text' | 'image' | 'qr'
@@ -157,11 +165,6 @@ const FORMATS: Record<string, { label: string; widthPt: number; heightPt: number
   social_story: { label: 'Story', widthPt: 1080, heightPt: 1920 },
 }
 
-const ASSET_TOKENS = ['asset.title', 'asset.price', 'asset.location', 'asset.description', 'asset.bedrooms', 'asset.bathrooms', 'asset.builtArea', 'asset.propertyType', 'asset.publicUrl']
-const IMAGE_TOKENS = ['asset.mainImage', 'asset.masterPlanImage', 'asset.locationMapImage', 'tenant.logo']
-const QR_TOKENS = ['asset.qrCode']
-const TENANT_TOKENS = ['tenant.phone', 'tenant.whatsapp', 'tenant.email', 'tenant.legalText', 'tenant.website']
-
 const props = defineProps<{ structure: TemplateStructure; formatKey: string }>()
 const structure = props.structure // mutated in place — parent holds the reactive object and reads it back on save
 
@@ -176,10 +179,26 @@ const activePage = computed(() => structure.pages[activePageIndex.value] || stru
 const selected = ref<string | null>(null)
 const selectedElement = computed(() => activePage.value?.elements.find((e) => e.id === selected.value) || null)
 
-function tokensFor(type: string) {
-  if (type === 'image') return IMAGE_TOKENS
-  if (type === 'qr') return QR_TOKENS
-  return [...ASSET_TOKENS, ...TENANT_TOKENS]
+// --- Vinculación de datos (nombres legibles, agrupados y buscables) ---------
+// Los tokens técnicos (asset.title…) NO cambian; sólo su etiqueta visible, vía
+// utils/assetExport/tokenCatalog. El buscador y los grupos salen de ahí.
+const bindingQuery = ref('')
+const bindingGroups = computed(() => (selectedElement.value ? tokenGroupsForKind(selectedElement.value.type, bindingQuery.value) : []))
+const bindingTokenValue = computed(() => (selectedElement.value && isBindingToken(selectedElement.value.binding) ? selectedElement.value.binding! : ''))
+function onBindingChange(val: string) {
+  // Cambiar el origen de datos NO toca el estilo del elemento.
+  if (selectedElement.value) selectedElement.value.binding = val
+}
+// Al cambiar de elemento, limpiar el buscador para no arrastrar el filtro anterior.
+watch(selected, () => {
+  bindingQuery.value = ''
+})
+/** Etiqueta legible que se muestra DENTRO del bloque en el lienzo. */
+function canvasLabel(el: TemplateElement) {
+  if (el.type === 'qr') return 'QR'
+  if (isBindingToken(el.binding)) return tokenLabel(el.binding)
+  if (el.type === 'text') return el.binding || '(texto vacío)'
+  return el.binding ? tokenLabel(el.binding) : 'Imagen'
 }
 
 function styleOf(el: TemplateElement) {
