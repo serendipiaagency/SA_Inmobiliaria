@@ -2,6 +2,7 @@ import { getRequestHeader } from 'h3'
 import { useDb, resolvePublicOrgId } from '../../utils/db'
 import { rateLimit } from '../../utils/rateLimit'
 import { confirmSubscription, subscribeToNewsletter, unsubscribeByToken } from '../../utils/newsletter'
+import { captureMarketingLead } from '../../utils/leads'
 import { LOCALES } from '../../../i18n/messages'
 
 /**
@@ -40,6 +41,13 @@ export default defineEventHandler(async (event) => {
   if (body.website) return { ok: true, status: 'subscribed', unsubscribeToken: null }
   if (body.privacyAccepted !== true) throw createError({ statusCode: 422, statusMessage: 'Tienes que aceptar la política de privacidad' })
   const locale = typeof body.locale === 'string' && LOCALE_CODES.includes(body.locale) ? body.locale : null
-  const result = await subscribeToNewsletter(db, orgId, { email: String(body.email ?? ''), locale, source: 'footer' })
+  const email = String(body.email ?? '')
+  const result = await subscribeToNewsletter(db, orgId, { email, locale, source: 'footer' })
+  // Puente al CRM (Cola 30): una suscripción nueva (no un reenvío de quien ya
+  // estaba) crea/actualiza también un lead con origen «Newsletter», con dedup
+  // por email. Best-effort: nunca cambia la respuesta de la suscripción.
+  if (orgId && result.created && result.status === 'subscribed') {
+    await captureMarketingLead(event, { organizationId: orgId, email, source: 'newsletter', language: locale })
+  }
   return { ok: true, status: result.status, unsubscribeToken: result.unsubscribeToken }
 })

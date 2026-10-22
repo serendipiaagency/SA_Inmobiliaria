@@ -1,4 +1,5 @@
 import { useDb, schema, now, resolvePublicOrgId } from '../../utils/db'
+import { captureMarketingLead } from '../../utils/leads'
 
 function generateToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(20))
@@ -20,6 +21,11 @@ export default defineEventHandler(async (event) => {
     .insert(schema.savedSearches)
     .values({ organizationId: orgId, email, filtersJson: JSON.stringify(body?.filters || {}), unsubscribeToken: generateToken(), active: 1, createdAt: now() })
     .returning()
+
+  // Puente al CRM (Cola 30): dar de alta una alerta de propiedades crea/actualiza
+  // también un lead con origen «Alertas», con dedup por email. Best-effort: no
+  // cambia la respuesta ni impide guardar la alerta si el CRM fallara.
+  if (orgId) await captureMarketingLead(event, { organizationId: orgId, email, source: 'alerts' })
 
   return { ok: true, id: row.id }
 })

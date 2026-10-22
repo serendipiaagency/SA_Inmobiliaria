@@ -52,9 +52,12 @@ export const CONTACT_STATUSES = ['active', 'inactive', 'archived'] as const
 export const CONTACT_STATUS_LABELS: Record<string, string> = { active: 'Activo', inactive: 'Inactivo', archived: 'Archivado' }
 
 /** Origen de un contacto: cómo llegó a la agencia. */
-export const CONTACT_SOURCES = ['web', 'portal', 'phone', 'whatsapp', 'email', 'walk_in', 'referral', 'social', 'event', 'import', 'other'] as const
+export const CONTACT_SOURCES = ['web', 'newsletter', 'alerts', 'portal', 'phone', 'whatsapp', 'email', 'walk_in', 'referral', 'social', 'event', 'import', 'other'] as const
 export const CONTACT_SOURCE_LABELS: Record<string, string> = {
   web: 'Web',
+  // Captación desde la propia web (Cola 30): suscripción al newsletter y alta de alertas de propiedades.
+  newsletter: 'Newsletter',
+  alerts: 'Alertas de propiedades',
   portal: 'Portal inmobiliario',
   phone: 'Teléfono',
   whatsapp: 'WhatsApp',

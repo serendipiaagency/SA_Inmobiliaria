@@ -307,3 +307,35 @@ async function refreshScore(db: any, orgId: number, leadId: number, reason: 'cre
     // El lead ya está guardado; su puntuación se recalculará con la próxima señal o desde la ficha.
   }
 }
+
+/**
+ * Puente marketing → CRM (Cola 30): una suscripción al newsletter o un alta de
+ * alerta de propiedades crea/actualiza también un lead en el CRM, con su
+ * Contact (dedup por email dentro de la empresa, vía `upsertLead` →
+ * `resolveContact`), con el origen correspondiente («Newsletter» / «Alertas»).
+ *
+ * Es best-effort a propósito: la suscripción/alerta ya se guardó en su propia
+ * tabla antes de llamar aquí, así que un fallo del CRM nunca debe tumbar la
+ * acción pública ni cambiar su respuesta. Como sólo tenemos el email, se usa
+ * como nombre del lead hasta que alguien lo edite; si esa persona ya es un lead
+ * abierto de la agencia, `upsertLead` lo reutiliza (no duplica).
+ */
+export async function captureMarketingLead(
+  event: H3Event,
+  input: { organizationId: number; email: string; source: 'newsletter' | 'alerts'; sourceDetail?: string | null; language?: string | null },
+): Promise<void> {
+  const email = String(input.email || '').trim().toLowerCase()
+  if (!email) return
+  try {
+    await upsertLead(event, {
+      organizationId: input.organizationId,
+      name: email,
+      email,
+      source: input.source,
+      sourceDetail: input.sourceDetail ?? (input.source === 'newsletter' ? 'Newsletter' : 'Alertas de propiedades'),
+      language: input.language ?? null,
+    })
+  } catch {
+    // La suscripción/alerta ya está guardada; si el CRM falla, el lead se puede crear a mano.
+  }
+}
