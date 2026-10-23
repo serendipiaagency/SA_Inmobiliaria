@@ -262,6 +262,25 @@ export async function insertLead(event: H3Event, rawInput: UpsertLeadInput, cont
     // The lead is already saved — a notification failure must never undo that.
   }
 
+  // Aviso EN LA APP para la campana del panel: cada lead nuevo (formulario web,
+  // «Vender propiedad», ficha de propiedad, newsletter/alertas…) aparece como
+  // notificación en el icono de alertas, no sólo por email. Org-scoped: lo ve el
+  // equipo de esa agencia. Un fallo aquí nunca deshace el lead ya guardado.
+  try {
+    const label = row.sourceDetail || (row.source === 'web' ? 'Formulario web' : row.source)
+    const message = `Nuevo lead · ${label}: ${row.name}${row.propertyName ? ` — ${row.propertyName}` : ''}`
+    await db.insert(schema.publicationNotifications).values({
+      organizationId: input.organizationId,
+      type: 'lead_created',
+      channel: 'internal',
+      delivered: 1,
+      message: message.slice(0, 300),
+      createdAt: nowTs,
+    })
+  } catch {
+    // La campana es un extra: su fallo nunca bloquea el lead.
+  }
+
   // FASE 15 (migración 0071): sólo enruta si quien llamó no trajo ya un
   // comercial (p.ej. una reserva de cita con un agente concreto vino con
   // dueño desde el principio — el routing nunca pisa una elección explícita).

@@ -51,6 +51,32 @@ describe('FASE 12 — Lead como entidad real, resuelta contra Contact (migració
     expect(contact.name).toBe('Ana Ruiz')
   })
 
+  it('un lead nuevo deja un aviso en la campana del panel (notificación en-app, no sólo email)', async () => {
+    const { db } = createTestDb()
+    const fixture = await seedTenant(db, 'LeadBell')
+    const { upsertLead } = await import('../../server/utils/leads')
+
+    // Un lead de captación «Vender propiedad» con una propiedad asociada.
+    await upsertLead(ev(db), { organizationId: fixture.orgId, name: 'Javier Peralta', email: 'javier@example.com', source: 'web', sourceDetail: 'Vender propiedad' })
+
+    const notifs = await db
+      .select()
+      .from(schema.publicationNotifications)
+      .where(and(eq(schema.publicationNotifications.organizationId, fixture.orgId), eq(schema.publicationNotifications.type, 'lead_created')))
+    expect(notifs).toHaveLength(1)
+    expect(notifs[0].message).toContain('Javier Peralta')
+    expect(notifs[0].message).toContain('Vender propiedad')
+    expect(notifs[0].readAt).toBeNull() // nace sin leer → cuenta en el badge rojo
+
+    // Reenviar el mismo email reutiliza el lead: NO crea un segundo aviso.
+    await upsertLead(ev(db), { organizationId: fixture.orgId, name: 'Javier Peralta', email: 'javier@example.com', source: 'web', sourceDetail: 'Vender propiedad' })
+    const after = await db
+      .select()
+      .from(schema.publicationNotifications)
+      .where(and(eq(schema.publicationNotifications.organizationId, fixture.orgId), eq(schema.publicationNotifications.type, 'lead_created')))
+    expect(after).toHaveLength(1)
+  })
+
   it('un segundo envío del mismo email actualiza el lead existente Y también fija contactId (regresión corregida)', async () => {
     const { db } = createTestDb()
     const fixture = await seedTenant(db, 'LeadUpdateContact')
