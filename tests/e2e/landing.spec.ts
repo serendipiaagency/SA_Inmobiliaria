@@ -424,7 +424,7 @@ test.describe('Landing comercial de INMO', () => {
     await open(page)
     const footer = page.getByTestId('landing-footer')
     await expect(footer.locator('nav')).toHaveCount(4)
-    await expect(footer.getByRole('link', { name: 'Acceder' })).toHaveAttribute('href', '/admin/login')
+    await expect(footer.getByRole('link', { name: 'Iniciar sesión' })).toHaveAttribute('href', '/admin/login')
     await expect(footer.getByRole('link', { name: 'Crear mi inmobiliaria' })).toHaveAttribute('href', '/registro-empresa')
     await expect(footer.getByRole('link', { name: 'info@serendipiaagency.com' })).toHaveAttribute('href', 'mailto:info@serendipiaagency.com')
     for (const legal of ['/privacidad', '/terminos', '/cookies']) await expect(footer.locator(`a[href="${legal}"]`)).toHaveCount(1)
@@ -456,7 +456,7 @@ test.describe('Landing comercial de INMO', () => {
 
   test('29 · SEO: título, descripción, canónica, Open Graph, idioma y datos estructurados', async ({ page }) => {
     await open(page)
-    await expect(page).toHaveTitle('INMO — Tu inmobiliaria, a otro nivel')
+    await expect(page).toHaveTitle('Portal INMO — Tu inmobiliaria, a otro nivel')
     await expect(page.locator('html')).toHaveAttribute('lang', 'es')
     await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /Una web que atrae y un CRM que conecta/)
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${BASE_URL}/`)

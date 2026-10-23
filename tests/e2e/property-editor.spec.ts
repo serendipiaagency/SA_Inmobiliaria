@@ -232,19 +232,21 @@ test.describe('Property Editor — los cuatro recorridos', () => {
     await sel('region').selectOption({ label: 'Principado de Asturias' })
     await expect(sel('province').locator('option')).toHaveText(['—', 'Asturias'])
     await sel('province').selectOption('Asturias')
-    const oviedo = sel('municipality').locator('option', { hasText: /^Oviedo/ }).first()
+    // La localidad es ahora el campo principal: depende directamente de la provincia
+    // (el municipio pasó a un desplegable secundario que se completa solo).
+    const oviedo = sel('city').locator('option', { hasText: /^Oviedo/ }).first()
     await expect(oviedo).toHaveCount(1)
-    await sel('municipality').selectOption({ label: (await oviedo.textContent())!.trim() })
-    // El municipio elegido ya queda como localidad; no hay opciones de otras provincias.
-    await expect(sel('city')).not.toHaveValue('')
-    // Cambiar la comunidad vacía provincia, municipio y localidad.
+    await sel('city').selectOption({ label: (await oviedo.textContent())!.trim() })
+    // Al elegir la localidad, el municipio se completa solo (lo leen la ficha y el buscador).
+    await expect(sel('municipality')).not.toHaveValue('')
+    // Cambiar la comunidad vacía provincia, localidad y municipio.
     await sel('region').selectOption({ label: 'Comunidad de Madrid' })
     await expect(sel('province')).toHaveValue('')
-    await expect(sel('municipality')).toHaveValue('')
     await expect(sel('city')).toHaveValue('')
+    await expect(sel('municipality')).toHaveValue('')
     await sel('province').selectOption('Madrid')
-    await sel('municipality').selectOption('Madrid')
     await sel('city').selectOption('Madrid')
+    await expect(sel('municipality')).toHaveValue('Madrid')
 
     await step(page, 'price').click()
     await page.locator('[data-field="price"] input').fill('250000')
@@ -256,7 +258,7 @@ test.describe('Property Editor — los cuatro recorridos', () => {
     expect(row.country).toBe('España')
     expect(row.city).toBe('Madrid')
     await step(page, 'location').click()
-    await expect.poll(async () => await sel('municipality').inputValue(), { timeout: 15000 }).toBe('Madrid')
+    await expect(sel('municipality')).toHaveValue('Madrid', { timeout: 15000 })
     await expect(sel('region')).toHaveValue('Comunidad de Madrid')
   })
 
