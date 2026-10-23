@@ -12,6 +12,7 @@ import TeamInspector from '~/components/site-builder/inspectors/TeamInspector.vu
 import AboutAgencyInspector from '~/components/site-builder/inspectors/AboutAgencyInspector.vue'
 import TrustPointsInspector from '~/components/site-builder/inspectors/TrustPointsInspector.vue'
 import ServicesInspector from '~/components/site-builder/inspectors/ServicesInspector.vue'
+import EditorialInspector from '~/components/site-builder/inspectors/EditorialInspector.vue'
 import OfficesInspector from '~/components/site-builder/inspectors/OfficesInspector.vue'
 import LeadFormInspector from '~/components/site-builder/inspectors/LeadFormInspector.vue'
 import SellerValuationInspector from '~/components/site-builder/inspectors/SellerValuationInspector.vue'
@@ -199,6 +200,41 @@ export const BLOCK_PRESETS: BlockPreset[] = [
     }),
   },
   {
+    presetId: 'editorial-presentation',
+    type: 'editorial',
+    label: 'Imagen y texto',
+    description: 'Una fotografía grande junto a un titular serif y tu texto, con cita y botón opcionales. La pieza editorial reutilizable: presentación, historia, compromiso… Imagen a izquierda, a derecha, apilada o sólo texto.',
+    category: 'Empresa',
+    createContent: () => ({
+      layout: 'imageRight',
+      imageRatio: 'portrait',
+      eyebrow: 'Quiénes somos',
+      title: 'Mucho más que encontrar una casa.',
+      text: 'Somos una inmobiliaria especializada en nuestra zona. Conocemos su territorio, sus personas y sus oportunidades, y acompañamos a cada cliente en todo el proceso para que encuentre un lugar donde de verdad quiera vivir.\n\nNuestro equipo trabaja con cercanía, transparencia y un conocimiento real del mercado, antes, durante y después de cada operación.',
+      image: '', imageAlt: '', caption: '',
+      quote: '', quoteAuthor: '',
+      ctaLabel: '', ctaTo: '',
+    }),
+  },
+  {
+    presetId: 'editorial-history',
+    type: 'editorial',
+    label: 'Nuestra historia',
+    description: 'Vuestra trayectoria contada con una fotografía a todo el ancho con pie, titular serif, texto y una cita destacada. Pensado para «Nuestra historia» y secciones narrativas.',
+    category: 'Empresa',
+    createContent: () => ({
+      layout: 'stacked',
+      imageRatio: 'wide',
+      eyebrow: 'Nuestra historia',
+      title: 'Una trayectoria dedicada a tu zona.',
+      text: 'Desde nuestros inicios, hemos crecido junto a las personas y los lugares que conocemos. Cada operación nos ha enseñado algo, y ese recorrido es hoy nuestra mejor garantía.\n\nEdita este texto con los hitos reales de tu agencia: el año de fundación, cómo empezasteis, vuestra evolución y dónde estáis hoy.',
+      image: '', imageAlt: '', caption: 'Una imagen que cuente vuestra historia.',
+      quote: 'Poco a poco hemos ido formando el mejor equipo, y ese es el factor clave de nuestro éxito.',
+      quoteAuthor: 'Dirección',
+      ctaLabel: '', ctaTo: '',
+    }),
+  },
+  {
     presetId: 'offices',
     type: 'offices',
     label: 'Nuestras oficinas',
@@ -346,6 +382,7 @@ export const BLOCK_TYPE_LABELS: Record<string, string> = {
   'about-agency': 'Sobre nosotros',
   'trust-points': 'Por qué elegirnos',
   services: 'Servicios',
+  editorial: 'Imagen y texto',
   offices: 'Oficinas',
   team: 'Nuestro Equipo',
   'lead-form': 'Formulario de captación',
@@ -438,6 +475,10 @@ export function blockSubtitle(block: { type: string; content?: Record<string, an
       const layout = c.layout === 'editorial' ? 'Editorial' : c.layout === 'grid' ? 'Cuadrícula' : 'Automático'
       return `${count} oficina${count === 1 ? '' : 's'} · ${layout}`
     }
+    case 'editorial': {
+      const layout = c.layout === 'stacked' ? 'Apilado' : c.layout === 'textOnly' ? 'Sólo texto' : c.layout === 'imageLeft' ? 'Imagen izq.' : 'Imagen der.'
+      return `${c.title ? `"${String(c.title).slice(0, 28)}"` : 'Imagen y texto'} · ${layout}`
+    }
     case 'text':
       return c.title || 'Bloque de texto libre'
     case 'cta':
@@ -476,6 +517,7 @@ export const BLOCK_INSPECTORS: Record<string, BlockInspectorEntry> = {
   'about-agency': { component: AboutAgencyInspector, needsPreviewData: true },
   'trust-points': { component: TrustPointsInspector },
   services: { component: ServicesInspector },
+  editorial: { component: EditorialInspector },
   offices: { component: OfficesInspector, needsPreviewData: true },
   team: { component: TeamInspector, needsPreviewData: true },
   'lead-form': { component: LeadFormInspector },
