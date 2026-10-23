@@ -152,6 +152,6 @@ test.describe('Constructor Web — páginas editables', () => {
     expect((await a.post('/api/admin/site-pages/servicios/publish')).ok()).toBeTruthy()
     const servicios = await a.get(`/servicios?vista_previa=${orgId}`)
     expect(servicios.status()).toBe(200)
-    expect(await servicios.text()).toContain('Lo que hacemos por ti')
+    expect(await servicios.text()).toContain('Todo lo que hacemos por ti')
   })
 })
