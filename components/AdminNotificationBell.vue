@@ -60,7 +60,9 @@ async function markAllRead() {
 }
 function typeDot(type: string) {
   // `automation`: avisos internos de las automatizaciones (acción «Avisar al equipo», bloque N8b).
-  return { job_success: 'bg-emerald-500', job_retrying: 'bg-amber-500', job_failed: 'bg-red-500', automation: 'bg-blue-500' }[type] || 'bg-stone-400'
+  // `lead_created`: un lead nuevo de captación (formulario web, «Vender propiedad», ficha…).
+  // `visit_booked`: una visita reservada desde la web pública.
+  return { job_success: 'bg-emerald-500', job_retrying: 'bg-amber-500', job_failed: 'bg-red-500', automation: 'bg-blue-500', lead_created: 'bg-emerald-500', visit_booked: 'bg-indigo-500' }[type] || 'bg-stone-400'
 }
 
 onMounted(load)
