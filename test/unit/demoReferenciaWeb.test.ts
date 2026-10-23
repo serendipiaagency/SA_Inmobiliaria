@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { createEvent } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as schema from '../../server/db/schema'
+import { demoReferenceRefs } from '../../server/demo/reference'
 import { forgetDemoOrgCache } from '../../server/utils/demo/tenant'
 import { createD1Shim } from './helpers/d1Shim'
 
@@ -43,6 +44,23 @@ async function setup() {
     return { orgId: org.id as number, ids }
   }
 
+  // Siembra propiedades de 2ª mano (agent_properties) en una empresa ya creada, para la web pública que
+  // mezcla los dos catálogos (server/api/public/properties.get.ts). Mismo contrato que `tenant`: una por
+  // `ref` (su referencia de agencia), nombre y precio crecientes.
+  async function seedAgent(orgId: number, refs: (string | null)[]) {
+    const ids: number[] = []
+    let n = 0
+    for (const ref of refs) {
+      n += 1
+      const [p] = await db
+        .insert(schema.agentProperties)
+        .values({ organizationId: orgId, name: `Agent ${n}`, slug: `agent-${orgId}-${n}`, status: 'available', price: 200_000 + n * 1000, area: 90, agencyReference: ref, publishedAt: `2026-02-${String(n).padStart(2, '0')} 00:00:00`, createdAt: ts, updatedAt: ts } as any)
+        .returning({ id: schema.agentProperties.id })
+      ids.push(p.id)
+    }
+    return ids
+  }
+
   const catalog = (await import('../../server/api/public/properties.get')).default as (e: any) => Promise<any>
   const home = (await import('../../server/api/public/home.get')).default as (e: any) => Promise<any>
   const call = (fn: any, orgId: number, query = '') => {
@@ -53,11 +71,13 @@ async function setup() {
     ;(event.context as any).org = { id: orgId }
     return fn(event)
   }
-  return { db, tenant, catalog: (orgId: number, q = '') => call(catalog, orgId, q), home: (orgId: number) => call(home, orgId) }
+  return { db, tenant, seedAgent, catalog: (orgId: number, q = '') => call(catalog, orgId, q), home: (orgId: number) => call(home, orgId) }
 }
 
 // Más recientes primero por defecto (publishedAt crece con el número); las de referencia, las más antiguas.
-const REFS = ['NA-P10', 'NA-P02']
+// Mismo origen que la app: las referencias de obra nueva y de 2ª mano de server/demo/reference.ts.
+const REFS = demoReferenceRefs('developer') // ['NA-P10', 'NA-P02']
+const AGENT_REFS = demoReferenceRefs('agent') // ['NA-P11', 'NA-P19']
 const demoRefs = [REFS[0], REFS[1], null, null, null, null]
 
 describe('catálogo público de la demo', () => {
@@ -68,6 +88,22 @@ describe('catálogo público de la demo', () => {
     expect(res.rows.slice(0, 2).map((r: any) => r.id)).toEqual([demo.ids[0], demo.ids[1]])
     expect(res.rows.slice(0, 2).every((r: any) => r.demoReference === true)).toBe(true)
     expect(res.rows.slice(2).every((r: any) => r.demoReference === false)).toBe(true)
+  })
+
+  it('mezcla los dos catálogos: las de referencia de la web Y las de 2ª mano salen primero y marcadas', async () => {
+    // La web pública saca juntos los dos catálogos de Property Core (obra nueva + 2ª mano), y la demo tiene
+    // referencias en LOS DOS (server/demo/reference.ts). Con «Relevancia» cada catálogo pone las suyas primero
+    // por su puesto (demoRank), así que las cuatro encabezan la mezcla; una de 2ª mano puede ir por delante de
+    // una de la web, por eso se comprueba el CONJUNTO de las cuatro primeras, no el orden entre ellas.
+    const { tenant, seedAgent, catalog } = await setup()
+    const demo = await tenant('Demo', 'demo', [REFS[0], REFS[1], null, null])
+    await seedAgent(demo.orgId, [AGENT_REFS[0], AGENT_REFS[1], null, null])
+    const res = await catalog(demo.orgId)
+    expect(res.total).toBe(8) // 4 de obra nueva + 4 de 2ª mano
+    expect(res.rows.slice(0, 4).every((r: any) => r.demoReference === true)).toBe(true)
+    expect(res.rows.slice(4).every((r: any) => r.demoReference === false)).toBe(true)
+    // Entre las cuatro primeras están las dos de la web (Demo 1/2) Y las dos de 2ª mano (Agent 1/2).
+    expect(new Set(res.rows.slice(0, 4).map((r: any) => r.name))).toEqual(new Set(['Demo 1', 'Demo 2', 'Agent 1', 'Agent 2']))
   })
 
   it('el resto conserva el orden de siempre (relevancia: las más recientes primero)', async () => {

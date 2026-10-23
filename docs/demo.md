@@ -105,10 +105,14 @@ paginación se comportan como siempre: sólo salen las que coinciden y las de
 referencia no se cuelan. Las filas de la demo llevan `demoReference`; ninguna otra
 empresa recibe ese campo ni cambia de orden.
 
-**Web pública (la del Constructor Web).** Es donde más importa: en la web de la demo
-el catálogo (`GET /api/public/properties`, página «Propiedades» y mapa) y la
-portada (`GET /api/public/home`, bloque «Propiedades») sacan primero las de
-**Propiedades (web)** (el chalet y el ático; la 2ª mano no se publica en la web).
+**Web pública (la del Constructor Web).** Es donde más importa. El catálogo
+(`GET /api/public/properties`, página «Propiedades» y mapa) **mezcla los dos
+catálogos de Property Core** —obra nueva y 2ª mano—, así que saca primero las
+**cuatro** de referencia (el chalet y el ático de la web, y el piso y la casa de
+2ª mano), todas con el marco dorado. Cada catálogo coloca las suyas por su puesto,
+y al mezclarse con «Relevancia» una de 2ª mano puede quedar por delante de una de
+la web. La portada (`GET /api/public/home`, bloque «Propiedades») sólo muestra obra
+nueva, así que ahí las de referencia son las dos de la web, en su orden.
 Con «Relevancia» (el orden por defecto) van primeras en cada petición y,
 por tanto, sólo en la primera página; un orden elegido (precio, recientes…), un
 filtro o la paginación se respetan. Las filas llevan `demoReference` (la

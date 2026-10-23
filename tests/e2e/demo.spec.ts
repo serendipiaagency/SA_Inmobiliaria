@@ -191,23 +191,31 @@ test('cuenta demo: se genera, la gerente entra sin opciones de super admin y nad
   await page.reload()
   await expect(page.getByText('Encuentra tu lugar')).toBeVisible()
   await expect(page.getByTestId('demo-notice')).toHaveCount(0)
-  // 4b. La WEB PÚBLICA de la demo (la que construye el Constructor Web): las de referencia, primero y con marco
-  // dorado en el catálogo y en la portada; un orden elegido, los filtros y la paginación se respetan.
+  // 4b. La WEB PÚBLICA de la demo (la que construye el Constructor Web): su catálogo MEZCLA los dos
+  // catálogos de Property Core —obra nueva y 2ª mano (server/api/public/properties.get.ts)—, así que
+  // las CUATRO de referencia (las dos de la web y las dos de 2ª mano, server/demo/reference.ts) salen
+  // primero y con marco dorado; un orden elegido, los filtros y la paginación se respetan.
+  // Con «Relevancia» cada catálogo pone sus referencias por su puesto (demoRank), y al mezclarse una de
+  // 2ª mano puede quedar por delante de una de la web: se comprueba el CONJUNTO de las cuatro primeras, no
+  // el orden entre ellas. Las dos de 2ª mano son el piso de La Florida (p11) y la casa de Llanes (p19).
+  const PUBLIC_REFS = [...WEB_REFS, 'Vivienda familiar reformada en La Florida', 'Casa asturiana de piedra rehabilitada cerca de Llanes']
   const pub = (await (await page.request.get(`/api/public/properties?vista_previa=${orgId}&perPage=12`)).json()).rows as any[]
-  expect(pub.slice(0, 2).map((r) => r.name)).toEqual(WEB_REFS)
-  expect(pub.slice(0, 2).every((r) => r.demoReference === true)).toBe(true)
-  expect(pub.slice(2).every((r) => r.demoReference === false)).toBe(true)
+  expect([...pub.slice(0, 4).map((r) => r.name)].sort()).toEqual([...PUBLIC_REFS].sort())
+  expect(pub.slice(0, 4).every((r) => r.demoReference === true)).toBe(true)
+  expect(pub.slice(4).every((r) => r.demoReference === false)).toBe(true)
   expect(pub.every((r) => !('agencyReference' in r))).toBe(true) // la referencia de agencia sigue siendo interna
   const pubPrice = (await (await page.request.get(`/api/public/properties?vista_previa=${orgId}&perPage=12&sort=price_asc`)).json()).rows as any[]
   const pubPrices = pubPrice.map((r) => r.price)
   expect(pubPrices).toEqual([...pubPrices].sort((a, b) => a - b))
   const pubPage2 = (await (await page.request.get(`/api/public/properties?vista_previa=${orgId}&perPage=4&page=2`)).json()).rows as any[]
-  expect(pubPage2.some((r) => r.demoReference)).toBe(false)
+  expect(pubPage2.some((r) => r.demoReference)).toBe(false) // las cuatro de referencia caben en la primera página
+  // La portada (bloque «Propiedades») sólo saca obra nueva (GET /api/public/home es sólo developer_properties),
+  // así que ahí las de referencia son las dos de la web, en su orden.
   const homeData = await (await page.request.get(`/api/public/home?vista_previa=${orgId}`)).json()
   expect((homeData.projects as any[]).slice(0, 2).map((r) => r.name)).toEqual(WEB_REFS)
   await page.goto(`/propiedades?vista_previa=${orgId}`)
   const framed = page.locator('[data-demo-reference="1"]')
-  await expect(framed).toHaveCount(2)
+  await expect(framed).toHaveCount(4) // el catálogo público enmarca las cuatro de referencia (web + 2ª mano)
   await expect(page.locator('[data-demo-reference]').first()).toHaveAttribute('data-demo-reference', '1')
   await expect(framed.first().getByTestId('demo-reference-tag')).toHaveText('Propiedad de referencia')
   const border = await framed.first().evaluate((el) => {
@@ -220,13 +228,15 @@ test('cuenta demo: se genera, la gerente entra sin opciones de super admin y nad
   const real = (await (await owner.get('/api/public/properties?perPage=12')).json()).rows as any[]
   expect(real.some((r) => 'demoReference' in r)).toBe(false)
 
-  // La pestaña «Alquilar» tiene inventario: las dos promociones en alquiler (p05 y p06), con su renta mensual y «/mes».
+  // La pestaña «Alquilar» tiene inventario y, como el catálogo mezcla los dos catálogos, salen las tres en
+  // alquiler: las dos promociones de obra nueva (p05 y p06) y el apartamento de 2ª mano (p18), con su renta
+  // mensual y «/mes».
   const rent = await (await page.request.get(`/api/public/properties?operacion=alquiler&vista_previa=${orgId}`)).json()
-  expect((rent.rows as any[]).map((p) => p.transactionType)).toEqual(['rent', 'rent'])
+  expect((rent.rows as any[]).map((p) => p.transactionType)).toEqual(['rent', 'rent', 'rent'])
   expect((rent.rows as any[]).every((p) => p.price > 0 && p.price < 5_000)).toBeTruthy()
   await page.goto(`/propiedades?operacion=alquiler&vista_previa=${orgId}`)
   await expect(page.locator('.pc-price').first()).toContainText('/mes')
-  expect(await page.locator('.pc-price').count()).toBe(2)
+  expect(await page.locator('.pc-price').count()).toBe(3)
   // Se sale como siempre (el parámetro), sin franja que lo ofrezca.
   await page.goto('/?vista_previa=salir')
   expect((await (await page.request.get('/api/public/tenant')).json()).id).not.toBe(orgId)
