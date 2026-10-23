@@ -539,8 +539,6 @@ export function buildPropertySections(catalog: BuilderCatalog): BuilderSection[]
         group: 'SEO',
       },
     ],
-    // Las traducciones sólo existen en 2ª mano (property_translations).
-    ...(dev ? {} : { extras: [{ kind: 'translations' }] as SectionExtra[] }),
   }
 
   const location: LocationSection = {

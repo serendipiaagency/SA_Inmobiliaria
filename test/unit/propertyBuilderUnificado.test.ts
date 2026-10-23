@@ -61,10 +61,15 @@ describe('un solo constructor para los dos catálogos', () => {
       expect(keys.filter((k, i) => keys.indexOf(k) !== i)).toEqual([])
     }
   })
-  it('las capacidades de cada catálogo: traducciones sólo en 2ª mano y tipologías sólo en obra nueva', () => {
-    const extras = (sections: typeof DEV) => (section(sections, sections === DEV ? 'info' : 'info') as FieldsSection).extras?.map((e) => e.kind) ?? []
+  it('las capacidades de cada catálogo: ninguna «Información básica» muestra editor de traducciones; tipologías sólo en obra nueva', () => {
+    // El editor de título/descripción en inglés y árabe del apartado SEO se
+    // retiró de «01. Información básica» (petición del propietario): ni obra
+    // nueva ni 2ª mano lo muestran. La tabla property_translations y su
+    // sincronización siguen intactas (sin migración); simplemente no se edita
+    // desde el formulario.
+    const extras = (sections: typeof DEV) => (section(sections, 'info') as FieldsSection).extras?.map((e) => e.kind) ?? []
     expect(extras(DEV)).toEqual([])
-    expect(extras(AGENT)).toEqual(['translations'])
+    expect(extras(AGENT)).toEqual([])
     expect(((section(DEV, 'features') as FieldsSection).extras || []).map((e) => e.kind)).toEqual(['child-table'])
     expect((section(AGENT, 'features') as FieldsSection).extras).toBeUndefined()
   })
