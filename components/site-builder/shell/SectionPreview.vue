@@ -177,6 +177,18 @@
       <div class="h-3 w-16 shrink-0 rounded-full bg-ink" />
     </div>
 
+    <!-- Imagen y texto: una foto grande enmarcada junto a etiqueta, titular serif y prosa -->
+    <div v-else-if="type === 'editorial'" class="flex w-[86%] items-center gap-3">
+      <div class="h-14 flex-1 rounded-sm bg-stone-300 shadow-sm ring-1 ring-black/5" />
+      <div class="flex-1 space-y-1">
+        <div class="h-1 w-1/3 rounded-full bg-accent-200" />
+        <div class="h-2.5 w-5/6 rounded-full bg-ink" />
+        <div class="h-1 w-full rounded-full bg-stone-200" />
+        <div class="h-1 w-4/5 rounded-full bg-stone-200" />
+        <div class="mt-1 border-l-2 border-stone-300 pl-1"><div class="h-1.5 w-2/3 rounded-full bg-stone-300" /></div>
+      </div>
+    </div>
+
     <!-- Text: title + paragraph lines -->
     <div v-else-if="type === 'text'" class="w-[80%] space-y-1">
       <div class="h-2 w-1/2 rounded-full bg-stone-400" />
