@@ -53,16 +53,12 @@
     <div class="flex items-center gap-1 border-t border-line px-3 py-2">
       <NuxtLink :to="`/admin/developer-properties/${property.id}`" class="text-[12px] font-medium text-stone-600 hover:text-ink hover:underline">Editar</NuxtLink>
       <a :href="`/propiedades/${property.slug || property.id}`" target="_blank" rel="noopener" class="text-[12px] font-medium text-stone-600 hover:text-ink hover:underline">Vista previa</a>
-      <div ref="menuRoot" class="relative ml-auto">
-        <button type="button" class="flex h-7 w-7 items-center justify-center rounded-full text-stone-400 hover:bg-stone-100 hover:text-ink" @click.stop="menuOpen = !menuOpen">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
-        </button>
-        <div v-if="menuOpen" class="absolute right-0 top-8 z-20 w-44 overflow-hidden rounded-lg border border-line bg-white py-1 text-[13px] shadow-lg">
-          <button type="button" class="block w-full px-3 py-1.5 text-left hover:bg-stone-50" @click="act('publish')">{{ property.publishedAt ? 'Despublicar' : 'Publicar' }}</button>
-          <button type="button" class="block w-full px-3 py-1.5 text-left hover:bg-stone-50" @click="act('duplicate')">Duplicar</button>
-          <button type="button" class="block w-full px-3 py-1.5 text-left text-red-600 hover:bg-red-50" @click="act('delete')">Eliminar</button>
-        </div>
-      </div>
+      <AdminActionsMenu
+        class="ml-auto"
+        :label="`Acciones de ${property.name}`"
+        trigger-class="flex h-7 w-7 items-center justify-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-ink"
+        :items="menuItems"
+      />
     </div>
   </div>
 </template>
@@ -72,24 +68,18 @@ import TagChips from '~/components/admin/tags/TagChips.vue'
 import { priceSuffixFor } from '~/utils/propertySheet'
 import { commercialStatusLabel, commercialStatusTone } from '~/utils/propertyCommercialStatus'
 import { LIST_CHIP_CLASSES } from '~/composables/usePropertyListConfig'
+import type { AdminActionItem } from '~/components/admin/ActionsMenu.vue'
+
 const props = defineProps<{ property: Record<string, any> }>()
 const emit = defineEmits<{ publish: [id: number]; duplicate: [id: number]; delete: [id: number] }>()
 
-const menuOpen = ref(false)
-const menuRoot = ref<HTMLElement | null>(null)
-
-function onDocClick(e: MouseEvent) {
-  if (!menuRoot.value?.contains(e.target as Node)) menuOpen.value = false
-}
-onMounted(() => document.addEventListener('click', onDocClick))
-onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
-
 const STATUS_LABELS: Record<string, string> = { new: 'Obra nueva', under_construction: 'En construcción', ready: 'Lista' }
 
-function act(action: 'publish' | 'duplicate' | 'delete') {
-  menuOpen.value = false
-  emit(action as any, props.property.id)
-}
+const menuItems = computed<AdminActionItem[]>(() => [
+  { label: props.property.publishedAt ? 'Despublicar' : 'Publicar', onClick: () => emit('publish', props.property.id) },
+  { label: 'Duplicar', onClick: () => emit('duplicate', props.property.id) },
+  { label: 'Eliminar', danger: true, onClick: () => emit('delete', props.property.id) },
+])
 
 // Moneda de la propiedad (o la de la agencia si no tiene), sin convertir (utils/currency.ts).
 // En alquiler el precio es la renta de cada mes (cierre D1p): «1.200 € /mes».
