@@ -10,7 +10,7 @@ PNG="$RAW_DIR/norte-astur-fullpage.png"
 [ -f "$PNG" ] || { echo "No existe la captura: $PNG"; exit 1; }
 
 OUT_W=1280; OUT_H=800            # marco de salida (aspecto ~1.6)
-DUR="${DUR:-24}"                 # segundos del recorrido (bajada + subida)
+DUR="${DUR:-48}"                 # segundos del recorrido (bajada + subida); ritmo pausado
 FPS=30
 
 W=$(identify -format '%w' "$PNG")
