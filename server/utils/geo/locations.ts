@@ -1,4 +1,4 @@
-import { and, eq, isNull, like, or, sql, type SQL } from 'drizzle-orm'
+import { and, eq, getTableName, isNull, like, or, sql, type SQL } from 'drizzle-orm'
 import { schema } from '../db'
 import { inJsonList } from '../sqlChunks'
 import { locationVariants } from '../properties/locationIndex'
@@ -6,6 +6,7 @@ import { zoneMatch, zoneTree, type ZoneRow } from '../zones'
 import { geoMunicipalitiesOf, geoPlace, geoIndex, loadGeoCatalog, type GeoPlace } from './catalog'
 import { normalizePostalCode } from '../../../utils/publicSearch'
 import { locationKindOfId, type LocationSelection } from '../../../utils/searchState'
+import type { PropertyKind } from '../matching/service'
 
 /**
  * Una ubicación elegida POR IDENTIFICADOR (entidad del catálogo de España o
@@ -24,11 +25,30 @@ import { locationKindOfId, type LocationSelection } from '../../../utils/searchS
  *    si la zona es de ESTA agencia (una zona ajena no encuentra nada).
  */
 
-const P = schema.developerProperties
-const P_ID = sql.raw('"developer_properties"."id"')
-const P_ORG = sql.raw('"developer_properties"."organization_id"')
-const details = (cond: SQL): SQL => sql`exists (select 1 from property_details pd where pd.organization_id = ${P_ORG} and pd.property_kind = 'developer' and pd.property_id = ${P_ID} and (${cond}))`
 const NONE = sql`0`
+
+/**
+ * El catálogo (obra nueva o 2ª mano) sobre el que se construye la condición de
+ * ubicación: su tabla (`P`) y su ficha ampliada (`details`). Antes esto estaba
+ * fijado a `developer_properties`, así que en cuanto una búsqueda pública traía
+ * una ubicación POR IDENTIFICADOR (`loc=es:mun:…`) el recuento/listado del
+ * catálogo de 2ª mano (`agent_properties`) rompía con
+ * «no such column: developer_properties.city» — el endpoint consulta los dos
+ * catálogos, así que fallaba toda búsqueda por ubicación. La condición se
+ * construye ahora con la tabla y el `property_kind` del catálogo en curso, igual
+ * que el resto de filtros públicos (server/utils/properties/publicSearch.ts).
+ */
+interface LocationScope {
+  P: typeof schema.developerProperties
+  details: (cond: SQL) => SQL
+}
+function scopeFor(kind: PropertyKind): LocationScope {
+  const P = (kind === 'agent' ? schema.agentProperties : schema.developerProperties) as typeof schema.developerProperties
+  const name = sql.identifier(getTableName(P as any))
+  const details = (cond: SQL): SQL =>
+    sql`exists (select 1 from property_details pd where pd.organization_id = ${name}.organization_id and pd.property_kind = ${kind} and pd.property_id = ${name}.id and (${cond}))`
+  return { P, details }
+}
 
 /** Las formas con las que se busca un nombre del catálogo: el nombre, sus cooficiales («Gijón/Xixón» → las dos) y las variantes guardadas en el inventario. */
 async function namesOf(db: any, orgId: number, kind: 'municipality' | 'neighborhood' | 'province' | 'region', place: GeoPlace): Promise<string[]> {
@@ -42,7 +62,7 @@ function postalCodesOf(ine: string): string[] {
   return geoIndex().places.filter((p) => p.kind === 'postalCode' && p.ine.includes(ine)).map((p) => p.name)
 }
 
-async function municipalityCond(db: any, orgId: number, place: GeoPlace): Promise<SQL> {
+async function municipalityCond(db: any, orgId: number, place: GeoPlace, { P, details }: LocationScope): Promise<SQL> {
   const names = await namesOf(db, orgId, 'municipality', place)
   const cps = place.ine[0] ? postalCodesOf(place.ine[0]) : []
   const parts: SQL[] = [inJsonList(P.city, names), details(inJsonList(sql`pd.municipality`, names))]
@@ -50,7 +70,7 @@ async function municipalityCond(db: any, orgId: number, place: GeoPlace): Promis
   return or(...parts)!
 }
 
-async function provinceCond(db: any, orgId: number, place: GeoPlace): Promise<SQL> {
+async function provinceCond(db: any, orgId: number, place: GeoPlace, { P, details }: LocationScope): Promise<SQL> {
   const names = await namesOf(db, orgId, 'province', place)
   const munNames = geoMunicipalitiesOf(place.id).flatMap((m) => [m.name, ...m.name.split('/').map((s) => s.trim())])
   const parts: SQL[] = [details(inJsonList(sql`pd.province`, names)), inJsonList(P.city, munNames), details(inJsonList(sql`pd.municipality`, munNames))]
@@ -58,7 +78,7 @@ async function provinceCond(db: any, orgId: number, place: GeoPlace): Promise<SQ
   return or(...parts)!
 }
 
-async function regionCond(db: any, orgId: number, place: GeoPlace): Promise<SQL> {
+async function regionCond(db: any, orgId: number, place: GeoPlace, { P, details }: LocationScope): Promise<SQL> {
   const names = await namesOf(db, orgId, 'region', place)
   const provinces = geoIndex().places.filter((p) => p.kind === 'province' && p.regionId === place.id)
   const provNames = provinces.flatMap((p) => [p.name, ...p.name.split('/').map((s) => s.trim())])
@@ -70,7 +90,8 @@ async function regionCond(db: any, orgId: number, place: GeoPlace): Promise<SQL>
   return or(...parts)!
 }
 
-async function localityCond(db: any, orgId: number, place: GeoPlace): Promise<SQL> {
+async function localityCond(db: any, orgId: number, place: GeoPlace, scope: LocationScope): Promise<SQL> {
+  const { P, details } = scope
   const names = await namesOf(db, orgId, 'neighborhood', place)
   const inPlace = or(inJsonList(P.community, names), details(inJsonList(sql`pd.neighborhood`, names)))!
   const mun = place.municipalityId ? geoPlace(place.municipalityId) : null
@@ -81,7 +102,7 @@ async function localityCond(db: any, orgId: number, place: GeoPlace): Promise<SQ
   return and(inPlace, or(inJsonList(P.city, munNames), details(inJsonList(sql`pd.municipality`, munNames)), noMunicipality)!)!
 }
 
-function postalCodeCond(place: GeoPlace): SQL {
+function postalCodeCond(place: GeoPlace, { P }: LocationScope): SQL {
   const cp = normalizePostalCode(place.name)
   return cp ? eq(P.postalCode, cp) : NONE
 }
@@ -95,7 +116,7 @@ async function zoneOf(db: any, orgId: number, id: string): Promise<{ zone: ZoneR
   return zone ? { zone, tree: zoneTree(rows) } : null
 }
 
-async function zoneCond(db: any, orgId: number, id: string): Promise<SQL> {
+async function zoneCond(db: any, orgId: number, id: string, { P, details }: LocationScope): Promise<SQL> {
   const z = await zoneOf(db, orgId, id)
   if (!z) return NONE
   const m = zoneMatch(z.zone, z.tree)
@@ -112,19 +133,26 @@ async function zoneCond(db: any, orgId: number, id: string): Promise<SQL> {
   return and(...parts)!
 }
 
-/** La condición de una ubicación elegida por identificador; `0` (nada) si el id no existe o no es de esta agencia. */
-export async function locationCondById(db: any, orgId: number, id: string): Promise<SQL> {
-  const kind = locationKindOfId(id)
-  if (!kind) return NONE
-  if (kind === 'zone') return zoneCond(db, orgId, id)
+/**
+ * La condición de una ubicación elegida por identificador, sobre el catálogo
+ * `kind` (obra nueva o 2ª mano); `0` (nada) si el id no existe o no es de esta
+ * agencia. El catálogo es imprescindible: cada uno vive en su tabla
+ * (`developer_properties` / `agent_properties`), y una condición escrita para
+ * una no es válida sobre la otra.
+ */
+export async function locationCondById(db: any, orgId: number, id: string, kind: PropertyKind): Promise<SQL> {
+  const level = locationKindOfId(id)
+  if (!level) return NONE
+  const scope = scopeFor(kind)
+  if (level === 'zone') return zoneCond(db, orgId, id, scope)
   await loadGeoCatalog()
   const place = geoPlace(id)
   if (!place) return NONE
-  if (place.kind === 'municipality') return municipalityCond(db, orgId, place)
-  if (place.kind === 'province') return provinceCond(db, orgId, place)
-  if (place.kind === 'region') return regionCond(db, orgId, place)
-  if (place.kind === 'locality') return localityCond(db, orgId, place)
-  return postalCodeCond(place)
+  if (place.kind === 'municipality') return municipalityCond(db, orgId, place, scope)
+  if (place.kind === 'province') return provinceCond(db, orgId, place, scope)
+  if (place.kind === 'region') return regionCond(db, orgId, place, scope)
+  if (place.kind === 'locality') return localityCond(db, orgId, place, scope)
+  return postalCodeCond(place, scope)
 }
 
 /** Los ids que contienen a una entidad (municipio → provincia y comunidad; barrio → municipio…), para las redundancias. */

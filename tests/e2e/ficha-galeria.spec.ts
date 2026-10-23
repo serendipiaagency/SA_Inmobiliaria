@@ -326,11 +326,11 @@ test.describe('Galería multimedia de la ficha', () => {
     await expect(page.locator('iframe[src*="matterport"]')).toHaveCount(0)
     await gate.getByTestId('consent-gate-allow').click()
     await expect(page.locator('iframe[src*="my.matterport.com/show/?m=AbCdEfGh123"]')).toHaveCount(1)
-    // Kuula: también incrustado (otro consentimiento, otro iframe).
+    // Kuula: también incrustado. El consentimiento es por categoría («Contenido
+    // de terceros», ConsentGate.vue), no por proveedor: ya concedido al permitir
+    // Matterport, el tour de Kuula se incrusta directamente, sin volver a pedirlo.
     await viewer.getByTestId('gallery-viewer-next').click()
-    const kuulaGate = viewer.getByTestId('consent-gate')
-    await expect(kuulaGate).toContainText('Kuula')
-    await kuulaGate.getByTestId('consent-gate-allow').click()
+    await expect(viewer.getByTestId('consent-gate')).toHaveCount(0)
     await expect(page.locator('iframe[src*="kuula.co/share/abc123"]')).toHaveCount(1)
     // El proveedor no reconocido: enlace que se abre aparte, sin iframe.
     await viewer.getByTestId('gallery-viewer-next').click()
