@@ -22,7 +22,7 @@ test.describe('Plantilla de los emails de Portal INMO', () => {
     expect(p.subject).toBe('Te damos la bienvenida a Portal INMO')
     expect(p.html).toContain('Te damos la bienvenida a<br>Portal INMO')
     expect(p.html).toContain('href="mailto:info@serendipiaagency.com"')
-    expect(p.html).toContain(`${BASE_URL}/admin/login`) // el origen real, no un localhost fijo
+    expect(p.html).toContain('https://inmobiliaria.serendipiaagency.com/admin/login') // el origen real (PLATFORM_BASE_URL, wrangler.toml), no el de la petición
     expect(p.text).toContain('Acceder a mi cuenta (')
     expect((p.templates as any[]).map((t) => t.key)).toEqual(expect.arrayContaining(['company_registration_welcome', 'admin_company_registered', 'admin_company_status_changed', 'password_reset']))
 

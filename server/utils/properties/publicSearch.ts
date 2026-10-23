@@ -122,7 +122,7 @@ export function buildPublicSearchFor(kind: PropertyKind): PublicSearchFns {
 
   /** Una ubicación elegida → su condición: por identificador, su ámbito real (server/utils/geo/locations.ts); por texto, todas las variantes guardadas de ese nombre. */
   async function locationCond(db: any, orgId: number, sel: LocationSelection): Promise<SQL | null> {
-    if (sel.id) return locationCondById(db, orgId, sel.id)
+    if (sel.id) return locationCondById(db, orgId, sel.id, kind)
     if (sel.kind === 'zone') return sql`0`
     if (sel.kind === 'postalCode') {
       // Código postal: por prefijo, como siempre («330» = todo Oviedo).

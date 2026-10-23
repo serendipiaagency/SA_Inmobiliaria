@@ -176,7 +176,8 @@ test.describe('Hero rediseñado', () => {
     await page.goto(HOME)
     const hero = page.locator('section.hero')
     await hero.getByTestId('hero-cell-type').click()
-    await page.getByTestId('hero-pop-type').getByTestId('public-filter-type-Retail').check()
+    // Cola 13: el hero reduce «Tipo de inmueble» a seis categorías; «Retail» (Local) está bajo la categoría «Locales» (type-cat-retail).
+    await page.getByTestId('hero-pop-type').getByTestId('type-cat-retail').check()
     await page.getByTestId('hero-type-done').click()
     const beds = hero.getByTestId('hero-cell-beds')
     await expect(beds).toContainText('No aplica')
