@@ -22,22 +22,19 @@
     <div class="flex items-center gap-1 border-t border-line px-3 py-2">
       <NuxtLink :to="`/admin/comerciales/${agent.id}`" class="text-[12px] font-medium text-stone-600 hover:text-ink hover:underline">Editar</NuxtLink>
       <span class="ml-2 text-[12px] text-stone-400">{{ agent.assignedPropertiesCount ?? 0 }} propiedad{{ agent.assignedPropertiesCount === 1 ? '' : 'es' }}</span>
-      <div ref="menuRoot" class="relative ml-auto">
-        <button type="button" class="flex h-7 w-7 items-center justify-center rounded-full text-stone-400 hover:bg-stone-100 hover:text-ink" @click.stop="menuOpen = !menuOpen">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="19" cy="12" r="1.8" /></svg>
-        </button>
-        <div v-if="menuOpen" class="absolute right-0 top-8 z-20 w-44 overflow-hidden rounded-lg border border-line bg-white py-1 text-[13px] shadow-lg">
-          <button type="button" class="block w-full px-3 py-1.5 text-left hover:bg-stone-50" @click="act('toggle-status')">
-            {{ agent.employmentStatus === 'active' ? 'Marcar inactivo' : 'Marcar activo' }}
-          </button>
-          <button type="button" class="block w-full px-3 py-1.5 text-left text-red-600 hover:bg-red-50" @click="act('delete')">Eliminar</button>
-        </div>
-      </div>
+      <AdminActionsMenu
+        class="ml-auto"
+        :label="`Acciones de ${agent.name}`"
+        trigger-class="flex h-7 w-7 items-center justify-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-ink"
+        :items="menuItems"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import type { AdminActionItem } from '~/components/admin/ActionsMenu.vue'
+
 const STATUS_LABELS: Record<string, string> = { active: 'Activo', inactive: 'Inactivo', on_leave: 'Baja' }
 const STATUS_CLASS: Record<string, string> = {
   active: 'bg-emerald-100 text-emerald-700',
@@ -47,6 +44,14 @@ const STATUS_CLASS: Record<string, string> = {
 
 const props = defineProps<{ agent: Record<string, any> }>()
 const emit = defineEmits<{ 'toggle-status': [id: number]; delete: [id: number] }>()
+
+const menuItems = computed<AdminActionItem[]>(() => [
+  {
+    label: props.agent.employmentStatus === 'active' ? 'Marcar inactivo' : 'Marcar activo',
+    onClick: () => emit('toggle-status', props.agent.id),
+  },
+  { label: 'Eliminar', danger: true, onClick: () => emit('delete', props.agent.id) },
+])
 
 const initials = computed(() =>
   String(props.agent.name || '')
@@ -66,16 +71,4 @@ const firstZone = computed(() => {
   }
 })
 
-const menuOpen = ref(false)
-const menuRoot = ref<HTMLElement | null>(null)
-function onDocClick(e: MouseEvent) {
-  if (!menuRoot.value?.contains(e.target as Node)) menuOpen.value = false
-}
-onMounted(() => document.addEventListener('click', onDocClick))
-onBeforeUnmount(() => document.removeEventListener('click', onDocClick))
-
-function act(action: 'toggle-status' | 'delete') {
-  menuOpen.value = false
-  emit(action as any, props.agent.id)
-}
 </script>
