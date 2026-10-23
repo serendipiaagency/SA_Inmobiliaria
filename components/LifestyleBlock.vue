@@ -48,7 +48,10 @@ function formatDistance(m: number) {
 
 onMounted(async () => {
   try {
-    const res = await $fetch<any>(`/api/public/properties/${props.slug}/lifestyle`)
+    // Tope de tiempo en el cliente: aunque el servidor se demore (Overpass
+    // lento), el esqueleto NUNCA debe quedarse cargando para siempre. Pasado
+    // el tope, `$fetch` aborta, lo tratamos como «sin datos» y resolvemos.
+    const res = await $fetch<any>(`/api/public/properties/${props.slug}/lifestyle`, { timeout: 12000 })
     categories.value = res.categories || []
   } catch {
     categories.value = []
