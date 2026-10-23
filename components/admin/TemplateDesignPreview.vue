@@ -5,17 +5,30 @@
       :style="{ width: `${boxW}px`, height: `${boxH}px` }"
     >
       <template v-if="elements.length">
+        <!-- Cada elemento de la primera página, a escala, con los datos de la
+             propiedad de demostración (foto, título, precio, colores de marca…),
+             igual que se verá el documento real. -->
         <div
-          v-for="el in elements"
-          :key="el.id"
-          class="absolute flex items-center justify-center overflow-hidden rounded-[2px]"
-          :class="blockClass(el.type)"
-          :style="elementStyle(el)"
+          v-for="(el, i) in elements"
+          :key="el.id || i"
+          class="absolute overflow-hidden"
+          :style="boxStyle(el)"
         >
-          <span v-if="el.type === 'image'" class="text-[8px] leading-none">▣</span>
-          <span v-else-if="el.type === 'qr'" class="text-[8px] leading-none">▦</span>
-          <span v-else-if="el.type === 'shape'" />
-          <span v-else class="w-full truncate px-0.5 text-center text-[6px] leading-none text-stone-600">{{ label(el) }}</span>
+          <img
+            v-if="el.type === 'image' && imgUrlFrom(el, bindings)"
+            :src="imgUrlFrom(el, bindings)!"
+            class="h-full w-full object-cover"
+            alt=""
+            loading="lazy"
+          >
+          <div v-else-if="el.type === 'image'" class="flex h-full w-full items-center justify-center bg-stone-100 text-[8px] text-stone-300">▣</div>
+          <div v-else-if="el.type === 'qr'" class="flex h-full w-full items-center justify-center bg-stone-800 text-[8px] text-white">▦</div>
+          <div
+            v-else-if="el.type === 'text'"
+            class="flex h-full w-full items-start"
+            :style="textCssFrom(el, scale, bindings)"
+          >{{ textContentFrom(el, bindings) }}</div>
+          <!-- Las formas no se dibujan (el PDF tampoco las dibuja todavía). -->
         </div>
       </template>
       <div v-else class="flex h-full w-full items-center justify-center text-[9px] text-stone-300">Sin diseño</div>
@@ -25,31 +38,23 @@
 
 <script setup lang="ts">
 /**
- * Miniatura esquemática del diseño de una plantilla (Asset Export o cartel),
- * renderizada a partir de su estructura (`{ pages: [{ elements }] }`). No es un
- * render real del PDF —ese necesita una propiedad y el pipeline del servidor—,
- * sino una vista a escala de la MAQUETA: dónde van la foto, los textos y el QR
- * de la primera página. Es determinista, ligera y sirve igual para los dos
- * tipos de plantilla porque ambas comparten el mismo esquema de estructura y el
- * mismo editor de lienzo (`AssetExportCanvasEditor`).
+ * Miniatura del diseño de una plantilla (Asset Export o cartel), renderizada a
+ * partir de su estructura (`{ pages: [{ elements }] }`) CON una propiedad de
+ * demostración: foto real, título, precio, ubicación y colores de marca, para
+ * que la galería de «Plantillas» enseñe cómo quedará el documento en vez de una
+ * maqueta esquemática. No es el PDF final (ese lo genera el servidor con una
+ * propiedad real), pero usa los mismos resolvedores que el lienzo del editor
+ * (utils/assetExport/clientRender.ts), así que corresponde al resultado.
+ *
+ * La propiedad de demostración vive sólo en el cliente (utils/assetExport/
+ * demoProperty.ts) y NUNCA se usa en una exportación real ni se crea en Property
+ * Core: separación estricta demo/producción.
  */
-import { tokenLabel } from '~/utils/assetExport/tokenCatalog'
+import { DEMO_BINDINGS } from '~/utils/assetExport/demoProperty'
+import { firstPageElements, imgUrlFrom, textContentFrom, textCssFrom, type RenderElement } from '~/utils/assetExport/clientRender'
 
-interface TemplateElement {
-  id: string
-  type: 'text' | 'image' | 'qr' | 'shape'
-  x: number
-  y: number
-  w: number
-  h: number
-  binding?: string
-}
-interface TemplateStructure {
-  pages?: Array<{ id: string; elements?: TemplateElement[] }>
-}
-
-// Duplicado de server/utils/assetExport/formats.ts y del editor de lienzo (el
-// bundle de cliente no importa server/) — mantener en sync si cambian formatos.
+// Duplicado de server/utils/assetExport/formats.ts (el bundle de cliente no
+// importa server/) — mantener en sync si cambian formatos.
 const FORMATS: Record<string, { widthPt: number; heightPt: number }> = {
   pdf_a4_portrait: { widthPt: 595, heightPt: 842 },
   pdf_a4_landscape: { widthPt: 842, heightPt: 595 },
@@ -65,22 +70,13 @@ const FORMATS: Record<string, { widthPt: number; heightPt: number }> = {
 }
 
 const props = withDefaults(
-  defineProps<{ structure: TemplateStructure | string | null | undefined; formatKey: string; width?: number }>(),
+  defineProps<{ structure: unknown; formatKey: string; width?: number }>(),
   { width: 120 },
 )
 
-const parsed = computed<TemplateStructure>(() => {
-  const s = props.structure
-  if (!s) return { pages: [] }
-  if (typeof s === 'string') {
-    try {
-      return JSON.parse(s) as TemplateStructure
-    } catch {
-      return { pages: [] }
-    }
-  }
-  return s
-})
+// La galería siempre previsualiza con la propiedad de demostración (no hay una
+// propiedad real seleccionada al listar las plantillas).
+const bindings = DEMO_BINDINGS
 
 const format = computed(() => FORMATS[props.formatKey] || FORMATS.pdf_a4_portrait)
 // La miniatura respeta la proporción real del formato, acotando la altura para
@@ -94,29 +90,14 @@ const scale = computed(() => {
 const boxW = computed(() => Math.round(format.value.widthPt * scale.value))
 const boxH = computed(() => Math.round(format.value.heightPt * scale.value))
 
-const elements = computed<TemplateElement[]>(() => parsed.value.pages?.[0]?.elements ?? [])
+const elements = computed<RenderElement[]>(() => firstPageElements(props.structure))
 
-function elementStyle(el: TemplateElement) {
+function boxStyle(el: RenderElement) {
   return {
     left: `${el.x * scale.value}px`,
     top: `${el.y * scale.value}px`,
     width: `${Math.max(2, el.w * scale.value)}px`,
     height: `${Math.max(2, el.h * scale.value)}px`,
   }
-}
-
-function blockClass(type: string) {
-  if (type === 'image') return 'bg-stone-200 text-stone-400'
-  if (type === 'qr') return 'bg-stone-800 text-white'
-  if (type === 'shape') return 'bg-stone-100'
-  return 'bg-stone-50'
-}
-
-function label(el: TemplateElement) {
-  const b = (el.binding || '').trim()
-  if (!b) return 'Texto'
-  // Etiqueta legible compartida (utils/assetExport/tokenCatalog); si es texto
-  // fijo, el propio texto.
-  return tokenLabel(b)
 }
 </script>

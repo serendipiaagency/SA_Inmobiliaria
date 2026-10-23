@@ -57,7 +57,9 @@
           <button type="button" class="text-stone-500 hover:text-ink hover:underline" @click="clearPreview">Quitar</button>
         </template>
         <template v-else>
-          <span class="text-stone-400">Mostrando campos de ejemplo.</span>
+          <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
+            <span class="h-1.5 w-1.5 rounded-full bg-amber-500" /> Propiedad de demostración
+          </span>
           <button type="button" class="font-medium text-ink hover:underline" @click="pickerOpen = true">Previsualizar con una propiedad real</button>
         </template>
       </div>
@@ -165,6 +167,7 @@
 
 <script setup lang="ts">
 import { isBindingToken, tokenGroupsForKind, tokenLabel } from '~/utils/assetExport/tokenCatalog'
+import { bindingsOrDemo } from '~/utils/assetExport/clientRender'
 
 interface TemplateElement {
   id: string
@@ -309,32 +312,38 @@ onMounted(() => {
   if (props.previewProperty) loadPreview(props.previewProperty.kind, props.previewProperty.id, props.previewProperty.name)
 })
 
+// Datos activos del lienzo: la propiedad REAL si hay previsualización elegida;
+// si no, la propiedad de demostración (utils/assetExport/demoProperty.ts), para
+// que el documento se vea con contenido realista en vez de nombres de campo. La
+// demo vive sólo en el cliente y nunca llega a una exportación real.
+const activeBindings = computed(() => bindingsOrDemo(preview.value))
+
 function tokenOf(binding: string | undefined): string | null {
   const m = binding?.match(/^\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}$/)
   return m ? m[1] : null
 }
-/** Texto que se pinta en el bloque: valor real si hay previsualización, si no la etiqueta/el texto fijo. */
+/** Texto que se pinta en el bloque: valor (real o de demo) si lo hay, si no la etiqueta/el texto fijo. */
 function textContent(el: TemplateElement): string {
   const token = tokenOf(el.binding)
   if (token) {
-    const v = preview.value?.values[token]
+    const v = activeBindings.value.values[token]
     if (v) return el.style?.uppercase ? v.toUpperCase() : v
     return tokenLabel(el.binding) // sin dato: nombre del campo, no {{token}}
   }
   return el.binding || '' // texto fijo
 }
-/** URL de la foto real para un bloque de imagen (sólo con previsualización). */
+/** URL de la foto (real o de demo) para un bloque de imagen. */
 function imgUrl(el: TemplateElement): string | null {
   const token = tokenOf(el.binding)
-  return token && preview.value ? preview.value.images[token] || null : null
+  return token ? activeBindings.value.images[token] || null : null
 }
-// Color CSS que imita resolveColor del servidor: rol de marca → color real del
-// Brand Kit (si hay previsualización) o su defecto; HEX → tal cual.
+// Color CSS que imita resolveColor del servidor: rol de marca → color del Brand
+// Kit (real o de demo) o su defecto; HEX → tal cual.
 const ROLE_FALLBACK: Record<string, string> = { primary: '#141410', secondary: '#66593a', background: '#ffffff', text: '#141410', accent: '#66593a', muted: '#73706c' }
 const ROLE_TOKEN: Record<string, string> = { primary: 'tenant.primaryColor', secondary: 'tenant.secondaryColor', background: 'tenant.backgroundColor', text: 'tenant.textColor', accent: 'tenant.accentColor' }
 function resolveCssColor(color: unknown): string {
   if (typeof color !== 'string' || !color) return '#141410'
-  if (ROLE_TOKEN[color]) return preview.value?.values[ROLE_TOKEN[color]] || ROLE_FALLBACK[color]
+  if (ROLE_TOKEN[color]) return activeBindings.value.values[ROLE_TOKEN[color]] || ROLE_FALLBACK[color]
   if (color === 'muted') return ROLE_FALLBACK.muted
   return color // HEX
 }

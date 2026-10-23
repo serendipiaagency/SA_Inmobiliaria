@@ -857,7 +857,7 @@ export function useHelpContent() {
       steps: [
         'La pestaña «De exportación» lista las plantillas del Asset Export Studio: duplica una de sistema o crea la tuya eligiendo formato (PDF A4/A5, dossier, A3 o formatos de redes), y edítala con el lienzo de arrastrar y soltar (deshacer/rehacer con Ctrl/Cmd+Z). Las piezas se generan luego en «Piezas generadas».',
         'La pestaña «De cartel» lista las plantillas de cartel de escaparate y folleto: igual catálogo de muestras y propias; el cartel final se compone en «Carteles».',
-        'La miniatura de cada plantilla es un esquema de su maqueta (dónde van foto, título, precio y QR), no un render final: el render real se genera al aplicar la plantilla a una propiedad concreta.',
+        'La miniatura de cada plantilla muestra cómo quedará el diseño con una propiedad de demostración —foto, título, precio, ubicación y los colores y tipografías de tu marca—, para que te hagas una idea real del resultado de un vistazo. Esos datos de ejemplo son sólo para la previsualización: no se crean como propiedad, no se publican ni cuentan en ningún sitio, y nunca sustituyen tus datos en una exportación. El documento final se genera al aplicar la plantilla a una propiedad concreta, con sus datos reales. En el editor, mientras no elijas una propiedad real («Previsualizar con una propiedad real»), el lienzo también usa esa propiedad de demostración.',
       ],
     },
     {
