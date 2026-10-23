@@ -6,8 +6,28 @@ import { callResendApi } from './resendClient'
 import { resolveEffectiveOrgSender } from './orgSender'
 import { isPortalInmoTemplate, recipientNames, renderTemplateEmail } from './render'
 import { platformEmailConfig } from './platformConfig'
+import { configuredPlatformBaseUrl } from './links'
 import { DEMO_BLOCKED_MESSAGE, isDemoOrg } from '../demo/tenant'
 import { resolveBrandIdentity } from '../brandKit/identity'
+
+/**
+ * El logo de la empresa para un email tiene que ser una URL ABSOLUTA y pública:
+ * un cliente de correo no resuelve rutas relativas ni claves de R2, así que una
+ * `src` relativa (`/api/media/…`) o una clave suelta (`marca/logo.png`) se veía
+ * como una imagen rota. Convierte lo que haya guardado la empresa en una URL
+ * absoluta sobre el dominio público de la plataforma (donde `/api/media/<clave>`
+ * sirve los recursos públicos sin sesión). Si no se puede hacer absoluta, se
+ * devuelve null y la plantilla cae al nombre de la empresa (mejor que una
+ * imagen rota).
+ */
+export function absoluteEmailLogo(value: string | null | undefined, base: string | null): string | null {
+  const v = String(value || '').trim()
+  if (!v) return null
+  if (/^https?:\/\//i.test(v)) return v // ya es absoluta (la empresa pegó una URL)
+  if (!base) return null
+  const path = v.startsWith('/') ? v : `/api/media/${v}` // ruta pública o clave de media
+  return `${base}${path}`
+}
 
 /** Retry backoff schedule in minutes — 5 attempts total, then permanently 'failed' ("reintentos limitados"). */
 export const MAX_EMAIL_ATTEMPTS = 5
@@ -57,7 +77,8 @@ async function resolveOrgEmailIdentity(db: any, env: Record<string, any>, organi
     locale: (org?.emailLocale as EmailLocale) || 'es',
     branding: {
       companyName,
-      logo: org?.logo || null,
+      // URL absoluta y pública: un cliente de correo no carga rutas relativas ni claves de R2.
+      logo: absoluteEmailLogo(org?.logo, configuredPlatformBaseUrl(env)),
       brandColor: brand?.colors.primary || org?.brandColor || null,
       fonts: { heading: brand?.fonts.heading ?? null, body: brand?.fonts.body ?? null },
     },

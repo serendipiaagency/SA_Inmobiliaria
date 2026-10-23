@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { renderEmailLayout } from '../../server/utils/email/layout'
+import { absoluteEmailLogo } from '../../server/utils/email/send'
 
 /**
  * Marca unificada en los emails (Cola 22·4): el color de acento y las
@@ -36,5 +37,47 @@ describe('renderEmailLayout · marca del Brand Kit', () => {
     // desconocida, googleFontsHref no la pide (no está en el catálogo).
     const html = renderEmailLayout({ ...base, branding: { companyName: 'Alpha', fonts: { heading: 'Comic Sans MS', body: null } } })
     expect(html).not.toContain('fonts.googleapis.com')
+  })
+
+  it('pide esquema de color claro para que el modo oscuro no invierta la tarjeta (logo/colores)', () => {
+    const html = renderEmailLayout({ ...base, branding: { companyName: 'Alpha', brandColor: '#1F4A3F' } })
+    expect(html).toContain('<meta name="color-scheme" content="light">')
+    expect(html).toContain('<meta name="supported-color-schemes" content="light">')
+    expect(html).toMatch(/color-scheme:light/)
+  })
+
+  it('con logo: lo pinta como <img> (ya debe venir como URL absoluta desde send.ts)', () => {
+    const html = renderEmailLayout({
+      ...base,
+      branding: { companyName: 'Alpha', logo: 'https://inmobiliaria.serendipiaagency.com/api/media/marca/logo.png' },
+    })
+    expect(html).toContain('<img src="https://inmobiliaria.serendipiaagency.com/api/media/marca/logo.png"')
+  })
+})
+
+/**
+ * El logo del email tiene que ser una URL ABSOLUTA y pública: una clave de R2 o
+ * una ruta relativa se ve como imagen rota en el cliente de correo (el bug
+ * reportado). `absoluteEmailLogo` convierte lo que haya guardado la empresa.
+ */
+describe('absoluteEmailLogo', () => {
+  const base = 'https://inmobiliaria.serendipiaagency.com'
+
+  it('una clave de R2 pasa a /api/media/<clave> sobre el dominio público', () => {
+    expect(absoluteEmailLogo('marca/logo.png', base)).toBe(`${base}/api/media/marca/logo.png`)
+  })
+
+  it('una ruta relativa se ancla al dominio público', () => {
+    expect(absoluteEmailLogo('/api/media/marca/logo.png', base)).toBe(`${base}/api/media/marca/logo.png`)
+  })
+
+  it('una URL absoluta se respeta tal cual', () => {
+    expect(absoluteEmailLogo('https://cdn.example.com/logo.png', base)).toBe('https://cdn.example.com/logo.png')
+  })
+
+  it('sin base pública o sin logo devuelve null (mejor el nombre que una imagen rota)', () => {
+    expect(absoluteEmailLogo('marca/logo.png', null)).toBeNull()
+    expect(absoluteEmailLogo('', base)).toBeNull()
+    expect(absoluteEmailLogo(null, base)).toBeNull()
   })
 })

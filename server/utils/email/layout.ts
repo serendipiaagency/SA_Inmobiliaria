@@ -61,11 +61,16 @@ export function renderEmailLayout(opts: {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- El correo está diseñado en claro. Sin esto, Outlook/Apple Mail en modo
+     oscuro invierten la tarjeta blanca a negra y se pierden el logo y el color
+     de marca (lo que se veía «oscuro y sin colores»). Pedimos esquema claro. -->
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
 <title>${escapeHtml(opts.title)}</title>
 ${fontsHref ? `<link rel="stylesheet" href="${escapeAttr(fontsHref)}">` : ''}
-<style>h1,h2,h3{font-family:${headingStack}}</style>
+<style>:root{color-scheme:light;supported-color-schemes:light}h1,h2,h3{font-family:${headingStack}}</style>
 </head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:${bodyStack};">
+<body style="margin:0;padding:0;background:#f4f4f5;color-scheme:light;font-family:${bodyStack};">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:24px 0;">
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
