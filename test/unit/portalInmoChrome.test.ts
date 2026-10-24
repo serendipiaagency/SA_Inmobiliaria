@@ -15,11 +15,11 @@ const ROOT = join(import.meta.dirname, '../..')
 const read = (f: string) => readFileSync(join(ROOT, f), 'utf8')
 
 describe('Portal INMO: activos y composable del chrome', () => {
-  it('existe el favicon/monograma del SaaS como SVG propio', () => {
-    expect(existsSync(join(ROOT, 'public/portal-inmo.svg')), 'falta public/portal-inmo.svg').toBe(true)
-    const svg = read('public/portal-inmo.svg')
-    expect(svg).toContain('<svg')
-    expect(svg).toContain('Portal INMO')
+  it('existen los activos del logo del SaaS (Portal INMO): lockup y favicon', () => {
+    // El logo propio de la plataforma, subido por el propietario. El favicon es
+    // un PNG cuadrado con fondo transparente; el lockup, el logo recortado.
+    expect(existsSync(join(ROOT, 'public/portal-inmo.png')), 'falta public/portal-inmo.png (favicon del SaaS)').toBe(true)
+    expect(existsSync(join(ROOT, 'public/portal-inmo-logo.png')), 'falta public/portal-inmo-logo.png (logo del lockup)').toBe(true)
   })
 
   it('el componente de logo pinta la marca de la plataforma, no la de un tenant', () => {
@@ -34,7 +34,7 @@ describe('Portal INMO: activos y composable del chrome', () => {
   it('el composable fija título + favicon propio del SaaS', () => {
     const s = read('composables/usePortalInmoChrome.ts')
     expect(s).toContain("PORTAL_INMO_BRAND = 'Portal INMO'")
-    expect(s).toContain("PORTAL_INMO_FAVICON = '/portal-inmo.svg'")
+    expect(s).toContain("PORTAL_INMO_FAVICON = '/portal-inmo.png'")
     expect(s).toContain('useHead')
     expect(s).toContain("rel: 'icon'")
   })
@@ -60,14 +60,14 @@ describe('Portal INMO: todas las superficies del SaaS marcadas', () => {
     const src = read('pages/index.vue')
     expect(src).toContain("tabTitle = 'Portal INMO — Tu inmobiliaria, a otro nivel'")
     expect(src).toContain('title: tabTitle')
-    expect(src).toContain("href: '/portal-inmo.svg'")
+    expect(src).toContain("href: '/portal-inmo.png'")
   })
 
   it('el panel (layout admin) lleva favicon y título Portal INMO, quitando el sufijo de tenant', () => {
     const src = read('layouts/admin.vue')
     expect(src).toContain('titleTemplate')
     expect(src).toContain('Portal INMO')
-    expect(src).toContain("href: '/portal-inmo.svg'")
+    expect(src).toContain("href: '/portal-inmo.png'")
     // Quita el sufijo heredado «— M&M Real Estate» de los títulos de página.
     expect(src).toContain('M&M Real Estate')
   })
