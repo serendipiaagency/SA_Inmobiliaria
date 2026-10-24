@@ -60,26 +60,68 @@ test.describe('Buscador global · Tipo de inmueble', () => {
     return ((await (await anon.get(`/api/public/properties?${qs}`)).json()) as { total: number }).total
   }
 
-  test('Hero · se abre con las seis categorías grandes, sin tipos sueltos, familias ni subtipos', async ({ page }) => {
+  test('Hero · se abre con las seis categorías grandes, desplegables a sus tipos/subtipos reales', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto(HOME)
     await page.locator('section.hero').getByTestId('hero-cell-type').click()
     const pop = page.getByTestId('hero-pop-type')
     await expect(pop).toBeVisible()
-    // Sin paso intermedio: ningún botón de desplegar.
-    await expect(pop.locator('.tt-exp, [aria-expanded]')).toHaveCount(0)
-    // Exactamente las seis categorías, y nada más (ni tipos sueltos, ni familias, ni subtipos).
+    // Exactamente las seis categorías.
     await expect(pop.locator('.tp-hero-cat')).toHaveCount(6)
     for (const g of HERO_CATS) await expect(pop.getByTestId(`type-cat-${g}`)).toBeVisible()
-    await expect(pop.locator('[data-testid^="public-filter-type-"]')).toHaveCount(0)
-    await expect(pop.locator('[data-testid^="public-filter-subtype-"]')).toHaveCount(0)
-    await expect(pop.getByTestId('type-family-flats')).toHaveCount(0)
+    // Cada categoría tiene su flecha para desplegar; de partida, todo recogido (ningún tipo/subtipo a la vista).
+    for (const g of HERO_CATS) await expect(pop.getByTestId(`type-cat-expand-${g}`)).toBeVisible()
+    await expect(pop.locator('[data-testid^="type-leaf-"]')).toHaveCount(0)
+    await expect(pop.locator('[data-testid^="subtype-leaf-"]')).toHaveCount(0)
+    // Desplegar «Viviendas» muestra sus TIPOS reales (Piso, Casa, Chalet, Ático…).
+    await pop.getByTestId('type-cat-expand-homes').click()
+    for (const ty of ['Apartment', 'House', 'Villa', 'Penthouse', 'Duplex', 'Studio', 'Townhouse']) {
+      await expect(pop.getByTestId(`type-leaf-${ty}`)).toBeVisible()
+    }
+    // Volver a pulsar la recoge.
+    await pop.getByTestId('type-cat-expand-homes').click()
+    await expect(pop.locator('[data-testid^="type-leaf-"]')).toHaveCount(0)
+    // Una categoría de un solo tipo (Garaje) despliega los SUBTIPOS reales de ese tipo.
+    await pop.getByTestId('type-cat-expand-garage').click()
+    await expect(pop.getByTestId('subtype-leaf-car')).toBeVisible()
+    await expect(pop.getByTestId('subtype-leaf-closed')).toBeVisible()
     // El número junto a una categoría es el inventario real de la agencia.
     const retail = await apiTotal({ type: 'Retail' })
-    await expect(pop.locator('[data-category="retail"] .tp-count')).toHaveText(String(retail))
+    await expect(pop.locator('[data-category="retail"] > .tp-hero-row .tp-count')).toHaveText(String(retail))
     // Una categoría sin inventario (Naves) sigue ahí, seleccionable, y sin número.
-    await expect(pop.locator('[data-category="warehouse"] .tp-count')).toHaveCount(0)
+    await expect(pop.locator('[data-category="warehouse"] > .tp-hero-row .tp-count')).toHaveCount(0)
     await expect(pop.getByTestId('type-cat-warehouse')).toBeEnabled()
+  })
+
+  test('Hero · jerárquico: elegir un tipo, un subtipo y combinar categorías; estado parcial de la categoría', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto(HOME)
+    const cell = page.locator('section.hero').getByTestId('hero-cell-type')
+    await cell.click()
+    const pop = page.getByTestId('hero-pop-type')
+    // Un solo tipo de Viviendas: Piso (Apartment).
+    await pop.getByTestId('type-cat-expand-homes').click()
+    await pop.getByTestId('type-leaf-Apartment').check()
+    await expect(cell).toContainText('Piso')
+    // La categoría «Viviendas» queda en estado PARCIAL (indeterminado), no marcada del todo.
+    expect(await pop.getByTestId('type-cat-homes').evaluate((el: HTMLInputElement) => el.indeterminate)).toBe(true)
+    await expect(pop.getByTestId('type-cat-homes')).not.toBeChecked()
+    // Añadir Ático (otro tipo de Viviendas) y un subtipo de otra categoría (Terreno · Suelo urbano).
+    await pop.getByTestId('type-leaf-Penthouse').check()
+    await pop.getByTestId('type-cat-expand-land').click()
+    await pop.getByTestId('subtype-leaf-urban').check()
+    await pop.getByTestId('hero-type-done').click()
+    // Lo elegido llega a Propiedades: type=Apartment, type=Penthouse y subtype=urban.
+    await page.locator('section.hero').getByTestId('hero-search').click()
+    await expect(page).toHaveURL(/\/propiedades\?/)
+    await expect(page).toHaveURL(/type=Apartment/)
+    await expect(page).toHaveURL(/type=Penthouse/)
+    await expect(page).toHaveURL(/subtype=urban/)
+    // Los resultados son reales: coincide con la API (piso + ático existen; terreno urbano, cero).
+    const aside = page.getByTestId('catalog-aside')
+    const typeHead = aside.locator('[data-group="type"] > button')
+    if ((await typeHead.getAttribute('aria-expanded')) !== 'true') await typeHead.click()
+    for (const ty of ['Apartment', 'Penthouse']) await expect(aside.getByTestId(`public-filter-type-${ty}`), ty).toBeChecked()
   })
 
   test('Hero · selección simple, múltiple y de categoría entera; limpieza y resumen del campo', async ({ page }) => {

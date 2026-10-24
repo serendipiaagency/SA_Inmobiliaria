@@ -6,17 +6,61 @@
       ni familias ni subtipos ni tipos sueltos a la vista (Cola 13).
     -->
     <template v-if="variant === 'hero'">
-      <label v-for="cat in heroCategories" :key="cat.key" class="tp-check tp-hero-cat" :data-category="cat.key">
-        <input
-          type="checkbox"
-          :checked="allOn(cat.types)"
-          :indeterminate.prop="someOn(cat.types) && !allOn(cat.types)"
-          :data-testid="`type-cat-${cat.key}`"
-          @change="setMany(cat.types, !allOn(cat.types))"
-        >
-        <span class="tp-name">{{ t(cat.label[0], cat.label[1]) }}</span>
-        <span v-if="countOf(cat.types)" class="tp-count" aria-hidden="true">{{ countOf(cat.types) }}</span>
-      </label>
+      <!--
+        HERO jerárquico (Cola 34): las SEIS categorías grandes, cada una
+        desplegable a sus opciones reales de Property Core. Una categoría con
+        varios tipos (Viviendas) despliega sus tipos (Piso, Casa, Chalet…); una
+        con un solo tipo (Garaje, Terreno…) despliega los subtipos de ese tipo
+        (Plaza de coche, Suelo urbano…). Una categoría sin opciones que desplegar
+        se comporta como una casilla normal, sin flecha. La casilla de la
+        categoría marca/desmarca todo de golpe; su estado es parcial cuando sólo
+        hay parte seleccionada.
+      -->
+      <div v-for="cat in heroCategories" :key="cat.key" class="tp-hero-group" :data-category="cat.key">
+        <div class="tp-hero-row">
+          <label class="tp-check tp-hero-cat">
+            <input
+              type="checkbox"
+              :checked="allOn(cat.types)"
+              :indeterminate.prop="someOn(cat.types) && !allOn(cat.types)"
+              :data-testid="`type-cat-${cat.key}`"
+              @change="setMany(cat.types, !allOn(cat.types))"
+            >
+            <span class="tp-name">{{ t(cat.label[0], cat.label[1]) }}</span>
+            <span v-if="countOf(cat.types)" class="tp-count" aria-hidden="true">{{ countOf(cat.types) }}</span>
+          </label>
+          <button
+            v-if="heroChildren(cat).length"
+            type="button"
+            class="tp-exp"
+            :class="{ 'tp-exp-open': isExpanded(cat.key) }"
+            :aria-expanded="isExpanded(cat.key)"
+            :aria-label="isExpanded(cat.key) ? t('hero.collapse', 'Contraer') : t('hero.expand', 'Desplegar')"
+            :data-testid="`type-cat-expand-${cat.key}`"
+            @click="toggleExpand(cat.key)"
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+          </button>
+        </div>
+
+        <div v-if="isExpanded(cat.key) && heroChildren(cat).length" class="tp-hero-children" role="group" :aria-label="t(cat.label[0], cat.label[1])">
+          <label
+            v-for="ch in heroChildren(cat)"
+            :key="ch.value"
+            class="tp-check tp-hero-child"
+          >
+            <input
+              type="checkbox"
+              :checked="ch.kind === 'type' ? typeOn(ch.value) : subOn(ch.value)"
+              :indeterminate.prop="ch.kind === 'type' ? typePartial(ch.value) : false"
+              :data-testid="ch.kind === 'type' ? `type-leaf-${ch.value}` : `subtype-leaf-${ch.value}`"
+              @change="ch.kind === 'type' ? toggleType(ch.value) : toggleSub(ch.value)"
+            >
+            <span class="tp-name">{{ ch.label }}</span>
+            <span v-if="ch.kind === 'type' && countOf([ch.value])" class="tp-count" aria-hidden="true">{{ countOf([ch.value]) }}</span>
+          </label>
+        </div>
+      </div>
     </template>
 
     <!--
@@ -94,6 +138,24 @@ const categories = PROPERTY_TYPE_TREE
 const heroCategories = HERO_TYPE_CATEGORIES
 const catTypes = (c: TypeCategory) => c.families.flatMap((f) => f.types)
 const subsOf = (ty: string) => Object.keys(PROPERTY_SUBTYPES[ty] || {})
+
+/**
+ * Opciones que despliega una categoría del Hero, desde la taxonomía REAL:
+ * - con varios tipos (Viviendas) → sus tipos (Piso, Casa, Chalet…), cada uno
+ *   seleccionable entero;
+ * - con un solo tipo (Garaje, Terreno, Locales…) → los subtipos de ese tipo
+ *   (Plaza de coche, Suelo urbano…);
+ * - con un solo tipo sin subtipos → ninguna (la categoría es una casilla normal,
+ *   sin flecha).
+ * No se duplica la taxonomía: sale de HERO_TYPE_CATEGORIES y PROPERTY_SUBTYPES.
+ */
+interface HeroChild { kind: 'type' | 'sub'; value: string; label: string }
+function heroChildren(cat: { types: string[] }): HeroChild[] {
+  if (cat.types.length > 1) return cat.types.map((ty) => ({ kind: 'type', value: ty, label: typeLabel(ty) }))
+  const ty = cat.types[0]
+  if (!ty) return []
+  return subsOf(ty).map((s) => ({ kind: 'sub', value: s, label: subLabel(ty, s) }))
+}
 const subLabel = (ty: string, s: string) => t(`filters.subtype.${s}`, PROPERTY_SUBTYPES[ty]?.[s] || s)
 const countOf = (list: string[]) => (props.counts ? list.reduce((n, ty) => n + (props.counts![ty] || 0), 0) : 0)
 
@@ -102,6 +164,18 @@ const typePartial = (ty: string) => !typeOn(ty) && props.subtypes.some((s) => su
 const allOn = (list: string[]) => list.length > 0 && list.every(typeOn)
 const someOn = (list: string[]) => list.some((ty) => typeOn(ty) || typePartial(ty))
 const subOn = (s: string) => typeOn(subtypeParent(s)!) || props.subtypes.includes(s)
+
+// Qué categorías del Hero están desplegadas. Se abren de partida las que ya
+// traen una selección parcial, para que se vea lo elegido; el usuario las abre
+// y cierra con la flecha.
+const expanded = ref(new Set<string>(heroCategories.filter((c) => someOn(c.types) && !allOn(c.types)).map((c) => c.key)))
+const isExpanded = (key: string) => expanded.value.has(key)
+function toggleExpand(key: string) {
+  const next = new Set(expanded.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  expanded.value = next
+}
 
 function commit(types: string[], subtypes: string[]) {
   emit('update', { types: [...new Set(types)], subtypes: [...new Set(subtypes)] })
@@ -239,12 +313,25 @@ function toggleSub(s: string) {
   width: 14px;
   accent-color: var(--sb-accent, var(--sb-ink, #1c1b19));
 }
-/* Hero: las seis categorías grandes, como lista de casillas; nada de familias ni subtipos. */
+/* Hero jerárquico: las seis categorías grandes como lista vertical, cada una
+   desplegable a sus tipos/subtipos reales. Una sola columna para que la
+   expansión se lea con claridad (como el desplegable clásico). */
 .tp-hero {
+  gap: 2px;
+}
+.tp-hero-group {
+  display: grid;
+  gap: 2px;
+}
+.tp-hero-row {
+  display: flex;
+  align-items: center;
   gap: 2px;
 }
 .tp-hero-cat {
   min-height: 42px;
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 15px;
 }
 .tp-hero-cat .tp-name {
@@ -253,11 +340,42 @@ function toggleSub(s: string) {
 .tp-hero-cat:has(input:checked) {
   background: var(--sb-paper, #f6f3ee);
 }
-/* En escritorio, las seis en dos columnas. */
-@media (min-width: 720px) {
-  .tp-hero {
-    grid-template-columns: 1fr 1fr;
-    column-gap: 18px;
-  }
+/* Flecha para desplegar/contraer la categoría. */
+.tp-exp {
+  display: inline-flex;
+  height: 34px;
+  width: 34px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--sb-muted, #78716c);
+  transition: background-color 0.15s, color 0.15s;
+}
+.tp-exp:hover {
+  background: var(--sb-paper, #f6f3ee);
+  color: var(--sb-ink, #1c1b19);
+}
+.tp-exp svg {
+  transition: transform 0.18s ease;
+}
+.tp-exp-open svg {
+  transform: rotate(180deg);
+}
+/* Opciones desplegadas de una categoría (tipos o subtipos reales), indentadas. */
+.tp-hero-children {
+  display: grid;
+  gap: 1px;
+  margin: 1px 0 6px;
+  padding-left: 14px;
+  border-left: 1px solid var(--sb-line, #ece8e1);
+  margin-left: 12px;
+}
+.tp-hero-child {
+  min-height: 34px;
+  font-size: 13.5px;
+}
+.tp-hero-child .tp-name {
+  font-weight: 500;
 }
 </style>
