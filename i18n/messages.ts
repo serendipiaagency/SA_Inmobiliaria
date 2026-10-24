@@ -1081,6 +1081,8 @@ export const messages: Record<string, Dict> = {
     'hero.apply': 'Aplicar',
     'hero.clearFilters': 'Limpiar filtros',
     'hero.done': 'Hecho',
+    'hero.expand': 'Desplegar',
+    'hero.collapse': 'Contraer',
     'hero.otherFilters': 'Más criterios',
   },
   en: {
@@ -2372,6 +2374,8 @@ export const messages: Record<string, Dict> = {
     'hero.apply': 'Apply',
     'hero.clearFilters': 'Clear filters',
     'hero.done': 'Done',
+    'hero.expand': 'Expand',
+    'hero.collapse': 'Collapse',
     'hero.otherFilters': 'More criteria',
   },
   de: {
@@ -3661,6 +3665,8 @@ export const messages: Record<string, Dict> = {
     'hero.apply': 'Übernehmen',
     'hero.clearFilters': 'Filter zurücksetzen',
     'hero.done': 'Fertig',
+    'hero.expand': 'Aufklappen',
+    'hero.collapse': 'Zuklappen',
     'hero.otherFilters': 'Weitere Kriterien',
   },
   pt: {
@@ -4950,6 +4956,8 @@ export const messages: Record<string, Dict> = {
     'hero.apply': 'Aplicar',
     'hero.clearFilters': 'Limpar filtros',
     'hero.done': 'Concluído',
+    'hero.expand': 'Expandir',
+    'hero.collapse': 'Recolher',
     'hero.otherFilters': 'Mais critérios',
   },
   fr: {
@@ -6239,6 +6247,8 @@ export const messages: Record<string, Dict> = {
     'hero.apply': 'Appliquer',
     'hero.clearFilters': 'Effacer les filtres',
     'hero.done': 'Terminé',
+    'hero.expand': 'Déployer',
+    'hero.collapse': 'Réduire',
     'hero.otherFilters': 'Autres critères',
   },
   ar: {
@@ -7528,6 +7538,8 @@ export const messages: Record<string, Dict> = {
     'hero.apply': 'تطبيق',
     'hero.clearFilters': 'مسح عوامل التصفية',
     'hero.done': 'تم',
+    'hero.expand': 'توسيع',
+    'hero.collapse': 'طيّ',
     'hero.otherFilters': 'معايير أخرى',
   },
 }
