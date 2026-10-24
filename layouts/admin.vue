@@ -168,7 +168,7 @@ useHead({
     const base = (title || 'Panel').replace(/\s*[—–-]\s*M&M Real Estate\s*$/i, '').trim()
     return base.includes('Portal INMO') ? base : `${base} — Portal INMO`
   },
-  link: [{ rel: 'icon', type: 'image/svg+xml', href: '/portal-inmo.svg', key: 'portal-inmo-favicon' }],
+  link: [{ rel: 'icon', type: 'image/png', href: '/portal-inmo.png', key: 'portal-inmo-favicon' }],
 })
 
 const icons: Record<string, string> = {

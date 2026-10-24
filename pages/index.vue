@@ -161,7 +161,7 @@ if (isPortal.value) {
     link: [
       { rel: 'canonical', href: `${origin}/` },
       // Favicon propio del SaaS (no el /favicon.svg global que comparten las webs de agencia).
-      { rel: 'icon', type: 'image/svg+xml', href: '/portal-inmo.svg', key: 'portal-inmo-favicon' },
+      { rel: 'icon', type: 'image/png', href: '/portal-inmo.png', key: 'portal-inmo-favicon' },
     ],
     script: [
       {
