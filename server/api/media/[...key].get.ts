@@ -4,7 +4,7 @@ import { getSessionUser, requireOrgScope, resolveActiveOrgId } from '../../utils
 import { hasAreaAccess } from '../../utils/permissions'
 import { PROPERTY_DOCUMENT_ENTITY, decideDocumentAccess, type DocumentViewer } from '../../utils/properties/documents'
 import { findMediaAssetByKey } from '../../utils/mediaAssets'
-import { isPrivateMediaKey, legacyVisibilityFor, ownsMediaObject as legacyOwnsMediaObject } from '../../utils/mediaAccess'
+import { isNeverServableKey, isPrivateMediaKey, legacyVisibilityFor, ownsMediaObject as legacyOwnsMediaObject } from '../../utils/mediaAccess'
 import { logMediaAccess } from '../../utils/mediaAccessLog'
 
 /**
@@ -40,6 +40,13 @@ export default defineEventHandler(async (event) => {
   const key = getRouterParam(event, 'key')
   if (!key || key.includes('..')) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid media key' })
+  }
+
+  // Una copia de seguridad NO es un medio servible. Nunca, ni con sesión.
+  // El por qué, y por qué se deniega antes de mirar `media_assets`, está en
+  // NEVER_SERVABLE_PREFIXES (server/utils/mediaAccess.ts).
+  if (isNeverServableKey(key)) {
+    throw createError({ statusCode: 404, statusMessage: 'Not found' })
   }
 
   const db = useDb(event)

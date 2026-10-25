@@ -26,6 +26,34 @@ export function isPrivateMediaKey(key: string): boolean {
   return PRIVATE_MEDIA_PREFIXES.some((prefix) => key.startsWith(prefix))
 }
 
+/**
+ * Prefijos que este bucket contiene pero que `/api/media/*` NO debe servir
+ * jamás, con sesión o sin ella.
+ *
+ * Hoy sólo `backups/`. El bucket del binding MEDIA (`sa-inmobiliaria-media`)
+ * es el mismo donde escriben la copia diaria de D1
+ * (`server/tasks/system/backup-d1.ts`, clave `backups/<fecha>.json.gz`) y las
+ * copias previas de los workflows (`backups/pre-…/<sha|run_id>.sql`). Ninguna
+ * crea fila en `media_assets` —las escriben `bucket.put()` y
+ * `wrangler r2 object put` directamente—, así que caían por la rama de
+ * objetos legacy, donde `isPrivateMediaKey()` no reconocía `backups/`, y
+ * terminaban en el `serveObject(…, { restricted: false })` del final: la base
+ * de datos de producción entera, sin autenticación y cacheable, con una clave
+ * que es una fecha.
+ *
+ * Esto no es la misma idea que `PRIVATE_MEDIA_PREFIXES`. Aquello pide
+ * demostrar propiedad y entrega el objeto a quien la demuestra; esto no
+ * entrega nada a nadie, porque no hay ningún caso legítimo en que una copia
+ * de la base de datos se sirva por la web. Es una lista de denegación, no de
+ * autorización, y por eso se consulta antes de mirar `media_assets`: no
+ * depende de que esa tabla esté bien poblada.
+ */
+export const NEVER_SERVABLE_PREFIXES = ['backups/'] as const
+
+export function isNeverServableKey(key: string): boolean {
+  return NEVER_SERVABLE_PREFIXES.some((prefix) => key === prefix.slice(0, -1) || key.startsWith(prefix))
+}
+
 /** Best-effort guess at the visibility an unregistered legacy key would have had, for access-log context only. */
 export function legacyVisibilityFor(key: string): 'confidential' | 'private' {
   return key.startsWith('visitor-docs/') || key.startsWith('contracts/') ? 'confidential' : 'private'

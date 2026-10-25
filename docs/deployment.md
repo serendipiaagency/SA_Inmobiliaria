@@ -17,7 +17,7 @@ deploy-staging   (solo pull_request, needs: validate)
   → npm run smoke-test -- $STAGING_URL
 
 deploy-production   (solo push a main, needs: validate)
-  → wrangler d1 export sa_inmobiliaria --remote  (backup, sube como artefacto)
+  → wrangler d1 export sa_inmobiliaria --remote  (backup, sube a R2 — privado)
   → wrangler d1 migrations apply sa_inmobiliaria --remote
   → wrangler deploy
   → npm run smoke-test -- $PRODUCTION_URL
@@ -123,10 +123,22 @@ Hay dos backups independientes de producción, con propósitos distintos:
    retención. Pensado para "¿qué había el día X?", legible por una persona.
 2. **Backup pre-despliegue** (paso `Backup D1 before migrating` de
    `deploy-production`): `wrangler d1 export --remote`, el volcado SQL
-   nativo de D1, subido como artefacto de GitHub Actions
-   (`pre-deploy-backup-<sha>`, 30 días de retención). Pensado para
-   restaurar exactamente el estado justo antes de la migración que se
-   acaba de aplicar.
+   nativo de D1, subido a **R2** en `backups/pre-deploy/<sha>.sql`. Pensado
+   para restaurar exactamente el estado justo antes de la migración que se
+   acaba de aplicar. Los otros cuatro workflows que escriben en D1 hacen lo
+   mismo en `backups/pre-migration|pre-restore|pre-seed|pre-alter/<run_id>.sql`.
+
+   **Hasta el 25-10-2026 esto se subía como artefacto de GitHub Actions.**
+   Era una fuga: los artefactos de un repositorio público se descargan sin
+   autenticación, así que cada despliegue publicaba la base de datos
+   completa —`users` con sus hashes incluidos— durante 30 días. Y al
+   moverlo a R2 apareció el segundo filo del mismo problema: el bucket
+   `sa-inmobiliaria-media` es el que sirve `/api/media/*`, y una copia no
+   tiene fila en `media_assets`, así que se servía como contenido público.
+   `NEVER_SERVABLE_PREFIXES` (`server/utils/mediaAccess.ts`) deniega hoy
+   todo `backups/` en ese endpoint, antes de cualquier otra comprobación.
+   Si algún día las copias se mueven a su propio bucket sin binding en el
+   Worker, esa denegación sobra.
 
 Cloudflare D1 también tiene **Time Travel** nativo (point-in-time recovery,
 30 días en el plan de pago) — es la vía más simple y fiable para un
@@ -168,8 +180,11 @@ punto de retorno. Dos orígenes:
   `password_reset_tokens`** (efímeras y sensibles: restaurarlas resucitaría
   sesiones cerradas y enlaces ya usados); `--include-ephemeral` las
   incluye. `--tables leads,clients` limita la restauración.
-- **Volcado SQL de `wrangler d1 export`** (artefacto `pre-deploy-backup-<sha>`,
-  `pre-migration-backup-*`, `pre-seed-backup-*`, `pre-restore-backup-*`):
+- **Volcado SQL de `wrangler d1 export`** (en R2: `backups/pre-deploy/<sha>.sql`,
+  `backups/pre-migration|pre-restore|pre-seed|pre-alter/<run_id>.sql`; se baja
+  con `npx wrangler r2 object get "sa-inmobiliaria-media/<clave>" --file=volcado.sql --remote`,
+  que es lo que hace el workflow — `gh run download` ya no sirve, sólo ve
+  artefactos):
   `node scripts/restore-d1-backup.mjs --sql volcado.sql --remote --confirm RESTAURAR`.
   Borra todas las tablas (las hijas antes que sus padres, leyendo las claves
   foráneas reales con `PRAGMA foreign_key_list`), reordena el volcado
