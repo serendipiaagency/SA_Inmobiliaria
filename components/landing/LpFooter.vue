@@ -1,6 +1,11 @@
 <template>
   <footer class="lp-footer" data-testid="landing-footer">
     <div class="lp-shell">
+      <!-- Medios: tira de logos facilitada por el propietario. -->
+      <div class="lp-footer-press" data-testid="landing-press">
+        <p class="lp-footer-press-label">En los medios</p>
+        <img class="lp-footer-press-img" src="/landing/prensa-medios.webp" alt="INMO en los medios" loading="lazy" width="1309" height="87" >
+      </div>
       <div class="lp-footer-top">
         <div class="lp-footer-brand">
           <NuxtLink to="/" class="lp-brand" aria-label="INMO, inicio">inmo<sup>®</sup></NuxtLink>
@@ -36,6 +41,28 @@ const year = new Date().getFullYear()
   padding: clamp(48px, 6vw, 72px) 0 32px;
   background: var(--lp-paper);
   border-top: 1px solid var(--lp-line);
+}
+.lp-footer-press {
+  margin: 0 0 clamp(36px, 5vw, 56px);
+  padding-bottom: clamp(32px, 4vw, 44px);
+  border-bottom: 1px solid var(--lp-line);
+  text-align: center;
+}
+.lp-footer-press-label {
+  margin: 0 0 18px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lp-muted);
+}
+.lp-footer-press-img {
+  width: 100%;
+  max-width: 820px;
+  height: auto;
+  /* Tratamiento sobrio de «tira de medios»: en gris y algo atenuado. */
+  filter: grayscale(1);
+  opacity: 0.7;
 }
 .lp-footer-top {
   display: grid;
