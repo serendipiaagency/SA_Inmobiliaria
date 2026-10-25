@@ -178,8 +178,10 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Verify STAGING_URL is set and well-formed
+        env:
+          STAGING_URL: ${{ vars.STAGING_URL }}
         run: |
-          url="${{ vars.STAGING_URL }}"
+          url="$STAGING_URL"
           if [ -z "$url" ]; then
             echo "::error::The 'staging' GitHub Environment variable STAGING_URL is not set — the smoke-test step would silently receive an empty URL after deploy. Set it under Settings > Environments > staging > Variables."
             exit 1
@@ -242,7 +244,9 @@ jobs:
         # (scripts/build-info.mjs) y el smoke test lo comprueba contra el
         # GITHUB_SHA que él mismo ve: si lo que está sirviendo no es lo que
         # este job acaba de publicar, falla aquí en vez de pasar en verde.
-        run: npm run smoke-test -- "${{ vars.STAGING_URL }}"
+        env:
+          STAGING_URL: ${{ vars.STAGING_URL }}
+        run: npm run smoke-test -- "$STAGING_URL"
 
   deploy-production:
     needs: validate
@@ -285,10 +289,11 @@ jobs:
 
       - name: Verify PRODUCTION_URL is set and well-formed
         env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          url="${{ vars.PRODUCTION_URL }}"
+          url="$PRODUCTION_URL"
           if [ -z "$url" ]; then
             # Decir "falta X" sin decir qué poner deja a alguien buscando su
             # propia URL, que no está en ninguna parte del repositorio. Con el
@@ -394,4 +399,6 @@ jobs:
         # comprueba que el build vivo es el de este job. Mientras Workers
         # Builds siga activo puede no serlo — y entonces este paso se pone
         # en rojo, que es precisamente lo que hoy no se ve.
-        run: npm run smoke-test -- "${{ vars.PRODUCTION_URL }}"
+        env:
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+        run: npm run smoke-test -- "$PRODUCTION_URL"
