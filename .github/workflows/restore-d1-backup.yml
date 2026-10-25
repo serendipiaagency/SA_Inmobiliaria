@@ -74,12 +74,21 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Guardar el punto de retorno como artefacto
-        uses: actions/upload-artifact@v4
-        with:
-          name: pre-restore-backup-${{ github.run_id }}
-          path: pre-restore-backup.sql
-          retention-days: 30
+      # NUNCA como artefacto: este repositorio es público y sus artefactos se
+      # descargan sin autenticación, así que subir el volcado era publicar la
+      # base de datos de producción entera. Va al bucket de R2, que es privado.
+      - name: Guardar la copia en R2 (privado)
+        run: |
+          npx wrangler r2 object put \
+            "sa-inmobiliaria-media/backups/pre-restore/${{ github.run_id }}.sql" \
+            --file=pre-restore-backup.sql --content-type="application/sql" --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: No dejar el volcado en el runner
+        if: always()
+        run: rm -f pre-restore-backup.sql
 
       - name: Restaurar la instantánea diaria desde R2
         if: inputs.origen == 'instantanea-diaria'

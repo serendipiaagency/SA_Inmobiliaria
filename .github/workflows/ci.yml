@@ -327,24 +327,41 @@ jobs:
 
       - run: npm run build
 
-      - name: Backup D1 before migrating (wrangler export, kept as a workflow artifact)
+      - name: Backup D1 before migrating (wrangler export → R2, nunca un artefacto)
         # Independent of the existing daily cron backup
         # (server/tasks/system/backup-d1.ts, JSON snapshots in R2) — this is
         # a second, immediately-before-this-exact-deploy backup, in D1's own
         # native SQL export format, so a rollback (docs/deployment.md) always
         # has a restore point from the moment right before the migration
         # that's about to run.
+        #
+        # NUNCA como artefacto de Actions. Este repositorio es público, y los
+        # artefactos de un repositorio público se descargan SIN autenticación:
+        # subir aquí el export era publicar la base de datos de producción
+        # entera —usuarios con sus hashes de contraseña, sesiones y los datos
+        # de todas las agencias— en una URL abierta, durante 30 días.
+        # Comprobado el 2026-10-25: 52 copias vivas, HTTP 200 sin credenciales.
+        #
+        # Va al mismo bucket de R2 que la copia diaria, que es privado. El
+        # punto de restauración se conserva igual; lo que desaparece es la
+        # publicación.
         run: npx wrangler d1 export sa_inmobiliaria --remote --output=pre-deploy-backup.sql --env=""
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Upload pre-deploy D1 backup
-        uses: actions/upload-artifact@v4
-        with:
-          name: pre-deploy-backup-${{ github.sha }}
-          path: pre-deploy-backup.sql
-          retention-days: 30
+      - name: Guardar la copia previa al despliegue en R2 (privado)
+        run: |
+          npx wrangler r2 object put \
+            "sa-inmobiliaria-media/backups/pre-deploy/${{ github.sha }}.sql" \
+            --file=pre-deploy-backup.sql --content-type="application/sql" --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: No dejar el volcado en el runner
+        if: always()
+        run: rm -f pre-deploy-backup.sql
 
       - name: List pending production migrations (visibility only — apply step below is authoritative)
         run: npx wrangler d1 migrations list sa_inmobiliaria --remote --env=""
