@@ -40,7 +40,13 @@ concurrency:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    # Imagen fijada, no `ubuntu-latest`, por el e2e. GitHub movió
+    # `ubuntu-latest` a Ubuntu 26.04 y Playwright 1.56 no la soporta: el paso
+    # «Install Playwright browsers» muere en un segundo con «Playwright does
+    # not support chromium on ubuntu26.04-x64», se salta el e2e y el gate
+    # queda en rojo sin que nada del código esté mal. Al subir Playwright a
+    # una versión que soporte 26.04, esto puede volver a `ubuntu-latest`.
+    runs-on: ubuntu-24.04
     outputs:
       code: ${{ steps.changes.outputs.code }}
     steps:
