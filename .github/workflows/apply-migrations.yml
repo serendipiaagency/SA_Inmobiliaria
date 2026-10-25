@@ -29,9 +29,31 @@ jobs:
     environment:
       name: production
     steps:
-      - name: Comprobar la confirmación
+      # Quién puede disparar esto. No basta con que el workflow sea manual:
+      # cualquiera con acceso de escritura al repositorio puede lanzarlo, y
+      # estos jobs llevan dentro los secretos de producción. Si alguien deja
+      # el proyecto y su acceso a GitHub tarda en revocarse, esta línea es lo
+      # que separa «ya no trabaja aquí» de «sigue entrando en producción».
+      #
+      # Para autorizar a alguien más, añádelo a la lista separada por comas.
+      - name: Comprobar quién dispara
+        env:
+          AUTORIZADOS: 'serendipiaagency'
+          ACTOR: ${{ github.actor }}
         run: |
-          if [ "${{ inputs.confirmar }}" != "APLICAR" ]; then
+          case ",$AUTORIZADOS," in
+            *",$ACTOR,"*) echo "Disparado por $ACTOR (autorizado)." ;;
+            *)
+              echo "::error::$ACTOR no está autorizado a disparar este workflow. No se ha tocado nada."
+              exit 1
+              ;;
+          esac
+
+      - name: Comprobar la confirmación
+        env:
+          CONFIRMAR: ${{ inputs.confirmar }}
+        run: |
+          if [ "$CONFIRMAR" != "APLICAR" ]; then
             echo "::error::Confirmación ausente o incorrecta. No se ha tocado nada."
             exit 1
           fi
@@ -57,12 +79,21 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Guardar la copia como artefacto
-        uses: actions/upload-artifact@v4
-        with:
-          name: pre-migration-backup-${{ github.run_id }}
-          path: pre-migration-backup.sql
-          retention-days: 30
+      # NUNCA como artefacto: este repositorio es público y sus artefactos se
+      # descargan sin autenticación, así que subir el volcado era publicar la
+      # base de datos de producción entera. Va al bucket de R2, que es privado.
+      - name: Guardar la copia en R2 (privado)
+        run: |
+          npx wrangler r2 object put \
+            "sa-inmobiliaria-media/backups/pre-migration/${{ github.run_id }}.sql" \
+            --file=pre-migration-backup.sql --content-type="application/sql" --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: No dejar el volcado en el runner
+        if: always()
+        run: rm -f pre-migration-backup.sql
 
       - name: Aplicar las migraciones pendientes
         # Sólo se llega aquí si la copia de seguridad se subió: el paso

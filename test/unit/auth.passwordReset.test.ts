@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { eq } from 'drizzle-orm'
-import { createPasswordResetToken, consumePasswordResetToken } from '../../server/utils/auth'
+import { createPasswordResetToken, consumePasswordResetToken, revokeAllSessions } from '../../server/utils/auth'
 import { createTestDb, seedTenant } from './helpers/tenantFixtures'
 import * as schema from '../../server/db/schema'
 
@@ -18,6 +18,28 @@ describe('password reset tokens', () => {
     // Same token again: already used.
     const second = await consumePasswordResetToken(db, token)
     expect(second).toBeNull()
+  })
+
+  it('recuperar la contraseña cierra las sesiones abiertas de esa cuenta, y sólo de esa', async () => {
+    // Es lo que hace que cambiar una contraseña retire el acceso de verdad.
+    // Sin esto, quien ya no debería entrar sigue dentro con su cookie hasta
+    // que caduque (SESSION_TTL_DAYS = 7 días).
+    const { db } = createTestDb()
+    const a = await seedTenant(db, 'PwResetSessions')
+    const b = await seedTenant(db, 'PwResetOtra')
+
+    const ts = '2026-01-01 00:00:00'
+    const expires = '2030-01-01 00:00:00'
+    await db.insert(schema.sessions).values([
+      { id: 's1', userId: a.userId, tokenHash: 'h1', expiresAt: expires, createdAt: ts },
+      { id: 's2', userId: a.userId, tokenHash: 'h2', expiresAt: expires, createdAt: ts },
+      { id: 's3', userId: b.userId, tokenHash: 'h3', expiresAt: expires, createdAt: ts },
+    ])
+
+    expect(await revokeAllSessions(db, a.userId), 'devuelve cuántas cerró, para poder auditarlo').toBe(2)
+    expect(await db.select().from(schema.sessions).where(eq(schema.sessions.userId, a.userId))).toHaveLength(0)
+    // La sesión de otra cuenta no se toca: cerrar el acceso de uno no echa a nadie más.
+    expect(await db.select().from(schema.sessions).where(eq(schema.sessions.userId, b.userId))).toHaveLength(1)
   })
 
   it('only the SHA-256 hash is stored, never the raw token', async () => {

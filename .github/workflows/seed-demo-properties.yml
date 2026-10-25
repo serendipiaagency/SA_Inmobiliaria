@@ -42,13 +42,42 @@ jobs:
     environment:
       name: production
     steps:
-      - name: Comprobar la confirmación
+      # Las entradas viajan por el entorno, nunca interpoladas en el script:
+      # ${{ }} se sustituye antes de que bash lea la línea, así que un valor
+      # con comillas y `;` se ejecutaría como orden del shell en un job que
+      # lleva dentro el CLOUDFLARE_API_TOKEN de producción. Es además lo que
+      # hace que las comprobaciones de abajo sirvan: un valor capaz de romper
+      # el script puede saltárselas.
+      # Quién puede disparar esto. No basta con que el workflow sea manual:
+      # cualquiera con acceso de escritura al repositorio puede lanzarlo, y
+      # estos jobs llevan dentro los secretos de producción. Si alguien deja
+      # el proyecto y su acceso a GitHub tarda en revocarse, esta línea es lo
+      # que separa «ya no trabaja aquí» de «sigue entrando en producción».
+      #
+      # Para autorizar a alguien más, añádelo a la lista separada por comas.
+      - name: Comprobar quién dispara
+        env:
+          AUTORIZADOS: 'serendipiaagency'
+          ACTOR: ${{ github.actor }}
         run: |
-          if [ "${{ inputs.confirmar }}" != "APLICAR" ]; then
+          case ",$AUTORIZADOS," in
+            *",$ACTOR,"*) echo "Disparado por $ACTOR (autorizado)." ;;
+            *)
+              echo "::error::$ACTOR no está autorizado a disparar este workflow. No se ha tocado nada."
+              exit 1
+              ;;
+          esac
+
+      - name: Comprobar la confirmación
+        env:
+          CONFIRMAR: ${{ inputs.confirmar }}
+          ORGANIZACION: ${{ inputs.organizacion }}
+        run: |
+          if [ "$CONFIRMAR" != "APLICAR" ]; then
             echo "::error::Confirmación ausente o incorrecta. No se ha tocado nada."
             exit 1
           fi
-          case "${{ inputs.organizacion }}" in
+          case "$ORGANIZACION" in
             ''|*[!0-9]*)
               echo "::error::La organización debe ser un número. No se ha tocado nada."
               exit 1
@@ -66,11 +95,12 @@ jobs:
         run: |
           npx wrangler d1 execute sa_inmobiliaria --remote --env="" --command \
             "SELECT
-               (SELECT count(*) FROM developer_properties WHERE organization_id = ${{ inputs.organizacion }}) AS obra_nueva_total,
-               (SELECT count(*) FROM developer_properties WHERE organization_id = ${{ inputs.organizacion }} AND slug LIKE 'demo-%') AS obra_nueva_demo,
-               (SELECT count(*) FROM agent_properties WHERE organization_id = ${{ inputs.organizacion }}) AS segunda_mano_total,
-               (SELECT count(*) FROM agent_properties WHERE organization_id = ${{ inputs.organizacion }} AND slug LIKE 'demo-%') AS segunda_mano_demo"
+               (SELECT count(*) FROM developer_properties WHERE organization_id = $ORGANIZACION) AS obra_nueva_total,
+               (SELECT count(*) FROM developer_properties WHERE organization_id = $ORGANIZACION AND slug LIKE 'demo-%') AS obra_nueva_demo,
+               (SELECT count(*) FROM agent_properties WHERE organization_id = $ORGANIZACION) AS segunda_mano_total,
+               (SELECT count(*) FROM agent_properties WHERE organization_id = $ORGANIZACION AND slug LIKE 'demo-%') AS segunda_mano_demo"
         env:
+          ORGANIZACION: ${{ inputs.organizacion }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
@@ -80,22 +110,33 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Guardar la copia como artefacto
-        uses: actions/upload-artifact@v4
-        with:
-          name: pre-seed-backup-${{ github.run_id }}
-          path: pre-seed-backup.sql
-          retention-days: 30
+      # NUNCA como artefacto: este repositorio es público y sus artefactos se
+      # descargan sin autenticación, así que subir el volcado era publicar la
+      # base de datos de producción entera. Va al bucket de R2, que es privado.
+      - name: Guardar la copia en R2 (privado)
+        run: |
+          npx wrangler r2 object put \
+            "sa-inmobiliaria-media/backups/pre-seed/${{ github.run_id }}.sql" \
+            --file=pre-seed-backup.sql --content-type="application/sql" --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: No dejar el volcado en el runner
+        if: always()
+        run: rm -f pre-seed-backup.sql
 
       - name: Ejecutar
         # Sólo se llega aquí si la copia se subió: el paso anterior falla el
         # job si no.
         run: |
-          if [ "${{ inputs.accion }}" = "limpiar" ]; then
-            node scripts/seed-demo-properties.mjs --org "${{ inputs.organizacion }}" --wipe --remote --confirm APLICAR
+          if [ "$ACCION" = "limpiar" ]; then
+            node scripts/seed-demo-properties.mjs --org "$ORGANIZACION" --wipe --remote --confirm APLICAR
           else
-            node scripts/seed-demo-properties.mjs --org "${{ inputs.organizacion }}" --remote --confirm APLICAR
+            node scripts/seed-demo-properties.mjs --org "$ORGANIZACION" --remote --confirm APLICAR
           fi
         env:
+          ACCION: ${{ inputs.accion }}
+          ORGANIZACION: ${{ inputs.organizacion }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

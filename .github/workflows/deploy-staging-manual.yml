@@ -26,9 +26,31 @@ jobs:
     environment:
       name: staging
     steps:
-      - name: Comprobar la confirmación
+      # Quién puede disparar esto. No basta con que el workflow sea manual:
+      # cualquiera con acceso de escritura al repositorio puede lanzarlo, y
+      # estos jobs llevan dentro los secretos de producción. Si alguien deja
+      # el proyecto y su acceso a GitHub tarda en revocarse, esta línea es lo
+      # que separa «ya no trabaja aquí» de «sigue entrando en producción».
+      #
+      # Para autorizar a alguien más, añádelo a la lista separada por comas.
+      - name: Comprobar quién dispara
+        env:
+          AUTORIZADOS: 'serendipiaagency'
+          ACTOR: ${{ github.actor }}
         run: |
-          if [ "${{ inputs.confirmar }}" != "STAGING" ]; then
+          case ",$AUTORIZADOS," in
+            *",$ACTOR,"*) echo "Disparado por $ACTOR (autorizado)." ;;
+            *)
+              echo "::error::$ACTOR no está autorizado a disparar este workflow. No se ha tocado nada."
+              exit 1
+              ;;
+          esac
+
+      - name: Comprobar la confirmación
+        env:
+          CONFIRMAR: ${{ inputs.confirmar }}
+        run: |
+          if [ "$CONFIRMAR" != "STAGING" ]; then
             echo "::error::Confirmación ausente o incorrecta. No se ha tocado nada."
             exit 1
           fi

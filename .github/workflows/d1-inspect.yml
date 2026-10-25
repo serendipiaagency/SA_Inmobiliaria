@@ -23,6 +23,26 @@ jobs:
     environment:
       name: production
     steps:
+      # Quién puede disparar esto. No basta con que el workflow sea manual:
+      # cualquiera con acceso de escritura al repositorio puede lanzarlo, y
+      # estos jobs llevan dentro los secretos de producción. Si alguien deja
+      # el proyecto y su acceso a GitHub tarda en revocarse, esta línea es lo
+      # que separa «ya no trabaja aquí» de «sigue entrando en producción».
+      #
+      # Para autorizar a alguien más, añádelo a la lista separada por comas.
+      - name: Comprobar quién dispara
+        env:
+          AUTORIZADOS: 'serendipiaagency'
+          ACTOR: ${{ github.actor }}
+        run: |
+          case ",$AUTORIZADOS," in
+            *",$ACTOR,"*) echo "Disparado por $ACTOR (autorizado)." ;;
+            *)
+              echo "::error::$ACTOR no está autorizado a disparar este workflow. No se ha tocado nada."
+              exit 1
+              ;;
+          esac
+
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -30,9 +50,16 @@ jobs:
           cache: npm
       - run: npm ci
 
+      # La consulta viaja por el entorno, nunca interpolada en el script. Si
+      # se pega en el `run:` con ${{ }}, GitHub la sustituye ANTES de que
+      # bash lea la línea, así que una consulta como `x"; curl …|sh; "` se
+      # ejecuta como orden del shell — en un job que lleva dentro el
+      # CLOUDFLARE_API_TOKEN de producción. Por el entorno es un dato.
       - name: Rechazar cualquier cosa que no sea una consulta de solo lectura
+        env:
+          QUERY: ${{ inputs.query }}
         run: |
-          q="${{ inputs.query }}"
+          q="$QUERY"
           lower=$(echo "$q" | tr '[:upper:]' '[:lower:]')
           if echo "$lower" | grep -Eq '\b(insert|update|delete|drop|alter|create|replace|attach|detach|vacuum|reindex)\b'; then
             echo "::error::Esta consulta no es de solo lectura (SELECT/PRAGMA). Este workflow existe sólo para inspeccionar, nunca para modificar producción."
@@ -40,7 +67,8 @@ jobs:
           fi
 
       - name: Ejecutar contra la D1 de producción (remote, sólo lectura)
-        run: npx wrangler d1 execute sa_inmobiliaria --remote --command "${{ inputs.query }}"
+        run: npx wrangler d1 execute sa_inmobiliaria --remote --command "$QUERY"
         env:
+          QUERY: ${{ inputs.query }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

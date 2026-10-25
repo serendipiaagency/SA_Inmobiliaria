@@ -30,18 +30,43 @@ jobs:
     outputs:
       base_url: ${{ steps.resolve.outputs.base_url }}
     steps:
+      # Todo lo que viene de fuera del script (la entrada y las variables del
+      # Environment) viaja por el entorno, nunca interpolado en el `run:`:
+      # ${{ }} se sustituye antes de que bash lea la línea, de modo que su
+      # contenido se ejecutaría como orden del shell.
+      # Quién puede disparar esto. Un test de carga apuntado a producción es
+      # una denegación de servicio con otro nombre, así que vale la misma
+      # regla que en el resto de workflows manuales: sólo quien esté en la
+      # lista. Para autorizar a alguien más, añádelo separado por comas.
+      - name: Comprobar quién dispara
+        env:
+          AUTORIZADOS: 'serendipiaagency'
+          ACTOR: ${{ github.actor }}
+        run: |
+          case ",$AUTORIZADOS," in
+            *",$ACTOR,"*) echo "Disparado por $ACTOR (autorizado)." ;;
+            *)
+              echo "::error::$ACTOR no está autorizado a disparar este workflow. No se ha tocado nada."
+              exit 1
+              ;;
+          esac
+
       - name: Resolve and verify the target URL
         id: resolve
+        env:
+          ENTORNO: ${{ inputs.environment }}
+          PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+          STAGING_URL: ${{ vars.STAGING_URL }}
         run: |
-          if [ "${{ inputs.environment }}" = "production" ]; then
-            url="${{ vars.PRODUCTION_URL }}"
+          if [ "$ENTORNO" = "production" ]; then
+            url="$PRODUCTION_URL"
             var_name="PRODUCTION_URL"
           else
-            url="${{ vars.STAGING_URL }}"
+            url="$STAGING_URL"
             var_name="STAGING_URL"
           fi
           if [ -z "$url" ]; then
-            echo "::error::The '${{ inputs.environment }}' GitHub Environment variable $var_name is not set — nothing to load-test against. Set it under Settings > Environments > ${{ inputs.environment }} > Variables."
+            echo "::error::The '$ENTORNO' GitHub Environment variable $var_name is not set — nothing to load-test against. Set it under Settings > Environments > $ENTORNO > Variables."
             exit 1
           fi
           echo "base_url=$url" >> "$GITHUB_OUTPUT"
