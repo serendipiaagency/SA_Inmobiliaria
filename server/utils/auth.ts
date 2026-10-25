@@ -389,6 +389,24 @@ export async function createPasswordResetToken(db: any, userId: number): Promise
  * somehow fails) and returns the userId to update, or null if the token is
  * invalid/expired/already used.
  */
+/**
+ * Cierra TODAS las sesiones abiertas de una cuenta y devuelve cuántas eran.
+ *
+ * Cambiar una contraseña no echa a nadie por sí solo: la sesión vive en su
+ * propia fila de `sessions` con su cookie, y dura `SESSION_TTL_DAYS` (7 días).
+ * Sin esto, a quien ya no debería entrar —alguien que deja la empresa— se le
+ * puede cambiar la contraseña y seguir dentro una semana, con el panel
+ * diciendo que la contraseña está cambiada.
+ *
+ * Es la primitiva que debe usar cualquier camino que retire el acceso a una
+ * cuenta: recuperación de contraseña, desactivación de un usuario o un
+ * «cerrar sesiones» desde el panel.
+ */
+export async function revokeAllSessions(db: any, userId: number): Promise<number> {
+  const rows = await db.delete(schema.sessions).where(eq(schema.sessions.userId, userId)).returning({ id: schema.sessions.id })
+  return rows.length
+}
+
 export async function consumePasswordResetToken(db: any, rawToken: string): Promise<number | null> {
   const tokenHash = await sha256Hex(rawToken)
   const rows = await db.select().from(schema.passwordResetTokens).where(eq(schema.passwordResetTokens.tokenHash, tokenHash)).limit(1)

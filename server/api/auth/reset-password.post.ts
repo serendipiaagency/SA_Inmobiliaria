@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { useDb, schema, now } from '../../utils/db'
-import { consumePasswordResetToken, hashPassword } from '../../utils/auth'
+import { consumePasswordResetToken, hashPassword, revokeAllSessions } from '../../utils/auth'
 import { rateLimit } from '../../utils/rateLimit'
 import { logAdminAction } from '../../utils/audit'
 
@@ -16,6 +16,19 @@ export default defineEventHandler(async (event) => {
   if (!userId) throw createError({ statusCode: 400, statusMessage: 'Invalid or expired token' })
 
   await db.update(schema.users).set({ password: await hashPassword(body.password), updatedAt: now() }).where(eq(schema.users.id, userId))
+
+  // Cerrar TODAS las sesiones abiertas de esa cuenta.
+  //
+  // Sin esto, cambiar la contraseña no echa a nadie: la sesión vive en su
+  // propia fila con su cookie, y `SESSION_TTL_DAYS` son 7 días. Quien tuviera
+  // una sesión abierta —el caso que importa: alguien que ya no debería
+  // entrar— seguiría dentro hasta una semana después de haberle cambiado la
+  // contraseña, y el panel diría que la contraseña está cambiada.
+  //
+  // Se borran todas y no «todas menos la actual» a propósito: aquí no hay
+  // sesión actual (la credencial es el token del enlace), y quien acaba de
+  // elegir contraseña puede entrar con ella.
+  const closed = await revokeAllSessions(db, userId)
 
   // Consta en la auditoría como acción de la propia cuenta: no hay sesión
   // (el token es la credencial), pero un cambio de contraseña es de lo
@@ -33,7 +46,7 @@ export default defineEventHandler(async (event) => {
       action: 'update',
       resource: 'users',
       resourceId: target.id,
-      detail: 'contraseña cambiada mediante enlace de recuperación',
+      detail: `contraseña cambiada mediante enlace de recuperación; ${closed} sesión(es) abierta(s) cerrada(s)`,
     })
   }
 
