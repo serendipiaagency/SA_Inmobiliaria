@@ -11,15 +11,22 @@ name: Restaurar una copia de seguridad de D1 en producción
 #     tabla (DELETE + INSERT) sin tocar el esquema ni el ledger de
 #     migraciones; por defecto omite sessions, rate_limits y
 #     password_reset_tokens (efímeras y sensibles).
-#   - `volcado-sql`: el `.sql` de `wrangler d1 export` que guarda como
-#     artefacto cada despliegue (`pre-deploy-backup-<sha>`) y cada
-#     aplicación manual de migraciones. Vacía el esquema entero (hijas antes
-#     que padres, según las claves foráneas reales) y ejecuta el volcado: la
-#     base queda EXACTAMENTE como al exportar, ledger de migraciones
-#     incluido. Si después hay migraciones nuevas, el último paso las aplica.
+#   - `volcado-sql`: el `.sql` de `wrangler d1 export` que guarda cada
+#     despliegue y cada aplicación manual de migraciones. Vacía el esquema
+#     entero (hijas antes que padres, según las claves foráneas reales) y
+#     ejecuta el volcado: la base queda EXACTAMENTE como al exportar, ledger
+#     de migraciones incluido. Si después hay migraciones nuevas, el último
+#     paso las aplica.
 #
-# Antes de restaurar nada se exporta el estado actual y se guarda como
-# artefacto (30 días): es el punto de retorno si la restauración era un error.
+#     Ese `.sql` vive en R2 (`backups/pre-…/<sha|run_id>.sql`), no como
+#     artefacto de Actions. Lo era hasta que se descubrió que los artefactos
+#     de un repositorio público se descargan sin autenticación, es decir que
+#     subirlo publicaba la base de datos entera. Por eso aquí se baja con
+#     `wrangler r2 object get` y no con `gh run download`, que sólo ve
+#     artefactos y por tanto no encontraría ninguna copia nueva.
+#
+# Antes de restaurar nada se exporta el estado actual y se sube a R2: es el
+# punto de retorno si la restauración era un error.
 #
 # El script hace la verificación de verdad (cuenta filas contra la copia) y
 # falla el job si no cuadra. `scripts/restore-d1-backup.mjs` explica el
@@ -36,7 +43,7 @@ on:
           - instantanea-diaria
           - volcado-sql
       referencia:
-        description: 'instantanea-diaria: clave en R2 (p. ej. backups/2026-09-18.json.gz). volcado-sql: id del run de Actions cuyo artefacto pre-deploy-backup-* / pre-migration-backup-* / pre-seed-backup-* se quiere restaurar.'
+        description: 'Clave del objeto en R2, en los dos casos. instantanea-diaria: p. ej. backups/2026-09-18.json.gz. volcado-sql: p. ej. backups/pre-deploy/<sha>.sql (o pre-migration/, pre-restore/, pre-seed/, pre-alter/ con el id del run).'
         required: true
         type: string
       tablas:
@@ -131,21 +138,25 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Descargar el volcado SQL del run indicado
+      - name: Descargar el volcado SQL desde R2
         if: inputs.origen == 'volcado-sql'
+        # De R2 y no con `gh run download`: ese sólo ve artefactos de Actions,
+        # y las copias ya no se suben ahí (publicaban la base de datos en un
+        # repositorio público). Una copia hecha desde ese cambio es
+        # inalcanzable para `gh run download`, así que esta rama no podía
+        # restaurar nada.
         run: |
-          mkdir -p volcado
-          gh run download "$REFERENCIA" --dir volcado --pattern 'pre-*-backup-*'
-          file=$(find volcado -name '*.sql' | head -1)
-          if [ -z "$file" ]; then
-            echo "::error::El run $REFERENCIA no tiene ningún artefacto pre-*-backup-* con un .sql dentro."
+          npx wrangler r2 object get "sa-inmobiliaria-media/$REFERENCIA" \
+            --file=volcado-a-restaurar.sql --remote
+          if [ ! -s volcado-a-restaurar.sql ]; then
+            echo "::error::No se ha descargado nada de sa-inmobiliaria-media/$REFERENCIA. Revisa la clave exacta (se lista con: npx wrangler r2 object get --help / el panel de R2)."
             exit 1
           fi
-          cp "$file" volcado-a-restaurar.sql
-          echo "Volcado: $file ($(wc -c < volcado-a-restaurar.sql) bytes)"
+          echo "Volcado: $REFERENCIA ($(wc -c < volcado-a-restaurar.sql) bytes)"
         env:
           REFERENCIA: ${{ inputs.referencia }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
       - name: Restaurar el volcado SQL
         if: inputs.origen == 'volcado-sql'

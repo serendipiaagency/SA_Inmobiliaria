@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import * as schema from '../../server/db/schema'
-import { isPrivateMediaKey, ownsMediaObject, PRIVATE_MEDIA_PREFIXES } from '../../server/utils/mediaAccess'
+import { isNeverServableKey, isPrivateMediaKey, ownsMediaObject, PRIVATE_MEDIA_PREFIXES } from '../../server/utils/mediaAccess'
 import { createTestDb, seedTenant, type TenantFixture } from './helpers/tenantFixtures'
 
 /**
@@ -151,5 +151,64 @@ describe('ownership of private R2 objects', () => {
   it('an unknown private key is refused rather than defaulting to allowed', async () => {
     expect(await ownsMediaObject(db, A.orgId, 'visitor-docs/does-not-exist.pdf')).toBe(false)
     expect(await ownsMediaObject(db, A.orgId, 'asset-export-renders/1/1/none.pdf')).toBe(false)
+  })
+})
+
+/**
+ * Las copias de seguridad viven en el MISMO bucket que sirve `/api/media/*`
+ * (binding MEDIA, `sa-inmobiliaria-media`): la diaria de D1 en
+ * `backups/<fecha>.json.gz` y las previas de los workflows en
+ * `backups/pre-…/<sha|run_id>.sql`. Ninguna crea fila en `media_assets`, así
+ * que caían por la rama de objetos legacy —donde `isPrivateMediaKey()` no
+ * reconocía `backups/`— y acababan en el `serveObject(…, restricted: false)`
+ * del final del handler: la base de datos de producción entera, descargable
+ * sin autenticación y cacheable, con una clave adivinable.
+ *
+ * Se prueba el predicado y no el endpoint a propósito: por HTTP, una clave
+ * `backups/…` que no existe en el bucket de pruebas devuelve 404 tanto con la
+ * denegación como sin ella, así que ese test no podría fallar nunca. El
+ * handler tiene una sola llamada a `isNeverServableKey()`, como primera cosa
+ * que hace tras validar la clave, y eso se verifica leyéndolo.
+ */
+describe('las copias de seguridad no se sirven por /api/media', () => {
+  it('deniega la copia diaria de D1, cuya clave es sólo una fecha', () => {
+    expect(isNeverServableKey('backups/2026-10-24.json.gz')).toBe(true)
+  })
+
+  it('deniega las copias previas de los cinco workflows', () => {
+    for (const key of [
+      'backups/pre-deploy/27ab11b63484c2798202c694ec6d96b98a3cb631.sql',
+      'backups/pre-migration/40186135471.sql',
+      'backups/pre-restore/40186135471.sql',
+      'backups/pre-seed/40186135471.sql',
+      'backups/pre-alter/40186135471.sql',
+    ]) {
+      expect(isNeverServableKey(key), key).toBe(true)
+    }
+  })
+
+  it('deniega el prefijo desnudo y cualquier cosa bajo él', () => {
+    expect(isNeverServableKey('backups')).toBe(true)
+    expect(isNeverServableKey('backups/')).toBe(true)
+    expect(isNeverServableKey('backups/lo/que/sea')).toBe(true)
+  })
+
+  it('no deniega nada más: el resto del bucket se sigue sirviendo como antes', () => {
+    for (const key of [
+      'public/8/properties/foto.jpg',
+      'visitor-docs/alpha-passport.pdf',
+      'contracts/8/contrato.pdf',
+      'asset-export-renders/8/cartel.pdf',
+      'backupsitos/no-soy-una-copia.jpg',
+      'mi-backups/foto.png',
+    ]) {
+      expect(isNeverServableKey(key), key).toBe(false)
+    }
+  })
+
+  it('es una lista de denegación, no de autorización: ningún prefijo privado está en ella', () => {
+    for (const prefix of PRIVATE_MEDIA_PREFIXES) {
+      expect(isNeverServableKey(`${prefix}algo.pdf`)).toBe(false)
+    }
   })
 })
